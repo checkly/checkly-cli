@@ -1,0 +1,66 @@
+{
+  "name": "checkly-cli",
+  "version": "0.0.0",
+  "author": "Ignacio Anaya @ianaya89",
+  "bin": {
+    "checkly-cli": "./bin/run"
+  },
+  "bugs": "https://github.com/ianaya89/checkly-cli/issues",
+  "dependencies": {
+    "@bloq/cloud-cli": "2.8.0",
+    "@oclif/command": "1.8.0",
+    "@oclif/config": "1.17.0",
+    "@oclif/plugin-help": "3.2.1",
+    "axios": "0.21.1",
+    "bent": "7.3.12",
+    "conf": "8.0.0",
+    "consola": "2.15.0",
+    "console.table": "0.10.0",
+    "ora": "5.3.0",
+    "update-notifier": "5.0.1"
+  },
+  "devDependencies": {
+    "@oclif/dev-cli": "1.26.0",
+    "babel-eslint": "10.1.0",
+    "eslint": "7.18.0",
+    "eslint-config-prettier": "7.2.0",
+    "eslint-config-standard": "16.0.2",
+    "eslint-plugin-import": "2.22.1",
+    "eslint-plugin-node": "11.1.0",
+    "eslint-plugin-prettier": "3.3.1",
+    "eslint-plugin-promise": "4.2.1",
+    "globby": "10.0.2",
+    "prettier": "2.2.1"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "files": [
+    "/bin",
+    "/npm-shrinkwrap.json",
+    "/oclif.manifest.json",
+    "/src"
+  ],
+  "homepage": "https://github.com/ianaya89/checkly-cli",
+  "keywords": [
+    "oclif"
+  ],
+  "license": "MIT",
+  "main": "src/index.js",
+  "oclif": {
+    "commands": "./src/commands",
+    "bin": "checkly",
+    "plugins": [
+      "@oclif/plugin-help",
+      "conf-cli"
+    ]
+  },
+  "repository": "ianaya89/checkly-cli",
+  "scripts": {
+    "postpack": "rm -f oclif.manifest.json",
+    "posttest": "eslint .",
+    "prepack": "oclif-dev manifest && oclif-dev readme",
+    "test": "echo NO TESTS",
+    "version": "oclif-dev readme && git add README.md"
+  }
+}
