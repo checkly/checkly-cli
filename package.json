@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "author": "Ignacio Anaya @ianaya89",
   "bin": {
-    "checkly-cli": "./bin/run"
+    "checkly": "./bin/run"
   },
   "bugs": "https://github.com/ianaya89/checkly-cli/issues",
   "dependencies": {
@@ -55,7 +55,7 @@
       "conf-cli"
     ]
   },
-  "repository": "ianaya89/checkly-cli",
+  "repository": "checkly/checkly-cli",
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",

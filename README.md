@@ -17,13 +17,13 @@
 
 ```sh-session
 $ npm install -g checkly-cli
-$ checkly-cli COMMAND
+$ checkly COMMAND
 running command...
-$ checkly-cli (-v|--version|version)
-checkly-cli/0.0.0 darwin-x64 node-v12.18.2
-$ checkly-cli --help [COMMAND]
+$ checkly (-v|--version|version)
+checkly/0.0.0 darwin-x64 node-v12.18.2
+$ checkly --help [COMMAND]
 USAGE
-  $ checkly-cli COMMAND
+  $ checkly COMMAND
 ...
 ```
 
@@ -33,10 +33,13 @@ USAGE
 
 <!-- commands -->
 
-- [`checkly-cli hello`](#checkly-cli-hello)
-- [`checkly-cli help [COMMAND]`](#checkly-cli-help-command)
+- [checkly-cli](#checkly-cli)
+- [Usage](#usage)
+- [Commands](#commands)
+  - [`checkly hello`](#checkly-hello)
+  - [`checkly-cli help [COMMAND]`](#checkly-cli-help-command)
 
-## `checkly-cli hello`
+## `checkly hello`
 
 Describe the command here
 
