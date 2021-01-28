@@ -17,7 +17,11 @@ function init ({ api, apiKey }) {
 
   const checks = {
     getAll ({ limit, page } = {}) {
-      return _api.get(endpoints.GET_CHECKS, { limit, page })
+      return _api.get(endpoints.CHECKS, { limit, page })
+    },
+
+    create ({ script, name, checkType = 'BROWSER', activated = true } = {}) {
+      return _api.post(endpoints.CHECKS, { name, script, checkType, activated })
     }
   }
 

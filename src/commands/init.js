@@ -1,25 +1,35 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-
-const raccoon = require('../raccoon')
-const config = require('../config')
-
+const fs = require('fs')
+const path = require('path')
 class InitCommand extends Command {
   static args = [
     {
-      name: 'apiKey',
-      required: true,
-      description:
-        'Checkly API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys'
+      name: 'name',
+      required: false,
+      description: ''
     }
   ];
 
   async run () {
     const { args } = this.parse(InitCommand)
-    process.stdout.write(raccoon)
-    config.set('apiKey', args.apiKey)
-    config.set('isInitialized', 'true')
-    consola.success('Welcome to checkly cli 🦝')
+
+    const dirName = path.join(__dirname, '../../.checkly2')
+
+    const fs = require('fs') // Or `import fs from "fs";` with ESM
+    if (fs.existsSync(dirName)) {
+      consola.error('Project already initialized')
+      return process.exit(1)
+    }
+
+    fs.mkdirSync(dirName)
+    const yml = `yaml:
+    - A complete JavaScript implementation
+    - https://www.npmjs.com/package/yaml
+    `
+    fs.writeFileSync(path.join(dirName, 'settings.yml'), yml)
+    consola.success('Project initialized 🦝')
+    return process.exit(0)
   }
 }
 

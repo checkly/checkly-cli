@@ -1,0 +1,33 @@
+<html>
+  <head>
+    <title>Checkly CLI</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        font-family: sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="res">Checking your browser...</h1>
+    <h1><span role="image">&#x1f99d;</span></h1>
+
+    <script>
+      console.log('Checking...')
+      chrome.runtime.sendMessage("cnibfoihcmpbmhdahldgpplmgnhiaeia", "hola", (res, err) => {
+        console.log("Installed!", res,)
+        if (res) {
+          setTimeout(() => document.getElementById("res").innerHTML = "It's all good men!", 1000)
+          return
+        }
+
+        setTimeout(() => document.getElementById("res").innerHTML = "Please, install headless recorder!", 1000)
+      })
+    </script>
+  </body>
+</html>

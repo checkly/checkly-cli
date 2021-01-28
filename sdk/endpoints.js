@@ -1,5 +1,5 @@
-const GET_CHECKS = '/checks'
+const CHECKS = '/checks'
 
 module.exports = {
-  GET_CHECKS
+  CHECKS
 }
