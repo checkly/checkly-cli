@@ -10,6 +10,7 @@ const open = require('open')
 const util = require('util')
 const exec = util.promisify(require('child_process').exec)
 const ora = require('ora')
+const { yml, update } = require('../yml')
 
 // const raccoon = require('../raccoon')
 // const config = require('../config')
@@ -47,7 +48,7 @@ class BrowserCommand extends Command {
       // create a bundle
       const bundle = await rollup.rollup(inputOptions)
       const { output } = await bundle.generate(outputOptions)
-      await bundle.write(outputOptions)
+      // await bundle.write(outputOptions)
 
       // closes the bundle
       await bundle.close()
@@ -66,17 +67,18 @@ class BrowserCommand extends Command {
         return false
       }
     }
+    if (yml.browser[args.name]) {
+      const { exists } = await inquirer.prompt([{
+        name: 'exists',
+        message: `The browser check ${args.name} already exists, do you want to overwrite it?`,
+        type: 'confirm',
+        default: args.name
+      }])
 
-    // async function bundle () {
-    //   try {
-    //     await exec(path.join(__dirname, '../../node_modules/.bin/rollup') + ' ' + testFile + ' --file bundle.js --format cjs')
-    //     return true
-    //   } catch (err) {
-    //     consola.error('The test has some errors')
-    //     consola.error(err)
-    //     return false
-    //   }
-    // }
+      if (!exists) {
+        return process.exit(0)
+      }
+    }
 
     consola.info('Creating ws local server')
     const wss = new WebSocket.Server({ port: 9999 })
@@ -117,13 +119,20 @@ class BrowserCommand extends Command {
 
             const [output] = await bundle()
 
-            try {
-              await checks.create({ script: output.code, name: checkName })
-              consola.success(`Check ${checkName} was uploaded`)
-            } catch (err) {
-              consola.error(err)
-              return process.exit(1)
+            yml.browser[checkName] = yml.browser[checkName] || {
+              file: checkName + '.js',
+              activated: true
             }
+
+            update(yml)
+
+            // try {
+            //   await checks.create({ script: output.code, name: checkName })
+            //   consola.success(`Check ${checkName} was uploaded`)
+            // } catch (err) {
+            //   consola.error(err)
+            //   return process.exit(1)
+            // }
           }
 
           return process.exit(0)

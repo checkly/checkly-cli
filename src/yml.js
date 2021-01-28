@@ -7,4 +7,9 @@ const filePath = path.join(__dirname, '../.checkly/settings.yml')
 const file = fs.readFileSync(filePath, 'utf8')
 const yml = YAML.parse(file)
 
-console.log(yml)
+module.exports = {
+  yml,
+  update (yml) {
+    fs.writeFileSync(filePath, YAML.stringify(yml), 'utf8')
+  }
+}
