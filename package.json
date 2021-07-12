@@ -41,6 +41,7 @@
     "/src"
   ],
   "scripts": {
+    "build": "echo NO BUILD YET",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
