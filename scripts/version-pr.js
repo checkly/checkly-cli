@@ -1,9 +1,9 @@
-const fs = require("fs")
-const path = require("path")
+const fs = require('fs')
+const path = require('path')
 
 try {
-  const packageJSONPath = path.join(process.cwd(), "package.json")
-  const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, "utf8"))
+  const packageJSONPath = path.join(process.cwd(), 'package.json')
+  const packageJSON = JSON.parse(fs.readFileSync(packageJSONPath, 'utf8'))
 
   const sha8 = process.env.GITHUB_SHA.substr(0, 8)
   const prNumber = process.env.PR_NUMBER
@@ -12,6 +12,6 @@ try {
 
   fs.writeFileSync(packageJSONPath, JSON.stringify(packageJSON))
 } catch (error) {
-  console.error("Could not set PR version", error)
+  console.error('Could not set PR version', error)
   process.exit(1)
 }
