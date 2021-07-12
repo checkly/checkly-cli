@@ -140,4 +140,4 @@ All contributions are welcome, please stick to the `eslint` and `prettier` setti
 
 ## 📖 License
 
-ISC
+[MIT](https://opensource.org/licenses/MIT)

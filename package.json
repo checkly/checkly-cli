@@ -9,10 +9,7 @@
   "repository": "https://github.com/checkly/checkly-cli.git",
   "bugs": "https://github.com/checkly/checkly-cli/issues",
   "contributors": [
-    {
-      "name": "Nico Domino <@ndom91>",
-      "email": "nico@checklyhq.com"
-    }
+    "Nico Domino <nico@checklyhq.com>"
   ],
   "keywords": [
     "checkly",
@@ -50,7 +47,8 @@
     "test": "echo NO TESTS",
     "pack": "oclif-dev pack",
     "docs": "oclif-dev readme",
-    "version": "oclif-dev readme && git add README.md"
+    "version": "oclif-dev readme && git add README.md",
+    "version:pr": "node ./scripts/version-pr.js"
   },
   "dependencies": {
     "@oclif/command": "1.8.0",
