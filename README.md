@@ -12,9 +12,7 @@
 ## 📚 Table of Contents
 
 <!-- toc -->
-* [checkly-cli](#checkly-cli)
-* [Usage](#usage)
-* [Commands](#commands)
+
 <!-- tocstop -->
 
 ## 🔧 Usage
@@ -22,17 +20,14 @@
 <!-- usage -->
 ```sh-session
 $ npm install -g @checkly/cli
-
 $ checkly COMMAND
 running command...
-
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.1 darwin-x64 node-v14.15.1
-
+@checkly/cli/0.0.1 linux-x64 node-v15.14.0
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
-  ...
+...
 ```
 <!-- usagestop -->
 
@@ -45,7 +40,7 @@ USAGE
 * [`checkly init PROJECTNAME`](#checkly-init-projectname)
 * [`checkly login APIKEY`](#checkly-login-apikey)
 
-### `checkly checks ACTION [ID]`
+## `checkly checks ACTION [ID]`
 
 Retrieve and handle checks
 
@@ -63,7 +58,7 @@ OPTIONS
 
 _See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/checks.js)_
 
-### `checkly conf [KEY] [VALUE]`
+## `checkly conf [KEY] [VALUE]`
 
 manage configuration
 
@@ -87,7 +82,7 @@ OPTIONS
 
 _See code: [conf-cli](https://github.com/natzcam/conf-cli/blob/v0.1.9/src/commands/conf.ts)_
 
-### `checkly help [COMMAND]`
+## `checkly help [COMMAND]`
 
 display help for checkly
 
@@ -104,7 +99,7 @@ OPTIONS
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.1/src/commands/help.ts)_
 
-### `checkly init PROJECTNAME`
+## `checkly init PROJECTNAME`
 
 Init a new Checkly project
 
@@ -118,7 +113,7 @@ ARGUMENTS
 
 _See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/init.js)_
 
-### `checkly login APIKEY`
+## `checkly login APIKEY`
 
 Login with a Checkly API Key
 
