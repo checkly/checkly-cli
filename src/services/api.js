@@ -1,7 +1,7 @@
 const axios = require('axios')
 const ora = require('ora')
 
-const sdk = require('../sdk')
+const sdk = require('../../sdk')
 const config = require('./config')
 
 const env = config.get('env')

@@ -7,3 +7,4 @@
 node_modules
 .vscode
 .checkly
+.DS_Store

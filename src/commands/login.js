@@ -1,8 +1,8 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
 
-const raccoon = require('../raccoon')
-const config = require('../config')
+const raccoon = require('../services/raccoon')
+const config = require('../services/config')
 
 class LoginCommand extends Command {
   static args = [

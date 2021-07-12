@@ -1,7 +1,8 @@
-const config = require('./config')
 const { version } = require('../package.json')
-const defaultConfig = require('./default-config')
-const updater = require('./updater')
+const updater = require('./services/updater')
+
+const config = require('./services/config')
+const defaultConfig = require('./services/default-config')
 
 updater()
 

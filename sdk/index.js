@@ -1,7 +1,7 @@
 const axios = require('axios')
 const endpoints = require('./endpoints')
 
-function init ({ api, apiKey }) {
+function init ({ api, apiKey, baseURL }) {
   if (!apiKey) {
     throw new Error('Missing API Key')
   }
@@ -11,7 +11,7 @@ function init ({ api, apiKey }) {
   const _api =
     api ||
     axios.create({
-      baseURL: 'https://api.checklyhq.com/v1',
+      baseURL: baseURL || 'https://api.checklyhq.com/v1',
       headers: { Authorization }
     })
 
@@ -22,6 +22,10 @@ function init ({ api, apiKey }) {
 
     create ({ script, name, checkType = 'BROWSER', activated = true } = {}) {
       return _api.post(endpoints.CHECKS, { name, script, checkType, activated })
+    },
+
+    get (id) {
+      return _api.get(endpoints.CHECKS + '/' + id)
     }
   }
 

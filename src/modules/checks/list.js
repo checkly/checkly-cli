@@ -1,7 +1,7 @@
 const consola = require('consola')
-const { checks } = require('../sdk')
+const { checks } = require('../../services/api')
 
-const { print } = require('../utils')
+const { print } = require('../../services/utils')
 
 async function listChecks ({ output } = {}) {
   try {

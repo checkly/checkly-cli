@@ -1,7 +1,8 @@
-const consola = require('consola')
-const { Command } = require('@oclif/command')
 const fs = require('fs')
 const path = require('path')
+const consola = require('consola')
+const { Command } = require('@oclif/command')
+
 class InitCommand extends Command {
   static args = [
     {
