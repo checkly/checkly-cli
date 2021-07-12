@@ -63,5 +63,6 @@ jobs:
           npm run version:pr
           npm publish --tag canary
         env:
+          CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
