@@ -1,9 +1,18 @@
 {
-  "name": "checkly-cli",
+  "name": "@checkly/cli",
   "version": "0.0.1",
   "author": "Ignacio Anaya @ianaya89",
   "bin": {
     "checkly": "./bin/run"
+  },
+  "scripts": {
+    "postpack": "rm -f oclif.manifest.json",
+    "posttest": "eslint .",
+    "prepack": "oclif-dev manifest && oclif-dev readme",
+    "test": "echo NO TESTS",
+    "pack": "oclif-dev pack",
+    "docs": "oclif-dev readme",
+    "version": "oclif-dev readme && git add README.md"
   },
   "bugs": "https://github.com/ianaya89/checkly-cli/issues",
   "dependencies": {
@@ -71,12 +80,5 @@
       "conf-cli"
     ]
   },
-  "repository": "checkly/checkly-cli",
-  "scripts": {
-    "postpack": "rm -f oclif.manifest.json",
-    "posttest": "eslint .",
-    "prepack": "oclif-dev manifest && oclif-dev readme",
-    "test": "echo NO TESTS",
-    "version": "oclif-dev readme && git add README.md"
-  }
+  "repository": "checkly/checkly-cli"
 }

@@ -15,11 +15,11 @@
 
 <!-- usage -->
 ```sh-session
-$ npm install -g checkly-cli
+$ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-checkly-cli/0.0.1 darwin-x64 node-v12.18.2
+@checkly/cli/0.0.1 darwin-x64 node-v14.15.1
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
@@ -30,24 +30,26 @@ USAGE
 # Commands
 
 <!-- commands -->
-* [`checkly checks ACTION`](#checkly-checks-action)
+* [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
 * [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
 * [`checkly help [COMMAND]`](#checkly-help-command)
-* [`checkly init APIKEY`](#checkly-init-apikey)
+* [`checkly init PROJECTNAME`](#checkly-init-projectname)
+* [`checkly login APIKEY`](#checkly-login-apikey)
 
-## `checkly checks ACTION`
+## `checkly checks ACTION [ID]`
 
-Init Checkly CLI
+Retrieve and handle checks
 
 ```
 USAGE
-  $ checkly checks ACTION
+  $ checkly checks ACTION [ID]
 
 ARGUMENTS
-  ACTION  (list|info|create|delete|update) [default: list] Specify the type of checks action to run
+  ACTION  (list|info) [default: list] Specify the type of checks action to run
+  ID      Specify the check di
 
 OPTIONS
-  -o, --output=text|json  [default: json] output type
+  -o, --output=text|json  output type
 ```
 
 _See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/checks.js)_
@@ -74,7 +76,7 @@ OPTIONS
   -v, --value=value      value of the config
 ```
 
-_See code: [conf-cli](https://github.com/natzcam/conf-cli/blob/v0.1.8/src/commands/conf.ts)_
+_See code: [conf-cli](https://github.com/natzcam/conf-cli/blob/v0.1.9/src/commands/conf.ts)_
 
 ## `checkly help [COMMAND]`
 
@@ -93,18 +95,32 @@ OPTIONS
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.1/src/commands/help.ts)_
 
-## `checkly init APIKEY`
+## `checkly init PROJECTNAME`
 
-Init Checkly CLI
+Init a new Checkly project
 
 ```
 USAGE
-  $ checkly init APIKEY
+  $ checkly init PROJECTNAME
+
+ARGUMENTS
+  PROJECTNAME  Project name
+```
+
+_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/init.js)_
+
+## `checkly login APIKEY`
+
+Login with a Checkly API Key
+
+```
+USAGE
+  $ checkly login APIKEY
 
 ARGUMENTS
   APIKEY  Checkly API Key.
           If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
 ```
 
-_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/init.js)_
+_See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/login.js)_
 <!-- commandsstop -->

@@ -23,6 +23,6 @@ class LoginCommand extends Command {
   }
 }
 
-LoginCommand.description = 'Init Checkly CLI'
+LoginCommand.description = 'Login with a Checkly API Key'
 
 module.exports = LoginCommand

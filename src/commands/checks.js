@@ -32,7 +32,7 @@ class ChecksCommand extends Command {
   }
 }
 
-ChecksCommand.description = 'Handle checks'
+ChecksCommand.description = 'Retrieve and handle checks'
 
 ChecksCommand.flags = {
   output: flags.string({ char: 'o', description: 'output type', default: defaultOutput, options: ['text', 'json'] })

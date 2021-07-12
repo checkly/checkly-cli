@@ -6,9 +6,9 @@ const { Command } = require('@oclif/command')
 class InitCommand extends Command {
   static args = [
     {
-      projectName: 'projectName',
+      name: 'projectName',
       required: true,
-      description: ''
+      description: 'Project name'
     }
   ];
 
@@ -33,6 +33,6 @@ class InitCommand extends Command {
   }
 }
 
-InitCommand.description = 'Init Checkly CLI'
+InitCommand.description = 'Init a new Checkly project'
 
 module.exports = InitCommand
