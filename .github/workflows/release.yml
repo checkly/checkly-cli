@@ -3,8 +3,8 @@ name: Release
 on:
   push:
     branches:
-      - "main"
-      - "next"
+      - 'main'
+      - 'next'
   pull_request:
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
       - name: Build
         run: npm run build
       - name: Run tests
-        run: npm test 
+        run: npm test
   release-branch:
     name: Publish branch
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> .npmrc
           npm run version:pr
-          npm publish --access private --tag experimental
+          npm publish --tag canary
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
