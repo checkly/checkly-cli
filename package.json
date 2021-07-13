@@ -50,6 +50,7 @@
     "pack": "oclif-dev pack",
     "docs": "oclif-dev readme",
     "version": "oclif-dev readme && git add README.md",
+    "version:echo": "echo $npm_package_version",
     "version:pr": "node ./scripts/version-pr.js"
   },
   "dependencies": {
@@ -118,8 +119,8 @@
     },
     "parser": "babel-eslint",
     "extends": [
-      "prettier",
-      "standard"
+      "standard",
+      "prettier"
     ],
     "plugins": [
       "prettier"

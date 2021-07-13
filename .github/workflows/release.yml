@@ -38,11 +38,41 @@ jobs:
           node-version: '14.x'
       - name: Dependencies
         uses: bahmutov/npm-install@v1
+      - name: Get Package Version
+        id: pkgversion
+        run: |
+          echo "::set-output name=version::$(npm run version:echo)"
       - name: Publish to npm and GitHub
         run: npx semantic-release@17
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Slack FAILURE alert
+      - name: Slack Failure Notification
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: mac
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':red_circle: Create Branch Release Failed'
+          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_FOOTER: ''
+      # Slack SUCCESS alert
+      - name: Slack Success Notification
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: mac
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':kebab_parrot: Created Branch Release Succeeded'
+          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_FOOTER: ''
   release-pr:
     name: Publish PR
     runs-on: ubuntu-latest
@@ -58,6 +88,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Dependencies
         uses: bahmutov/npm-install@v1
+      - name: Get Package Version
+        id: pkgversion
+        run: |
+          echo "::set-output name=version::$(npm run version:echo)"
       - name: Publish to npm
         run: |
           npm run version:pr
@@ -67,3 +101,31 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
+      # Slack FAILURE alert
+      - name: Slack Failure Notification
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: mac
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':red_circle: Create PR Release Failed'
+          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_LINK_NAMES: true
+          SLACK_FOOTER: ''
+      # Slack SUCCESS alert
+      - name: Slack Success Notification
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: mac
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':kebab_parrot: Created PR Release Succeeded'
+          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_LINK_NAMES: true
+          SLACK_FOOTER: ''
