@@ -32,17 +32,17 @@ class InitCommand extends Command {
     // Initial Account Settings
     const yml = `account: 
   - id: ${accountId}
-  - name: ${name}
+    name: ${name}
 project: ${args.projectName}
 checkDefaults:
   - locations: ['us-east-1', 'eu-central-1']
-  - interval: 5min
-  - alerts:
-    - type: email
-      sendOn:
-        - recover
-        - degrade
-        - fail`
+    interval: 5min
+    alerts:
+      - type: email
+        sendOn:
+          - recover
+          - degrade
+          - fail`
 
     // Create Settings File
     fs.writeFileSync(path.join(dirName, 'settings.yml'), yml)
