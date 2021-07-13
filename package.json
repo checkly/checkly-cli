@@ -43,6 +43,7 @@
   ],
   "scripts": {
     "build": "echo NO BUILD",
+    "postinstall": "npx simple-git-hooks",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
@@ -65,6 +66,8 @@
     "yaml": "1.10.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "12.1.4",
+    "@commitlint/config-conventional": "12.1.4",
     "@oclif/command": "1.8.0",
     "@oclif/config": "1.17.0",
     "@oclif/dev-cli": "1.26.0",
@@ -80,7 +83,8 @@
     "globby": "10.0.2",
     "jest": "26.6.3",
     "prettier": "2.2.1",
-    "semantic-release": "^17.4.4"
+    "semantic-release": "^17.4.4",
+    "simple-git-hooks": "2.5.1"
   },
   "publishConfig": {
     "access": "restricted"
@@ -90,5 +94,12 @@
       "main",
       "next"
     ]
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged",
+    "commit-msg": "npx --no-install commitlint --edit \"$1\""
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,md,html,css}": "prettier --write"
   }
 }
