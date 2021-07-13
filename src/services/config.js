@@ -1,3 +1,6 @@
 const Conf = require('conf')
-Conf.apiKey = process.env.CHECKLY_API_KEY || Conf.apiKey
+const config = new Conf()
+
+config.set('apiKey', process.env.CHECKLY_API_KEY || Conf.apiKey)
+
 module.exports = new Conf()

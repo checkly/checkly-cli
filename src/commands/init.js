@@ -10,9 +10,9 @@ class InitCommand extends Command {
       required: true,
       description: 'Project name'
     }
-  ];
+  ]
 
-  async run () {
+  async run() {
     const { args } = this.parse(InitCommand)
     const dirName = path.join(__dirname, '../../.checkly')
 

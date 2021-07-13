@@ -1,0 +1,14 @@
+sdk:
+  - sdk/**/*
+
+commands:
+  - src/commands/**/*
+
+modules:
+  - src/modules/**/*
+
+services:
+  - src/services/**/*
+
+core:
+  - src/**/*.js

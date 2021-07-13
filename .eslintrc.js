@@ -2,12 +2,12 @@ module.exports = {
   env: {
     node: true,
     commonjs: true,
-    es2021: true
+    es2021: true,
   },
   parser: 'babel-eslint',
-  extends: ['prettier', 'standard'],
+  extends: ['standard', 'prettier'],
   plugins: ['prettier'],
   parserOptions: {
-    ecmaVersion: 12
-  }
-}
+    ecmaVersion: 12,
+  },
+};

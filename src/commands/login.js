@@ -12,9 +12,9 @@ class LoginCommand extends Command {
       description:
         'Checkly API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys'
     }
-  ];
+  ]
 
-  async run () {
+  async run() {
     const { args } = this.parse(LoginCommand)
     process.stdout.write(raccoon)
     config.set('apiKey', args.apiKey)

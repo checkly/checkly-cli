@@ -1,7 +1,7 @@
 const axios = require('axios')
 const endpoints = require('./endpoints')
 
-function init ({ api, apiKey, baseURL }) {
+function init({ api, apiKey, baseURL }) {
   if (!apiKey) {
     throw new Error('Missing API Key')
   }
@@ -16,15 +16,15 @@ function init ({ api, apiKey, baseURL }) {
     })
 
   const checks = {
-    getAll ({ limit, page } = {}) {
+    getAll({ limit, page } = {}) {
       return _api.get(endpoints.CHECKS, { limit, page })
     },
 
-    create ({ script, name, checkType = 'BROWSER', activated = true } = {}) {
+    create({ script, name, checkType = 'BROWSER', activated = true } = {}) {
       return _api.post(endpoints.CHECKS, { name, script, checkType, activated })
     },
 
-    get (id) {
+    get(id) {
       return _api.get(endpoints.CHECKS + '/' + id)
     }
   }

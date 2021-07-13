@@ -1,74 +1,23 @@
 {
   "name": "@checkly/cli",
   "version": "0.0.1",
-  "author": "Ignacio Anaya @ianaya89",
-  "bin": {
-    "checkly": "./bin/run"
+  "author": {
+    "name": "Ignacio Anaya <@ianaya89>",
+    "email": "ignacio@checklyhq.com"
   },
-  "scripts": {
-    "postpack": "rm -f oclif.manifest.json",
-    "posttest": "eslint .",
-    "prepack": "oclif-dev manifest && oclif-dev readme",
-    "test": "echo NO TESTS",
-    "pack": "oclif-dev pack",
-    "docs": "oclif-dev readme",
-    "version": "oclif-dev readme && git add README.md"
-  },
-  "bugs": "https://github.com/ianaya89/checkly-cli/issues",
-  "dependencies": {
-    "@oclif/command": "1.8.0",
-    "@oclif/config": "1.17.0",
-    "@oclif/plugin-help": "3.2.1",
-    "@rollup/plugin-babel": "5.2.2",
-    "@rollup/plugin-commonjs": "17.0.0",
-    "@rollup/plugin-node-resolve": "11.1.0",
-    "axios": "0.21.1",
-    "bent": "7.3.12",
-    "chai": "4.2.0",
-    "cli-ux": "5.5.1",
-    "conf": "8.0.0",
-    "conf-cli": "0.1.9",
-    "consola": "2.15.0",
-    "console.table": "0.10.0",
-    "escope": "3.6.0",
-    "http-server": "0.12.3",
-    "inquirer": "7.3.3",
-    "jest": "26.6.3",
-    "open": "7.3.1",
-    "ora": "5.3.0",
-    "puppeteer": "5.5.0",
-    "rollup": "2.38.0",
-    "rollup-plugin-local-resolve": "1.0.7",
-    "serve": "11.3.2",
-    "update-notifier": "5.0.1",
-    "ws": "7.4.2",
-    "yaml": "1.10.0"
-  },
-  "devDependencies": {
-    "@oclif/dev-cli": "1.26.0",
-    "babel-eslint": "10.1.0",
-    "eslint": "7.18.0",
-    "eslint-config-prettier": "7.2.0",
-    "eslint-config-standard": "16.0.2",
-    "eslint-plugin-import": "2.22.1",
-    "eslint-plugin-node": "11.1.0",
-    "eslint-plugin-prettier": "3.3.1",
-    "eslint-plugin-promise": "4.2.1",
-    "globby": "10.0.2",
-    "prettier": "2.2.1"
-  },
-  "engines": {
-    "node": ">=12.0.0"
-  },
-  "files": [
-    "/bin",
-    "/npm-shrinkwrap.json",
-    "/oclif.manifest.json",
-    "/src"
+  "description": "Checkly CLI",
+  "homepage": "https://github.com/checkly/checkly-cli",
+  "repository": "https://github.com/checkly/checkly-cli.git",
+  "bugs": "https://github.com/checkly/checkly-cli/issues",
+  "contributors": [
+    "Nico Domino <nico@checklyhq.com>"
   ],
-  "homepage": "https://github.com/ianaya89/checkly-cli",
   "keywords": [
-    "oclif"
+    "checkly",
+    "monitoring",
+    "browser-check",
+    "oclif",
+    "cli"
   ],
   "license": "MIT",
   "main": "src/index.js",
@@ -80,5 +29,80 @@
       "conf-cli"
     ]
   },
-  "repository": "checkly/checkly-cli"
+  "bin": {
+    "checkly": "./bin/run"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "/bin",
+    "/npm-shrinkwrap.json",
+    "/oclif.manifest.json",
+    "/src"
+  ],
+  "scripts": {
+    "build": "echo NO BUILD",
+    "postpack": "rm -f oclif.manifest.json",
+    "posttest": "eslint .",
+    "prepack": "oclif-dev manifest && oclif-dev readme",
+    "test": "echo NO TESTS",
+    "pack": "oclif-dev pack",
+    "docs": "oclif-dev readme",
+    "version": "oclif-dev readme && git add README.md",
+    "version:pr": "node ./scripts/version-pr.js"
+  },
+  "dependencies": {
+    "axios": "0.21.1",
+    "bent": "7.3.12",
+    "cli-ux": "5.5.1",
+    "conf": "8.0.0",
+    "conf-cli": "0.1.9",
+    "consola": "2.15.0",
+    "console.table": "0.10.0",
+    "escope": "3.6.0",
+    "http-server": "0.12.3",
+    "inquirer": "7.3.3",
+    "open": "7.3.1",
+    "ora": "5.3.0",
+    "serve": "11.3.2",
+    "update-notifier": "5.0.1",
+    "ws": "7.4.2",
+    "yaml": "1.10.0"
+  },
+  "peerDependencies": {
+    "playwright": "1.12.3",
+    "puppeteer": "5.5.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    },
+    "puppeteer": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@oclif/command": "1.8.0",
+    "@oclif/config": "1.17.0",
+    "@oclif/dev-cli": "1.26.0",
+    "@oclif/plugin-help": "3.2.1",
+    "@rollup/plugin-babel": "5.2.2",
+    "@rollup/plugin-commonjs": "17.0.0",
+    "@rollup/plugin-node-resolve": "11.1.0",
+    "babel-eslint": "10.1.0",
+    "chai": "4.2.0",
+    "eslint": "7.18.0",
+    "eslint-config-prettier": "7.2.0",
+    "eslint-config-standard": "16.0.2",
+    "eslint-plugin-import": "2.22.1",
+    "eslint-plugin-node": "11.1.0",
+    "eslint-plugin-prettier": "3.3.1",
+    "eslint-plugin-promise": "4.2.1",
+    "globby": "10.0.2",
+    "jest": "26.6.3",
+    "prettier": "2.2.1",
+    "rollup": "2.38.0",
+    "rollup-plugin-local-resolve": "1.0.7"
+  }
 }

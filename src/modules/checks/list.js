@@ -3,7 +3,7 @@ const { checks } = require('../../services/api')
 
 const { print } = require('../../services/utils')
 
-async function listChecks ({ output } = {}) {
+async function listChecks({ output } = {}) {
   try {
     const res = await checks.getAll()
     const allChecks = res.data.map(

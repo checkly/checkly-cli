@@ -1,7 +1,7 @@
 const consola = require('consola')
 require('console.table')
 
-function print (data, { output = 'text', format = 'table', type = 'info' }) {
+function print(data, { output = 'text', format = 'table', type = 'info' }) {
   if (output === 'json') {
     process.stdout.write(JSON.stringify(data, null, 2))
     return

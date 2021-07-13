@@ -1,17 +1,21 @@
-# checkly-cli
+<p>
+  <img height="128" src="https://www.checklyhq.com/images/footer-logo.svg" align="right" />
+  <h1>checkly-cli</h1>
+</p>
+
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
 [![Downloads/week](https://img.shields.io/npm/dw/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
 [![License](https://img.shields.io/npm/l/checkly-cli.svg)](https://github.com/ianaya89/checkly-cli/blob/master/package.json)
 
+## 📚 Table of Contents
+
 <!-- toc -->
-* [checkly-cli](#checkly-cli)
-* [Usage](#usage)
-* [Commands](#commands)
+
 <!-- tocstop -->
 
-# Usage
+## 🔧 Usage
 
 <!-- usage -->
 ```sh-session
@@ -19,7 +23,7 @@ $ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.1 darwin-x64 node-v14.15.1
+@checkly/cli/0.0.1 linux-x64 node-v15.14.0
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
@@ -27,7 +31,7 @@ USAGE
 ```
 <!-- usagestop -->
 
-# Commands
+## 🏗️ Commands
 
 <!-- commands -->
 * [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
@@ -124,3 +128,11 @@ ARGUMENTS
 
 _See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/login.js)_
 <!-- commandsstop -->
+
+## 🙏 Contributing
+
+All contributions are welcome, please stick to the `eslint` and `prettier` settings.
+
+## 📖 License
+
+[MIT](https://opensource.org/licenses/MIT)
