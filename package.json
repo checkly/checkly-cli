@@ -85,6 +85,9 @@
     "access": "restricted"
   },
   "release": {
-    "branches": ["master", "next"]
+    "branches": [
+      "main",
+      "next"
+    ]
   }
 }
