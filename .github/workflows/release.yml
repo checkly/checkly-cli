@@ -76,7 +76,7 @@ jobs:
     name: Publish PR
     runs-on: ubuntu-latest
     needs: test
-    #if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Init
         uses: actions/checkout@v2
