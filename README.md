@@ -3,7 +3,6 @@
   <h1>checkly-cli</h1>
 </p>
 
-
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
 [![Downloads/week](https://img.shields.io/npm/dw/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
@@ -18,27 +17,30 @@
 ## 🔧 Usage
 
 <!-- usage -->
+
 ```sh-session
 $ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.1 linux-x64 node-v15.14.0
+@checkly/cli/0.0.1 linux-x64 node-v14.17.1
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
 ...
 ```
+
 <!-- usagestop -->
 
 ## 🏗️ Commands
 
 <!-- commands -->
-* [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
-* [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
-* [`checkly help [COMMAND]`](#checkly-help-command)
-* [`checkly init PROJECTNAME`](#checkly-init-projectname)
-* [`checkly login APIKEY`](#checkly-login-apikey)
+
+- [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
+- [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
+- [`checkly help [COMMAND]`](#checkly-help-command)
+- [`checkly init PROJECTNAME`](#checkly-init-projectname)
+- [`checkly login APIKEY`](#checkly-login-apikey)
 
 ## `checkly checks ACTION [ID]`
 
@@ -53,7 +55,7 @@ ARGUMENTS
   ID      Specify the check di
 
 OPTIONS
-  -o, --output=text|json  output type
+  -o, --output=text|json  [default: text] output type
 ```
 
 _See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/checks.js)_
@@ -127,6 +129,7 @@ ARGUMENTS
 ```
 
 _See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/login.js)_
+
 <!-- commandsstop -->
 
 ## 🙏 Contributing
