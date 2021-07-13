@@ -11,13 +11,13 @@ class ChecksCommand extends Command {
       required: true,
       description: 'Specify the type of checks action to run',
       default: 'list',
-      options: ['list', 'info']
+      options: ['list', 'info'],
     },
     {
       name: 'id',
       required: false,
-      description: 'Specify the check di'
-    }
+      description: 'Specify the check di',
+    },
   ]
 
   async run() {
@@ -32,15 +32,15 @@ class ChecksCommand extends Command {
   }
 }
 
-ChecksCommand.description = 'Retrieve and handle checks'
+ChecksCommand.description = 'Manage Checks'
 
 ChecksCommand.flags = {
   output: flags.string({
     char: 'o',
     description: 'output type',
     default: defaultOutput,
-    options: ['text', 'json']
-  })
+    options: ['text', 'json'],
+  }),
 }
 
 module.exports = ChecksCommand

@@ -2,18 +2,21 @@ const { version } = require('../../package.json')
 
 module.exports = {
   version,
-  env: 'prod',
+  env: 'production',
   output: 'text',
 
-  prod: {
-    apiUrl: 'https://api.checklyhq.com/v1'
+  production: {
+    apiUrl: 'https://api.checklyhq.com/',
+    apiVersion: 'v1',
+  },
+
+  development: {
+    apiUrl: 'http://localhost:3000/',
+    apiVersion: 'v1',
   },
 
   staging: {
-    apiUrl: 'https://api.checklyhq.com/v1'
+    apiUrl: 'https://api.checklyhq.com/',
+    apiVersion: 'v1',
   },
-
-  local: {
-    apiUrl: 'https://api.checklyhq.com/v1'
-  }
 }

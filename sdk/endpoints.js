@@ -1,5 +1,8 @@
-const CHECKS = '/checks'
+const ENDPOINTS = {
+  CHECKS: '/checks',
+  ACCOUNT: '/account',
+}
 
 module.exports = {
-  CHECKS
+  ...ENDPOINTS,
 }

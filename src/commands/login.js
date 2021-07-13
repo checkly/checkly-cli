@@ -10,8 +10,8 @@ class LoginCommand extends Command {
       name: 'apiKey',
       required: true,
       description:
-        'Checkly API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys'
-    }
+        'Checkly API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys',
+    },
   ]
 
   async run() {
@@ -23,6 +23,6 @@ class LoginCommand extends Command {
   }
 }
 
-LoginCommand.description = 'Login with a Checkly API Key'
+LoginCommand.description = 'Login with a Checkly API Key [WIP]'
 
 module.exports = LoginCommand

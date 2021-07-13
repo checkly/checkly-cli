@@ -2,7 +2,7 @@ const Conf = require('conf')
 const consola = require('consola')
 const config = new Conf()
 
-const key = process.env.CHECKLY_API_KEY || Conf.apiKey
+const key = process.env.CHECKLY_API_KEY || config.apiKey
 
 if (!key) {
   consola.error(
