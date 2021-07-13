@@ -15,7 +15,7 @@ jobs:
       - name: Init
         uses: actions/checkout@v2
       - name: Setup Node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2
         with:
           node-version: '14.x'
       - name: Dependencies
@@ -33,15 +33,14 @@ jobs:
       - name: Init
         uses: actions/checkout@v2
       - name: Setup Node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2
         with:
           node-version: '14.x'
       - name: Dependencies
         uses: bahmutov/npm-install@v1
-      - name: Get Package Version
-        id: pkgversion
-        run: |
-          echo "::set-output name=version::$(npm run version:echo)"
+      - name: Retrieve information from package.json
+        uses: myrotvorets/info-from-package-json-action@0.0.2
+        id: ver
       - name: Publish to npm and GitHub
         run: npx semantic-release@17
         env:
@@ -58,7 +57,7 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':red_circle: Create Branch Release Failed'
-          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }} by ${{ github.actor }}
           SLACK_FOOTER: ''
       # Slack SUCCESS alert
       - name: Slack Success Notification
@@ -71,27 +70,29 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':kebab_parrot: Created Branch Release Succeeded'
-          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }} by ${{ github.actor }}
           SLACK_FOOTER: ''
   release-pr:
     name: Publish PR
     runs-on: ubuntu-latest
     needs: test
-    if: ${{ github.event_name == 'pull_request' }}
+    #if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Init
         uses: actions/checkout@v2
       - name: Setup Node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2
         with:
           node-version: '14.x'
           registry-url: 'https://registry.npmjs.org'
       - name: Dependencies
         uses: bahmutov/npm-install@v1
-      - name: Get Package Version
-        id: pkgversion
-        run: |
-          echo "::set-output name=version::$(npm run version:echo)"
+      - name: Retrieve information from package.json
+        uses: myrotvorets/info-from-package-json-action@0.0.2
+        id: ver
+      - name: Get short SHA
+        id: slug
+        run: echo "::set-output name=sha8::$(echo ${GITHUB_SHA} | cut -c1-8)"
       - name: Publish to npm
         run: |
           npm run version:pr
@@ -112,7 +113,7 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':red_circle: Create PR Release Failed'
-          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}-${{ steps.slug.outputs.sha8 }} by ${{ github.actor }}
           SLACK_LINK_NAMES: true
           SLACK_FOOTER: ''
       # Slack SUCCESS alert
@@ -126,6 +127,6 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':kebab_parrot: Created PR Release Succeeded'
-          SLACK_MESSAGE: ${{ steps.pkgversion.outputs.version }}-pr.${{ github.event.number }}-${GITHUB_SHA::8} by ${{ github.actor }}
+          SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}-${{ steps.slug.outputs.sha8 }} by ${{ github.actor }}
           SLACK_LINK_NAMES: true
           SLACK_FOOTER: ''
