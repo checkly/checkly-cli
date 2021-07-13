@@ -5,6 +5,7 @@
     "name": "Ignacio Anaya <@ianaya89>",
     "email": "ignacio@checklyhq.com"
   },
+  "description": "Checkly CLI",
   "homepage": "https://github.com/checkly/checkly-cli",
   "repository": "https://github.com/checkly/checkly-cli.git",
   "bugs": "https://github.com/checkly/checkly-cli/issues",
@@ -32,7 +33,7 @@
     "checkly": "./bin/run"
   },
   "engines": {
-    "node": ">=12.0.0"
+    "node": ">=14.0.0"
   },
   "files": [
     "/bin",
@@ -41,7 +42,7 @@
     "/src"
   ],
   "scripts": {
-    "build": "echo NO BUILD YET",
+    "build": "echo NO BUILD",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
@@ -64,11 +65,22 @@
     "inquirer": "7.3.3",
     "open": "7.3.1",
     "ora": "5.3.0",
-    "puppeteer": "5.5.0",
     "serve": "11.3.2",
     "update-notifier": "5.0.1",
     "ws": "7.4.2",
     "yaml": "1.10.0"
+  },
+  "peerDependencies": {
+    "playwright": "1.12.3",
+    "puppeteer": "5.5.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    },
+    "puppeteer": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@oclif/command": "1.8.0",
@@ -92,5 +104,28 @@
     "prettier": "2.2.1",
     "rollup": "2.38.0",
     "rollup-plugin-local-resolve": "1.0.7"
+  },
+  "prettier": {
+    "semi": false,
+    "trailingComma": "none",
+    "singleQuote": true
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true,
+      "commonjs": true,
+      "es2021": true
+    },
+    "parser": "babel-eslint",
+    "extends": [
+      "prettier",
+      "standard"
+    ],
+    "plugins": [
+      "prettier"
+    ],
+    "parserOptions": {
+      "ecmaVersion": 12
+    }
   }
 }
