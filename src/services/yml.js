@@ -7,11 +7,11 @@ let yml = null
 
 module.exports = {
   yml,
-  load () {
+  load() {
     const file = fs.readFileSync(filePath, 'utf8')
     yml = YAML.parse(file)
   },
-  update (yml) {
+  update(yml) {
     fs.writeFileSync(filePath, YAML.stringify(yml), 'utf8')
   }
 }
