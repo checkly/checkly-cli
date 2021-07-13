@@ -43,7 +43,6 @@
   ],
   "scripts": {
     "build": "echo NO BUILD",
-    "postinstall": "npx simple-git-hooks",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
