@@ -50,7 +50,6 @@
     "pack": "oclif-dev pack",
     "docs": "oclif-dev readme",
     "version": "oclif-dev readme && git add README.md",
-    "version:echo": "echo $npm_package_version",
     "version:pr": "node ./scripts/version-pr.js"
   },
   "dependencies": {
@@ -105,28 +104,5 @@
     "prettier": "2.2.1",
     "rollup": "2.38.0",
     "rollup-plugin-local-resolve": "1.0.7"
-  },
-  "prettier": {
-    "semi": false,
-    "trailingComma": "none",
-    "singleQuote": true
-  },
-  "eslintConfig": {
-    "env": {
-      "node": true,
-      "commonjs": true,
-      "es2021": true
-    },
-    "parser": "babel-eslint",
-    "extends": [
-      "standard",
-      "prettier"
-    ],
-    "plugins": [
-      "prettier"
-    ],
-    "parserOptions": {
-      "ecmaVersion": 12
-    }
   }
 }
