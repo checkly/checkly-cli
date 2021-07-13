@@ -113,8 +113,7 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':red_circle: Create PR Release Failed'
-          SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}-${{ steps.slug.outputs.sha8 }} by ${{ github.actor }}
-          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE: '`${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}.${{ steps.slug.outputs.sha8 }}` by ${{ github.actor }}'
           SLACK_FOOTER: ''
       # Slack SUCCESS alert
       - name: Slack Success Notification
@@ -127,5 +126,5 @@ jobs:
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':kebab_parrot: Created PR Release Succeeded'
-          SLACK_MESSAGE: '`${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}-${{ steps.slug.outputs.sha8 }}` by ${{ github.actor }}'
+          SLACK_MESSAGE: '`${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}.${{ steps.slug.outputs.sha8 }}` by ${{ github.actor }}'
           SLACK_FOOTER: ''
