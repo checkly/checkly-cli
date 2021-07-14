@@ -12,5 +12,6 @@ if (!key) {
 }
 
 config.set('apiKey', key)
+config.set('env', process.env.NODE_ENV)
 
 module.exports = config
