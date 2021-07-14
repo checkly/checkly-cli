@@ -46,6 +46,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CHECKLY_API_KEY: abc123
       # Slack FAILURE alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
