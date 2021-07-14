@@ -98,26 +98,24 @@
       }
     ],
     "plugins": [
+      "@semantic-release/release-notes-generator",
       [
-        "@semantic-release/release-notes-generator",
-        [
-          "@semantic-release/commit-analyzer",
-          {
-            "releaseRules": [
-              {
-                "type": "feat",
-                "release": "patch"
-              }
-            ]
-          }
-        ],
-        [
-          "@semantic-release/github",
-          {
-            "releasedLabels": false,
-            "successComment": false
-          }
-        ]
+        "@semantic-release/commit-analyzer",
+        {
+          "releaseRules": [
+            {
+              "type": "feat",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "releasedLabels": false,
+          "successComment": false
+        }
       ]
     ]
   },
