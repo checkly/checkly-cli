@@ -132,6 +132,16 @@ _See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v
 
 <!-- commandsstop -->
 
+## 🚧 Troubleshooting
+
+You can enable global debug output by setting the `DEBUG=*` or `@checkly/cli` specific debug output by setting `CONSOLA_LEVEL=4`.
+
+For example
+
+```bash
+CONSOLA_LEVEL=5 checkly init
+```
+
 ## 🙏 Contributing
 
 All contributions are welcome, please stick to the `eslint` and `prettier` settings.

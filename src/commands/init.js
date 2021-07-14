@@ -22,6 +22,7 @@ class InitCommand extends Command {
     // Setup repo .checkly dir
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
+      consola.debug(` Directory \`${process.cwd()}/.checkly\` already exists\n`)
       return process.exit(1)
     }
     fs.mkdirSync(dirName)
@@ -42,8 +43,10 @@ class InitCommand extends Command {
 
     // Create Settings File
     fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
+
     // Create Checks Directory
     fs.mkdirSync(path.join(dirName, 'checks'))
+
     // Create Example Check
     fs.writeFileSync(
       path.join(dirName, 'checks', 'example.yml'),
