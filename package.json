@@ -71,7 +71,6 @@
     "@oclif/config": "1.17.0",
     "@oclif/dev-cli": "1.26.0",
     "@oclif/plugin-help": "3.2.1",
-    "@semantic-release/commit-analyzer": "8.0.1",
     "babel-eslint": "10.1.0",
     "eslint": "7.18.0",
     "eslint-config-prettier": "7.2.0",
