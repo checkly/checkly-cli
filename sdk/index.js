@@ -12,7 +12,7 @@ function init({ api, apiKey, baseURL }) {
     api ||
     axios.create({
       baseURL: baseURL || 'https://api.checklyhq.com/v1',
-      headers: { Authorization }
+      headers: { Authorization },
     })
 
   const checks = {
@@ -26,14 +26,21 @@ function init({ api, apiKey, baseURL }) {
 
     get(id) {
       return _api.get(endpoints.CHECKS + '/' + id)
-    }
+    },
+  }
+
+  const account = {
+    findOne() {
+      return _api.get(endpoints.ACCOUNT)
+    },
   }
 
   return {
-    checks
+    checks,
+    account,
   }
 }
 
 module.exports = {
-  init
+  init,
 }

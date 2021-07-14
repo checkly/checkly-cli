@@ -4,16 +4,17 @@ const ora = require('ora')
 const sdk = require('../../sdk')
 const config = require('./config')
 
-const env = config.get('env')
+const env = process.env.NODE_ENV || config.get('env')
 const apiKey = config.get('apiKey')
-const baseURL = config.get(`${env}.apiUrl`)
+const baseHost = config.get(`${env}.apiUrl`)
+const basePath = config.get(`${env}.apiVersion`)
 const Authorization = `Bearer ${apiKey}`
 
 let spinner = null
 
 const api = axios.create({
-  baseURL,
-  headers: { Authorization }
+  baseURL: `${baseHost}${basePath}`,
+  headers: { Authorization },
 })
 
 api.interceptors.request.use(function (config) {
@@ -34,5 +35,5 @@ api.interceptors.response.use(
 
 module.exports = sdk.init({
   api,
-  apiKey
+  apiKey,
 })

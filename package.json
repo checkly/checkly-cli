@@ -1,10 +1,13 @@
 {
   "name": "@checkly/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Nacho Anaya <nacho@checklyhq.com>",
   "description": "Checkly CLI",
   "homepage": "https://github.com/checkly/checkly-cli",
-  "repository": "https://github.com/checkly/checkly-cli.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/checkly/checkly-cli.git"
+  },
   "bugs": "https://github.com/checkly/checkly-cli/issues",
   "contributors": [
     "Nico Domino <nico@checklyhq.com>"
@@ -39,6 +42,7 @@
     "/src"
   ],
   "scripts": {
+    "build": "echo NO BUILD",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
@@ -46,7 +50,8 @@
     "pack": "oclif-dev pack",
     "docs": "oclif-dev readme",
     "version": "oclif-dev readme && git add README.md",
-    "version:pr": "node ./scripts/version-pr.js"
+    "version:pr": "node ./scripts/version-pr.js",
+    "semantic-release": "semantic-release"
   },
   "dependencies": {
     "axios": "0.21.1",
@@ -60,6 +65,8 @@
     "yaml": "1.10.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "12.1.4",
+    "@commitlint/config-conventional": "12.1.4",
     "@oclif/command": "1.8.0",
     "@oclif/config": "1.17.0",
     "@oclif/dev-cli": "1.26.0",
@@ -74,6 +81,25 @@
     "eslint-plugin-promise": "4.2.1",
     "globby": "10.0.2",
     "jest": "26.6.3",
-    "prettier": "2.2.1"
+    "lint-staged": "11.0.1",
+    "prettier": "2.2.1",
+    "semantic-release": "^17.4.4",
+    "simple-git-hooks": "2.5.1"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "release": {
+    "branches": [
+      "main",
+      "next"
+    ]
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx --no-install lint-staged",
+    "commit-msg": "npx --no-install commitlint --edit \"$1\""
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,md,html,css}": "prettier --write"
   }
 }

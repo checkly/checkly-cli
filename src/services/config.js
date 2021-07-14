@@ -1,6 +1,16 @@
 const Conf = require('conf')
+const consola = require('consola')
 const config = new Conf()
 
-config.set('apiKey', process.env.CHECKLY_API_KEY || Conf.apiKey)
+const key = process.env.CHECKLY_API_KEY || config.apiKey
 
-module.exports = new Conf()
+if (!key) {
+  consola.error(
+    '`CHECKLY_API_KEY` is required, please run `checkly init` to initialise project.'
+  )
+  process.exit(1)
+}
+
+config.set('apiKey', key)
+
+module.exports = config
