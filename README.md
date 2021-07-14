@@ -4,9 +4,9 @@
 </p>
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
-[![Version](https://img.shields.io/npm/v/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
-[![Downloads/week](https://img.shields.io/npm/dw/checkly-cli.svg)](https://npmjs.org/package/checkly-cli)
-[![License](https://img.shields.io/npm/l/checkly-cli.svg)](https://github.com/ianaya89/checkly-cli/blob/master/package.json)
+[![Version](https://img.shields.io/npm/v/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
+[![Downloads/week](https://img.shields.io/npm/dw/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
+[![License](https://img.shields.io/npm/l/@checkly/cli.svg)](https://github.com/checkly/checkly-cli/blob/master/package.json)
 
 ## 📚 Table of Contents
 
