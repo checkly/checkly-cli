@@ -139,7 +139,7 @@ You can enable global debug output by setting the `DEBUG=*` or `@checkly/cli` sp
 For example
 
 ```bash
-CONSOLA_LEVEL=5 checkly init
+CONSOLA_LEVEL=4 checkly init
 ```
 
 ## 🙏 Contributing
