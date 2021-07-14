@@ -3,7 +3,7 @@ const path = require('path')
 const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { account } = require('../services/api')
-const { settingsTemplate } = require('../templates/settings')
+const { checkTemplate, settingsTemplate } = require('../templates/init')
 
 class InitCommand extends Command {
   static args = [
@@ -21,7 +21,7 @@ class InitCommand extends Command {
 
     // Setup repo .checkly dir
     if (fs.existsSync(dirName)) {
-      consola.error('checkly-cli already initialized')
+      consola.error(' checkly-cli already initialized')
       return process.exit(1)
     }
     fs.mkdirSync(dirName)
@@ -31,18 +31,35 @@ class InitCommand extends Command {
     const { accountId, name } = data
 
     // Initial Account Settings
-    const yml = settingsTemplate({
+    const accountSettingsYml = settingsTemplate({
       accountId,
       name,
       projectName: args.projectName,
     })
 
+    // Example Check YML
+    const exampleCheckYml = checkTemplate()
+
     // Create Settings File
-    fs.writeFileSync(path.join(dirName, 'settings.yml'), yml)
+    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
     // Create Checks Directory
     fs.mkdirSync(path.join(dirName, 'checks'))
+    // Create Example Check
+    fs.writeFileSync(
+      path.join(dirName, 'checks', 'example.yml'),
+      exampleCheckYml
+    )
 
-    consola.success('Project initialized 🦝')
+    consola.success(' Project initialized 🦝🎉 \n')
+    consola.info(
+      ' You can now create checks via `checkly checks create` or view'
+    )
+    consola.info(
+      ' and adjust the example check generated at `.checkly/checks/example.yml`\n'
+    )
+    consola.debug(
+      ` Generated @checkly/cli settings and folders at \`${process.cwd()}/.checkly\``
+    )
     return process.exit(0)
   }
 }

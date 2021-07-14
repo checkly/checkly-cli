@@ -14,6 +14,14 @@ checkDefaults:
           - fail`
 }
 
+const checkTemplate = () => {
+  return `type: browser
+name: Example Check #1
+url: https://jsonplaceholder.typicode.com/users
+    `
+}
+
 module.exports = {
   settingsTemplate,
+  checkTemplate,
 }
