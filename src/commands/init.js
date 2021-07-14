@@ -3,6 +3,7 @@ const path = require('path')
 const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { account } = require('../services/api')
+const { settingsTemplate } = require('../templates/settings')
 
 class InitCommand extends Command {
   static args = [
@@ -30,19 +31,11 @@ class InitCommand extends Command {
     const { accountId, name } = data
 
     // Initial Account Settings
-    const yml = `account: 
-  - id: ${accountId}
-    name: ${name}
-project: ${args.projectName}
-checkDefaults:
-  - locations: ['us-east-1', 'eu-central-1']
-    interval: 5min
-    alerts:
-      - type: email
-        sendOn:
-          - recover
-          - degrade
-          - fail`
+    const yml = settingsTemplate({
+      accountId,
+      name,
+      projectName: args.projectName,
+    })
 
     // Create Settings File
     fs.writeFileSync(path.join(dirName, 'settings.yml'), yml)
