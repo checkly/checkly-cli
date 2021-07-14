@@ -2,7 +2,8 @@ const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const { account } = require('../services/api')
+const { account } = require('./../services/api')
+const config = require('./../services/config')
 const { checkTemplate, settingsTemplate } = require('../templates/init')
 
 class InitCommand extends Command {
@@ -30,6 +31,8 @@ class InitCommand extends Command {
     // Fetch required info
     const { data } = await account.findOne()
     const { accountId, name } = data
+
+    config.set('accountId', accountId)
 
     // Initial Account Settings
     const accountSettingsYml = settingsTemplate({
