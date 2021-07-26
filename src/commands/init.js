@@ -4,7 +4,11 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { account } = require('./../services/api')
 const config = require('./../services/config')
-const { checkTemplate, settingsTemplate } = require('../templates/init')
+const {
+  // checkTemplate,
+  defaultCheckTemplate,
+  settingsTemplate,
+} = require('../templates/init')
 
 class InitCommand extends Command {
   static args = [
@@ -42,7 +46,7 @@ class InitCommand extends Command {
     })
 
     // Example Check YML
-    const exampleCheckYml = checkTemplate()
+    const exampleCheckYml = defaultCheckTemplate()
 
     // Create Settings File
     fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
