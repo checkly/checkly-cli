@@ -29,7 +29,6 @@ function init({ api, apiKey, baseURL }) {
     },
 
     async run(check) {
-      // _api.post(endpoints.CHECK_RUN, check)
       const req = axios.create({
         method: 'POST',
         headers: {
