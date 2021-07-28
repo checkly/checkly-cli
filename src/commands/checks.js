@@ -41,13 +41,11 @@ ChecksCommand.flags = {
     char: 'o',
     description: 'output type',
     default: defaultOutput,
-    options: ['text', 'json'],
+    options: ['text', 'table', 'json'],
   }),
   checkName: flags.string({
     char: 'c',
     description: 'Check upon which to execute action',
-    default: defaultOutput,
-    options: ['text', 'json'],
   }),
 }
 

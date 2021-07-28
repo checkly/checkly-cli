@@ -4,11 +4,7 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { account } = require('./../services/api')
 const config = require('./../services/config')
-const {
-  // checkTemplate,
-  defaultCheckTemplate,
-  settingsTemplate,
-} = require('../templates/init')
+const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
 
 class InitCommand extends Command {
   static args = [
