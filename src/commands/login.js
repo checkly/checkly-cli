@@ -26,7 +26,7 @@ class LoginCommand extends Command {
   async run() {
     const { flags } = this.parse(LoginCommand)
 
-    // API Key already set
+    // API Key set in env or passed as flag
     if (flags.apiKey) {
       console.log(chalk.cyanBright(raccoon))
       consola.log(`API Key already set (${generateMaskedKey(flags.apiKey)})`)
@@ -48,7 +48,8 @@ class LoginCommand extends Command {
     config.set('isInitialized', 'true')
     console.log(chalk.blue(raccoon))
     consola.success(' Welcome to checkly-cli 🦝')
-    consola.log(`API Key set (${generateMaskedKey(apiKey)})`)
+    consola.log(`API Key set (${generateMaskedKey(apiKey)})\n`)
+    consola.log('You can now run `checkly init` to setup the project!')
   }
 }
 
