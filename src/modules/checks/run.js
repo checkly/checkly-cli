@@ -5,14 +5,14 @@ const { print } = require('../../services/utils')
 
 async function runCheck(checkName = '') {
   try {
-    const rawChecks = await checks.getAllLocal(checkName)
+    const rawChecks = await checks.getAllLocal()
     const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
     const selectedCheck = parsedChecks.filter(
       (check) => check.name === checkName
     )
     const results = await checks.run(selectedCheck)
     if (results.status === 202) {
-      print(' Check successfully submitted')
+      consola.success(' Check successfully submitted')
     }
   } catch (err) {
     consola.error(err)
