@@ -3,20 +3,20 @@ const YAML = require('yaml')
 const { checks } = require('../../services/api')
 const { print } = require('../../services/utils')
 
-async function runCheck(checkName = '') {
+async function checkResults() {
   try {
-    const rawChecks = await checks.getAllLocal()
+    const rawChecks = await checks.getAllLocal(checkName)
     const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
     const selectedCheck = parsedChecks.filter(
       (check) => check.name === checkName
     )
     const results = await checks.run(selectedCheck)
     if (results.status === 202) {
-      consola.success(' Check successfully submitted')
+      print(' Check successfully submitted')
     }
   } catch (err) {
     consola.error(err)
   }
 }
 
-module.exports = runCheck
+module.exports = checkResults
