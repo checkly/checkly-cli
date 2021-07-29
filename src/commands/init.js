@@ -4,11 +4,7 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { account } = require('./../services/api')
 const config = require('./../services/config')
-const {
-  // checkTemplate,
-  defaultCheckTemplate,
-  settingsTemplate,
-} = require('../templates/init')
+const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
 
 class InitCommand extends Command {
   static args = [
@@ -60,12 +56,10 @@ class InitCommand extends Command {
       exampleCheckYml
     )
 
-    consola.success(' Project initialized 🦝🎉 \n')
+    consola.success(' Project initialized 🎉 \n')
+    consola.info(' You can now create checks via `checkly checks create`')
     consola.info(
-      ' You can now create checks via `checkly checks create` or view'
-    )
-    consola.info(
-      ' and adjust the example check generated at `.checkly/checks/example.yml`\n'
+      ' Or play with the example check generated at `.checkly/checks/example.yml`\n'
     )
     consola.debug(
       ` Generated @checkly/cli settings and folders at \`${process.cwd()}/.checkly\``
