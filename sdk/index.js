@@ -56,10 +56,17 @@ function init({ api, apiKey, baseURL }) {
     },
   }
 
+  const projects = {
+    getAll() {
+      return _api.get('http://localhost:3000/next/projects')
+    },
+  }
+
   return {
     checks,
     account,
     checkStatuses,
+    projects,
   }
 }
 
