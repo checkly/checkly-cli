@@ -1,16 +1,34 @@
 const consola = require('consola')
-require('console.table')
+const { cli } = require('cli-ux')
 
 function print(data, { output = 'text', format = 'table', type = 'info' }) {
   if (output === 'json') {
-    process.stdout.write(JSON.stringify(data, null, 2))
+    consola.log(JSON.stringify(data, null, 2))
     return
   }
 
   process.stdout.write('\n')
 
   if (format === 'table') {
-    console.table(data)
+    cli.table(data, {
+      id: { header: 'ID' },
+      name: {},
+      checkType: { header: 'Check Type' },
+      frequency: {},
+      locations: {
+        get: (row) => row.locations.join(','),
+      },
+      activated: {
+        get: (row) => (row.activated === true ? '✅' : '❌'),
+      },
+    })
+    return
+  }
+
+  if (format === 'text') {
+    consola.log(
+      data.map((fields) => Object.values(fields).join(', ')).join('\n')
+    )
     return
   }
 
@@ -18,5 +36,5 @@ function print(data, { output = 'text', format = 'table', type = 'info' }) {
 }
 
 module.exports = {
-  print
+  print,
 }

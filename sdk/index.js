@@ -3,10 +3,6 @@ const axios = require('axios')
 const endpoints = require('./endpoints')
 
 function init({ api, apiKey, baseURL }) {
-  if (!apiKey) {
-    throw new Error('Missing API Key')
-  }
-
   const Authorization = `Bearer ${apiKey}`
 
   const _api =
