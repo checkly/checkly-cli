@@ -27,9 +27,13 @@ class LoginCommand extends Command {
     const { flags } = this.parse(LoginCommand)
 
     // API Key set in env or passed as flag
-    if (flags.apiKey) {
+    if (flags.apiKey || config.get('apiKey')) {
       console.log(chalk.cyanBright(raccoon))
-      consola.log(`API Key already set (${generateMaskedKey(flags.apiKey)})`)
+      consola.log(
+        `API Key already set (${generateMaskedKey(
+          flags.apiKey ?? config.get('apiKey')
+        )})`
+      )
       consola.success(' Welcome to checkly-cli 🦝')
       return
     }

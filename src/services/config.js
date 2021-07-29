@@ -7,7 +7,7 @@ const env = process.env.NODE_ENV || config.get('env')
 
 if (!key && !process.argv.includes('login')) {
   consola.error(
-    '`CHECKLY_API_KEY` is required, please run `checkly login` to setup authentication.'
+    '`CHECKLY_API_KEY` is required, please run `checkly login` or set the CHECKLY_API_KEY environment variable to setup authentication.'
   )
   process.exit(1)
 }
