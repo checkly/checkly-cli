@@ -6,7 +6,6 @@ const { print } = require('../../services/utils')
 async function listProjects({ output } = {}) {
   try {
     const res = await projects.getAll()
-    // console.log(res)
     const allChecks = res.data.map(
       ({
         id,
