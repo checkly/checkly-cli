@@ -36,6 +36,7 @@ USAGE
 
 <!-- commands -->
 
+- [`checkly status`](#checkly-status-id)
 - [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
 - [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
 - [`checkly help [COMMAND]`](#checkly-help-command)
