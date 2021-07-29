@@ -61,9 +61,16 @@ function init({ api, apiKey, baseURL }) {
     },
   }
 
+  const checkStatuses = {
+    getAll({ limit, page } = {}) {
+      return _api.get(endpoints.CHECK_STATUSES, { limit, page })
+    },
+  }
+
   return {
     checks,
     account,
+    checkStatuses,
   }
 }
 
