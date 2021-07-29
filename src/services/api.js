@@ -1,5 +1,5 @@
 const axios = require('axios')
-const ora = require('ora')
+const { cli } = require('cli-ux')
 
 const sdk = require('../../sdk')
 const config = require('./config')
@@ -10,25 +10,23 @@ const baseHost = config.get(`${env}.apiUrl`)
 const basePath = config.get(`${env}.apiVersion`)
 const Authorization = `Bearer ${apiKey}`
 
-let spinner = null
-
 const api = axios.create({
   baseURL: `${baseHost}${basePath}`,
   headers: { Authorization },
 })
 
 api.interceptors.request.use(function (config) {
-  spinner = ora().start()
+  cli.action.start('Fetching..')
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    spinner.stop()
+    cli.action.stop('done')
     return res
   },
   (error) => {
-    spinner.stop()
+    cli.action.stop('error!')
     return Promise.reject(error)
   }
 )
