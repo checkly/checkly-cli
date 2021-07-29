@@ -1,7 +1,6 @@
 const consola = require('consola')
 const YAML = require('yaml')
 const { checks } = require('../../services/api')
-const { print } = require('../../services/utils')
 
 async function runCheck(checkName = '') {
   try {
