@@ -1,14 +1,17 @@
 const { readdir, readFile } = require('fs/promises')
 const axios = require('axios')
 const endpoints = require('./endpoints')
+const config = require('../src/services/config')
 
 function init({ api, apiKey, baseURL }) {
   const Authorization = `Bearer ${apiKey}`
+  const envSettings = config.get(process.env.NODE_ENV)
+  const configBaseUrl = `${envSettings.apiUrl}${envSettings.apiVersion}`
 
   const _api =
     api ||
     axios.create({
-      baseURL: baseURL || 'https://api.checklyhq.com/v1',
+      baseURL: baseURL || configBaseUrl,
       headers: { Authorization },
     })
 
