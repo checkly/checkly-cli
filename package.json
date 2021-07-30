@@ -63,8 +63,10 @@
     "consola": "2.15.0",
     "console.table": "0.10.0",
     "moment": "2.29.1",
+    "mqtt": "4.2.8",
     "open": "7.3.1",
     "update-notifier": "5.0.1",
+    "uuid": "8.3.2",
     "yaml": "1.10.0"
   },
   "devDependencies": {
