@@ -23,22 +23,19 @@ async function runCheck(checkName = '') {
       switch (type) {
         case 'run-start':
           consola.debug('run-start', message)
-          consola.info(' Check run started...')
+          consola.info(' Browser check run started..')
           break
         case 'run-end':
           consola.debug('run-end', message)
           consola.info(' Check run complete')
+
+          // Print duration in milliseconds
           consola.success(
             ` Run duration ${chalk.bold.blue(
               new Date(message.result.endTime).getTime() -
                 new Date(message.result.startTime).getTime()
             )}ms`
           )
-          // this.checkRun.state = browserCheckRunStates.ENDED
-          // this.checkRun.results = Object.assign(
-          //   this.checkRun.results,
-          //   message.result
-          // )
           break
         case 'error':
           consola.debug('error', message)
@@ -46,20 +43,22 @@ async function runCheck(checkName = '') {
           break
         case 'screenshot-uploads':
           consola.debug('screenshot-uploads', message)
-          consola.info(' Screenshots')
+          consola.info(' Screenshots:')
+
+          // Print screenshot URLs of each taken screenshot
           message.files.forEach((file, index) => {
-            console.log(`  [${chalk.bold.blue(index + 1)}] `, file.url)
+            console.log(` [${chalk.bold.blue(index + 1)}]`, file.url)
           })
           consola.log()
           break
         case 'logfile':
           consola.debug('logfile', message)
           consola.log('')
-          consola.info(' Console Log')
+          consola.info(' Console Log:')
           message.file.forEach((msg, index) => {
             consola.log({
               tag: msg.level.toUpperCase(),
-              message: `  [${chalk.bold.blue(index + 1)}] ${msg.msg}`,
+              message: ` [${chalk.bold.blue(index + 1)}] ${msg.msg}`,
               time: msg.time,
               badge: false,
             })
