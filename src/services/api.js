@@ -1,5 +1,6 @@
 const axios = require('axios')
-const { cli } = require('cli-ux')
+const consola = require('consola')
+// const { cli } = require('cli-ux')
 
 const sdk = require('../../sdk')
 const config = require('./config')
@@ -16,17 +17,20 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(function (config) {
-  cli.action.start('Fetching..')
+  // We should make this spinner stuff conditional as it doesn't make sense
+  // for some use cases.
+
+  // cli.action.start('Fetching..')
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    cli.action.stop('done')
+    // cli.action.stop()
     return res
   },
   (error) => {
-    cli.action.stop('error!')
+    consola.error(error)
     return Promise.reject(error)
   }
 )

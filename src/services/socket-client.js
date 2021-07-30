@@ -4,7 +4,6 @@ const consola = require('consola')
 const LAST_WILL_TOPIC = 'last-will'
 const CLIENT_CONNECTED = 'client-connected'
 const CLIENT_DISCONNECTED = 'client-disconnected'
-// const IOT_PRESIGNED_URL = '/sockets/signed-url'
 
 const getNotification = (topic) => JSON.stringify({ topic })
 
@@ -13,14 +12,6 @@ const validateClientConnected = (client) => {
     throw new Error('Client is not connected yet. Call client.connect() first!')
   }
 }
-
-// const catchTryReconnect = (error, cb) => {
-//   consola.debug('checkly:socket-client:error', error)
-//   if (error && error.message === 'client disconnecting') {
-//     consola.debug('checkly:socket-client:try-reconnect')
-//     cb()
-//   }
-// }
 
 const client = function (url, topic) {
   const options = {
@@ -93,7 +84,6 @@ const client = function (url, topic) {
     client.on('message', (topic, message) => {
       consola.debug('checkly:socket-client:received')
       cb(topic, JSON.parse(message.toString('utf8')))
-      // consola.debug(topic, message)
     })
     return clientWrapper
   }

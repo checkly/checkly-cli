@@ -43,7 +43,8 @@
   ],
   "scripts": {
     "build": "echo NO BUILD",
-    "dev": "NODE_ENV=development CONSOLA_LEVEL=5 ./bin/run",
+    "dev:debug": "NODE_ENV=development CONSOLA_LEVEL=5 ./bin/run",
+    "dev": "NODE_ENV=development ./bin/run",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",

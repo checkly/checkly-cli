@@ -1,4 +1,6 @@
 const consola = require('consola')
+const chalk = require('chalk')
+const { cli } = require('cli-ux')
 const YAML = require('yaml')
 const { v4: uuidv4 } = require('uuid')
 const { checks, socket } = require('../../services/api')
@@ -10,20 +12,28 @@ async function runCheck(checkName = '') {
     const presignedIotUrl = await socket.getSignedUrl()
     consola.debug(` IoT Signed Url: ${presignedIotUrl.data.url}\n`)
 
-    // Subscribe to our IoT Core Signed URL
+    // Connect to our IoT Core Signed URL
     const socketClientId = uuidv4()
     const socketClient = new SocketClient()
     await socketClient.connect(presignedIotUrl.data.url)
+
+    // Setup event handlers for various message types
     socketClient.onMessageReceived((topic, message) => {
       const type = topic.split('/')[2]
       switch (type) {
         case 'run-start':
-          consola.info('run-start', message)
-          // this.checkRun.type = message.type
-          // this.checkRun.state = browserCheckRunStates.RUNNING
+          consola.debug('run-start', message)
+          consola.info(' Check run started...')
           break
         case 'run-end':
-          consola.info('run-end', message)
+          consola.debug('run-end', message)
+          consola.info(' Check run complete')
+          consola.success(
+            ` Run duration ${chalk.bold.blue(
+              new Date(message.result.endTime).getTime() -
+                new Date(message.result.startTime).getTime()
+            )}ms`
+          )
           // this.checkRun.state = browserCheckRunStates.ENDED
           // this.checkRun.results = Object.assign(
           //   this.checkRun.results,
@@ -31,22 +41,40 @@ async function runCheck(checkName = '') {
           // )
           break
         case 'error':
-          consola.info('error', message)
-          // this.checkRun.hasErrors = true
+          consola.debug('error', message)
+          consola.info(' Check run error')
           break
         case 'screenshot-uploads':
-          consola.info('screenshot-uploads', message)
-          // this.checkRun.uploads = message.files
+          consola.debug('screenshot-uploads', message)
+          consola.info(' Screenshots')
+          message.files.forEach((file, index) => {
+            console.log(`  [${chalk.bold.blue(index + 1)}] `, file.url)
+          })
+          consola.log()
           break
         case 'logfile':
-          consola.info('logfile', message)
-        // this.checkRun.logFile = message.file
+          consola.debug('logfile', message)
+          consola.log('')
+          consola.info(' Console Log')
+          message.file.forEach((msg, index) => {
+            consola.log({
+              tag: msg.level.toUpperCase(),
+              message: `  [${chalk.bold.blue(index + 1)}] ${msg.msg}`,
+              time: msg.time,
+              badge: false,
+            })
+          })
+
+          // Logfiles are sent last, so we can close the socket and exit at this point
+          socketClient.end()
+          process.exit(0)
       }
     })
 
+    // Subscribe to the 'browser-check-run' topic with this clients socketId
     socketClient.subscribe(`browser-check-results/${socketClientId}/#`)
 
-    // Get requeste check from local yml file (by checkName)
+    // Get requested check from local yml file (by checkName)
     const rawChecks = await checks.getAllLocal()
     const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
     const selectedCheck = parsedChecks.filter(
@@ -56,19 +84,16 @@ async function runCheck(checkName = '') {
     // Build check payload object
     const browserCheck = {
       ...selectedCheck[0],
-      _id: 'c0aa8396-d330-4f36-81e4-f80be035753d',
       websocketClientId: socketClientId,
       runLocation: 'eu-central-1',
       runtimeId: '2020.01',
     }
 
-    // consola.debug(JSON.stringify(browserCheck, null, 2))
-
     // Submit check to API
     const results = await checks.run(browserCheck)
 
     if (results.status === 202) {
-      consola.success(' Check successfully submitted\n')
+      consola.info(' Check successfully submitted')
     }
   } catch (err) {
     consola.error(err)
