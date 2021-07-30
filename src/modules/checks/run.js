@@ -1,6 +1,5 @@
 const consola = require('consola')
 const chalk = require('chalk')
-const { cli } = require('cli-ux')
 const YAML = require('yaml')
 const { v4: uuidv4 } = require('uuid')
 const { checks, socket } = require('../../services/api')
@@ -39,7 +38,7 @@ async function runCheck(checkName = '') {
           break
         case 'error':
           consola.debug('error', message)
-          consola.info(' Check run error')
+          consola.error(' Check run error', message)
           break
         case 'screenshot-uploads':
           consola.debug('screenshot-uploads', message)
