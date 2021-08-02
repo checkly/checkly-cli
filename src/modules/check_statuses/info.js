@@ -1,6 +1,7 @@
 const consola = require('consola')
 const chalk = require('chalk')
-const moment = require('moment')
+const formatDistanceToNow = require('date-fns/formatDistanceToNow')
+
 const { checkStatuses } = require('../../services/api')
 
 const { print } = require('../../services/utils')
@@ -8,6 +9,7 @@ const { print } = require('../../services/utils')
 async function getStatus({ output } = {}) {
   try {
     const { data } = await checkStatuses.getAll()
+
     const formatted = data.map((checkStatus) => {
       return {
         status: checkStatus.hasFailures
@@ -16,7 +18,7 @@ async function getStatus({ output } = {}) {
           ? chalk.bgYellow('Degraded')
           : chalk.bgGreen('Passing'),
         name: checkStatus.name,
-        'last updated': moment(checkStatus.updated_at).fromNow(),
+        'last updated': formatDistanceToNow(new Date(checkStatus.updated_at)),
       }
     })
     print(formatted, { output })

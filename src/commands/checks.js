@@ -1,8 +1,6 @@
 const { Command, flags } = require('@oclif/command')
 const checks = require('../modules/checks')
-const config = require('../services/config')
-
-const defaultOutput = config.get('output')
+const { output } = require('../services/flags')
 
 class ChecksCommand extends Command {
   static args = [
@@ -37,12 +35,7 @@ class ChecksCommand extends Command {
 ChecksCommand.description = 'Manage Checks'
 
 ChecksCommand.flags = {
-  output: flags.string({
-    char: 'o',
-    description: 'output type',
-    default: defaultOutput,
-    options: ['text', 'table', 'json'],
-  }),
+  output,
   checkName: flags.string({
     char: 'c',
     description: 'Check upon which to execute action',
