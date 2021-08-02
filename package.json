@@ -43,7 +43,8 @@
   ],
   "scripts": {
     "build": "echo NO BUILD",
-    "dev": "NODE_ENV=development CONSOLA_LEVEL=5 ./bin/run",
+    "dev:debug": "NODE_ENV=development CONSOLA_LEVEL=5 ./bin/run",
+    "dev": "NODE_ENV=development ./bin/run",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
@@ -63,8 +64,11 @@
     "consola": "2.15.0",
     "console.table": "0.10.0",
     "date-fns": "2.23.0",
+    "mqtt": "4.2.8",
+    "open": "7.3.1",
     "text-table": "0.2.0",
     "update-notifier": "5.0.1",
+    "uuid": "8.3.2",
     "yaml": "1.10.0"
   },
   "devDependencies": {

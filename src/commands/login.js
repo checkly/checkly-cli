@@ -16,7 +16,6 @@ class LoginCommand extends Command {
   static flags = {
     apiKey: flags.string({
       name: 'apiKey',
-      // required: true,
       env: 'CHECKLY_API_KEY',
       description:
         'Checkly API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys',
@@ -47,9 +46,11 @@ class LoginCommand extends Command {
       process.exit(1)
     }
 
-    // Successfully set API Key output
+    // Successfully set API key in config
     config.set('apiKey', apiKey)
     config.set('isInitialized', 'true')
+
+    // Output success message and next steps
     console.log(chalk.blue(raccoon))
     consola.success(' Welcome to checkly-cli 🦝')
     consola.log(`API Key set (${generateMaskedKey(apiKey)})\n`)

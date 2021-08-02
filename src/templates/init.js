@@ -65,37 +65,8 @@ alertSettings:
     enabled: true
     alertThreshold: 30
 useGlobalAlertSettings: true
-alertChannelSubscriptions:
-- activated: true
-  alertChannelId: 4
-  alertChannel:
-    id: 4
-    type: EMAIL
-    config:
-      address: test2@ndo.dev
-    accountId: e46106d8-e382-4d1f-8182-9d63983ed6d4
-    created_at: '2021-07-01T10:22:10.559Z'
-    updated_at:
-    sendRecovery: true
-    sendFailure: true
-    sendDegraded: false
-    sslExpiry: false
-    sslExpiryThreshold: 30
-    subscriptions:
-    - id: 22
-      checkId:
-      alertChannelId: 4
-      activated: true
-      groupId: 6
-      check:
-      checkGroup:
-        id: 6
-        name: Big ol group
 environmentVariables: []
-tags: []
-runtimeId: '2020.01'
-websocketClientId: 6819de32-7723-421f-b3b1-76004c4ebfef
-runLocation: eu-central-1`
+tags: []`
 }
 
 module.exports = {
