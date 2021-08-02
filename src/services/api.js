@@ -1,4 +1,5 @@
 const axios = require('axios')
+const consola = require('consola')
 const { cli } = require('cli-ux')
 
 const sdk = require('../../sdk')
@@ -26,7 +27,7 @@ api.interceptors.response.use(
     return res
   },
   (error) => {
-    cli.action.stop('error!')
+    consola.error(error)
     return Promise.reject(error)
   }
 )

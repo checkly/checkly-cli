@@ -27,10 +27,10 @@ function init({ api, apiKey, baseURL }) {
       )
     },
 
-    async run(check) {
+    run(check) {
       return _api.post(
         'http://localhost:3000/next/checks/browser-check-runs',
-        check[0]
+        check
       )
     },
 
@@ -61,11 +61,18 @@ function init({ api, apiKey, baseURL }) {
     },
   }
 
+  const socket = {
+    getSignedUrl() {
+      return _api.get('http://localhost:3000/next/sockets/signed-url')
+    },
+  }
+
   return {
     checks,
     account,
     checkStatuses,
     projects,
+    socket,
   }
 }
 
