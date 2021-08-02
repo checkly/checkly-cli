@@ -66,6 +66,8 @@
     "moment": "2.29.1",
     "mqtt": "4.2.8",
     "open": "7.3.1",
+    "date-fns": "2.23.0",
+    "text-table": "0.2.0",
     "update-notifier": "5.0.1",
     "uuid": "8.3.2",
     "yaml": "1.10.0"
@@ -85,7 +87,6 @@
     "eslint-plugin-node": "11.1.0",
     "eslint-plugin-prettier": "3.3.1",
     "eslint-plugin-promise": "4.2.1",
-    "globby": "10.0.2",
     "jest": "26.6.3",
     "lint-staged": "11.0.1",
     "prettier": "2.2.1",

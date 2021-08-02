@@ -1,8 +1,6 @@
-const { Command, flags } = require('@oclif/command')
+const { Command } = require('@oclif/command')
 const checkStatuses = require('../modules/check_statuses')
-const config = require('../services/config')
-
-const defaultOutput = config.get('output')
+const { output } = require('../services/flags')
 
 class StatusCommand extends Command {
   static args = [
@@ -23,12 +21,7 @@ class StatusCommand extends Command {
 StatusCommand.description = 'Status dashboard'
 
 StatusCommand.flags = {
-  output: flags.string({
-    char: 'o',
-    description: 'output type',
-    default: defaultOutput,
-    options: ['text', 'json'],
-  }),
+  output,
 }
 
 module.exports = StatusCommand

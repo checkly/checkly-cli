@@ -17,16 +17,13 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(function (config) {
-  // We should make this spinner stuff conditional as it doesn't make sense
-  // for some use cases.
-
-  // cli.action.start('Fetching..')
+  cli.action.start('Fetching')
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    // cli.action.stop()
+    cli.action.stop('done!')
     return res
   },
   (error) => {

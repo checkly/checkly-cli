@@ -3,7 +3,7 @@ const { version } = require('../../package.json')
 module.exports = {
   version,
   env: 'production',
-  output: 'text',
+  output: 'human',
 
   production: {
     apiUrl: 'https://api.checklyhq.com/',
