@@ -59,7 +59,7 @@ class InitCommand extends Command {
     consola.success(' Project initialized 🎉 \n')
     consola.info(' You can now create checks via `checkly checks create`')
     consola.info(
-      ' Or play with the example check generated at `.checkly/checks/example.yml`\n'
+      ' Or check out the example check generated at `.checkly/checks/example.yml`\n'
     )
     consola.debug(
       ` Generated @checkly/cli settings and folders at \`${process.cwd()}/.checkly\``
