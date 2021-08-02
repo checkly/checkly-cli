@@ -1,6 +1,6 @@
 const axios = require('axios')
 const consola = require('consola')
-// const { cli } = require('cli-ux')
+const { cli } = require('cli-ux')
 
 const sdk = require('../../sdk')
 const config = require('./config')
