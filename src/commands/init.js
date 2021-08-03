@@ -64,7 +64,7 @@ class InitCommand extends Command {
 
     // Regex to grab repository name from github URL
     const repo = pkg.repository.url.match(
-      /.*\/(?<author>.*)\/(?<project>.*)\.git/
+      /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
     )
 
     // Create Project on Backend
