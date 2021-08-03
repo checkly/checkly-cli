@@ -1,8 +1,9 @@
 const fs = require('fs')
+const { readFile } = require('fs/promises')
 const path = require('path')
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const { account } = require('./../services/api')
+const { account, projects } = require('./../services/api')
 const config = require('./../services/config')
 const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
 
@@ -34,18 +35,8 @@ class InitCommand extends Command {
 
     config.set('accountId', accountId)
 
-    // Initial Account Settings
-    const accountSettingsYml = settingsTemplate({
-      accountId,
-      name,
-      projectName: args.projectName,
-    })
-
     // Example Check YML
     const exampleCheckYml = defaultCheckTemplate()
-
-    // Create Settings File
-    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     // Create Checks Directory
     fs.mkdirSync(path.join(dirName, 'checks'))
@@ -55,6 +46,36 @@ class InitCommand extends Command {
       path.join(dirName, 'checks', 'example.yml'),
       exampleCheckYml
     )
+
+    // Get package.json
+    const pkg = JSON.parse(
+      await readFile(path.join(__dirname, '../../package.json'))
+    )
+
+    // Grab repository name from repo url
+    const repo = pkg.repository.url.match(
+      /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
+    )
+
+    // Create project on backend
+    const savedProject = await projects.create({
+      accountId,
+      repoUrl: `${repo.groups.author}/${repo.groups.project}`,
+      name: args.projectName,
+      activated: true,
+      muted: false,
+    })
+
+    // Generate initial account settings
+    const accountSettingsYml = settingsTemplate({
+      accountId,
+      accountName: name,
+      projectName: args.projectName,
+      projectId: savedProject.data.id,
+    })
+
+    // Write settings file
+    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     consola.success(' Project initialized 🎉 \n')
     consola.info(' You can now create checks via `checkly checks create`')
