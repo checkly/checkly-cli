@@ -59,6 +59,9 @@ function init({ api, apiKey, baseURL }) {
     getAll() {
       return _api.get('http://localhost:3000/next/projects')
     },
+    create(project) {
+      return _api.post('http://localhost:3000/next/projects', project)
+    },
   }
 
   const socket = {

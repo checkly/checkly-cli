@@ -1,8 +1,9 @@
 const fs = require('fs')
+const { readFile } = require('fs/promises')
 const path = require('path')
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const { account } = require('./../services/api')
+const { account, projects } = require('./../services/api')
 const config = require('./../services/config')
 const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
 
@@ -55,6 +56,25 @@ class InitCommand extends Command {
       path.join(dirName, 'checks', 'example.yml'),
       exampleCheckYml
     )
+
+    // Get Git Repo current Remote URL
+    const pkg = JSON.parse(
+      await readFile(path.join(__dirname, '../../package.json'))
+    )
+
+    // Regex to grab repository name from github URL
+    const repo = pkg.repository.url.match(
+      /.*\/(?<author>.*)\/(?<project>.*)\.git/
+    )
+
+    // Create Project on Backend
+    await projects.create({
+      accountId,
+      repoUrl: `${repo.groups.author}/${repo.groups.project}`,
+      name: args.projectName,
+      activated: true,
+      muted: false,
+    })
 
     consola.success(' Project initialized 🎉 \n')
     consola.info(' You can now create checks via `checkly checks create`')
