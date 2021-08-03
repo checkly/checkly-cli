@@ -47,17 +47,17 @@ class InitCommand extends Command {
       exampleCheckYml
     )
 
-    // Get Git Repo current Remote URL
+    // Get package.json
     const pkg = JSON.parse(
       await readFile(path.join(__dirname, '../../package.json'))
     )
 
-    // Regex to grab repository name from github URL
+    // Grab repository name from repo url
     const repo = pkg.repository.url.match(
       /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
     )
 
-    // Create Project on Backend
+    // Create project on backend
     const savedProject = await projects.create({
       accountId,
       repoUrl: `${repo.groups.author}/${repo.groups.project}`,
@@ -66,7 +66,7 @@ class InitCommand extends Command {
       muted: false,
     })
 
-    // Initial Account Settings
+    // Generate initial account settings
     const accountSettingsYml = settingsTemplate({
       accountId,
       accountName: name,
@@ -74,7 +74,7 @@ class InitCommand extends Command {
       projectId: savedProject.data.id,
     })
 
-    // Create Settings File
+    // Write settings file
     fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     consola.success(' Project initialized 🎉 \n')
