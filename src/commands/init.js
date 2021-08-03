@@ -35,18 +35,8 @@ class InitCommand extends Command {
 
     config.set('accountId', accountId)
 
-    // Initial Account Settings
-    const accountSettingsYml = settingsTemplate({
-      accountId,
-      name,
-      projectName: args.projectName,
-    })
-
     // Example Check YML
     const exampleCheckYml = defaultCheckTemplate()
-
-    // Create Settings File
-    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     // Create Checks Directory
     fs.mkdirSync(path.join(dirName, 'checks'))
@@ -68,13 +58,24 @@ class InitCommand extends Command {
     )
 
     // Create Project on Backend
-    await projects.create({
+    const savedProject = await projects.create({
       accountId,
       repoUrl: `${repo.groups.author}/${repo.groups.project}`,
       name: args.projectName,
       activated: true,
       muted: false,
     })
+
+    // Initial Account Settings
+    const accountSettingsYml = settingsTemplate({
+      accountId,
+      accountName: name,
+      projectName: args.projectName,
+      projectId: savedProject.data.id,
+    })
+
+    // Create Settings File
+    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     consola.success(' Project initialized 🎉 \n')
     consola.info(' You can now create checks via `checkly checks create`')
