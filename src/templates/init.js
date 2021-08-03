@@ -1,8 +1,15 @@
-const settingsTemplate = ({ accountId, name, projectName }) => {
+const settingsTemplate = ({
+  accountId,
+  accountName,
+  projectId,
+  projectName,
+}) => {
   return `account: 
   - id: ${accountId}
-    name: ${name}
-project: ${projectName}
+    name: ${accountName}
+project: 
+  - id: ${projectId}
+    name: ${projectName}
 checkDefaults:
   - locations: ['us-east-1', 'eu-central-1']
     interval: 5min
