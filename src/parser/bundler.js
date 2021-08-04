@@ -1,14 +1,13 @@
 const path = require('path')
 const rollup = require('rollup')
 const commonjs = require('@rollup/plugin-commonjs')
-const sourcemaps = require('rollup-plugin-sourcemaps')
 
 const OUTPUT_DIRECTORY = '../../.checkly/output'
 
 async function bundle(entryFile, writeBundle = false) {
   const inputOptions = {
     input: path.join(process.cwd(), entryFile),
-    plugins: [commonjs(), sourcemaps()],
+    plugins: [commonjs({ sourceMap: true })],
   }
 
   const outputOptions = {

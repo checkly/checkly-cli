@@ -68,7 +68,6 @@
     "lodash.isequal": "4.5.0",
     "mqtt": "4.2.8",
     "rollup": "2.55.1",
-    "rollup-plugin-sourcemaps": "0.6.3",
     "text-table": "0.2.0",
     "update-notifier": "5.0.1",
     "uuid": "8.3.2",
