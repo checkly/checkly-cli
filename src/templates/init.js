@@ -5,11 +5,11 @@ const settingsTemplate = ({
   projectName,
 }) => {
   return `account: 
-  - id: ${accountId}
-    name: ${accountName}
+  id: ${accountId}
+  name: ${accountName}
 project: 
-  - id: ${projectId}
-    name: ${projectName}
+  id: ${projectId}
+  name: ${projectName}
 checkDefaults:
   - locations: ['us-east-1', 'eu-central-1']
     interval: 5min

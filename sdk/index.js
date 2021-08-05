@@ -41,6 +41,10 @@ function init({ api, apiKey, baseURL }) {
     get(id) {
       return _api.get(endpoints.CHECKS + '/' + id)
     },
+
+    deploy(checks) {
+      return _api.post('http://localhost:3000/next/checks/deploy', checks)
+    },
   }
 
   const account = {

@@ -9,7 +9,7 @@ class ChecksCommand extends Command {
       required: true,
       description: 'Specify the type of checks action to run',
       default: 'list',
-      options: ['list', 'info', 'run'],
+      options: ['list', 'info', 'run', 'deploy'],
     },
     {
       name: 'id',
@@ -26,6 +26,8 @@ class ChecksCommand extends Command {
         return checks.run(args.id, { ...flags })
       case 'info':
         return checks.info(args.id, { ...flags })
+      case 'deploy':
+        return checks.deploy({ ...flags })
       default:
         return checks.list({ ...flags })
     }

@@ -1,5 +1,7 @@
 const consola = require('consola')
+const { readFile } = require('fs/promises')
 const table = require('text-table')
+const YAML = require('yaml')
 require('console.table')
 
 function print(data, { output } = {}) {
@@ -22,6 +24,13 @@ function print(data, { output } = {}) {
   console.table(data)
 }
 
+async function readLocal(path) {
+  consola.debug(`Reading local file: ${path}`)
+  const file = await readFile(path, { encoding: 'utf-8' })
+  return YAML.parse(file)
+}
+
 module.exports = {
   print,
+  readLocal,
 }
