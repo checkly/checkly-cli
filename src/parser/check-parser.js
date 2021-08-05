@@ -24,7 +24,6 @@ async function parseCheck(check, groupSettings = null) {
     return null
   }
 
-
   if (parsedCheck.type.toLowerCase() === 'browser' && parsedCheck.path) {
     const [output] = await bundle(parsedCheck.path)
     parsedCheck.code = output.code
@@ -53,7 +52,7 @@ async function parseChecksTree(tree, parent = null) {
   for (let i = 0; i < tree.length; i += 1) {
     if (tree[i].type === CHECK) {
       const parsedCheck = await parseCheck(tree[i], parent)
-      parsedCheck && (parsedTree.checks[parsedCheck.key] = parsedCheck)
+      parsedCheck && (parsedTree.checks[parsedCheck.logicalId] = parsedCheck)
       continue
     }
 
@@ -65,13 +64,12 @@ async function parseChecksTree(tree, parent = null) {
 
     const groupSettings = YAML.parse(fs.readFileSync(tree[i].settings, 'utf8'))
 
-    parsedTree.groups[leaf.name] = {
-      name: leaf.name,
+    parsedTree.groups[tree[i].name] = {
+      name: tree[i].name,
       settings: groupSettings.settings,
-      ...parseChecksTree(leaf.checks, groupSettings.settings),
+      ...parseChecksTree(tree[i].checks, groupSettings.settings),
     }
-  })
-
+  }
   return parsedTree
 }
 
