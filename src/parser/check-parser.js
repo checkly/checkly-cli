@@ -25,9 +25,11 @@ async function parseCheck(check, groupSettings = null) {
   }
 
   if (parsedCheck.type.toLowerCase() === 'browser' && parsedCheck.path) {
-    const [output] = await bundle(parsedCheck.path)
+    const [output] = await bundle(parsedCheck.path, true)
     parsedCheck.code = output.code
     parsedCheck.map = output.map
+    console.log(output.code)
+    console.log(output.map)
   }
 
   parsedCheck.logicalId = check.name
