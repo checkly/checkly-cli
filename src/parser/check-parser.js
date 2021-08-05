@@ -19,6 +19,7 @@ function parseCheck(check, groupSettings = null) {
     return null
   }
 
+  parsedCheck.key = check.name
   parsedCheck.settings = { ...settings, ...parsedCheck.settings }
 
   if (groupSettings) {
@@ -34,12 +35,12 @@ function parseCheck(check, groupSettings = null) {
 }
 
 function parseChecksTree(tree, parent = null) {
-  const parsedTree = parent ? { checks: [] } : { checks: [], groups: [] }
+  const parsedTree = parent ? { checks: {} } : { checks: {}, groups: {} }
 
   tree.forEach((leaf) => {
     if (leaf.type === CHECK) {
       const parsedCheck = parseCheck(leaf, parent)
-      parsedCheck && parsedTree.checks.push(parsedCheck)
+      parsedCheck && (parsedTree.checks[parsedCheck.key] = parsedCheck)
       return
     }
 
@@ -50,11 +51,11 @@ function parseChecksTree(tree, parent = null) {
 
     const groupSettings = YAML.parse(fs.readFileSync(leaf.settings, 'utf8'))
 
-    parsedTree.groups.push({
+    parsedTree.groups[leaf.name] = {
       name: leaf.name,
       settings: groupSettings.settings,
       ...parseChecksTree(leaf.checks, groupSettings.settings),
-    })
+    }
   })
 
   return parsedTree
