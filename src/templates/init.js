@@ -4,10 +4,10 @@ const settingsTemplate = ({
   projectId,
   projectName,
 }) => {
-  return `account: 
+  return `account:
   id: ${accountId}
   name: ${accountName}
-project: 
+project:
   id: ${projectId}
   name: ${projectName}
 checkDefaults:
