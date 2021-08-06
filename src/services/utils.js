@@ -26,8 +26,13 @@ function print(data, { output } = {}) {
 
 async function readLocal(path) {
   consola.debug(`Reading local file: ${path}`)
-  const file = await readFile(path, { encoding: 'utf-8' })
-  return YAML.parse(file)
+  try {
+    const file = await readFile(path, { encoding: 'utf-8' })
+    return YAML.parse(file)
+  } catch (e) {
+    consola.error(e)
+    return new Error(e)
+  }
 }
 
 module.exports = {

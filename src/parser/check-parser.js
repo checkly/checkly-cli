@@ -5,8 +5,8 @@ const consola = require('consola')
 const { CHECK } = require('./file-parser')
 const { getGlobalSettings } = require('./helper')
 
-const { settings } = YAML.parse(getGlobalSettings())
 function parseCheck(check, groupSettings = null) {
+  const { settings } = YAML.parse(getGlobalSettings())
   if (check.error) {
     consola.warn(`Skipping file ${check.filePath}: ${check.error} `)
     return null

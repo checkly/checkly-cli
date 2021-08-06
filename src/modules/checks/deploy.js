@@ -5,8 +5,8 @@ const parser = require('../../parser')
 
 async function deployChecks(id, { output } = {}) {
   try {
-    const parsedChecks = parser()
     const settings = await readLocal('./.checkly/settings.yml')
+    const parsedChecks = parser()
     const projectId = settings.project.id
 
     const { data } = await checks.deploy({ projectId, ...parsedChecks })
