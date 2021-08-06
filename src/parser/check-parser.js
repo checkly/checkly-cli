@@ -4,8 +4,9 @@ const consola = require('consola')
 
 const { CHECK } = require('./file-parser')
 const { getGlobalSettings } = require('./helper')
+const bundle = require('./bundler')
 
-function parseCheck(check, groupSettings = null) {
+async function parseCheck(check, groupSettings = null) {
   const { settings } = YAML.parse(getGlobalSettings())
   if (check.error) {
     consola.warn(`Skipping file ${check.filePath}: ${check.error} `)
@@ -14,16 +15,28 @@ function parseCheck(check, groupSettings = null) {
 
   const parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
 
+  // TODO: Add json schemas to vefify that yaml
+  // contains required checks properties.
+
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
     return null
   }
 
-  parsedCheck.key = check.name
+  if (parsedCheck.type.toLowerCase() === 'browser' && parsedCheck.path) {
+    const [output] = await bundle(parsedCheck.path, true)
+    parsedCheck.code = output.code
+    parsedCheck.map = output.map
+    console.log(output.code)
+    console.log(output.map)
+  }
+
+  parsedCheck.logicalId = check.name
   parsedCheck.settings = { ...settings, ...parsedCheck.settings }
 
   if (groupSettings) {
-    // TODO: Remove settings that are not allowed to override by a check (like locations)
+    // TODO: Remove settings that are not allowed
+    // to override by a check (like locations)
     parsedCheck.settings = {
       ...settings,
       ...groupSettings,
@@ -34,30 +47,30 @@ function parseCheck(check, groupSettings = null) {
   return parsedCheck
 }
 
-function parseChecksTree(tree, parent = null) {
+async function parseChecksTree(tree, parent = null) {
   const parsedTree = parent ? { checks: {} } : { checks: {}, groups: {} }
 
-  tree.forEach((leaf) => {
-    if (leaf.type === CHECK) {
-      const parsedCheck = parseCheck(leaf, parent)
-      parsedCheck && (parsedTree.checks[parsedCheck.key] = parsedCheck)
-      return
+  for (let i = 0; i < tree.length; i += 1) {
+    if (tree[i].type === CHECK) {
+      const parsedCheck = await parseCheck(tree[i], parent)
+      parsedCheck && (parsedTree.checks[parsedCheck.logicalId] = parsedCheck)
+      continue
     }
 
-    // We only allow two level of directory nesting: root checks and checks within a group.
+    // We only allow two level of directory nesting:
+    // root checks and checks within a group.
     if (parent) {
-      return
+      continue
     }
 
-    const groupSettings = YAML.parse(fs.readFileSync(leaf.settings, 'utf8'))
+    const groupSettings = YAML.parse(fs.readFileSync(tree[i].settings, 'utf8'))
 
-    parsedTree.groups[leaf.name] = {
-      name: leaf.name,
+    parsedTree.groups[tree[i].name] = {
+      name: tree[i].name,
       settings: groupSettings.settings,
-      ...parseChecksTree(leaf.checks, groupSettings.settings),
+      ...parseChecksTree(tree[i].checks, groupSettings.settings),
     }
-  })
-
+  }
   return parsedTree
 }
 
