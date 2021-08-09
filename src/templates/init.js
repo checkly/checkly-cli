@@ -1,3 +1,5 @@
+const DEFAULT_URL = 'https://checklyhq.com'
+
 const settingsTemplate = ({
   accountId,
   accountName,
@@ -21,10 +23,10 @@ checkDefaults:
           - fail`
 }
 
-const checkTemplate = () => {
+const checkTemplate = (url = DEFAULT_URL) => {
   return `type: browser
-name: Example Check #1
-url: https://jsonplaceholder.typicode.com/users
+name: Browser Check #1
+url: ${DEFAULT_URL}
     `
 }
 

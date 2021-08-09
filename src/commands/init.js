@@ -1,10 +1,12 @@
 const fs = require('fs')
-const { readFile } = require('fs/promises')
 const path = require('path')
 const consola = require('consola')
+const { readFile } = require('fs/promises')
 const { Command } = require('@oclif/command')
-const { account, projects } = require('./../services/api')
+
+const { force } = require('./../services/flags')
 const config = require('./../services/config')
+const { account, projects } = require('./../services/api')
 const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
 
 class InitCommand extends Command {
@@ -19,7 +21,8 @@ class InitCommand extends Command {
 
   async run() {
     const { args } = this.parse(InitCommand)
-    const dirName = path.join(__dirname, '../../.checkly')
+    const cwd = process.cwd()
+    const dirName = path.join(cwd, '../../.checkly')
 
     // Setup repo .checkly dir
     if (fs.existsSync(dirName)) {
@@ -48,19 +51,17 @@ class InitCommand extends Command {
     )
 
     // Get package.json
-    const pkg = JSON.parse(
-      await readFile(path.join(__dirname, '../../package.json'))
-    )
+    const pkg = JSON.parse(await readFile(path.join(cwd, '../../package.json')))
 
     // Grab repository name from repo url
-    const repo = pkg.repository.url.match(
+    const repo = pkg?.repository?.url.match(
       /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
     )
 
     // Create project on backend
     const savedProject = await projects.create({
       accountId,
-      repoUrl: `${repo.groups.author}/${repo.groups.project}`,
+      // repoUrl: `${repo.groups.author}/${repo.groups.project}`,
       name: args.projectName,
       activated: true,
       muted: false,
@@ -90,5 +91,9 @@ class InitCommand extends Command {
 }
 
 InitCommand.description = 'Initialise a new Checkly Project'
+
+InitCommand.flags = {
+  force,
+}
 
 module.exports = InitCommand
