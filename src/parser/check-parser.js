@@ -69,7 +69,7 @@ async function parseChecksTree(tree, parent = null) {
     parsedTree.groups[tree[i].name] = {
       name: tree[i].name,
       settings: groupSettings.settings,
-      ...parseChecksTree(tree[i].checks, groupSettings.settings),
+      ...(await parseChecksTree(tree[i].checks, groupSettings.settings)),
     }
   }
   return parsedTree
