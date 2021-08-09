@@ -7,6 +7,8 @@ const chalk = require('chalk')
 const raccoon = require('../services/raccoon')
 const config = require('../services/config')
 
+const { account } = require('./../services/api')
+
 const generateMaskedKey = (key) => {
   const maskedKey = key.replace(/[a-zA-Z0-9]/g, '*').slice(0, key.length - 4)
   const lastFourDigitsKey = key.slice(-4)
@@ -57,6 +59,14 @@ class LoginCommand extends Command {
 
       apiKey = newApiKey
     }
+
+    // TODO: Ask for account default settings like locations and alerts
+
+    const { data } = await account.findOne()
+    const { accountId, name } = data
+
+    config.set('accountId', accountId)
+    config.set('accountName', name)
 
     config.set('apiKey', apiKey)
     config.set('isInitialized', 'true')
