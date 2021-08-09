@@ -11,14 +11,14 @@ project:
   id: ${projectId}
   name: ${projectName}
 checkDefaults:
-  - locations: ['us-east-1', 'eu-central-1']
-    interval: 5min
-    alerts:
-      - type: email
-        sendOn:
-          - recover
-          - degrade
-          - fail`
+  locations: ['us-east-1', 'eu-central-1']
+  interval: 5min
+  alerts:
+    - type: email
+      sendOn:
+        - recover
+        - degrade
+        - fail`
 }
 
 const checkTemplate = () => {

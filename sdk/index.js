@@ -43,7 +43,7 @@ function init({ api, apiKey, baseURL }) {
     },
 
     deploy(checks) {
-      return _api.post('http://localhost:3000/next/checks/deploy', checks)
+      return _api.post('http://localhost:3000/next/projects/deploy', checks)
     },
   }
 
