@@ -129,6 +129,7 @@ class InitCommand extends Command {
     //   muted: false,
     // })
 
+    // TODO: Check if we still need to fetch account data
     const accountId = config.get('accountId')
     const accountName = config.get('accountName')
 
