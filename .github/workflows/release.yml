@@ -6,6 +6,7 @@ on:
       - 'main'
       - 'next'
   pull_request:
+    branches:
       - 'ndom91/*'
 
 jobs:
