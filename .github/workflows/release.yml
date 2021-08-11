@@ -5,10 +5,7 @@ on:
     branches:
       - 'main'
       - 'next'
-      - 'ndom91/*'
   pull_request:
-    branches:
-      - 'ndom91/*'
 
 jobs:
   test:
