@@ -5,7 +5,7 @@ module.exports = ({ accountId, accountName, projectId, projectName }) => {
 project:
   - id: ${projectId}
     name: ${projectName}
-checkDefaults:
+settings:
   - locations: ['us-east-1', 'eu-central-1']
     interval: 5min
     alerts:
