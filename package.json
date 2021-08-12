@@ -20,7 +20,7 @@
     "cli"
   ],
   "license": "MIT",
-  "main": "src/index.js",
+  "main": "bin/run",
   "oclif": {
     "commands": "./src/commands",
     "bin": "checkly",
@@ -39,7 +39,8 @@
     "/bin",
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json",
-    "/src"
+    "/src",
+    "/sdk"
   ],
   "scripts": {
     "build": "echo NO BUILD",
