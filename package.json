@@ -39,7 +39,8 @@
     "/bin",
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json",
-    "/src"
+    "/src",
+    "/sdk"
   ],
   "scripts": {
     "build": "echo NO BUILD",
