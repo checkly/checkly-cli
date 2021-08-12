@@ -27,6 +27,7 @@ class ChecksCommand extends Command {
       case 'info':
         return checks.info(args.id, { ...flags })
       case 'deploy':
+        console.log('flags', flags)
         return checks.deploy({ ...flags })
       default:
         return checks.list({ ...flags })
@@ -41,6 +42,11 @@ ChecksCommand.flags = {
   checkName: flags.string({
     char: 'c',
     description: 'Check upon which to execute action',
+  }),
+  dryRun: flags.boolean({
+    char: 'x',
+    default: false,
+    description: 'Do not actually write any changes',
   }),
 }
 

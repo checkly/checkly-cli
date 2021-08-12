@@ -42,8 +42,12 @@ function init({ api, apiKey, baseURL }) {
       return _api.get(endpoints.CHECKS + '/' + id)
     },
 
-    deploy(checks) {
-      return _api.post('http://localhost:3000/next/projects/deploy', checks)
+    deploy(checks, flags) {
+      const { dryRun } = flags
+      return _api.post(
+        `http://localhost:3000/next/projects/deploy?dryRun=${dryRun}`,
+        checks
+      )
     },
   }
 
