@@ -10,4 +10,10 @@ module.exports = {
     default: defaultOutput,
     options: ['plain', 'human', 'json'],
   }),
+
+  force: flags.string({
+    char: 'f',
+    description: 'force mode',
+    default: false,
+  }),
 }
