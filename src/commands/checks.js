@@ -27,7 +27,6 @@ class ChecksCommand extends Command {
       case 'info':
         return checks.info(args.id, { ...flags })
       case 'deploy':
-        console.log('flags', flags)
         return checks.deploy({ ...flags })
       default:
         return checks.list({ ...flags })

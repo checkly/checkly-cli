@@ -11,6 +11,7 @@ async function deployChecks(flags) {
     const projectId = settings.project.id
 
     console.log({ projectId, ...parsedChecks })
+
     const { data } = await checks.deploy(
       { projectId, ...parsedChecks },
       { dryRun }
