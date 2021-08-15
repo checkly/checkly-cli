@@ -1,11 +1,60 @@
 const fs = require('fs')
-const { readFile } = require('fs/promises')
 const path = require('path')
 const consola = require('consola')
+// const { readFile } = require('fs/promises')
 const { Command } = require('@oclif/command')
-const { account, projects } = require('./../services/api')
+const { prompt } = require('inquirer')
+
+const { force } = require('./../services/flags')
 const config = require('./../services/config')
-const { defaultCheckTemplate, settingsTemplate } = require('../templates/init')
+// const { account, projects } = require('./../services/api')
+
+const apiTemplates = require('../templates/api')
+const browserTemplates = require('../templates/browser')
+const settingsTemplate = require('../templates/settings')
+
+const API = 'API'
+const BROWSER = 'BROWSER'
+
+const BASIC = 'basic'
+const ADVANCED = 'advanced'
+
+// TODO: Move this into a service
+function createChecklyDirectory({ dirName, mode, checkTypes, url }) {
+  fs.mkdirSync(dirName)
+  fs.mkdirSync(path.join(dirName, 'checks'))
+
+  if (checkTypes.includes(API)) {
+    fs.writeFileSync(
+      path.join(dirName, 'checks', 'example-api.yml'),
+      apiTemplates[mode]({ url })
+    )
+  }
+
+  if (checkTypes.includes(BROWSER)) {
+    fs.writeFileSync(
+      path.join(dirName, 'checks', 'example-browser.yml'),
+      browserTemplates[mode]({ url })
+    )
+  }
+}
+
+function createSettingsFile({
+  dirName,
+  accountId,
+  accountName,
+  projectName,
+  projectId,
+}) {
+  const accountSettingsYml = settingsTemplate({
+    accountId,
+    accountName,
+    projectName,
+    // projectId: savedProject.data.id,
+  })
+
+  fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
+}
 
 class InitCommand extends Command {
   static args = [
@@ -19,63 +68,78 @@ class InitCommand extends Command {
 
   async run() {
     const { args } = this.parse(InitCommand)
-    const dirName = path.join(__dirname, '../../.checkly')
+    const cwd = process.cwd()
+    const dirName = path.join(cwd, './.checkly')
 
-    // Setup repo .checkly dir
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
       consola.debug(` Directory \`${process.cwd()}/.checkly\` already exists\n`)
       return process.exit(1)
     }
-    fs.mkdirSync(dirName)
 
-    // Fetch required info
-    const { data } = await account.findOne()
-    const { accountId, name } = data
+    const { checkTypes, url, mode } = await prompt([
+      {
+        name: 'checkTypes',
+        type: 'checkbox',
+        message: 'What do you want to monitor?',
+        validate: (checkTypes) =>
+          checkTypes.length > 0 ? true : 'You have to pick at least one type',
+        choices: [API, BROWSER],
+        default: [API],
+      },
+      {
+        name: 'url',
+        type: 'input',
+        validate: (url) =>
+          url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
+            ? true
+            : 'Please enter a valid URL',
+        message: 'Which is the URL you want to monitor',
+      },
+      {
+        name: 'mode',
+        type: 'list',
+        message:
+          'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
+        choices: [BASIC, ADVANCED],
+        default: BASIC,
+      },
+    ])
 
-    config.set('accountId', accountId)
+    // TODO: We should use something more generic to get git repo
+    // Some people will not use nodejs based projects
+    // https://github.com/nodegit/nodegit
+    // let repoUrl
+    // const pkgPath = path.join(cwd, './package.json')
+    // if (fs.existsSync(pkgPath)) {
+    //   const pkg = JSON.parse(await readFile(pkgPath))
+    //   const repo = pkg.repository?.url?.match(
+    //     /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
+    //   )
+    //   repoUrl = `${repo?.groups?.author}/${repo?.groups?.project}`
+    // }
 
-    // Example Check YML
-    const exampleCheckYml = defaultCheckTemplate()
+    // TODO: I think the project creation should done the
+    // first time the user runs deploy command.
+    // const savedProject = await projects.create({
+    //   accountId,
+    //   repoUrl,
+    //   name: args.projectName,
+    //   activated: true,
+    //   muted: false,
+    // })
 
-    // Create Checks Directory
-    fs.mkdirSync(path.join(dirName, 'checks'))
+    // TODO: Check if we still need to fetch account data
+    const accountId = config.get('accountId')
+    const accountName = config.get('accountName')
 
-    // Create Example Check
-    fs.writeFileSync(
-      path.join(dirName, 'checks', 'example.yml'),
-      exampleCheckYml
-    )
-
-    // Get package.json
-    const pkg = JSON.parse(
-      await readFile(path.join(__dirname, '../../package.json'))
-    )
-
-    // Grab repository name from repo url
-    const repo = pkg.repository.url.match(
-      /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
-    )
-
-    // Create project on backend
-    const savedProject = await projects.create({
+    createChecklyDirectory({ url, mode, checkTypes, dirName })
+    createSettingsFile({
+      dirName,
       accountId,
-      repoUrl: `${repo.groups.author}/${repo.groups.project}`,
-      name: args.projectName,
-      activated: true,
-      muted: false,
-    })
-
-    // Generate initial account settings
-    const accountSettingsYml = settingsTemplate({
-      accountId,
-      accountName: name,
+      accountName,
       projectName: args.projectName,
-      projectId: savedProject.data.id,
     })
-
-    // Write settings file
-    fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
 
     consola.success(' Project initialized 🎉 \n')
     consola.info(' You can now create checks via `checkly checks create`')
@@ -83,12 +147,16 @@ class InitCommand extends Command {
       ' Or check out the example check generated at `.checkly/checks/example.yml`\n'
     )
     consola.debug(
-      ` Generated @checkly/cli settings and folders at \`${process.cwd()}/.checkly\``
+      ` Generated @checkly/cli settings and folders at \`${cwd}/.checkly\``
     )
     return process.exit(0)
   }
 }
 
 InitCommand.description = 'Initialise a new Checkly Project'
+
+InitCommand.flags = {
+  force,
+}
 
 module.exports = InitCommand

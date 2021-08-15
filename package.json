@@ -39,7 +39,8 @@
     "/bin",
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json",
-    "/src"
+    "/src",
+    "/sdk"
   ],
   "scripts": {
     "build": "echo NO BUILD",
@@ -65,6 +66,7 @@
     "consola": "2.15.0",
     "console.table": "0.10.0",
     "date-fns": "2.23.0",
+    "inquirer": "8.1.2",
     "lodash.isequal": "4.5.0",
     "mqtt": "4.2.8",
     "rollup": "2.55.1",
