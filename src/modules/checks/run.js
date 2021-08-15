@@ -92,6 +92,8 @@ async function runCheck(checkName = '') {
 
     if (results.status === 202) {
       consola.info(' Check successfully submitted')
+    } else {
+      consola.error(' Error submitting check', results)
     }
   } catch (err) {
     consola.error(err)

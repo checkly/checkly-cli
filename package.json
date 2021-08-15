@@ -20,7 +20,7 @@
     "cli"
   ],
   "license": "MIT",
-  "main": "src/index.js",
+  "main": "bin/run",
   "oclif": {
     "commands": "./src/commands",
     "bin": "checkly",
