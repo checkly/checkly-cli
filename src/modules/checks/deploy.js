@@ -7,13 +7,18 @@ async function deployChecks(flags) {
   const { output, dryRun } = flags
   try {
     const settings = await readLocal('./.checkly/settings.yml')
-    const parsedChecks = await parser()
+    const parseResults = await parser()
     const projectId = settings.project.id
 
-    console.log({ projectId, ...parsedChecks })
+    // DEBUG
+    console.log({
+      projectId,
+      ...Object.keys(parseResults.checks),
+      ...Object.keys(parseResults.groups),
+    })
 
     const { data } = await checks.deploy(
-      { projectId, ...parsedChecks },
+      { projectId, ...parseResults },
       { dryRun }
     )
     print(data, { output })
