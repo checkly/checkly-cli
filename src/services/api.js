@@ -6,7 +6,7 @@ const sdk = require('../../sdk')
 const config = require('./config')
 
 const env = process.env.NODE_ENV || config.get('env')
-const apiKey = config.get('apiKey')
+const apiKey = process.env.CHECKLY_API_KEY || config.get('apiKey')
 const baseHost = config.get(`${env}.apiUrl`)
 const basePath = config.get(`${env}.apiVersion`)
 const Authorization = `Bearer ${apiKey}`
