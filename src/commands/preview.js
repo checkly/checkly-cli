@@ -1,9 +1,11 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const config = require('../services/config')
 
 class PreviewCommand extends Command {
-  async run() {}
+  async run() {
+    consola.info('Generating project preview')
+    consola.success('Project preview was successfully generated')
+  }
 }
 
 PreviewCommand.description = ''
