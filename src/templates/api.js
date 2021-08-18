@@ -1,27 +1,39 @@
 const DEFAULT_URL = 'https://checklyhq.com'
+const DEFAULT_LOCATIONS = ['us-east1', 'eu-west-1']
+const DEFAULT_FREQUENCY = 10
+const DEFAULT_NAME = 'API Check'
 
 module.exports = {
-  basic: ({ url = DEFAULT_URL }) => {
+  basic: ({
+    name = DEFAULT_NAME,
+    url = DEFAULT_URL,
+    locations = DEFAULT_LOCATIONS,
+    frequency = DEFAULT_FREQUENCY,
+  }) => {
     return `checkType: API
-name: API Check #1
+name: ${name}
 url: ${url}
-frequency: 10
+frequency: ${frequency}
 locations:
-  - eu-central-1
-  - eu-west-3`
+  - ${locations.join('\n  - ')}
+`
   },
 
-  advanced: ({ url = DEFAULT_URL }) => {
+  advanced: ({
+    name = DEFAULT_NAME,
+    url = DEFAULT_URL,
+    locations = DEFAULT_LOCATIONS,
+    frequency = DEFAULT_FREQUENCY,
+  }) => {
     return `checkType: API
-name: 'API Check #1'
+name: ${name}
 url: ${url}
-frequency: 10
+frequency: ${frequency}
 activated: true
 muted: false
 doubleCheck: true
 locations:
-  - eu-central-1
-  - eu-west-3
+  - ${locations.join('\n  - ')}
 
 alertSettings:
   muted: false
@@ -38,6 +50,7 @@ alertSettings:
     alertThreshold: 30
 useGlobalAlertSettings: true
 environmentVariables: []
-tags: []`
+tags: []
+`
   },
 }

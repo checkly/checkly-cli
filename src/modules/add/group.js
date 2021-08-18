@@ -1,0 +1,46 @@
+const fs = require('fs')
+const path = require('path')
+const { prompt } = require('inquirer')
+const { locations: locationsApi } = require('../../services/api')
+const { getChecklyDirName } = require('../../services/files')
+
+const groupSettingsTemplates = require('../../templates/group-settings')
+
+async function check() {
+  const { data } = await locationsApi.getAll()
+  const regions = data.map(({ region }) => region)
+
+  const { name, locations } = await prompt([
+    {
+      name: 'name',
+      type: 'input',
+      message: 'Your group name',
+    },
+    {
+      name: 'locations',
+      type: 'checkbox',
+      choices: regions,
+      validate: (locations) =>
+        locations.length > 0 ? true : 'You have to pick at least one location',
+      message: 'Select your target locations (we recommend to pick at least 2)',
+    },
+  ])
+
+  const key = name.toLowerCase().replace(/ /g, '-').trim()
+  let filePath = path.join(getChecklyDirName(), 'checks', key)
+  let tryIndex = 0
+
+  while (fs.existsSync(filePath)) {
+    tryIndex += 1
+    filePath = path.join(getChecklyDirName(), 'checks', key + tryIndex)
+  }
+
+  fs.mkdirSync(path.join(getChecklyDirName(), 'checks', key))
+
+  fs.writeFileSync(
+    path.join(filePath, 'settings.yml'),
+    groupSettingsTemplates({ name, locations })
+  )
+}
+
+module.exports = check

@@ -78,12 +78,19 @@ function init({ api, apiKey, baseURL }) {
     },
   }
 
+  const locations = {
+    getAll() {
+      return _api.get(endpoints.LOCATIONS)
+    },
+  }
+
   return {
     checks,
     account,
     checkStatuses,
     projects,
     socket,
+    locations,
   }
 }
 

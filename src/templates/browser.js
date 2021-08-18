@@ -1,14 +1,22 @@
 const DEFAULT_URL = 'https://checklyhq.com'
 const DEFAULT_TITLE = 'Delightful Active Monitoring for Developers'
+const DEFAULT_LOCATIONS = ['us-east1', 'eu-west-1']
+const DEFAULT_FREQUENCY = 10
+const DEFAULT_NAME = 'API Check'
 
 module.exports = {
-  basic: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
+  basic: ({
+    name = DEFAULT_NAME,
+    url = DEFAULT_URL,
+    title = DEFAULT_TITLE,
+    locations = DEFAULT_LOCATIONS,
+    frequency = DEFAULT_FREQUENCY,
+  }) => {
     return `checkType: BROWSER
-name: Browser Check #1
-frequency: 10
+name: ${name}
+frequency: ${frequency}
 locations:
-  - eu-central-1
-  - eu-west-3
+  - ${locations.join('\n  - ')}
 script: |-
   const { chromium } = require("playwright")
   const expect = require("expect")
@@ -28,16 +36,21 @@ script: |-
   await browser.close()`
   },
 
-  advanced: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
+  advanced: ({
+    name = DEFAULT_NAME,
+    url = DEFAULT_URL,
+    title = DEFAULT_TITLE,
+    locations = DEFAULT_LOCATIONS,
+    frequency = DEFAULT_FREQUENCY,
+  }) => {
     return `checkType: BROWSER
-name: Browser Check #1
-frequency: 10
+name: ${name}
+frequency: ${frequency}
 activated: true
 muted: false
 doubleCheck: true
 locations:
-  - eu-central-1
-  - eu-west-3
+  - ${locations.join('\n  - ')}
 script: |-
   const { chromium } = require("playwright")
   const expect = require("expect")
