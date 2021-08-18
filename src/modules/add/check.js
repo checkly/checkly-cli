@@ -1,6 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 const { prompt } = require('inquirer')
+const consola = require('consola')
+
 const { locations: locationsApi } = require('../../services/api')
 const { getChecklyDirName } = require('../../services/files')
 
@@ -10,6 +12,8 @@ const browserTemplates = require('../../templates/browser')
 async function check() {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
+
+  consola.info('Creting new check file')
 
   const { name, type, url, locations } = await prompt([
     {
@@ -70,6 +74,8 @@ async function check() {
       ? browserTemplates.basic({ url, name, frequency, locations })
       : apiTemplates.basic({ url, name, frequency, locations })
   )
+
+  consola.success(`Created new ${type} check: ${key}`)
 }
 
 module.exports = check

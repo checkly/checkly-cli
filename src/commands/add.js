@@ -1,6 +1,5 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const config = require('../services/config')
 const add = require('../modules/add')
 
 const files = require('../services/files')
@@ -33,6 +32,6 @@ class AddCommand extends Command {
   }
 }
 
-AddCommand.description = 'Add new group or check file'
+AddCommand.description = 'Add a new group or check file'
 
 module.exports = AddCommand

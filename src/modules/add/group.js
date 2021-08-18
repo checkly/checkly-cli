@@ -1,6 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 const { prompt } = require('inquirer')
+const consola = require('consola')
+
 const { locations: locationsApi } = require('../../services/api')
 const { getChecklyDirName } = require('../../services/files')
 
@@ -9,6 +11,8 @@ const groupSettingsTemplates = require('../../templates/group-settings')
 async function check() {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
+
+  consola.info('Creting new group directory')
 
   const { name, locations } = await prompt([
     {
@@ -41,6 +45,8 @@ async function check() {
     path.join(filePath, 'settings.yml'),
     groupSettingsTemplates({ name, locations })
   )
+
+  consola.success(`Created new group: ${key}`)
 }
 
 module.exports = check

@@ -17,13 +17,13 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(function (config) {
-  cli.action.start('')
+  cli.action.start('Fetching API')
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    cli.action.stop('')
+    cli.action.stop('\n')
     return res
   },
   (error) => {
