@@ -86,6 +86,12 @@ function init({ api, baseHost, basePath }) {
     },
   }
 
+  const locations = {
+    getAll() {
+      return _api.get(endpoints.LOCATIONS)
+    },
+  }
+
   return {
     checks,
     groups,
@@ -93,6 +99,7 @@ function init({ api, baseHost, basePath }) {
     checkStatuses,
     projects,
     socket,
+    locations,
   }
 }
 
