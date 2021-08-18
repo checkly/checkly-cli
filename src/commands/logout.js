@@ -2,13 +2,13 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const config = require('../services/config')
 
-class Logout extends Command {
+class LogoutCommand extends Command {
   async run() {
     config.clear()
     consola.success('See you soon! 👋')
   }
 }
 
-Logout.description = 'Logout and clear local conf'
+LogoutCommand.description = 'Logout and clear local conf'
 
-module.exports = Logout
+module.exports = LogoutCommand
