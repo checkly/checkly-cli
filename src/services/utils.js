@@ -35,7 +35,43 @@ async function readLocal(path) {
   }
 }
 
+function printDeployResults(data, flags) {
+  const { output, dryRun } = flags
+  if (dryRun) {
+    data.forEach((entity) => {
+      console.log(entity.type)
+      print(
+        {
+          create: entity.actions.create.map((item) => item.logicalId),
+          update: entity.actions.update.map((item) => item.logicalId),
+          delete: entity.actions.delete.map((item) => item.logicalId),
+        },
+        { output }
+      )
+    })
+  } else {
+    data.forEach((entity) => {
+      console.log(entity.type)
+      print(
+        {
+          create: entity.typeResult
+            .find((actionItem) => actionItem.action === 'create')
+            .results.map((item) => item.logicalId),
+          update: entity.typeResult
+            .find((actionItem) => actionItem.action === 'update')
+            .results.map((item) => item.logicalId),
+          delete: entity.typeResult
+            .find((actionItem) => actionItem.action === 'delete')
+            .results.map((item) => item.logicalId),
+        },
+        { output }
+      )
+    })
+  }
+}
+
 module.exports = {
   print,
   readLocal,
+  printDeployResults,
 }

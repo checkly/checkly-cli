@@ -1,27 +1,28 @@
 const consola = require('consola')
 const { checks } = require('../../services/api')
-const { print, readLocal } = require('../../services/utils')
+const { printDeployResults, readLocal } = require('../../services/utils')
 const parser = require('../../parser')
 
 async function deployChecks(flags) {
-  const { output, dryRun } = flags
+  const { dryRun } = flags
   try {
     const settings = await readLocal('./.checkly/settings.yml')
     const parseResults = await parser()
     const projectId = settings.project.id
 
-    // DEBUG
-    console.log({
+    consola.debug('Keys of objects sent to API:')
+    consola.debug({
       projectId,
-      ...Object.keys(parseResults.checks),
-      ...Object.keys(parseResults.groups),
+      checks: Object.keys(parseResults.checks),
+      groups: Object.keys(parseResults.groups),
     })
 
     const { data } = await checks.deploy(
       { projectId, ...parseResults },
       { dryRun }
     )
-    print(data, { output })
+
+    printDeployResults(data, flags)
   } catch (err) {
     consola.error(err)
   }
