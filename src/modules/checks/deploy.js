@@ -10,8 +10,8 @@ async function deployChecks(flags) {
     const parseResults = await parser()
     const projectId = settings.project.id
 
-    // DEBUG
-    console.log({
+    consola.debug('Keys of objects sent to API:')
+    consola.debug({
       projectId,
       checks: Object.keys(parseResults.checks),
       groups: Object.keys(parseResults.groups),
