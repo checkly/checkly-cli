@@ -23,7 +23,7 @@ checkDefaults:
 
 const checkTemplate = () => {
   return `type: browser
-name: Example Check #1
+name: "Example Check #1"
 url: https://jsonplaceholder.typicode.com/users
     `
 }
