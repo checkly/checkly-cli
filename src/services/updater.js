@@ -8,7 +8,7 @@ module.exports = function () {
     updateCheckInterval: 1000 * 60,
   })
 
-  if (config.get('env') !== 'development') {
+  if (config.getEnv() !== 'development') {
     notifier.notify({ isGlobal: true })
   }
 }
