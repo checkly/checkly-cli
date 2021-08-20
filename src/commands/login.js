@@ -8,6 +8,7 @@ const raccoon = require('../services/raccoon')
 const config = require('../services/config')
 
 const { account } = require('./../services/api')
+const api = require('./../services/api')
 
 const generateMaskedKey = (key) => {
   const maskedKey = key.replace(/[a-zA-Z0-9]/g, '*').slice(0, key.length - 4)
@@ -62,18 +63,19 @@ class LoginCommand extends Command {
 
     // TODO: Ask for account default settings like locations and alerts
 
+    config.set('apiKey', apiKey)
+    config.set('isInitialized', 'true')
+    api.refresh()
+
     const { data } = await account.findOne()
     const { accountId, name } = data
 
     config.set('accountId', accountId)
     config.set('accountName', name)
 
-    config.set('apiKey', apiKey)
-    config.set('isInitialized', 'true')
-
-    // Output success message and next steps
-    console.log(chalk.blue(raccoon))
-    consola.log(`API Key set (${generateMaskedKey(apiKey)})\n`)
+    process.stdout.write('\x1Bc')
+    process.stdout.write(chalk.blue(raccoon))
+    consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
     consola.success(' Welcome to checkly-cli 🦝')
     consola.log('You can now run `checkly init` to setup the project!')
   }
