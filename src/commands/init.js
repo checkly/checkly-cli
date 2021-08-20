@@ -7,7 +7,7 @@ const { prompt } = require('inquirer')
 
 const { force } = require('./../services/flags')
 const config = require('./../services/config')
-// const { account, projects } = require('./../services/api')
+const { projects } = require('./../services/api')
 
 const apiTemplates = require('../templates/api')
 const browserTemplates = require('../templates/browser')
@@ -50,7 +50,7 @@ function createSettingsFile({
     accountId,
     accountName,
     projectName,
-    // projectId: savedProject.data.id,
+    projectId,
   })
 
   fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
@@ -119,19 +119,16 @@ class InitCommand extends Command {
     //   repoUrl = `${repo?.groups?.author}/${repo?.groups?.project}`
     // }
 
-    // TODO: I think the project creation should done the
-    // first time the user runs deploy command.
-    // const savedProject = await projects.create({
-    //   accountId,
-    //   repoUrl,
-    //   name: args.projectName,
-    //   activated: true,
-    //   muted: false,
-    // })
-
     // TODO: Check if we still need to fetch account data
     const accountId = config.get('accountId')
     const accountName = config.get('accountName')
+
+    const { data: project } = await projects.create({
+      accountId,
+      name: args.projectName,
+      activated: true,
+      muted: false,
+    })
 
     createChecklyDirectory({ url, mode, checkTypes, dirName })
     createSettingsFile({
@@ -139,6 +136,7 @@ class InitCommand extends Command {
       accountId,
       accountName,
       projectName: args.projectName,
+      projectId: project.id,
     })
 
     consola.success(' Project initialized 🎉 \n')
