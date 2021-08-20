@@ -75,13 +75,16 @@ async function runCheck(checkName = '') {
     // Get requested check from local yml file (by checkName)
     const rawChecks = await checks.getAllLocal()
     const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
-    const selectedCheck = parsedChecks.filter(
-      (check) => check.name === checkName
-    )
+    const selectedCheck = parsedChecks.find((check) => check.name === checkName)
+
+    if (!selectedCheck) {
+      consola.error(' No check found with that name, please try again.')
+      process.exit(1)
+    }
 
     // Build check payload object
     const browserCheck = {
-      ...selectedCheck[0],
+      ...selectedCheck,
       websocketClientId: socketClientId,
       runLocation: 'eu-central-1',
       runtimeId: '2020.01',
