@@ -11,7 +11,7 @@ project:
   id: ${projectId}
   name: ${projectName}
 checkDefaults:
-  locations: ['us-east-1', 'eu-central-1']
+  locations: ["us-east-1", "eu-central-1"]
   interval: 5min
   alerts:
     - type: email
@@ -23,14 +23,14 @@ checkDefaults:
 
 const checkTemplate = () => {
   return `type: browser
-name: Example Check #1
+name: "Example Check #1"
 url: https://jsonplaceholder.typicode.com/users
     `
 }
 
 const defaultCheckTemplate = () => {
   return `checkType: BROWSER
-name: 'example'
+name: "example"
 frequency: 10
 activated: true
 muted: false
