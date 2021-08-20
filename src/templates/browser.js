@@ -4,7 +4,7 @@ const DEFAULT_TITLE = 'Delightful Active Monitoring for Developers'
 module.exports = {
   basic: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
     return `checkType: BROWSER
-name: Browser Check #1
+name: "Browser Check #1"
 frequency: 10
 locations:
   - eu-central-1
@@ -30,7 +30,7 @@ script: |-
 
   advanced: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
     return `checkType: BROWSER
-name: Browser Check #1
+name: "Browser Check #1"
 frequency: 10
 activated: true
 muted: false

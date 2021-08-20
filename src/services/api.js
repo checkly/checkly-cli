@@ -1,15 +1,33 @@
+const ora = require('ora')
 const axios = require('axios')
 const consola = require('consola')
-const { cli } = require('cli-ux')
 
 const sdk = require('../../sdk')
 const config = require('./config')
 
-const env = process.env.NODE_ENV || config.get('env')
-const apiKey = process.env.CHECKLY_API_KEY || config.get('apiKey')
-const baseHost = config.get(`${env}.apiUrl`)
-const basePath = config.get(`${env}.apiVersion`)
-const Authorization = `Bearer ${apiKey}`
+const spinner = ora({
+  text: 'Fetching Checkly API',
+  spinner: 'moon',
+  color: 'cyan',
+})
+
+function getApiDefaults() {
+  const env = config.getEnv()
+  const apiKey = config.getApiKey()
+  const baseHost = config.get(`${env}.apiUrl`)
+  const basePath = config.get(`${env}.apiVersion`)
+  const Authorization = `Bearer ${apiKey}`
+
+  return { baseHost, basePath, Authorization }
+}
+
+function refresh() {
+  const { baseHost, basePath, Authorization } = getApiDefaults()
+  api.defaults.headers.Authorization = Authorization
+  api.defaults.baseURL = `${baseHost}${basePath}`
+}
+
+const { baseHost, basePath, Authorization } = getApiDefaults()
 
 const api = axios.create({
   baseURL: `${baseHost}${basePath}`,
@@ -17,22 +35,21 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(function (config) {
-  cli.action.start('Fetching')
+  process.stdout.write('\n')
+  spinner.start()
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    cli.action.stop('done!')
+    spinner.stop()
     return res
   },
   (error) => {
+    spinner.stop()
     consola.error(error)
     return Promise.reject(error)
   }
 )
 
-module.exports = sdk.init({
-  api,
-  apiKey,
-})
+module.exports = { refresh, ...sdk.init({ api }) }
