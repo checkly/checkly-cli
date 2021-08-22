@@ -1,11 +1,17 @@
 const ENDPOINTS = {
-  CHECKS: 'checks',
-  CHECKS_RUN: 'checks/browser-check-runs',
-  ACCOUNT: 'account',
-  CHECK_STATUSES: 'check-statuses',
+  CHECKS: {
+    GET: 'checks',
+    RUN: 'checks/browser-check-runs',
+    STATUS: 'check-statuses',
+  },
+  ACCOUNTS: {
+    GET: 'account',
+  },
+  PROJECTS: {
+    GET: 'projects',
+    DEPLOY: 'projects/deploy',
+  },
   SIGNED_URL: 'sockets/signed-url',
-  PROJECTS: 'projects',
-  PROJECTS_DEPLOY: 'projects/deploy',
 }
 
 module.exports = {

@@ -4,7 +4,10 @@ const { readdir, readFile } = require('fs/promises')
 function init({ api, baseHost, basePath }) {
   const checks = {
     getAll({ limit, page } = {}) {
-      return api.get(`/${basePath}/${endpoints.CHECKS}`, { limit, page })
+      return api.get(`/${basePath}/${endpoints.CHECKS.GET}`, {
+        limit,
+        page,
+      })
     },
 
     async getAllLocal() {
@@ -15,11 +18,11 @@ function init({ api, baseHost, basePath }) {
     },
 
     run(check) {
-      return api.post(`/next/${endpoints.CHECKS_RUN}`, check)
+      return api.post(`/next/${endpoints.CHECKS.RUN}`, check)
     },
 
     create({ script, name, checkType = 'BROWSER', activated = true } = {}) {
-      return api.post(`/${basePath}/${endpoints.CHECKS}`, {
+      return api.post(`/${basePath}/${endpoints.CHECKS.GET}`, {
         name,
         script,
         checkType,
@@ -28,13 +31,13 @@ function init({ api, baseHost, basePath }) {
     },
 
     get(id) {
-      return api.get(`/${basePath}/${endpoints.CHECKS}/${id}`)
+      return api.get(`/${basePath}/${endpoints.CHECKS.GET}/${id}`)
     },
 
     deploy(checks, flags) {
       const { dryRun } = flags
       return api.post(
-        `/next/${endpoints.PROJECTS_DEPLOY}?dryRun=${dryRun}`,
+        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}`,
         checks
       )
     },
@@ -42,13 +45,13 @@ function init({ api, baseHost, basePath }) {
 
   const account = {
     findOne() {
-      return api.get(`/${basePath}/${endpoints.ACCOUNT}`)
+      return api.get(`/${basePath}/${endpoints.ACCOUNTS.GET}`)
     },
   }
 
   const checkStatuses = {
     getAll({ limit, page } = {}) {
-      return api.get(`/${basePath}/${endpoints.CHECK_STATUSES}`, {
+      return api.get(`/${basePath}/${endpoints.CHECKS.STATUS}`, {
         limit,
         page,
       })
@@ -57,10 +60,10 @@ function init({ api, baseHost, basePath }) {
 
   const projects = {
     getAll() {
-      return api.get(`/next/${endpoints.PROJECTS}`)
+      return api.get(`/next/${endpoints.PROJECTS.GET}`)
     },
     create(project) {
-      return api.post(`/next/${endpoints.PROJECTS}`, project)
+      return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
   }
 
