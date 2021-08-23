@@ -1,20 +1,13 @@
-const axios = require('axios')
 const endpoints = require('./endpoints')
 const { readdir, readFile } = require('fs/promises')
 
-function init({ api, apiKey, baseURL }) {
-  const Authorization = `Bearer ${apiKey}`
-
-  const _api =
-    api ||
-    axios.create({
-      baseURL,
-      headers: { Authorization },
-    })
-
+function init({ api, baseHost, basePath }) {
   const checks = {
     getAll({ limit, page } = {}) {
-      return _api.get(endpoints.CHECKS, { limit, page })
+      return api.get(`/${basePath}/${endpoints.CHECKS.GET}`, {
+        limit,
+        page,
+      })
     },
 
     async getAllLocal() {
@@ -25,24 +18,26 @@ function init({ api, apiKey, baseURL }) {
     },
 
     run(check) {
-      return _api.post(
-        'http://localhost:3000/next/checks/browser-check-runs',
-        check
-      )
+      return api.post(`/next/${endpoints.CHECKS.RUN}`, check)
     },
 
     create({ script, name, checkType = 'BROWSER', activated = true } = {}) {
-      return _api.post(endpoints.CHECKS, { name, script, checkType, activated })
+      return api.post(`/${basePath}/${endpoints.CHECKS.GET}`, {
+        name,
+        script,
+        checkType,
+        activated,
+      })
     },
 
     get(id) {
-      return _api.get(endpoints.CHECKS + '/' + id)
+      return api.get(`/${basePath}/${endpoints.CHECKS.GET}/${id}`)
     },
 
     deploy(checks, flags) {
       const { dryRun } = flags
-      return _api.post(
-        `http://localhost:3000/next/projects/deploy?dryRun=${dryRun}`,
+      return api.post(
+        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}`,
         checks
       )
     },
@@ -50,28 +45,31 @@ function init({ api, apiKey, baseURL }) {
 
   const account = {
     findOne() {
-      return _api.get(endpoints.ACCOUNT)
+      return api.get(`/${basePath}/${endpoints.ACCOUNTS.GET}`)
     },
   }
 
   const checkStatuses = {
     getAll({ limit, page } = {}) {
-      return _api.get(endpoints.CHECK_STATUSES, { limit, page })
+      return api.get(`/${basePath}/${endpoints.CHECKS.STATUS}`, {
+        limit,
+        page,
+      })
     },
   }
 
   const projects = {
     getAll() {
-      return _api.get('http://localhost:3000/next/projects')
+      return api.get(`/next/${endpoints.PROJECTS.GET}`)
     },
     create(project) {
-      return _api.post('http://localhost:3000/next/projects', project)
+      return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
   }
 
   const socket = {
     getSignedUrl() {
-      return _api.get('http://localhost:3000/next/sockets/signed-url')
+      return api.get(`/next/${endpoints.SIGNED_URL}`)
     },
   }
 
