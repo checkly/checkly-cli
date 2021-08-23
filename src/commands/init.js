@@ -5,9 +5,10 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
-const { force } = require('./../services/flags')
 const config = require('./../services/config')
+const { force } = require('./../services/flags')
 const { projects } = require('./../services/api')
+const { getRepoUrl } = require('./../services/utils')
 
 const apiTemplates = require('../templates/api')
 const browserTemplates = require('../templates/browser')
@@ -106,19 +107,6 @@ class InitCommand extends Command {
       },
     ])
 
-    // TODO: We should use something more generic to get git repo
-    // Some people will not use nodejs based projects
-    // https://github.com/nodegit/nodegit
-    // let repoUrl
-    // const pkgPath = path.join(cwd, './package.json')
-    // if (fs.existsSync(pkgPath)) {
-    //   const pkg = JSON.parse(await readFile(pkgPath))
-    //   const repo = pkg.repository?.url?.match(
-    //     /.*\/(?<author>[\w,\-,_]+)\/(?<project>[\w,\-,_]+)(.git)?$/
-    //   )
-    //   repoUrl = `${repo?.groups?.author}/${repo?.groups?.project}`
-    // }
-
     // TODO: Check if we still need to fetch account data
     const accountId = config.get('accountId')
     const accountName = config.get('accountName')
@@ -126,8 +114,11 @@ class InitCommand extends Command {
     const { data: project } = await projects.create({
       accountId,
       name: args.projectName,
+      repoUrl: await getRepoUrl(cwd),
       activated: true,
       muted: false,
+      created_at: new Date(),
+      state: {},
     })
 
     createChecklyDirectory({ url, mode, checkTypes, dirName })
