@@ -30,7 +30,7 @@ function refresh() {
 const { baseHost, basePath, Authorization } = getApiDefaults()
 
 const api = axios.create({
-  baseURL: `${baseHost}${basePath}`,
+  baseURL: `${baseHost}`,
   headers: { Authorization },
 })
 
@@ -52,4 +52,4 @@ api.interceptors.response.use(
   }
 )
 
-module.exports = { refresh, ...sdk.init({ api }) }
+module.exports = { refresh, ...sdk.init({ api, baseHost, basePath }) }
