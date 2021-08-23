@@ -36,10 +36,6 @@ ChecksCommand.description = 'Manage Checks'
 
 ChecksCommand.flags = {
   output,
-  checkName: flags.string({
-    char: 'c',
-    description: 'Check upon which to execute action',
-  }),
 }
 
 module.exports = ChecksCommand
