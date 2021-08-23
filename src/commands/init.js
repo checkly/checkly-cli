@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-// const { readFile } = require('fs/promises')
 const { Command } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
