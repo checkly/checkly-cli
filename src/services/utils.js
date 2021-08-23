@@ -1,7 +1,8 @@
-const consola = require('consola')
-const { readFile } = require('fs/promises')
-const table = require('text-table')
 const YAML = require('yaml')
+const consola = require('consola')
+const nodegit = require('nodegit')
+const table = require('text-table')
+const { readFile } = require('fs/promises')
 require('console.table')
 
 function print(data, { output } = {}) {
@@ -49,24 +50,36 @@ function printDeployResults(data, flags) {
         { output }
       )
     })
-  } else {
-    data.forEach((entity) => {
-      console.log(entity.type)
-      print(
-        {
-          create: entity.typeResult
-            .find((actionItem) => actionItem.action === 'create')
-            .results.map((item) => item.logicalId),
-          update: entity.typeResult
-            .find((actionItem) => actionItem.action === 'update')
-            .results.map((item) => item.logicalId),
-          delete: entity.typeResult
-            .find((actionItem) => actionItem.action === 'delete')
-            .results.map((item) => item.logicalId),
-        },
-        { output }
-      )
-    })
+    return
+  }
+
+  data.forEach((entity) => {
+    console.log(entity.type)
+    print(
+      {
+        create: entity.typeResult
+          .find((actionItem) => actionItem.action === 'create')
+          .results.map((item) => item.logicalId),
+        update: entity.typeResult
+          .find((actionItem) => actionItem.action === 'update')
+          .results.map((item) => item.logicalId),
+        delete: entity.typeResult
+          .find((actionItem) => actionItem.action === 'delete')
+          .results.map((item) => item.logicalId),
+      },
+      { output }
+    )
+  })
+}
+
+async function getRepoUrl(path, remoteName = 'origin') {
+  try {
+    const repository = await nodegit.Repository.open(path)
+    const remoteObject = await repository.getRemote(remoteName)
+    const remoteUrl = await remoteObject.url()
+    return remoteUrl
+  } catch (error) {
+    return path
   }
 }
 
@@ -74,4 +87,5 @@ module.exports = {
   print,
   readLocal,
   printDeployResults,
+  getRepoUrl,
 }
