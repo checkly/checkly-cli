@@ -11,6 +11,8 @@ const SocketClient = require('../services/socket-client.js')
 class RunCommand extends Command {
   async run() {
     try {
+      const { flags } = this.parse(RunCommand)
+
       // Setup Websocket IoT Core Connection
       const presignedIotUrl = await socket.getSignedUrl()
       consola.debug(` IoT Signed Url: ${presignedIotUrl.data.url}\n`)
@@ -80,7 +82,7 @@ class RunCommand extends Command {
       const rawChecks = await checks.getAllLocal()
       const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
       const selectedCheck = parsedChecks.find(
-        (check) => check.name === checkName
+        (check) => check.name === flags.checkName
       )
 
       if (!selectedCheck) {
@@ -116,6 +118,7 @@ RunCommand.flags = {
   output,
   checkName: flags.string({
     char: 'c',
+    required: true,
     description: 'Check upon which to execute action',
   }),
 }
