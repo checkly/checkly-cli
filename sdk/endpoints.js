@@ -7,6 +7,9 @@ const ENDPOINTS = {
   ACCOUNTS: {
     GET: 'account',
   },
+  GROUPS: {
+    GET: 'check-groups',
+  },
   PROJECTS: {
     GET: 'projects',
     DEPLOY: 'projects/deploy',

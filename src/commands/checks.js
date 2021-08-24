@@ -1,4 +1,4 @@
-const { Command, flags } = require('@oclif/command')
+const { Command } = require('@oclif/command')
 const checks = require('../modules/checks')
 const { output } = require('../services/flags')
 
@@ -9,7 +9,7 @@ class ChecksCommand extends Command {
       required: true,
       description: 'Specify the type of checks action to run',
       default: 'list',
-      options: ['list', 'info', 'run', 'deploy'],
+      options: ['list', 'info'],
     },
     {
       name: 'id',
@@ -26,8 +26,6 @@ class ChecksCommand extends Command {
         return checks.run(args.id, { ...flags })
       case 'info':
         return checks.info(args.id, { ...flags })
-      case 'deploy':
-        return checks.deploy({ ...flags })
       default:
         return checks.list({ ...flags })
     }
@@ -38,15 +36,6 @@ ChecksCommand.description = 'Manage Checks'
 
 ChecksCommand.flags = {
   output,
-  checkName: flags.string({
-    char: 'c',
-    description: 'Check upon which to execute action',
-  }),
-  dryRun: flags.boolean({
-    char: 'x',
-    default: false,
-    description: 'Do not actually write any changes',
-  }),
 }
 
 module.exports = ChecksCommand
