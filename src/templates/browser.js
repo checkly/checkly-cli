@@ -5,6 +5,7 @@ module.exports = {
   basic: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
     return `checkType: BROWSER
 name: "Browser Check #1"
+activated: true
 frequency: 10
 locations:
   - eu-central-1

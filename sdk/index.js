@@ -43,6 +43,19 @@ function init({ api, baseHost, basePath }) {
     },
   }
 
+  const groups = {
+    getAll({ limit, page } = {}) {
+      return api.get(`/${basePath}/${endpoints.GROUPS.GET}`, {
+        limit,
+        page,
+      })
+    },
+
+    get(id) {
+      return api.get(`/${basePath}/${endpoints.GROUPS.GET}/${id}`)
+    },
+  }
+
   const account = {
     findOne() {
       return api.get(`/${basePath}/${endpoints.ACCOUNTS.GET}`)
@@ -75,6 +88,7 @@ function init({ api, baseHost, basePath }) {
 
   return {
     checks,
+    groups,
     account,
     checkStatuses,
     projects,
