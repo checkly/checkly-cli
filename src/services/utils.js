@@ -6,7 +6,8 @@ const { readFile } = require('fs/promises')
 require('console.table')
 
 function print(data, { output } = {}) {
-  if (!data) {
+  if (!data && !data.length) {
+    consola.warn('No resources found')
     return
   }
 
