@@ -3,7 +3,7 @@ const DEFAULT_URL = 'https://checklyhq.com'
 module.exports = {
   basic: ({ url = DEFAULT_URL }) => {
     return `checkType: API
-name: API Check #1
+name: 'API Check #1'
 url: ${url}
 activated: true
 frequency: 10
