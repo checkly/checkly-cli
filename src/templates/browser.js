@@ -5,10 +5,11 @@ module.exports = {
   basic: ({ url = DEFAULT_URL, title = DEFAULT_TITLE }) => {
     return `checkType: BROWSER
 name: "Browser Check #1"
+activated: true
 frequency: 10
 locations:
-- eu-central-1
-- eu-west-3
+  - eu-central-1
+  - eu-west-3
 script: |-
   const { chromium } = require("playwright")
   const expect = require("expect")
@@ -36,8 +37,8 @@ activated: true
 muted: false
 doubleCheck: true
 locations:
-- eu-central-1
-- eu-west-3
+  - eu-central-1
+  - eu-west-3
 script: |-
   const { chromium } = require("playwright")
   const expect = require("expect")

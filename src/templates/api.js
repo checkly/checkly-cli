@@ -5,6 +5,7 @@ module.exports = {
     return `checkType: API
 name: API Check #1
 url: ${url}
+activated: true
 frequency: 10
 locations:
   - eu-central-1
