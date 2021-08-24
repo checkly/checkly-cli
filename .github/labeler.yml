@@ -12,3 +12,6 @@ services:
 
 core:
   - src/**/*.js
+
+templates:
+  - src/templates/**/*
