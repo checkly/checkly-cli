@@ -1,4 +1,4 @@
-const { Command, flags } = require('@oclif/command')
+const { Command } = require('@oclif/command')
 const checks = require('../modules/checks')
 const { output } = require('../services/flags')
 
@@ -9,7 +9,7 @@ class ChecksCommand extends Command {
       required: true,
       description: 'Specify the type of checks action to run',
       default: 'list',
-      options: ['list', 'info', 'run', 'deploy'],
+      options: ['list', 'info'],
     },
     {
       name: 'id',
