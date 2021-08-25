@@ -23,7 +23,7 @@ $ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.1 linux-x64 node-v14.17.1
+@checkly/cli/0.0.2 darwin-x64 node-v14.17.3
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
@@ -36,16 +36,21 @@ USAGE
 
 <!-- commands -->
 
-- [`checkly status`](#checkly-status-id)
 - [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
 - [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
+- [`checkly deploy`](#checkly-deploy)
+- [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
 - [`checkly help [COMMAND]`](#checkly-help-command)
 - [`checkly init PROJECTNAME`](#checkly-init-projectname)
-- [`checkly login APIKEY`](#checkly-login-apikey)
+- [`checkly login`](#checkly-login)
+- [`checkly logout`](#checkly-logout)
+- [`checkly projects`](#checkly-projects)
+- [`checkly run`](#checkly-run)
+- [`checkly status ACTION`](#checkly-status-action)
 
 ## `checkly checks ACTION [ID]`
 
-Retrieve and handle checks
+Manage Checks
 
 ```
 USAGE
@@ -53,13 +58,13 @@ USAGE
 
 ARGUMENTS
   ACTION  (list|info) [default: list] Specify the type of checks action to run
-  ID      Specify the check di
+  ID      Specify the checkId
 
 OPTIONS
-  -o, --output=text|json  [default: text] output type
+  -o, --output=plain|human|json  [default: json] output type
 ```
 
-_See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/checks.js)_
+_See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/checks.js)_
 
 ## `checkly conf [KEY] [VALUE]`
 
@@ -85,6 +90,39 @@ OPTIONS
 
 _See code: [conf-cli](https://github.com/natzcam/conf-cli/blob/v0.1.9/src/commands/conf.ts)_
 
+## `checkly deploy`
+
+Deploy and sync your ./checkly directory
+
+```
+USAGE
+  $ checkly deploy
+
+OPTIONS
+  -o, --output=plain|human|json  [default: json] output type
+  -x, --dryRun                   Do not actually write any changes
+```
+
+_See code: [src/commands/deploy.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/deploy.js)_
+
+## `checkly groups ACTION [ID]`
+
+Manage Groups
+
+```
+USAGE
+  $ checkly groups ACTION [ID]
+
+ARGUMENTS
+  ACTION  (list|info) [default: list] Specify the type of group action to run
+  ID      Specify the groupId
+
+OPTIONS
+  -o, --output=plain|human|json  [default: json] output type
+```
+
+_See code: [src/commands/groups.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/groups.js)_
+
 ## `checkly help [COMMAND]`
 
 display help for checkly
@@ -104,32 +142,92 @@ _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.1
 
 ## `checkly init PROJECTNAME`
 
-Init a new Checkly project
+Initialise a new Checkly Project
 
 ```
 USAGE
   $ checkly init PROJECTNAME
 
 ARGUMENTS
-  PROJECTNAME  Project name
+  PROJECTNAME  [default: checkly-cli] Project name
+
+OPTIONS
+  -f, --force=force  force mode
 ```
 
-_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/init.js)_
+_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/init.js)_
 
-## `checkly login APIKEY`
+## `checkly login`
 
-Login with a Checkly API Key
+Login with a Checkly API Key [WIP]
 
 ```
 USAGE
-  $ checkly login APIKEY
+  $ checkly login
 
-ARGUMENTS
-  APIKEY  Checkly API Key.
-          If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
+OPTIONS
+  --apiKey=apiKey  Checkly API Key.
+                   If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
 ```
 
-_See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.1/src/commands/login.js)_
+_See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/login.js)_
+
+## `checkly logout`
+
+Logout and clear local conf
+
+```
+USAGE
+  $ checkly logout
+```
+
+_See code: [src/commands/logout.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/logout.js)_
+
+## `checkly projects`
+
+Manage Checks
+
+```
+USAGE
+  $ checkly projects
+
+OPTIONS
+  -o, --output=text|json  [default: json] output type
+```
+
+_See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/projects.js)_
+
+## `checkly run`
+
+Run and test your checks on Checkly
+
+```
+USAGE
+  $ checkly run
+
+OPTIONS
+  -c, --checkName=checkName      (required) Check upon which to execute action
+  -o, --output=plain|human|json  [default: json] output type
+```
+
+_See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/run.js)_
+
+## `checkly status ACTION`
+
+Status dashboard
+
+```
+USAGE
+  $ checkly status ACTION
+
+ARGUMENTS
+  ACTION  [default: info] Specify the type of checks action to run
+
+OPTIONS
+  -o, --output=plain|human|json  [default: json] output type
+```
+
+_See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/status.js)_
 
 <!-- commandsstop -->
 
