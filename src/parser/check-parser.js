@@ -30,17 +30,7 @@ async function parseCheck(check, groupSettings = null) {
   }
 
   parsedCheck.logicalId = check.name
-  parsedCheck.settings = { ...settings, ...parsedCheck.settings }
-
-  if (groupSettings) {
-    // TODO: Remove settings that are not allowed
-    // to override by a check (like locations)
-    parsedCheck.settings = {
-      ...settings,
-      ...groupSettings,
-      ...parsedCheck.settings,
-    }
-  }
+  parsedCheck.settings = { ...settings[0], ...parsedCheck.settings }
 
   return parsedCheck
 }
