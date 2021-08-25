@@ -2,6 +2,7 @@ const YAML = require('yaml')
 const consola = require('consola')
 const nodegit = require('nodegit')
 const table = require('text-table')
+const chalk = require('chalk')
 const { readFile } = require('fs/promises')
 require('console.table')
 
@@ -41,7 +42,7 @@ function printDeployResults(data, flags) {
   const { output, dryRun } = flags
   if (dryRun) {
     data.forEach((entity) => {
-      console.log(entity.type)
+      console.log(chalk.blue.bold(entity.type))
       print(
         {
           create: entity.actions.create.map((item) => item.logicalId),
@@ -55,7 +56,7 @@ function printDeployResults(data, flags) {
   }
 
   data.forEach((entity) => {
-    console.log(entity.type)
+    console.log(chalk.blue.bold(entity.type))
     print(
       {
         create: entity.typeResult

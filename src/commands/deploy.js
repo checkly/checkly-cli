@@ -8,13 +8,13 @@ const { printDeployResults, readLocal } = require('../services/utils')
 
 class DeployCommand extends Command {
   async run() {
-    consola.info('Deploying ./.checkly directory')
+    consola.info('Deploying .checkly directory')
     const { flags } = this.parse(DeployCommand)
     const { dryRun } = flags
 
     try {
-      const settings = await readLocal('./.checkly/settings.yml')
       const parseResults = await parser()
+      const settings = await readLocal('./.checkly/settings.yml')
       const projectId = settings.project.id
 
       consola.debug('Keys of objects sent to API:')
@@ -23,8 +23,6 @@ class DeployCommand extends Command {
         checks: Object.keys(parseResults.checks),
         groups: Object.keys(parseResults.groups),
       })
-
-      consola.debug(JSON.stringify(parseResults, null, 2))
 
       const { data } = await checks.deploy(
         { projectId, ...parseResults },
