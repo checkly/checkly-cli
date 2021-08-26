@@ -10,11 +10,16 @@ const ENDPOINTS = {
   GROUPS: {
     GET: 'check-groups',
   },
+  LOCATIONS: {
+    GET: 'locations',
+  },
   PROJECTS: {
     GET: 'projects',
     DEPLOY: 'projects/deploy',
   },
-  SIGNED_URL: 'sockets/signed-url',
+  SIGNED_URL: {
+    GET: 'sockets/signed-url',
+  },
 }
 
 module.exports = {

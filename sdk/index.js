@@ -82,13 +82,13 @@ function init({ api, baseHost, basePath }) {
 
   const socket = {
     getSignedUrl() {
-      return api.get(`/next/${endpoints.SIGNED_URL}`)
+      return api.get(`/next/${endpoints.SIGNED_URL.GET}`)
     },
   }
 
   const locations = {
     getAll() {
-      return api.get(endpoints.LOCATIONS)
+      return api.get(`/${basePath}/${endpoints.LOCATIONS.GET}`)
     },
   }
 
