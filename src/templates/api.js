@@ -12,7 +12,9 @@ module.exports = {
   }) => {
     return `checkType: API
 name: ${name}
-url: ${url}
+request:
+  url: ${url}
+  method: GET
 frequency: ${frequency}
 activated: true
 locations:
@@ -28,7 +30,9 @@ locations:
   }) => {
     return `checkType: API
 name: ${name}
-url: ${url}
+request:
+  url: ${url}
+  method: GET
 frequency: ${frequency}
 activated: true
 muted: false
