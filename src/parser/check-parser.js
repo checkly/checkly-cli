@@ -25,7 +25,7 @@ async function parseCheck(check, groupSettings = null) {
 
   if (parsedCheck.checkType.toLowerCase() === 'browser' && parsedCheck.path) {
     const [output] = await bundle(parsedCheck.path)
-    parsedCheck.code = output.code
+    parsedCheck.script = output.code
     parsedCheck.map = output.map
   }
 
