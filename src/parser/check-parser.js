@@ -61,9 +61,9 @@ async function parseChecksTree(tree, parent = null) {
       name: tree[i].name,
       settings: groupSettings,
     }
-    let checksLeaf = await parseChecksTree(tree[i].checks, groupSettings)
-    checksLeaf = { ...checksLeaf, ...parsedTree.checks }
-    parsedTree.checks = checksLeaf.checks
+    const checksLeaf = await parseChecksTree(tree[i].checks, groupSettings)
+    const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
+    parsedTree.checks = newChecksLeaf
   }
   return parsedTree
 }
