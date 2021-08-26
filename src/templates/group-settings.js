@@ -3,7 +3,7 @@ module.exports = ({ name }) => {
 locations:
   - us-east-1
   - eu-central-1
-browserCheckDefaults:
+browserCheckDefaults: {}
 apiCheckDefaults:
   url: ''
   headers: []
