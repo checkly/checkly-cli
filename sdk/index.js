@@ -88,7 +88,7 @@ function init({ api, baseHost, basePath }) {
 
   const locations = {
     getAll() {
-      return _api.get(endpoints.LOCATIONS)
+      return api.get(endpoints.LOCATIONS)
     },
   }
 
