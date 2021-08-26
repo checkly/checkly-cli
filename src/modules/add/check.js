@@ -13,7 +13,7 @@ async function check() {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
-  consola.info('Creting new check file')
+  consola.info('Creating new check file')
 
   const { name, type, url, locations } = await prompt([
     {
@@ -35,7 +35,7 @@ async function check() {
         url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
           ? true
           : 'Please enter a valid URL',
-      message: 'Which is the URL you want to monitor',
+      message: 'Which URL you want to monitor',
     },
     {
       name: 'locations',

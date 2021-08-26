@@ -12,7 +12,7 @@ async function check() {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
-  consola.info('Creting new group directory')
+  consola.info('Creating new group directory')
 
   const { name, locations } = await prompt([
     {
