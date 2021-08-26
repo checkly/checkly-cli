@@ -36,6 +36,7 @@ USAGE
 
 <!-- commands -->
 
+- [`checkly add RESOURCE`](#checkly-add-resource)
 - [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
 - [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
 - [`checkly deploy`](#checkly-deploy)
@@ -47,6 +48,20 @@ USAGE
 - [`checkly projects`](#checkly-projects)
 - [`checkly run`](#checkly-run)
 - [`checkly status ACTION`](#checkly-status-action)
+
+## `checkly add RESOURCE`
+
+Add a new group or check file
+
+```
+USAGE
+  $ checkly add RESOURCE
+
+ARGUMENTS
+  RESOURCE  (check|group) [default: check] What do you want to create?
+```
+
+_See code: [src/commands/add.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/add.js)_
 
 ## `checkly checks ACTION [ID]`
 
