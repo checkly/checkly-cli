@@ -1,5 +1,5 @@
 const { Command } = require('@oclif/command')
-const checkStatuses = require('../modules/check_statuses')
+const checkStatuses = require('../modules/check-statuses')
 const { output } = require('../services/flags')
 
 class StatusCommand extends Command {
