@@ -14,6 +14,7 @@ module.exports = {
   }) => {
     return `checkType: BROWSER
 name: ${name}
+activated: true
 frequency: ${frequency}
 locations:
   - ${locations.join('\n  - ')}

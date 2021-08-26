@@ -14,6 +14,7 @@ module.exports = {
 name: ${name}
 url: ${url}
 frequency: ${frequency}
+activated: true
 locations:
   - ${locations.join('\n  - ')}
 `
