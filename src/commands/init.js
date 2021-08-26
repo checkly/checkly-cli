@@ -94,7 +94,7 @@ class InitCommand extends Command {
           url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
             ? true
             : 'Please enter a valid URL',
-        message: 'Which is the URL you want to monitor',
+        message: 'Which URL you want to monitor',
       },
       {
         name: 'mode',
