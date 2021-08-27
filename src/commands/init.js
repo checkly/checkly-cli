@@ -116,7 +116,6 @@ class InitCommand extends Command {
       repoUrl: await getRepoUrl(cwd),
       activated: true,
       muted: false,
-      created_at: new Date(),
       state: {},
     })
 
