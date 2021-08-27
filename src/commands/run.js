@@ -1,6 +1,5 @@
 const consola = require('consola')
-const { Command, flags } = require('@oclif/command')
-const { output } = require('../services/flags')
+const { Command } = require('@oclif/command')
 
 const chalk = require('chalk')
 const YAML = require('yaml')
@@ -11,7 +10,7 @@ const SocketClient = require('../services/socket-client.js')
 class RunCommand extends Command {
   async run() {
     try {
-      const { flags } = this.parse(RunCommand)
+      const { args } = this.parse(RunCommand)
 
       // Setup Websocket IoT Core Connection
       const presignedIotUrl = await socket.getSignedUrl()
@@ -82,7 +81,7 @@ class RunCommand extends Command {
       const rawChecks = await checks.getAllLocal()
       const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
       const selectedCheck = parsedChecks.find(
-        (check) => check.name === flags.checkName
+        (check) => check.name === args.checkName
       )
 
       if (!selectedCheck) {
@@ -114,13 +113,12 @@ class RunCommand extends Command {
 
 RunCommand.description = 'Run and test your checks on Checkly'
 
-RunCommand.flags = {
-  output,
-  checkName: flags.string({
-    char: 'c',
+RunCommand.args = [
+  {
+    name: 'checkName',
     required: true,
-    description: 'Check upon which to execute action',
-  }),
-}
+    description: 'Which check would you like to execute?',
+  },
+]
 
 module.exports = RunCommand
