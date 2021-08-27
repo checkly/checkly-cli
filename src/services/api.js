@@ -22,9 +22,9 @@ function getApiDefaults() {
 }
 
 function refresh() {
-  const { baseHost, basePath, Authorization } = getApiDefaults()
+  const { baseHost, Authorization } = getApiDefaults()
   api.defaults.headers.Authorization = Authorization
-  api.defaults.baseURL = `${baseHost}${basePath}`
+  api.defaults.baseURL = `${baseHost}`
 }
 
 const { baseHost, basePath, Authorization } = getApiDefaults()
