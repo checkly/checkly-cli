@@ -16,9 +16,11 @@ async function getStatus({ output } = {}) {
           ? chalk.bgRed('Failing')
           : checkStatus.isDegraded
           ? chalk.bgYellow('Degraded')
-          : chalk.bgGreen('Passing'),
+          : checkStatus.updated_at
+          ? chalk.bgGreen('Passing')
+          : chalk.bold('Pending'),
         name: checkStatus.name,
-        'last updated': checkStatus.updated_at
+        'last ran': checkStatus.updated_at
           ? formatDistanceToNow(new Date(checkStatus.updated_at))
           : '-',
       }
