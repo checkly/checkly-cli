@@ -2,7 +2,7 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const add = require('../modules/add')
 
-const files = require('../services/files')
+const { hasChecksDirectory } = require('../services/utils')
 
 class AddCommand extends Command {
   static args = [
@@ -16,7 +16,7 @@ class AddCommand extends Command {
   ]
 
   async run() {
-    if (!files.hasChecksDirectory()) {
+    if (!hasChecksDirectory()) {
       consola.error('Checkly project was not initiliazed')
       return process.exit(1)
     }

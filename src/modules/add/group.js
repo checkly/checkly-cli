@@ -4,7 +4,7 @@ const { prompt } = require('inquirer')
 const consola = require('consola')
 
 const { locations: locationsApi } = require('../../services/api')
-const { getChecklyDirName } = require('../../services/files')
+const { getChecklyDirName } = require('../../services/utils')
 
 const groupSettingsTemplates = require('../../templates/group-settings')
 

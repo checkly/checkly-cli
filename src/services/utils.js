@@ -85,9 +85,57 @@ async function getRepoUrl(path, remoteName = 'origin') {
   }
 }
 
+const fs = require('fs')
+const path = require('path')
+
+const CHECKLY_DIR_NAME = '.checkly'
+
+let CWD = process.cwd()
+let CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
+let CHECKS_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME, 'checks')
+let SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
+
+const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
+const hasChecksDirectory = () => fs.existsSync(CHECKS_DIR_PATH)
+const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
+
+const findChecklyDir = () => {
+  if (hasChecklyDirectory() && hasChecksDirectory() && hasGlobalSettingsFile())
+    return CHECKS_DIR_PATH
+
+  // Loop up parent directories until you find a valid checkly directory
+  // Just like Git does to find `.git`
+  while (CWD !== '/') {
+    if (
+      hasChecklyDirectory() &&
+      hasChecksDirectory() &&
+      hasGlobalSettingsFile()
+    )
+      return CHECKS_DIR_PATH
+
+    CWD = path.resolve(CWD, '..')
+    CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
+    CHECKS_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME, 'checks')
+    SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
+  }
+  throw new Error('Checkly directory not found!')
+}
+
+function getGlobalSettings() {
+  if (!hasGlobalSettingsFile) {
+    throw new Error('Missing settings file')
+  }
+
+  return fs.readFileSync(SETTINGS_FILE, 'utf8')
+}
+
 module.exports = {
   print,
   readLocal,
   printDeployResults,
   getRepoUrl,
+  hasChecklyDirectory,
+  hasChecksDirectory,
+  findChecklyDir,
+  getGlobalSettings,
 }
