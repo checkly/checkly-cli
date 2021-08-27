@@ -99,12 +99,9 @@ const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
 const hasChecksDirectory = () => fs.existsSync(CHECKS_DIR_PATH)
 const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 
-const findChecklyDir = () => {
-  if (hasChecklyDirectory() && hasChecksDirectory() && hasGlobalSettingsFile())
-    return CHECKS_DIR_PATH
-
-  // Loop up parent directories until you find a valid checkly directory
-  // Just like Git does to find `.git`
+// Loop up parent directories until you find a valid checkly directory
+// Just like Git does to find `.git`
+function findChecklyDir() {
   while (CWD !== '/') {
     if (
       hasChecklyDirectory() &&
