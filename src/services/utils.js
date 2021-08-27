@@ -134,8 +134,6 @@ module.exports = {
   readLocal,
   printDeployResults,
   getRepoUrl,
-  hasChecklyDirectory,
-  hasChecksDirectory,
   findChecklyDir,
   getGlobalSettings,
 }
