@@ -20,7 +20,7 @@ class DeployCommand extends Command {
     try {
       const parseResults = await parser()
       const settings = await readLocal(
-        path.join(findChecklyDir(), '../settings.yml')
+        path.join(findChecklyDir(), 'settings.yml')
       )
       const projectId = settings.project.id
 

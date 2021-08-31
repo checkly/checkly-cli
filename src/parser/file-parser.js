@@ -61,7 +61,7 @@ function parseChecklySettings(files) {
 }
 
 function parseChecklyDirectory() {
-  const checksDir = findChecklyDir()
+  const checksDir = path.join(findChecklyDir(), 'checks')
 
   try {
     const checksDirStats = fs.lstatSync(checksDir)

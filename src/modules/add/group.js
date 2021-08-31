@@ -31,15 +31,15 @@ async function check() {
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  let filePath = path.join(findChecklyDir(), key)
+  let filePath = path.join(findChecklyDir(), 'checks', key)
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
     tryIndex += 1
-    filePath = path.join(findChecklyDir(), key + tryIndex)
+    filePath = path.join(findChecklyDir(), 'checks', key + tryIndex)
   }
 
-  fs.mkdirSync(path.join(findChecklyDir(), key))
+  fs.mkdirSync(path.join(findChecklyDir(), 'checks', key))
 
   fs.writeFileSync(
     path.join(filePath, 'settings.yml'),
