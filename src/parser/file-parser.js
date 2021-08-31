@@ -5,7 +5,7 @@ const MAX_NESTING_LEVEL = 1
 const SETTINGS = 'settings'
 const CHECK = 'check'
 const GROUP = 'group'
-const YML = '.yml'
+const YML = '.yml' || '.yaml'
 
 const { isProjectValid, CHECKS_DIR_PATH } = require('./helper')
 
