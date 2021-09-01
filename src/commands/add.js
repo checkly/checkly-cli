@@ -16,18 +16,18 @@ class AddCommand extends Command {
   ]
 
   async run() {
-    if (!findChecklyDir()) {
-      consola.error('Checkly project was not initiliazed')
+    try {
+      const { args } = this.parse(AddCommand)
+
+      switch (args.resource) {
+        case 'group':
+          return add.group()
+        case 'check':
+          return add.check()
+      }
+    } catch (e) {
+      consola.error('Checkly project was not initiliazed', e)
       return process.exit(1)
-    }
-
-    const { args } = this.parse(AddCommand)
-
-    switch (args.resource) {
-      case 'group':
-        return add.group()
-      case 'check':
-        return add.check()
     }
   }
 }

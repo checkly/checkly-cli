@@ -107,8 +107,9 @@ function findChecklyDir() {
       hasChecklyDirectory() &&
       hasChecksDirectory() &&
       hasGlobalSettingsFile()
-    )
+    ) {
       return CHECKLY_DIR_PATH
+    }
 
     CWD = path.resolve(CWD, '..')
     CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
