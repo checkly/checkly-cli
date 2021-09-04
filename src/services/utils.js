@@ -78,7 +78,7 @@ async function getRepoUrl(path, remoteName = 'origin') {
   try {
     const repository = await nodegit.Repository.open(path)
     const remoteObject = await repository.getRemote(remoteName)
-    const remoteUrl = await remoteObject.url()
+    const remoteUrl = remoteObject.url()
     return remoteUrl
   } catch (error) {
     return path
@@ -116,7 +116,7 @@ function findChecklyDir() {
     CHECKS_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME, 'checks')
     SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
   }
-  throw new Error('Checkly directory not found!')
+  throw new Error('Directories missing, please see [docs](https://docs.com)')
 }
 
 function getGlobalSettings() {

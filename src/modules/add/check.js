@@ -4,12 +4,11 @@ const { prompt } = require('inquirer')
 const consola = require('consola')
 
 const { locations: locationsApi } = require('../../services/api')
-const { findChecklyDir } = require('../../services/utils')
 
 const apiTemplates = require('../../templates/api')
 const browserTemplates = require('../../templates/browser')
 
-async function check() {
+async function check(checklyDir) {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
@@ -79,12 +78,12 @@ async function check() {
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  let filePath = path.join(findChecklyDir(), 'checks', key + '.yml')
+  let filePath = path.join(checklyDir, 'checks', key + '.yml')
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
     tryIndex += 1
-    filePath = path.join(findChecklyDir(), 'checks', key + tryIndex + '.yml')
+    filePath = path.join(checklyDir, 'checks', key + tryIndex + '.yml')
   }
 
   fs.writeFileSync(

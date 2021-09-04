@@ -4,11 +4,9 @@ const { prompt } = require('inquirer')
 const consola = require('consola')
 
 const { locations: locationsApi } = require('../../services/api')
-const { findChecklyDir } = require('../../services/utils')
-
 const groupSettingsTemplates = require('../../templates/group-settings')
 
-async function check() {
+async function check(checklyDir) {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
@@ -31,15 +29,15 @@ async function check() {
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  let filePath = path.join(findChecklyDir(), 'checks', key)
+  let filePath = path.join(checklyDir, 'checks', key)
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
     tryIndex += 1
-    filePath = path.join(findChecklyDir(), 'checks', key + tryIndex)
+    filePath = path.join(checklyDir, 'checks', key + tryIndex)
   }
 
-  fs.mkdirSync(path.join(findChecklyDir(), 'checks', key))
+  fs.mkdirSync(path.join(checklyDir, 'checks', key))
 
   fs.writeFileSync(
     path.join(filePath, 'settings.yml'),

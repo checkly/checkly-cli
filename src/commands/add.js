@@ -19,14 +19,15 @@ class AddCommand extends Command {
     try {
       const { args } = this.parse(AddCommand)
 
+      const checklyDir = findChecklyDir()
       switch (args.resource) {
         case 'group':
-          return add.group()
+          return add.group(checklyDir)
         case 'check':
-          return add.check()
+          return add.check(checklyDir)
       }
     } catch (e) {
-      consola.error('Checkly project was not initiliazed', e)
+      consola.error('Checkly directory error -', e)
       return process.exit(1)
     }
   }
