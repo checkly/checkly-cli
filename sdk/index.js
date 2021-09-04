@@ -1,5 +1,7 @@
 const endpoints = require('./endpoints')
-const { readdir, readFile } = require('fs/promises')
+const path = require('path')
+const { getLocalFiles } = require('./helper')
+const { readFile } = require('fs/promises')
 
 function init({ api, baseHost, basePath }) {
   const checks = {
@@ -11,9 +13,14 @@ function init({ api, baseHost, basePath }) {
     },
 
     async getAllLocal() {
-      const checks = await readdir(`.checkly/checks`)
+      const checks = await getLocalFiles(
+        path.join(process.cwd(), `.checkly/checks`)
+      )
+
       return Promise.all(
-        checks.map((check) => readFile(`.checkly/checks/${check}`, 'utf-8'))
+        checks
+          .filter((check) => !check.includes('settings.yml'))
+          .map((check) => readFile(path.join(check), 'utf-8'))
       )
     },
 

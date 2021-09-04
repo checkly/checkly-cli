@@ -53,8 +53,27 @@ async function check() {
       type: 'list',
       choices:
         type === 'BROWSER'
-          ? [1, 5, 10, 15, 30, 60, 720, 1440]
-          : [0, 1, 5, 10, 15, 30, 60, 720, 1440],
+          ? [
+              '1min',
+              '5min',
+              '10min',
+              '15min',
+              '30min',
+              '60min',
+              '720min',
+              '1440min',
+            ]
+          : [
+              '0min',
+              '1min',
+              '5min',
+              '10min',
+              '15min',
+              '30min',
+              '60min',
+              '720min',
+              '1440min',
+            ],
       message: 'Pick your check frequency',
     },
   ])
@@ -71,8 +90,18 @@ async function check() {
   fs.writeFileSync(
     filePath,
     type === 'BROWSER'
-      ? browserTemplates.basic({ url, name, frequency, locations })
-      : apiTemplates.basic({ url, name, frequency, locations })
+      ? browserTemplates.basic({
+          url,
+          name,
+          frequency: frequency.replace(/[^0-9.]+/, ''),
+          locations,
+        })
+      : apiTemplates.basic({
+          url,
+          name,
+          frequency: frequency.replace(/[^0-9.]+/, ''),
+          locations,
+        })
   )
 
   consola.success(`Created new ${type} check: ${key}`)
