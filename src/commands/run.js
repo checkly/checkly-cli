@@ -1,5 +1,6 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
+const search = require('cli-fuzzy-search')
 
 const chalk = require('chalk')
 const YAML = require('yaml')
@@ -80,9 +81,24 @@ class RunCommand extends Command {
       // Get requested check from local yml file (by checkName)
       const rawChecks = await checks.getAllLocal()
       const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
-      const selectedCheck = parsedChecks.find(
-        (check) => check.name === args.checkName
-      )
+      let selectedCheck = ''
+      if (args.checkName) {
+        selectedCheck = parsedChecks.find(
+          (check) => check.name === args.checkName
+        )
+      } else {
+        consola.info(
+          ' No check name passed, please search to make a selection below.\n'
+        )
+        selectedCheck = await search({
+          data: parsedChecks.map((check) => {
+            return { ...check, label: check.name }
+          }),
+          size: parsedChecks.length + 1,
+          cache: false,
+          debounceDelay: 200,
+        })
+      }
 
       if (!selectedCheck) {
         consola.error(' No check found with that name, please try again.')
@@ -116,7 +132,7 @@ RunCommand.description = 'Run and test your checks on Checkly'
 RunCommand.args = [
   {
     name: 'checkName',
-    required: true,
+    required: false,
     description: 'Which check would you like to execute?',
   },
 ]
