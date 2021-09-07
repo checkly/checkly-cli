@@ -27,7 +27,7 @@ module.exports = function plugin(options = {}) {
               if (!latestRuntimeDeps.includes(i)) {
                 console.log('\n')
                 consola.error(`Package ${chalk.blue.bold(i)} not allowed!`)
-                process.exit(1)
+                this.error('Invalid import in required Checkly check script.')
               }
             })
           })
