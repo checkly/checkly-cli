@@ -75,7 +75,11 @@ function printDeployResults(data, flags) {
 }
 
 async function getRepoUrl(cwd, remote = 'origin') {
-  return gitRemoteOriginUrl(cwd, remote)
+  try {
+    return await gitRemoteOriginUrl(cwd, remote)
+  } catch (e) {
+    return cwd
+  }
 }
 
 module.exports = {
