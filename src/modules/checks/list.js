@@ -7,8 +7,7 @@ async function listChecks({ output } = {}) {
     const res = await checks.getAll()
 
     const allChecks = res.data.map(
-      ({ id, name, checkType, frequency, locations, activated }) => ({
-        id,
+      ({ name, checkType, frequency, locations, activated }) => ({
         name,
         checkType,
         frequency,
