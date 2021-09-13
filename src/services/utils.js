@@ -1,6 +1,6 @@
 const YAML = require('yaml')
 const consola = require('consola')
-const nodegit = require('nodegit')
+const gitRemoteOriginUrl = require('git-remote-origin-url')
 const table = require('text-table')
 const chalk = require('chalk')
 const { readFile } = require('fs/promises')
@@ -74,14 +74,11 @@ function printDeployResults(data, flags) {
   })
 }
 
-async function getRepoUrl(path, remoteName = 'origin') {
+async function getRepoUrl(cwd, remote = 'origin') {
   try {
-    const repository = await nodegit.Repository.open(path)
-    const remoteObject = await repository.getRemote(remoteName)
-    const remoteUrl = await remoteObject.url()
-    return remoteUrl
-  } catch (error) {
-    return path
+    return await gitRemoteOriginUrl(cwd, remote)
+  } catch (e) {
+    return cwd
   }
 }
 
