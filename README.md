@@ -8,13 +8,13 @@
 [![Downloads/week](https://img.shields.io/npm/dw/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
 [![License](https://img.shields.io/npm/l/@checkly/cli.svg)](https://github.com/checkly/checkly-cli/blob/master/package.json)
 
-## 📚 Table of Contents
+## Table of Contents
 
 <!-- toc -->
 
 <!-- tocstop -->
 
-## 🕹️ Getting Started
+## Getting Started
 
 > This project is still in very early stages, _use at your own risk_!
 
@@ -48,7 +48,7 @@ Your checks are now synced and running on checkly!
 
 Checkout [app.checklyhq.com](https://app.checklyhq.com) to see your checks in the web application.
 
-## 🔧 Usage
+## Usage
 
 <!-- usage -->
 
@@ -66,7 +66,7 @@ USAGE
 
 <!-- usagestop -->
 
-## 🏗️ Commands
+## Commands
 
 <!-- commands -->
 
@@ -280,7 +280,7 @@ _See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/
 
 <!-- commandsstop -->
 
-## 🚧 Troubleshooting
+## Troubleshooting
 
 You can enable global debug output by setting the `DEBUG=*` or `@checkly/cli` specific debug output by setting `CONSOLA_LEVEL=4`.
 
@@ -290,10 +290,10 @@ For example
 CONSOLA_LEVEL=4 checkly init
 ```
 
-## 🙏 Contributing
+## Contributing
 
 All contributions are welcome, please stick to the `eslint` and `prettier` settings.
 
-## 📖 License
+## License
 
 [MIT](https://opensource.org/licenses/MIT)
