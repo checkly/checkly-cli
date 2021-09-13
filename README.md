@@ -262,4 +262,4 @@ All contributions are welcome, please stick to the `eslint` and `prettier` setti
 
 ## 📖 License
 
-[MIT](https://opensource.org/licenses/MIT)
+[Apache 2.0](https://github.com/checkly/checkly-cli/blob/main/LICENSE)
