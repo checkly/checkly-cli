@@ -20,21 +20,19 @@
 
 This CLI enables a monitoring as code workflow where your checks live side-by-side with your code in your source control system.
 
-Therefore, the purpose of the CLI is to initialise and manage a `.checkly` subdirectory in your repository where you can control every aspect of a Checkly check in code / configuration.
+To get started, install the CLI globally. You can also run it in an ad-hoc manner via `npx` every time.
 
-First, install the CLI globally. You can also run it in an ad-hoc manner via `npx`.
-
-1. `$ npm install -g @checkly/cli`
+1. `npm install -g @checkly/cli`
 
 Next, `cd` to a project you'd like to monitor with Checkly.
 
-2. `$ cd /opt/checkly/checklyhq.com`
+2. `cd /opt/checkly/checklyhq.com`
 
-We can now authenticate via the CLI and initialise the `.checkly` subdirectory.
+You can now authenticate via the CLI and initialise the `.checkly` subdirectory.
 
-3. `$ checkly login`
+3. `checkly login`
 
-4. `$ checkly init`
+4. `checkly init`
 
 The `init` command will walk you through a short wizard to get your project setup with an example check.
 
@@ -42,7 +40,7 @@ Now you should have a `.checkly` subdirectory in your project, which you should 
 
 After inspecting the check definition, making any changes, etc. you can deploy the local checks to our backend via `deploy`.
 
-5. `$ checkly deploy`
+5. `checkly deploy`
 
 Your checks are now synced and running on checkly!
 
