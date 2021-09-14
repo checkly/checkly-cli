@@ -10,13 +10,45 @@
 [![Downloads/week](https://img.shields.io/npm/dw/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
 [![License](https://img.shields.io/npm/l/@checkly/cli.svg)](https://github.com/checkly/checkly-cli/blob/master/package.json)
 
-## 📚 Table of Contents
+## Table of Contents
 
 <!-- toc -->
 
 <!-- tocstop -->
 
-## 🔧 Usage
+## Getting Started
+
+> This project is still in very early stages, _use at your own risk_!
+
+This CLI enables a monitoring as code workflow where your checks live side-by-side with your code in your source control system.
+
+To get started, install the CLI globally. You can also run it in an ad-hoc manner via `npx` every time.
+
+1. `npm install -g @checkly/cli`
+
+Next, `cd` to a project you'd like to monitor with Checkly.
+
+2. `cd /opt/checkly/checklyhq.com`
+
+You can now authenticate via the CLI and initialise the `.checkly` subdirectory.
+
+3. `checkly login`
+
+4. `checkly init`
+
+The `init` command will walk you through a short wizard to get your project setup with an example check.
+
+Now you should have a `.checkly` subdirectory in your project, which you should commit to source control, and a check yaml file like `.checkly/checks/exammple-browser.yml`.
+
+After inspecting the check definition, making any changes, etc. you can deploy the local checks to our backend via `deploy`.
+
+5. `checkly deploy`
+
+Your checks are now synced and running on checkly!
+
+Checkout [app.checklyhq.com](https://app.checklyhq.com) to see your checks in the web application.
+
+## Usage
 
 <!-- usage -->
 
@@ -34,7 +66,7 @@ USAGE
 
 <!-- usagestop -->
 
-## 🏗️ Commands
+## Commands
 
 <!-- commands -->
 
@@ -248,7 +280,7 @@ _See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/
 
 <!-- commandsstop -->
 
-## 🚧 Troubleshooting
+## Troubleshooting
 
 You can enable global debug output by setting the `DEBUG=*` or `@checkly/cli` specific debug output by setting `CONSOLA_LEVEL=4`.
 
@@ -258,10 +290,10 @@ For example
 CONSOLA_LEVEL=4 checkly init
 ```
 
-## 🙏 Contributing
+## Contributing
 
 All contributions are welcome, please stick to the `eslint` and `prettier` settings.
 
-## 📖 License
+## License
 
 [Apache 2.0](https://github.com/checkly/checkly-cli/blob/main/LICENSE)
