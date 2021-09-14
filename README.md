@@ -280,12 +280,12 @@ _See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/
 
 ## Troubleshooting
 
-You can enable global debug output by setting the `DEBUG=*` or `@checkly/cli` specific debug output by setting `CONSOLA_LEVEL=4`.
+You can enable global debug output by setting the `DEBUG=*`.
 
-For example
+For example:
 
 ```bash
-CONSOLA_LEVEL=4 checkly init
+DEBUG=* checkly init
 ```
 
 ## Contributing
