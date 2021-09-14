@@ -3,6 +3,7 @@
   "version": "0.0.2",
   "author": "Nacho Anaya <nacho@checklyhq.com>",
   "description": "Checkly CLI",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/checkly/checkly-cli",
   "repository": {
     "type": "git",
