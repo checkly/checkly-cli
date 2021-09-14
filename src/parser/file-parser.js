@@ -7,7 +7,7 @@ const CHECK = 'check'
 const GROUP = 'group'
 const YML = '.yml' || '.yaml'
 
-const { isProjectValid, CHECKS_DIR_PATH } = require('./helper')
+const { findChecklyDir } = require('../services/utils')
 
 function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
   const fileStats = fs.lstatSync(filePath)
@@ -61,20 +61,18 @@ function parseChecklySettings(files) {
 }
 
 function parseChecklyDirectory() {
-  if (!isProjectValid()) {
-    throw new Error('Invalid checkly project')
-  }
+  const checksDir = path.join(findChecklyDir(), 'checks')
 
   try {
-    const checksDirStats = fs.lstatSync(CHECKS_DIR_PATH)
+    const checksDirStats = fs.lstatSync(checksDir)
 
     if (!checksDirStats.isDirectory()) {
       throw new Error('Missing checks directory')
     }
 
-    const files = fs.readdirSync(CHECKS_DIR_PATH)
+    const files = fs.readdirSync(checksDir)
     const parsedFiles = files.map((file) =>
-      parseChecklyFile(path.join(CHECKS_DIR_PATH, file))
+      parseChecklyFile(path.join(checksDir, file))
     )
     return parseChecklySettings(parsedFiles)
   } catch (err) {

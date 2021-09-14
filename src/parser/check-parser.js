@@ -3,7 +3,7 @@ const YAML = require('yaml')
 const consola = require('consola')
 
 const { CHECK } = require('./file-parser')
-const { getGlobalSettings } = require('./helper')
+const { getGlobalSettings } = require('../services/utils')
 const bundle = require('./bundler')
 
 async function parseCheck(check, groupSettings = null) {
