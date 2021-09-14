@@ -8,7 +8,7 @@
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
 [![Downloads/week](https://img.shields.io/npm/dw/@checkly/cli.svg)](https://npmjs.org/package/@checkly/cli)
-[![License](https://img.shields.io/npm/l/@checkly/cli.svg)](https://github.com/checkly/checkly-cli/blob/master/package.json)
+[![License](https://img.shields.io/npm/l/@checkly/cli.svg)](https://github.com/checkly/checkly-cli/blob/main/package.json)
 
 ## Table of Contents
 
@@ -17,8 +17,6 @@
 <!-- tocstop -->
 
 ## Getting Started
-
-> This project is still in very early stages, _use at your own risk_!
 
 This CLI enables a monitoring as code workflow where your checks live side-by-side with your code in your source control system.
 
