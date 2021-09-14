@@ -61,6 +61,7 @@
     "@rollup/plugin-commonjs": "20.0.0",
     "axios": "0.21.1",
     "chalk": "4.1.1",
+    "cli-fuzzy-search": "2.0.0",
     "cli-spinners": "2.6.0",
     "conf": "8.0.0",
     "conf-cli": "0.1.9",
