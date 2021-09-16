@@ -85,11 +85,11 @@ class LoginCommand extends Command {
         console.debug('idToken:', chalk.blue.bold(idToken))
         console.debug('scope:', chalk.blue.bold(scope))
 
-        const { sub: userId, name } = jwt_decode(idToken)
+        const { sub: userExternalId, name } = jwt_decode(idToken)
 
         console.log('\n')
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
-        const apiKey = await getApiKey(userId, accessToken)
+        const apiKey = await getApiKey(userExternalId, accessToken)
         console.log('apiKey', apiKey)
 
         // Once this is working, save API Key to config
