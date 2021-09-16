@@ -1,8 +1,15 @@
 const { prompt } = require('inquirer')
 const consola = require('consola')
-const http = require('http')
-const crypto = require('crypto')
-const { Buffer } = require('buffer')
+
+const {
+  generateAuthenticationUrl,
+  getAccessToken,
+  generatePKCE,
+  startServer,
+  getApiKey,
+} = require('../services/login-util')
+
+const jwt_decode = require('jwt-decode')
 
 const { Command, flags } = require('@oclif/command')
 const chalk = require('chalk')
@@ -12,26 +19,6 @@ const config = require('../services/config')
 
 const { account } = require('./../services/api')
 const api = require('./../services/api')
-const { url } = require('inspector')
-
-const auth0AuthenticationUrl = (codeChallenge, scope, state) => {
-  const url = new URL(
-    `https://${process.env.AUTH0_DOMAIN}.eu.auth0.com/authorize`
-  )
-  const params = new URLSearchParams({
-    client_id: process.env.AUTH0_CLIENT_ID,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    response_type: 'code',
-    redirect_uri: 'http://localhost:4242',
-    scope: scope,
-    state: state,
-  })
-
-  url.searchParams = params
-  console.log(url.toString())
-  return url.toString()
-}
 
 const generateMaskedKey = (key) => {
   const maskedKey = key.replace(/[a-zA-Z0-9]/g, '*').slice(0, key.length - 4)
@@ -69,73 +56,52 @@ class LoginCommand extends Command {
     }
 
     if (!apiKey) {
-      const codeVerifier = crypto.randomBytes(128)
-      console.log('cV', codeVerifier.toString())
-      const hash = crypto
-        .createHash('sha256')
-        .update(codeVerifier)
-        .digest('base64')
-
-      console.log('hash', hash)
-      const codeChallenge = Buffer.from(hash, 'base64')
-
-      console.log('cC', codeChallenge.toString('base64'))
-
+      const { codeChallenge, codeVerifier } = generatePKCE()
       consola.info(
-        `Please open the following URL in your browser - ${auth0AuthenticationUrl()}.`
+        `Please open the following URL in your browser - ${chalk.blueBright.bold(
+          generateAuthenticationUrl(
+            codeChallenge,
+            'openid profile',
+            codeVerifier
+          )
+        )}`
       )
-      const server = http
-        .createServer((req, res) => {
-          const urlQuery = url.parse(req.url, true).query
-          const { code, state, error, errorDescription } = urlQuery
 
-          // this validation was simplified for the example
-          if (code && state) {
-            res.write(`
-      <html>
-      <body>
-        <h1>LOGIN SUCCEEDED</h1>
-      </body>
-      </html>
-    `)
-          } else {
-            res.write(`
-      <html>
-      <body>
-        <h1>LOGIN FAILED</h1>
-        <div>${error}</div>
-        <div>${errorDescription}
-      </body>
-      </html>
-    `)
-          }
+      startServer(async (code) => {
+        const {
+          access_token: accessToken,
+          id_token: idToken,
+          scope,
+        } = await getAccessToken(code, codeVerifier)
 
-          res.end()
-        })
-        .listen(4242, (err) => {
-          if (err) {
-            console.log(`Unable to start an HTTP server on port 4242.`, err)
-          }
-        })
+        console.debug('accessToken:', chalk.blue.bold(accessToken))
+        console.debug('idToken:', chalk.blue.bold(idToken))
+        console.debug('scope:', chalk.blue.bold(scope))
+
+        const { sub: userId, name } = jwt_decode(idToken)
+
+        consola.info(`Successfully logged in as ${chalk.blue.bold(name)}`)
+        const apiKey = await getApiKey(userId, accessToken)
+        console.log('apiKey', apiKey)
+      })
+    } else {
+      // TODO: Ask for account default settings like locations and alerts
+      config.set('apiKey', apiKey)
+      config.set('isInitialized', 'true')
+      api.refresh()
+
+      const { data } = await account.findOne()
+      const { accountId, name } = data
+
+      config.set('accountId', accountId)
+      config.set('accountName', name)
+
+      process.stdout.write('\x1Bc')
+      process.stdout.write(chalk.blue(raccoon))
+      consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
+      consola.success(' Welcome to checkly-cli 🦝')
+      consola.log('You can now run `checkly init` to setup the project!')
     }
-
-    // TODO: Ask for account default settings like locations and alerts
-
-    config.set('apiKey', apiKey)
-    config.set('isInitialized', 'true')
-    api.refresh()
-
-    const { data } = await account.findOne()
-    const { accountId, name } = data
-
-    config.set('accountId', accountId)
-    config.set('accountName', name)
-
-    process.stdout.write('\x1Bc')
-    process.stdout.write(chalk.blue(raccoon))
-    consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
-    consola.success(' Welcome to checkly-cli 🦝')
-    consola.log('You can now run `checkly init` to setup the project!')
   }
 }
 
