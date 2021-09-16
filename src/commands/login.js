@@ -9,6 +9,7 @@ const {
   getApiKey,
 } = require('../services/login-util')
 
+/* eslint-disable camelcase */
 const jwt_decode = require('jwt-decode')
 
 const { Command, flags } = require('@oclif/command')
