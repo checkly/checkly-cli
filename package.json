@@ -20,7 +20,6 @@
     "oclif",
     "cli"
   ],
-  "license": "MIT",
   "main": "bin/run",
   "oclif": {
     "commands": "./src/commands",
