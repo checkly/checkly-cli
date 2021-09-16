@@ -6,23 +6,20 @@ module.exports = function plugin(options = {}) {
   return {
     name: 'checkly-whitelist',
     async generateBundle(bundleOptions, bundle, isWrite) {
+      // Use dynamic API endpoint from our cli config options / env
       http.get('http://localhost:3000/v1/runtimes', (res) => {
         let data = ''
 
-        // called when a data chunk is received.
         res.on('data', (chunk) => {
           data += chunk
         })
 
         res.on('end', () => {
           const runtimes = JSON.parse(data)
+          // runtimes[0] = 2021.06 - should be dynamic and passed in somehow most likely
           const latestRuntimeDeps = Object.keys(runtimes[0].dependencies)
 
-          // console.log(latestRuntimeDeps)
-
           Object.values(bundle).forEach((script) => {
-            // console.log(script.imports)
-
             script.imports.forEach((i) => {
               if (!latestRuntimeDeps.includes(i)) {
                 console.log('\n')
