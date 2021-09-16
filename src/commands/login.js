@@ -1,5 +1,8 @@
 const { prompt } = require('inquirer')
 const consola = require('consola')
+const http = require('http')
+const crypto = require('crypto')
+const { Buffer } = require('buffer')
 
 const { Command, flags } = require('@oclif/command')
 const chalk = require('chalk')
@@ -9,6 +12,26 @@ const config = require('../services/config')
 
 const { account } = require('./../services/api')
 const api = require('./../services/api')
+const { url } = require('inspector')
+
+const auth0AuthenticationUrl = (codeChallenge, scope, state) => {
+  const url = new URL(
+    `https://${process.env.AUTH0_DOMAIN}.eu.auth0.com/authorize`
+  )
+  const params = new URLSearchParams({
+    client_id: process.env.AUTH0_CLIENT_ID,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    response_type: 'code',
+    redirect_uri: 'http://localhost:4242',
+    scope: scope,
+    state: state,
+  })
+
+  url.searchParams = params
+  console.log(url.toString())
+  return url.toString()
+}
 
 const generateMaskedKey = (key) => {
   const maskedKey = key.replace(/[a-zA-Z0-9]/g, '*').slice(0, key.length - 4)
@@ -27,7 +50,7 @@ class LoginCommand extends Command {
 
   async run() {
     const { flags } = this.parse(LoginCommand)
-    let apiKey = flags.apiKey
+    const apiKey = flags.apiKey
 
     if (config.get('apiKey')) {
       const { setNewkey } = await prompt([
@@ -46,19 +69,54 @@ class LoginCommand extends Command {
     }
 
     if (!apiKey) {
-      consola.info(
-        'Generate your Checkly API Key here: https://app.checklyhq.com/account/api-keys'
-      )
-      const { newApiKey } = await prompt([
-        {
-          name: 'newApiKey',
-          validate: (apiKey) =>
-            apiKey.length === 32 ? true : 'Please provide a valid API Key',
-          message: 'Please enter your Checkly API Key',
-        },
-      ])
+      const codeVerifier = crypto.randomBytes(128)
+      console.log('cV', codeVerifier.toString())
+      const hash = crypto
+        .createHash('sha256')
+        .update(codeVerifier)
+        .digest('base64')
 
-      apiKey = newApiKey
+      console.log('hash', hash)
+      const codeChallenge = Buffer.from(hash, 'base64')
+
+      console.log('cC', codeChallenge.toString('base64'))
+
+      consola.info(
+        `Please open the following URL in your browser - ${auth0AuthenticationUrl()}.`
+      )
+      const server = http
+        .createServer((req, res) => {
+          const urlQuery = url.parse(req.url, true).query
+          const { code, state, error, errorDescription } = urlQuery
+
+          // this validation was simplified for the example
+          if (code && state) {
+            res.write(`
+      <html>
+      <body>
+        <h1>LOGIN SUCCEEDED</h1>
+      </body>
+      </html>
+    `)
+          } else {
+            res.write(`
+      <html>
+      <body>
+        <h1>LOGIN FAILED</h1>
+        <div>${error}</div>
+        <div>${errorDescription}
+      </body>
+      </html>
+    `)
+          }
+
+          res.end()
+        })
+        .listen(4242, (err) => {
+          if (err) {
+            console.log(`Unable to start an HTTP server on port 4242.`, err)
+          }
+        })
     }
 
     // TODO: Ask for account default settings like locations and alerts
