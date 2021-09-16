@@ -97,7 +97,7 @@ jobs:
       - name: Publish to npm
         run: |
           npm run version:pr
-          npm publish --tag canary
+          npm publish --tag=canary
         env:
           CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -110,7 +110,7 @@ jobs:
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: mac
+          SLACK_CHANNEL: eng-ci
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':red_circle: Create PR Release Failed'

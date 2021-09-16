@@ -1,10 +1,15 @@
 const consola = require('consola')
+const path = require('path')
 const { Command, flags } = require('@oclif/command')
 const { output } = require('../services/flags')
 
 const parser = require('../parser')
 const { checks } = require('../services/api')
-const { printDeployResults, readLocal } = require('../services/utils')
+const {
+  findChecklyDir,
+  printDeployResults,
+  readLocal,
+} = require('../services/utils')
 
 class DeployCommand extends Command {
   async run() {
@@ -14,7 +19,9 @@ class DeployCommand extends Command {
 
     try {
       const parseResults = await parser()
-      const settings = await readLocal('./.checkly/settings.yml')
+      const settings = await readLocal(
+        path.join(findChecklyDir(), 'settings.yml')
+      )
       const projectId = settings.project.id
 
       consola.debug('Keys of objects sent to API:')

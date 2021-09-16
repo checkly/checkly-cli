@@ -2,7 +2,7 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 const add = require('../modules/add')
 
-const files = require('../services/files')
+const { findChecklyDir } = require('../services/utils')
 
 class AddCommand extends Command {
   static args = [
@@ -16,18 +16,19 @@ class AddCommand extends Command {
   ]
 
   async run() {
-    if (!files.hasChecksDirectory()) {
-      consola.error('Checkly project was not initiliazed')
+    try {
+      const { args } = this.parse(AddCommand)
+
+      const checklyDir = findChecklyDir()
+      switch (args.resource) {
+        case 'group':
+          return add.group(checklyDir)
+        case 'check':
+          return add.check(checklyDir)
+      }
+    } catch (e) {
+      consola.error('Checkly directory error -', e)
       return process.exit(1)
-    }
-
-    const { args } = this.parse(AddCommand)
-
-    switch (args.resource) {
-      case 'group':
-        return add.group()
-      case 'check':
-        return add.check()
     }
   }
 }
