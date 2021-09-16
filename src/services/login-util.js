@@ -47,6 +47,7 @@ function generatePKCE() {
 function startServer(getToken) {
   const server = http.createServer()
   server.on('request', (req, res) => {
+    // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
     const responseParams = new URLSearchParams(req.url.substring(1))
     const code = responseParams.get('code')
     const state = responseParams.get('state')
@@ -66,7 +67,9 @@ function startServer(getToken) {
       res.write(`
       <html>
       <body>
-        <h3>Login failed, please try again!</h3>
+        <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
+          <h3 style="font-weight:200;">Login failed, please try again!</h3>
+        </div>
       </body>
       </html>
     `)
@@ -78,6 +81,7 @@ function startServer(getToken) {
   server.listen(4242, (err) => {
     if (err) {
       console.log(`Unable to start an HTTP server on port 4242.`, err)
+      process.exit(1)
     }
   })
 }
@@ -99,31 +103,27 @@ async function getAccessToken(code, codeVerifier) {
     }
   )
 
-  consola.info(tokenResponse.data)
+  consola.debug(tokenResponse.data)
 
-  /* eslint-disable camelcase */
-  const { access_token, id_token, scope } = tokenResponse.data
-
-  return {
-    access_token,
-    id_token,
-    scope,
-  }
+  return tokenResponse.data
 }
 
 async function getApiKey(userId, accessToken) {
-  const userResponse = await axios.get(
-    `http://localhost:3000/users/me/api-key/${userId}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        'X-Checkly-Account': 'e46106d8-e382-4d1f-8182-9d63983ed6d4',
-      },
-    }
-  )
-  console.log(userResponse.data)
-  return userResponse.data
+  try {
+    const userResponse = await axios.get(
+      `http://localhost:3000/users/me/api-key/${userId}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    )
+    return userResponse.data
+  } catch (err) {
+    consola.error(`${err} - Error communicating with Checkly backend.`)
+    process.exit(1)
+  }
 }
 
 module.exports = {

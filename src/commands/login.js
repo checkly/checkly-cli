@@ -27,6 +27,12 @@ const generateMaskedKey = (key) => {
   return `${maskedKey}${lastFourDigitsKey}`
 }
 
+const loginSuccess = (apiKey) => {
+  consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
+  consola.success(' Welcome to checkly-cli 🦝')
+  consola.log('You can now run `checkly init` to setup the project!')
+}
+
 class LoginCommand extends Command {
   static flags = {
     apiKey: flags.string({
@@ -59,13 +65,13 @@ class LoginCommand extends Command {
     if (!apiKey) {
       const { codeChallenge, codeVerifier } = generatePKCE()
       consola.info(
-        `Please open the following URL in your browser - ${chalk.blueBright.bold(
+        ` Please open the following URL in your browser: \n\n${chalk.blueBright(
           generateAuthenticationUrl(
             codeChallenge,
             'openid profile',
             codeVerifier
           )
-        )}`
+        )}\n`
       )
 
       startServer(async (code) => {
@@ -81,9 +87,15 @@ class LoginCommand extends Command {
 
         const { sub: userId, name } = jwt_decode(idToken)
 
-        consola.info(`Successfully logged in as ${chalk.blue.bold(name)}`)
+        console.log('\n')
+        consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
         const apiKey = await getApiKey(userId, accessToken)
         console.log('apiKey', apiKey)
+
+        // Once this is working, save API Key to config
+        // config.set('apiKey', apiKey)
+        loginSuccess(apiKey)
+        process.exit(0)
       })
     } else {
       // TODO: Ask for account default settings like locations and alerts
@@ -99,9 +111,7 @@ class LoginCommand extends Command {
 
       process.stdout.write('\x1Bc')
       process.stdout.write(chalk.blue(raccoon))
-      consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
-      consola.success(' Welcome to checkly-cli 🦝')
-      consola.log('You can now run `checkly init` to setup the project!')
+      loginSuccess(apiKey)
     }
   }
 }
