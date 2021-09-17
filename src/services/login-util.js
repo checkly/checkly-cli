@@ -111,16 +111,17 @@ async function getAccessToken(code, codeVerifier) {
 async function getApiKey(userId, accessToken) {
   try {
     const userResponse = await axios.get(
-      `http://localhost:3000/users/me/api-key/${userId}`,
+      `http://localhost:3000/users/me/api-key/${encodeURIComponent(userId)}`,
       {
         headers: {
-          'Content-Type': 'application/json',
+          Accept: 'application/json, text/plain, */*',
           Authorization: `Bearer ${accessToken}`,
         },
       }
     )
     return userResponse.data
   } catch (err) {
+    consola.debug(err.toJSON())
     consola.error(`${err} - Error communicating with Checkly backend.`)
     process.exit(1)
   }

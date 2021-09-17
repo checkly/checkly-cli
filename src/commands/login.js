@@ -81,20 +81,21 @@ class LoginCommand extends Command {
           scope,
         } = await getAccessToken(code, codeVerifier)
 
-        console.debug('accessToken:', chalk.blue.bold(accessToken))
-        console.debug('idToken:', chalk.blue.bold(idToken))
-        console.debug('scope:', chalk.blue.bold(scope))
+        consola.debug('accessToken:', chalk.blue.bold(accessToken))
+        consola.debug('idToken:', chalk.blue.bold(idToken))
+        consola.debug('scope:', chalk.blue.bold(scope))
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
         console.log('\n')
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
-        const apiKey = await getApiKey(userExternalId, accessToken)
-        console.log('apiKey', apiKey)
+        const keyResponse = await getApiKey(userExternalId, accessToken)
+        consola.debug(' API Key Response', keyResponse)
 
-        // Once this is working, save API Key to config
-        // config.set('apiKey', apiKey)
-        loginSuccess(apiKey)
+        config.set('apiKey', keyResponse.apiKey)
+        config.set('accountId', keyResponse.accountId)
+        config.set('accountName', keyResponse.accountName)
+        loginSuccess(keyResponse.apiKey)
         process.exit(0)
       })
     } else {
