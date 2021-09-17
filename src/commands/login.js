@@ -28,7 +28,7 @@ const generateMaskedKey = (key) => {
 }
 
 const loginSuccess = (apiKey) => {
-  consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
+  consola.info(` API Key set (${generateMaskedKey(apiKey)})\n`)
   consola.success(' Welcome to checkly-cli 🦝')
   consola.log('You can now run `checkly init` to setup the project!')
 }
@@ -87,7 +87,6 @@ class LoginCommand extends Command {
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
-        console.log('\n')
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
         const keyResponse = await getApiKey(userExternalId, accessToken)
         consola.debug(' API Key Response', keyResponse)
