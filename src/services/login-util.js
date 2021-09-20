@@ -2,6 +2,7 @@ const http = require('http')
 const crypto = require('crypto')
 const consola = require('consola')
 const axios = require('axios')
+const config = require('./config')
 
 const AUTH0_DOMAIN = 'checkly'
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
@@ -110,8 +111,10 @@ async function getAccessToken(code, codeVerifier) {
 
 async function getApiKey(userId, accessToken) {
   try {
+    const env = config.getEnv()
+    const baseHost = config.get(`${env}.apiUrl`)
     const userResponse = await axios.get(
-      `http://localhost:3000/users/me/api-key/${encodeURIComponent(userId)}`,
+      `${baseHost}/users/me/api-key/${encodeURIComponent(userId)}`,
       {
         headers: {
           Accept: 'application/json, text/plain, */*',
