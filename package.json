@@ -3,7 +3,7 @@
   "version": "0.0.2",
   "author": "Nacho Anaya <nacho@checklyhq.com>",
   "description": "Checkly CLI",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "homepage": "https://github.com/checkly/checkly-cli",
   "repository": {
     "type": "git",
@@ -69,6 +69,7 @@
     "date-fns": "2.23.0",
     "git-remote-origin-url": "3.1.0",
     "inquirer": "8.1.2",
+    "jwt-decode": "3.1.2",
     "lodash.isequal": "4.5.0",
     "mqtt": "4.2.8",
     "ora": "5.4.1",

@@ -1,6 +1,17 @@
 const { prompt } = require('inquirer')
 const consola = require('consola')
 
+const {
+  generateAuthenticationUrl,
+  getAccessToken,
+  generatePKCE,
+  startServer,
+  getApiKey,
+} = require('../services/login-util')
+
+/* eslint-disable camelcase */
+const jwt_decode = require('jwt-decode')
+
 const { Command, flags } = require('@oclif/command')
 const chalk = require('chalk')
 
@@ -16,6 +27,12 @@ const generateMaskedKey = (key) => {
   return `${maskedKey}${lastFourDigitsKey}`
 }
 
+const loginSuccess = (apiKey) => {
+  consola.info(` API Key set (${generateMaskedKey(apiKey)})\n`)
+  consola.success(' Welcome to checkly-cli 🦝')
+  consola.log('You can now run `checkly init` to setup the project!')
+}
+
 class LoginCommand extends Command {
   static flags = {
     apiKey: flags.string({
@@ -27,7 +44,7 @@ class LoginCommand extends Command {
 
   async run() {
     const { flags } = this.parse(LoginCommand)
-    let apiKey = flags.apiKey
+    const apiKey = flags.apiKey
 
     if (config.get('apiKey')) {
       const { setNewkey } = await prompt([
@@ -46,38 +63,56 @@ class LoginCommand extends Command {
     }
 
     if (!apiKey) {
+      const { codeChallenge, codeVerifier } = generatePKCE()
       consola.info(
-        'Generate your Checkly API Key here: https://app.checklyhq.com/account/api-keys'
+        ` Please open the following URL in your browser: \n\n${chalk.blueBright(
+          generateAuthenticationUrl(
+            codeChallenge,
+            'openid profile',
+            codeVerifier
+          )
+        )}\n`
       )
-      const { newApiKey } = await prompt([
-        {
-          name: 'newApiKey',
-          validate: (apiKey) =>
-            apiKey.length === 32 ? true : 'Please provide a valid API Key',
-          message: 'Please enter your Checkly API Key',
-        },
-      ])
 
-      apiKey = newApiKey
+      startServer(async (code) => {
+        const {
+          access_token: accessToken,
+          id_token: idToken,
+          scope,
+        } = await getAccessToken(code, codeVerifier)
+
+        consola.debug('accessToken:', chalk.blue.bold(accessToken))
+        consola.debug('idToken:', chalk.blue.bold(idToken))
+        consola.debug('scope:', chalk.blue.bold(scope))
+
+        const { sub: userExternalId, name } = jwt_decode(idToken)
+
+        consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
+        const keyResponse = await getApiKey(userExternalId, accessToken)
+        consola.debug(' API Key Response', keyResponse)
+
+        config.set('apiKey', keyResponse.apiKey)
+        config.set('accountId', keyResponse.accountId)
+        config.set('accountName', keyResponse.accountName)
+        loginSuccess(keyResponse.apiKey)
+        process.exit(0)
+      })
+    } else {
+      // TODO: Ask for account default settings like locations and alerts
+      config.set('apiKey', apiKey)
+      config.set('isInitialized', 'true')
+      api.refresh()
+
+      const { data } = await account.findOne()
+      const { accountId, name } = data
+
+      config.set('accountId', accountId)
+      config.set('accountName', name)
+
+      process.stdout.write('\x1Bc')
+      process.stdout.write(chalk.blue(raccoon))
+      loginSuccess(apiKey)
     }
-
-    // TODO: Ask for account default settings like locations and alerts
-
-    config.set('apiKey', apiKey)
-    config.set('isInitialized', 'true')
-    api.refresh()
-
-    const { data } = await account.findOne()
-    const { accountId, name } = data
-
-    config.set('accountId', accountId)
-    config.set('accountName', name)
-
-    process.stdout.write('\x1Bc')
-    process.stdout.write(chalk.blue(raccoon))
-    consola.info(`API Key set (${generateMaskedKey(apiKey)})\n`)
-    consola.success(' Welcome to checkly-cli 🦝')
-    consola.log('You can now run `checkly init` to setup the project!')
   }
 }
 
