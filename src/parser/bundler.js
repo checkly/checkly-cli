@@ -5,10 +5,13 @@ const checklyWhitelist = require('../services/rollup-plugin-checkly-whitelist')
 
 const OUTPUT_DIRECTORY = '../../.checkly/output'
 
-async function bundle(entryFile, writeBundle = false) {
+async function bundle(check, writeBundle = false) {
   const inputOptions = {
-    input: path.join(process.cwd(), entryFile),
-    plugins: [commonjs({ sourceMap: true }), checklyWhitelist()],
+    input: path.join(process.cwd(), check.path),
+    plugins: [
+      commonjs({ sourceMap: true }),
+      checklyWhitelist({ runtime: check.runtime || '2021.06' }),
+    ],
   }
 
   const outputOptions = {

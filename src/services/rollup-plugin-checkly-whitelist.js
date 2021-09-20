@@ -1,4 +1,4 @@
-const http = require('http')
+const https = require('https')
 const consola = require('consola')
 const chalk = require('chalk')
 
@@ -6,8 +6,7 @@ module.exports = function plugin(options = {}) {
   return {
     name: 'checkly-whitelist',
     async generateBundle(bundleOptions, bundle, isWrite) {
-      // Use dynamic API endpoint from our cli config options / env
-      http.get('http://localhost:3000/v1/runtimes', (res) => {
+      https.get('https://api.checklyhq.com/v1/runtimes', (res) => {
         let data = ''
 
         res.on('data', (chunk) => {
@@ -16,8 +15,10 @@ module.exports = function plugin(options = {}) {
 
         res.on('end', () => {
           const runtimes = JSON.parse(data)
-          // runtimes[0] = 2021.06 - should be dynamic and passed in somehow most likely
-          const latestRuntimeDeps = Object.keys(runtimes[0].dependencies)
+          const runtime = runtimes.find(
+            (runtime) => runtime.name === options.runtime
+          )
+          const latestRuntimeDeps = Object.keys(runtime.dependencies)
 
           Object.values(bundle).forEach((script) => {
             script.imports.forEach((i) => {
