@@ -45,7 +45,7 @@ function generatePKCE() {
   }
 }
 
-function startServer(getToken) {
+function startServer(onTokenCallback) {
   const server = http.createServer()
   server.on('request', (req, res) => {
     // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
@@ -58,12 +58,13 @@ function startServer(getToken) {
       <html>
       <body>
         <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
-          <h3 style="font-weight: 200;"><strong style="color:#45C8F1;">checkly-cli</strong> login success! </br></br>You may now close this browser window.</h3>
+          <h3 style="font-weight: 200;"><strong style="color:#45C8F1;">checkly-cli</strong> login success! </br></br>This window should close itself in 3 seconds.</h3>
         </div>
+        <script>setTimeout(function() {window.close()}, 3000);</script>
       </body>
       </html>
     `)
-      getToken(code)
+      onTokenCallback(code)
     } else {
       res.write(`
       <html>
