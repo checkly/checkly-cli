@@ -22,4 +22,28 @@ if (!config.getApiKey() && !publicCommands.includes(command)) {
   process.exit(1)
 }
 
+if (process.env.NODE_ENV === 'test') {
+  config.set({
+    env: 'development',
+    version: '0.0.1',
+    output: 'json',
+    production: {
+      apiUrl: 'https://api.checklyhq.com',
+      apiVersion: 'v1',
+    },
+    development: {
+      apiUrl: 'http://localhost:3000',
+      apiVersion: 'v1',
+    },
+    staging: {
+      apiUrl: 'https://api.checklyhq.com',
+      apiVersion: 'v1',
+    },
+    isInitialized: 'true',
+    accountId: 'e46106d8-e382-4d1f-8182-9d63983ed6d4',
+    apiKey: '64d0f1bc42994be99089a2a939137a85',
+    accountName: 'Jest Test',
+  })
+}
+
 module.exports = config

@@ -13,11 +13,9 @@ async function listProjects({ output } = {}) {
         repoUrl,
         activated,
         muted,
-        state,
         accountId,
         /* eslint-disable camelcase */
         created_at,
-        updated_at,
         /* eslint-enable camelcase */
       }) => ({
         id,
@@ -25,10 +23,8 @@ async function listProjects({ output } = {}) {
         repoUrl,
         activated,
         muted,
-        state,
         accountId,
         created_at,
-        updated_at,
       })
     )
 

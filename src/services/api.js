@@ -40,6 +40,10 @@ api.interceptors.request.use(function (config) {
   return config
 })
 
+if (process.env.NODE_ENV === 'test') {
+  axios.defaults.adapter = require('axios/lib/adapters/http')
+}
+
 api.interceptors.response.use(
   (res) => {
     spinner.stop()
