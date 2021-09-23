@@ -46,13 +46,13 @@ class LoginCommand extends Command {
     const { flags } = this.parse(LoginCommand)
     const apiKey = flags.apiKey
 
-    if (config.get('apiKey')) {
+    if (config.getApiKey()) {
       const { setNewkey } = await prompt([
         {
           name: 'setNewkey',
           type: 'confirm',
           message: `API Key already set (${generateMaskedKey(
-            config.get('apiKey')
+            config.getApiKey()
           )}), do you want to set a new API Key?`,
         },
       ])
@@ -91,8 +91,8 @@ class LoginCommand extends Command {
         const keyResponse = await getApiKey(userExternalId, accessToken)
         consola.debug(' API Key Response', keyResponse)
 
-        config.set('apiKey', keyResponse.apiKey)
-        config.set('accountId', keyResponse.accountId)
+        config.auth.set('apiKey', keyResponse.apiKey)
+        config.data.set('accountId', keyResponse.accountId)
         config.set('accountName', keyResponse.accountName)
         loginSuccess(keyResponse.apiKey)
         process.exit(0)

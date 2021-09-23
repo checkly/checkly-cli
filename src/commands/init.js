@@ -107,8 +107,8 @@ class InitCommand extends Command {
     ])
 
     // TODO: Check if we still need to fetch account data
-    const accountId = config.get('accountId')
-    const accountName = config.get('accountName')
+    const accountId = config.data.get('accountId')
+    const accountName = config.data.get('accountName')
 
     const { data: project } = await projects.create({
       accountId,
