@@ -12,10 +12,27 @@ const spinner = ora({
 })
 
 function getApiDefaults() {
+  const environmments = {
+    production: {
+      apiUrl: 'https://api.checklyhq.com',
+      apiVersion: 'v1',
+    },
+
+    development: {
+      apiUrl: 'http://localhost:3000',
+      apiVersion: 'v1',
+    },
+
+    staging: {
+      apiUrl: 'https://api.checklyhq.com',
+      apiVersion: 'v1',
+    },
+  }
+
   const env = config.getEnv()
   const apiKey = config.getApiKey()
-  const baseHost = config.get(`${env}.apiUrl`)
-  const basePath = config.get(`${env}.apiVersion`)
+  const baseHost = `${environmments[env]}.apiUrl`
+  const basePath = `${environmments[env]}.apiVersion`
   const Authorization = `Bearer ${apiKey}`
 
   return { baseHost, basePath, Authorization }

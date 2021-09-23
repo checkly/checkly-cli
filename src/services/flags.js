@@ -1,7 +1,7 @@
 const { flags } = require('@oclif/command')
 
 const config = require('../services/config')
-const defaultOutput = config.get('output')
+const defaultOutput = config.data.get('output')
 
 module.exports = {
   output: flags.string({

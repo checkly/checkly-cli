@@ -2,7 +2,7 @@ const { Command, flags } = require('@oclif/command')
 const projects = require('../modules/projects')
 const config = require('../services/config')
 
-const defaultOutput = config.get('output')
+const defaultOutput = config.data.get('output')
 
 class ProjectsCommand extends Command {
   async run() {
