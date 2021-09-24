@@ -48,37 +48,34 @@ Checkout [app.checklyhq.com](https://app.checklyhq.com) to see your checks in th
 ## Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.2 darwin-x64 node-v14.17.3
+@checkly/cli/0.0.2 linux-x64 node-v15.14.0
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 ## Commands
 
 <!-- commands -->
-
-- [`checkly add RESOURCE`](#checkly-add-resource)
-- [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
-- [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
-- [`checkly deploy`](#checkly-deploy)
-- [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
-- [`checkly help [COMMAND]`](#checkly-help-command)
-- [`checkly init PROJECTNAME`](#checkly-init-projectname)
-- [`checkly login`](#checkly-login)
-- [`checkly logout`](#checkly-logout)
-- [`checkly projects`](#checkly-projects)
-- [`checkly run`](#checkly-run)
-- [`checkly status ACTION`](#checkly-status-action)
+* [`checkly add RESOURCE`](#checkly-add-resource)
+* [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
+* [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
+* [`checkly deploy`](#checkly-deploy)
+* [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
+* [`checkly help [COMMAND]`](#checkly-help-command)
+* [`checkly init PROJECTNAME`](#checkly-init-projectname)
+* [`checkly login`](#checkly-login)
+* [`checkly logout`](#checkly-logout)
+* [`checkly projects`](#checkly-projects)
+* [`checkly run [CHECKNAME]`](#checkly-run-checkname)
+* [`checkly status ACTION`](#checkly-status-action)
 
 ## `checkly add RESOURCE`
 
@@ -243,17 +240,16 @@ OPTIONS
 
 _See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/projects.js)_
 
-## `checkly run`
+## `checkly run [CHECKNAME]`
 
 Run and test your checks on Checkly
 
 ```
 USAGE
-  $ checkly run
+  $ checkly run [CHECKNAME]
 
-OPTIONS
-  -c, --checkName=checkName      (required) Check upon which to execute action
-  -o, --output=plain|human|json  [default: json] output type
+ARGUMENTS
+  CHECKNAME  Which check would you like to execute?
 ```
 
 _See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/run.js)_
@@ -274,7 +270,6 @@ OPTIONS
 ```
 
 _See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/status.js)_
-
 <!-- commandsstop -->
 
 ## Troubleshooting

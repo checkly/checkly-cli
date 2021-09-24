@@ -5,42 +5,41 @@ const { mockChecksResponse } = require('../fixtures/api')
 const ChecksCommand = require('../../src/commands/checks')
 
 describe('Test Checks Command', () => {
-  // beforeAll(() => {
-  //   if (!nock.isActive()) {
-  //     nock.activate()
-  //   }
-  // })
+  beforeAll(() => {
+    //   if (!nock.isActive()) {
+    //     nock.activate()
+    //   }
+    const scope = nock('http://localhost:3000')
+      .get('/v1/checks')
+      .reply(200, mockChecksResponse)
+  })
   beforeEach(() => {
     process.env = Object.assign(process.env, { env: 'development' })
   })
 
   afterEach(() => {
     jest.restoreAllMocks()
-    nock.restore()
   })
 
-  // afterAll(() => {
-  //   nock.cleanAll()
-  // })
+  afterAll(() => {
+    // nock.cleanAll()
+    scope.end()
+  })
 
   it('should print checks table', async () => {
-    const scope = nock('http://localhost:3000')
-      .get('/v1/checks')
-      .reply(200, mockChecksResponse)
-
     const inspect = await stdout.inspectAsync(async () => {
       process.argv = ['list']
       await ChecksCommand.run()
     })
 
-    console.log(inspect)
-    console.log(
-      JSON.parse(Buffer.from(inspect[1]).toString().replace('[log] ', ''))
-    )
+    console.log('ins', inspect)
+
+    // console.log(JSON.parse(inspect).replace('[log] ', ''))
+    console.log(Buffer.from(inspect).toString().replace('[log] ', ''))
 
     // Parsing raw stdout output from Buffer
     expect(
-      JSON.parse(Buffer.from(inspect[1]).toString().replace('[log] ', ''))
+      JSON.parse(Buffer.from(inspect).toString().replace('[log] ', ''))
     ).toEqual([
       {
         name: 'API Check',
