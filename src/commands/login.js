@@ -99,11 +99,8 @@ class LoginCommand extends Command {
 
         config.auth.set('apiKey', keyResponse.apiKey)
         config.data.set('accountId', keyResponse.accountId)
-<<<<<<< HEAD
         config.data.set('accountName', keyResponse.accountName)
-=======
-        config.set('accountName', keyResponse.accountName)
->>>>>>> e367934 (refactor: remove conf command and re organize configuration properties)
+
         loginSuccess(keyResponse.apiKey)
         process.exit(0)
       })
