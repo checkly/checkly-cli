@@ -1,19 +1,24 @@
 /* eslint-disable no-undef */
-import { expect, test } from '@oclif/test'
-import { mockChecksResponse } from '../fixtures/api'
+const { expect, test } = require('@oclif/test')
+const {
+  mockChecksInfoResponse,
+  mockChecksListResponse,
+} = require('../fixtures/api')
+const { defaultConfig } = require('../fixtures/config')
+// const getConfig = require('../helpers/config')
+
+// getConfig()
 
 describe('checks - command', () => {
   test
     .nock('http://localhost:3000', (api) =>
-      api
-        .get('/v1/checks')
-        // user is logged in, return their name
-        .reply(200, mockChecksResponse)
+      api.get('/v1/checks').reply(200, mockChecksListResponse)
     )
+    .loadConfig(defaultConfig)
     .stdout()
-    .command(['checks --output json'])
+    .command(['checks', '--output', 'json'])
     .it('prints checks status', (ctx) => {
-      expect(ctx.stdout).to.equal([
+      expect(JSON.parse(ctx.stdout.trim())).to.eql([
         {
           name: 'API Check',
           checkType: 'API',
@@ -31,15 +36,21 @@ describe('checks - command', () => {
       ])
     })
 
-  // test
-  //   .nock('https://api.heroku.com', (api) =>
-  //     api
-  //       .get('/account')
-  //       // HTTP 401 means the user is not logged in with valid credentials
-  //       .reply(401)
-  //   )
-  //   .command(['auth:whoami'])
-  //   // checks to ensure the command exits with status 100
-  //   .exit(100)
-  //   .it('exits with status 100 when not logged in')
+  test
+    .nock('http://localhost:3000', (api) =>
+      api
+        .get('/v1/checks/92b98ec6-15bd-4729-945a-de1125659271')
+        .reply(200, mockChecksListResponse[0])
+    )
+    .stdout()
+    .command([
+      'checks',
+      'info',
+      '--output',
+      'json',
+      '92b98ec6-15bd-4729-945a-de1125659271',
+    ])
+    .it('prints check info details', (ctx) => {
+      expect(JSON.parse(ctx.stdout)).to.eql(mockChecksInfoResponse)
+    })
 })
