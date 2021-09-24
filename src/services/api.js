@@ -11,7 +11,7 @@ const spinner = ora({
   color: 'cyan',
 })
 
-function getApiDefaults() {
+function getDefatuls() {
   const environmments = {
     production: {
       apiUrl: 'https://api.checklyhq.com',
@@ -31,24 +31,25 @@ function getApiDefaults() {
 
   const env = config.getEnv()
   const apiKey = config.getApiKey()
-  const baseHost = `${environmments[env]}.apiUrl`
-  const basePath = `${environmments[env]}.apiVersion`
+  const accountId = config.data.get('accountId')
+  const baseHost = environmments[env].apiUrl
+  const basePath = environmments[env].apiVersion
   const Authorization = `Bearer ${apiKey}`
 
-  return { baseHost, basePath, Authorization }
+  return { baseHost, basePath, accountId, Authorization }
 }
 
 function refresh() {
-  const { baseHost, Authorization } = getApiDefaults()
+  const { baseHost, Authorization } = getDefatuls()
   api.defaults.headers.Authorization = Authorization
   api.defaults.baseURL = `${baseHost}`
 }
 
-const { baseHost, basePath, Authorization } = getApiDefaults()
+const { baseHost, basePath, Authorization, accountId } = getDefatuls()
 
 const api = axios.create({
   baseURL: `${baseHost}`,
-  headers: { Authorization },
+  headers: { Authorization, 'x-checkly-account': accountId },
 })
 
 api.interceptors.request.use(function (config) {
@@ -69,4 +70,8 @@ api.interceptors.response.use(
   }
 )
 
-module.exports = { refresh, ...sdk.init({ api, baseHost, basePath }) }
+module.exports = {
+  refresh,
+  getDefatuls,
+  ...sdk.init({ api, baseHost, basePath }),
+}
