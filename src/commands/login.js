@@ -74,7 +74,7 @@ class LoginCommand extends Command {
         )}\n`
       )
 
-      startServer(async (code) => {
+      startServer(codeVerifier, async (code) => {
         const {
           access_token: accessToken,
           id_token: idToken,
