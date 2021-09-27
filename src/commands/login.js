@@ -1,5 +1,5 @@
 const chalk = require('chalk')
-const jwtDecode = require('jwt-decode')
+const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
 const consola = require('consola')
 const { prompt } = require('inquirer')
 const { Command, flags } = require('@oclif/command')
@@ -85,7 +85,9 @@ class LoginCommand extends Command {
         consola.debug('idToken:', chalk.blue.bold(idToken))
         consola.debug('scope:', chalk.blue.bold(scope))
 
-        const { sub: userExternalId, name } = jwtDecode(idToken)
+        const { sub: userExternalId, name } = jwt_decode(idToken)
+
+        console.log('ACA', userExternalId)
 
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
         const keyResponse = await getApiKey({
