@@ -5,6 +5,7 @@ const dataSchema = {
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
   accountId: { type: 'string' },
+  accountName: { type: 'string' },
 }
 
 const authSchema = {
