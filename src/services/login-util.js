@@ -45,16 +45,17 @@ function generatePKCE() {
   }
 }
 
-function startServer(onTokenCallback) {
+function startServer(codeVerifier, onTokenCallback) {
   const server = http.createServer()
   server.on('request', (req, res) => {
     // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
-    const responseParams = new URLSearchParams(req.url.substring(1))
-    const code = responseParams.get('code')
-    const state = responseParams.get('state')
+    if (!req.url.includes('favicon.ico')) {
+      const responseParams = new URLSearchParams(req.url.substring(1))
+      const code = responseParams.get('code')
+      const state = responseParams.get('state')
 
-    if (code && state) {
-      res.write(`
+      if (code && state === codeVerifier) {
+        res.write(`
       <html>
       <body>
         <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
@@ -64,9 +65,9 @@ function startServer(onTokenCallback) {
       </body>
       </html>
     `)
-      onTokenCallback(code)
-    } else {
-      res.write(`
+        onTokenCallback(code)
+      } else {
+        res.write(`
       <html>
       <body>
         <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
@@ -75,9 +76,10 @@ function startServer(onTokenCallback) {
       </body>
       </html>
     `)
-    }
+      }
 
-    res.end()
+      res.end()
+    }
   })
 
   server.listen(4242, (err) => {
