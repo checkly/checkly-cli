@@ -1,21 +1,17 @@
 /* eslint-disable no-undef */
 const os = require('os')
-const inquirer = require('inquirer')
-const { test, expect } = require('@oclif/test')
-// const { defaultConfig } = require('../fixtures/config')
+const { test } = require('@oclif/test')
 
 describe('login', function () {
   test
-    // .nock('http://localhost:3000', (api) => api.get('/v1/checks').reply(401))
-    // .loadConfig(defaultConfig)
-    // .stub(inquirer, 'prompt', () => Promise.resolve({ setNewKey: true }))
-    // .stub(inquirer, 'prompt', () => Promise.resolve({ setNewKey: 'n\n' }))
-    .stdin(`n${os.EOL}`)
-    .stdout()
+    .nock('http://localhost:3000', (api) =>
+      api.get('/v1/account').reply(200, {
+        accountId: 'abc123mockaccountId',
+        name: 'NockAccount',
+      })
+    )
+    .stdin(`y${os.EOL}`, 500) // answer inquirer prompt "y" with 500ms delay
+    .stdout({ print: true })
     .command(['login', '--apiKey', '123'])
-    .exit(1)
     .it('login answer')
-  // .it('login answer', (ctx) => {
-  //   expect(inquirer.prompt).to.equal(true)
-  // })
 })
