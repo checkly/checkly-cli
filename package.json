@@ -25,8 +25,7 @@
     "commands": "./src/commands",
     "bin": "checkly",
     "plugins": [
-      "@oclif/plugin-help",
-      "conf-cli"
+      "@oclif/plugin-help"
     ]
   },
   "bin": {
@@ -64,7 +63,6 @@
     "cli-fuzzy-search": "2.0.0",
     "cli-spinners": "2.6.0",
     "conf": "8.0.0",
-    "conf-cli": "0.1.9",
     "consola": "2.15.0",
     "console.table": "0.10.0",
     "date-fns": "2.23.0",

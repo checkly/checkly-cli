@@ -1,25 +1,39 @@
-const { prompt } = require('inquirer')
+const chalk = require('chalk')
+const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
 const consola = require('consola')
+const { prompt } = require('inquirer')
+const { Command, flags } = require('@oclif/command')
 
+const raccoon = require('./../services/raccoon')
+const { account } = require('./../services/api')
 const {
   generateAuthenticationUrl,
   getAccessToken,
   generatePKCE,
   startServer,
   getApiKey,
-} = require('../services/login-util')
+} = require('./../services/login-util')
 
-/* eslint-disable camelcase */
-const jwt_decode = require('jwt-decode')
-
-const { Command, flags } = require('@oclif/command')
-const chalk = require('chalk')
-
-const raccoon = require('../services/raccoon')
-const config = require('../services/config')
-
-const { account } = require('./../services/api')
+const config = require('./../services/config')
 const api = require('./../services/api')
+
+const checkExistingLogin = async () => {
+  if (config.getApiKey()) {
+    const { setNewkey } = await prompt([
+      {
+        name: 'setNewkey',
+        type: 'confirm',
+        message: `API Key already set (${generateMaskedKey(
+          config.getApiKey()
+        )}), do you want to set a new API Key?`,
+      },
+    ])
+
+    if (!setNewkey) {
+      return process.exit(0)
+    }
+  }
+}
 
 const generateMaskedKey = (key) => {
   const maskedKey = key.replace(/[a-zA-Z0-9]/g, '*').slice(0, key.length - 4)
@@ -46,21 +60,7 @@ class LoginCommand extends Command {
     const { flags } = this.parse(LoginCommand)
     const apiKey = flags.apiKey
 
-    if (config.get('apiKey')) {
-      const { setNewkey } = await prompt([
-        {
-          name: 'setNewkey',
-          type: 'confirm',
-          message: `API Key already set (${generateMaskedKey(
-            config.get('apiKey')
-          )}), do you want to set a new API Key?`,
-        },
-      ])
-
-      if (!setNewkey) {
-        return process.exit(0)
-      }
-    }
+    await checkExistingLogin()
 
     if (!apiKey) {
       const { codeChallenge, codeVerifier } = generatePKCE()
@@ -87,27 +87,32 @@ class LoginCommand extends Command {
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
+        console.log('ACA', userExternalId)
+
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
-        const keyResponse = await getApiKey(userExternalId, accessToken)
+        const keyResponse = await getApiKey({
+          userExternalId,
+          accessToken,
+          baseHost: api.getDefatuls().baseHost,
+        })
         consola.debug(' API Key Response', keyResponse)
 
-        config.set('apiKey', keyResponse.apiKey)
-        config.set('accountId', keyResponse.accountId)
-        config.set('accountName', keyResponse.accountName)
+        config.auth.set('apiKey', keyResponse.apiKey)
+        config.data.set('accountId', keyResponse.accountId)
+        config.data.set('accountName', keyResponse.accountName)
         loginSuccess(keyResponse.apiKey)
         process.exit(0)
       })
     } else {
       // TODO: Ask for account default settings like locations and alerts
-      config.set('apiKey', apiKey)
-      config.set('isInitialized', 'true')
+      config.auth.set('apiKey', apiKey)
       api.refresh()
 
       const { data } = await account.findOne()
       const { accountId, name } = data
 
-      config.set('accountId', accountId)
-      config.set('accountName', name)
+      config.data.set('accountId', accountId)
+      config.data.set('accountName', name)
 
       process.stdout.write('\x1Bc')
       process.stdout.write(chalk.blue(raccoon))

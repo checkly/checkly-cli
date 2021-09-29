@@ -4,6 +4,7 @@ const consola = require('consola')
 const axios = require('axios')
 const config = require('./config')
 
+// TODO: Move this to ./sdk
 const AUTH0_DOMAIN = 'checkly'
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 
@@ -112,12 +113,10 @@ async function getAccessToken(code, codeVerifier) {
   return tokenResponse.data
 }
 
-async function getApiKey(userId, accessToken) {
+async function getApiKey({ userExternalId, accessToken, baseHost }) {
   try {
-    const env = config.getEnv()
-    const baseHost = config.get(`${env}.apiUrl`)
     const userResponse = await axios.get(
-      `${baseHost}/users/me/api-key/${encodeURIComponent(userId)}`,
+      `${baseHost}/users/me/api-key/${encodeURIComponent(userExternalId)}`,
       {
         headers: {
           Accept: 'application/json, text/plain, */*',
