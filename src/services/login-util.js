@@ -2,7 +2,6 @@ const http = require('http')
 const crypto = require('crypto')
 const consola = require('consola')
 const axios = require('axios')
-const config = require('./config')
 
 // TODO: Move this to ./sdk
 const AUTH0_DOMAIN = 'checkly'
