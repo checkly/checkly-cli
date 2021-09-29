@@ -5,7 +5,7 @@ const ENDPOINTS = {
     STATUS: 'check-statuses',
   },
   ACCOUNTS: {
-    GET: 'account',
+    GET: 'accounts',
   },
   GROUPS: {
     GET: 'check-groups',
