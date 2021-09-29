@@ -28,6 +28,14 @@ class SwitchCommand extends Command {
 
     const { data: accounts } = await api.accounts.find()
 
+    if (accounts.length === 1) {
+      consola.warn(
+        'Your user has only one active account: ' +
+          chalk.bold.blue(accounts[0].name)
+      )
+      process.exit(0)
+    }
+
     const { selectedAccountName } = await prompt([
       {
         name: 'selectedAccountName',
