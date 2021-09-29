@@ -20,7 +20,9 @@ function print(data, { output } = {}) {
   process.stdout.write('\n')
 
   if (output === 'plain') {
-    console.log(table(data.map((fields) => Object.values(fields))))
+    const tableData = Array.isArray(data) ? data : [data]
+
+    console.log(table(tableData.map((fields) => Object.values(fields))))
     return
   }
 

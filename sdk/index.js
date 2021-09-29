@@ -71,6 +71,9 @@ function init({ api, baseHost, basePath }) {
     find() {
       return api.get(`/next/${endpoints.ACCOUNTS.GET}`)
     },
+    findMe() {
+      return api.get(`/next/${endpoints.ACCOUNTS.GET}/me`)
+    },
   }
 
   const checkStatuses = {
