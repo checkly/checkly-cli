@@ -1,8 +1,8 @@
 const DEFAULT_URL = 'https://checklyhq.com'
 const DEFAULT_TITLE = 'Delightful Active Monitoring for Developers'
-const DEFAULT_LOCATIONS = ['us-east1', 'eu-west-1']
+const DEFAULT_LOCATIONS = ['us-east-1', 'eu-west-1']
 const DEFAULT_FREQUENCY = 10
-const DEFAULT_NAME = 'API Check'
+const DEFAULT_NAME = 'Browser Check'
 
 module.exports = {
   basic: ({
