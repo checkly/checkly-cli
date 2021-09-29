@@ -38,7 +38,14 @@ const config = {
 
   validateAuth() {
     const [, , command] = process.argv
-    const publicCommands = ['conf', 'login', 'help']
+    const publicCommands = [
+      'conf',
+      'login',
+      'help',
+      'version',
+      '--help',
+      '--version',
+    ]
 
     if (!this.getApiKey() && !publicCommands.includes(command)) {
       consola.error('Missing API KEY')
