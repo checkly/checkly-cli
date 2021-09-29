@@ -4,7 +4,8 @@ const config = require('../services/config')
 
 class LogoutCommand extends Command {
   async run() {
-    config.clear()
+    config.data.clear()
+    config.auth.clear()
     consola.success('See you soon! 👋')
   }
 }
