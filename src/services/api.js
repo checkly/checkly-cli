@@ -12,7 +12,7 @@ const spinner = ora({
 })
 
 function getDefatuls() {
-  const environmments = {
+  const environments = {
     production: {
       apiUrl: 'https://api.checklyhq.com',
       apiVersion: 'v1',
@@ -32,8 +32,8 @@ function getDefatuls() {
   const env = config.getEnv()
   const apiKey = config.getApiKey()
   const accountId = config.data.get('accountId')
-  const baseHost = environmments[env].apiUrl
-  const basePath = environmments[env].apiVersion
+  const baseHost = environments[env].apiUrl
+  const basePath = environments[env].apiVersion
   const Authorization = `Bearer ${apiKey}`
 
   return { baseHost, basePath, accountId, Authorization }
