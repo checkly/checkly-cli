@@ -7,7 +7,7 @@ class WhoamiCommand extends Command {
   async run() {
     const { flags } = this.parse(WhoamiCommand)
     const { data } = await account.findMe()
-    print([data], flags)
+    print(data, flags)
   }
 }
 
