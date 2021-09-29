@@ -63,9 +63,13 @@ function init({ api, baseHost, basePath }) {
     },
   }
 
-  const account = {
+  const accounts = {
     findOne() {
-      return api.get(`/${basePath}/${endpoints.ACCOUNTS.GET}`)
+      return api.get(`/next/${endpoints.ACCOUNTS.GET}`)
+    },
+
+    find() {
+      return api.get(`/next/${endpoints.ACCOUNTS.GET}`)
     },
   }
 
@@ -102,7 +106,7 @@ function init({ api, baseHost, basePath }) {
   return {
     checks,
     groups,
-    account,
+    accounts,
     checkStatuses,
     projects,
     socket,

@@ -1,6 +1,6 @@
 # Security Policy
 
-Checkly practices responsible disclosure. 
+Checkly practices responsible disclosure.
 
 For more information, please see our security page: https://www.checklyhq.com/security/security-response/
 
