@@ -1,5 +1,5 @@
 addReviewers: true
-addAssignees: true
+addAssignees: author
 
 reviewers:
   - pilimartinez
@@ -10,4 +10,4 @@ reviewers:
 skipKeywords:
   - wip
 
-numberOfReviewers: 2
+numberOfReviewers: 3
