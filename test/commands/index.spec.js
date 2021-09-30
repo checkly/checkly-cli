@@ -4,7 +4,7 @@ const { defaultConfig } = require('../fixtures/config')
 
 describe('version', () => {
   test
-    .stdout({ print: true })
+    .stdout()
     .command(['help'])
     .it('prints version number', (ctx) =>
       expect(ctx.stdout).to.contain(`

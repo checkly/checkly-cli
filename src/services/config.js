@@ -4,7 +4,7 @@ const consola = require('consola')
 const dataSchema = {
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
-  accountId: { type: 'string' },
+  accountId: { type: 'string', default: '123abc' },
   accountName: { type: 'string' },
 }
 
