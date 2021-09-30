@@ -2,7 +2,7 @@
 const { test, expect } = require('@oclif/test')
 const { defaultConfig } = require('../fixtures/config')
 
-describe('whoami', () => {
+describe('whoami [cmd]', () => {
   test
     .nock('http://localhost:3000', (api) =>
       api.get('/next/accounts/me').reply(200, {

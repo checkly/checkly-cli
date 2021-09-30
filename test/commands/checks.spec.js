@@ -4,11 +4,8 @@ const {
   mockChecksInfoResponse,
   mockChecksListResponse,
 } = require('../fixtures/api')
-const getConfig = require('../helpers/config')
 
-getConfig()
-
-describe('checks - command', () => {
+describe('checks [cmd]', () => {
   test
     .nock('http://localhost:3000', (api) =>
       api.get('/v1/checks').reply(200, mockChecksListResponse)
