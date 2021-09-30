@@ -5,18 +5,17 @@ const { defaultConfig } = require('../fixtures/config')
 describe('whoami', () => {
   test
     .nock('http://localhost:3000', (api) =>
-      api.get('/next/accounts').reply(200, {
+      api.get('/next/accounts/me').reply(200, {
         accountId: 'abc123mockaccountId',
         name: 'NockAccount',
       })
     )
     .stdout()
-    .command(['whoami'])
+    .command(['whoami', '--output', 'json'])
     .it('prints current account details', (ctx) =>
-      expect(ctx.stdout).to.contain(`
-key   value
-----  ------------------------------------
-id    abc123mockaccountId
-name  NockAccount`)
+      expect(JSON.parse(ctx.stdout.replace('[log] ', '').trim())).to.eql({
+        accountId: 'abc123mockaccountId',
+        name: 'NockAccount',
+      })
     )
 })

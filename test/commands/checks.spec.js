@@ -16,7 +16,7 @@ describe('checks - command', () => {
     .stdout()
     .command(['checks', '--output', 'json'])
     .it('prints checks status', (output) => {
-      expect(JSON.parse(output.stdout.trim())).to.eql([
+      expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql([
         {
           name: 'API Check',
           checkType: 'API',
@@ -35,7 +35,6 @@ describe('checks - command', () => {
     })
 
   test
-    .stdout()
     .nock('http://localhost:3000', (api) =>
       api
         .get('/v1/checks/92b98ec6-15bd-4729-945a-de1125659271')
@@ -50,6 +49,8 @@ describe('checks - command', () => {
       '92b98ec6-15bd-4729-945a-de1125659271',
     ])
     .it('prints check info details', (output) => {
-      expect(JSON.parse(output.stdout)).to.eql(mockChecksInfoResponse)
+      expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(
+        mockChecksInfoResponse
+      )
     })
 })

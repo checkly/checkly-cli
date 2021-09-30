@@ -23,6 +23,11 @@ function getDefatuls() {
       apiVersion: 'v1',
     },
 
+    test: {
+      apiUrl: 'http://localhost:3000',
+      apiVersion: 'v1',
+    },
+
     staging: {
       apiUrl: 'https://api.checklyhq.com',
       apiVersion: 'v1',

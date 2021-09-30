@@ -108,7 +108,7 @@ class LoginCommand extends Command {
       config.auth.set('apiKey', apiKey)
       api.refresh()
 
-      const { data } = await accounts.findOne()
+      const { data } = await accounts.findMe()
       const { accountId, name } = data
 
       config.data.set('accountId', accountId)
