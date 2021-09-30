@@ -5,7 +5,7 @@ const { prompt } = require('inquirer')
 const { Command, flags } = require('@oclif/command')
 
 const raccoon = require('./../services/raccoon')
-const { account } = require('./../services/api')
+const { accounts } = require('./../services/api')
 const {
   generateAuthenticationUrl,
   getAccessToken,
@@ -87,8 +87,6 @@ class LoginCommand extends Command {
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
-        console.log('ACA', userExternalId)
-
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
         const keyResponse = await getApiKey({
           userExternalId,
@@ -108,7 +106,7 @@ class LoginCommand extends Command {
       config.auth.set('apiKey', apiKey)
       api.refresh()
 
-      const { data } = await account.findOne()
+      const { data } = await accounts.findMe()
       const { accountId, name } = data
 
       config.data.set('accountId', accountId)
