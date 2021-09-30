@@ -5,7 +5,7 @@ const { prompt } = require('inquirer')
 const { Command, flags } = require('@oclif/command')
 
 const raccoon = require('./../services/raccoon')
-const { account } = require('./../services/api')
+const { accounts } = require('./../services/api')
 const {
   generateAuthenticationUrl,
   getAccessToken,
@@ -108,7 +108,7 @@ class LoginCommand extends Command {
       config.auth.set('apiKey', apiKey)
       api.refresh()
 
-      const { data } = await account.findOne()
+      const { data } = await accounts.findOne()
       const { accountId, name } = data
 
       config.data.set('accountId', accountId)

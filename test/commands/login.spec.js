@@ -5,7 +5,7 @@ const { test } = require('@oclif/test')
 describe('login', function () {
   test
     .nock('http://localhost:3000', (api) =>
-      api.get('/v1/account').reply(200, {
+      api.get('/next/accounts').reply(200, {
         accountId: 'abc123mockaccountId',
         name: 'NockAccount',
       })
