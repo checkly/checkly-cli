@@ -30,7 +30,7 @@ class SwitchCommand extends Command {
 
     if (accounts.length === 1) {
       consola.warn(
-        'Your user has only one active account: ' +
+        'Your user is only a member of one account: ' +
           chalk.bold.blue(accounts[0].name)
       )
       process.exit(0)
