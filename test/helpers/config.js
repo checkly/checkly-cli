@@ -1,6 +1,6 @@
 const Conf = require('conf')
 
-const getConfig = () => {
+const testConfig = () => {
   return {
     data: new Conf({
       configName: 'data-test',
@@ -38,4 +38,4 @@ const getConfig = () => {
   }
 }
 
-module.exports = getConfig
+module.exports = testConfig

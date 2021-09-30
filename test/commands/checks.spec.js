@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 const { test, expect } = require('@oclif/test')
+const testConfig = require('../helpers/config')
 const {
   mockChecksInfoResponse,
   mockChecksListResponse,
@@ -7,6 +8,7 @@ const {
 
 describe('checks [cmd]', () => {
   test
+    .loadConfig(testConfig)
     .nock('http://localhost:3000', (api) =>
       api.get('/v1/checks').reply(200, mockChecksListResponse)
     )
@@ -32,6 +34,7 @@ describe('checks [cmd]', () => {
     })
 
   test
+    .loadConfig(testConfig)
     .nock('http://localhost:3000', (api) =>
       api
         .get('/v1/checks/92b98ec6-15bd-4729-945a-de1125659271')

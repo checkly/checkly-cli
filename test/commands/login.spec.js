@@ -1,9 +1,11 @@
 /* eslint-disable no-undef */
 const os = require('os')
+const testConfig = require('../helpers/config')
 const { test, expect } = require('@oclif/test')
 
 describe('login [cmd]', function () {
   test
+    .loadConfig(testConfig)
     .nock('http://localhost:3000', (api) =>
       api.get('/next/accounts/me').reply(200, {
         accountId: 'abc123mockaccountId',
@@ -16,6 +18,7 @@ describe('login [cmd]', function () {
     .it('keeps key')
 
   test
+    .loadConfig(testConfig)
     .stdout()
     .stdin(`y${os.EOL}`, 500) // answer inquirer prompt "y" with 500ms delay
     .command(['login'])

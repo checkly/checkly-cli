@@ -1,9 +1,10 @@
 /* eslint-disable no-undef */
 const { test, expect } = require('@oclif/test')
-const { defaultConfig } = require('../fixtures/config')
+const testConfig = require('../helpers/config')
 
 describe('version', () => {
   test
+    .loadConfig(testConfig)
     .stdout()
     .command(['help'])
     .it('prints version number', (ctx) =>
