@@ -1,10 +1,11 @@
+const Conf = require('conf')
+
 const getConfig = () => {
-  if (process.env.CI) {
-    const Conf = require('conf')
-    const config = new Conf({
-      projectName: 'jest-test-1',
+  return {
+    data: new Conf({
+      configName: 'data-test',
       defaults: {
-        env: 'development',
+        env: 'test',
         version: '0.0.1',
         output: 'json',
         production: {
@@ -15,17 +16,25 @@ const getConfig = () => {
           apiUrl: 'http://localhost:3000',
           apiVersion: 'v1',
         },
+        test: {
+          apiUrl: 'http://localhost:3000',
+          apiVersion: 'v1',
+        },
         staging: {
           apiUrl: 'https://api.checklyhq.com',
           apiVersion: 'v1',
         },
         isInitialized: 'true',
+        accountName: 'Test Account',
         accountId: 'abc123',
-        apiKey: '123abc',
-        accountName: 'Jest Test',
       },
-    })
-    return config
+    }),
+    auth: new Conf({
+      configName: 'auth-test',
+      defaults: {
+        apiKey: '123abc',
+      },
+    }),
   }
 }
 
