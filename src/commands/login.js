@@ -87,8 +87,6 @@ class LoginCommand extends Command {
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
-        console.log('ACA', userExternalId)
-
         consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
         const keyResponse = await getApiKey({
           userExternalId,
