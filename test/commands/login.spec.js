@@ -21,7 +21,7 @@ describe('login [cmd]', function () {
     .it('keeps key')
 
   test
-    .stdout({ print: true })
+    .stdout()
     .stdin(`y${os.EOL}`, 500) // answer inquirer prompt "y" with 500ms delay
     .command(['login'])
     .it('generates auth0 URL', (ctx, done) => {
