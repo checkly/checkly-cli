@@ -1,10 +1,14 @@
 /* eslint-disable no-undef */
+const path = require('path')
 const { test, expect } = require('@oclif/test')
 const testConfig = require('../helpers/config')
 
 describe('whoami [cmd]', () => {
+  before(() => {
+    testConfig()
+  })
+
   test
-    .loadConfig(testConfig)
     .nock('http://localhost:3000', (api) =>
       api.get('/next/accounts/me').reply(200, {
         accountId: 'abc123mockaccountId',

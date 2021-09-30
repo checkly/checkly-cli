@@ -3,8 +3,11 @@ const { test, expect } = require('@oclif/test')
 const testConfig = require('../helpers/config')
 
 describe('version', () => {
+  before(() => {
+    testConfig()
+  })
+
   test
-    .loadConfig(testConfig)
     .stdout()
     .command(['help'])
     .it('prints version number', (ctx) =>

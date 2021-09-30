@@ -2,7 +2,7 @@ const Conf = require('conf')
 
 const testConfig = () => {
   return {
-    data: new Conf({
+    dataTest: new Conf({
       configName: 'data-test',
       defaults: {
         env: 'test',
@@ -29,7 +29,7 @@ const testConfig = () => {
         accountId: 'abc123',
       },
     }),
-    auth: new Conf({
+    authTest: new Conf({
       configName: 'auth-test',
       defaults: {
         apiKey: '123abc',
