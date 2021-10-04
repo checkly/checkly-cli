@@ -67,9 +67,9 @@ USAGE
 
 <!-- commands -->
 
+- [`checkly accounts ACTION`](#checkly-accounts-action)
 - [`checkly add RESOURCE`](#checkly-add-resource)
 - [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
-- [`checkly conf [KEY] [VALUE]`](#checkly-conf-key-value)
 - [`checkly deploy`](#checkly-deploy)
 - [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
 - [`checkly help [COMMAND]`](#checkly-help-command)
@@ -77,8 +77,27 @@ USAGE
 - [`checkly login`](#checkly-login)
 - [`checkly logout`](#checkly-logout)
 - [`checkly projects`](#checkly-projects)
-- [`checkly run`](#checkly-run)
+- [`checkly run [CHECKNAME]`](#checkly-run-checkname)
 - [`checkly status ACTION`](#checkly-status-action)
+- [`checkly switch`](#checkly-switch)
+- [`checkly whoami`](#checkly-whoami)
+
+## `checkly accounts ACTION`
+
+Manage accounts
+
+```
+USAGE
+  $ checkly accounts ACTION
+
+ARGUMENTS
+  ACTION  (list) [default: list] Specify the type of accounts action to run
+
+OPTIONS
+  -o, --output=plain|human|json  [default: human] output type
+```
+
+_See code: [src/commands/accounts.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/accounts.js)_
 
 ## `checkly add RESOURCE`
 
@@ -107,34 +126,10 @@ ARGUMENTS
   ID      Specify the checkId
 
 OPTIONS
-  -o, --output=plain|human|json  [default: json] output type
+  -o, --output=plain|human|json  [default: human] output type
 ```
 
 _See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/checks.js)_
-
-## `checkly conf [KEY] [VALUE]`
-
-manage configuration
-
-```
-USAGE
-  $ checkly conf [KEY] [VALUE]
-
-ARGUMENTS
-  KEY    key of the config
-  VALUE  value of the config
-
-OPTIONS
-  -d, --cwd=cwd          config file location
-  -d, --delete           delete?
-  -h, --help             show CLI help
-  -k, --key=key          key of the config
-  -n, --name=name        config file name
-  -p, --project=project  project name
-  -v, --value=value      value of the config
-```
-
-_See code: [conf-cli](https://github.com/natzcam/conf-cli/blob/v0.1.9/src/commands/conf.ts)_
 
 ## `checkly deploy`
 
@@ -145,7 +140,7 @@ USAGE
   $ checkly deploy
 
 OPTIONS
-  -o, --output=plain|human|json  [default: json] output type
+  -o, --output=plain|human|json  [default: human] output type
   -x, --dryRun                   Do not actually write any changes
 ```
 
@@ -164,7 +159,7 @@ ARGUMENTS
   ID      Specify the groupId
 
 OPTIONS
-  -o, --output=plain|human|json  [default: json] output type
+  -o, --output=plain|human|json  [default: human] output type
 ```
 
 _See code: [src/commands/groups.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/groups.js)_
@@ -238,22 +233,21 @@ USAGE
   $ checkly projects
 
 OPTIONS
-  -o, --output=text|json  [default: json] output type
+  -o, --output=text|json  output type
 ```
 
 _See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/projects.js)_
 
-## `checkly run`
+## `checkly run [CHECKNAME]`
 
 Run and test your checks on Checkly
 
 ```
 USAGE
-  $ checkly run
+  $ checkly run [CHECKNAME]
 
-OPTIONS
-  -c, --checkName=checkName      (required) Check upon which to execute action
-  -o, --output=plain|human|json  [default: json] output type
+ARGUMENTS
+  CHECKNAME  Which check would you like to execute?
 ```
 
 _See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/run.js)_
@@ -270,10 +264,39 @@ ARGUMENTS
   ACTION  [default: info] Specify the type of checks action to run
 
 OPTIONS
-  -o, --output=plain|human|json  [default: json] output type
+  -o, --output=plain|human|json  [default: human] output type
 ```
 
 _See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/status.js)_
+
+## `checkly switch`
+
+Switch user account
+
+```
+USAGE
+  $ checkly switch
+
+OPTIONS
+  -a, --accountId=accountId      The id of the account you want to switch.
+  -o, --output=plain|human|json  [default: human] output type
+```
+
+_See code: [src/commands/switch.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/switch.js)_
+
+## `checkly whoami`
+
+See your logged account and user
+
+```
+USAGE
+  $ checkly whoami
+
+OPTIONS
+  -o, --output=plain|human|json  [default: human] output type
+```
+
+_See code: [src/commands/whoami.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/whoami.js)_
 
 <!-- commandsstop -->
 
