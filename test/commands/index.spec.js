@@ -1,10 +1,13 @@
 /* eslint-disable no-undef */
 const { test, expect } = require('@oclif/test')
-const { defaultConfig } = require('../fixtures/config')
+const testConfig = require('../helpers/config')
 
 describe('version', () => {
+  before(() => {
+    testConfig()
+  })
+
   test
-    .loadConfig(defaultConfig)
     .stdout()
     .command(['help'])
     .it('prints version number', (ctx) =>
@@ -13,9 +16,9 @@ USAGE
   $ checkly [COMMAND]
 
 COMMANDS
+  accounts  Manage accounts
   add       Add a new group or check file
   checks    Manage Checks
-  conf      manage configuration
   deploy    Deploy and sync your ./checkly directory
   groups    Manage Groups
   help      display help for checkly
@@ -24,6 +27,8 @@ COMMANDS
   logout    Logout and clear local conf
   projects  Manage Checks
   run       Run and test your checks on Checkly
-  status    Status dashboard`)
+  status    Status dashboard
+  switch    Switch user account
+  whoami    See your logged account and user`)
     )
 })

@@ -1,14 +1,16 @@
 /* eslint-disable no-undef */
 const { test, expect } = require('@oclif/test')
+const testConfig = require('../helpers/config')
 const {
   mockChecksInfoResponse,
   mockChecksListResponse,
 } = require('../fixtures/api')
-const getConfig = require('../helpers/config')
 
-getConfig()
+describe('checks [cmd]', () => {
+  before(() => {
+    testConfig()
+  })
 
-describe('checks - command', () => {
   test
     .nock('http://localhost:3000', (api) =>
       api.get('/v1/checks').reply(200, mockChecksListResponse)
@@ -16,7 +18,7 @@ describe('checks - command', () => {
     .stdout()
     .command(['checks', '--output', 'json'])
     .it('prints checks status', (output) => {
-      expect(JSON.parse(output.stdout.trim())).to.eql([
+      expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql([
         {
           name: 'API Check',
           checkType: 'API',
@@ -35,7 +37,6 @@ describe('checks - command', () => {
     })
 
   test
-    .stdout()
     .nock('http://localhost:3000', (api) =>
       api
         .get('/v1/checks/92b98ec6-15bd-4729-945a-de1125659271')
@@ -50,6 +51,8 @@ describe('checks - command', () => {
       '92b98ec6-15bd-4729-945a-de1125659271',
     ])
     .it('prints check info details', (output) => {
-      expect(JSON.parse(output.stdout)).to.eql(mockChecksInfoResponse)
+      expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(
+        mockChecksInfoResponse
+      )
     })
 })

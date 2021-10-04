@@ -4,7 +4,7 @@ const consola = require('consola')
 const dataSchema = {
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
-  accountId: { type: 'string' },
+  accountId: { type: 'string', default: '123abc' },
   accountName: { type: 'string' },
 }
 
@@ -21,7 +21,7 @@ const config = {
   }),
 
   getEnv() {
-    const environments = ['production', 'staging', 'development']
+    const environments = ['production', 'staging', 'development', 'test']
     const env = process.env.NODE_ENV || environments[0]
 
     if (!environments.includes(env)) {
