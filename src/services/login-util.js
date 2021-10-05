@@ -112,10 +112,12 @@ async function getAccessToken(code, codeVerifier) {
   return tokenResponse.data
 }
 
-async function getApiKey({ userExternalId, accessToken, baseHost }) {
+async function getApiKey({ userExternalId, accessToken, baseHost, accountId }) {
   try {
     const userResponse = await axios.get(
-      `${baseHost}/users/me/api-key/${encodeURIComponent(userExternalId)}`,
+      `${baseHost}/users/me/api-key/${encodeURIComponent(userExternalId)}${
+        accountId ? `?accountId=${accountId}` : ''
+      }`,
       {
         headers: {
           Accept: 'application/json, text/plain, */*',

@@ -1,5 +1,6 @@
 const chalk = require('chalk')
 const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
+const search = require('cli-fuzzy-search')
 const consola = require('consola')
 const { prompt } = require('inquirer')
 const { Command, flags } = require('@oclif/command')
@@ -87,14 +88,37 @@ class LoginCommand extends Command {
 
         const { sub: userExternalId, name } = jwt_decode(idToken)
 
-        consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
-        const keyResponse = await getApiKey({
+        let keyResponse = await getApiKey({
           userExternalId,
           accessToken,
           baseHost: api.getDefatuls().baseHost,
         })
         consola.debug(' API Key Response', keyResponse)
 
+        // API has returned a list of accounts to choose from as user is in multiple
+        if (Array.isArray(keyResponse)) {
+          consola.info(' Multiple accounts available, please select one.\n')
+          const selectedAccount = await search({
+            data: keyResponse.map((account) => {
+              return { ...account, label: account.name }
+            }),
+            size: keyResponse.length + 1,
+            cache: false,
+            debounceDelay: 200,
+          })
+          keyResponse = await getApiKey({
+            userExternalId,
+            accessToken,
+            baseHost: api.getDefatuls().baseHost,
+            accountId: selectedAccount.id,
+          })
+        }
+
+        consola.info(
+          ` Successfully logged in as ${chalk.blue.bold(name)} (${
+            keyResponse.accountName
+          })`
+        )
         config.auth.set('apiKey', keyResponse.apiKey)
         config.data.set('accountId', keyResponse.accountId)
         config.data.set('accountName', keyResponse.accountName)
