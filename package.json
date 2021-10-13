@@ -10,13 +10,23 @@
     "url": "https://github.com/checkly/checkly-cli.git"
   },
   "bugs": "https://github.com/checkly/checkly-cli/issues",
-  "contributors": ["Nico Domino <nico@checklyhq.com>"],
-  "keywords": ["checkly", "monitoring", "browser-check", "oclif", "cli"],
+  "contributors": [
+    "Nico Domino <nico@checklyhq.com>"
+  ],
+  "keywords": [
+    "checkly",
+    "monitoring",
+    "browser-check",
+    "oclif",
+    "cli"
+  ],
   "main": "bin/run",
   "oclif": {
     "commands": "./src/commands",
     "bin": "checkly",
-    "plugins": ["@oclif/plugin-help"]
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
   },
   "bin": {
     "checkly": "./bin/run"
@@ -48,6 +58,7 @@
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "20.0.0",
+    "ajv": "8.6.3",
     "axios": "0.21.1",
     "chalk": "4.1.1",
     "cli-fuzzy-search": "2.0.0",
@@ -58,6 +69,7 @@
     "date-fns": "2.23.0",
     "git-remote-origin-url": "3.1.0",
     "inquirer": "8.1.2",
+    "joi": "17.4.2",
     "jwt-decode": "3.1.2",
     "lodash.isequal": "4.5.0",
     "mqtt": "4.2.8",
