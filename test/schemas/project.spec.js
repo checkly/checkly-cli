@@ -4,7 +4,7 @@ const assert = require('assert')
 
 const { projectSchema } = require('../../src/schemas/project')
 
-describe('project settings [schema]', () => {
+describe('project [schema]', () => {
   it('should return a valid api project schema', () => {
     const project = fs.readFileSync(
       './test/fixtures/yml/project-valid.yml',

@@ -147,4 +147,6 @@ module.exports = {
   secondSchedules,
   envVarListSchema,
   envVarSchema,
+  assertionListSchema,
+  basicAuthSchema,
 }
