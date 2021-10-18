@@ -2,7 +2,7 @@ const fs = require('fs')
 const yaml = require('yaml')
 const assert = require('assert')
 
-const { checkCreateSchema } = require('../../src/schemas/checks')
+const { checkSchema } = require('../../src/schemas/checks')
 
 describe('api check [schema]', () => {
   it('should return a valid api check schema', () => {
@@ -11,7 +11,7 @@ describe('api check [schema]', () => {
       'utf8'
     )
     const parsedCheck = yaml.parse(check)
-    const schema = checkCreateSchema.validate(parsedCheck)
+    const schema = checkSchema.validate(parsedCheck)
 
     assert.equal(schema.error, undefined)
   })
@@ -22,7 +22,7 @@ describe('api check [schema]', () => {
       'utf8'
     )
     const parsedCheck = yaml.parse(check)
-    const schema = checkCreateSchema.validate(parsedCheck)
+    const schema = checkSchema.validate(parsedCheck)
 
     assert.equal(schema.error.details.length, 1)
     assert.equal(schema.error.details[0].message, '"name" is required')

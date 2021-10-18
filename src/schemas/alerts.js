@@ -1,9 +1,5 @@
 const Joi = require('joi')
-
-const escalationTypes = {
-  RUN_BASED: 'RUN_BASED',
-  TIME_BASED: 'TIME_BASED',
-}
+const { escalationTypes } = require('./common')
 
 const alertSettingsSchema = Joi.object()
   .keys({
@@ -68,7 +64,7 @@ const alertSettingsSchema = Joi.object()
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert settings')
 
-const alertChannelSubscriptionCreateSchema = Joi.object()
+const alertChannelSubscriptionSchema = Joi.object()
   .keys({
     alertChannelId: Joi.number().required(),
     activated: Joi.boolean().required().default(true),
@@ -76,12 +72,12 @@ const alertChannelSubscriptionCreateSchema = Joi.object()
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert channel subscription')
 
-const alertChannelSubscriptionListCreateSchema = Joi.array()
-  .items(alertChannelSubscriptionCreateSchema)
+const alertChannelSubscriptionListSchema = Joi.array()
+  .items(alertChannelSubscriptionSchema)
   .description('List of alert channel subscriptions')
 
 module.exports = {
   alertSettingsSchema,
-  alertChannelSubscriptionCreateSchema,
-  alertChannelSubscriptionListCreateSchema,
+  alertChannelSubscriptionSchema,
+  alertChannelSubscriptionListSchema,
 }

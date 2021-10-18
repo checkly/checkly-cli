@@ -1,7 +1,7 @@
 const Joi = require('joi')
 
 const {
-  alertChannelSubscriptionListCreateSchema,
+  alertChannelSubscriptionListSchema,
   alertSettingsSchema,
 } = require('./alerts')
 
@@ -69,7 +69,7 @@ const checkGroupCreateBrowserCheckDefaultsSchema = Joi.object()
   .default({})
   .label('CheckGroupCreateBrowserCheckDefaults')
 
-const checkGroupCreateSchema = Joi.object()
+const checkGroupSchema = Joi.object()
   .keys({
     name: Joi.string().required().description('The name of the check group'),
 
@@ -123,7 +123,7 @@ const checkGroupCreateSchema = Joi.object()
       ),
 
     alertSettings: checkGroupAlertSettingsSchema,
-    alertChannelSubscriptions: alertChannelSubscriptionListCreateSchema,
+    alertChannelSubscriptions: alertChannelSubscriptionListSchema,
 
     setupSnippetId: Joi.number()
       .allow(null)
@@ -163,5 +163,5 @@ const checkGroupCreateSchema = Joi.object()
   .label('CheckGroupCreate')
 
 module.exports = {
-  checkGroupCreateSchema,
+  checkGroupSchema,
 }

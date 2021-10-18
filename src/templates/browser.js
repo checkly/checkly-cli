@@ -11,7 +11,7 @@ module.exports = {
     title = DEFAULT_TITLE,
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
-  }) => {
+  } = {}) => {
     return `checkType: BROWSER
 name: ${name}
 activated: true
@@ -43,7 +43,7 @@ script: |-
     title = DEFAULT_TITLE,
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
-  }) => {
+  } = {}) => {
     return `checkType: BROWSER
 name: ${name}
 frequency: ${frequency}

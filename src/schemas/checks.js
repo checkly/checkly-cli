@@ -13,7 +13,7 @@ const {
 } = require('./common')
 
 const {
-  alertChannelSubscriptionListCreateSchema,
+  alertChannelSubscriptionListSchema,
   alertSettingsSchema,
 } = require('./alerts')
 
@@ -286,10 +286,10 @@ const commonCheckSchema = {
       'The runtime version, i.e. fixed set of runtime dependencies, used to execute this check'
     ),
 
-  alertChannelSubscriptions: alertChannelSubscriptionListCreateSchema,
+  alertChannelSubscriptions: alertChannelSubscriptionListSchema,
 }
 
-const checkCreateSchema = Joi.object()
+const checkSchema = Joi.object()
   .keys({
     ...commonCheckSchema,
     frequencyOffset: Joi.number()
@@ -308,7 +308,7 @@ const checkCreateSchema = Joi.object()
   .label('CheckCreate')
 
 module.exports = {
-  checkCreateSchema,
+  checkSchema,
   alertChannelsSchema,
   alertChannelSubscriptionList,
   commonCheckSchema,
