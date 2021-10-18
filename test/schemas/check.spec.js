@@ -2,7 +2,7 @@ const fs = require('fs')
 const yaml = require('yaml')
 const assert = require('assert')
 
-const { checkSchema } = require('../../src/schemas/checks')
+const { checkSchema } = require('../../src/schemas/check')
 
 describe('api check [schema]', () => {
   it('should return a valid api check schema', () => {

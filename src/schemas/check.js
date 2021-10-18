@@ -1,8 +1,7 @@
 const Joi = require('joi')
 
 const {
-  headersListSchema,
-  queryParameterListSchema,
+  keyValueSchema,
   requestSchema,
   checkTypes,
   validRegions,
@@ -53,44 +52,39 @@ const customFrequencyOffsetValidator = (frequencyOffset, helper) => {
   return frequencyOffset
 }
 
-const alertEmailSchema = Joi.object()
-  .keys({ address: Joi.string().required().default('') })
-  .label('CheckAlertEmail')
+const alertEmailSchema = Joi.object().keys({
+  address: Joi.string().required().default(''),
+})
 
-const webhookSchema = Joi.object()
-  .keys({
-    name: Joi.string().optional().default(''),
-    url: Joi.string().required().default(''),
+const webhookSchema = Joi.object().keys({
+  name: Joi.string().optional().default(''),
+  url: Joi.string().required().default(''),
 
-    method: Joi.string()
-      .allow(null, 'GET', 'POST', 'PUT', 'HEAD', 'DELETE', 'PATCH')
-      .default('POST'),
+  method: Joi.string()
+    .allow(null, 'GET', 'POST', 'PUT', 'HEAD', 'DELETE', 'PATCH')
+    .default('POST'),
 
-    headers: headersListSchema,
-    queryParameters: queryParameterListSchema,
-  })
-  .label('CheckAlertWebhook')
+  headers: Joi.array().items(keyValueSchema).default([]),
+  queryParameters: Joi.array().items(keyValueSchema).default([]),
+})
 
-const alertSlackSchema = Joi.object()
-  .keys({ url: Joi.string().required().default('') })
-  .label('CheckAlertSlack')
+const alertSlackSchema = Joi.object().keys({
+  url: Joi.string().required().default(''),
+})
 
-const alertSmsSchema = Joi.object()
-  .keys({
-    number: Joi.string().required().default(''),
-    name: Joi.string().required().allow(''),
-  })
-  .label('CheckAlertSMS')
+const alertSmsSchema = Joi.object().keys({
+  number: Joi.string().required().default(''),
+  name: Joi.string().required().allow(''),
+})
 
 const alertChannelsSchema = Joi.object()
   .keys({
-    email: Joi.array().items(alertEmailSchema).label('CheckAlertEmailList'),
-    webhook: Joi.array().items(webhookSchema).label('CheckAlertWebhookList'),
-    slack: Joi.array().items(alertSlackSchema).label('CheckAlertSlackList'),
-    sms: Joi.array().items(alertSmsSchema).label('CheckAlertSMSList'),
+    email: Joi.array().items(alertEmailSchema),
+    webhook: Joi.array().items(webhookSchema),
+    slack: Joi.array().items(alertSlackSchema),
+    sms: Joi.array().items(alertSmsSchema),
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
-  .label('CheckAlertChannels')
 
 const alertChannelSubscription = Joi.object()
   .keys({
@@ -98,17 +92,13 @@ const alertChannelSubscription = Joi.object()
     activated: Joi.boolean().required().default(true),
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
-  .label('CheckAlertChannelSubscription')
 
-const alertChannelSubscriptionList = Joi.array()
-  .items(alertChannelSubscription)
-  .label('CheckAlertChannelSubscriptionList')
+const alertChannelSubscriptionList = Joi.array().items(alertChannelSubscription)
 
 const checkTagListSchema = Joi.array()
   .items(Joi.string())
   .optional()
   .description('Tags for organizing and filtering checks')
-  .label('CheckTagList')
 
 const locationListSchema = Joi.array()
   .items(Joi.string().valid(...validRegions))
@@ -116,15 +106,12 @@ const locationListSchema = Joi.array()
   .description(
     'An array of one or more data center locations where to run the this check'
   )
-  .label('CheckLocationList')
 
-const checkRequestSchema = Joi.object()
-  .when('checkType', {
-    is: 'API',
-    then: requestSchema.required(),
-    otherwise: Joi.object().optional().allow(null).strip(),
-  })
-  .label('CheckRequest')
+const checkRequestSchema = Joi.object().when('checkType', {
+  is: 'API',
+  then: requestSchema.required(),
+  otherwise: Joi.object().optional().allow(null).strip(),
+})
 
 const commonCheckSchema = {
   name: Joi.string().required().description('The name of the check'),
@@ -198,8 +185,7 @@ const commonCheckSchema = {
     .allow(null)
     .description(
       'Key/value pairs for setting environment variables during check execution. These are only relevant for Browser checks. Use global environment variables whenever possible.'
-    )
-    .label('CheckEnvironmentVariableList'),
+    ),
 
   tags: checkTagListSchema,
 
@@ -233,7 +219,7 @@ const commonCheckSchema = {
     .default(null)
     .description('A valid piece of Node.js code to run in the teardown phase'),
 
-  alertSettings: alertSettingsSchema.allow(null).label('CheckAlertSettings'),
+  alertSettings: alertSettingsSchema.allow(null),
 
   useGlobalAlertSettings: Joi.boolean()
     .optional()
@@ -305,7 +291,6 @@ const checkSchema = Joi.object()
       ),
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
-  .label('CheckCreate')
 
 module.exports = {
   checkSchema,

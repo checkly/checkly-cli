@@ -6,33 +6,16 @@ const {
 } = require('./alerts')
 
 const {
-  headersListSchema,
-  queryParameterListSchema,
+  keyValueSchema,
   assertionListSchema,
   basicAuthSchema,
   envVarListSchema,
   validRegions,
+  tagListSchema,
+  availableRuntimes,
 } = require('./common')
 
-const runtimes = require('./runtimes')
-
-const availableRuntimes = runtimes.versions.map((runtime) => {
-  return runtime.name
-})
-
-const checkGroupTagListSchema = Joi.array()
-  .items(Joi.string())
-  .optional()
-  .description('Tags for organizing and filtering checks')
-  .label('CheckGroupTagList')
-
-const checkGroupAlertSettingsSchema = alertSettingsSchema
-  .optional()
-  .allow({})
-  .allow(null)
-  .label('CheckGroupAlertSettings')
-
-const checkGroupApiCheckDefaultsSchema = {
+const groupApiCheckDefaultsSchema = {
   url: Joi.string()
     .optional()
     .allow(null)
@@ -42,13 +25,13 @@ const checkGroupApiCheckDefaultsSchema = {
       'The base url for this group which you can reference with the {{GROUP_BASE_URL}} variable in all group checks.'
     ),
 
-  headers: headersListSchema,
-  queryParameters: queryParameterListSchema,
+  headers: Joi.array().items(keyValueSchema).default([]),
+  queryParameters: Joi.array().items(keyValueSchema).default([]),
   assertions: assertionListSchema,
   basicAuth: basicAuthSchema,
 }
 
-const checkGroupCreateLocationListSchema = Joi.array()
+const groupLocationListSchema = Joi.array()
   .items(Joi.string().valid(...validRegions))
   .min(1)
   .required()
@@ -57,17 +40,15 @@ const checkGroupCreateLocationListSchema = Joi.array()
     'An array of one or more data center locations where to run the checks'
   )
 
-const checkGroupCreateAPICheckDefaultsSchema = Joi.object()
-  .keys({ ...checkGroupApiCheckDefaultsSchema })
+const groupAPICheckDefaultsSchema = Joi.object()
+  .keys({ ...groupApiCheckDefaultsSchema })
   .optional()
   .default({})
-  .label('CheckGroupCreateAPICheckDefaults')
 
-const checkGroupCreateBrowserCheckDefaultsSchema = Joi.object()
+const groupBrowserCheckDefaultsSchema = Joi.object()
   .keys({})
   .optional()
   .default({})
-  .label('CheckGroupCreateBrowserCheckDefaults')
 
 const groupSchema = Joi.object()
   .keys({
@@ -83,8 +64,8 @@ const groupSchema = Joi.object()
         'Determines if any notifications will be send out when a check in this group fails and/or recovers'
       ),
 
-    tags: checkGroupTagListSchema,
-    locations: checkGroupCreateLocationListSchema,
+    tags: tagListSchema,
+    locations: groupLocationListSchema,
 
     concurrency: Joi.number()
       .positive()
@@ -95,8 +76,8 @@ const groupSchema = Joi.object()
         'Determines how many checks are invoked concurrently when triggering a check group from CI/CD or through the API.'
       ),
 
-    apiCheckDefaults: checkGroupCreateAPICheckDefaultsSchema,
-    browserCheckDefaults: checkGroupCreateBrowserCheckDefaultsSchema,
+    apiCheckDefaults: groupAPICheckDefaultsSchema,
+    browserCheckDefaults: groupBrowserCheckDefaultsSchema,
 
     runtimeId: Joi.string()
       .valid(...availableRuntimes)
@@ -122,7 +103,7 @@ const groupSchema = Joi.object()
         'When true, the account level alert setting will be used, not the alert setting defined on this check group'
       ),
 
-    alertSettings: checkGroupAlertSettingsSchema,
+    alertSettings: alertSettingsSchema,
     alertChannelSubscriptions: alertChannelSubscriptionListSchema,
 
     setupSnippetId: Joi.number()
@@ -160,7 +141,6 @@ const groupSchema = Joi.object()
       ),
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
-  .label('CheckGroupCreate')
 
 module.exports = {
   groupSchema,

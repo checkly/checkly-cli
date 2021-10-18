@@ -25,6 +25,6 @@ describe('project [schema]', () => {
     const schema = projectSchema.validate(parsedProject)
 
     assert.equal(schema.error.details.length, 1)
-    assert.equal(schema.error.details[0].message, '"projectName" is required')
+    assert.equal(schema.error.details[0].message, '"projectId" is required')
   })
 })

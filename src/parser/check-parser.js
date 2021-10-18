@@ -6,8 +6,8 @@ const { CHECK } = require('./file-parser')
 const { getGlobalSettings } = require('../services/utils')
 const bundle = require('./bundler')
 
-const { checkSchema } = require('../schemas/checks')
-const { groupSchema } = require('../schemas/groups')
+const { checkSchema } = require('../schemas/check')
+const { groupSchema } = require('../schemas/group')
 const { projectSchema } = require('../schemas/project')
 
 async function parseCheck(check, groupSettings = null) {

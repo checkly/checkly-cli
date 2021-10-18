@@ -1,8 +1,7 @@
-const fs = require('fs')
 const yaml = require('yaml')
 const assert = require('assert')
 
-const { checkSchema } = require('../../src/schemas/checks')
+const { checkSchema } = require('../../src/schemas/check')
 const { basic, advanced } = require('../../src/templates/api')
 
 describe('api check [templates]', () => {

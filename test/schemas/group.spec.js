@@ -2,7 +2,7 @@ const fs = require('fs')
 const yaml = require('yaml')
 const assert = require('assert')
 
-const { groupSchema } = require('../../src/schemas/groups')
+const { groupSchema } = require('../../src/schemas/group')
 
 describe('group [schema]', () => {
   it('should return a valid group schema', () => {
