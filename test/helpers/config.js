@@ -4,6 +4,7 @@ const testConfig = () => {
   return {
     dataTest: new Conf({
       configName: 'data-test',
+      projectSuffix: '',
       defaults: {
         output: 'json',
         accountName: 'Test Account',
@@ -12,6 +13,7 @@ const testConfig = () => {
     }),
     authTest: new Conf({
       configName: 'auth-test',
+      projectSuffix: '',
       defaults: {
         apiKey: '123abc',
       },

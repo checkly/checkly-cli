@@ -11,7 +11,7 @@ const { getRepoUrl } = require('./../services/utils')
 
 const apiTemplates = require('../templates/api')
 const browserTemplates = require('../templates/browser')
-const settingsTemplate = require('../templates/settings')
+const projectTemplate = require('../templates/project')
 
 const API = 'API'
 const BROWSER = 'BROWSER'
@@ -39,21 +39,13 @@ function createChecklyDirectory({ dirName, mode, checkTypes, url }) {
   }
 }
 
-function createSettingsFile({
-  dirName,
-  accountId,
-  accountName,
-  projectName,
-  projectId,
-}) {
-  const accountSettingsYml = settingsTemplate({
-    accountId,
-    accountName,
+function createProjectFile({ dirName, projectName, projectId }) {
+  const projectYml = projectTemplate({
     projectName,
     projectId,
   })
 
-  fs.writeFileSync(path.join(dirName, 'settings.yml'), accountSettingsYml)
+  fs.writeFileSync(path.join(dirName, 'settings.yml'), projectYml)
 }
 
 class InitCommand extends Command {
@@ -106,12 +98,8 @@ class InitCommand extends Command {
       },
     ])
 
-    // TODO: Check if we still need to fetch account data
-    const accountId = config.data.get('accountId')
-    const accountName = config.data.get('accountName')
-
     const { data: project } = await projects.create({
-      accountId,
+      accountId: config.data.get('accountId'),
       name: args.projectName,
       repoUrl: await getRepoUrl(cwd),
       activated: true,
@@ -120,10 +108,8 @@ class InitCommand extends Command {
     })
 
     createChecklyDirectory({ url, mode, checkTypes, dirName })
-    createSettingsFile({
+    createProjectFile({
       dirName,
-      accountId,
-      accountName,
       projectName: args.projectName,
       projectId: project.id,
     })

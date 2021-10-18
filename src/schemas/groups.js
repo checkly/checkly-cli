@@ -69,7 +69,7 @@ const checkGroupCreateBrowserCheckDefaultsSchema = Joi.object()
   .default({})
   .label('CheckGroupCreateBrowserCheckDefaults')
 
-const checkGroupSchema = Joi.object()
+const groupSchema = Joi.object()
   .keys({
     name: Joi.string().required().description('The name of the check group'),
 
@@ -163,5 +163,5 @@ const checkGroupSchema = Joi.object()
   .label('CheckGroupCreate')
 
 module.exports = {
-  checkGroupSchema,
+  groupSchema,
 }

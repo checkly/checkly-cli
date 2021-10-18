@@ -1,14 +1,9 @@
-account:
-  id: 4c0b0f96-840d-4eec-b36a-02fa4da5619d
-project:
-  id: 6
-  name: checkly-cli
-settings:
-  locations: ['us-east-1', 'eu-central-1']
-  interval: 5min
-  alerts:
-    - type: email
-      sendOn:
-        - recover
-        - degrade
-        - fail
+projectName: checkly-cli
+locations: ['us-east-1', 'eu-central-1']
+interval: 5min
+alerts:
+  - type: email
+    sendOn:
+      - recover
+      - degrade
+      - fail
