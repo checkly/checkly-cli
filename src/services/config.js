@@ -2,21 +2,25 @@ const Conf = require('conf')
 const consola = require('consola')
 
 const dataSchema = {
+  _: { type: 'string' },
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
-  accountId: { type: 'string', default: '123abc' },
+  accountId: { type: 'string' },
   accountName: { type: 'string' },
 }
 
 const authSchema = {
+  _: { type: 'string' },
   apiKey: { type: 'string' },
 }
 
+const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
+
 const config = {
-  auth: new Conf({ configName: 'auth', projectSuffix: '', schema: authSchema }),
+  auth: new Conf({ configName: 'auth', projectSuffix, schema: authSchema }),
   data: new Conf({
     configName: 'config',
-    projectSuffix: '',
+    projectSuffix,
     schema: dataSchema,
   }),
 

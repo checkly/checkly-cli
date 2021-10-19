@@ -1,22 +1,10 @@
-const Conf = require('conf')
+const config = require('./../../src/services/config')
 
 const testConfig = () => {
-  return {
-    dataTest: new Conf({
-      configName: 'data-test',
-      defaults: {
-        output: 'json',
-        accountName: 'Test Account',
-        accountId: 'abc123',
-      },
-    }),
-    authTest: new Conf({
-      configName: 'auth-test',
-      defaults: {
-        apiKey: '123abc',
-      },
-    }),
-  }
+  config.auth.set('apiKey', '123abc')
+  config.data.set('output', 'json')
+  config.data.set('accountName', 'Test Account')
+  config.data.set('accountId', 'abc123')
 }
 
 module.exports = testConfig
