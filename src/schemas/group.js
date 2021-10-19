@@ -15,22 +15,6 @@ const {
   availableRuntimes,
 } = require('./common')
 
-const groupApiCheckDefaultsSchema = {
-  url: Joi.string()
-    .optional()
-    .allow(null)
-    .allow('')
-    .default('')
-    .description(
-      'The base url for this group which you can reference with the {{GROUP_BASE_URL}} variable in all group checks.'
-    ),
-
-  headers: Joi.array().items(keyValueSchema).default([]),
-  queryParameters: Joi.array().items(keyValueSchema).default([]),
-  assertions: assertionListSchema,
-  basicAuth: basicAuthSchema,
-}
-
 const groupLocationListSchema = Joi.array()
   .items(Joi.string().valid(...validRegions))
   .min(1)
@@ -41,7 +25,21 @@ const groupLocationListSchema = Joi.array()
   )
 
 const groupAPICheckDefaultsSchema = Joi.object()
-  .keys({ ...groupApiCheckDefaultsSchema })
+  .keys({
+    url: Joi.string()
+      .optional()
+      .allow(null)
+      .allow('')
+      .default('')
+      .description(
+        'The base url for this group which you can reference with the {{GROUP_BASE_URL}} variable in all group checks.'
+      ),
+
+    headers: Joi.array().items(keyValueSchema).default([]),
+    queryParameters: Joi.array().items(keyValueSchema).default([]),
+    assertions: assertionListSchema,
+    basicAuth: basicAuthSchema,
+  })
   .optional()
   .default({})
 
@@ -57,6 +55,7 @@ const groupSchema = Joi.object()
     activated: Joi.boolean()
       .default(true)
       .description('Determines if the checks in the  group are running or not'),
+
     muted: Joi.boolean()
       .optional()
       .default(false)

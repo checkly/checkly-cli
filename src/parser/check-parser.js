@@ -27,12 +27,14 @@ async function parseCheck(check, groupSettings = null) {
     return null
   }
 
-  const parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
+  let parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
   const parsedCheckSchema = checkSchema.validate(parsedCheck)
 
   if (parsedCheckSchema.error) {
     throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
   }
+
+  parsedCheck = parsedCheckSchema.value
 
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
@@ -70,6 +72,7 @@ async function parseChecksTree(tree, parent = null) {
     let group = {}
     if (fs.existsSync(tree[i].settings)) {
       group = YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) || {}
+
       if (Object.keys(group).length) {
         const parsedGroupSchema = groupSchema.validate(group)
         if (parsedGroupSchema.error) {
@@ -77,6 +80,8 @@ async function parseChecksTree(tree, parent = null) {
             `${parsedGroupSchema.error} at group: ${tree[i].settings}`
           )
         }
+
+        group = parsedGroupSchema.value
       }
     }
 
