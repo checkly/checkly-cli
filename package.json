@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "20.0.0",
-    "axios": "0.21.1",
+    "axios": "0.21.2",
     "chalk": "4.1.1",
     "cli-fuzzy-search": "2.0.0",
     "cli-spinners": "2.6.0",
