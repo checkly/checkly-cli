@@ -1,4 +1,4 @@
-module.exports = ({ name }) => {
+module.exports = ({ name } = {}) => {
   return `name: ${name}
 locations:
   - us-east-1

@@ -9,7 +9,7 @@ module.exports = {
     url = DEFAULT_URL,
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
-  }) => {
+  } = {}) => {
     return `checkType: API
 name: ${name}
 request:
@@ -27,7 +27,7 @@ locations:
     url = DEFAULT_URL,
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
-  }) => {
+  } = {}) => {
     return `checkType: API
 name: ${name}
 request:

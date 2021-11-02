@@ -22,7 +22,7 @@ class DeployCommand extends Command {
       const settings = await readLocal(
         path.join(findChecklyDir(), 'settings.yml')
       )
-      const projectId = settings.project.id
+      const projectId = settings.projectId
 
       consola.debug('Keys of objects sent to API:')
       consola.debug({

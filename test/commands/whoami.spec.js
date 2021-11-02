@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { test, expect } = require('@oclif/test')
 const testConfig = require('../helpers/config')
 

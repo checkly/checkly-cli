@@ -6,17 +6,35 @@ const { CHECK } = require('./file-parser')
 const { getGlobalSettings } = require('../services/utils')
 const bundle = require('./bundler')
 
+const { checkSchema } = require('../schemas/check')
+const { groupSchema } = require('../schemas/group')
+const { projectSchema } = require('../schemas/project')
+
 async function parseCheck(check, groupSettings = null) {
-  const { settings } = YAML.parse(getGlobalSettings())
+  const project = YAML.parse(getGlobalSettings())
+  const parsedProjectSchema = projectSchema.validate(project)
+
+  if (parsedProjectSchema.error) {
+    throw new Error(`${parsedProjectSchema.error} at global settings.yml`)
+  }
+
+  // Remove project properties which are not check/group settings
+  delete project.projectName
+  delete project.projectId
+
   if (check.error) {
     consola.warn(`Skipping file ${check.filePath}: ${check.error} `)
     return null
   }
 
-  const parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
+  let parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
+  const parsedCheckSchema = checkSchema.validate(parsedCheck)
 
-  // TODO: Add json schemas to vefify that yaml
-  // contains required checks properties.
+  if (parsedCheckSchema.error) {
+    throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
+  }
+
+  parsedCheck = parsedCheckSchema.value
 
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
@@ -30,7 +48,7 @@ async function parseCheck(check, groupSettings = null) {
   }
 
   parsedCheck.logicalId = check.name
-  parsedCheck.settings = { ...settings[0], ...parsedCheck.settings }
+  parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
 
   return parsedCheck
 }
@@ -51,17 +69,27 @@ async function parseChecksTree(tree, parent = null) {
       continue
     }
 
-    let groupSettings = {}
+    let group = {}
     if (fs.existsSync(tree[i].settings)) {
-      groupSettings =
-        YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) || {}
+      group = YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) || {}
+
+      if (Object.keys(group).length) {
+        const parsedGroupSchema = groupSchema.validate(group)
+        if (parsedGroupSchema.error) {
+          throw new Error(
+            `${parsedGroupSchema.error} at group: ${tree[i].settings}`
+          )
+        }
+
+        group = parsedGroupSchema.value
+      }
     }
 
     parsedTree.groups[tree[i].name] = {
       name: tree[i].name,
-      settings: groupSettings,
+      settings: group,
     }
-    const checksLeaf = await parseChecksTree(tree[i].checks, groupSettings)
+    const checksLeaf = await parseChecksTree(tree[i].checks, group)
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
     parsedTree.checks = newChecksLeaf
   }
