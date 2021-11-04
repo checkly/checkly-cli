@@ -1,13 +1,18 @@
 const { Command } = require('@oclif/command')
-const { accounts } = require('./../services/api')
+const config = require('./../services/config')
 const { output } = require('./../services/flags')
 const { print } = require('./../services/utils')
 
 class WhoamiCommand extends Command {
   async run() {
     const { flags } = this.parse(WhoamiCommand)
-    const { data } = await accounts.findMe()
-    print(data, flags)
+    print(
+      {
+        accountId: config.data.get('accountId'),
+        accountName: config.data.get('accountName'),
+      },
+      flags
+    )
   }
 }
 
