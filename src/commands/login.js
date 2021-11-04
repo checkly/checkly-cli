@@ -30,9 +30,7 @@ const checkExistingLogin = async () => {
       },
     ])
 
-    if (!setNewkey) {
-      return process.exit(0)
-    }
+    !setNewkey && process.exit(0)
   }
 }
 
@@ -55,15 +53,14 @@ class LoginCommand extends Command {
         consola.error(
           'The flag --account-id (-i) is required when using --api-key (-k)'
         )
-        return process.exit(1)
+        this.exit(1)
       }
 
       config.auth.set('apiKey', apiKey)
       config.data.set('accountId', accountId)
 
       loginSuccess()
-
-      return process.exit(0)
+      this.exit(0)
     }
 
     await checkExistingLogin()
@@ -127,8 +124,7 @@ class LoginCommand extends Command {
       consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
 
       loginSuccess()
-
-      return process.exit(0)
+      this.exit(0)
     })
   }
 }
