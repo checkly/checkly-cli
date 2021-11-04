@@ -14,6 +14,6 @@ describe('login [cmd]', () => {
     .it('sets apiKey and accountId', (ctx) => {
       expect(ctx.stdout).to.contain('Welcome to @checkly/cli')
       expect(config.auth.get('apiKey')).to.equal('newKey')
-      expect(config.data.get('accountId')).to.equal('newId')
+      expect(config.getAccountId()).to.equal('newId')
     })
 })

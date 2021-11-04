@@ -124,7 +124,7 @@ class LoginCommand extends Command {
       consola.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
 
       loginSuccess()
-      this.exit(0)
+      process.exit(0)
     })
   }
 }

@@ -40,6 +40,10 @@ const config = {
     return process.env.CHECKLY_API_KEY || this.auth.get('apiKey')
   },
 
+  getAccountId() {
+    return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId')
+  },
+
   validateAuth() {
     const [, , command] = process.argv
     const publicCommands = [

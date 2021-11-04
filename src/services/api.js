@@ -37,7 +37,7 @@ function getDefatuls() {
 
   const env = config.getEnv()
   const apiKey = config.getApiKey()
-  const accountId = config.data.get('accountId')
+  const accountId = config.getAccountId()
   const baseHost = environments[env].apiUrl
   const basePath = environments[env].apiVersion
   const Authorization = `Bearer ${apiKey}`
