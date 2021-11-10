@@ -64,11 +64,8 @@ function init({ api, baseHost, basePath }) {
   }
 
   const accounts = {
-    find() {
-      return api.get(`/next/${endpoints.ACCOUNTS.GET}`)
-    },
-    findMe() {
-      return api.get(`/next/${endpoints.ACCOUNTS.GET}/me`)
+    find({ spinner = true } = {}) {
+      return api.get(`/next/${endpoints.ACCOUNTS.GET}`, { spinner })
     },
   }
 

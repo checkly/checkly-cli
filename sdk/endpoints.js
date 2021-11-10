@@ -20,6 +20,9 @@ const ENDPOINTS = {
   SIGNED_URL: {
     GET: 'sockets/signed-url',
   },
+  USERS: {
+    GET: 'users/me/api-keys',
+  },
 }
 
 module.exports = {

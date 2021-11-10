@@ -1,7 +1,8 @@
+const os = require('os')
 const http = require('http')
+const axios = require('axios')
 const crypto = require('crypto')
 const consola = require('consola')
-const axios = require('axios')
 
 // TODO: Move this to ./sdk
 const AUTH0_DOMAIN = 'checkly'
@@ -17,6 +18,7 @@ const generateAuthenticationUrl = (codeChallenge, scope, state) => {
     redirect_uri: 'http://localhost:4242',
     scope: scope,
     state: state,
+    audience: ['api-dev.checkly.run'],
   })
 
   url.search = params
@@ -59,7 +61,7 @@ function startServer(codeVerifier, onTokenCallback) {
       <html>
       <body>
         <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
-          <h3 style="font-weight: 200;"><strong style="color:#45C8F1;">checkly-cli</strong> login success! </br></br>This window should close itself in 3 seconds.</h3>
+          <h3 style="font-weight: 200;"><strong style="color:#45C8F1;">@checkly/cli</strong> login success! </br></br>You can go back to your terminal</br></br>This window should close itself in 3 seconds.</h3>
         </div>
         <script>setTimeout(function() {window.close()}, 3000);</script>
       </body>
@@ -107,15 +109,14 @@ async function getAccessToken(code, codeVerifier) {
     }
   )
 
-  consola.debug(tokenResponse.data)
-
   return tokenResponse.data
 }
 
-async function getApiKey({ userExternalId, accessToken, baseHost }) {
+async function getApiKey({ accessToken, baseHost }) {
   try {
-    const userResponse = await axios.get(
-      `${baseHost}/users/me/api-key/${encodeURIComponent(userExternalId)}`,
+    const { data } = await axios.post(
+      `${baseHost}/users/me/api-keys`,
+      { name: `CLI User Key ${os.hostname()}` },
       {
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -123,7 +124,7 @@ async function getApiKey({ userExternalId, accessToken, baseHost }) {
         },
       }
     )
-    return userResponse.data
+    return data
   } catch (err) {
     consola.debug(err.toJSON())
     consola.error(`${err} - Error communicating with Checkly backend.`)

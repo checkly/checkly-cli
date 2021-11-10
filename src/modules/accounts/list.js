@@ -11,7 +11,7 @@ async function listAccounts({ output } = {}) {
 
     if (output === 'human') {
       data.map((account) => {
-        if (account.id === config.data.get('accountId')) {
+        if (account.id === config.getAccountId()) {
           account.id = chalk.blue.bold('✔ ' + account.id)
         }
 

@@ -99,7 +99,7 @@ class InitCommand extends Command {
     ])
 
     const { data: project } = await projects.create({
-      accountId: config.data.get('accountId'),
+      accountId: config.getAccountId(),
       name: args.projectName,
       repoUrl: await getRepoUrl(cwd),
       activated: true,

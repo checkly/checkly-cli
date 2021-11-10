@@ -6,7 +6,8 @@ const sdk = require('../../sdk')
 const config = require('./config')
 
 const spinner = ora({
-  text: 'Fetching Checkly API',
+  // text: 'Fetching Checkly API',
+  discardStdin: false,
   spinner: 'moon',
   color: 'cyan',
 })
@@ -36,7 +37,7 @@ function getDefatuls() {
 
   const env = config.getEnv()
   const apiKey = config.getApiKey()
-  const accountId = config.data.get('accountId')
+  const accountId = config.getAccountId()
   const baseHost = environments[env].apiUrl
   const basePath = environments[env].apiVersion
   const Authorization = `Bearer ${apiKey}`
@@ -59,17 +60,17 @@ const api = axios.create({
 
 api.interceptors.request.use(function (config) {
   process.stdout.write('\n')
-  spinner.start()
+  config.spiner && spinner.start()
   return config
 })
 
 api.interceptors.response.use(
   (res) => {
-    spinner.stop()
+    config.spiner && spinner.stop()
     return res
   },
   (error) => {
-    spinner.stop()
+    config.spiner && spinner.stop()
     consola.error(error)
     return Promise.reject(error)
   }
