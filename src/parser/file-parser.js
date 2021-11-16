@@ -3,6 +3,7 @@ const path = require('path')
 
 const MAX_NESTING_LEVEL = 1
 const SETTINGS = 'settings'
+const ALERT_CHANNEL = 'alert-channel'
 const CHECK = 'check'
 const GROUP = 'group'
 const YML = '.yml' || '.yaml'
@@ -46,6 +47,44 @@ function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
   return file
 }
 
+function parseAlertsFile(filePath, nestingLevel = 1, prefix = '') {
+  const basename = path.basename(filePath)
+  const name = `${prefix}${basename}`
+  const ext = path.extname(filePath)
+
+  const file = {
+    name,
+    filePath,
+    type: ALERT_CHANNEL,
+    error: ext !== YML ? 'InvalidFileExtension' : null,
+  }
+
+  // TODO: error if  directory or any other file
+
+  return file
+}
+
+function parseAlertsDirectory() {
+  const alertsDir = path.join(findChecklyDir(), 'alert-channels')
+
+  try {
+    const alertsDirStats = fs.lstatSync(alertsDir)
+
+    if (!alertsDirStats.isDirectory()) {
+      throw new Error('Missing alert-channels directory')
+    }
+
+    const files = fs.readdirSync(alertsDir)
+    const parsedFiles = files.map((file) =>
+      parseAlertsFile(path.join(alertsDir, file))
+    )
+
+    return parsedFiles
+  } catch (err) {
+    throw new Error(err.message)
+  }
+}
+
 function parseChecklySettings(files) {
   return files.map((file) => {
     if (file.type === GROUP) {
@@ -74,6 +113,7 @@ function parseChecklyDirectory() {
     const parsedFiles = files.map((file) =>
       parseChecklyFile(path.join(checksDir, file))
     )
+
     return parseChecklySettings(parsedFiles)
   } catch (err) {
     throw new Error(err.message)
@@ -84,4 +124,5 @@ module.exports = {
   CHECK,
   GROUP,
   parseChecklyDirectory,
+  parseAlertsDirectory,
 }

@@ -2,7 +2,7 @@ const fs = require('fs')
 const YAML = require('yaml')
 const consola = require('consola')
 
-const { CHECK } = require('./file-parser')
+const { CHECK, parseAlertsDirectory } = require('./file-parser')
 const { getGlobalSettings } = require('../services/utils')
 const bundle = require('./bundler')
 
@@ -39,6 +39,19 @@ async function parseCheck(check, groupSettings = null) {
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
     return null
+  }
+
+  if (parsedCheck.alertChannelSubscriptions) {
+    const alertChannels = parseAlertsDirectory()
+
+    parsedCheck.alertChannelSubscriptions.forEach((subscription, i) => {
+      if (!alertChannels.includes(subscription.alertChannel + '.yml')) {
+        consola.warn(
+          `Skipping alert channel '${subscription.alertChannel}' for check '${parsedCheck.name}' (missing alert channel file).'`
+        )
+        parsedCheck.alertChannelSubscriptions.splice(i, 1)
+      }
+    })
   }
 
   if (parsedCheck.checkType.toLowerCase() === 'browser' && parsedCheck.path) {
@@ -93,6 +106,7 @@ async function parseChecksTree(tree, parent = null) {
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
     parsedTree.checks = newChecksLeaf
   }
+
   return parsedTree
 }
 

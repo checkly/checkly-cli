@@ -14,20 +14,16 @@ const { groupSchema } = require('../schemas/group')
 // const { projectSchema } = require('../schemas/project')
 
 function parseAlertsDirectory() {
-  const checksDir = path.join(findChecklyDir(), 'alert-channels')
+  const alertsDir = path.join(findChecklyDir(), 'alert-channels')
 
   try {
-    const checksDirStats = fs.lstatSync(checksDir)
+    const alertsDirStats = fs.lstatSync(alertsDir)
 
-    if (!checksDirStats.isDirectory()) {
+    if (!alertsDirStats.isDirectory()) {
       throw new Error('Missing alert-channels directory')
     }
 
-    const files = fs.readdirSync(checksDir)
-    return files.map(
-      (file) => console.log(file)
-      // parseChecklyFile(path.join(checksDir, file))
-    )
+    return fs.readdirSync(alertsDir)
   } catch (err) {
     throw new Error(err.message)
   }
@@ -36,5 +32,3 @@ function parseAlertsDirectory() {
 module.exports = {
   parseAlertsDirectory,
 }
-
-parseAlertsDirectory()

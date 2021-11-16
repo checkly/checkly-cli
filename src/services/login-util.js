@@ -18,7 +18,7 @@ const generateAuthenticationUrl = (codeChallenge, scope, state) => {
     redirect_uri: 'http://localhost:4242',
     scope: scope,
     state: state,
-    audience: ['api-dev.checkly.run'],
+    // audience: ['api-dev.checkly.run', 'api-prod.checkly.run'],
   })
 
   url.search = params
@@ -56,6 +56,9 @@ function startServer(codeVerifier, onTokenCallback) {
       const code = responseParams.get('code')
       const state = responseParams.get('state')
 
+      const error = responseParams.get('error')
+      const errorDescription = responseParams.get('error_description')
+
       if (code && state === codeVerifier) {
         res.write(`
       <html>
@@ -74,6 +77,9 @@ function startServer(codeVerifier, onTokenCallback) {
       <body>
         <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
           <h3 style="font-weight:200;">Login failed, please try again!</h3>
+          <p>
+            <b>${error}</b>: ${errorDescription}
+          </p>
         </div>
       </body>
       </html>
@@ -115,8 +121,7 @@ async function getAccessToken(code, codeVerifier) {
 async function getApiKey({ accessToken, baseHost }) {
   try {
     const { data } = await axios.post(
-      `${baseHost}/users/me/api-keys`,
-      { name: `CLI User Key ${os.hostname()}` },
+      `${baseHost}/users/me/api-keys?name=${'CLI User Key' + os.hostname()}`,
       {
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -126,7 +131,6 @@ async function getApiKey({ accessToken, baseHost }) {
     )
     return data
   } catch (err) {
-    consola.debug(err.toJSON())
     consola.error(`${err} - Error communicating with Checkly backend.`)
     process.exit(1)
   }
