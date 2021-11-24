@@ -200,15 +200,17 @@ _See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0
 
 ## `checkly login`
 
-Login with a Checkly API Key [WIP]
+Login with a Checkly API Key
 
 ```
 USAGE
   $ checkly login
 
 OPTIONS
-  --apiKey=apiKey  Checkly API Key.
-                   If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
+  -i, --account-id=account-id  Checkly account ID. (This flag is required if you are using -k (--api-key) flag
+
+  -k, --api-key=api-key        Checkly User API Key.
+                               If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
 ```
 
 _See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/login.js)_
