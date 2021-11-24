@@ -54,7 +54,7 @@ $ npm install -g @checkly/cli
 $ checkly COMMAND
 running command...
 $ checkly (-v|--version|version)
-@checkly/cli/0.0.2 darwin-x64 node-v14.17.3
+@checkly/cli/0.2.0 darwin-x64 node-v14.17.3
 $ checkly --help [COMMAND]
 USAGE
   $ checkly COMMAND
@@ -97,7 +97,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/accounts.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/accounts.js)_
+_See code: [src/commands/accounts.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/accounts.js)_
 
 ## `checkly add RESOURCE`
 
@@ -111,7 +111,7 @@ ARGUMENTS
   RESOURCE  (check|group) [default: check] What do you want to create?
 ```
 
-_See code: [src/commands/add.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/add.js)_
+_See code: [src/commands/add.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/add.js)_
 
 ## `checkly checks ACTION [ID]`
 
@@ -129,7 +129,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/checks.js)_
+_See code: [src/commands/checks.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/checks.js)_
 
 ## `checkly deploy`
 
@@ -144,7 +144,7 @@ OPTIONS
   -x, --dryRun                   Do not actually write any changes
 ```
 
-_See code: [src/commands/deploy.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/deploy.js)_
+_See code: [src/commands/deploy.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/deploy.js)_
 
 ## `checkly groups ACTION [ID]`
 
@@ -162,7 +162,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/groups.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/groups.js)_
+_See code: [src/commands/groups.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/groups.js)_
 
 ## `checkly help [COMMAND]`
 
@@ -196,7 +196,7 @@ OPTIONS
   -f, --force=force  force mode
 ```
 
-_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/init.js)_
+_See code: [src/commands/init.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/init.js)_
 
 ## `checkly login`
 
@@ -213,7 +213,7 @@ OPTIONS
                                If you did not have one, create it at: https://app.checklyhq.com/account/api-keys
 ```
 
-_See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/login.js)_
+_See code: [src/commands/login.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/login.js)_
 
 ## `checkly logout`
 
@@ -224,7 +224,7 @@ USAGE
   $ checkly logout
 ```
 
-_See code: [src/commands/logout.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/logout.js)_
+_See code: [src/commands/logout.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/logout.js)_
 
 ## `checkly projects`
 
@@ -238,7 +238,7 @@ OPTIONS
   -o, --output=text|json  output type
 ```
 
-_See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/projects.js)_
+_See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/projects.js)_
 
 ## `checkly run [CHECKNAME]`
 
@@ -252,7 +252,7 @@ ARGUMENTS
   CHECKNAME  Which check would you like to execute?
 ```
 
-_See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/run.js)_
+_See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/run.js)_
 
 ## `checkly status ACTION`
 
@@ -269,7 +269,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/status.js)_
+_See code: [src/commands/status.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/status.js)_
 
 ## `checkly switch`
 
@@ -284,7 +284,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/switch.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/switch.js)_
+_See code: [src/commands/switch.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/switch.js)_
 
 ## `checkly whoami`
 
@@ -298,7 +298,7 @@ OPTIONS
   -o, --output=plain|human|json  [default: human] output type
 ```
 
-_See code: [src/commands/whoami.js](https://github.com/checkly/checkly-cli/blob/v0.0.2/src/commands/whoami.js)_
+_See code: [src/commands/whoami.js](https://github.com/checkly/checkly-cli/blob/v0.2.0/src/commands/whoami.js)_
 
 <!-- commandsstop -->
 
