@@ -1,6 +1,6 @@
 {
   "name": "@checkly/cli",
-  "version": "0.0.2",
+  "version": "0.2.0",
   "author": "Nacho Anaya <nacho@checklyhq.com>",
   "description": "Checkly CLI",
   "license": "MIT",
