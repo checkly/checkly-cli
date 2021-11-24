@@ -11,19 +11,19 @@ const { isUuid } = require('./../services/validator')
 class SwitchCommand extends Command {
   async run() {
     const { flags } = this.parse(SwitchCommand)
-    const { accountId } = flags
+    const { 'account-id': accountId } = flags
 
     if (accountId) {
       if (!isUuid(accountId)) {
-        consola.error('-a (--accountId) is not a valid uuid')
-        process.exit(1)
+        consola.error('-a (--account-id) is not a valid uuid')
+        this.exit(1)
       }
 
       // TODO: Retrieve and validate account id with the public API
       // and store account name in config
       config.data.set('accountId', accountId)
       consola.success(`Account switched to ${chalk.bold.blue(accountId)}`)
-      process.exit(0)
+      this.exit(0)
     }
 
     const { data: accounts } = await api.accounts.find()
@@ -33,7 +33,7 @@ class SwitchCommand extends Command {
         'Your user is only a member of one account: ' +
           chalk.bold.blue(accounts[0].name)
       )
-      process.exit(0)
+      this.exit(0)
     }
 
     const { selectedAccountName } = await prompt([
@@ -60,7 +60,7 @@ SwitchCommand.description = 'Switch user account'
 
 SwitchCommand.flags = {
   output,
-  accountId: flags.string({
+  'account-id': flags.string({
     char: 'a',
     name: 'accountId',
     description: 'The id of the account you want to switch.',
