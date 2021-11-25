@@ -49,6 +49,7 @@
     "lint": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
     "test": "mocha --exit",
+    "test:coverage": "nyc npm run test",
     "test:watch": "mocha --watch --exit",
     "pack": "oclif-dev pack",
     "docs": "oclif-dev readme",
@@ -102,6 +103,7 @@
     "lint-staged": "11.0.1",
     "mocha": "9.1.1",
     "nock": "13.1.3",
+    "nyc": "15.1.0",
     "prettier": "2.2.1",
     "semantic-release": "^17.4.4",
     "simple-git-hooks": "2.5.1"
