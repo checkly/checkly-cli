@@ -1,4 +1,3 @@
-const chalk = require('chalk')
 const consola = require('consola')
 const { prompt } = require('inquirer')
 const { Command } = require('@oclif/command')
