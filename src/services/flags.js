@@ -11,7 +11,7 @@ module.exports = {
     options: ['plain', 'human', 'json'],
   }),
 
-  force: flags.string({
+  force: flags.boolean({
     char: 'f',
     description: 'force mode',
     default: false,

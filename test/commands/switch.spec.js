@@ -14,25 +14,36 @@ describe('switch [cmd]', () => {
   })
 
   test
-    .stdout()
+    .stderr()
     .command(['switch', '--account-id', '123'])
     .exit(1)
-    .it('throw error when invalid account id', () => {})
-
-  test
-    .stdout()
-    .command(['switch', '--account-id', account1.id])
-    .exit(0)
-    .it('switch account using --account-id flag', () => {
-      expect(config.data.get('accountId')).to.equal(account1.id)
+    .it('throw error when invalid account id', (ctx) => {
+      expect(ctx.stderr.trim()).to.equal(
+        '[error] -a (--account-id) is not a valid uuid'
+      )
     })
 
   test
     .nock('http://localhost:3000', (api) =>
       api.get('/next/accounts').reply(200, [account1])
     )
-    .stdout()
+    .stderr()
     .command(['switch'])
     .exit(0)
-    .it('show solo account warning message', () => {})
+    .it('show solo account warning message', (ctx) => {
+      expect(ctx.stderr.trim()).to.equal(
+        '[warn] Your user is only a member of one account: ' + account1.name
+      )
+    })
+
+  test
+    .stdout()
+    .command(['switch', '--account-id', account1.id])
+    .exit(0)
+    .it('switch account using --account-id flag', (ctx) => {
+      expect(ctx.stdout.trim()).to.equal(
+        '[success] Account switched to ' + account1.id
+      )
+      expect(config.getAccountId()).to.equal(account1.id)
+    })
 })
