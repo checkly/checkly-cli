@@ -46,8 +46,9 @@ function getDefatuls() {
 }
 
 function refresh() {
-  const { baseHost, Authorization } = getDefatuls()
+  const { baseHost, Authorization, accountId } = getDefatuls()
   api.defaults.headers.Authorization = Authorization
+  api.defaults['x-checkly-account'] = accountId
   api.defaults.baseURL = `${baseHost}`
 }
 
@@ -55,8 +56,12 @@ const { baseHost, basePath, Authorization, accountId } = getDefatuls()
 
 const api = axios.create({
   baseURL: `${baseHost}`,
-  headers: { Authorization, 'x-checkly-account': accountId },
+  headers: { Authorization },
 })
+
+if (accountId) {
+  api.defaults['x-checkly-account'] = accountId
+}
 
 api.interceptors.request.use(function (config) {
   process.stdout.write('\n')

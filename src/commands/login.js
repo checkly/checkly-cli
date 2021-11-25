@@ -107,16 +107,21 @@ class LoginCommand extends Command {
 
       const { data } = await accounts.find({ spinner: false })
 
-      const { accountName } = await prompt([
-        {
-          name: 'accountName',
-          type: 'list',
-          choices: data,
-          message: 'Which account do you want to use?',
-        },
-      ])
+      let selectedAccount = data[0]
 
-      const selectedAccount = data.find(({ name }) => name === accountName)
+      if (data.length > 1) {
+        const { accountName } = await prompt([
+          {
+            name: 'accountName',
+            type: 'list',
+            choices: data,
+            message: 'Which account do you want to use?',
+          },
+        ])
+
+        selectedAccount = data.find(({ name }) => name === accountName)
+      }
+
       config.data.set('accountId', selectedAccount.id)
       config.data.set('accountName', selectedAccount.name)
 

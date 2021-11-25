@@ -3,7 +3,7 @@ const path = require('path')
 const { getLocalFiles } = require('./helper')
 const { readFile } = require('fs/promises')
 
-function init({ api, baseHost, basePath }) {
+function init({ api, basePath }) {
   const checks = {
     getAll({ limit, page } = {}) {
       return api.get(`/${basePath}/${endpoints.CHECKS.GET}`, {
