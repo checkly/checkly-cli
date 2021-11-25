@@ -6,7 +6,7 @@ const sdk = require('../../sdk')
 const config = require('./config')
 
 const spinner = ora({
-  // text: 'Fetching Checkly API',
+  text: 'Fetching Checkly API',
   discardStdin: false,
   spinner: 'moon',
   color: 'cyan',
@@ -38,51 +38,46 @@ function getDefatuls() {
   const env = config.getEnv()
   const apiKey = config.getApiKey()
   const accountId = config.getAccountId()
-  const baseHost = environments[env].apiUrl
   const basePath = environments[env].apiVersion
+  const baseURL = environments[env].apiUrl
   const Authorization = `Bearer ${apiKey}`
 
-  return { baseHost, basePath, accountId, Authorization }
+  return { baseURL, basePath, accountId, Authorization }
 }
 
-function refresh() {
-  const { baseHost, Authorization, accountId } = getDefatuls()
-  api.defaults.headers.Authorization = Authorization
-  api.defaults['x-checkly-account'] = accountId
-  api.defaults.baseURL = `${baseHost}`
+function init() {
+  const { baseURL } = getDefatuls()
+  const api = axios.create({ baseURL })
+
+  api.interceptors.request.use(function (config) {
+    process.stdout.write('\n')
+    config.spiner && spinner.start()
+
+    const { Authorization, accountId } = getDefatuls()
+
+    Authorization && (config.headers.Authorization = Authorization)
+    accountId && (config.headers['x-checkly-account'] = accountId)
+
+    return config
+  })
+
+  api.interceptors.response.use(
+    (res) => {
+      config.spiner && spinner.stop()
+      return res
+    },
+    (error) => {
+      config.spiner && spinner.stop()
+      consola.error(error)
+      return Promise.reject(error)
+    }
+  )
+
+  return api
 }
-
-const { baseHost, basePath, Authorization, accountId } = getDefatuls()
-
-const api = axios.create({
-  baseURL: `${baseHost}`,
-  headers: { Authorization },
-})
-
-if (accountId) {
-  api.defaults['x-checkly-account'] = accountId
-}
-
-api.interceptors.request.use(function (config) {
-  process.stdout.write('\n')
-  config.spiner && spinner.start()
-  return config
-})
-
-api.interceptors.response.use(
-  (res) => {
-    config.spiner && spinner.stop()
-    return res
-  },
-  (error) => {
-    config.spiner && spinner.stop()
-    consola.error(error)
-    return Promise.reject(error)
-  }
-)
 
 module.exports = {
-  refresh,
+  // refresh,
   getDefatuls,
-  ...sdk.init({ api, baseHost, basePath }),
+  ...sdk.init({ api: init() }),
 }

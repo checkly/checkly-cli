@@ -99,11 +99,11 @@ class LoginCommand extends Command {
       const { name } = jwt_decode(idToken)
       const { key } = await getApiKey({
         accessToken,
-        baseHost: api.getDefatuls().baseHost,
+        baseHost: api.getDefatuls().baseURL,
       })
 
       config.auth.set('apiKey', key)
-      api.refresh()
+      // api.refresh()
 
       const { data } = await accounts.find({ spinner: false })
 

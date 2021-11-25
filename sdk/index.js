@@ -3,10 +3,10 @@ const path = require('path')
 const { getLocalFiles } = require('./helper')
 const { readFile } = require('fs/promises')
 
-function init({ api, basePath }) {
+function init({ api, apiVersion = 'v1' }) {
   const checks = {
     getAll({ limit, page } = {}) {
-      return api.get(`/${basePath}/${endpoints.CHECKS.GET}`, {
+      return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
         limit,
         page,
       })
@@ -29,7 +29,7 @@ function init({ api, basePath }) {
     },
 
     create({ script, name, checkType = 'BROWSER', activated = true } = {}) {
-      return api.post(`/${basePath}/${endpoints.CHECKS.GET}`, {
+      return api.post(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
         name,
         script,
         checkType,
@@ -38,7 +38,7 @@ function init({ api, basePath }) {
     },
 
     get(id) {
-      return api.get(`/${basePath}/${endpoints.CHECKS.GET}/${id}`)
+      return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}/${id}`)
     },
 
     deploy(checks, flags) {
@@ -52,14 +52,14 @@ function init({ api, basePath }) {
 
   const groups = {
     getAll({ limit, page } = {}) {
-      return api.get(`/${basePath}/${endpoints.GROUPS.GET}`, {
+      return api.get(`/${apiVersion}/${endpoints.GROUPS.GET}`, {
         limit,
         page,
       })
     },
 
     get(id) {
-      return api.get(`/${basePath}/${endpoints.GROUPS.GET}/${id}`)
+      return api.get(`/${apiVersion}/${endpoints.GROUPS.GET}/${id}`)
     },
   }
 
@@ -71,7 +71,7 @@ function init({ api, basePath }) {
 
   const checkStatuses = {
     getAll({ limit, page } = {}) {
-      return api.get(`/${basePath}/${endpoints.CHECKS.STATUS}`, {
+      return api.get(`/${apiVersion}/${endpoints.CHECKS.STATUS}`, {
         limit,
         page,
       })
@@ -95,7 +95,7 @@ function init({ api, basePath }) {
 
   const locations = {
     getAll() {
-      return api.get(`/${basePath}/${endpoints.LOCATIONS.GET}`)
+      return api.get(`/${apiVersion}/${endpoints.LOCATIONS.GET}`)
     },
   }
 
