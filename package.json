@@ -63,7 +63,7 @@
     "@oclif/dev-cli": "1.26.0",
     "@oclif/plugin-help": "3.2.1",
     "@oclif/test": "1.2.8",
-    "@rollup/plugin-commonjs": "20.0.0",
+    "@rollup/plugin-commonjs": "21.0.1",
     "axios": "0.21.2",
     "chalk": "4.1.1",
     "cli-fuzzy-search": "2.0.0",
