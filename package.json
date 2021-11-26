@@ -87,7 +87,7 @@
     "yaml": "1.10.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "12.1.4",
+    "@commitlint/cli": "15.0.0",
     "@commitlint/config-conventional": "12.1.4",
     "babel-eslint": "10.1.0",
     "chai": "4.3.4",
