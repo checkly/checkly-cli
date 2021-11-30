@@ -106,7 +106,7 @@
     "nyc": "15.1.0",
     "prettier": "2.2.1",
     "semantic-release": "^17.4.4",
-    "simple-git-hooks": "2.5.1"
+    "simple-git-hooks": "2.7.0"
   },
   "publishConfig": {
     "access": "restricted"
