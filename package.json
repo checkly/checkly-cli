@@ -60,7 +60,7 @@
   "dependencies": {
     "@oclif/command": "1.8.0",
     "@oclif/config": "1.17.0",
-    "@oclif/dev-cli": "1.26.0",
+    "@oclif/dev-cli": "1.26.6",
     "@oclif/plugin-help": "3.2.1",
     "@oclif/test": "1.2.8",
     "@rollup/plugin-commonjs": "21.0.1",
