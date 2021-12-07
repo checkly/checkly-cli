@@ -1,0 +1,11 @@
+checkType: Browser
+name: browser 1
+request:
+  url: https://google.com
+  method: GET
+frequency: 1
+activated: true
+locations:
+  - us-east-1
+  - us-east-2
+  - us-west-1
