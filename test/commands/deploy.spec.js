@@ -8,9 +8,10 @@ describe('deploy [cmd]', () => {
     if (!fs.existsSync('../../.checkly')) {
       test
         .stdout()
-        .command(['init'])
+        .command(['init', 'proj1'])
         .exit(0)
         .it('initializes .checkly dir', (ctx) => {
+          // TODO: figure out how to answer inquirer prompts in test
           expect(ctx.stdout).to.contain('Checkly initialized')
         })
 

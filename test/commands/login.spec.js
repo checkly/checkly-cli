@@ -28,6 +28,7 @@ describe('login [cmd]', () => {
     .command(['login'])
     .exit(0)
     .it('starts localhost:4242', (ctx) => {
+      // TODO: Figure out inquirer prompts in test
       // Ensure server has started and is listening on port 4242
       console.log('rl', this.rl.output)
       console.log('rl1', this.rl.output.__raw__)
