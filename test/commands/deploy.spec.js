@@ -1,10 +1,51 @@
+const fs = require('fs/promises')
 const testConfig = require('../helpers/config')
-const config = require('./../../src/services/config')
 const { test, expect } = require('@oclif/test')
 
 describe('deploy [cmd]', () => {
   before(() => {
     testConfig()
+    if (!fs.existsSync('../../.checkly')) {
+      test
+        .stdout()
+        .command(['init'])
+        .exit(0)
+        .it('initializes .checkly dir', (ctx) => {
+          expect(ctx.stdout).to.contain('Checkly initialized')
+        })
+
+      // Create artificial `.checkly` dir for testing
+
+      // Browser Check
+      fs.copyFile(
+        '../fixtures/yml/browser-check-valid.yml',
+        '../../.checkly/checks/browser-check.yml'
+      )
+      // API Check
+      fs.copyFile(
+        '../fixtures/yml/api-check-valid.yml',
+        '../../.checkly/checks/api-check.yml'
+      )
+      // Root Settings
+      fs.copyFile(
+        '../fixtures/yml/project-valid.yml',
+        '../../.checkly/settings.yml'
+      )
+      // Group Directory
+      fs.mkdirSync('../../.checkly/checks/test-group')
+      // Group Settings
+      fs.copyFile(
+        '../fixtures/yml/group-valid.yml',
+        '../../.checkly/checks/test-group/settings.yml'
+      )
+    }
+  })
+
+  after(() => {
+    // Cleanup artificial `.checkly` dir
+    if (fs.existsSync('../../.checkly')) {
+      fs.rmdirSync('../../.checkly', { recursive: true })
+    }
   })
 
   // Test deploy command
