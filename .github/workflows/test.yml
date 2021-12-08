@@ -32,6 +32,8 @@ jobs:
         run: rm .checkly/checks/example-api.yml
       - name: Deploy updated check
         run: ./bin/run deploy
+      - name: Delete created project
+        run: ./bin/run projects delete
       - name: Slack Failure Notification
         if: ${{ failure() }}
         uses: rtCamp/action-slack-notify@v2
