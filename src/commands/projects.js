@@ -31,7 +31,7 @@ ProjectsCommand.flags = {
   projectId: flags.string({
     char: 'i',
     description: 'project id',
-    default: '',
+    default: config.getProjectId(),
   }),
 }
 
