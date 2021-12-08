@@ -18,21 +18,19 @@ jobs:
           node-version: '14'
           cache: 'npm'
       - run: npm install
-      - name: (checkly-cli) login
+      - name: Login
         run: ./bin/run login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
-      - name: (checkly-cli) project init
+      - name: Project init
         run: ./bin/run init test-project-1 --skipSetup
-      - name: (checkly-cli) initial deploy
+      - name: Initial deploy
         run: ./bin/run deploy
-      - name: (checkly-cli) print existing checks
-        run: ./bin/run checks
-      - name: (checkly-cli) change check name
+      - name: Change check name
         run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
-      - name: (checkly-cli) deploy updated check
+      - name: Deploy updated check
         run: ./bin/run deploy
-      - name: (checkly-cli) delete example api check
+      - name: Delete example api check
         run: rm .checkly/checks/example-api.yml
-      - name: (checkly-cli) deploy updated check
+      - name: Deploy updated check
         run: ./bin/run deploy
       - name: Slack Failure Notification
         if: ${{ failure() }}
