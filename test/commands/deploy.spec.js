@@ -1,43 +1,42 @@
-const fs = require('fs/promises')
+const fs = require('fs')
+const path = require('path')
 const testConfig = require('../helpers/config')
 const { test, expect } = require('@oclif/test')
 
 describe('deploy [cmd]', () => {
+  const cwd = process.cwd()
+
   before(() => {
     testConfig()
-    if (!fs.existsSync('../../.checkly')) {
-      test
-        .stdout()
-        .command(['init', 'proj1'])
-        .exit(0)
-        .it('initializes .checkly dir', (ctx) => {
-          // TODO: figure out how to answer inquirer prompts in test
-          expect(ctx.stdout).to.contain('Checkly initialized')
-        })
+    if (!fs.existsSync(path.join(cwd, '.checkly'))) {
+      // test
+      //   .stdout()
+      //   .command(['init', 'proj1'])
+      //   .exit(0)
+      //   .it('initializes .checkly dir', (ctx) => {
+      //     console.log('0', ctx.stdout)
+      //     // TODO: figure out how to answer inquirer prompts in test
+      //     expect(ctx.stdout).to.contain('Checkly initialized')
+      //   })
 
       // Create artificial `.checkly` dir for testing
-
+      fs.mkdirSync(path.join(cwd, '.checkly', 'checks', 'test-group'), {
+        recursive: true,
+      })
       // Browser Check
-      fs.copyFile(
-        '../fixtures/yml/browser-check-valid.yml',
-        '../../.checkly/checks/browser-check.yml'
+      fs.copyFileSync(
+        path.join(cwd, 'test', 'fixtures', 'yml', 'browser-check-valid.yml'),
+        path.join(cwd, '.checkly', 'checks', 'browser-check.yml')
       )
       // API Check
-      fs.copyFile(
-        '../fixtures/yml/api-check-valid.yml',
-        '../../.checkly/checks/api-check.yml'
+      fs.copyFileSync(
+        path.join(cwd, 'test', 'fixtures', 'yml', 'api-check-valid.yml'),
+        path.join(cwd, '.checkly', 'checks', 'api-check.yml')
       )
-      // Root Settings
-      fs.copyFile(
-        '../fixtures/yml/project-valid.yml',
-        '../../.checkly/settings.yml'
-      )
-      // Group Directory
-      fs.mkdirSync('../../.checkly/checks/test-group')
       // Group Settings
-      fs.copyFile(
-        '../fixtures/yml/group-valid.yml',
-        '../../.checkly/checks/test-group/settings.yml'
+      fs.copyFileSync(
+        path.join(cwd, 'test', 'fixtures', 'yml', 'group-valid.yml'),
+        path.join(cwd, '.checkly', 'checks', 'test-group', 'api-check.yml')
       )
     }
   })
