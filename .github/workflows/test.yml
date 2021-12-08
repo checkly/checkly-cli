@@ -1,4 +1,4 @@
-name: test
+name: Test
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: smoke-test
+    name: Smoke Test
     runs-on: ubuntu-latest
     env:
       GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -18,10 +18,22 @@ jobs:
           node-version: '14'
           cache: 'npm'
       - run: npm install
-      - run: ./bin/run login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
-      - run: ./bin/run init test-project-1 --skipSetup
-      - run: ./bin/run deploy
-      - run: ./bin/run checks
+      - name: (checkly-cli) login
+        run: ./bin/run login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
+      - name: (checkly-cli) project init
+        run: ./bin/run init test-project-1 --skipSetup
+      - name: (checkly-cli) initial deploy
+        run: ./bin/run deploy
+      - name: (checkly-cli) print existing checks
+        run: ./bin/run checks
+      - name: (checkly-cli) change check name
+        run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
+      - name: (checkly-cli) deploy updated check
+        run: ./bin/run deploy
+      - name: (checkly-cli) delete example api check
+        run: rm .checkly/checks/example-api.yml
+      - name: (checkly-cli) deploy updated check
+        run: ./bin/run deploy
       - name: Slack Failure Notification
         if: ${{ failure() }}
         uses: rtCamp/action-slack-notify@v2
