@@ -85,6 +85,9 @@ function init({ api, apiVersion = 'v1' }) {
     create(project) {
       return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
+    delete(id) {
+      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}`)
+    },
   }
 
   const socket = {
