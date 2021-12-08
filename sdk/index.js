@@ -1,5 +1,6 @@
 const endpoints = require('./endpoints')
 const path = require('path')
+const config = require('./../src/services/config')
 const { getLocalFiles } = require('./helper')
 const { readFile } = require('fs/promises')
 
@@ -86,7 +87,8 @@ function init({ api, apiVersion = 'v1' }) {
       return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
     delete(id) {
-      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}`)
+      const accountId = config.getAccountId()
+      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${accountId}/${id}`)
     },
   }
 
