@@ -62,11 +62,11 @@ class InitCommand extends Command {
     const { args, flags } = this.parse(InitCommand)
     const { skipSetup } = flags
     const cwd = process.cwd()
-    const dirName = path.join(cwd, './.checkly')
+    const dirName = path.join(cwd, '.checkly')
 
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
-      consola.debug(` Directory \`${process.cwd()}/.checkly\` already exists\n`)
+      consola.debug(` Directory \`${cwd}/.checkly\` already exists\n`)
       return process.exit(1)
     }
 
@@ -99,6 +99,14 @@ class InitCommand extends Command {
           default: BASIC,
         },
       ])
+      createChecklyDirectory({ url, mode, checkTypes, dirName })
+    } else {
+      createChecklyDirectory({
+        url: 'https://google.com',
+        mode: 'basic',
+        checkTypes: 'API',
+        dirName,
+      })
     }
 
     const { data: project } = await projects.create({
@@ -110,7 +118,6 @@ class InitCommand extends Command {
       state: {},
     })
 
-    createChecklyDirectory({ url, mode, checkTypes, dirName })
     createProjectFile({
       dirName,
       projectName: args.projectName,
@@ -133,8 +140,10 @@ InitCommand.description = 'Initialise a new Checkly Project'
 
 InitCommand.flags = {
   force,
-  skipSetup: flags.string({
+  skipSetup: flags.boolean({
     name: 'skipSetup',
+    char: 's',
+    default: false,
     description: 'Skip interactive setup prompts.',
   }),
 }

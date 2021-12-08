@@ -4,17 +4,10 @@ on:
   pull_request:
     branches:
       - main
-env:
-  SLACK_USERNAME: Checkly Github Bot
-  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-  SLACK_CHANNEL: eng-ci
-  SLACK_ICON: https://github.com/checkly.png?size=48
-  SLACK_LINK_NAMES: true
-  SLACK_FOOTER: ''
 
 jobs:
   test:
-    name: test
+    name: smoke-test
     runs-on: ubuntu-latest
     env:
       GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,3 +29,9 @@ jobs:
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: Test Failed!
           SLACK_MESSAGE: By <@${{ github.actor }}>
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: eng-ci
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_LINK_NAMES: true
+          SLACK_FOOTER: ''
