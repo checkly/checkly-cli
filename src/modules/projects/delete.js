@@ -1,9 +1,7 @@
 const consola = require('consola')
 const { projects } = require('../../services/api')
 
-const { print } = require('../../services/utils')
-
-async function deleteProject({ projectId, output = 'text' }) {
+async function deleteProject({ projectId }) {
   try {
     if (!projectId) {
       throw new Error('Project ID required!')
@@ -11,7 +9,7 @@ async function deleteProject({ projectId, output = 'text' }) {
 
     await projects.delete(projectId)
 
-    print(`Delete project ${projectId} success!`, { output })
+    consola.success(` Project ${projectId} deleted \n`)
   } catch (err) {
     consola.error(err)
   }
