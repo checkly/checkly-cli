@@ -4,13 +4,6 @@ on:
   pull_request:
     branches:
       - main
-env:
-  SLACK_USERNAME: Checkly Github Bot
-  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-  SLACK_CHANNEL: eng-ci
-  SLACK_ICON: https://github.com/checkly.png?size=48
-  SLACK_LINK_NAMES: true
-  SLACK_FOOTER: ''
 
 jobs:
   test:
@@ -31,6 +24,8 @@ jobs:
         run: ./bin/run init test-project-1 --skipSetup
       - name: Initial deploy
         run: ./bin/run deploy
+      - name: Print existing checks
+        run: ./bin/run checks
       - name: Change check name
         run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
       - name: Deploy updated check
@@ -48,3 +43,9 @@ jobs:
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: Test Failed!
           SLACK_MESSAGE: By <@${{ github.actor }}>
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: eng-ci
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_LINK_NAMES: true
+          SLACK_FOOTER: ''
