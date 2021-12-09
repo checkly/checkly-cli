@@ -24,8 +24,6 @@ jobs:
         run: ./bin/run init test-project-1 --skipSetup
       - name: Initial deploy
         run: ./bin/run deploy
-      - name: Print existing checks
-        run: ./bin/run checks
       - name: Change check name
         run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
       - name: Deploy updated check
