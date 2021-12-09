@@ -21,7 +21,7 @@ jobs:
       - name: Login
         run: ./bin/run login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
       - name: Project init
-        run: ./bin/run init test-project-1 --skipSetup
+        run: ./bin/run init test-project-1 --force
       - name: Initial deploy
         run: ./bin/run deploy
       - name: Change check name
