@@ -80,7 +80,7 @@
     "mqtt": "4.2.8",
     "open": "8.4.0",
     "ora": "5.4.1",
-    "rollup": "2.60.1",
+    "rollup": "2.61.0",
     "text-table": "0.2.0",
     "update-notifier": "5.0.1",
     "uuid": "8.3.2",
