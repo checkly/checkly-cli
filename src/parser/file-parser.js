@@ -76,7 +76,8 @@ function parseChecklyDirectory() {
     )
     return parseChecklySettings(parsedFiles)
   } catch (err) {
-    throw new Error(err.message)
+    console.error(err)
+    throw err
   }
 }
 

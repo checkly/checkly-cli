@@ -12,6 +12,7 @@ async function deleteProject({ projectId }) {
     consola.success(` Project ${projectId} deleted \n`)
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

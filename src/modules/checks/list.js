@@ -19,6 +19,7 @@ async function listChecks({ output } = {}) {
     print(allChecks, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

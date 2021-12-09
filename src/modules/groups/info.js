@@ -8,6 +8,7 @@ async function infoGroups(id, { output } = {}) {
     print(data, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

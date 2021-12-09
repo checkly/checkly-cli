@@ -39,6 +39,7 @@ class DeployCommand extends Command {
       printDeployResults(data, flags)
     } catch (err) {
       consola.error(err)
+      throw err
     }
   }
 }
