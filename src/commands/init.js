@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-const { Command, flags } = require('@oclif/command')
+const { Command } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
 const config = require('./../services/config')
@@ -140,12 +140,6 @@ InitCommand.description = 'Initialise a new Checkly Project'
 
 InitCommand.flags = {
   force,
-  skipSetup: flags.boolean({
-    name: 'skipSetup',
-    char: 's',
-    default: false,
-    description: 'Skip interactive setup prompts.',
-  }),
 }
 
 module.exports = InitCommand
