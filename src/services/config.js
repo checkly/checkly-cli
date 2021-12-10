@@ -62,7 +62,7 @@ const config = {
       )
       return parsedSettings.projectId
     } catch (e) {
-      return undefined
+      return null
     }
   },
 
