@@ -45,6 +45,7 @@ async function getStatus({ output } = {}) {
     print(formatted, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

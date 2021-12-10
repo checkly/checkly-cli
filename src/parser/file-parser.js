@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const consola = require('consola')
 
 const MAX_NESTING_LEVEL = 1
 const SETTINGS = 'settings'
@@ -76,7 +77,8 @@ function parseChecklyDirectory() {
     )
     return parseChecklySettings(parsedFiles)
   } catch (err) {
-    throw new Error(err.message)
+    consola.error(err)
+    throw err
   }
 }
 

@@ -15,6 +15,7 @@ const ENDPOINTS = {
   },
   PROJECTS: {
     GET: 'projects',
+    DELETE: 'projects',
     DEPLOY: 'projects/deploy',
   },
   SIGNED_URL: {

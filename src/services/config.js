@@ -1,4 +1,7 @@
 const Conf = require('conf')
+const YAML = require('yaml')
+const fs = require('fs')
+const path = require('path')
 const consola = require('consola')
 
 const dataSchema = {
@@ -47,6 +50,20 @@ const config = {
 
   getAccountId() {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId')
+  },
+
+  getProjectId() {
+    try {
+      const parsedSettings = YAML.parse(
+        fs.readFileSync(
+          path.join(process.cwd(), '.checkly/settings.yml'),
+          'utf8'
+        )
+      )
+      return parsedSettings.projectId
+    } catch (e) {
+      return null
+    }
   },
 
   hasValidSession() {

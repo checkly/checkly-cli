@@ -35,6 +35,7 @@ async function listProjects({ output } = {}) {
     print(allChecks, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

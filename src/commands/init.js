@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-const { Command } = require('@oclif/command')
+const { Command, flags } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
 const config = require('./../services/config')
@@ -59,44 +59,55 @@ class InitCommand extends Command {
   ]
 
   async run() {
-    const { args } = this.parse(InitCommand)
+    const { args, flags } = this.parse(InitCommand)
+    const { force } = flags
     const cwd = process.cwd()
-    const dirName = path.join(cwd, './.checkly')
+    const dirName = path.join(cwd, '.checkly')
 
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
-      consola.debug(` Directory \`${process.cwd()}/.checkly\` already exists\n`)
+      consola.debug(` Directory \`${cwd}/.checkly\` already exists\n`)
       return process.exit(1)
     }
 
-    const { checkTypes, url, mode } = await prompt([
-      {
-        name: 'checkTypes',
-        type: 'checkbox',
-        message: 'What do you want to monitor?',
-        validate: (checkTypes) =>
-          checkTypes.length > 0 ? true : 'You have to pick at least one type',
-        choices: [API, BROWSER],
-        default: [API],
-      },
-      {
-        name: 'url',
-        type: 'input',
-        validate: (url) =>
-          url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
-            ? true
-            : 'Please enter a valid URL',
-        message: 'Which URL would you like to monitor?',
-      },
-      {
-        name: 'mode',
-        type: 'list',
-        message:
-          'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
-        choices: [BASIC, ADVANCED],
-        default: BASIC,
-      },
-    ])
+    if (!force) {
+      const { checkTypes, url, mode } = await prompt([
+        {
+          name: 'checkTypes',
+          type: 'checkbox',
+          message: 'What do you want to monitor?',
+          validate: (checkTypes) =>
+            checkTypes.length > 0 ? true : 'You have to pick at least one type',
+          choices: [API, BROWSER],
+          default: [API],
+        },
+        {
+          name: 'url',
+          type: 'input',
+          validate: (url) =>
+            url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
+              ? true
+              : 'Please enter a valid URL',
+          message: 'Which URL would you like to monitor?',
+        },
+        {
+          name: 'mode',
+          type: 'list',
+          message:
+            'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
+          choices: [BASIC, ADVANCED],
+          default: BASIC,
+        },
+      ])
+      createChecklyDirectory({ url, mode, checkTypes, dirName })
+    } else {
+      createChecklyDirectory({
+        url: 'https://google.com',
+        mode: 'basic',
+        checkTypes: 'API',
+        dirName,
+      })
+    }
 
     const { data: project } = await projects.create({
       accountId: config.getAccountId(),
@@ -107,7 +118,6 @@ class InitCommand extends Command {
       state: {},
     })
 
-    createChecklyDirectory({ url, mode, checkTypes, dirName })
     createProjectFile({
       dirName,
       projectName: args.projectName,
