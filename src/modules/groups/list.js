@@ -20,6 +20,7 @@ async function listGroups({ output } = {}) {
     print(allGroups, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 

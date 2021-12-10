@@ -71,7 +71,7 @@
     "conf": "8.0.0",
     "consola": "2.15.0",
     "console.table": "0.10.0",
-    "date-fns": "2.23.0",
+    "date-fns": "2.27.0",
     "git-remote-origin-url": "3.1.0",
     "inquirer": "8.2.0",
     "joi": "17.4.2",

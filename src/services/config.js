@@ -54,7 +54,7 @@ const config = {
 
   getProjectId() {
     try {
-      let parsedSettings = YAML.parse(
+      const parsedSettings = YAML.parse(
         fs.readFileSync(
           path.join(process.cwd(), '.checkly/settings.yml'),
           'utf8'
@@ -62,7 +62,7 @@ const config = {
       )
       return parsedSettings.projectId
     } catch (e) {
-      return undefined
+      return null
     }
   },
 

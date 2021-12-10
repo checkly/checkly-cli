@@ -12,6 +12,8 @@ jobs:
     env:
       GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: add checkly-cli to path
+        run: echo "./bin" >> $GITHUB_PATH
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
@@ -19,21 +21,21 @@ jobs:
           cache: 'npm'
       - run: npm install
       - name: Login
-        run: ./bin/run login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
+        run: checkly-cli login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
       - name: Project init
-        run: ./bin/run init test-project-1 --skipSetup
+        run: checkly-cli init test-project-1 --force
       - name: Initial deploy
-        run: ./bin/run deploy
+        run: checkly-cli deploy
       - name: Change check name
         run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
       - name: Deploy updated check
-        run: ./bin/run deploy
+        run: checkly-cli deploy
       - name: Delete example api check
         run: rm .checkly/checks/example-api.yml
       - name: Deploy updated check
-        run: ./bin/run deploy
+        run: checkly-cli deploy
       - name: Delete created project
-        run: ./bin/run projects delete
+        run: checkly-cli projects delete
       - name: Slack Failure Notification
         if: ${{ failure() }}
         uses: rtCamp/action-slack-notify@v2

@@ -60,7 +60,7 @@ class InitCommand extends Command {
 
   async run() {
     const { args, flags } = this.parse(InitCommand)
-    const { skipSetup } = flags
+    const { force } = flags
     const cwd = process.cwd()
     const dirName = path.join(cwd, '.checkly')
 
@@ -70,7 +70,7 @@ class InitCommand extends Command {
       return process.exit(1)
     }
 
-    if (!skipSetup) {
+    if (!force) {
       const { checkTypes, url, mode } = await prompt([
         {
           name: 'checkTypes',
