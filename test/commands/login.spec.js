@@ -16,16 +16,4 @@ describe('login [cmd]', () => {
       expect(config.auth.get('apiKey')).to.equal('newKey')
       expect(config.getAccountId()).to.equal('newId')
     })
-
-  // Test real login process
-  test
-    .stdout()
-    .command(['login'])
-    .exit(0)
-    .it('starts localhost:4242', (ctx) => {
-      // TODO: Figure out inquirer prompts in test
-      // Ensure server has started and is listening on port 4242
-      console.log('ctx', ctx.stdout)
-      expect(ctx.stdout).to.contain('Existing session')
-    })
 })

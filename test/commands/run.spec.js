@@ -8,6 +8,7 @@ describe('run [cmd]', () => {
   })
 
   test
+    .skip()
     .stdout()
     .command(['run', 'test/fixtures/api-check-valid.yml'])
     .exit(0)
@@ -16,6 +17,7 @@ describe('run [cmd]', () => {
     })
 
   test
+    .skip()
     .stdout()
     .command(['run', 'test/fixtures/browser-check-valid.yml'])
     .exit(0)
