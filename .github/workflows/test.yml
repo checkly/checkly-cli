@@ -36,7 +36,7 @@ jobs:
         run: checkly-cli deploy
       - name: Create test group
         run: |
-          mkdir .checky/checks/group-1
+          mkdir -p .checkly/checks/group-1
           cp test/fixtures/yml/group-valid.yml .checkly/checks/group-1/settings.yml
           cp test/fixtures/yml/browser-check-valid.yml .checkly/checks/group-1/browser-check.yml
       - name: Create group
@@ -45,8 +45,8 @@ jobs:
         run: sed -i 's/Group 1/New Group 1/' .checkly/checks/group-1/settings.yml
       - name: Update group
         run: checkly-cli deploy
-      - name: Delete group
-        run: rm -r .checkly/checkys/group-1
+      - name: Remove group directory
+        run: rm -r .checkly/checks/group-1
       - name: Delete group
         run: checkly-cli deploy
       - name: Delete created project
