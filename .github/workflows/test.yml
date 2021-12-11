@@ -37,10 +37,8 @@ jobs:
       - name: Create test group files
         run: |
           mkdir -p .checkly/checks/group-1
-          pwd
-          ls -lah
           cp test/fixtures/yml/group-valid.yml .checkly/checks/group-1/settings.yml
-          cp test/fixtures/yml/browser-check-valid.yml .checkly/checks/group-1/browser-check.yml
+          cp test/fixtures/yml/api-check-valid.yml .checkly/checks/group-1/api-check.yml
       - name: Create group
         run: checkly-cli deploy
       - name: Change group name
