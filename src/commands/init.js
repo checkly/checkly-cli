@@ -63,6 +63,7 @@ class InitCommand extends Command {
     const { force } = flags
     const cwd = process.cwd()
     const dirName = path.join(cwd, '.checkly')
+    let project = {}
 
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
@@ -70,14 +71,20 @@ class InitCommand extends Command {
       return process.exit(1)
     }
 
-    const { data: project } = await projects.create({
-      accountId: config.getAccountId(),
-      name: args.projectName,
-      repoUrl: await getRepoUrl(cwd),
-      activated: true,
-      muted: false,
-      state: {},
-    })
+    try {
+      const { data } = await projects.create({
+        accountId: config.getAccountId(),
+        name: args.projectName,
+        repoUrl: await getRepoUrl(cwd),
+        activated: true,
+        muted: false,
+        state: {},
+      })
+      project = data
+    } catch (e) {
+      consola.error('Failed to create project - please try again.')
+      throw new Error(e)
+    }
 
     if (!force) {
       const { checkTypes, url, mode } = await prompt([
