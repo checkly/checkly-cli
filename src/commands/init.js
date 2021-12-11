@@ -70,6 +70,15 @@ class InitCommand extends Command {
       return process.exit(1)
     }
 
+    const { data: project } = await projects.create({
+      accountId: config.getAccountId(),
+      name: args.projectName,
+      repoUrl: await getRepoUrl(cwd),
+      activated: true,
+      muted: false,
+      state: {},
+    })
+
     if (!force) {
       const { checkTypes, url, mode } = await prompt([
         {
@@ -108,15 +117,6 @@ class InitCommand extends Command {
         dirName,
       })
     }
-
-    const { data: project } = await projects.create({
-      accountId: config.getAccountId(),
-      name: args.projectName,
-      repoUrl: await getRepoUrl(cwd),
-      activated: true,
-      muted: false,
-      state: {},
-    })
 
     createProjectFile({
       dirName,
