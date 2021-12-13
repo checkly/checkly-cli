@@ -103,7 +103,6 @@ class LoginCommand extends Command {
       })
 
       config.auth.set('apiKey', key)
-      // api.refresh()
 
       const { data } = await accounts.find({ spinner: false })
 

@@ -19,8 +19,10 @@ class AccountsCommand extends Command {
 
     switch (args.action) {
       default:
-        return accounts.list({ ...flags })
+        accounts.list({ ...flags })
     }
+
+    this.exit(0)
   }
 }
 

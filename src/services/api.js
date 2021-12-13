@@ -77,7 +77,6 @@ function init() {
 }
 
 module.exports = {
-  // refresh,
   getDefatuls,
   ...sdk.init({ api: init() }),
 }
