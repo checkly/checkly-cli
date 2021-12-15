@@ -44,7 +44,7 @@ function init({ api, apiVersion = 'v1' }) {
     deploy(checks, flags) {
       const { dryRun } = flags
       return api.post(
-        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}`,
+        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}&newSync=true`,
         checks
       )
     },
@@ -86,7 +86,7 @@ function init({ api, apiVersion = 'v1' }) {
       return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
     delete(id) {
-      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}`)
+      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}?newSync=true`)
     },
   }
 
