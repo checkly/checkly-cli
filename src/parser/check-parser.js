@@ -10,7 +10,7 @@ const { checkSchema } = require('../schemas/check')
 const { groupSchema } = require('../schemas/group')
 const { projectSchema } = require('../schemas/project')
 
-async function parseCheck(check, groupSettings = null) {
+async function parseCheck(check) {
   const project = YAML.parse(getGlobalSettings())
   const parsedProjectSchema = projectSchema.validate(project)
 
@@ -87,7 +87,7 @@ async function parseChecksTree(tree, parent = null) {
 
     parsedTree.groups[tree[i].name] = {
       name: tree[i].name,
-      settings: group,
+      ...group,
     }
     const checksLeaf = await parseChecksTree(tree[i].checks, group)
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
