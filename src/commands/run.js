@@ -123,6 +123,7 @@ class RunCommand extends Command {
       }
     } catch (err) {
       consola.error(err)
+      throw err
     }
   }
 }

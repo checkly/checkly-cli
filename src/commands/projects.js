@@ -11,6 +11,8 @@ class ProjectsCommand extends Command {
     switch (args.action) {
       case 'list':
         return projects.list({ ...flags })
+      case 'delete':
+        return projects.del({ ...flags })
       default:
         return projects.list({ ...flags })
     }
@@ -26,6 +28,20 @@ ProjectsCommand.flags = {
     default: defaultOutput,
     options: ['text', 'json'],
   }),
+  projectId: flags.string({
+    char: 'i',
+    description: 'project id',
+    default: config.getProjectId(),
+  }),
 }
+
+ProjectsCommand.args = [
+  {
+    name: 'action',
+    required: false,
+    description: 'Project action to execute',
+    options: ['list', 'delete'],
+  },
+]
 
 module.exports = ProjectsCommand

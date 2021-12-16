@@ -45,7 +45,7 @@ function parseAlertsTree(tree) {
 
 module.exports = async () => {
   const tree = await parseChecksTree(parseChecklyDirectory())
-  tree.alerts = await parseAlertsTree(parseAlertsDirectory())
+  tree.alertChannels = await parseAlertsTree(parseAlertsDirectory())
 
   console.log(tree)
 

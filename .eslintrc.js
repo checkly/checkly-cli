@@ -6,7 +6,7 @@ module.exports = {
     mocha: true,
   },
   parser: 'babel-eslint',
-  extends: ['standard', 'prettier'],
+  extends: ['eslint:recommended', 'plugin:prettier/recommended'],
   plugins: ['prettier'],
   parserOptions: {
     ecmaVersion: 12,

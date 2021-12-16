@@ -18,7 +18,6 @@ const generateAuthenticationUrl = (codeChallenge, scope, state) => {
     redirect_uri: 'http://localhost:4242',
     scope: scope,
     state: state,
-    // audience: ['api-dev.checkly.run', 'api-prod.checkly.run'],
   })
 
   url.search = params
@@ -121,7 +120,10 @@ async function getAccessToken(code, codeVerifier) {
 async function getApiKey({ accessToken, baseHost }) {
   try {
     const { data } = await axios.post(
-      `${baseHost}/users/me/api-keys?name=${'CLI User Key' + os.hostname()}`,
+      `${baseHost}/users/me/api-keys?name=${
+        'CLI User Key (' + os.hostname() + ')'
+      }`,
+      null,
       {
         headers: {
           Accept: 'application/json, text/plain, */*',

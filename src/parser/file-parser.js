@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const consola = require('consola')
 
 const MAX_NESTING_LEVEL = 1
 const SETTINGS = 'settings'
@@ -47,7 +48,7 @@ function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
   return file
 }
 
-function parseAlertsFile(filePath, nestingLevel = 1, prefix = '') {
+function parseAlertsFile(filePath, prefix = '') {
   const basename = path.basename(filePath)
   const name = `${prefix}${basename}`
   const ext = path.extname(filePath)
@@ -116,7 +117,8 @@ function parseChecklyDirectory() {
 
     return parseChecklySettings(parsedFiles)
   } catch (err) {
-    throw new Error(err.message)
+    consola.error(err)
+    throw err
   }
 }
 

@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-const { Command } = require('@oclif/command')
+const { Command, flags } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
 const config = require('./../services/config')
@@ -59,55 +59,72 @@ class InitCommand extends Command {
   ]
 
   async run() {
-    const { args } = this.parse(InitCommand)
+    const { args, flags } = this.parse(InitCommand)
+    const { force } = flags
     const cwd = process.cwd()
-    const dirName = path.join(cwd, './.checkly')
+    const dirName = path.join(cwd, '.checkly')
+    let project = {}
 
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
-      consola.debug(` Directory \`${process.cwd()}/.checkly\` already exists\n`)
+      consola.debug(` Directory \`${cwd}/.checkly\` already exists\n`)
       return process.exit(1)
     }
 
-    const { checkTypes, url, mode } = await prompt([
-      {
-        name: 'checkTypes',
-        type: 'checkbox',
-        message: 'What do you want to monitor?',
-        validate: (checkTypes) =>
-          checkTypes.length > 0 ? true : 'You have to pick at least one type',
-        choices: [API, BROWSER],
-        default: [API],
-      },
-      {
-        name: 'url',
-        type: 'input',
-        validate: (url) =>
-          url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
-            ? true
-            : 'Please enter a valid URL',
-        message: 'Which URL would you like to monitor?',
-      },
-      {
-        name: 'mode',
-        type: 'list',
-        message:
-          'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
-        choices: [BASIC, ADVANCED],
-        default: BASIC,
-      },
-    ])
+    try {
+      const { data } = await projects.create({
+        accountId: config.getAccountId(),
+        name: args.projectName,
+        repoUrl: await getRepoUrl(cwd),
+        activated: true,
+        muted: false,
+        state: {},
+      })
+      project = data
+    } catch (e) {
+      consola.error('Failed to create project - please try again.')
+      throw new Error(e)
+    }
 
-    const { data: project } = await projects.create({
-      accountId: config.getAccountId(),
-      name: args.projectName,
-      repoUrl: await getRepoUrl(cwd),
-      activated: true,
-      muted: false,
-      state: {},
-    })
+    if (!force) {
+      const { checkTypes, url, mode } = await prompt([
+        {
+          name: 'checkTypes',
+          type: 'checkbox',
+          message: 'What do you want to monitor?',
+          validate: (checkTypes) =>
+            checkTypes.length > 0 ? true : 'You have to pick at least one type',
+          choices: [API, BROWSER],
+          default: [API],
+        },
+        {
+          name: 'url',
+          type: 'input',
+          validate: (url) =>
+            url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
+              ? true
+              : 'Please enter a valid URL',
+          message: 'Which URL would you like to monitor?',
+        },
+        {
+          name: 'mode',
+          type: 'list',
+          message:
+            'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
+          choices: [BASIC, ADVANCED],
+          default: BASIC,
+        },
+      ])
+      createChecklyDirectory({ url, mode, checkTypes, dirName })
+    } else {
+      createChecklyDirectory({
+        url: 'https://google.com',
+        mode: 'basic',
+        checkTypes: 'API',
+        dirName,
+      })
+    }
 
-    createChecklyDirectory({ url, mode, checkTypes, dirName })
     createProjectFile({
       dirName,
       projectName: args.projectName,
@@ -115,9 +132,9 @@ class InitCommand extends Command {
     })
 
     consola.success(' Project initialized 🎉 \n')
-    consola.info(' You can now create checks via `checkly checks create`')
+    consola.info(' You can now create checks via `checkly add`')
     consola.info(
-      ' Or check out the example check generated at `.checkly/checks/example.yml`\n'
+      ' Or check out the example check generated under `.checkly/checks/`\n'
     )
     consola.debug(
       ` Generated @checkly/cli settings and folders at \`${cwd}/.checkly\``

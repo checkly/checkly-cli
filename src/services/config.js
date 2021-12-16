@@ -1,4 +1,7 @@
 const Conf = require('conf')
+const YAML = require('yaml')
+const fs = require('fs')
+const path = require('path')
 const consola = require('consola')
 
 const dataSchema = {
@@ -24,6 +27,11 @@ const config = {
     schema: dataSchema,
   }),
 
+  clear() {
+    this.auth.clear()
+    this.data.clear()
+  },
+
   getEnv() {
     const environments = ['production', 'staging', 'development', 'test']
     const env = process.env.NODE_ENV || environments[0]
@@ -44,6 +52,24 @@ const config = {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId')
   },
 
+  getProjectId() {
+    try {
+      const parsedSettings = YAML.parse(
+        fs.readFileSync(
+          path.join(process.cwd(), '.checkly/settings.yml'),
+          'utf8'
+        )
+      )
+      return parsedSettings.projectId
+    } catch (e) {
+      return null
+    }
+  },
+
+  hasValidSession() {
+    return this.getApiKey() && this.getAccountId()
+  },
+
   validateAuth() {
     const [, , command] = process.argv
     const publicCommands = [
@@ -51,14 +77,16 @@ const config = {
       'login',
       'help',
       'version',
+      'logout',
       '--help',
       '--version',
+      '--exit',
     ]
 
-    if (!this.getApiKey() && !publicCommands.includes(command)) {
-      consola.error('Missing API KEY')
+    if (!this.hasValidSession() && !publicCommands.includes(command)) {
+      consola.error(`Invalid Session`)
       consola.info(
-        'Run `checkly login` or set the CHECKLY_API_KEY environment variable to setup authentication.'
+        `Run \`checkly login\` or manually set \`CHECKLY_API_KEY\` & \`CHECKLY_ACCOUNT_ID\` environment variables to setup authentication.`
       )
       process.exit(1)
     }

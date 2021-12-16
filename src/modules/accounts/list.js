@@ -22,6 +22,7 @@ async function listAccounts({ output } = {}) {
     print(data, { output })
   } catch (err) {
     consola.error(err)
+    throw err
   }
 }
 
