@@ -91,10 +91,8 @@ class LoginCommand extends Command {
     }
 
     startServer(codeVerifier, async (code) => {
-      const {
-        access_token: accessToken,
-        id_token: idToken,
-      } = await getAccessToken(code, codeVerifier)
+      const { access_token: accessToken, id_token: idToken } =
+        await getAccessToken(code, codeVerifier)
 
       const { name } = jwt_decode(idToken)
       const { key } = await getApiKey({
@@ -103,7 +101,6 @@ class LoginCommand extends Command {
       })
 
       config.auth.set('apiKey', key)
-      // api.refresh()
 
       const { data } = await accounts.find({ spinner: false })
 

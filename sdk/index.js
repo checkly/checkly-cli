@@ -41,11 +41,11 @@ function init({ api, apiVersion = 'v1' }) {
       return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}/${id}`)
     },
 
-    deploy(checks, flags) {
+    deploy(resources, flags) {
       const { dryRun } = flags
       return api.post(
-        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}`,
-        checks
+        `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}&newSync=true`,
+        resources
       )
     },
   }
@@ -86,7 +86,7 @@ function init({ api, apiVersion = 'v1' }) {
       return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
     delete(id) {
-      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}`)
+      return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}?newSync=true`)
     },
   }
 

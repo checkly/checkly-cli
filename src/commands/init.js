@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-const { Command, flags } = require('@oclif/command')
+const { Command } = require('@oclif/command')
 const { prompt } = require('inquirer')
 
 const config = require('./../services/config')
@@ -63,11 +63,27 @@ class InitCommand extends Command {
     const { force } = flags
     const cwd = process.cwd()
     const dirName = path.join(cwd, '.checkly')
+    let project = {}
 
     if (fs.existsSync(dirName)) {
       consola.error(' checkly-cli already initialized')
       consola.debug(` Directory \`${cwd}/.checkly\` already exists\n`)
       return process.exit(1)
+    }
+
+    try {
+      const { data } = await projects.create({
+        accountId: config.getAccountId(),
+        name: args.projectName,
+        repoUrl: await getRepoUrl(cwd),
+        activated: true,
+        muted: false,
+        state: {},
+      })
+      project = data
+    } catch (e) {
+      consola.error('Failed to create project - please try again.')
+      throw new Error(e)
     }
 
     if (!force) {
@@ -109,15 +125,6 @@ class InitCommand extends Command {
       })
     }
 
-    const { data: project } = await projects.create({
-      accountId: config.getAccountId(),
-      name: args.projectName,
-      repoUrl: await getRepoUrl(cwd),
-      activated: true,
-      muted: false,
-      state: {},
-    })
-
     createProjectFile({
       dirName,
       projectName: args.projectName,
@@ -125,9 +132,9 @@ class InitCommand extends Command {
     })
 
     consola.success(' Project initialized 🎉 \n')
-    consola.info(' You can now create checks via `checkly checks create`')
+    consola.info(' You can now create checks via `checkly add`')
     consola.info(
-      ' Or check out the example check generated at `.checkly/checks/example.yml`\n'
+      ' Or check out the example check generated under `.checkly/checks/`\n'
     )
     consola.debug(
       ` Generated @checkly/cli settings and folders at \`${cwd}/.checkly\``
