@@ -90,6 +90,11 @@ async function parseChecksTree(tree, parent = null) {
       ...group,
     }
     const checksLeaf = await parseChecksTree(tree[i].checks, group)
+    for (const check of Object.values(checksLeaf.checks)) {
+      check.groupId = {
+        ref: tree[i].name,
+      }
+    }
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
     parsedTree.checks = newChecksLeaf
   }
