@@ -19,7 +19,7 @@ function parseCheckAlertChannelSubscriptions(resource, alertChannels) {
   resource.alertChannelSubscriptions.forEach((subscription, i) => {
     if (!alertChannels[subscription.name]) {
       consola.warn(
-        `Skipping alert channel '${subscription.alertChannel}' for check '${resource.name}' (missing alert channel file).'`
+        `Skipping alert channel subscription'${subscription.name}' for check '${resource.name}' (missing alert channel file).'`
       )
 
       resource.alertChannelSubscriptions.splice(i, 1)

@@ -18,6 +18,10 @@ function parseResourceDirectoy({ resourceType, fileResolver }) {
   const checksDir = path.join(findChecklyDir(), resourceType)
 
   try {
+    if (!fs.existsSync(checksDir)) {
+      return []
+    }
+
     const checksDirStats = fs.lstatSync(checksDir)
 
     if (!checksDirStats.isDirectory()) {
@@ -113,10 +117,12 @@ function parseAlertsFile(filePath, prefix = '') {
 }
 
 function parseAlertChannelsDirectory() {
-  return parseResourceDirectoy({
-    resourceType: ALERT_CHANNEL.directory,
-    fileResolver: parseAlertsFile,
-  })
+  try {
+    return parseResourceDirectoy({
+      resourceType: ALERT_CHANNEL.directory,
+      fileResolver: parseAlertsFile,
+    })
+  } catch (err) {}
 }
 
 module.exports = {

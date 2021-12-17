@@ -1,10 +1,21 @@
+const fs = require('fs')
+const path = require('path')
 const YAML = require('yaml')
 const consola = require('consola')
 const gitRemoteOriginUrl = require('git-remote-origin-url')
 const table = require('text-table')
-const chalk = require('chalk')
 const { readFile } = require('fs/promises')
 require('console.table')
+
+const CHECKLY_DIR_NAME = '.checkly'
+let CWD = process.cwd()
+let CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
+let CHECKS_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME, 'checks')
+let SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
+
+const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
+const hasChecksDirectory = () => fs.existsSync(CHECKS_DIR_PATH)
+const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 
 function print(data, { output } = {}) {
   if (!data && !data.length) {
@@ -40,19 +51,6 @@ async function readLocal(path) {
   }
 }
 
-function printDeployResults(data, flags) {
-  const { output } = flags
-  for (const [type, changes] of Object.entries(data)) {
-    console.log(chalk.blue.bold(type))
-    print(
-      {
-        changes,
-      },
-      { output }
-    )
-  }
-}
-
 async function getRepoUrl(cwd, remote = 'origin') {
   try {
     return await gitRemoteOriginUrl(cwd, remote)
@@ -60,20 +58,6 @@ async function getRepoUrl(cwd, remote = 'origin') {
     return cwd
   }
 }
-
-const fs = require('fs')
-const path = require('path')
-
-const CHECKLY_DIR_NAME = '.checkly'
-
-let CWD = process.cwd()
-let CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
-let CHECKS_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME, 'checks')
-let SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
-
-const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
-const hasChecksDirectory = () => fs.existsSync(CHECKS_DIR_PATH)
-const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 
 // Loop up parent directories until you find a valid checkly directory
 // Just like Git does to find `.git`
@@ -106,7 +90,6 @@ function getGlobalSettings() {
 module.exports = {
   print,
   readLocal,
-  printDeployResults,
   getRepoUrl,
   findChecklyDir,
   getGlobalSettings,

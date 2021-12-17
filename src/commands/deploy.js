@@ -5,11 +5,7 @@ const { output } = require('../services/flags')
 
 const parser = require('../parser')
 const { checks } = require('../services/api')
-const {
-  findChecklyDir,
-  printDeployResults,
-  readLocal,
-} = require('../services/utils')
+const { findChecklyDir, print, readLocal } = require('../services/utils')
 
 class DeployCommand extends Command {
   async run() {
@@ -36,7 +32,7 @@ class DeployCommand extends Command {
         { dryRun }
       )
 
-      printDeployResults(data, flags)
+      print(data, flags)
     } catch (err) {
       consola.error(err)
       throw err
