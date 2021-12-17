@@ -20,11 +20,17 @@ const authSchema = {
 const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
 
 const config = {
-  auth: new Conf({ configName: 'auth', projectSuffix, schema: authSchema }),
+  auth: new Conf({
+    configName: 'auth',
+    projectSuffix,
+    schema: authSchema,
+    projectName: 'checkly-cli',
+  }),
   data: new Conf({
     configName: 'config',
     projectSuffix,
     schema: dataSchema,
+    projectName: 'checkly-cli',
   }),
 
   clear() {
