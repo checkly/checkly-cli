@@ -7,7 +7,7 @@ const YAML = require('yaml')
 const mock = require('mock-require')
 const { fs: memfs, vol } = require('memfs')
 const { checks } = require('../../src/services/api')
-
+const getOrCreateProject = require('./project-helper')
 const assertions = [
   {
     source: 'TEXT_BODY',
@@ -38,7 +38,6 @@ const checkWithAssertions = JSON.parse(JSON.stringify(checkWithoutAssertions))
 checkWithAssertions.request.assertions = assertions
 
 const settings = {
-  projectId: 98,
   projectName: 'checkly_cli_assertion_test_project',
   locations: ['us-east-1', 'eu-central-1'],
   interval: '5min',
@@ -62,6 +61,14 @@ mock('fs/promises', memfs.promises)
 const { runDeploy } = require('../../src/services/deploy')
 
 describe('test that assertions get persisted', () => {
+  before(async () => {
+    const p = await getOrCreateProject(
+      'checkly_cli_assertion_test_project',
+      'repoUrl'
+    )
+    settings.projectId = p.id
+    updateInMemVolume(checkWithAssertions)
+  })
   const deployCheck = async (check) => {
     const deploymentResults = await runDeploy(false)
     assert.notStrictEqual(deploymentResults, {
