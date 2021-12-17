@@ -3,7 +3,7 @@ const { Command, flags } = require('@oclif/command')
 const { output } = require('../services/flags')
 
 const { printDeployResults } = require('../services/utils')
-const { runDeploy } = require('../services/deployservice')
+const { runDeploy } = require('../services/deploy')
 
 class DeployCommand extends Command {
   async run() {

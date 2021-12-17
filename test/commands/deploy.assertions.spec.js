@@ -59,7 +59,7 @@ mock('fs', memfs)
 mock('fs/promises', memfs.promises)
 
 //needs the mocked filesystem
-const { runDeploy } = require('../../src/services/deployservice')
+const { runDeploy } = require('../../src/services/deploy')
 
 describe('test that assertions get persisted', () => {
   const deployCheck = async (check) => {
