@@ -112,7 +112,7 @@
     "simple-git-hooks": "2.7.0"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "release": {
     "branches": [
