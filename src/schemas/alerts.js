@@ -65,16 +65,16 @@ const alertSettingsSchema = Joi.object()
   .description('Alert settings')
 
 const alertChannelSubscriptionSchema = Joi.object()
-  // .keys({
-  //   alertChannelId: Joi.number().required(),
-  //   activated: Joi.boolean().required().default(true),
-  // })
+  .keys({
+    name: Joi.string().required(),
+    activated: Joi.boolean().required().default(true),
+  })
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert channel subscription')
 
 const alertChannelSubscriptionListSchema = Joi.array()
   .items(alertChannelSubscriptionSchema)
-  .description('List of alert channel subscriptions')
+  .description('List of alert channels subscriptions')
 
 module.exports = {
   alertSettingsSchema,

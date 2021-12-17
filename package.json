@@ -89,6 +89,7 @@
   "devDependencies": {
     "@commitlint/cli": "15.0.0",
     "@commitlint/config-conventional": "12.1.4",
+    "@rollup/plugin-virtual": "2.0.3",
     "babel-eslint": "10.1.0",
     "chai": "4.3.4",
     "eslint": "7.18.0",

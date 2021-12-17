@@ -1,16 +1,35 @@
 const fs = require('fs')
+const path = require('path')
 const YAML = require('yaml')
 const consola = require('consola')
 
-const { CHECK, parseAlertsDirectory } = require('./file-parser')
-const { getGlobalSettings } = require('../services/utils')
 const bundle = require('./bundler')
+const { CHECK } = require('./resources')
+const { getGlobalSettings } = require('../services/utils')
 
 const { checkSchema } = require('../schemas/check')
 const { groupSchema } = require('../schemas/group')
 const { projectSchema } = require('../schemas/project')
 
-async function parseCheck(check, groupSettings = null) {
+function parseCheckAlertChannelSubscriptions(resource, alertChannels) {
+  if (!resource.alertChannelSubscriptions) {
+    return []
+  }
+
+  resource.alertChannelSubscriptions.forEach((subscription, i) => {
+    if (!alertChannels[subscription.name]) {
+      consola.warn(
+        `Skipping alert channel '${subscription.alertChannel}' for check '${resource.name}' (missing alert channel file).'`
+      )
+
+      resource.alertChannelSubscriptions.splice(i, 1)
+    }
+  })
+
+  return resource.alertChannelSubscriptions
+}
+
+async function parseCheck(check, { alertChannels }) {
   const project = YAML.parse(getGlobalSettings())
   const parsedProjectSchema = projectSchema.validate(project)
 
@@ -41,20 +60,12 @@ async function parseCheck(check, groupSettings = null) {
     return null
   }
 
-  if (parsedCheck.alertChannelSubscriptions) {
-    const alertChannels = parseAlertsDirectory()
+  parsedCheck.alertChannelSubscriptions = parseCheckAlertChannelSubscriptions(
+    parsedCheck,
+    alertChannels
+  )
 
-    parsedCheck.alertChannelSubscriptions.forEach((subscription, i) => {
-      if (!alertChannels.includes(subscription.alertChannel + '.yml')) {
-        consola.warn(
-          `Skipping alert channel '${subscription.alertChannel}' for check '${parsedCheck.name}' (missing alert channel file).'`
-        )
-        parsedCheck.alertChannelSubscriptions.splice(i, 1)
-      }
-    })
-  }
-
-  if (parsedCheck.checkType.toLowerCase() === 'browser' && parsedCheck.path) {
+  if (parsedCheck.checkType.toLowerCase() === 'browser') {
     const [output] = await bundle(parsedCheck)
     parsedCheck.script = output.code
     parsedCheck.map = output.map
@@ -66,17 +77,17 @@ async function parseCheck(check, groupSettings = null) {
   return parsedCheck
 }
 
-async function parseChecksTree(tree, parent = null) {
+async function parseChecksTree(tree, resources, parent = null) {
   const parsedTree = parent ? { checks: {} } : { checks: {}, groups: {} }
 
   for (let i = 0; i < tree.length; i += 1) {
-    if (tree[i].type === CHECK) {
-      const parsedCheck = await parseCheck(tree[i], parent)
+    if (tree[i].type === CHECK.name) {
+      const parsedCheck = await parseCheck(tree[i], resources)
       parsedCheck && (parsedTree.checks[parsedCheck.logicalId] = parsedCheck)
       continue
     }
 
-    // We only allow two level of directory nesting:
+    // NOTE: We only allow two level of directory nesting:
     // root checks and checks within a group.
     if (parent) {
       continue
@@ -102,7 +113,7 @@ async function parseChecksTree(tree, parent = null) {
       name: tree[i].name,
       settings: group,
     }
-    const checksLeaf = await parseChecksTree(tree[i].checks, group)
+    const checksLeaf = await parseChecksTree(tree[i].checks, resources, group)
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
     parsedTree.checks = newChecksLeaf
   }
@@ -110,6 +121,45 @@ async function parseChecksTree(tree, parent = null) {
   return parsedTree
 }
 
+function parseAlertChannel(alert) {
+  if (alert.error) {
+    consola.warn(`Skipping file ${alert.filePath}: ${alert.error} `)
+    return null
+  }
+
+  let parsedAlert = YAML.parse(fs.readFileSync(alert.filePath, 'utf8'))
+  const parsedAlertSchema = parsedAlert // alertSchema.validate(parsedAlert)
+
+  if (parsedAlertSchema.error) {
+    throw new Error(`${parsedAlertSchema.error} at check: ${alert.filePath}`)
+  }
+
+  parsedAlert = parsedAlertSchema // parsedAlertSchema.value
+
+  if (!parsedAlert) {
+    consola.warn(`Skipping file ${path.filePath}: FileEmpty`)
+    return null
+  }
+
+  parsedAlert.logicalId = alert.name
+
+  return parsedAlert
+}
+
+function parseAlertChannelsTree(tree) {
+  const parsedTree = { alertChannels: {} }
+  for (let i = 0; i < tree.length; i += 1) {
+    if (tree[i].type === 'alert-channel') {
+      const parsedAlert = parseAlertChannel(tree[i])
+      parsedAlert &&
+        (parsedTree.alertChannels[parsedAlert.logicalId] = parsedAlert)
+    }
+  }
+
+  return parsedTree
+}
+
 module.exports = {
   parseChecksTree,
+  parseAlertChannelsTree,
 }
