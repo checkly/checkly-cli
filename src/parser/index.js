@@ -1,11 +1,15 @@
-const { parseChecksTree, parseAlertChannelsTree } = require('./resource-parser')
+const {
+  parseChecksTree,
+  parseAlertChannelsTree,
+  parseAlertChannelSubscriptionsTree,
+} = require('./resource-parser')
 const {
   parseChecklyDirectory,
   parseAlertChannelsDirectory,
 } = require('./file-parser')
 
 module.exports = async () => {
-  const { alertChannels } = await parseAlertChannelsTree(
+  const { alertChannels } = parseAlertChannelsTree(
     parseAlertChannelsDirectory()
   )
 
@@ -15,21 +19,13 @@ module.exports = async () => {
     })),
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        alertChannels,
-        checks,
-        groups,
-      },
-      null,
-      2
-    )
-  )
+  const { alertChannelSubscriptions } =
+    parseAlertChannelSubscriptionsTree(checks)
 
   return {
     alertChannels,
     checks,
     groups,
+    alertChannelSubscriptions,
   }
 }

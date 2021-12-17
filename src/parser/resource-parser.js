@@ -4,7 +4,7 @@ const YAML = require('yaml')
 const consola = require('consola')
 
 const bundle = require('./bundler')
-const { CHECK } = require('./resources')
+const { CHECK, ALERT_CHANNEL } = require('./resources')
 const { getGlobalSettings } = require('../services/utils')
 
 const { checkSchema } = require('../schemas/check')
@@ -111,9 +111,14 @@ async function parseChecksTree(tree, resources, parent = null) {
 
     parsedTree.groups[tree[i].name] = {
       name: tree[i].name,
-      settings: group,
+      ...group,
     }
     const checksLeaf = await parseChecksTree(tree[i].checks, resources, group)
+    for (const check of Object.values(checksLeaf.checks)) {
+      check.groupId = {
+        ref: tree[i].name,
+      }
+    }
     const newChecksLeaf = { ...checksLeaf.checks, ...parsedTree.checks }
     parsedTree.checks = newChecksLeaf
   }
@@ -149,7 +154,7 @@ function parseAlertChannel(alert) {
 function parseAlertChannelsTree(tree) {
   const parsedTree = { alertChannels: {} }
   for (let i = 0; i < tree.length; i += 1) {
-    if (tree[i].type === 'alert-channel') {
+    if (tree[i].type === ALERT_CHANNEL.name) {
       const parsedAlert = parseAlertChannel(tree[i])
       parsedAlert &&
         (parsedTree.alertChannels[parsedAlert.logicalId] = parsedAlert)
@@ -159,7 +164,21 @@ function parseAlertChannelsTree(tree) {
   return parsedTree
 }
 
+function parseAlertChannelSubscriptionsTree(tree) {
+  const parsedTree = { alertChannelSubscriptions: {} }
+
+  Object.keys(tree).forEach((key) => {
+    if (tree[key].alertChannelSubscriptions) {
+      parsedTree.alertChannelSubscriptions[key] =
+        tree[key].alertChannelSubscriptions
+    }
+  })
+
+  return parsedTree
+}
+
 module.exports = {
   parseChecksTree,
   parseAlertChannelsTree,
+  parseAlertChannelSubscriptionsTree,
 }

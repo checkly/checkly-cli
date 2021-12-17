@@ -41,11 +41,11 @@ function init({ api, apiVersion = 'v1' }) {
       return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}/${id}`)
     },
 
-    deploy(checks, flags) {
+    deploy(resources, flags) {
       const { dryRun } = flags
       return api.post(
         `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}&newSync=true`,
-        checks
+        resources
       )
     },
   }

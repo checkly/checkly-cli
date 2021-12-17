@@ -13,8 +13,13 @@ const ALERT_CHANNEL = {
   directory: 'alert-channels',
 }
 
+const ALERT_CHANNEL_SUBSCRIPTION = {
+  name: 'alert-channel-subscription',
+}
+
 module.exports = {
   CHECK,
   GROUP,
   ALERT_CHANNEL,
+  ALERT_CHANNEL_SUBSCRIPTION,
 }

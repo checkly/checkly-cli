@@ -1,6 +1,5 @@
 const path = require('path')
 const rollup = require('rollup')
-const commonjs = require('@rollup/plugin-commonjs')
 const virtual = require('@rollup/plugin-virtual')
 const checklyWhitelist = require('../services/rollup-plugin-checkly-whitelist')
 
