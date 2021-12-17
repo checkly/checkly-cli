@@ -37,25 +37,20 @@ const checkWithoutAssertions = {
 const checkWithAssertions = JSON.parse(JSON.stringify(checkWithoutAssertions))
 checkWithAssertions.request.assertions = assertions
 
-const settingsYml = `
-projectId: 98
-projectName: whatever
-locations: ['us-east-1', 'eu-central-1']
-interval: 5min
-alerts:
-  - type: email
-    sendOn:
-      - recover
-      - degrade
-      - fail
-`
+const settings = {
+  projectId: 98,
+  projectName: 'checkly_cli_assertion_test_project',
+  locations: ['us-east-1', 'eu-central-1'],
+  interval: '5min',
+  alerts: [{ type: 'email', sendOn: ['recover', 'degrade', 'fail'] }],
+}
 const updateInMemVolume = (check) => {
   const CWD = process.cwd()
   const yamlpath = path.join(CWD, '.checkly/checks/test.yml')
   const settingspath = path.join(CWD, '.checkly/settings.yml')
   const inMemFs = {}
   inMemFs[yamlpath] = YAML.stringify(check)
-  inMemFs[settingspath] = settingsYml
+  inMemFs[settingspath] = YAML.stringify(settings)
   vol.fromJSON(inMemFs)
 }
 
