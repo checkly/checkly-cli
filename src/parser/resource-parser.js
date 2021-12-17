@@ -133,13 +133,17 @@ function parseAlertChannel(alert) {
   }
 
   let parsedAlert = YAML.parse(fs.readFileSync(alert.filePath, 'utf8'))
-  const parsedAlertSchema = parsedAlert // alertSchema.validate(parsedAlert)
+
+  // TODO: validate alert channel with schema
+  // const parsedAlertSchema = alertSchema.validate(parsedAlert)
+  const parsedAlertSchema = parsedAlert
 
   if (parsedAlertSchema.error) {
     throw new Error(`${parsedAlertSchema.error} at check: ${alert.filePath}`)
   }
 
-  parsedAlert = parsedAlertSchema // parsedAlertSchema.value
+  // parsedAlert = parsedAlertSchema.value
+  parsedAlert = parsedAlertSchema
 
   if (!parsedAlert) {
     consola.warn(`Skipping file ${path.filePath}: FileEmpty`)
