@@ -4,50 +4,26 @@ on:
   push:
     branches:
       - 'main'
-      - 'next'
-  pull_request:
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Init
-        uses: actions/checkout@v2
-      - name: Setup Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '14.x'
-      - name: Dependencies
-        uses: bahmutov/npm-install@v1
-      - name: Build
-        run: npm run build
-      - name: Run tests
-        run: npm test
   release-branch:
     name: Publish branch
     runs-on: ubuntu-latest
-    needs: test
-    if: ${{ false }} # Temporarily disable
-    # if: ${{ github.event_name == 'push' }}
     steps:
-      - name: Init
-        uses: actions/checkout@v2
-      - name: Setup Node
-        uses: actions/setup-node@v2
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
         with:
-          node-version: '14.x'
-      - name: Dependencies
-        uses: bahmutov/npm-install@v1
+          node-version: '14'
+          cache: 'npm'
+      - run: npm install
       - name: Retrieve information from package.json
         uses: myrotvorets/info-from-package-json-action@0.0.2
         id: ver
       - name: Publish to npm
-        run: npx semantic-release@17
+        run: npm run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          CHECKLY_API_KEY: abc123
       # Slack FAILURE alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -73,61 +49,4 @@ jobs:
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':kebab_parrot: Create Branch Release Succeeded'
           SLACK_MESSAGE: ${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }} by ${{ github.actor }}
-          SLACK_FOOTER: ''
-  release-pr:
-    name: Publish PR
-    runs-on: ubuntu-latest
-    needs: test
-    if: ${{ false }} # Temporarily disable
-    # if: ${{ github.event_name == 'pull_request' }}
-    steps:
-      - name: Init
-        uses: actions/checkout@v2
-      - name: Setup Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '14.x'
-          registry-url: 'https://registry.npmjs.org'
-      - name: Dependencies
-        uses: bahmutov/npm-install@v1
-      - name: Retrieve information from package.json
-        uses: myrotvorets/info-from-package-json-action@0.0.2
-        id: ver
-      - name: Get short SHA
-        id: slug
-        run: echo "::set-output name=sha8::$(echo ${GITHUB_SHA} | cut -c1-8)"
-      - name: Publish to npm
-        run: |
-          npm run version:pr
-          npm publish --tag=canary
-        env:
-          CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
-      # Slack FAILURE alert
-      - name: Slack Failure Notification
-        if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_USERNAME: Checkly Github Bot
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: eng-ci
-          SLACK_ICON: https://github.com/checkly.png?size=48
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: ':red_circle: Create PR Release Failed'
-          SLACK_MESSAGE: '`${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}.${{ steps.slug.outputs.sha8 }}` by ${{ github.actor }}'
-          SLACK_FOOTER: ''
-      - name: Slack Success Notification
-        # if: ${{ success() }}
-        if: ${{ false }} # Too Noisy - Temporarily disable
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_USERNAME: Checkly Github Bot
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: mac
-          SLACK_ICON: https://github.com/checkly.png?size=48
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: ':kebab_parrot: Created PR Release Succeeded'
-          SLACK_MESSAGE: '`${{ steps.ver.outputs.packageName }}@${{ steps.ver.outputs.packageVersion }}-pr.${{ github.event.number }}.${{ steps.slug.outputs.sha8 }}` by ${{ github.actor }}'
           SLACK_FOOTER: ''
