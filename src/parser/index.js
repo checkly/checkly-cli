@@ -22,6 +22,19 @@ module.exports = async () => {
   const { alertChannelSubscriptions } =
     parseAlertChannelSubscriptionsTree(checks)
 
+  console.log(
+    JSON.stringify(
+      {
+        alertChannels,
+        checks,
+        groups,
+        alertChannelSubscriptions,
+      },
+      null,
+      2
+    )
+  )
+
   return {
     alertChannels,
     checks,
