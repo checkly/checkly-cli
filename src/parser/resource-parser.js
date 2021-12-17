@@ -10,6 +10,7 @@ const { getGlobalSettings } = require('../services/utils')
 const { checkSchema } = require('../schemas/check')
 const { groupSchema } = require('../schemas/group')
 const { projectSchema } = require('../schemas/project')
+const { sub } = require('date-fns')
 
 function parseCheckAlertChannelSubscriptions(resource, alertChannels) {
   if (!resource.alertChannelSubscriptions) {
@@ -113,6 +114,7 @@ async function parseChecksTree(tree, resources, parent = null) {
       name: tree[i].name,
       ...group,
     }
+
     const checksLeaf = await parseChecksTree(tree[i].checks, resources, group)
     for (const check of Object.values(checksLeaf.checks)) {
       check.groupId = {
@@ -168,13 +170,36 @@ function parseAlertChannelsTree(tree) {
   return parsedTree
 }
 
-function parseAlertChannelSubscriptionsTree(tree) {
-  const parsedTree = { alertChannelSubscriptions: {} }
+function parseAlertChannelSubscriptions(
+  resource,
+  resourceLogicalId,
+  type = 'check'
+) {
+  const alertChannelSubscriptions = {}
+
+  if (resource.alertChannelSubscriptions) {
+    resource.alertChannelSubscriptions.forEach((subscription) => {
+      const { name, activated } = subscription
+      const logicalId = `${resourceLogicalId}/${name}`
+
+      alertChannelSubscriptions[logicalId] = {
+        alertChannelId: { ref: name },
+        [type === 'check' ? 'checkId' : 'groupId']: { ref: resourceLogicalId },
+        activated,
+      }
+    })
+  }
+
+  return alertChannelSubscriptions
+}
+
+function parseAlertChannelSubscriptionsTree(tree, type = 'check') {
+  let parsedTree = {}
 
   Object.keys(tree).forEach((key) => {
-    if (tree[key].alertChannelSubscriptions) {
-      parsedTree.alertChannelSubscriptions[key] =
-        tree[key].alertChannelSubscriptions
+    parsedTree = {
+      ...parsedTree.alertChannelSubscriptions,
+      ...parseAlertChannelSubscriptions(tree[key], key, type),
     }
   })
 
