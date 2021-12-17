@@ -1,8 +1,8 @@
-const parser = require('../parser')
-const { readLocal, findChecklyDir } = require('../services/utils')
+const parser = require('../../parser')
+const { readLocal, findChecklyDir } = require('../../services/utils')
 const path = require('path')
 const consola = require('consola')
-const { checks } = require('../services/api')
+const { checks } = require('../../services/api')
 
 const runDeploy = async (dryRun) => {
   const parseResults = await parser()
@@ -23,6 +23,4 @@ const runDeploy = async (dryRun) => {
   return data
 }
 
-module.exports = {
-  runDeploy,
-}
+module.exports = runDeploy

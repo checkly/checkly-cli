@@ -13,8 +13,8 @@ async function getOrCreateProject(projectName, repoUrl) {
   const allProjects = await projects.getAll()
   const existingProject = allProjects.data.find((x) => x.name === projectName)
   if (existingProject) {
-    consola.info(`using existing project id ${project.id}`)
     project = existingProject
+    consola.info(`using existing project id ${project.id}`)
     return existingProject
   }
 
