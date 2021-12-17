@@ -24,13 +24,11 @@ const config = {
     configName: 'auth',
     projectSuffix,
     schema: authSchema,
-    projectName: 'checkly-cli',
   }),
   data: new Conf({
     configName: 'config',
     projectSuffix,
     schema: dataSchema,
-    projectName: 'checkly-cli',
   }),
 
   clear() {
