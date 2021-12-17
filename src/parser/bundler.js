@@ -1,6 +1,7 @@
 const path = require('path')
 const rollup = require('rollup')
 const virtual = require('@rollup/plugin-virtual')
+const commonjs = require('@rollup/plugin-commonjs')
 const checklyWhitelist = require('../services/rollup-plugin-checkly-whitelist')
 
 const OUTPUT_DIRECTORY = '../../.checkly/output'
@@ -9,7 +10,10 @@ async function bundle(check, writeBundle = false) {
   const inputOptions = {
     silent: true,
     onwarn: () => {},
-    plugins: [checklyWhitelist({ runtime: check.runtime || '2021.06' })],
+    plugins: [
+      checklyWhitelist({ runtime: check.runtime || '2021.06' }),
+      commonjs({ sourceMap: true }),
+    ],
   }
 
   if (check.script) {
