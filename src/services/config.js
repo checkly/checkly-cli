@@ -20,7 +20,11 @@ const authSchema = {
 const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
 
 const config = {
-  auth: new Conf({ configName: 'auth', projectSuffix, schema: authSchema }),
+  auth: new Conf({
+    configName: 'auth',
+    projectSuffix,
+    schema: authSchema,
+  }),
   data: new Conf({
     configName: 'config',
     projectSuffix,

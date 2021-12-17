@@ -12,7 +12,7 @@ const spinner = ora({
   color: 'cyan',
 })
 
-function getDefatuls() {
+function getDefaults() {
   const environments = {
     production: {
       apiUrl: 'https://api.checklyhq.com',
@@ -25,7 +25,7 @@ function getDefatuls() {
     },
 
     test: {
-      apiUrl: 'http://localhost:3000',
+      apiUrl: 'https://api.checklyhq.com',
       apiVersion: 'v1',
     },
 
@@ -46,14 +46,14 @@ function getDefatuls() {
 }
 
 function init() {
-  const { baseURL } = getDefatuls()
+  const { baseURL } = getDefaults()
   const api = axios.create({ baseURL })
 
   api.interceptors.request.use(function (config) {
     process.stdout.write('\n')
     config.spiner && spinner.start()
 
-    const { Authorization, accountId } = getDefatuls()
+    const { Authorization, accountId } = getDefaults()
 
     Authorization && (config.headers.Authorization = Authorization)
     accountId && (config.headers['x-checkly-account'] = accountId)
@@ -77,6 +77,6 @@ function init() {
 }
 
 module.exports = {
-  getDefatuls,
+  getDefaults,
   ...sdk.init({ api: init() }),
 }

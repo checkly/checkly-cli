@@ -11,3 +11,4 @@ node_modules
 .idea
 oclif.manifest.json
 local
+.env*
