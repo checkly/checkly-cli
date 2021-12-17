@@ -77,6 +77,6 @@ function init() {
 }
 
 module.exports = {
-  getDefatuls: getDefaults,
+  getDefaults,
   ...sdk.init({ api: init() }),
 }
