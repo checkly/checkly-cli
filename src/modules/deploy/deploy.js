@@ -3,9 +3,8 @@ const { readLocal, findChecklyDir } = require('../../services/utils')
 const path = require('path')
 const consola = require('consola')
 const { checks } = require('../../services/api')
-const fs = require('fs')
+
 const runDeploy = async (dryRun) => {
-  console.log(fs.readdirSync('/'))
   const parseResults = await parser()
   const settings = await readLocal(path.join(findChecklyDir(), 'settings.yml'))
   const projectId = settings.projectId
