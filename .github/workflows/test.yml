@@ -26,10 +26,7 @@ jobs:
           CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.CHECKLY_ACCOUNT_ID }}
       - name: run unit tests
-        run: node_modules/.bin/mocha --grep 'e2e.*' -i --exit
-        env:
-          CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
-          CHECKLY_ACCOUNT_ID: ${{ secrets.CHECKLY_ACCOUNT_ID }}
+        run: node_modules/.bin/mocha --grep 'accounts.*' --exit
       - name: Login
         run: checkly-cli login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
       - name: Project init
