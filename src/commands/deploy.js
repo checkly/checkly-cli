@@ -2,7 +2,7 @@ const consola = require('consola')
 const { Command, flags } = require('@oclif/command')
 const { output } = require('../services/flags')
 
-const { printDeployResults } = require('../services/utils')
+const { print } = require('../services/utils')
 const { runDeploy } = require('../modules/deploy')
 
 class DeployCommand extends Command {
@@ -13,7 +13,7 @@ class DeployCommand extends Command {
 
     try {
       const data = await runDeploy(dryRun)
-      printDeployResults(data, flags)
+      print(data, flags)
     } catch (err) {
       consola.error(err)
       throw err
