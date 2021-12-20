@@ -20,8 +20,7 @@ jobs:
           node-version: '14'
           cache: 'npm'
       - run: npm install
-      - name: test
-        run: npm test
+      - run: npm test
       - name: Login
         run: checkly-cli login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
       - name: Project init

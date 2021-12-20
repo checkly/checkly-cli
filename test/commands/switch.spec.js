@@ -24,7 +24,7 @@ describe('switch [cmd]', () => {
     })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/next/accounts').reply(200, [account1])
     )
     .stderr()

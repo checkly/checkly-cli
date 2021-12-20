@@ -9,7 +9,7 @@ describe('groups [cmd]', () => {
   })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/v1/check-groups').reply(200, mockListResponse)
     )
     .stdout()
@@ -21,7 +21,7 @@ describe('groups [cmd]', () => {
     })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/v1/check-groups/' + 1).reply(200, mockInfoResponse)
     )
     .stdout()
