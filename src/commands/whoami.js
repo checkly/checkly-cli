@@ -6,7 +6,7 @@ const { output } = require('./../services/flags')
 const { print } = require('./../services/utils')
 
 class WhoamiCommand extends Command {
-  async run() {
+  async run () {
     const { flags } = this.parse(WhoamiCommand)
 
     let accountName = config.data.get('accountName')
@@ -22,7 +22,7 @@ class WhoamiCommand extends Command {
     print(
       {
         accountId,
-        accountName,
+        accountName
       },
       flags
     )
@@ -32,7 +32,7 @@ class WhoamiCommand extends Command {
 WhoamiCommand.description = 'See your logged account and user'
 
 WhoamiCommand.flags = {
-  output,
+  output
 }
 
 module.exports = WhoamiCommand

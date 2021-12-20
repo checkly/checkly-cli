@@ -3,7 +3,7 @@ const { projects } = require('../../services/api')
 
 const { print } = require('../../services/utils')
 
-async function listProjects({ output } = {}) {
+async function listProjects ({ output } = {}) {
   try {
     const res = await projects.getAll()
     const allChecks = res.data.map(
@@ -17,7 +17,7 @@ async function listProjects({ output } = {}) {
         accountId,
         /* eslint-disable camelcase */
         created_at,
-        updated_at,
+        updated_at
         /* eslint-enable camelcase */
       }) => ({
         id,
@@ -27,8 +27,11 @@ async function listProjects({ output } = {}) {
         muted,
         state,
         accountId,
+        /* eslint-disable camelcase */
         created_at,
-        updated_at,
+        updated_at
+        /* eslint-enable camelcase */
+
       })
     )
 

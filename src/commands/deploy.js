@@ -6,7 +6,7 @@ const { printDeployResults } = require('../services/utils')
 const { runDeploy } = require('../modules/deploy')
 
 class DeployCommand extends Command {
-  async run() {
+  async run () {
     consola.info('Deploying .checkly directory')
     const { flags } = this.parse(DeployCommand)
     const { dryRun } = flags
@@ -28,8 +28,8 @@ DeployCommand.flags = {
   dryRun: flags.boolean({
     char: 'x',
     default: false,
-    description: 'Do not actually write any changes',
-  }),
+    description: 'Do not actually write any changes'
+  })
 }
 
 module.exports = DeployCommand

@@ -12,7 +12,7 @@ const {
   getAccessToken,
   generatePKCE,
   startServer,
-  getApiKey,
+  getApiKey
 } = require('./../services/login-util')
 
 const config = require('./../services/config')
@@ -26,8 +26,8 @@ const checkExistingLogin = async () => {
         type: 'confirm',
         message: `Existing session with account ${chalk.bold.blue(
           config.data.get('accountName')
-        )}, do you want to continue?`,
-      },
+        )}, do you want to continue?`
+      }
     ])
 
     !setNewkey && process.exit(0)
@@ -38,13 +38,13 @@ const loginSuccess = () => {
   consola.success('Welcome to @checkly/cli 🦝')
   consola.log(
     `\nYou can now run ${chalk.blue(
-      `\`$ checkly init\``
+      '`$ checkly init`'
     )} to setup the project!`
   )
 }
 
 class LoginCommand extends Command {
-  async run() {
+  async run () {
     const { flags } = this.parse(LoginCommand)
     const { 'api-key': apiKey, 'account-id': accountId } = flags
 
@@ -75,8 +75,8 @@ class LoginCommand extends Command {
       {
         name: 'openUrl',
         type: 'confirm',
-        message: 'Do you allow to open the browser to continue with login?',
-      },
+        message: 'Do you allow to open the browser to continue with login?'
+      }
     ])
 
     if (!openUrl) {
@@ -97,7 +97,7 @@ class LoginCommand extends Command {
       const { name } = jwt_decode(idToken)
       const { key } = await getApiKey({
         accessToken,
-        baseHost: api.getDefaults().baseURL,
+        baseHost: api.getDefaults().baseURL
       })
 
       config.auth.set('apiKey', key)
@@ -112,8 +112,8 @@ class LoginCommand extends Command {
             name: 'accountName',
             type: 'list',
             choices: data,
-            message: 'Which account do you want to use?',
-          },
+            message: 'Which account do you want to use?'
+          }
         ])
 
         selectedAccount = data.find(({ name }) => name === accountName)
@@ -138,15 +138,15 @@ LoginCommand.flags = {
     char: 'k',
     name: 'apiKey',
     description:
-      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys',
+      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys'
   }),
 
   'account-id': flags.string({
     char: 'i',
     name: 'accountId',
     description:
-      'Checkly account ID. (This flag is required if you are using -k (--api-key) flag',
-  }),
+      'Checkly account ID. (This flag is required if you are using -k (--api-key) flag'
+  })
 }
 
 module.exports = LoginCommand

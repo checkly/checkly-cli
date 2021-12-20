@@ -2,7 +2,7 @@ const Joi = require('joi')
 
 const {
   alertChannelSubscriptionListSchema,
-  alertSettingsSchema,
+  alertSettingsSchema
 } = require('./alerts')
 
 const {
@@ -12,7 +12,7 @@ const {
   envVarListSchema,
   validRegions,
   tagListSchema,
-  availableRuntimes,
+  availableRuntimes
 } = require('./common')
 
 const groupLocationListSchema = Joi.array()
@@ -38,7 +38,7 @@ const groupAPICheckDefaultsSchema = Joi.object()
     headers: Joi.array().items(keyValueSchema).default([]),
     queryParameters: Joi.array().items(keyValueSchema).default([]),
     assertions: assertionListSchema,
-    basicAuth: basicAuthSchema,
+    basicAuth: basicAuthSchema
   })
   .optional()
   .default({})
@@ -137,10 +137,10 @@ const groupSchema = Joi.object()
       .default(null)
       .description(
         'A valid piece of Node.js code to run in the teardown phase of an API check in this group'
-      ),
+      )
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
 
 module.exports = {
-  groupSchema,
+  groupSchema
 }

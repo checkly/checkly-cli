@@ -15,5 +15,5 @@ const getLocalFiles = (path, fileContents = []) => {
 }
 
 module.exports = {
-  getLocalFiles,
+  getLocalFiles
 }

@@ -13,8 +13,8 @@ describe('status [cmd]', () => {
         {
           status: 'Pending',
           name: 'API Check',
-          'last ran': '-',
-        },
+          'last ran': '-'
+        }
       ])
     )
     .stdout()
@@ -24,8 +24,8 @@ describe('status [cmd]', () => {
         {
           status: 'Pending',
           name: 'API Check',
-          'last ran': '-',
-        },
+          'last ran': '-'
+        }
       ])
     )
 })

@@ -6,7 +6,7 @@ const consola = require('consola')
 const { locations: locationsApi } = require('../../services/api')
 const groupSettingsTemplates = require('../../templates/group')
 
-async function check(checklyDir) {
+async function check (checklyDir) {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
@@ -16,7 +16,7 @@ async function check(checklyDir) {
     {
       name: 'name',
       type: 'input',
-      message: 'Your group name',
+      message: 'Your group name'
     },
     {
       name: 'locations',
@@ -24,8 +24,8 @@ async function check(checklyDir) {
       choices: regions,
       validate: (locations) =>
         locations.length > 0 ? true : 'You have to pick at least one location',
-      message: 'Select your target locations (we recommend to pick at least 2)',
-    },
+      message: 'Select your target locations (we recommend to pick at least 2)'
+    }
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()

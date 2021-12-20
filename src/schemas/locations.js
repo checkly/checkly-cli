@@ -1,86 +1,86 @@
 module.exports = {
   'us-east-1': {
     region: 'us-east-1',
-    name: 'N. Virginia',
+    name: 'N. Virginia'
   },
   'us-east-2': {
     region: 'us-east-2',
-    name: 'Ohio',
+    name: 'Ohio'
   },
   'us-west-1': {
     region: 'us-west-1',
-    name: 'N. California',
+    name: 'N. California'
   },
   'us-west-2': {
     region: 'us-west-2',
-    name: 'Oregon',
+    name: 'Oregon'
   },
   'ca-central-1': {
     region: 'ca-central-1',
-    name: 'Montreal',
+    name: 'Montreal'
   },
   'sa-east-1': {
     region: 'sa-east-1',
-    name: 'São Paulo',
+    name: 'São Paulo'
   },
   'eu-west-1': {
     region: 'eu-west-1',
-    name: 'Ireland',
+    name: 'Ireland'
   },
   'eu-central-1': {
     region: 'eu-central-1',
-    name: 'Frankfurt',
+    name: 'Frankfurt'
   },
   'eu-west-2': {
     region: 'eu-west-2',
-    name: 'London',
+    name: 'London'
   },
   'eu-west-3': {
     region: 'eu-west-3',
-    name: 'Paris',
+    name: 'Paris'
   },
   'eu-north-1': {
     region: 'eu-north-1',
-    name: 'Stockholm',
+    name: 'Stockholm'
   },
   'eu-south-1': {
     region: 'eu-south-1',
-    name: 'Milan',
+    name: 'Milan'
   },
   'me-south-1': {
     region: 'me-south-1',
-    name: 'Bahrain',
+    name: 'Bahrain'
   },
   'ap-southeast-1': {
     region: 'ap-southeast-1',
-    name: 'Singapore',
+    name: 'Singapore'
   },
   'ap-northeast-1': {
     region: 'ap-northeast-1',
-    name: 'Tokyo',
+    name: 'Tokyo'
   },
   'ap-east-1': {
     region: 'ap-east-1',
-    name: 'Hong Kong',
+    name: 'Hong Kong'
   },
   'ap-southeast-2': {
     region: 'ap-southeast-2',
-    name: 'Sydney',
+    name: 'Sydney'
   },
   'ap-northeast-2': {
     region: 'ap-northeast-2',
-    name: 'Seoul',
+    name: 'Seoul'
   },
   'ap-northeast-3': {
     region: 'ap-northeast-3',
-    name: 'Osaka',
+    name: 'Osaka'
   },
   'ap-south-1': {
     region: 'ap-south-1',
-    name: 'Mumbai',
+    name: 'Mumbai'
   },
   'af-south-1': {
     region: 'af-south-1',
-    name: 'Cape Town',
-  },
+    name: 'Cape Town'
+  }
 }

@@ -9,30 +9,30 @@ const spinner = ora({
   text: 'Fetching Checkly API',
   discardStdin: false,
   spinner: 'moon',
-  color: 'cyan',
+  color: 'cyan'
 })
 
-function getDefaults() {
+function getDefaults () {
   const environments = {
     production: {
       apiUrl: 'https://api.checklyhq.com',
-      apiVersion: 'v1',
+      apiVersion: 'v1'
     },
 
     development: {
       apiUrl: 'http://localhost:3000',
-      apiVersion: 'v1',
+      apiVersion: 'v1'
     },
 
     test: {
       apiUrl: 'https://api.checklyhq.com',
-      apiVersion: 'v1',
+      apiVersion: 'v1'
     },
 
     staging: {
       apiUrl: 'https://api.checklyhq.com',
-      apiVersion: 'v1',
-    },
+      apiVersion: 'v1'
+    }
   }
 
   const env = config.getEnv()
@@ -45,7 +45,7 @@ function getDefaults() {
   return { baseURL, basePath, accountId, Authorization }
 }
 
-function init() {
+function init () {
   const { baseURL } = getDefaults()
   const api = axios.create({ baseURL })
 
@@ -78,5 +78,5 @@ function init() {
 
 module.exports = {
   getDefaults,
-  ...sdk.init({ api: init() }),
+  ...sdk.init({ api: init() })
 }

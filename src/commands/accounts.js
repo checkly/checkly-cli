@@ -10,11 +10,11 @@ class AccountsCommand extends Command {
       required: true,
       description: 'Specify the type of accounts action to run',
       default: 'list',
-      options: ['list'],
-    },
+      options: ['list']
+    }
   ]
 
-  async run() {
+  async run () {
     const { args, flags } = this.parse(AccountsCommand)
 
     switch (args.action) {
@@ -29,7 +29,7 @@ class AccountsCommand extends Command {
 AccountsCommand.description = 'Manage accounts'
 
 AccountsCommand.flags = {
-  output,
+  output
 }
 
 module.exports = AccountsCommand

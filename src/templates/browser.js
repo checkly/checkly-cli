@@ -10,7 +10,7 @@ module.exports = {
     url = DEFAULT_URL,
     title = DEFAULT_TITLE,
     locations = DEFAULT_LOCATIONS,
-    frequency = DEFAULT_FREQUENCY,
+    frequency = DEFAULT_FREQUENCY
   } = {}) => {
     return `checkType: BROWSER
 name: ${name}
@@ -42,7 +42,7 @@ script: |-
     url = DEFAULT_URL,
     title = DEFAULT_TITLE,
     locations = DEFAULT_LOCATIONS,
-    frequency = DEFAULT_FREQUENCY,
+    frequency = DEFAULT_FREQUENCY
   } = {}) => {
     return `checkType: BROWSER
 name: ${name}
@@ -88,5 +88,5 @@ alertSettings:
 useGlobalAlertSettings: true
 environmentVariables: []
 tags: []`
-  },
+  }
 }

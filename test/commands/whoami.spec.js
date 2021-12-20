@@ -12,7 +12,7 @@ describe('whoami [cmd]', () => {
     .it('prints current account details', (ctx) =>
       expect(JSON.parse(ctx.stdout.replace('[log] ', '').trim())).to.eql({
         accountId: 'abc123',
-        accountName: 'Test Account',
+        accountName: 'Test Account'
       })
     )
 })

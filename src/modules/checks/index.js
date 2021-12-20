@@ -3,5 +3,5 @@ const info = require('./info')
 
 module.exports = {
   list,
-  info,
+  info
 }

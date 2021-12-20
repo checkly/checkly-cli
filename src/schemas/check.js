@@ -8,12 +8,12 @@ const {
   browserSchedules,
   apiSchedules,
   secondSchedules,
-  envVarSchema,
+  envVarSchema
 } = require('./common')
 
 const {
   alertChannelSubscriptionListSchema,
-  alertSettingsSchema,
+  alertSettingsSchema
 } = require('./alerts')
 
 const runtimes = require('./runtimes')
@@ -53,7 +53,7 @@ const customFrequencyOffsetValidator = (frequencyOffset, helper) => {
 }
 
 const alertEmailSchema = Joi.object().keys({
-  address: Joi.string().required().default(''),
+  address: Joi.string().required().default('')
 })
 
 const webhookSchema = Joi.object().keys({
@@ -65,16 +65,16 @@ const webhookSchema = Joi.object().keys({
     .default('POST'),
 
   headers: Joi.array().items(keyValueSchema).default([]),
-  queryParameters: Joi.array().items(keyValueSchema).default([]),
+  queryParameters: Joi.array().items(keyValueSchema).default([])
 })
 
 const alertSlackSchema = Joi.object().keys({
-  url: Joi.string().required().default(''),
+  url: Joi.string().required().default('')
 })
 
 const alertSmsSchema = Joi.object().keys({
   number: Joi.string().required().default(''),
-  name: Joi.string().required().allow(''),
+  name: Joi.string().required().allow('')
 })
 
 const alertChannelsSchema = Joi.object()
@@ -82,14 +82,14 @@ const alertChannelsSchema = Joi.object()
     email: Joi.array().items(alertEmailSchema),
     webhook: Joi.array().items(webhookSchema),
     slack: Joi.array().items(alertSlackSchema),
-    sms: Joi.array().items(alertSmsSchema),
+    sms: Joi.array().items(alertSmsSchema)
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
 
 const alertChannelSubscription = Joi.object()
   .keys({
     alertChannelId: Joi.number().required(),
-    activated: Joi.boolean().required().default(true),
+    activated: Joi.boolean().required().default(true)
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
 
@@ -110,7 +110,7 @@ const locationListSchema = Joi.array()
 const checkRequestSchema = Joi.object().when('checkType', {
   is: 'API',
   then: requestSchema.required(),
-  otherwise: Joi.object().optional().allow(null).strip(),
+  otherwise: Joi.object().optional().allow(null).strip()
 })
 
 const commonCheckSchema = {
@@ -127,7 +127,7 @@ const commonCheckSchema = {
     .when('checkType', {
       is: 'BROWSER',
       then: Joi.number().valid(...browserSchedules),
-      otherwise: Joi.number().valid(...apiSchedules),
+      otherwise: Joi.number().valid(...apiSchedules)
     })
     .default(10)
     .description('how often the check should run in minutes'),
@@ -176,7 +176,7 @@ const commonCheckSchema = {
       .description(
         'A valid piece of Node.js javascript code describing a browser interaction with the Puppeteer or Playwright frameworks.'
       ),
-    otherwise: Joi.string().allow(null).allow('').optional(),
+    otherwise: Joi.string().allow(null).allow('').optional()
   }),
 
   environmentVariables: Joi.array()
@@ -272,7 +272,7 @@ const commonCheckSchema = {
       'The runtime version, i.e. fixed set of runtime dependencies, used to execute this check'
     ),
 
-  alertChannelSubscriptions: alertChannelSubscriptionListSchema,
+  alertChannelSubscriptions: alertChannelSubscriptionListSchema
 }
 
 const checkSchema = Joi.object()
@@ -288,7 +288,7 @@ const checkSchema = Joi.object()
           'Checks with a frequency of 0 can have a frequencyOffset of 10, 20 or 30 meaning they will run every 10, 20 or 30 seconds. ' +
           'Checks with a frequency lower than and equal to 60 can have a frequencyOffset between 1 and a max value based on the formula "Math.floor(frequency * 10)", i.e. for a check that runs every 5 minutes the max frequencyOffset is 50. ' +
           'Checks with a frequency higher than 60 can have a frequencyOffset between 1 and a max value based on the formula "Math.ceil(frequency / 60)", i.e. for a check that runs every 720 minutes, the max frequencyOffset is 12. '
-      ),
+      )
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
 
@@ -296,5 +296,5 @@ module.exports = {
   checkSchema,
   alertChannelsSchema,
   alertChannelSubscriptionList,
-  commonCheckSchema,
+  commonCheckSchema
 }

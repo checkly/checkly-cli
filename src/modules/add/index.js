@@ -3,5 +3,5 @@ const check = require('./check')
 
 module.exports = {
   group,
-  check,
+  check
 }

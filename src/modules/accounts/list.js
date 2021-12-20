@@ -5,7 +5,7 @@ const config = require('./../../services/config')
 const { print } = require('./../../services/utils')
 const { accounts } = require('./../../services/api')
 
-async function listAccounts({ output } = {}) {
+async function listAccounts ({ output } = {}) {
   try {
     const { data } = await accounts.find()
 

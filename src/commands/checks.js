@@ -9,16 +9,16 @@ class ChecksCommand extends Command {
       required: true,
       description: 'Specify the type of checks action to run',
       default: 'list',
-      options: ['list', 'info'],
+      options: ['list', 'info']
     },
     {
       name: 'id',
       required: false,
-      description: 'Specify the checkId',
-    },
+      description: 'Specify the checkId'
+    }
   ]
 
-  async run() {
+  async run () {
     const { args, flags } = this.parse(ChecksCommand)
 
     switch (args.action) {
@@ -35,7 +35,7 @@ class ChecksCommand extends Command {
 ChecksCommand.description = 'Manage Checks'
 
 ChecksCommand.flags = {
-  output,
+  output
 }
 
 module.exports = ChecksCommand

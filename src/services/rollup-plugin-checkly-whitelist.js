@@ -2,10 +2,10 @@ const https = require('https')
 const consola = require('consola')
 const chalk = require('chalk')
 
-module.exports = function plugin(options = {}) {
+module.exports = function plugin (options = {}) {
   return {
     name: 'checkly-whitelist',
-    async generateBundle(bundleOptions, bundle) {
+    async generateBundle (bundleOptions, bundle) {
       https.get('https://api.checklyhq.com/v1/runtimes', (res) => {
         let data = ''
 
@@ -31,6 +31,6 @@ module.exports = function plugin(options = {}) {
           })
         })
       })
-    },
+    }
   }
 }

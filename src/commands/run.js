@@ -9,7 +9,7 @@ const { checks, socket } = require('../services/api')
 const SocketClient = require('../services/socket-client.js')
 
 class RunCommand extends Command {
-  async run() {
+  async run () {
     try {
       const { args } = this.parse(RunCommand)
 
@@ -65,7 +65,7 @@ class RunCommand extends Command {
                 tag: msg.level.toUpperCase(),
                 message: ` [${chalk.bold.blue(index + 1)}] ${msg.msg}`,
                 time: msg.time,
-                badge: false,
+                badge: false
               })
             })
 
@@ -96,7 +96,7 @@ class RunCommand extends Command {
           }),
           size: parsedChecks.length + 1,
           cache: false,
-          debounceDelay: 200,
+          debounceDelay: 200
         })
       }
 
@@ -110,7 +110,7 @@ class RunCommand extends Command {
         ...selectedCheck,
         websocketClientId: socketClientId,
         runLocation: 'eu-central-1',
-        runtimeId: '2020.01',
+        runtimeId: '2020.01'
       }
 
       // Submit check to API
@@ -134,8 +134,8 @@ RunCommand.args = [
   {
     name: 'checkName',
     required: false,
-    description: 'Which check would you like to execute?',
-  },
+    description: 'Which check would you like to execute?'
+  }
 ]
 
 module.exports = RunCommand

@@ -4,7 +4,7 @@ const consola = require('consola')
 
 let project = null
 
-async function getOrCreateProject(projectName, repoUrl) {
+async function getOrCreateProject (projectName, repoUrl) {
   if (project) {
     consola.info(`using existing project id ${project.id}`)
     return project
@@ -25,7 +25,7 @@ async function getOrCreateProject(projectName, repoUrl) {
       repoUrl: repoUrl,
       activated: true,
       muted: false,
-      state: {},
+      state: {}
     })
     project = data
     consola.info(`created new project id ${project.id}`)
