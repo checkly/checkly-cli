@@ -89,6 +89,7 @@ const config = {
 
     if (!this.hasValidSession() && !publicCommands.includes(command)) {
       consola.error('Invalid Session')
+      console.trace()
       consola.info(
         'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.'
       )
