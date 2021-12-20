@@ -6,7 +6,7 @@ const config = require('../services/config')
 const { force } = require('./../services/flags')
 
 class LogoutCommand extends Command {
-  async run() {
+  async run () {
     const { flags } = this.parse(LogoutCommand)
     const { force } = flags
 
@@ -17,8 +17,8 @@ class LogoutCommand extends Command {
           type: 'confirm',
           message: `You are about to clear your local session of \`${config.data.get(
             'accountName'
-          )}\`, do you want to continue?`,
-        },
+          )}\`, do you want to continue?`
+        }
       ])
 
       if (!confirmLogout) {
@@ -36,7 +36,7 @@ class LogoutCommand extends Command {
 LogoutCommand.description = 'Logout and clear local conf'
 
 LogoutCommand.flags = {
-  force,
+  force
 }
 
 module.exports = LogoutCommand

@@ -11,11 +11,11 @@ class AddCommand extends Command {
       required: true,
       description: 'What do you want to create?',
       default: 'check',
-      options: ['check', 'group'],
-    },
+      options: ['check', 'group']
+    }
   ]
 
-  async run() {
+  async run () {
     try {
       const { args } = this.parse(AddCommand)
 

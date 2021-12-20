@@ -13,25 +13,25 @@ const assertions = [
     source: 'TEXT_BODY',
     target: 'en',
     property: 'lang="(.{2})"',
-    comparison: 'EQUALS',
+    comparison: 'EQUALS'
   },
   {
     source: 'STATUS_CODE',
     target: '200',
     property: '',
-    comparison: 'EQUALS',
-  },
+    comparison: 'EQUALS'
+  }
 ]
 const checkWithoutAssertions = {
   checkType: 'API',
   name: 'checklyhq-sample-assertion',
   request: {
     url: 'https://checklyhq.com',
-    method: 'GET',
+    method: 'GET'
   },
   frequency: 10,
   activated: true,
-  locations: ['us-east-1', 'us-east-2', 'us-west-1'],
+  locations: ['us-east-1', 'us-east-2', 'us-west-1']
 }
 
 const checkWithAssertions = JSON.parse(JSON.stringify(checkWithoutAssertions))
@@ -41,7 +41,7 @@ const settings = {
   projectName: 'checkly_cli_assertion_test_project',
   locations: ['us-east-1', 'eu-central-1'],
   interval: '5min',
-  alerts: [{ type: 'email', sendOn: ['recover', 'degrade', 'fail'] }],
+  alerts: [{ type: 'email', sendOn: ['recover', 'degrade', 'fail'] }]
 }
 const updateInMemVolume = (check) => {
   const CWD = process.cwd()
@@ -57,7 +57,7 @@ updateInMemVolume(checkWithAssertions)
 mock('fs', memfs)
 mock('fs/promises', memfs.promises)
 
-//needs the mocked filesystem
+// needs the mocked filesystem
 const { runDeploy } = require('../../src/modules/deploy')
 
 describe('test that assertions get persisted', () => {
@@ -72,7 +72,7 @@ describe('test that assertions get persisted', () => {
   const deployCheck = async (check) => {
     const deploymentResults = await runDeploy(false)
     assert.notStrictEqual(deploymentResults, {
-      diff: { checks: { 'test.yml': 'UPDATE' } },
+      diff: { checks: { 'test.yml': 'UPDATE' } }
     })
 
     const { data } = await checks.getAll()

@@ -20,7 +20,7 @@ const BASIC = 'basic'
 const ADVANCED = 'advanced'
 
 // TODO: Move this into a service
-function createChecklyDirectory({ dirName, mode, checkTypes, url }) {
+function createChecklyDirectory ({ dirName, mode, checkTypes, url }) {
   fs.mkdirSync(dirName)
   fs.mkdirSync(path.join(dirName, 'checks'))
 
@@ -39,10 +39,10 @@ function createChecklyDirectory({ dirName, mode, checkTypes, url }) {
   }
 }
 
-function createProjectFile({ dirName, projectName, projectId }) {
+function createProjectFile ({ dirName, projectName, projectId }) {
   const projectYml = projectTemplate({
     projectName,
-    projectId,
+    projectId
   })
 
   fs.writeFileSync(path.join(dirName, 'settings.yml'), projectYml)
@@ -54,11 +54,11 @@ class InitCommand extends Command {
       name: 'projectName',
       required: true,
       description: 'Project name',
-      default: path.basename(process.cwd()),
-    },
+      default: path.basename(process.cwd())
+    }
   ]
 
-  async run() {
+  async run () {
     const { args, flags } = this.parse(InitCommand)
     const { force } = flags
     const cwd = process.cwd()
@@ -78,7 +78,7 @@ class InitCommand extends Command {
         repoUrl: await getRepoUrl(cwd),
         activated: true,
         muted: false,
-        state: {},
+        state: {}
       })
       project = data
     } catch (e) {
@@ -95,7 +95,7 @@ class InitCommand extends Command {
           validate: (checkTypes) =>
             checkTypes.length > 0 ? true : 'You have to pick at least one type',
           choices: [API, BROWSER],
-          default: [API],
+          default: [API]
         },
         {
           name: 'url',
@@ -104,7 +104,7 @@ class InitCommand extends Command {
             url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
               ? true
               : 'Please enter a valid URL',
-          message: 'Which URL would you like to monitor?',
+          message: 'Which URL would you like to monitor?'
         },
         {
           name: 'mode',
@@ -112,8 +112,8 @@ class InitCommand extends Command {
           message:
             'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
           choices: [BASIC, ADVANCED],
-          default: BASIC,
-        },
+          default: BASIC
+        }
       ])
       createChecklyDirectory({ url, mode, checkTypes, dirName })
     } else {
@@ -121,14 +121,14 @@ class InitCommand extends Command {
         url: 'https://google.com',
         mode: 'basic',
         checkTypes: 'API',
-        dirName,
+        dirName
       })
     }
 
     createProjectFile({
       dirName,
       projectName: args.projectName,
-      projectId: project.id,
+      projectId: project.id
     })
 
     consola.success(' Project initialized 🎉 \n')
@@ -146,7 +146,7 @@ class InitCommand extends Command {
 InitCommand.description = 'Initialise a new Checkly Project'
 
 InitCommand.flags = {
-  force,
+  force
 }
 
 module.exports = InitCommand

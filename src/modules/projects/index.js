@@ -3,5 +3,5 @@ const deleteProject = require('./delete')
 
 module.exports = {
   list,
-  del: deleteProject,
+  del: deleteProject
 }

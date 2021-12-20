@@ -29,7 +29,7 @@ const mockChecksListResponse = [
     groupOrder: null,
     runtimeId: null,
     request: [],
-    alertChannelSubscriptions: [],
+    alertChannelSubscriptions: []
   },
   {
     id: '2a2e8a84-8478-4fd6-8b3f-efbc659527fc',
@@ -72,8 +72,8 @@ const mockChecksListResponse = [
     groupId: null,
     groupOrder: null,
     runtimeId: '2020.01',
-    alertChannelSubscriptions: [],
-  },
+    alertChannelSubscriptions: []
+  }
 ]
 
 const mockChecksInfoResponse = {
@@ -106,7 +106,7 @@ const mockChecksInfoResponse = {
   groupOrder: null,
   runtimeId: null,
   request: [],
-  alertChannelSubscriptions: [],
+  alertChannelSubscriptions: []
 }
 
 const mockProjectsResponse = [
@@ -119,7 +119,7 @@ const mockProjectsResponse = [
     state: {},
     accountId: 'e46106d8-e382-4d1f-8182-9d63983ed6d4',
     created_at: '2021-07-28T17:36:07.718Z',
-    updated_at: null,
+    updated_at: null
   },
   {
     id: 8,
@@ -130,12 +130,12 @@ const mockProjectsResponse = [
     state: {},
     accountId: 'e46106d8-e382-4d1f-8182-9d63983ed6d4',
     created_at: '2021-07-28T17:38:38.959Z',
-    updated_at: null,
-  },
+    updated_at: null
+  }
 ]
 
 module.exports = {
   mockChecksListResponse,
   mockChecksInfoResponse,
-  mockProjectsResponse,
+  mockProjectsResponse
 }

@@ -3,12 +3,12 @@ module.exports = {
     node: true,
     commonjs: true,
     es2021: true,
-    mocha: true,
+    mocha: true
   },
-  parser: 'babel-eslint',
-  extends: ['eslint:recommended', 'plugin:prettier/recommended'],
-  plugins: ['prettier'],
+  parser: '@babel/eslint-parser',
+  extends: ['@checkly/eslint-config', '@checkly/eslint-config/node'],
   parserOptions: {
-    ecmaVersion: 12,
-  },
+    requireConfigFile: false,
+    ecmaVersion: 12
+  }
 }

@@ -9,12 +9,12 @@ const dataSchema = {
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
   accountId: { type: 'string' },
-  accountName: { type: 'string' },
+  accountName: { type: 'string' }
 }
 
 const authSchema = {
   _: { type: 'string' },
-  apiKey: { type: 'string' },
+  apiKey: { type: 'string' }
 }
 
 const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
@@ -23,20 +23,20 @@ const config = {
   auth: new Conf({
     configName: 'auth',
     projectSuffix,
-    schema: authSchema,
+    schema: authSchema
   }),
   data: new Conf({
     configName: 'config',
     projectSuffix,
-    schema: dataSchema,
+    schema: dataSchema
   }),
 
-  clear() {
+  clear () {
     this.auth.clear()
     this.data.clear()
   },
 
-  getEnv() {
+  getEnv () {
     const environments = ['production', 'staging', 'development', 'test']
     const env = process.env.NODE_ENV || environments[0]
 
@@ -48,15 +48,15 @@ const config = {
     return env
   },
 
-  getApiKey() {
+  getApiKey () {
     return process.env.CHECKLY_API_KEY || this.auth.get('apiKey')
   },
 
-  getAccountId() {
+  getAccountId () {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId')
   },
 
-  getProjectId() {
+  getProjectId () {
     try {
       const parsedSettings = YAML.parse(
         fs.readFileSync(
@@ -70,11 +70,11 @@ const config = {
     }
   },
 
-  hasValidSession() {
+  hasValidSession () {
     return this.getApiKey() && this.getAccountId()
   },
 
-  validateAuth() {
+  validateAuth () {
     const [, , command] = process.argv
     const publicCommands = [
       'conf',
@@ -84,23 +84,23 @@ const config = {
       'logout',
       '--help',
       '--version',
-      '--exit',
+      '--exit'
     ]
 
     if (!this.hasValidSession() && !publicCommands.includes(command)) {
-      consola.error(`Invalid Session`)
+      consola.error('Invalid Session')
       consola.info(
-        `Run \`checkly login\` or manually set \`CHECKLY_API_KEY\` & \`CHECKLY_ACCOUNT_ID\` environment variables to setup authentication.`
+        'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.'
       )
       process.exit(1)
     }
   },
 
-  init() {
+  init () {
     this.validateAuth()
     this.data.set('_', 'This is your Checkly config file.')
     this.auth.set('_', 'This is your Checkly auth file.')
-  },
+  }
 }
 
 config.init()

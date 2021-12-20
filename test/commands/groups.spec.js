@@ -30,7 +30,7 @@ describe('groups [cmd]', () => {
       'info',
       mockInfoResponse.id.toString(),
       '--output',
-      'json',
+      'json'
     ])
     .it('prints group info details', (output) => {
       expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(

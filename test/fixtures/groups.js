@@ -5,7 +5,7 @@ const mockListResponse = [
     concurrency: 1,
     activated: true,
     muted: false,
-    locations: ['us-east-1'],
+    locations: ['us-east-1']
   },
   {
     id: 2,
@@ -13,8 +13,8 @@ const mockListResponse = [
     concurrency: 1,
     activated: true,
     muted: false,
-    locations: ['sa-east-1', 'af-south-1', 'eu-west-1', 'eu-central-1'],
-  },
+    locations: ['sa-east-1', 'af-south-1', 'eu-west-1', 'eu-central-1']
+  }
 ]
 
 const mockInfoResponse = {
@@ -25,7 +25,7 @@ const mockInfoResponse = {
     url: '',
     headers: [],
     queryParameters: [],
-    assertions: [],
+    assertions: []
   },
   browserCheckDefaults: {},
   alertSettings: {},
@@ -43,10 +43,10 @@ const mockInfoResponse = {
   created_at: '2021-10-19T17:57:59.345Z',
   updated_at: null,
   runtimeId: null,
-  alertChannelSubscriptions: [],
+  alertChannelSubscriptions: []
 }
 
 module.exports = {
   mockInfoResponse,
-  mockListResponse,
+  mockListResponse
 }

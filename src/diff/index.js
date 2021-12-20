@@ -1,11 +1,11 @@
 const consola = require('consola')
 const isEqual = require('lodash.isequal')
 
-function getCheckTasks(currentState, newState) {
+function getCheckTasks (currentState, newState) {
   const checks = {
     create: {},
     delete: {},
-    update: {},
+    update: {}
   }
 
   Object.keys(currentState.checks).forEach((check) => {
@@ -31,12 +31,12 @@ function getCheckTasks(currentState, newState) {
   return checks
 }
 
-function diff(currentState, newState) {
+function diff (currentState, newState) {
   const checks = getCheckTasks(currentState, newState)
   const groups = {
     create: {},
     delete: {},
-    update: {},
+    update: {}
   }
 
   Object.keys({ ...currentState.groups, ...newState.groups }).forEach(
@@ -55,7 +55,7 @@ function diff(currentState, newState) {
         checks: getCheckTasks(
           currentState.groups[group],
           newState.groups[group]
-        ),
+        )
       }
     }
   )

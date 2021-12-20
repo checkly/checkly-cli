@@ -17,8 +17,8 @@ const client = function (url, topic) {
   const options = {
     will: {
       topic: LAST_WILL_TOPIC,
-      payload: getNotification(topic),
-    },
+      payload: getNotification(topic)
+    }
   }
   let client = null
   const clientWrapper = {}
@@ -30,7 +30,9 @@ const client = function (url, topic) {
         consola.debug('checkly:socket-client:connected')
         client.subscribe(CLIENT_CONNECTED)
         client.subscribe(CLIENT_DISCONNECTED, (err, granted) => {
-          if (err) return reject(err)
+          if (err) {
+            return reject(err)
+          }
           resolve(granted)
         })
       })
@@ -41,7 +43,9 @@ const client = function (url, topic) {
     return new Promise((resolve, reject) => {
       if (client) {
         client.subscribe(topic, (err, granted) => {
-          if (err) return reject(err)
+          if (err) {
+            return reject(err)
+          }
           consola.debug('checkly:socket-client:subscribed:', topic)
           resolve(granted)
         })
@@ -65,7 +69,9 @@ const client = function (url, topic) {
 
   clientWrapper.end = () => {
     // client might not be initiated if a user has expired credentials and hits the dashboard
-    if (client) client.end()
+    if (client) {
+      client.end()
+    }
   }
 
   clientWrapper.onConnect = (cb) => {

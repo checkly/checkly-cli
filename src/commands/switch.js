@@ -9,7 +9,7 @@ const { output } = require('./../services/flags')
 const { isUuid } = require('./../services/validator')
 
 class SwitchCommand extends Command {
-  async run() {
+  async run () {
     const { flags } = this.parse(SwitchCommand)
     const { 'account-id': accountId } = flags
 
@@ -41,8 +41,8 @@ class SwitchCommand extends Command {
         name: 'selectedAccountName',
         type: 'list',
         choices: accounts.map((account) => account.name),
-        message: 'Select a new Checkly account',
-      },
+        message: 'Select a new Checkly account'
+      }
     ])
 
     const { id, name } = accounts.find(
@@ -63,8 +63,8 @@ SwitchCommand.flags = {
   'account-id': flags.string({
     char: 'a',
     name: 'accountId',
-    description: 'The id of the account you want to switch.',
-  }),
+    description: 'The id of the account you want to switch.'
+  })
 }
 
 module.exports = SwitchCommand

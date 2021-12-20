@@ -8,7 +8,7 @@ module.exports = {
     name = DEFAULT_NAME,
     url = DEFAULT_URL,
     locations = DEFAULT_LOCATIONS,
-    frequency = DEFAULT_FREQUENCY,
+    frequency = DEFAULT_FREQUENCY
   } = {}) => {
     return `checkType: API
 name: ${name}
@@ -26,7 +26,7 @@ locations:
     name = DEFAULT_NAME,
     url = DEFAULT_URL,
     locations = DEFAULT_LOCATIONS,
-    frequency = DEFAULT_FREQUENCY,
+    frequency = DEFAULT_FREQUENCY
   } = {}) => {
     return `checkType: API
 name: ${name}
@@ -57,5 +57,5 @@ useGlobalAlertSettings: true
 environmentVariables: []
 tags: []
 `
-  },
+  }
 }

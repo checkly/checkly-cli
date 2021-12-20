@@ -6,7 +6,7 @@ const chalk = require('chalk')
 const { readFile } = require('fs/promises')
 require('console.table')
 
-function print(data, { output } = {}) {
+function print (data, { output } = {}) {
   if (!data && !data.length) {
     consola.warn('No resources found')
     return
@@ -29,7 +29,7 @@ function print(data, { output } = {}) {
   console.table(data)
 }
 
-async function readLocal(path) {
+async function readLocal (path) {
   consola.debug(`Reading local file: ${path}`)
   try {
     const file = await readFile(path, { encoding: 'utf-8' })
@@ -40,20 +40,20 @@ async function readLocal(path) {
   }
 }
 
-function printDeployResults(data, flags) {
+function printDeployResults (data, flags) {
   const { output } = flags
   for (const [type, changes] of Object.entries(data)) {
     console.log(chalk.blue.bold(type))
     print(
       {
-        changes,
+        changes
       },
       { output }
     )
   }
 }
 
-async function getRepoUrl(cwd, remote = 'origin') {
+async function getRepoUrl (cwd, remote = 'origin') {
   try {
     return await gitRemoteOriginUrl(cwd, remote)
   } catch (e) {
@@ -77,7 +77,7 @@ const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 
 // Loop up parent directories until you find a valid checkly directory
 // Just like Git does to find `.git`
-function findChecklyDir() {
+function findChecklyDir () {
   while (CWD !== '/') {
     if (
       hasChecklyDirectory() &&
@@ -95,7 +95,7 @@ function findChecklyDir() {
   throw new Error('Directories missing, please see [docs](https://docs.com)')
 }
 
-function getGlobalSettings() {
+function getGlobalSettings () {
   if (!hasGlobalSettingsFile) {
     throw new Error('Missing settings file')
   }
@@ -109,5 +109,5 @@ module.exports = {
   printDeployResults,
   getRepoUrl,
   findChecklyDir,
-  getGlobalSettings,
+  getGlobalSettings
 }

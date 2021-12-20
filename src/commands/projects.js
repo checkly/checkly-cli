@@ -5,7 +5,7 @@ const config = require('../services/config')
 const defaultOutput = config.data.get('output')
 
 class ProjectsCommand extends Command {
-  async run() {
+  async run () {
     const { args, flags } = this.parse(ProjectsCommand)
 
     switch (args.action) {
@@ -26,13 +26,13 @@ ProjectsCommand.flags = {
     char: 'o',
     description: 'output type',
     default: defaultOutput,
-    options: ['text', 'json'],
+    options: ['text', 'json']
   }),
   projectId: flags.string({
     char: 'i',
     description: 'project id',
-    default: config.getProjectId(),
-  }),
+    default: config.getProjectId()
+  })
 }
 
 ProjectsCommand.args = [
@@ -40,8 +40,8 @@ ProjectsCommand.args = [
     name: 'action',
     required: false,
     description: 'Project action to execute',
-    options: ['list', 'delete'],
-  },
+    options: ['list', 'delete']
+  }
 ]
 
 module.exports = ProjectsCommand

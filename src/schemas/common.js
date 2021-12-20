@@ -20,7 +20,7 @@ const assertionSources = [
   'JSON_BODY',
   'HEADERS',
   'TEXT_BODY',
-  'RESPONSE_TIME',
+  'RESPONSE_TIME'
 ]
 
 const assertionComparisons = [
@@ -37,13 +37,13 @@ const assertionComparisons = [
   'CONTAINS',
   'NOT_CONTAINS',
   'IS_NULL',
-  'NOT_NULL',
+  'NOT_NULL'
 ]
 
 const keyValueSchema = Joi.object().keys({
   key: Joi.string().required(),
   value: Joi.string().required().allow('').default(''),
-  locked: Joi.boolean().optional().default(false),
+  locked: Joi.boolean().optional().default(false)
 })
 
 const assertionSchema = Joi.object()
@@ -51,7 +51,7 @@ const assertionSchema = Joi.object()
     source: Joi.string().valid(...assertionSources),
     property: Joi.string().default('').allow(''),
     comparison: Joi.string().valid(...assertionComparisons),
-    target: Joi.string().default('').allow(''),
+    target: Joi.string().default('').allow('')
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
 
@@ -68,7 +68,7 @@ const basicAuthSchema = Joi.object()
   .allow(null)
   .keys({
     username: Joi.string().default('').allow('').required(),
-    password: Joi.string().default('').allow('').required(),
+    password: Joi.string().default('').allow('').required()
   })
 
 const requestSchema = Joi.object()
@@ -95,7 +95,7 @@ const requestSchema = Joi.object()
     headers: Joi.array().items(keyValueSchema).default([]),
     queryParameters: Joi.array().items(keyValueSchema).default([]),
     assertions: assertionListSchema,
-    basicAuth: basicAuthSchema,
+    basicAuth: basicAuthSchema
   })
   .options({ stripUnknown: { arrays: false, objects: true } })
 
@@ -106,7 +106,7 @@ const envVarSchema = Joi.object().keys({
   locked: Joi.boolean()
     .optional()
     .default(false)
-    .description('Used only in the UI to hide the value like a password '),
+    .description('Used only in the UI to hide the value like a password ')
 })
 
 const envVarListSchema = Joi.array().items(envVarSchema)
@@ -130,5 +130,5 @@ module.exports = {
   assertionListSchema,
   basicAuthSchema,
   tagListSchema,
-  availableRuntimes,
+  availableRuntimes
 }

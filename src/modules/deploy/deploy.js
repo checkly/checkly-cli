@@ -13,7 +13,7 @@ const runDeploy = async (dryRun) => {
   consola.debug({
     projectId,
     checks: Object.keys(parseResults.checks),
-    groups: Object.keys(parseResults.groups),
+    groups: Object.keys(parseResults.groups)
   })
 
   const { data } = await checks.deploy(

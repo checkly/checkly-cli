@@ -1,7 +1,7 @@
 const consola = require('consola')
 const { projects } = require('../../services/api')
 
-async function deleteProject({ projectId }) {
+async function deleteProject ({ projectId }) {
   try {
     if (!projectId) {
       throw new Error('Project ID required!')

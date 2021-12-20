@@ -2,7 +2,7 @@ const consola = require('consola')
 const { groups } = require('../../services/api')
 const { print } = require('../../services/utils')
 
-async function listGroups({ output } = {}) {
+async function listGroups ({ output } = {}) {
   try {
     const res = await groups.getAll()
 
@@ -13,7 +13,7 @@ async function listGroups({ output } = {}) {
         concurrency,
         activated,
         muted,
-        locations,
+        locations
       })
     )
 

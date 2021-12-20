@@ -5,7 +5,7 @@ const pkg = require('../../package.json')
 module.exports = function () {
   const notifier = updateNotifier({
     pkg,
-    updateCheckInterval: 1000 * 60,
+    updateCheckInterval: 1000 * 60
   })
 
   if (config.getEnv() !== 'development') {

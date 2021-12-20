@@ -9,16 +9,16 @@ class GroupsCommand extends Command {
       required: true,
       description: 'Specify the type of group action to run',
       default: 'list',
-      options: ['list', 'info'],
+      options: ['list', 'info']
     },
     {
       name: 'id',
       required: false,
-      description: 'Specify the groupId',
-    },
+      description: 'Specify the groupId'
+    }
   ]
 
-  async run() {
+  async run () {
     const { args, flags } = this.parse(GroupsCommand)
 
     switch (args.action) {
@@ -35,7 +35,7 @@ class GroupsCommand extends Command {
 GroupsCommand.description = 'Manage Groups'
 
 GroupsCommand.flags = {
-  output,
+  output
 }
 
 module.exports = GroupsCommand

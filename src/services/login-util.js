@@ -17,14 +17,14 @@ const generateAuthenticationUrl = (codeChallenge, scope, state) => {
     response_type: 'code',
     redirect_uri: 'http://localhost:4242',
     scope: scope,
-    state: state,
+    state: state
   })
 
   url.search = params
   return url.toString()
 }
 
-function generatePKCE() {
+function generatePKCE () {
   const codeVerifier = crypto
     .randomBytes(64)
     .toString('base64')
@@ -42,11 +42,11 @@ function generatePKCE() {
 
   return {
     codeChallenge,
-    codeVerifier,
+    codeVerifier
   }
 }
 
-function startServer(codeVerifier, onTokenCallback) {
+function startServer (codeVerifier, onTokenCallback) {
   const server = http.createServer()
   server.on('request', (req, res) => {
     // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
@@ -91,33 +91,33 @@ function startServer(codeVerifier, onTokenCallback) {
 
   server.listen(4242, (err) => {
     if (err) {
-      console.log(`Unable to start an HTTP server on port 4242.`, err)
+      console.log('Unable to start an HTTP server on port 4242.', err)
       process.exit(1)
     }
   })
 }
 
-async function getAccessToken(code, codeVerifier) {
+async function getAccessToken (code, codeVerifier) {
   const tokenParams = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: AUTH0_CLIENT_ID,
     code_verifier: codeVerifier,
     code,
-    redirect_uri: `http://localhost:4242`,
+    redirect_uri: 'http://localhost:4242'
   })
 
   const tokenResponse = await axios.post(
     `https://${AUTH0_DOMAIN}.eu.auth0.com/oauth/token`,
     tokenParams.toString(),
     {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     }
   )
 
   return tokenResponse.data
 }
 
-async function getApiKey({ accessToken, baseHost }) {
+async function getApiKey ({ accessToken, baseHost }) {
   try {
     const { data } = await axios.post(
       `${baseHost}/users/me/api-keys?name=${
@@ -127,8 +127,8 @@ async function getApiKey({ accessToken, baseHost }) {
       {
         headers: {
           Accept: 'application/json, text/plain, */*',
-          Authorization: `Bearer ${accessToken}`,
-        },
+          Authorization: `Bearer ${accessToken}`
+        }
       }
     )
     return data
@@ -143,5 +143,5 @@ module.exports = {
   generatePKCE,
   startServer,
   getAccessToken,
-  getApiKey,
+  getApiKey
 }

@@ -14,7 +14,7 @@ const alertSettingsSchema = Joi.object()
         .default(1)
         .description(
           'After how many failed consecutive check runs an alert notification should be send'
-        ),
+        )
     }),
     timeBasedEscalation: Joi.object().keys({
       minutesFailingThreshold: Joi.number()
@@ -22,7 +22,7 @@ const alertSettingsSchema = Joi.object()
         .default(5)
         .description(
           'After how many minutes after a check starts failing an alert should be send'
-        ),
+        )
     }),
     reminders: Joi.object().keys({
       amount: Joi.number()
@@ -35,7 +35,7 @@ const alertSettingsSchema = Joi.object()
       interval: Joi.number()
         .valid(5, 10, 15, 30)
         .default(5)
-        .description('At what interval the reminders should be send'),
+        .description('At what interval the reminders should be send')
     }),
     sslCertificates: Joi.object().keys({
       enabled: Joi.boolean()
@@ -51,15 +51,15 @@ const alertSettingsSchema = Joi.object()
         .default(30)
         .description(
           'At what moment in time to start alerting on SSL certificates'
-        ),
-    }),
+        )
+    })
   })
   .default({
     escalationType: escalationTypes.RUN_BASED,
     runBasedEscalation: { failedRunThreshold: 1 },
     timeBasedEscalation: { minutesFailingThreshold: 5 },
     reminders: { amount: 0, interval: 5 },
-    sslCertificates: { enabled: false, alertThreshold: 30 },
+    sslCertificates: { enabled: false, alertThreshold: 30 }
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert settings')
@@ -67,7 +67,7 @@ const alertSettingsSchema = Joi.object()
 const alertChannelSubscriptionSchema = Joi.object()
   .keys({
     alertChannelId: Joi.number().required(),
-    activated: Joi.boolean().required().default(true),
+    activated: Joi.boolean().required().default(true)
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert channel subscription')
@@ -79,5 +79,5 @@ const alertChannelSubscriptionListSchema = Joi.array()
 module.exports = {
   alertSettingsSchema,
   alertChannelSubscriptionSchema,
-  alertChannelSubscriptionListSchema,
+  alertChannelSubscriptionListSchema
 }

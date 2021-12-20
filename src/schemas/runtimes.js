@@ -23,8 +23,8 @@ module.exports = {
         puppeteer: '10.0.0',
         request: '2.88.2',
         'request-promise': '4.2.2',
-        uuid: '8.3.2',
-      },
+        uuid: '8.3.2'
+      }
     },
     {
       name: '2020.01',
@@ -49,8 +49,8 @@ module.exports = {
         puppeteer: '2.0.0',
         request: '2.88.2',
         'request-promise': '4.2.2',
-        uuid: '3.3.3',
-      },
-    },
-  ],
+        uuid: '3.3.3'
+      }
+    }
+  ]
 }

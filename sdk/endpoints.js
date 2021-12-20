@@ -2,30 +2,30 @@ const ENDPOINTS = {
   CHECKS: {
     GET: 'checks',
     RUN: 'checks/browser-check-runs',
-    STATUS: 'check-statuses',
+    STATUS: 'check-statuses'
   },
   ACCOUNTS: {
-    GET: 'accounts',
+    GET: 'accounts'
   },
   GROUPS: {
-    GET: 'check-groups',
+    GET: 'check-groups'
   },
   LOCATIONS: {
-    GET: 'locations',
+    GET: 'locations'
   },
   PROJECTS: {
     GET: 'projects',
     DELETE: 'projects',
-    DEPLOY: 'projects/deploy',
+    DEPLOY: 'projects/deploy'
   },
   SIGNED_URL: {
-    GET: 'sockets/signed-url',
+    GET: 'sockets/signed-url'
   },
   USERS: {
-    GET: 'users/me/api-keys',
-  },
+    GET: 'users/me/api-keys'
+  }
 }
 
 module.exports = {
-  ...ENDPOINTS,
+  ...ENDPOINTS
 }

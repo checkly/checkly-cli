@@ -3,18 +3,18 @@ const path = require('path')
 const { getLocalFiles } = require('./helper')
 const { readFile } = require('fs/promises')
 
-function init({ api, apiVersion = 'v1' }) {
+function init ({ api, apiVersion = 'v1' }) {
   const checks = {
-    getAll({ limit, page } = {}) {
+    getAll ({ limit, page } = {}) {
       return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
         limit,
-        page,
+        page
       })
     },
 
-    async getAllLocal() {
+    async getAllLocal () {
       const checks = await getLocalFiles(
-        path.join(process.cwd(), `.checkly/checks`)
+        path.join(process.cwd(), '.checkly/checks')
       )
 
       return Promise.all(
@@ -24,82 +24,82 @@ function init({ api, apiVersion = 'v1' }) {
       )
     },
 
-    run(check) {
+    run (check) {
       return api.post(`/next/${endpoints.CHECKS.RUN}`, check)
     },
 
-    create({ script, name, checkType = 'BROWSER', activated = true } = {}) {
+    create ({ script, name, checkType = 'BROWSER', activated = true } = {}) {
       return api.post(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
         name,
         script,
         checkType,
-        activated,
+        activated
       })
     },
 
-    get(id) {
+    get (id) {
       return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}/${id}`)
     },
 
-    deploy(resources, flags) {
+    deploy (resources, flags) {
       const { dryRun } = flags
       return api.post(
         `/next/${endpoints.PROJECTS.DEPLOY}?dryRun=${dryRun}&newSync=true`,
         resources
       )
-    },
+    }
   }
 
   const groups = {
-    getAll({ limit, page } = {}) {
+    getAll ({ limit, page } = {}) {
       return api.get(`/${apiVersion}/${endpoints.GROUPS.GET}`, {
         limit,
-        page,
+        page
       })
     },
 
-    get(id) {
+    get (id) {
       return api.get(`/${apiVersion}/${endpoints.GROUPS.GET}/${id}`)
-    },
+    }
   }
 
   const accounts = {
-    find({ spinner = true } = {}) {
+    find ({ spinner = true } = {}) {
       return api.get(`/next/${endpoints.ACCOUNTS.GET}`, { spinner })
-    },
+    }
   }
 
   const checkStatuses = {
-    getAll({ limit, page } = {}) {
+    getAll ({ limit, page } = {}) {
       return api.get(`/${apiVersion}/${endpoints.CHECKS.STATUS}`, {
         limit,
-        page,
+        page
       })
-    },
+    }
   }
 
   const projects = {
-    getAll() {
+    getAll () {
       return api.get(`/next/${endpoints.PROJECTS.GET}`)
     },
-    create(project) {
+    create (project) {
       return api.post(`/next/${endpoints.PROJECTS.GET}`, project)
     },
-    delete(id) {
+    delete (id) {
       return api.delete(`/next/${endpoints.PROJECTS.DELETE}/${id}?newSync=true`)
-    },
+    }
   }
 
   const socket = {
-    getSignedUrl() {
+    getSignedUrl () {
       return api.get(`/next/${endpoints.SIGNED_URL.GET}`)
-    },
+    }
   }
 
   const locations = {
-    getAll() {
+    getAll () {
       return api.get(`/${apiVersion}/${endpoints.LOCATIONS.GET}`)
-    },
+    }
   }
 
   return {
@@ -109,10 +109,10 @@ function init({ api, apiVersion = 'v1' }) {
     checkStatuses,
     projects,
     socket,
-    locations,
+    locations
   }
 }
 
 module.exports = {
-  init,
+  init
 }

@@ -8,12 +8,12 @@ module.exports = {
     char: 'o',
     description: 'output type',
     default: defaultOutput,
-    options: ['plain', 'human', 'json'],
+    options: ['plain', 'human', 'json']
   }),
 
   force: flags.boolean({
     char: 'f',
     description: 'force mode',
-    default: false,
-  }),
+    default: false
+  })
 }

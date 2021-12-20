@@ -9,10 +9,10 @@ const STATUS = {
   FAILING: 'Failing',
   DEGRADED: 'Degraded',
   PASSING: 'Passing',
-  PENDING: 'Pending',
+  PENDING: 'Pending'
 }
 
-function getStatusText({ checkStatus, output }) {
+function getStatusText ({ checkStatus, output }) {
   if (checkStatus.hasFailures) {
     return output === 'json' ? STATUS.FAILING : chalk.bgRed(STATUS.FAILING)
   }
@@ -26,19 +26,19 @@ function getStatusText({ checkStatus, output }) {
   return output === 'json' ? STATUS.PENDING : chalk.bold(STATUS.PENDING)
 }
 
-function getFormatedCheckStatus({ data, output }) {
+function getFormatedCheckStatus ({ data, output }) {
   return data.map((checkStatus) => {
     return {
       status: getStatusText({ checkStatus, output }),
       name: checkStatus.name,
       'last ran': checkStatus.updated_at
         ? formatDistanceToNow(new Date(checkStatus.updated_at))
-        : '-',
+        : '-'
     }
   })
 }
 
-async function getStatus({ output } = {}) {
+async function getStatus ({ output } = {}) {
   try {
     const { data } = await checkStatuses.getAll()
     const formatted = getFormatedCheckStatus({ data, output })

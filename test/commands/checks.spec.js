@@ -3,7 +3,7 @@ const { test, expect } = require('@oclif/test')
 const testConfig = require('../helpers/config')
 const {
   mockChecksInfoResponse,
-  mockChecksListResponse,
+  mockChecksListResponse
 } = require('../fixtures/api')
 
 describe('checks [cmd]', () => {
@@ -24,15 +24,15 @@ describe('checks [cmd]', () => {
           checkType: 'API',
           frequency: 10,
           locations: [],
-          activated: true,
+          activated: true
         },
         {
           name: 'Runtime Ver',
           checkType: 'BROWSER',
           frequency: 10,
           locations: [],
-          activated: false,
-        },
+          activated: false
+        }
       ])
     })
 
@@ -48,7 +48,7 @@ describe('checks [cmd]', () => {
       'info',
       mockChecksInfoResponse.id.toString(),
       '--output',
-      'json',
+      'json'
     ])
     .it('prints check info details', (output) => {
       expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(

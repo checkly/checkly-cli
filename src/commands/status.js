@@ -8,11 +8,11 @@ class StatusCommand extends Command {
       name: 'action',
       required: true,
       description: 'Specify the type of checks action to run',
-      default: 'info',
-    },
+      default: 'info'
+    }
   ]
 
-  async run() {
+  async run () {
     const { flags } = this.parse(StatusCommand)
     return checkStatuses.info({ ...flags })
   }
@@ -21,7 +21,7 @@ class StatusCommand extends Command {
 StatusCommand.description = 'Status dashboard'
 
 StatusCommand.flags = {
-  output,
+  output
 }
 
 module.exports = StatusCommand

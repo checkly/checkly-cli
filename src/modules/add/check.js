@@ -8,7 +8,7 @@ const { locations: locationsApi } = require('../../services/api')
 const apiTemplates = require('../../templates/api')
 const browserTemplates = require('../../templates/browser')
 
-async function check(checklyDir) {
+async function check (checklyDir) {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
@@ -18,14 +18,14 @@ async function check(checklyDir) {
     {
       name: 'name',
       type: 'input',
-      message: 'Your check name',
+      message: 'Your check name'
     },
     {
       name: 'type',
       type: 'list',
       message: 'What do you want to monitor?',
       choices: ['API', 'BROWSER'],
-      default: ['API'],
+      default: ['API']
     },
     {
       name: 'url',
@@ -34,7 +34,7 @@ async function check(checklyDir) {
         url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
           ? true
           : 'Please enter a valid URL',
-      message: 'Which URL you want to monitor',
+      message: 'Which URL you want to monitor'
     },
     {
       name: 'locations',
@@ -42,8 +42,8 @@ async function check(checklyDir) {
       choices: regions,
       validate: (locations) =>
         locations.length > 0 ? true : 'You have to pick at least one location',
-      message: 'Select your target locations (we recommend to pick at least 2)',
-    },
+      message: 'Select your target locations (we recommend to pick at least 2)'
+    }
   ])
 
   const { frequency } = await prompt([
@@ -60,7 +60,7 @@ async function check(checklyDir) {
               '30min',
               '60min',
               '720min',
-              '1440min',
+              '1440min'
             ]
           : [
               '0min',
@@ -71,10 +71,10 @@ async function check(checklyDir) {
               '30min',
               '60min',
               '720min',
-              '1440min',
+              '1440min'
             ],
-      message: 'Pick your check frequency',
-    },
+      message: 'Pick your check frequency'
+    }
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
@@ -90,17 +90,17 @@ async function check(checklyDir) {
     filePath,
     type === 'BROWSER'
       ? browserTemplates.basic({
-          url,
-          name,
-          frequency: frequency.replace(/[^0-9.]+/, ''),
-          locations,
-        })
+        url,
+        name,
+        frequency: frequency.replace(/[^0-9.]+/, ''),
+        locations
+      })
       : apiTemplates.basic({
-          url,
-          name,
-          frequency: frequency.replace(/[^0-9.]+/, ''),
-          locations,
-        })
+        url,
+        name,
+        frequency: frequency.replace(/[^0-9.]+/, ''),
+        locations
+      })
   )
 
   consola.success(`Created new ${type} check: ${key}`)

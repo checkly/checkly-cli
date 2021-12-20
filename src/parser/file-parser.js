@@ -10,7 +10,7 @@ const YML = '.yml' || '.yaml'
 
 const { findChecklyDir } = require('../services/utils')
 
-function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
+function parseChecklyFile (filePath, nestingLevel = 1, prefix = '') {
   const fileStats = fs.lstatSync(filePath)
   const basename = path.basename(filePath)
   const name = `${prefix}${basename}`
@@ -20,13 +20,13 @@ function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
     basename === `${SETTINGS}${YML}`
       ? {
           filePath,
-          type: SETTINGS,
+          type: SETTINGS
         }
       : {
           name,
           filePath,
           type: CHECK,
-          error: ext !== YML ? 'InvalidFileExtension' : null,
+          error: ext !== YML ? 'InvalidFileExtension' : null
         }
 
   if (fileStats.isDirectory()) {
@@ -47,7 +47,7 @@ function parseChecklyFile(filePath, nestingLevel = 1, prefix = '') {
   return file
 }
 
-function parseChecklySettings(files) {
+function parseChecklySettings (files) {
   return files.map((file) => {
     if (file.type === GROUP) {
       const settingsIndex = file.checks.findIndex((c) => c.type === 'settings')
@@ -61,7 +61,7 @@ function parseChecklySettings(files) {
   })
 }
 
-function parseChecklyDirectory() {
+function parseChecklyDirectory () {
   const checksDir = path.join(findChecklyDir(), 'checks')
 
   try {
@@ -85,5 +85,5 @@ function parseChecklyDirectory() {
 module.exports = {
   CHECK,
   GROUP,
-  parseChecklyDirectory,
+  parseChecklyDirectory
 }

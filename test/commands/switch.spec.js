@@ -5,7 +5,7 @@ const config = require('./../../src/services/config')
 
 const account1 = {
   id: '01828488-11D6-439C-AAD2-E5E18A4F3267',
-  name: 'Account 1',
+  name: 'Account 1'
 }
 
 describe('switch [cmd]', () => {
