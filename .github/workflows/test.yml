@@ -21,9 +21,9 @@ jobs:
           cache: 'npm'
       - run: npm install
       - name: run unit tests
-        run: mocha --grep 'e2e.*' -i --exit
+        run: node_modules/.bin/mocha --grep 'e2e.*' -i --exit
       - name: run e2e tests
-        run: mocha --grep 'e2e.*' -i --exit
+        run: node_modules/.bin/mocha --grep 'e2e.*' -i --exit
         env:
           CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.CHECKLY_ACCOUNT_ID }}
