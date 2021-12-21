@@ -1,5 +1,6 @@
-// We need this module to run the tests from a clean slate.
-// If there is no auth.json, all units tests will fail initially.
+// This code is required to initially create auth.json and data.json
+// If those files don't exist, all tests will fail. setup-auth.js is required
+// in the .mocharc.js, that way it is loaded by mocha before all other require()'s
 // TODO: we might want to improve this later, it seems pretty hacky
 const Conf = require('conf')
 const authSchema = {
