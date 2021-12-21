@@ -11,5 +11,5 @@ node_modules
 .idea
 oclif.manifest.json
 local
-dude.test
+.env*
 .eslintcache

@@ -1,3 +1,6 @@
+// We need this module to run the tests from a clean slate.
+// If there is no auth.json, all units tests will fail initially.
+// TODO: we might want to improve this later, it seems pretty hacky
 const Conf = require('conf')
 const authSchema = {
   _: { type: 'string' },
@@ -10,7 +13,6 @@ const dataSchema = {
   accountId: { type: 'string' },
   accountName: { type: 'string' }
 }
-// const config = require('./../../src/services/config')
 
 const config1 = {
   auth: new Conf({
