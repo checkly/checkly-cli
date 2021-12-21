@@ -21,8 +21,6 @@ class AccountsCommand extends Command {
       default:
         accounts.list({ ...flags })
     }
-
-    this.exit(0)
   }
 }
 

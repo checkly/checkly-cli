@@ -24,5 +24,4 @@ describe('accounts [cmd]', () => {
     .command(['accounts', '--output', 'json'])
     .stdout()
     .it('list all user accounts', (ctx) => {})
-  // .exit(0)
 })
