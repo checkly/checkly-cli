@@ -18,7 +18,7 @@ describe('accounts [cmd]', () => {
 
   test
     .stdout()
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/next/accounts').reply(200, [account1, account2])
     )
     .command(['accounts', '--output', 'json'])

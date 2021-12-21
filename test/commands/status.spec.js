@@ -8,7 +8,7 @@ describe('status [cmd]', () => {
   })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/v1/check-statuses').reply(200, [
         {
           status: 'Pending',

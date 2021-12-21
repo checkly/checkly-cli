@@ -48,7 +48,7 @@
     "postpack": "rm -f oclif.manifest.json",
     "lint": "eslint .",
     "prepack": "oclif-dev manifest && oclif-dev readme",
-    "test": "mocha --exit",
+    "test": "mocha --grep 'e2e.*' -i --exit && mocha --grep 'e2e.*' --exit",
     "test:coverage": "nyc npm run test",
     "test:watch": "mocha --watch --exit",
     "pack": "oclif-dev pack",

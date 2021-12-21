@@ -12,7 +12,7 @@ describe('checks [cmd]', () => {
   })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api.get('/v1/checks').reply(200, mockChecksListResponse)
     )
     .stdout()
@@ -37,7 +37,7 @@ describe('checks [cmd]', () => {
     })
 
   test
-    .nock('http://localhost:3000', (api) =>
+    .nock('https://api.checklyhq.com', (api) =>
       api
         .get('/v1/checks/' + mockChecksInfoResponse.id)
         .reply(200, mockChecksInfoResponse)

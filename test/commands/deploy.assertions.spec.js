@@ -1,7 +1,6 @@
 const path = require('path')
 const assert = require('assert')
-const dotenvFilePath = path.join(process.cwd(), `.env.${process.env.NODE_ENV}`)
-require('dotenv').config({ path: dotenvFilePath })
+
 const YAML = require('yaml')
 
 const mock = require('mock-require')
@@ -53,21 +52,32 @@ const updateInMemVolume = (check) => {
   vol.fromJSON(inMemFs)
 }
 
-updateInMemVolume(checkWithAssertions)
-mock('fs', memfs)
-mock('fs/promises', memfs.promises)
-
-// needs the mocked filesystem
-const { runDeploy } = require('../../src/modules/deploy')
-
-describe('test that assertions get persisted', () => {
+describe('e2e test that assertions get persisted', () => {
+  let runDeploy
   before(async () => {
+    const dotenvFilePath = path.join(process.cwd(), `.env.${process.env.NODE_ENV}`)
+    require('dotenv').config({ path: dotenvFilePath })
+    mock('fs', memfs)
+    mock('fs/promises', memfs.promises)
+    // needed to create basic file structure
+    updateInMemVolume(checkWithAssertions)
+    // needs the mocked filesystem
+    mock.reRequire('fs')
+    const rd = mock.reRequire('../../src/modules/deploy')
+    runDeploy = rd.runDeploy
     const p = await getOrCreateProject(
       'checkly_cli_assertion_test_project',
       'repoUrl'
     )
     settings.projectId = p.id
+    // needed to projectId
     updateInMemVolume(checkWithAssertions)
+  })
+  after(() => {
+    mock.stop('fs')
+    mock.stop('fs/promises')
+    delete process.env.CHECKLY_ACCOUNT_ID
+    delete process.env.CHECKLY_API_KEY
   })
   const deployCheck = async (check) => {
     const deploymentResults = await runDeploy(false)
