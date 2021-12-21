@@ -1,5 +1,5 @@
 const consola = require('consola')
-const { Command } = require('@oclif/command')
+const { Command, flags } = require('@oclif/command')
 const search = require('cli-fuzzy-search')
 
 const chalk = require('chalk')
@@ -11,7 +11,7 @@ const SocketClient = require('../services/socket-client.js')
 class RunCommand extends Command {
   async run () {
     try {
-      const { args } = this.parse(RunCommand)
+      const { args, flags } = this.parse(RunCommand)
 
       // Setup Websocket IoT Core Connection
       const presignedIotUrl = await socket.getSignedUrl()
@@ -109,8 +109,7 @@ class RunCommand extends Command {
       const browserCheck = {
         ...selectedCheck,
         websocketClientId: socketClientId,
-        runLocation: 'eu-central-1',
-        runtimeId: '2020.01'
+        runLocation: flags.location
       }
 
       // Submit check to API
@@ -126,6 +125,14 @@ class RunCommand extends Command {
       throw err
     }
   }
+}
+
+RunCommand.flags = {
+  location: flags.string({
+    char: 'l',
+    description: 'Where should the check run at?',
+    default: 'eu-central-1'
+  })
 }
 
 RunCommand.description = 'Run and test your checks on Checkly'
