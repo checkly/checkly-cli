@@ -13,7 +13,9 @@ describe('checks [cmd]', () => {
 
   test
     .nock('https://api.checklyhq.com', (api) =>
-      api.get('/v1/checks').reply(200, mockChecksListResponse)
+      api.get('/v1/checks').reply(200, mockChecksListResponse, {
+        'content-range': `0-${mockChecksListResponse.length - 1}/${mockChecksListResponse.length}`
+      })
     )
     .stdout()
     .command(['checks', '--output', 'json'])
