@@ -19,11 +19,11 @@ function getStatusText ({ checkStatus, output }) {
   if (checkStatus.isDegraded) {
     return output === 'json' ? STATUS.DEGRADED : chalk.bgYellow(STATUS.DEGRADED)
   }
-  if (checkStatus.updated_at) {
-    return output === 'json' ? STATUS.DEGRADED : chalk.bgGreen(STATUS.DEGRADED)
+  // In case a check was recently created and there is no update on the status
+  if (!checkStatus.updated_at) {
+    return output === 'json' ? STATUS.PENDING : chalk.bold(STATUS.PENDING)
   }
-
-  return output === 'json' ? STATUS.PENDING : chalk.bold(STATUS.PENDING)
+  return output === 'json' ? STATUS.PASSING : chalk.bgGreen(STATUS.PASSING)
 }
 
 function getFormatedCheckStatus ({ data, output }) {
