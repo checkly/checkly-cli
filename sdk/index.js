@@ -3,13 +3,21 @@ const path = require('path')
 const { getLocalFiles } = require('./helper')
 const { readFile } = require('fs/promises')
 
+const PAGINATION_REGEX = /([0-9]+)-([0-9]+)\/([0-9]+)/
+const CONTENT_RANGE_HEADER = 'content-range'
+
 function init ({ api, apiVersion = 'v1' }) {
   const checks = {
-    getAll ({ limit, page } = {}) {
-      return api.get(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
+    async getAll ({ limit, page } = {}) {
+      const { data, headers } = await api.get(`/${apiVersion}/${endpoints.CHECKS.GET}`, {
         limit,
         page
       })
+      const result = PAGINATION_REGEX.exec(headers[CONTENT_RANGE_HEADER])
+      const endIndex = parseInt(result[2])
+      const total = parseInt(result[3])
+      const hasMore = (endIndex + 1) < total
+      return { data, headers, hasMore }
     },
 
     async getAllLocal () {
