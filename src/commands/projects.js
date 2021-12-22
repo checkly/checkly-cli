@@ -9,6 +9,8 @@ class ProjectsCommand extends Command {
     const { args, flags } = this.parse(ProjectsCommand)
 
     switch (args.action) {
+      case 'create':
+        return projects.create({ ...flags })
       case 'list':
         return projects.list({ ...flags })
       case 'delete':
