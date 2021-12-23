@@ -34,6 +34,14 @@ ProjectsCommand.flags = {
     char: 'i',
     description: 'project id',
     default: config.getProjectId()
+  }),
+  name: flags.string({
+    char: 'n',
+    description: 'project name'
+  }),
+  repoUrl: flags.string({
+    char: 'r',
+    description: 'repo url'
   })
 }
 
@@ -42,7 +50,7 @@ ProjectsCommand.args = [
     name: 'action',
     required: false,
     description: 'Project action to execute',
-    options: ['list', 'delete']
+    options: ['list', 'delete', 'create']
   }
 ]
 
