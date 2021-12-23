@@ -31,19 +31,6 @@ module.exports = async () => {
     ...checkAlertChannelSubscriptions
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        alertChannels,
-        checks,
-        groups,
-        alertChannelSubscriptions
-      },
-      null,
-      2
-    )
-  )
-
   return {
     alertChannels,
     checks,
