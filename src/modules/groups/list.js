@@ -13,7 +13,7 @@ async function listGroups ({ output } = {}) {
         concurrency,
         activated,
         muted,
-        locations
+        locations: locations?.length > 3 ? `${locations.slice(0, 3).join(', ')} + ${locations.length - 3} more` : locations.join(', ')
       })
     )
 
