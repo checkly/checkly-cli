@@ -3,10 +3,10 @@ const { Command, flags } = require('@oclif/command')
 const search = require('cli-fuzzy-search')
 
 const chalk = require('chalk')
-const YAML = require('yaml')
 const { v4: uuidv4 } = require('uuid')
 const { checks, socket } = require('../services/api')
 const SocketClient = require('../services/socket-client.js')
+const parser = require('../parser')
 
 class RunCommand extends Command {
   async run () {
@@ -78,23 +78,21 @@ class RunCommand extends Command {
       // Subscribe to the 'browser-check-run' topic with this clients socketId
       socketClient.subscribe(`browser-check-results/${socketClientId}/#`)
 
-      // Get requested check from local yml file (by checkName)
-      const rawChecks = await checks.getAllLocal()
-      const parsedChecks = rawChecks.map((rawCheck) => YAML.parse(rawCheck))
+      const { checks: parsedChecks } = await parser()
       let selectedCheck = ''
-      if (args.checkName) {
-        selectedCheck = parsedChecks.find(
-          (check) => check.name === args.checkName
+      if (args.checkPath) {
+        selectedCheck = Object.entries(parsedChecks).find(
+          ([name, check]) => name === args.checkPath
         )
       } else {
         consola.info(
           ' No check name passed, please search to make a selection below.\n'
         )
         selectedCheck = await search({
-          data: parsedChecks.map((check) => {
-            return { ...check, label: check.name }
+          data: Object.entries(parsedChecks).map(([name, check]) => {
+            return { ...check, label: name }
           }),
-          size: parsedChecks.length + 1,
+          size: Object.entries(parsedChecks).length + 1,
           cache: false,
           debounceDelay: 200
         })
@@ -139,7 +137,7 @@ RunCommand.description = 'Run and test your checks on Checkly'
 
 RunCommand.args = [
   {
-    name: 'checkName',
+    name: 'checkPath',
     required: false,
     description: 'Which check would you like to execute?'
   }
