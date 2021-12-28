@@ -18,6 +18,15 @@ const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
 const hasChecksDirectory = () => fs.existsSync(CHECKS_DIR_PATH)
 const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 
+function getLocationsOutput (locations) {
+  if (!locations) {
+    return ''
+  }
+
+  locations.sort()
+  return locations?.length > 3 ? `${locations.slice(0, 3).join(', ')} + ${locations.length - 3} more` : locations.join(', ')
+}
+
 function print (data, { output } = {}) {
   if (!data && !data.length) {
     consola.warn('No resources found')
@@ -93,5 +102,6 @@ module.exports = {
   readLocal,
   getRepoUrl,
   findChecklyDir,
-  getGlobalSettings
+  getGlobalSettings,
+  getLocationsOutput
 }
