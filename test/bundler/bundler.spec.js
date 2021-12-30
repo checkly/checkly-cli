@@ -48,4 +48,25 @@ console.log(axios)
       assert.equal(e.message, 'Missing script or path properties in check.')
     }
   })
+
+  it('throws error when using a not allowed external module', async () => {
+    const module = 'vue'
+    try {
+      await bundle({
+        script: `import ${module} from '${module}'`
+      })
+    } catch (e) {
+      assert.equal(e.message, `Invalid import of ${module} package in check script.`)
+    }
+  })
+
+  it('throws error when using invalid JS syntax', async () => {
+    try {
+      await bundle({
+        script: '@'
+      })
+    } catch (e) {
+      assert.equal(e.message, 'Unexpected character \'@\' (Note that you need plugins to import files that are not JavaScript)')
+    }
+  })
 })

@@ -1,5 +1,4 @@
 const axios = require('axios')
-const chalk = require('chalk')
 const builtinModules = require('builtin-modules')
 
 module.exports = function plugin (options = {}) {
@@ -18,9 +17,7 @@ module.exports = function plugin (options = {}) {
       Object.values(bundle).forEach((script) => {
         script.imports.forEach((i) => {
           if (!allowedModules.includes(i)) {
-            this.error(
-              `Invalid import of ${chalk.blue.bold(i)} package in check script.`
-            )
+            this.error(`Invalid import of ${i} package in check script.`)
           }
         })
       })
