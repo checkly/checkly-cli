@@ -1,7 +1,6 @@
 const consola = require('consola')
 const { Command, flags } = require('@oclif/command')
 
-const { print } = require('../services/utils')
 const { output } = require('../services/flags')
 const { runDeploy } = require('../modules/deploy')
 
@@ -12,8 +11,10 @@ class DeployCommand extends Command {
     const { dryRun } = flags
 
     try {
-      const data = await runDeploy(dryRun)
-      print(data, flags)
+      const { diff } = await runDeploy(dryRun)
+
+      // TODO: force JSON format until we made a smarter print method
+      consola.log(JSON.stringify(diff, null, 2))
     } catch (err) {
       consola.error(err)
       throw err
