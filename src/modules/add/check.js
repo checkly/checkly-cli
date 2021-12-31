@@ -1,9 +1,11 @@
 const fs = require('fs')
 const path = require('path')
-const { prompt } = require('inquirer')
 const consola = require('consola')
+const { prompt } = require('inquirer')
+const { promptUrl, promptLocations } = require('../../services/prompts')
 
 const { locations: locationsApi } = require('../../services/api')
+const { CHECK_TYPES, CHECK_FRECUENCIES } = ('../../services/constants.js')
 
 const apiTemplates = require('../../templates/api')
 const browserTemplates = require('../../templates/browser')
@@ -24,55 +26,18 @@ async function check (checklyDir) {
       name: 'type',
       type: 'list',
       message: 'What do you want to monitor?',
-      choices: ['API', 'BROWSER'],
-      default: ['API']
+      choices: [CHECK_TYPES.API, CHECK_TYPES.BROWSER],
+      default: [CHECK_TYPES.API]
     },
-    {
-      name: 'url',
-      type: 'input',
-      validate: (url) =>
-        url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
-          ? true
-          : 'Please enter a valid URL',
-      message: 'Which URL you want to monitor'
-    },
-    {
-      name: 'locations',
-      type: 'checkbox',
-      choices: regions,
-      validate: (locations) =>
-        locations.length > 0 ? true : 'You have to pick at least one location',
-      message: 'Select your target locations (we recommend to pick at least 2)'
-    }
+    promptUrl,
+    promptLocations(regions)
   ])
 
   const { frequency } = await prompt([
     {
       name: 'frequency',
       type: 'list',
-      choices:
-        type === 'BROWSER'
-          ? [
-              '1min',
-              '5min',
-              '10min',
-              '15min',
-              '30min',
-              '60min',
-              '720min',
-              '1440min'
-            ]
-          : [
-              '0min',
-              '1min',
-              '5min',
-              '10min',
-              '15min',
-              '30min',
-              '60min',
-              '720min',
-              '1440min'
-            ],
+      choices: type === CHECK_TYPES.BROWSER ? CHECK_FRECUENCIES.BROWSER : CHECK_FRECUENCIES.API,
       message: 'Pick your check frequency'
     }
   ])
@@ -88,7 +53,7 @@ async function check (checklyDir) {
 
   fs.writeFileSync(
     filePath,
-    type === 'BROWSER'
+    type === CHECK_TYPES.BROWSER
       ? browserTemplates.basic({
         url,
         name,

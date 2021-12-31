@@ -1,8 +1,8 @@
 const consola = require('consola')
 const { Command, flags } = require('@oclif/command')
-const { output } = require('../services/flags')
 
 const { print } = require('../services/utils')
+const { output } = require('../services/flags')
 const { runDeploy } = require('../modules/deploy')
 
 class DeployCommand extends Command {

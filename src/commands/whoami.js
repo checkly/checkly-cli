@@ -30,9 +30,6 @@ class WhoamiCommand extends Command {
 }
 
 WhoamiCommand.description = 'See your logged account and user'
-
-WhoamiCommand.flags = {
-  output
-}
+WhoamiCommand.flags = { output }
 
 module.exports = WhoamiCommand

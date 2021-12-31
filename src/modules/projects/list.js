@@ -20,8 +20,8 @@ async function listProjects ({ output } = {}) {
         name,
         repoUrl,
         /* eslint-disable camelcase */
-        created_at,
-        updated_at
+        'created at': created_at,
+        'updated at': updated_at
         /* eslint-enable camelcase */
 
       })

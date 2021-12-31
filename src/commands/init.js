@@ -1,37 +1,33 @@
 const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
-const { Command } = require('@oclif/command')
 const { prompt } = require('inquirer')
+const { Command } = require('@oclif/command')
 
 const config = require('./../services/config')
 const { force } = require('./../services/flags')
 const { projects } = require('./../services/api')
+const { promptUrl } = require('../services/prompts')
 const { getRepoUrl } = require('./../services/utils')
+const { CONFIGURATION_MODES, CHECK_TYPES } = require('./../services/constants')
 
 const apiTemplates = require('../templates/api')
 const browserTemplates = require('../templates/browser')
 const projectTemplate = require('../templates/project')
-
-const API = 'API'
-const BROWSER = 'BROWSER'
-
-const BASIC = 'basic'
-const ADVANCED = 'advanced'
 
 // TODO: Move this into a service
 function createChecklyDirectory ({ dirName, mode, checkTypes, url }) {
   fs.mkdirSync(dirName)
   fs.mkdirSync(path.join(dirName, 'checks'))
 
-  if (checkTypes.includes(API)) {
+  if (checkTypes.includes(CHECK_TYPES.API)) {
     fs.writeFileSync(
       path.join(dirName, 'checks', 'example-api.yml'),
       apiTemplates[mode]({ url })
     )
   }
 
-  if (checkTypes.includes(BROWSER)) {
+  if (checkTypes.includes(CHECK_TYPES.BROWSER)) {
     fs.writeFileSync(
       path.join(dirName, 'checks', 'example-browser.yml'),
       browserTemplates[mode]({ url })
@@ -94,25 +90,17 @@ class InitCommand extends Command {
           message: 'What do you want to monitor?',
           validate: (checkTypes) =>
             checkTypes.length > 0 ? true : 'You have to pick at least one type',
-          choices: [API, BROWSER],
-          default: [API]
+          choices: [CHECK_TYPES.API, CHECK_TYPES.BROWSER],
+          default: [CHECK_TYPES.API]
         },
-        {
-          name: 'url',
-          type: 'input',
-          validate: (url) =>
-            url.match(/^(https?|chrome):\/\/[^\s$.?#].[^\s]*$/gm)
-              ? true
-              : 'Please enter a valid URL',
-          message: 'Which URL would you like to monitor?'
-        },
+        promptUrl,
         {
           name: 'mode',
           type: 'list',
           message:
             'Which kind of setup do you want to use?\n(if it\'s your first time with Checkly, we recommend to keep with "Basic")',
-          choices: [BASIC, ADVANCED],
-          default: BASIC
+          choices: [CONFIGURATION_MODES.BASIC, CONFIGURATION_MODES.ADVANCED],
+          default: CONFIGURATION_MODES.BASIC
         }
       ])
       createChecklyDirectory({ url, mode, checkTypes, dirName })
@@ -120,7 +108,7 @@ class InitCommand extends Command {
       createChecklyDirectory({
         url: 'https://google.com',
         mode: 'basic',
-        checkTypes: 'API',
+        checkTypes: CHECK_TYPES.API,
         dirName
       })
     }

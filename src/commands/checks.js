@@ -1,30 +1,18 @@
 const { Command } = require('@oclif/command')
+
 const checks = require('../modules/checks')
 const { output } = require('../services/flags')
+const { action, id } = require('../services/args')
+const { ACTIONS } = require('../services/constants')
 
 class ChecksCommand extends Command {
-  static args = [
-    {
-      name: 'action',
-      required: true,
-      description: 'Specify the type of checks action to run',
-      default: 'list',
-      options: ['list', 'info']
-    },
-    {
-      name: 'id',
-      required: false,
-      description: 'Specify the checkId'
-    }
-  ]
+  static args = [action, id]
 
   async run () {
     const { args, flags } = this.parse(ChecksCommand)
 
     switch (args.action) {
-      case 'run':
-        return checks.run(args.id, { ...flags })
-      case 'info':
+      case ACTIONS.INFO:
         return checks.info(args.id, { ...flags })
       default:
         return checks.list({ ...flags })
