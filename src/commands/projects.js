@@ -10,7 +10,8 @@ class ProjectsCommand extends Command {
     name: 'action',
     required: false,
     description: 'Project action to execute',
-    options: ['list', 'delete', 'create']
+    options: [ACTIONS.LIST, ACTIONS.CREATE, ACTIONS.DELETE],
+    default: ACTIONS.LIST
   }]
 
   async run () {
@@ -19,8 +20,6 @@ class ProjectsCommand extends Command {
     switch (args.action) {
       case ACTIONS.CREATE:
         return projects.create({ ...flags })
-      case ACTIONS.LIST:
-        return projects.list({ ...flags })
       case ACTIONS.DELETE:
         return projects.del({ ...flags })
       default:

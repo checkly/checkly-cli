@@ -93,7 +93,7 @@ class InitCommand extends Command {
           choices: [CHECK_TYPES.API, CHECK_TYPES.BROWSER],
           default: [CHECK_TYPES.API]
         },
-        promptUrl,
+        promptUrl(),
         {
           name: 'mode',
           type: 'list',

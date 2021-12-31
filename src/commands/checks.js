@@ -21,9 +21,6 @@ class ChecksCommand extends Command {
 }
 
 ChecksCommand.description = 'Manage Checks'
-
-ChecksCommand.flags = {
-  output
-}
+ChecksCommand.flags = { output }
 
 module.exports = ChecksCommand

@@ -2,17 +2,10 @@ const { Command } = require('@oclif/command')
 
 const accounts = require('./../modules/accounts')
 const { output } = require('./../services/flags')
+const { action } = require('../services/args')
 
 class AccountsCommand extends Command {
-  static args = [
-    {
-      name: 'action',
-      required: true,
-      description: 'Specify the type of accounts action to run',
-      default: 'list',
-      options: ['list']
-    }
-  ]
+  static args = [action]
 
   async run () {
     const { args, flags } = this.parse(AccountsCommand)

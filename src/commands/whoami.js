@@ -2,8 +2,8 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 
 const config = require('./../services/config')
-const { output } = require('./../services/flags')
 const { print } = require('./../services/utils')
+const { output } = require('./../services/flags')
 
 class WhoamiCommand extends Command {
   async run () {

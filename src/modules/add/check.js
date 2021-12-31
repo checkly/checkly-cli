@@ -5,7 +5,7 @@ const { prompt } = require('inquirer')
 const { promptUrl, promptLocations } = require('../../services/prompts')
 
 const { locations: locationsApi } = require('../../services/api')
-const { CHECK_TYPES, CHECK_FRECUENCIES } = ('../../services/constants.js')
+const { CHECK_TYPES, CHECK_FREQUENCIES } = require('../../services/constants')
 
 const apiTemplates = require('../../templates/api')
 const browserTemplates = require('../../templates/browser')
@@ -29,7 +29,7 @@ async function check (checklyDir) {
       choices: [CHECK_TYPES.API, CHECK_TYPES.BROWSER],
       default: [CHECK_TYPES.API]
     },
-    promptUrl,
+    promptUrl(),
     promptLocations(regions)
   ])
 
@@ -37,7 +37,7 @@ async function check (checklyDir) {
     {
       name: 'frequency',
       type: 'list',
-      choices: type === CHECK_TYPES.BROWSER ? CHECK_FRECUENCIES.BROWSER : CHECK_FRECUENCIES.API,
+      choices: type === CHECK_TYPES.BROWSER ? CHECK_FREQUENCIES.BROWSER : CHECK_FREQUENCIES.API,
       message: 'Pick your check frequency'
     }
   ])

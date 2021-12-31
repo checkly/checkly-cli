@@ -4,8 +4,8 @@ const consola = require('consola')
 const { prompt } = require('inquirer')
 
 const groupSettingsTemplates = require('../../templates/group')
-const { locations: locationsApi } = require('../../services/api')
 const { promptLocations } = require('../../services/prompts')
+const { locations: locationsApi } = require('../../services/api')
 
 async function check (checklyDir) {
   const { data } = await locationsApi.getAll()

@@ -18,7 +18,7 @@ const promptUrl = (name = 'url') => ({
 })
 
 const promptConfirm = ({ name = 'confirm', message = 'Do you want to continue?' }) => ({
-  name: 'confirmLogout',
+  name: name,
   type: 'confirm',
   message
 })

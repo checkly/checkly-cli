@@ -13,10 +13,13 @@ function init ({ api, apiVersion = 'v1' }) {
         limit,
         page
       })
+
       const result = PAGINATION_REGEX.exec(headers[CONTENT_RANGE_HEADER])
+
       const endIndex = parseInt(result[2])
       const total = parseInt(result[3])
       const hasMore = (endIndex + 1) < total
+
       return { data, headers, hasMore }
     },
 
