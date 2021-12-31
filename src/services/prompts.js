@@ -1,4 +1,4 @@
-const promptLocations = (name = 'locations', choices = []) => ({
+const promptLocations = ({ name = 'locations', choices = [] }) => ({
   name,
   type: 'checkbox',
   choices,
@@ -7,7 +7,7 @@ const promptLocations = (name = 'locations', choices = []) => ({
   message: 'Select your target locations (we recommend to pick at least 2)'
 })
 
-const promptUrl = (name = 'url') => ({
+const promptUrl = ({ name = 'url' }) => ({
   name,
   type: 'input',
   validate: (url) =>

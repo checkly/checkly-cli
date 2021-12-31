@@ -30,7 +30,7 @@ async function check (checklyDir) {
       default: [CHECK_TYPES.API]
     },
     promptUrl(),
-    promptLocations(regions)
+    promptLocations({ choices: regions })
   ])
 
   const { frequency } = await prompt([

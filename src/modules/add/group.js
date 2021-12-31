@@ -20,7 +20,7 @@ async function check (checklyDir) {
       message: 'Your group name'
     },
 
-    promptLocations(regions)
+    promptLocations({ choices: regions })
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
