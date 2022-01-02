@@ -1,6 +1,6 @@
 const consola = require('consola')
 const { checks } = require('../../services/api')
-const { print, getLocationsOutput } = require('../../services/utils')
+const { print } = require('../../services/utils')
 
 async function listChecks ({ output } = {}) {
   try {
@@ -23,7 +23,7 @@ async function listChecks ({ output } = {}) {
         checkType,
         frequency,
         activated,
-        locations: getLocationsOutput(locations)
+        locations
       })
     )
 
