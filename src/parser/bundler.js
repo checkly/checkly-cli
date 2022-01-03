@@ -2,18 +2,24 @@ const path = require('path')
 const rollup = require('rollup')
 const virtual = require('@rollup/plugin-virtual')
 const commonjs = require('@rollup/plugin-commonjs')
-const checklyWhitelist = require('../services/rollup-plugin-checkly-whitelist')
+const typescript = require('@rollup/plugin-typescript')
+const modulesAllowlist = require('./modules-allowlist')
 
 const OUTPUT_DIRECTORY = '../../.checkly/output'
+const TS = 'ts'
 
 async function bundle (check, writeBundle = false) {
   const inputOptions = {
     silent: true,
     onwarn: () => {},
     plugins: [
-      checklyWhitelist({ runtime: check.runtime || '2021.10' }),
+      modulesAllowlist({ runtime: check.runtime || '2021.10' }),
       commonjs({ sourceMap: true })
     ]
+  }
+
+  if (check.lang === TS || (check.path && path.extname(check.path) === `.${TS}`)) {
+    inputOptions.plugins.unshift(typescript())
   }
 
   if (check.script) {
@@ -22,7 +28,7 @@ async function bundle (check, writeBundle = false) {
   } else if (check.path) {
     inputOptions.input = path.join(process.cwd(), check.path)
   } else {
-    throw new Error('MissingCheckScript')
+    throw new Error('Missing script or path properties in check.')
   }
 
   const outputOptions = {
