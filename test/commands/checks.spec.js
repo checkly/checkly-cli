@@ -13,7 +13,7 @@ describe('checks [cmd]', () => {
 
   test
     .nock('https://api.checklyhq.com', (api) =>
-      api.get('/v1/checks').reply(200, mockChecksListResponse, {
+      api.get('/v1/checks?limit=100&page=1').reply(200, mockChecksListResponse, {
         'content-range': `0-${mockChecksListResponse.length - 1}/${mockChecksListResponse.length}`
       })
     )
@@ -25,14 +25,14 @@ describe('checks [cmd]', () => {
           name: 'API Check',
           checkType: 'API',
           frequency: 10,
-          locations: [],
+          locations: '',
           activated: true
         },
         {
           name: 'Runtime Ver',
           checkType: 'BROWSER',
           frequency: 10,
-          locations: [],
+          locations: '',
           activated: false
         }
       ])

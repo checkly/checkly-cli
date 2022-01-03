@@ -2,6 +2,7 @@
 const { test, expect } = require('@oclif/test')
 const testConfig = require('../helpers/config')
 const { mockInfoResponse, mockListResponse } = require('../fixtures/groups')
+const { getLocationsOutput } = require('../../src/services/utils')
 
 describe('groups [cmd]', () => {
   before(() => {
@@ -15,6 +16,9 @@ describe('groups [cmd]', () => {
     .stdout()
     .command(['groups', '--output', 'json'])
     .it('prints groups list', (output) => {
+      mockListResponse.forEach((group) => {
+        group.locations = getLocationsOutput(group.locations)
+      })
       expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(
         mockListResponse
       )
