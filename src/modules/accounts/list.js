@@ -7,7 +7,7 @@ const { accounts } = require('./../../services/api')
 
 async function listAccounts ({ output } = {}) {
   try {
-    const { data } = await accounts.find()
+    const { data } = await accounts.getAll()
 
     if (output === 'human') {
       data.map((account) => {

@@ -13,7 +13,7 @@ const {
   generatePKCE,
   startServer,
   getApiKey
-} = require('./../services/login-util')
+} = require('./../../sdk/auth')
 
 const config = require('./../services/config')
 const api = require('./../services/api')
@@ -102,7 +102,7 @@ class LoginCommand extends Command {
 
       config.auth.set('apiKey', key)
 
-      const { data } = await accounts.find({ spinner: false })
+      const { data } = await accounts.getAll({ spinner: false })
 
       let selectedAccount = data[0]
 

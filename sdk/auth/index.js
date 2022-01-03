@@ -4,7 +4,6 @@ const axios = require('axios')
 const crypto = require('crypto')
 const consola = require('consola')
 
-// TODO: Move this to ./sdk
 const AUTH0_DOMAIN = 'checkly'
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 
@@ -117,7 +116,9 @@ async function getAccessToken (code, codeVerifier) {
   return tokenResponse.data
 }
 
+// TODO: Move this to API SDK
 async function getApiKey ({ accessToken, baseHost }) {
+  console.log(accessToken)
   try {
     const { data } = await axios.post(
       `${baseHost}/users/me/api-keys?name=${
