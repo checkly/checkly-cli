@@ -114,12 +114,10 @@ function parseAlertsFile (filePath, prefix = '') {
 }
 
 function parseAlertChannelsDirectory () {
-  try {
-    return parseResourceDirectoy({
-      resourceType: ALERT_CHANNEL.directory,
-      fileResolver: parseAlertsFile
-    })
-  } catch (err) {}
+  return parseResourceDirectoy({
+    resourceType: ALERT_CHANNEL.directory,
+    fileResolver: parseAlertsFile
+  })
 }
 
 module.exports = {

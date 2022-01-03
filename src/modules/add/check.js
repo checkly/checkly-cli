@@ -8,31 +8,11 @@ const { locations: locationsApi } = require('../../services/api')
 const apiTemplates = require('../../templates/api')
 const browserTemplates = require('../../templates/browser')
 
-const parser = require('../../parser')
-const NONE = '(none)'
-
 async function check (checklyDir) {
   const { data } = await locationsApi.getAll()
   const regions = data.map(({ region }) => region)
 
   consola.info('Creating new check file')
-
-  const { groups } = await parser()
-  let selectedGroup
-
-  if (Object.keys(groups).length) {
-    const { group } = await prompt([
-      {
-        name: 'group',
-        type: 'list',
-        message: 'In which group do you want to create the check?',
-        choices: [NONE, ...Object.keys(groups)],
-        default: [NONE]
-      }
-    ])
-
-    selectedGroup = group === NONE ? null : group
-  }
 
   const { name, type, url, locations } = await prompt([
     {
@@ -98,8 +78,7 @@ async function check (checklyDir) {
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  const checkPath = selectedGroup ? `checks/${selectedGroup}` : 'checks'
-  let filePath = path.join(checklyDir, checkPath, key + '.yml')
+  let filePath = path.join(checklyDir, 'checks', key + '.yml')
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
