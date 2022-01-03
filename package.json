@@ -62,7 +62,7 @@
     "@oclif/config": "1.18.2",
     "@oclif/dev-cli": "1.26.6",
     "@oclif/plugin-help": "3.2.10",
-    "@oclif/test": "1.2.8",
+    "@oclif/test": "2.0.3",
     "@rollup/plugin-commonjs": "21.0.1",
     "@rollup/plugin-virtual": "2.0.3",
     "axios": "0.21.2",
