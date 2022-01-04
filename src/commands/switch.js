@@ -26,7 +26,7 @@ class SwitchCommand extends Command {
       this.exit(0)
     }
 
-    const { data: accounts } = await api.accounts.find()
+    const { data: accounts } = await api.accounts.getAll()
 
     if (accounts.length === 1) {
       consola.warn(
@@ -45,7 +45,7 @@ class SwitchCommand extends Command {
       }
     ])
 
-    const { id, name } = accounts.find(
+    const { id, name } = accounts.getAll(
       (account) => account.name === selectedAccountName
     )
 
