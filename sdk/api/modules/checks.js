@@ -8,11 +8,8 @@ const checks = ({ api, apiVersion = 'v1' }) => {
     return api.get(`/${apiVersion}/${PATH}/${id}`)
   }
 
-  async function getAll ({ limit, page } = {}) {
-    const { data, headers } = await api.get(`/${apiVersion}/${PATH}`, {
-      limit,
-      page
-    })
+  async function getAll ({ limit = 100, page = 1 } = {}) {
+    const { data, headers } = await api.get(`/${apiVersion}/${PATH}?limit=${limit}&page=${page}`)
     const result = PAGINATION_REGEX.exec(headers[CONTENT_RANGE_HEADER])
     const endIndex = parseInt(result[2])
     const total = parseInt(result[3])

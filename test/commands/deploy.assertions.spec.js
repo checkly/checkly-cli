@@ -86,7 +86,6 @@ describe('e2e test that assertions get persisted', () => {
     })
 
     const { data } = await checks.getAll()
-
     return data.find((x) => x.name === check.name)
   }
 
