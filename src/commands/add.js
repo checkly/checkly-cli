@@ -1,8 +1,9 @@
 const consola = require('consola')
 const { Command } = require('@oclif/command')
-const add = require('../modules/add')
 
+const add = require('../modules/add')
 const { findChecklyDir } = require('../services/utils')
+const { RESOURCES } = require('../services/constants')
 
 class AddCommand extends Command {
   static args = [
@@ -10,8 +11,8 @@ class AddCommand extends Command {
       name: 'resource',
       required: true,
       description: 'What do you want to create?',
-      default: 'check',
-      options: ['check', 'group']
+      options: [RESOURCES.CHECK, RESOURCES.GROUP],
+      default: RESOURCES.CHECK
     }
   ]
 
@@ -21,9 +22,9 @@ class AddCommand extends Command {
 
       const checklyDir = findChecklyDir()
       switch (args.resource) {
-        case 'group':
+        case RESOURCES.GROUP:
           return add.group(checklyDir)
-        case 'check':
+        case RESOURCES.CHECK:
           return add.check(checklyDir)
       }
     } catch (e) {
@@ -33,6 +34,6 @@ class AddCommand extends Command {
   }
 }
 
-AddCommand.description = 'Add a new group or check file'
+AddCommand.description = 'Add a new checkly resource'
 
 module.exports = AddCommand

@@ -5,12 +5,13 @@ const { print } = require('../../services/utils')
 async function listChecks ({ output } = {}) {
   try {
     const allChecks = {}
-    let page = 0
+    let page = 1
     while (true) {
-      const { data, hasMore } = await checks.getAll({ page: page++ })
+      const { data, hasMore } = await checks.getAll({ limit: 100, page: page++ })
       data.forEach(check => {
         allChecks[check.id] = check
       })
+
       if (!hasMore) {
         break
       }
@@ -21,8 +22,8 @@ async function listChecks ({ output } = {}) {
         name,
         checkType,
         frequency,
-        locations,
-        activated
+        activated,
+        locations
       })
     )
 

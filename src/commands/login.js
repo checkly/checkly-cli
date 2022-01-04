@@ -1,9 +1,8 @@
-const chalk = require('chalk')
 const open = require('open')
-
-const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
+const chalk = require('chalk')
 const consola = require('consola')
 const { prompt } = require('inquirer')
+const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
 const { Command, flags } = require('@oclif/command')
 
 const { accounts } = require('./../services/api')

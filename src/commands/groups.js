@@ -1,30 +1,18 @@
 const { Command } = require('@oclif/command')
+
 const groups = require('../modules/groups')
 const { output } = require('../services/flags')
+const { action, id } = require('../services/args')
+const { ACTIONS } = require('../services/constants')
 
 class GroupsCommand extends Command {
-  static args = [
-    {
-      name: 'action',
-      required: true,
-      description: 'Specify the type of group action to run',
-      default: 'list',
-      options: ['list', 'info']
-    },
-    {
-      name: 'id',
-      required: false,
-      description: 'Specify the groupId'
-    }
-  ]
+  static args = [action, id]
 
   async run () {
     const { args, flags } = this.parse(GroupsCommand)
 
     switch (args.action) {
-      case 'run':
-        return groups.run(args.id, { ...flags })
-      case 'info':
+      case ACTIONS.INFO:
         return groups.info(args.id, { ...flags })
       default:
         return groups.list({ ...flags })
