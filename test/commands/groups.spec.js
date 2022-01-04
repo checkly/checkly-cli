@@ -15,8 +15,8 @@ describe('groups [cmd]', () => {
     .stdout()
     .command(['groups', '--output', 'json'])
     .it('prints groups list', (output) => {
-      expect(JSON.parse(output.stdout.replace('[log] ', '').trim())).to.eql(
-        mockListResponse
+      expect(JSON.parse(output.stdout.replace('[log] ', '')).length).to.eql(
+        mockListResponse.length
       )
     })
 
