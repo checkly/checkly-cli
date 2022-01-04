@@ -30,7 +30,7 @@ console.log(axios)
     })
 
     assert.equal(result.code, fixtureBundle.ts)
-  })
+  }).timeout(3500)
 
   it('throws error when check path is invalid', async () => {
     const path = 'does-not-exist.js'
