@@ -1,6 +1,6 @@
+const fs = require('fs')
 const Conf = require('conf')
 const YAML = require('yaml')
-const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
 

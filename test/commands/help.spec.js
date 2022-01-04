@@ -17,7 +17,7 @@ USAGE
 
 COMMANDS
   accounts  Manage accounts
-  add       Add a new group or check file
+  add       Add a new checkly resource
   checks    Manage Checks
   deploy    Deploy and sync your ./checkly directory
   groups    Manage Groups
@@ -25,7 +25,7 @@ COMMANDS
   init      Initialise a new Checkly Project
   login     Login with a Checkly API Key
   logout    Logout and clear local conf
-  projects  Manage Checks
+  projects  Manage Projects
   run       Run and test your checks on Checkly
   status    Status dashboard
   switch    Switch user account
