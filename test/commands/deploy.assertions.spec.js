@@ -101,5 +101,5 @@ describe('e2e test that assertions get persisted', () => {
 
     const deployedCheckNoAssertions = await deployCheck(checkWithoutAssertions)
     assert.strictEqual(deployedCheckNoAssertions.request.assertions.length, 0)
-  })
+  }).timeout(5000)
 })
