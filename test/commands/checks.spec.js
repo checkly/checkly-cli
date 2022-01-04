@@ -25,14 +25,14 @@ describe('checks [cmd]', () => {
           name: 'API Check',
           checkType: 'API',
           frequency: 10,
-          locations: [],
+          locations: '',
           activated: true
         },
         {
           name: 'Runtime Ver',
           checkType: 'BROWSER',
           frequency: 10,
-          locations: [],
+          locations: '',
           activated: false
         }
       ])

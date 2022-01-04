@@ -59,6 +59,15 @@ async function getRepoUrl (cwd, remote = 'origin') {
   }
 }
 
+function getLocationsOutput (locations) {
+  if (!locations) {
+    return ''
+  }
+
+  locations.sort()
+  return locations?.length > 3 ? `${locations.slice(0, 3).join(', ')} + ${locations.length - 3} more` : locations.join(', ')
+}
+
 // Loop up parent directories until you find a valid checkly directory
 // Just like Git does to find `.git`
 function findChecklyDir () {
@@ -92,5 +101,6 @@ module.exports = {
   readLocal,
   getRepoUrl,
   findChecklyDir,
-  getGlobalSettings
+  getGlobalSettings,
+  getLocationsOutput
 }
