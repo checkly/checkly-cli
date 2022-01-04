@@ -2,7 +2,7 @@ const parser = require('../../parser')
 const { readLocal, findChecklyDir } = require('../../services/utils')
 const path = require('path')
 const consola = require('consola')
-const { checks } = require('../../services/api')
+const { projects } = require('../../services/api')
 
 const runDeploy = async (dryRun) => {
   const parseResults = await parser()
@@ -16,7 +16,7 @@ const runDeploy = async (dryRun) => {
     groups: Object.keys(parseResults.groups)
   })
 
-  const { data } = await checks.deploy(
+  const { data } = await projects.deploy(
     { projectId, ...parseResults },
     { dryRun }
   )

@@ -2,8 +2,8 @@ const consola = require('consola')
 const { Command } = require('@oclif/command')
 
 const config = require('./../services/config')
-const { output } = require('./../services/flags')
 const { print } = require('./../services/utils')
+const { output } = require('./../services/flags')
 
 class WhoamiCommand extends Command {
   async run () {
@@ -30,9 +30,6 @@ class WhoamiCommand extends Command {
 }
 
 WhoamiCommand.description = 'See your logged account and user'
-
-WhoamiCommand.flags = {
-  output
-}
+WhoamiCommand.flags = { output }
 
 module.exports = WhoamiCommand

@@ -4,6 +4,7 @@ const { Command } = require('@oclif/command')
 
 const config = require('../services/config')
 const { force } = require('./../services/flags')
+const { promptConfirm } = require('./../services/prompts')
 
 class LogoutCommand extends Command {
   async run () {
@@ -11,17 +12,12 @@ class LogoutCommand extends Command {
     const { force } = flags
 
     if (!force) {
-      const { confirmLogout } = await prompt([
-        {
-          name: 'confirmLogout',
-          type: 'confirm',
-          message: `You are about to clear your local session of \`${config.data.get(
-            'accountName'
-          )}\`, do you want to continue?`
-        }
-      ])
+      const message = `You are about to clear your local session of
+        \`${config.data.get('accountName')}\`, do you want to continue?`
 
-      if (!confirmLogout) {
+      const { confirm } = await prompt([promptConfirm({ message })])
+
+      if (!confirm) {
         this.exit(0)
       }
     }

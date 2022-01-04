@@ -1,14 +1,20 @@
-const consola = require('consola')
-const { Command, flags } = require('@oclif/command')
-const search = require('cli-fuzzy-search')
-
 const chalk = require('chalk')
+const consola = require('consola')
 const { v4: uuidv4 } = require('uuid')
+const search = require('cli-fuzzy-search')
+const { Command, flags } = require('@oclif/command')
+
+const parser = require('../parser')
 const { checks, socket } = require('../services/api')
 const SocketClient = require('../services/socket-client.js')
-const parser = require('../parser')
 
 class RunCommand extends Command {
+  static args = [{
+    name: 'checkPath',
+    required: false,
+    description: 'Which check would you like to execute?'
+  }]
+
   async run () {
     try {
       const { args, flags } = this.parse(RunCommand)
@@ -134,13 +140,5 @@ RunCommand.flags = {
 }
 
 RunCommand.description = 'Run and test your checks on Checkly'
-
-RunCommand.args = [
-  {
-    name: 'checkPath',
-    required: false,
-    description: 'Which check would you like to execute?'
-  }
-]
 
 module.exports = RunCommand

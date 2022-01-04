@@ -42,7 +42,6 @@ function print (data, { output } = {}) {
 
   if (output === 'plain') {
     const tableData = Array.isArray(data) ? data : [data]
-
     console.log(table(tableData.map((fields) => Object.values(fields))))
     return
   }

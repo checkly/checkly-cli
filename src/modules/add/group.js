@@ -1,10 +1,11 @@
 const fs = require('fs')
 const path = require('path')
-const { prompt } = require('inquirer')
 const consola = require('consola')
+const { prompt } = require('inquirer')
 
-const { locations: locationsApi } = require('../../services/api')
 const groupSettingsTemplates = require('../../templates/group')
+const { promptLocations } = require('../../services/prompts')
+const { locations: locationsApi } = require('../../services/api')
 
 async function check (checklyDir) {
   const { data } = await locationsApi.getAll()
@@ -18,14 +19,8 @@ async function check (checklyDir) {
       type: 'input',
       message: 'Your group name'
     },
-    {
-      name: 'locations',
-      type: 'checkbox',
-      choices: regions,
-      validate: (locations) =>
-        locations.length > 0 ? true : 'You have to pick at least one location',
-      message: 'Select your target locations (we recommend to pick at least 2)'
-    }
+
+    promptLocations({ choices: regions })
   ])
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()

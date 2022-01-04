@@ -4,12 +4,13 @@ const consola = require('consola')
 const config = require('./../../services/config')
 const { print } = require('./../../services/utils')
 const { accounts } = require('./../../services/api')
+const { OUTPUTS } = require('../../services/constants')
 
 async function listAccounts ({ output } = {}) {
   try {
-    const { data } = await accounts.find()
+    const { data } = await accounts.getAll()
 
-    if (output === 'human') {
+    if (output === OUTPUTS.HUMAN) {
       data.map((account) => {
         if (account.id === config.getAccountId()) {
           account.id = chalk.blue.bold('✔ ' + account.id)

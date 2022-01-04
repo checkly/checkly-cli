@@ -2,7 +2,7 @@ const ora = require('ora')
 const axios = require('axios')
 const consola = require('consola')
 
-const sdk = require('../../sdk')
+const { api } = require('../../sdk')
 const config = require('./config')
 
 const spinner = ora({
@@ -78,5 +78,5 @@ function init () {
 
 module.exports = {
   getDefaults,
-  ...sdk.init({ api: init() })
+  ...api.init({ api: init() })
 }

@@ -1,9 +1,8 @@
-const chalk = require('chalk')
 const open = require('open')
-
-const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
+const chalk = require('chalk')
 const consola = require('consola')
 const { prompt } = require('inquirer')
+const jwt_decode = require('jwt-decode') // eslint-disable-line camelcase
 const { Command, flags } = require('@oclif/command')
 
 const { accounts } = require('./../services/api')
@@ -13,7 +12,7 @@ const {
   generatePKCE,
   startServer,
   getApiKey
-} = require('./../services/login-util')
+} = require('./../../sdk/auth')
 
 const config = require('./../services/config')
 const api = require('./../services/api')
@@ -102,7 +101,7 @@ class LoginCommand extends Command {
 
       config.auth.set('apiKey', key)
 
-      const { data } = await accounts.find({ spinner: false })
+      const { data } = await accounts.getAll({ spinner: false })
 
       let selectedAccount = data[0]
 
