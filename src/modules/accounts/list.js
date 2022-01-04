@@ -8,7 +8,7 @@ const { OUTPUTS } = require('../../services/constants')
 
 async function listAccounts ({ output } = {}) {
   try {
-    const { data } = await accounts.find()
+    const { data } = await accounts.getAll()
 
     if (output === OUTPUTS.HUMAN) {
       data.map((account) => {
