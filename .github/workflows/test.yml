@@ -29,6 +29,7 @@ jobs:
         run: node_modules/.bin/mocha --grep 'e2e.*' -i --exit
       - name: Login
         run: checkly-cli login --api-key ${{ secrets.USER_API_KEY_TEST }} --account-id ${{ secrets.USER_ACCOUNT_TEST }}
+        run: checkly-cli login --api-key ${{ secrets.CHECKLY_API_KEY }} --account-id ${{ secrets.CHECKLY_ACCOUNT_ID }}
       - name: Project init
         run: checkly-cli init test-project-1 --force
       - name: Initial deploy
