@@ -5,7 +5,7 @@ const search = require('cli-fuzzy-search')
 const { Command, flags } = require('@oclif/command')
 
 const parser = require('../parser')
-const { checks, socket } = require('../services/api')
+const { checks, sockets } = require('../services/api')
 const SocketClient = require('../services/socket-client.js')
 
 class RunCommand extends Command {
@@ -20,7 +20,7 @@ class RunCommand extends Command {
       const { args, flags } = this.parse(RunCommand)
 
       // Setup Websocket IoT Core Connection
-      const presignedIotUrl = await socket.getSignedUrl()
+      const presignedIotUrl = await sockets.getSignedUrl()
       consola.debug(` IoT Signed Url: ${presignedIotUrl.data.url}\n`)
 
       // Connect to our IoT Core Signed URL
