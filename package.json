@@ -77,7 +77,7 @@
     "date-fns": "2.28.0",
     "git-remote-origin-url": "3.1.0",
     "inquirer": "8.2.0",
-    "joi": "17.4.2",
+    "joi": "17.5.0",
     "jwt-decode": "3.1.2",
     "lodash.isequal": "4.5.0",
     "mqtt": "4.3.2",
@@ -85,7 +85,7 @@
     "ora": "5.4.1",
     "rollup": "2.62.0",
     "text-table": "0.2.0",
-    "update-notifier": "5.0.1",
+    "update-notifier": "5.1.0",
     "uuid": "8.3.2",
     "yaml": "1.10.0"
   },
