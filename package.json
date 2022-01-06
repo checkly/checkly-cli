@@ -93,7 +93,7 @@
     "@babel/eslint-parser": "7.16.5",
     "@checkly/eslint-config": "0.8.6",
     "@commitlint/cli": "15.0.0",
-    "@commitlint/config-conventional": "12.1.4",
+    "@commitlint/config-conventional": "16.0.0",
     "chai": "4.3.4",
     "dotenv": "10.0.0",
     "eslint": "8.4.1",
