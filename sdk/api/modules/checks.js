@@ -18,7 +18,8 @@ const checks = ({ api, apiVersion = 'v1' }) => {
   }
 
   function run (check) {
-    return api.post(`/next/${PATH}/browser-check-runs`, check)
+    const type = check.checkType.toLowerCase()
+    return api.post(`/next/${PATH}/run/${type}`, check)
   }
 
   function create ({ script, name, checkType = 'BROWSER', activated = true } = {}) {
