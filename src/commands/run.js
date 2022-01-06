@@ -6,6 +6,7 @@ const parser = require('../parser')
 const run = require('../modules/run')
 const { output } = require('./../services/flags')
 const { promptCheck } = require('../services/prompts')
+const { CHECK_TYPES } = require('../services/constants')
 
 class RunCommand extends Command {
   static args = [{
@@ -30,7 +31,7 @@ class RunCommand extends Command {
       consola.error(`Check not found, invalid check path ${checkPath}.`)
     }
 
-    check.checkType === 'BROWSER'
+    check.checkType === CHECK_TYPES.BROWSER
       ? run.browserCheck({ check, location: flags.location })
       : run.apiCheck({ check, location: flags.location })
   }
