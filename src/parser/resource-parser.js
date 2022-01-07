@@ -47,13 +47,6 @@ async function parseCheck (check, { alertChannels }) {
   }
 
   let parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
-  const parsedCheckSchema = checkSchema.validate(parsedCheck)
-
-  if (parsedCheckSchema.error) {
-    throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
-  }
-
-  parsedCheck = parsedCheckSchema.value
 
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
@@ -70,6 +63,13 @@ async function parseCheck (check, { alertChannels }) {
     parsedCheck.script = output.code
     parsedCheck.map = output.map
   }
+
+  const parsedCheckSchema = checkSchema.validate(parsedCheck)
+  if (parsedCheckSchema.error) {
+    throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
+  }
+
+  parsedCheck = parsedCheckSchema.value
 
   parsedCheck.logicalId = check.name
   parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
