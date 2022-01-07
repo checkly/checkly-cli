@@ -32,30 +32,30 @@ jobs:
       - name: Project init
         run: checkly-cli init test-project-1 --force
       - name: Initial deploy
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Change check name
         run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
       - name: Deploy updated check
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Delete example api check
         run: rm .checkly/checks/example-api.yml
       - name: Deploy updated check
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Create test group files
         run: |
           mkdir -p .checkly/checks/group-1
           cp test/fixtures/yml/group-valid.yml .checkly/checks/group-1/settings.yml
           cp test/fixtures/yml/api-check-valid.yml .checkly/checks/group-1/api-check.yml
       - name: Create group
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Change group name
         run: sed -i 's/Group 1/New Group 1/' .checkly/checks/group-1/settings.yml
       - name: Update group
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Remove group directory
         run: rm -r .checkly/checks/group-1
       - name: Delete group
-        run: checkly-cli deploy
+        run: checkly-cli deploy -f
       - name: Delete created project
         run: checkly-cli projects delete
       - name: Slack Failure Notification

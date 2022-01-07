@@ -3,7 +3,7 @@ const Joi = require('joi')
 const {
   alertChannelSubscriptionListSchema,
   alertSettingsSchema
-} = require('./alerts')
+} = require('./alert')
 
 const {
   keyValueSchema,

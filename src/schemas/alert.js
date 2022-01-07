@@ -1,8 +1,29 @@
 const Joi = require('joi')
+const { ALERT_CHANNEL_TYPES } = require('../services/constants')
 const { escalationTypes } = require('./common')
+
+const alertChannelSchema = Joi.object()
+  .keys({
+    type: Joi.string().valid(...Object.keys(ALERT_CHANNEL_TYPES)),
+    config: Joi.object()
+      .keys()
+      .required(),
+
+    sendRecovery: Joi.boolean().optional(),
+    sendFailure: Joi.boolean().optional(),
+    sendDegraded: Joi.boolean().optional(),
+    sslExpiry: Joi.boolean().default(false),
+    sslExpiryThreshold: Joi.number()
+      .integer()
+      .min(1)
+      .max(30)
+      .default(30)
+
+  })
 
 const alertSettingsSchema = Joi.object()
   .keys({
+
     escalationType: Joi.string()
       .valid(...Object.values(escalationTypes))
       .default(escalationTypes.RUN_BASED)
@@ -77,6 +98,7 @@ const alertChannelSubscriptionListSchema = Joi.array()
   .description('List of alert channel subscriptions')
 
 module.exports = {
+  alertChannelSchema,
   alertSettingsSchema,
   alertChannelSubscriptionSchema,
   alertChannelSubscriptionListSchema
