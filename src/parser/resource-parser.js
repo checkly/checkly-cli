@@ -137,7 +137,7 @@ function parseAlertChannel (alert) {
   let parsedAlert = YAML.parse(fs.readFileSync(alert.filePath, 'utf8'))
   const parsedAlertSchema = alertChannelSchema.validate(parsedAlert)
   if (parsedAlertSchema.error) {
-    throw new Error(`${parsedAlertSchema.error} at alert channels: ${alert.filePath}`)
+    throw new Error(`${parsedAlertSchema.error} at alert channel: ${alert.filePath}`)
   }
 
   parsedAlert = parsedAlertSchema.value
