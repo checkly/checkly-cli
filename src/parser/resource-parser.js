@@ -10,6 +10,7 @@ const { getGlobalSettings } = require('../services/utils')
 const { checkSchema } = require('../schemas/check')
 const { groupSchema } = require('../schemas/group')
 const { projectSchema } = require('../schemas/project')
+const { alertChannelSchema } = require('../schemas/alert')
 
 function parseCheckAlertChannelSubscriptions (resource, alertChannels) {
   if (!resource.alertChannelSubscriptions) {
@@ -47,13 +48,6 @@ async function parseCheck (check, { alertChannels }) {
   }
 
   let parsedCheck = YAML.parse(fs.readFileSync(check.filePath, 'utf8'))
-  const parsedCheckSchema = checkSchema.validate(parsedCheck)
-
-  if (parsedCheckSchema.error) {
-    throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
-  }
-
-  parsedCheck = parsedCheckSchema.value
 
   if (!parsedCheck) {
     consola.warn(`Skipping file ${check.filePath}: FileEmpty`)
@@ -70,6 +64,13 @@ async function parseCheck (check, { alertChannels }) {
     parsedCheck.script = output.code
     parsedCheck.map = output.map
   }
+
+  const parsedCheckSchema = checkSchema.validate(parsedCheck)
+  if (parsedCheckSchema.error) {
+    throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
+  }
+
+  parsedCheck = parsedCheckSchema.value
 
   parsedCheck.logicalId = check.name
   parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
@@ -134,17 +135,12 @@ function parseAlertChannel (alert) {
   }
 
   let parsedAlert = YAML.parse(fs.readFileSync(alert.filePath, 'utf8'))
-
-  // TODO: validate alert channel with schema
-  // const parsedAlertSchema = alertSchema.validate(parsedAlert)
-  const parsedAlertSchema = parsedAlert
-
+  const parsedAlertSchema = alertChannelSchema.validate(parsedAlert)
   if (parsedAlertSchema.error) {
-    throw new Error(`${parsedAlertSchema.error} at check: ${alert.filePath}`)
+    throw new Error(`${parsedAlertSchema.error} at alert channel: ${alert.filePath}`)
   }
 
-  // parsedAlert = parsedAlertSchema.value
-  parsedAlert = parsedAlertSchema
+  parsedAlert = parsedAlertSchema.value
 
   if (!parsedAlert) {
     consola.warn(`Skipping file ${path.filePath}: FileEmpty`)
@@ -163,6 +159,7 @@ function parseAlertChannelsTree (tree) {
       const parsedAlert = parseAlertChannel(tree[i])
       parsedAlert &&
         (parsedTree.alertChannels[parsedAlert.logicalId] = parsedAlert)
+      delete parsedTree.alertChannels[parsedAlert.logicalId].logicalId
     }
   }
 
@@ -176,18 +173,16 @@ function parseAlertChannelSubscriptions (
 ) {
   const alertChannelSubscriptions = {}
 
-  if (resource.alertChannelSubscriptions) {
-    resource.alertChannelSubscriptions.forEach((subscription) => {
-      const { name, activated } = subscription
-      const logicalId = `${resourceLogicalId}/${name}`
+  resource.alertChannelSubscriptions.forEach((subscription) => {
+    const { name, activated } = subscription
+    const logicalId = `${resourceLogicalId}/${name}`
 
-      alertChannelSubscriptions[logicalId] = {
-        alertChannelId: { ref: name },
-        [type === 'check' ? 'checkId' : 'groupId']: { ref: resourceLogicalId },
-        activated
-      }
-    })
-  }
+    alertChannelSubscriptions[logicalId] = {
+      alertChannelId: { ref: name },
+      [type === 'check' ? 'checkId' : 'groupId']: { ref: resourceLogicalId },
+      activated
+    }
+  })
 
   return alertChannelSubscriptions
 }
@@ -196,11 +191,15 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
   let parsedTree = {}
 
   Object.keys(tree).forEach((key) => {
-    parsedTree = {
-      ...parsedTree.alertChannelSubscriptions,
-      ...parseAlertChannelSubscriptions(tree[key], key, type)
+    if (tree[key].alertChannelSubscriptions?.length) {
+      parsedTree = {
+        ...parsedTree.alertChannelSubscriptions,
+        ...parseAlertChannelSubscriptions(tree[key], key, type)
+      }
     }
   })
+
+  // console.log(parsedTree)
 
   return parsedTree
 }
