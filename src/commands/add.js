@@ -11,7 +11,7 @@ class AddCommand extends Command {
       name: 'resource',
       required: true,
       description: 'What do you want to create?',
-      options: [RESOURCES.CHECK, RESOURCES.GROUP],
+      options: [RESOURCES.CHECK, RESOURCES.GROUP, RESOURCES.ALERT_CHANNEL],
       default: RESOURCES.CHECK
     }
   ]
@@ -26,6 +26,8 @@ class AddCommand extends Command {
           return add.group(checklyDir)
         case RESOURCES.CHECK:
           return add.check(checklyDir)
+        case RESOURCES.ALERT_CHANNEL:
+          return add.alertChannel(checklyDir)
       }
     } catch (e) {
       consola.error('Checkly directory error -', e)
