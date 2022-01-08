@@ -2,6 +2,7 @@ const checks = require('./modules/checks')
 const groups = require('./modules/groups')
 const sockets = require('./modules/sockets')
 const accounts = require('./modules/accounts')
+const runtimes = require('./modules/runtimes')
 const projects = require('./modules/projects')
 const locations = require('./modules/locations')
 const checkStatuses = require('./modules/check-statuses')
@@ -12,6 +13,7 @@ function init ({ api, apiVersion = 'v1' }) {
     groups: groups({ api, apiVersion }),
     locations: locations({ api, apiVersion }),
     checkStatuses: checkStatuses({ api, apiVersion }),
+    runtimes: runtimes({ api, apiVersion }),
 
     accounts: accounts({ api, apiVersion: 'next' }),
     projects: projects({ api, apiVersion: 'next' }),
