@@ -3,7 +3,7 @@ const path = require('path')
 const consola = require('consola')
 const { prompt } = require('inquirer')
 
-const alertChannelTemplates = require('../../templates/alert')
+const alertChannelTemplates = require('../../templates/alert-channel')
 const { ALERT_CHANNEL_TYPES } = require('../../services/constants')
 
 async function alertChannel (checklyDir) {
