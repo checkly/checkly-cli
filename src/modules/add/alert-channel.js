@@ -22,18 +22,18 @@ async function alertChannel (checklyDir) {
     }
   ])
 
-  const alertChannelsPath = path.join(checklyDir, 'alert-channels')
-  if (!fs.existsSync(alertChannelsPath)) {
-    fs.mkdirSync(alertChannelsPath)
+  const alertChannelsDirPath = path.join(checklyDir, 'alert-channels')
+  if (!fs.existsSync(alertChannelsDirPath)) {
+    fs.mkdirSync(alertChannelsDirPath)
   }
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  let filePath = path.join(checklyDir, 'alert-channels', key + '.yml')
+  let filePath = path.join(alertChannelsDirPath, key + '.yml')
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
     tryIndex += 1
-    filePath = path.join(checklyDir, 'alert-channels', key + tryIndex + '.yml')
+    filePath = path.join(alertChannelsDirPath, key + tryIndex + '.yml')
   }
 
   fs.writeFileSync(
