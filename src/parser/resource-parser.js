@@ -30,18 +30,7 @@ function parseCheckAlertChannelSubscriptions (resource, alertChannels) {
   return resource.alertChannelSubscriptions
 }
 
-async function parseCheck (check, { alertChannels }) {
-  const project = YAML.parse(getGlobalSettings())
-  const parsedProjectSchema = projectSchema.validate(project)
-
-  if (parsedProjectSchema.error) {
-    throw new Error(`${parsedProjectSchema.error} at global settings.yml`)
-  }
-
-  // Remove project properties which are not check/group settings
-  delete project.projectName
-  delete project.projectId
-
+async function parseCheck (check, { project, alertChannels }) {
   if (check.error) {
     consola.warn(`Skipping file ${check.filePath}: ${check.error} `)
     return null
@@ -65,6 +54,9 @@ async function parseCheck (check, { alertChannels }) {
     parsedCheck.map = output.map
   }
 
+  // Merge project default check settings with check settings
+  parsedCheck = { ...project.defaultCheckSettings, ...parsedCheck }
+
   const parsedCheckSchema = checkSchema.validate(parsedCheck)
   if (parsedCheckSchema.error) {
     throw new Error(`${parsedCheckSchema.error} at check: ${check.filePath}`)
@@ -73,7 +65,6 @@ async function parseCheck (check, { alertChannels }) {
   parsedCheck = parsedCheckSchema.value
 
   parsedCheck.logicalId = check.name
-  parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
 
   return parsedCheck
 }
@@ -94,20 +85,24 @@ async function parseChecksTree (tree, resources, parent = null) {
       continue
     }
 
-    let group = {}
-    if (fs.existsSync(tree[i].settings)) {
-      group = YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) || {}
+    // Get group settings and merge project default check settings with group settings
+    let group = fs.existsSync(tree[i].settings) ? YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) : {}
+    group = {
+      name: tree[i].name,
+      ...resources.project.defaultCheckSettings,
+      ...group
+    }
+    console.log('ACA', group)
 
-      if (Object.keys(group).length) {
-        const parsedGroupSchema = groupSchema.validate(group)
-        if (parsedGroupSchema.error) {
-          throw new Error(
+    if (Object.keys(group).length) {
+      const parsedGroupSchema = groupSchema.validate(group)
+      if (parsedGroupSchema.error) {
+        throw new Error(
             `${parsedGroupSchema.error} at group: ${tree[i].settings}`
-          )
-        }
-
-        group = parsedGroupSchema.value
+        )
       }
+
+      group = parsedGroupSchema.value
     }
 
     parsedTree.groups[tree[i].name] = {
@@ -199,12 +194,22 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
     }
   })
 
-  // console.log(parsedTree)
-
   return parsedTree
 }
 
+function parseProject () {
+  const project = YAML.parse(getGlobalSettings())
+  const parsedProjectSchema = projectSchema.validate(project)
+
+  if (parsedProjectSchema.error) {
+    throw new Error(`${parsedProjectSchema.error} at global settings.yml`)
+  }
+
+  return parsedProjectSchema.value
+}
+
 module.exports = {
+  parseProject,
   parseChecksTree,
   parseAlertChannelsTree,
   parseAlertChannelSubscriptionsTree
