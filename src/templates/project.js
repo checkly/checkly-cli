@@ -6,6 +6,6 @@ projectName: ${projectName}
 defaultCheckSettings:
   runtimeId: ${runtimeId}
   locations:
-    - ${locations.join('\n  - ')}
+    - ${locations.join('\n    - ')}
 `
 }

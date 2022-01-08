@@ -11,7 +11,7 @@ module.exports = {
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
     statusCode = DEFAULT_STATUS_CODE,
-    frequencyOffset = 0
+    frequencyOffset = 1
   } = {}) => {
     return `checkType: API
 name: ${name}
@@ -36,7 +36,7 @@ locations:
     locations = DEFAULT_LOCATIONS,
     frequency = DEFAULT_FREQUENCY,
     statusCode = DEFAULT_STATUS_CODE,
-    frequencyOffset = 0
+    frequencyOffset = 1
   } = {}) => {
     return `checkType: API
 name: ${name}

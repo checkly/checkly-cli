@@ -3,7 +3,7 @@ const assert = require('assert')
 
 const fixtureBundle = require('../fixtures/scripts/bundles')
 
-describe('bundler', () => {
+describe('bundle [bundler]', () => {
   it('bundles ES modules from check inline JS script', async () => {
     const [result] = await bundle({
       script: `import axios from 'axios'
