@@ -69,6 +69,24 @@ async function parseCheck (check, { project, alertChannels }) {
   return parsedCheck
 }
 
+function parseGroup (group, { project }) {
+  const settings = fs.existsSync(group.settings) ? YAML.parse(fs.readFileSync(group.settings, 'utf8')) : {}
+  const parsedGroup = {
+    name: group.name,
+    ...project.defaultCheckSettings,
+    ...settings
+  }
+
+  const parsedGroupSchema = groupSchema.validate(parsedGroup)
+  if (parsedGroupSchema.error) {
+    throw new Error(
+          `${parsedGroupSchema.error} at group: ${group.settings}`
+    )
+  }
+
+  return parsedGroupSchema.value
+}
+
 async function parseChecksTree (tree, resources, parent = null) {
   const parsedTree = parent ? { checks: {} } : { checks: {}, groups: {} }
 
@@ -85,30 +103,8 @@ async function parseChecksTree (tree, resources, parent = null) {
       continue
     }
 
-    // Get group settings and merge project default check settings with group settings
-    let group = fs.existsSync(tree[i].settings) ? YAML.parse(fs.readFileSync(tree[i].settings, 'utf8')) : {}
-    group = {
-      name: tree[i].name,
-      ...resources.project.defaultCheckSettings,
-      ...group
-    }
-    console.log('ACA', group)
-
-    if (Object.keys(group).length) {
-      const parsedGroupSchema = groupSchema.validate(group)
-      if (parsedGroupSchema.error) {
-        throw new Error(
-            `${parsedGroupSchema.error} at group: ${tree[i].settings}`
-        )
-      }
-
-      group = parsedGroupSchema.value
-    }
-
-    parsedTree.groups[tree[i].name] = {
-      name: tree[i].name,
-      ...group
-    }
+    const group = parseGroup(tree[i], resources)
+    parsedTree.groups[tree[i].name] = group
 
     const checksLeaf = await parseChecksTree(tree[i].checks, resources, group)
     for (const check of Object.values(checksLeaf.checks)) {

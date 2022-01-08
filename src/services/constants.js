@@ -15,7 +15,9 @@ const CHECK_FREQUENCIES = {
     '1440min'
   ],
   API: [
-    '0min',
+    '10sec',
+    '20sec',
+    '30sec',
     '1min',
     '5min',
     '10min',

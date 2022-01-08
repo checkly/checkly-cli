@@ -6,7 +6,8 @@ projectName: ${projectName}
 defaultCheckSettings:
   frequency: 10
   runtimeId: "2021.10"
-  locations: ${locations}
+  locations:
+    - ${locations.join('\n  - ')}
   activated: true
   muted: false
   doubleCheck: true

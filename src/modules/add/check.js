@@ -53,7 +53,21 @@ async function check (checklyDir) {
     promptLocations({ choices: regions })
   ])
 
-  const { frequency } = await prompt([
+  let statusCode
+  if (type === CHECK_TYPES.API) {
+    const { selectedStatusCode } = await prompt([
+      {
+        name: 'selectedStatusCode',
+        type: 'input',
+        message: 'Expected status code'
+      }
+    ])
+
+    statusCode = selectedStatusCode
+  }
+
+  let frequencyOffset
+  let { frequency } = await prompt([
     {
       name: 'frequency',
       type: 'list',
@@ -61,6 +75,12 @@ async function check (checklyDir) {
       message: 'Pick your check frequency'
     }
   ])
+
+  // Support high frequency cheks (only for API)
+  if (frequency.includes('sec')) {
+    frequencyOffset = frequency.replace(/[^0-9.]+/, '')
+    frequency = 0
+  }
 
   const key = name.toLowerCase().replace(/ /g, '-').trim()
   const checkPath = selectedGroup ? `checks/${selectedGroup}` : 'checks'
@@ -78,13 +98,15 @@ async function check (checklyDir) {
       ? browserTemplates.basic({
         url,
         name,
-        frequency: frequency.replace(/[^0-9.]+/, ''),
+        frequency,
         locations
       })
       : apiTemplates.basic({
         url,
         name,
-        frequency: frequency.replace(/[^0-9.]+/, ''),
+        statusCode,
+        frequencyOffset,
+        frequency,
         locations
       })
   )

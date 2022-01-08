@@ -27,6 +27,8 @@ const runDeploy = async ({ dryRun, preview, force }) => {
   )
 
   consola.log(JSON.stringify(data, null, 2))
+
+  return data
 }
 
 module.exports = runDeploy
