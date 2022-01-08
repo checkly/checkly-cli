@@ -38,9 +38,9 @@ checkWithAssertions.request.assertions = assertions
 
 const settings = {
   projectName: 'checkly_cli_assertion_test_project',
-  locations: ['us-east-1', 'eu-central-1'],
-  interval: '5min',
-  alerts: [{ type: 'email', sendOn: ['recover', 'degrade', 'fail'] }]
+  defaultCheckSettings: {
+    locations: ['us-east-1', 'eu-central-1']
+  }
 }
 const updateInMemVolume = (check) => {
   const CWD = process.cwd()
