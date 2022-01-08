@@ -14,7 +14,7 @@ const {
 const {
   alertChannelSubscriptionListSchema,
   alertSettingsSchema
-} = require('./alerts')
+} = require('./alert')
 
 const runtimes = require('./runtimes')
 
