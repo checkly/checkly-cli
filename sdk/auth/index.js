@@ -118,7 +118,6 @@ async function getAccessToken (code, codeVerifier) {
 
 // TODO: Move this to API SDK
 async function getApiKey ({ accessToken, baseHost }) {
-  console.log(accessToken)
   try {
     const { data } = await axios.post(
       `${baseHost}/users/me/api-keys?name=${

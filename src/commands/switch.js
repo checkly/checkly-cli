@@ -45,7 +45,7 @@ class SwitchCommand extends Command {
       }
     ])
 
-    const { id, name } = accounts.getAll(
+    const { id, name } = accounts.find(
       (account) => account.name === selectedAccountName
     )
 
