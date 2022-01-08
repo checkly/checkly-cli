@@ -80,7 +80,7 @@ describe('e2e test that assertions get persisted', () => {
     delete process.env.CHECKLY_API_KEY
   })
   const deployCheck = async (check) => {
-    const deploymentResults = await runDeploy(false)
+    const deploymentResults = await runDeploy({ dryRun: false, force: true })
     assert.notStrictEqual(deploymentResults, {
       diff: { checks: { 'test.yml': 'UPDATE' } }
     })
