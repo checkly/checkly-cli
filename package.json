@@ -81,7 +81,7 @@
     "lodash.isequal": "4.5.0",
     "mqtt": "4.3.2",
     "open": "8.4.0",
-    "ora": "5.4.1",
+    "ora": "6.0.1",
     "rollup": "2.62.0",
     "text-table": "0.2.0",
     "update-notifier": "5.1.0",
