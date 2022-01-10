@@ -23,8 +23,18 @@ const promptConfirm = ({ name = 'confirm', message = 'Do you want to continue?' 
   message
 })
 
+const promptCheck = ({ name = 'check', message = 'Which check would you like to run?', choices } = {}) => {
+  return {
+    name,
+    type: 'list',
+    choices,
+    message
+  }
+}
+
 module.exports = {
   promptUrl,
+  promptCheck,
   promptConfirm,
   promptLocations
 }
