@@ -18,15 +18,15 @@ function parseCheckAlertChannelSubscriptions (resource, alertChannels) {
   }
 
   resource.alertChannelSubscriptions.forEach((subscription, i) => {
-    if (!alertChannels[subscription.name]) {
+    if (!alertChannels[subscription.alertChannel]) {
       consola.warn(
-        `Skipping alert channel subscription'${subscription.name}' for check '${resource.name}' (missing alert channel file).'`
+        `Skipping alert channel subscription'${subscription.alertChannel}' for check '${resource.alertChannel}' (missing alert channel file).'`
       )
 
       resource.alertChannelSubscriptions.splice(i, 1)
     }
   })
-
+  console.log('parseCheckAlertChannelSubscriptions', resource.alertChannelSubscriptions)
   return resource.alertChannelSubscriptions
 }
 
@@ -64,6 +64,7 @@ async function parseCheck (check, { alertChannels }) {
     parsedCheck.script = output.code
     parsedCheck.map = output.map
   }
+  console.log(parsedCheck)
 
   const parsedCheckSchema = checkSchema.validate(parsedCheck)
   if (parsedCheckSchema.error) {
@@ -74,6 +75,8 @@ async function parseCheck (check, { alertChannels }) {
 
   parsedCheck.logicalId = check.name
   parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
+
+  console.log(parsedCheck)
 
   return parsedCheck
 }
@@ -174,11 +177,11 @@ function parseAlertChannelSubscriptions (
   const alertChannelSubscriptions = {}
 
   resource.alertChannelSubscriptions.forEach((subscription) => {
-    const { name, activated } = subscription
-    const logicalId = `${resourceLogicalId}/${name}`
+    const { alertChannel, activated } = subscription
+    const logicalId = `${resourceLogicalId}/${alertChannel}`
 
     alertChannelSubscriptions[logicalId] = {
-      alertChannelId: { ref: name },
+      alertChannelId: { ref: alertChannel },
       [type === 'check' ? 'checkId' : 'groupId']: { ref: resourceLogicalId },
       activated
     }
@@ -191,6 +194,7 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
   let parsedTree = {}
 
   Object.keys(tree).forEach((key) => {
+    console.log('parseAlertChannelSubscriptionsTree', tree[key].alertChannelSubscriptions)
     if (tree[key].alertChannelSubscriptions?.length) {
       parsedTree = {
         ...parsedTree.alertChannelSubscriptions,
@@ -198,8 +202,6 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
       }
     }
   })
-
-  // console.log(parsedTree)
 
   return parsedTree
 }

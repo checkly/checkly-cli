@@ -19,8 +19,7 @@ module.exports = async () => {
     }))
   }
 
-  const checkAlertChannelSubscriptions =
-    parseAlertChannelSubscriptionsTree(checks)
+  const checkAlertChannelSubscriptions = parseAlertChannelSubscriptionsTree(checks)
   const groupAlertChannelSubscriptions = parseAlertChannelSubscriptionsTree(
     groups,
     'group'

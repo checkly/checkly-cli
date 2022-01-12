@@ -87,8 +87,8 @@ const alertSettingsSchema = Joi.object()
 
 const alertChannelSubscriptionSchema = Joi.object()
   .keys({
-    name: Joi.string().required(),
-    activated: Joi.boolean().required().default(true)
+    alertChannel: Joi.string().required(),
+    activated: Joi.boolean().default(true)
   })
   .options({ stripUnknown: { objects: true, arrays: true } })
   .description('Alert channel subscription')
