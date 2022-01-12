@@ -64,7 +64,6 @@ async function parseCheck (check, { alertChannels }) {
     parsedCheck.script = output.code
     parsedCheck.map = output.map
   }
-  console.log(parsedCheck)
 
   const parsedCheckSchema = checkSchema.validate(parsedCheck)
   if (parsedCheckSchema.error) {
@@ -75,8 +74,6 @@ async function parseCheck (check, { alertChannels }) {
 
   parsedCheck.logicalId = check.name
   parsedCheck.settings = { ...project[0], ...parsedCheck.settings }
-
-  console.log(parsedCheck)
 
   return parsedCheck
 }
@@ -194,7 +191,6 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
   let parsedTree = {}
 
   Object.keys(tree).forEach((key) => {
-    console.log('parseAlertChannelSubscriptionsTree', tree[key].alertChannelSubscriptions)
     if (tree[key].alertChannelSubscriptions?.length) {
       parsedTree = {
         ...parsedTree.alertChannelSubscriptions,
