@@ -94,7 +94,7 @@
     "@commitlint/cli": "16.0.2",
     "@commitlint/config-conventional": "16.0.0",
     "chai": "4.3.4",
-    "dotenv": "10.0.0",
+    "dotenv": "14.3.2",
     "eslint": "8.6.0",
     "fancy-test": "1.4.10",
     "jest": "27.4.7",
