@@ -2,9 +2,9 @@ const fs = require('fs')
 const path = require('path')
 const consola = require('consola')
 const { prompt } = require('inquirer')
-const { promptUrl, promptLocations } = require('../../services/prompts')
 
 const { locations: locationsApi } = require('../../services/api')
+const { promptUrl, promptLocations } = require('../../services/prompts')
 const { CHECK_TYPES, CHECK_FREQUENCIES } = require('../../services/constants')
 
 const apiTemplates = require('../../templates/api')
