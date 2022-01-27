@@ -62,14 +62,20 @@ async function check (checklyDir) {
     }
   ])
 
+  const checkDir = 'checks'
+  const checksDirPath = path.join(checklyDir, checkDir)
+  if (!fs.existsSync(checksDirPath)) {
+    fs.mkdirSync(checksDirPath)
+  }
+
   const key = name.toLowerCase().replace(/ /g, '-').trim()
-  const checkPath = selectedGroup ? `checks/${selectedGroup}` : 'checks'
+  const checkPath = selectedGroup ? `${checkDir}/${selectedGroup}` : checkDir
   let filePath = path.join(checklyDir, checkPath, key + '.yml')
   let tryIndex = 0
 
   while (fs.existsSync(filePath)) {
     tryIndex += 1
-    filePath = path.join(checklyDir, 'checks', key + tryIndex + '.yml')
+    filePath = path.join(checklyDir, checkPath, key + tryIndex + '.yml')
   }
 
   fs.writeFileSync(
