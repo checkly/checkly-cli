@@ -5,6 +5,10 @@ const projects = ({ api, apiVersion = 'next' }) => {
     return api.get(`/${apiVersion}/${PATH}`)
   }
 
+  function get (id) {
+    return api.get(`/${apiVersion}/${PATH}/${id}`)
+  }
+
   function create (project) {
     return api.post(`/${apiVersion}/${PATH}`, project)
   }
@@ -22,6 +26,7 @@ const projects = ({ api, apiVersion = 'next' }) => {
 
   return {
     getAll,
+    get,
     create,
     deploy,
     delete: deleteProject
