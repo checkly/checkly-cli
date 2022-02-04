@@ -18,15 +18,15 @@ function parseCheckAlertChannelSubscriptions (resource, alertChannels) {
   }
 
   resource.alertChannelSubscriptions.forEach((subscription, i) => {
-    if (!alertChannels[subscription.name]) {
+    if (!alertChannels[subscription.alertChannel]) {
       consola.warn(
-        `Skipping alert channel subscription'${subscription.name}' for check '${resource.name}' (missing alert channel file).'`
+        `Skipping alert channel subscription'${subscription.alertChannel}' for check '${resource.alertChannel}' (missing alert channel file).'`
       )
 
       resource.alertChannelSubscriptions.splice(i, 1)
     }
   })
-
+  console.log('parseCheckAlertChannelSubscriptions', resource.alertChannelSubscriptions)
   return resource.alertChannelSubscriptions
 }
 
@@ -174,11 +174,11 @@ function parseAlertChannelSubscriptions (
   const alertChannelSubscriptions = {}
 
   resource.alertChannelSubscriptions.forEach((subscription) => {
-    const { name, activated } = subscription
-    const logicalId = `${resourceLogicalId}/${name}`
+    const { alertChannel, activated } = subscription
+    const logicalId = `${resourceLogicalId}/${alertChannel}`
 
     alertChannelSubscriptions[logicalId] = {
-      alertChannelId: { ref: name },
+      alertChannelId: { ref: alertChannel },
       [type === 'check' ? 'checkId' : 'groupId']: { ref: resourceLogicalId },
       activated
     }
@@ -198,8 +198,6 @@ function parseAlertChannelSubscriptionsTree (tree, type = 'check') {
       }
     }
   })
-
-  // console.log(parsedTree)
 
   return parsedTree
 }

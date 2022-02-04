@@ -1,7 +1,6 @@
 const Joi = require('joi')
 
 const {
-  keyValueSchema,
   requestSchema,
   checkTypes,
   validRegions,
@@ -51,49 +50,6 @@ const customFrequencyOffsetValidator = (frequencyOffset, helper) => {
 
   return frequencyOffset
 }
-
-const alertEmailSchema = Joi.object().keys({
-  address: Joi.string().required().default('')
-})
-
-const webhookSchema = Joi.object().keys({
-  name: Joi.string().optional().default(''),
-  url: Joi.string().required().default(''),
-
-  method: Joi.string()
-    .allow(null, 'GET', 'POST', 'PUT', 'HEAD', 'DELETE', 'PATCH')
-    .default('POST'),
-
-  headers: Joi.array().items(keyValueSchema).default([]),
-  queryParameters: Joi.array().items(keyValueSchema).default([])
-})
-
-const alertSlackSchema = Joi.object().keys({
-  url: Joi.string().required().default('')
-})
-
-const alertSmsSchema = Joi.object().keys({
-  number: Joi.string().required().default(''),
-  name: Joi.string().required().allow('')
-})
-
-const alertChannelsSchema = Joi.object()
-  .keys({
-    email: Joi.array().items(alertEmailSchema),
-    webhook: Joi.array().items(webhookSchema),
-    slack: Joi.array().items(alertSlackSchema),
-    sms: Joi.array().items(alertSmsSchema)
-  })
-  .options({ stripUnknown: { objects: true, arrays: true } })
-
-const alertChannelSubscription = Joi.object()
-  .keys({
-    alertChannelId: Joi.number().required(),
-    activated: Joi.boolean().required().default(true)
-  })
-  .options({ stripUnknown: { objects: true, arrays: true } })
-
-const alertChannelSubscriptionList = Joi.array().items(alertChannelSubscription)
 
 const checkTagListSchema = Joi.array()
   .items(Joi.string())
@@ -294,7 +250,5 @@ const checkSchema = Joi.object()
 
 module.exports = {
   checkSchema,
-  alertChannelsSchema,
-  alertChannelSubscriptionList,
   commonCheckSchema
 }
