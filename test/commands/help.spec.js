@@ -23,6 +23,7 @@ COMMANDS
   groups    Manage Groups
   help      display help for checkly
   init      Initialise a new Checkly Project
+  link      Link your checkly directory with an existing project
   login     Login with a Checkly API Key
   logout    Logout and clear local conf
   projects  Manage Projects

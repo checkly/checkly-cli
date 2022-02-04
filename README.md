@@ -48,7 +48,6 @@ Checkout [app.checklyhq.com](https://app.checklyhq.com) to see your checks in th
 ## Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g @checkly/cli
 $ checkly COMMAND
@@ -60,27 +59,25 @@ USAGE
   $ checkly COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 ## Commands
 
 <!-- commands -->
-
-- [`checkly accounts ACTION`](#checkly-accounts-action)
-- [`checkly add RESOURCE`](#checkly-add-resource)
-- [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
-- [`checkly deploy`](#checkly-deploy)
-- [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
-- [`checkly help [COMMAND]`](#checkly-help-command)
-- [`checkly init PROJECTNAME`](#checkly-init-projectname)
-- [`checkly login`](#checkly-login)
-- [`checkly logout`](#checkly-logout)
-- [`checkly projects [ACTION]`](#checkly-projects-action)
-- [`checkly run [CHECKNAME]`](#checkly-run-checkname)
-- [`checkly status ACTION`](#checkly-status-action)
-- [`checkly switch`](#checkly-switch)
-- [`checkly whoami`](#checkly-whoami)
+* [`checkly accounts ACTION`](#checkly-accounts-action)
+* [`checkly add RESOURCE`](#checkly-add-resource)
+* [`checkly checks ACTION [ID]`](#checkly-checks-action-id)
+* [`checkly deploy`](#checkly-deploy)
+* [`checkly groups ACTION [ID]`](#checkly-groups-action-id)
+* [`checkly help [COMMAND]`](#checkly-help-command)
+* [`checkly init PROJECTNAME`](#checkly-init-projectname)
+* [`checkly login`](#checkly-login)
+* [`checkly logout`](#checkly-logout)
+* [`checkly projects [ACTION]`](#checkly-projects-action)
+* [`checkly run [CHECKPATH]`](#checkly-run-checkpath)
+* [`checkly status ACTION`](#checkly-status-action)
+* [`checkly switch`](#checkly-switch)
+* [`checkly whoami`](#checkly-whoami)
 
 ## `checkly accounts ACTION`
 
@@ -91,7 +88,7 @@ USAGE
   $ checkly accounts ACTION
 
 ARGUMENTS
-  ACTION  (list) [default: list] Specify the type of accounts action to run
+  ACTION  (list|info) [default: list] Specify the type of action to run
 
 OPTIONS
   -o, --output=plain|human|json  [default: human] output type
@@ -101,7 +98,7 @@ _See code: [src/commands/accounts.js](https://github.com/checkly/checkly-cli/blo
 
 ## `checkly add RESOURCE`
 
-Add a new group or check file
+Add a new checkly resource
 
 ```
 USAGE
@@ -122,8 +119,8 @@ USAGE
   $ checkly checks ACTION [ID]
 
 ARGUMENTS
-  ACTION  (list|info) [default: list] Specify the type of checks action to run
-  ID      Specify the checkId
+  ACTION  (list|info) [default: list] Specify the type of action to run
+  ID      Specify the resource ID
 
 OPTIONS
   -o, --output=plain|human|json  [default: human] output type
@@ -140,8 +137,9 @@ USAGE
   $ checkly deploy
 
 OPTIONS
-  -o, --output=plain|human|json  [default: human] output type
-  -x, --dryRun                   Do not actually write any changes
+  -f, --force    force mode
+  -p, --preview  Show state preview
+  -x, --dryRun   Do not actually write any changes
 ```
 
 _See code: [src/commands/deploy.js](https://github.com/checkly/checkly-cli/blob/v0.2.4/src/commands/deploy.js)_
@@ -155,8 +153,8 @@ USAGE
   $ checkly groups ACTION [ID]
 
 ARGUMENTS
-  ACTION  (list|info) [default: list] Specify the type of group action to run
-  ID      Specify the groupId
+  ACTION  (list|info) [default: list] Specify the type of action to run
+  ID      Specify the resource ID
 
 OPTIONS
   -o, --output=plain|human|json  [default: human] output type
@@ -179,7 +177,7 @@ OPTIONS
   --all  see all commands in CLI
 ```
 
-_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.1/src/commands/help.ts)_
+_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.10/src/commands/help.ts)_
 
 ## `checkly init PROJECTNAME`
 
@@ -231,32 +229,38 @@ _See code: [src/commands/logout.js](https://github.com/checkly/checkly-cli/blob/
 
 ## `checkly projects [ACTION]`
 
-Manage Checks
+Manage Projects
 
 ```
 USAGE
   $ checkly projects [ACTION]
 
 ARGUMENTS
-  ACTION  (list|delete) Project action to execute
+  ACTION  (list|create|delete) [default: list] Project action to execute
 
 OPTIONS
-  -i, --projectId=projectId  [default: 8] project id
-  -o, --output=text|json     output type
+  -i, --projectId=projectId      [default: 40] project id
+  -n, --name=name                project name
+  -o, --output=plain|human|json  [default: human] output type
+  -r, --repoUrl=repoUrl          repo url
 ```
 
 _See code: [src/commands/projects.js](https://github.com/checkly/checkly-cli/blob/v0.2.4/src/commands/projects.js)_
 
-## `checkly run [CHECKNAME]`
+## `checkly run [CHECKPATH]`
 
 Run and test your checks on Checkly
 
 ```
 USAGE
-  $ checkly run [CHECKNAME]
+  $ checkly run [CHECKPATH]
 
 ARGUMENTS
-  CHECKNAME  Which check would you like to execute?
+  CHECKPATH  Which check would you like to execute?
+
+OPTIONS
+  -l, --location=location        [default: eu-central-1] Where should the check run at?
+  -o, --output=plain|human|json  [default: human] output type
 ```
 
 _See code: [src/commands/run.js](https://github.com/checkly/checkly-cli/blob/v0.2.4/src/commands/run.js)_
@@ -270,7 +274,7 @@ USAGE
   $ checkly status ACTION
 
 ARGUMENTS
-  ACTION  [default: info] Specify the type of checks action to run
+  ACTION  (list|info) [default: list] Specify the type of action to run
 
 OPTIONS
   -o, --output=plain|human|json  [default: human] output type
@@ -306,7 +310,6 @@ OPTIONS
 ```
 
 _See code: [src/commands/whoami.js](https://github.com/checkly/checkly-cli/blob/v0.2.4/src/commands/whoami.js)_
-
 <!-- commandsstop -->
 
 ## Troubleshooting
