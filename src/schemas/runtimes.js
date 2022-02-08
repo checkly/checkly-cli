@@ -1,6 +1,15 @@
 module.exports = {
   versions: [
     {
+      name: '2021.10',
+      default: false,
+      description: 'Main updates are Playwright 1.15.2 and Puppeteer 10.4.0',
+      dependencies:
+      {
+        aws4: '1.11.0', axios: '0.23.0', btoa: '1.2.1', chai: '4.3.4', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', expect: '27.3.1', faker: '5.5.3', 'form-data': '4.0.0', jsonwebtoken: '8.5.1', lodash: '4.17.21', mocha: '9.1.3', moment: '2.29.1', node: '14.x', playwright: '1.15.2', puppeteer: '10.4.0', request: '2.88.2', 'request-promise': '4.2.2', uuid: '8.3.2'
+      }
+    },
+    {
       name: '2021.06',
       default: false,
       description:

@@ -204,12 +204,6 @@ const commonCheckSchema = {
       'The response time in milliseconds where a check should be considered failing'
     ),
 
-  groupId: Joi.number()
-    .allow(null)
-    .optional()
-    .default(null)
-    .description('The id of the check group this check is part of'),
-
   groupOrder: Joi.number()
     .min(0)
     .allow(null)

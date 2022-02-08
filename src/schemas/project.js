@@ -14,9 +14,9 @@ const projectLocationList = Joi.array()
 const projectSchema = Joi.object({
   projectId: Joi.number().required(),
   projectName: Joi.string().required(),
-  locations: projectLocationList,
-  interval: Joi.string(),
-  alerts: Joi.array()
+  defaultCheckSettings: Joi.object({
+    locations: projectLocationList
+  }).unknown(true)
 })
 
 module.exports = { projectSchema }

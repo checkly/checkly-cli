@@ -1,9 +1,2 @@
 projectName: checkly-cli
 locations: ['us-east-1', 'eu-central-1']
-interval: 5min
-alerts:
-  - type: email
-    sendOn:
-      - recover
-      - degrade
-      - fail

@@ -1,4 +1,5 @@
 const {
+  parseProject,
   parseChecksTree,
   parseAlertChannelsTree,
   parseAlertChannelSubscriptionsTree
@@ -9,13 +10,16 @@ const {
 } = require('./file-parser')
 
 module.exports = async () => {
+  const project = parseProject()
+
   const { alertChannels } = parseAlertChannelsTree(
     parseAlertChannelsDirectory()
   )
 
   const { checks, groups } = {
     ...(await parseChecksTree(parseChecklyDirectory(), {
-      alertChannels
+      alertChannels,
+      project
     }))
   }
 

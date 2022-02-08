@@ -38,9 +38,9 @@ checkWithAssertions.request.assertions = assertions
 
 const settings = {
   projectName: 'checkly_cli_assertion_test_project',
-  locations: ['us-east-1', 'eu-central-1'],
-  interval: '5min',
-  alerts: [{ type: 'email', sendOn: ['recover', 'degrade', 'fail'] }]
+  defaultCheckSettings: {
+    locations: ['us-east-1', 'eu-central-1']
+  }
 }
 const updateInMemVolume = (check) => {
   const CWD = process.cwd()
@@ -80,7 +80,7 @@ describe('e2e test that assertions get persisted', () => {
     delete process.env.CHECKLY_API_KEY
   })
   const deployCheck = async (check) => {
-    const deploymentResults = await runDeploy(false)
+    const deploymentResults = await runDeploy({ dryRun: false, force: true })
     assert.notStrictEqual(deploymentResults, {
       diff: { checks: { 'test.yml': 'UPDATE' } }
     })
