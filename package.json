@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "@oclif/command": "1.8.16",
-    "@oclif/config": "1.18.2",
+    "@oclif/config": "1.18.3",
     "@oclif/dev-cli": "1.26.10",
     "@oclif/plugin-help": "3.2.10",
     "@oclif/test": "1.2.8",
