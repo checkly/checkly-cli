@@ -89,7 +89,7 @@
     "yaml": "1.10.2"
   },
   "devDependencies": {
-    "@babel/eslint-parser": "7.16.5",
+    "@babel/eslint-parser": "7.17.0",
     "@checkly/eslint-config": "0.8.6",
     "@commitlint/cli": "16.0.2",
     "@commitlint/config-conventional": "16.0.0",
