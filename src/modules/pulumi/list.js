@@ -2,6 +2,7 @@ const consola = require('consola')
 const { checks } = require('../../services/api')
 const { groups } = require('../../services/api')
 const { snippets } = require('../../services/api')
+const { alertChannels } = require('../../services/api')
 
 const fs = require('fs/promises')
 const path = require('path')
@@ -91,6 +92,7 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
   localSetupScript: ${JSON5.stringify(check.localSetupScript)},
   localTearDownScript: ${JSON5.stringify(check.localTearDownScript)},
   ${snippetImport}
+  ${extractAlertSubscriberCode(check.alertChannelSubscriptions)}
   })
   `
   return checkCode
@@ -99,11 +101,26 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
 let groupCounter = 0
 const groupMap = {}
 
+function extractAlertSubscriberCode (alertChannelSubscriptions) {
+  let alertChannelSubscriptionsCode = 'alertChannelSubscriptions: ['
+  for (const sub of alertChannelSubscriptions) {
+    alertChannelSubscriptionsCode += `
+    {
+      activated: ${sub.activated},
+      channelId: ${alertChannelMap[sub.alertChannelId]}.id.apply(id => parseInt(id))
+    },
+    `
+  }
+  alertChannelSubscriptionsCode += '],'
+  return alertChannelSubscriptionsCode
+}
+
 function pulumifyGroup (group) {
   console.log(group)
   const groupName = `group${groupCounter++}-${snakecase(group.name)}`
   const groupVariableName = groupName.replace(/-/g, '_')
   groupMap[group.id] = groupVariableName
+
   const groupCode = `
 const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   name: "${group.name}",
@@ -122,7 +139,7 @@ const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   alertSettings: ${JSON5.stringify(transformAlertSettings(group.alertSettings), null, 2)},
   degradedResponseTime: ${group.degradedResponseTime},
   maxResponseTime: ${group.maxResponseTime},
-
+  ${extractAlertSubscriberCode(group.alertChannelSubscriptions)}
   })
   `
   return groupCode
@@ -171,6 +188,7 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
   degradedResponseTime: ${check.degradedResponseTime},
   maxResponseTime: ${check.maxResponseTime},
   ${groupId}
+  ${extractAlertSubscriberCode(check.alertChannelSubscriptions)}
   })
   `
   return checkCode
@@ -203,12 +221,39 @@ const ${snippetVarName} = new checkly.Snippet('${snippetName}', {
   return snippetImportCode + snippetCode
 }
 
+let alertChannelCounter = 0
+const alertChannelMap = {}
+
+function pulumifyAlertChannel (channel) {
+  const channelName = `alert-channel-${alertChannelCounter++}-${snakecase(channel.type)}`
+  const channelVariableName = channelName.replace(/-/g, '_')
+  alertChannelMap[channel.id] = channelVariableName
+  const channelCode = `
+const ${channelVariableName} = new checkly.AlertChannel('${channelName}', {
+  ${channel.type.toLowerCase()}: ${JSON5.stringify(channel.config, null, 2)},
+  sendRecovery: ${channel.sendRecovery},
+  sendFailure:  ${channel.sendFailure},
+  sendDegraded: ${channel.sendDegraded},
+  sslExpiry: ${channel.sslExpiry},
+  sslExpiryThreshold: ${channel.sslExpiryThreshold}
+  })
+  `
+  return channelCode
+}
+
 async function listChecks ({ output } = {}) {
   try {
+    const allChannels = (await alertChannels.getAll()).data
+
     const allGroups = (await groups.getAll()).data
 
+    let channelCode = ''
+    for (const channel of allChannels) {
+      channelCode += pulumifyAlertChannel(channel)
+    }
+
     let groupCode = ''
-    console.log(allGroups[0])
+
     for (const group of allGroups) {
       groupCode += pulumifyGroup(group)
     }
@@ -246,6 +291,7 @@ async function listChecks ({ output } = {}) {
     const content = `
 const fs = require('fs')
 const checkly = require("@checkly/pulumi")
+${channelCode}
 
 ${snippetCode}
 
