@@ -32,7 +32,6 @@ function transformAlertSettings (settings) {
   return {
     escalationType: settings.escalationType,
     reminders: [settings.reminders],
-    sslCertificates: [settings.sslCertificates],
     runBasedEscalations: [settings.runBasedEscalations],
     timeBasedEscalations: [settings.timeBasedEscalations],
   }
