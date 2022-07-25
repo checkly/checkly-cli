@@ -1,15 +1,18 @@
 const PATH = 'alert-channels'
-
+const PAGINATION_REGEX = /([0-9]+)-([0-9]+)\/([0-9]+)/
+const CONTENT_RANGE_HEADER = 'content-range'
 const alertChannels = ({ api, apiVersion = 'v1' }) => {
   function get (id) {
     return api.get(`/${apiVersion}/${PATH}/${id}`)
   }
 
-  function getAll ({ limit, page } = {}) {
-    return api.get(`/${apiVersion}/${PATH}`, {
-      limit,
-      page,
-    })
+  async function getAll ({ limit, page } = {}) {
+    const { data, headers } = await api.get(`/${apiVersion}/${PATH}?limit=${limit}&page=${page}`)
+    const result = PAGINATION_REGEX.exec(headers[CONTENT_RANGE_HEADER])
+    const endIndex = parseInt(result[2])
+    const total = parseInt(result[3])
+    const hasMore = (endIndex + 1) < total
+    return { data, headers, hasMore }
   }
 
   return {

@@ -13,8 +13,7 @@ const JSON5 = require('json5')
 // nice examples: https://github.com/checkly/pulumi-checkly/blob/main/examples/js/index.js
 
 function snakecase (text) {
-  return text.toLowerCase().replace(/\s/g, '-').replace(/:/g, '').replace(/\./g, '')
-    .replace(/\(/g, '').replace(/\)/g, '').replace(/#/g, '')
+  return text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, '-').replace(/\s/g, '-')
 }
 
 function frequency (check) {
@@ -37,6 +36,19 @@ function transformAlertSettings (settings) {
   }
 }
 
+function fixHeaders (headers) {
+  if (!headers) {
+    return
+  }
+  const newParams = []
+  for (const queryParam of headers) {
+    const qp = {}
+    qp[queryParam.key] = queryParam.value
+    newParams.push(qp)
+  }
+  return newParams
+}
+
 function transformRequest (request) {
   const newParams = []
   for (const queryParam of request.queryParameters) {
@@ -45,6 +57,7 @@ function transformRequest (request) {
     newParams.push(qp)
   }
   request.queryParameters = newParams
+  request.headers = fixHeaders(request.headers)
   return request
 }
 
@@ -60,7 +73,7 @@ function pulumifyApiCheck (check) {
     snippetImport += `
     teardownSnippetId: ${snippetsMap[check.tearDownSnippetId]}.id.apply(id => parseInt(id)),`
   }
-
+  check.headers = fixHeaders(check.headers)
   // console.log(check)
   check.request.skipSsl = check.request.skipSSL
   delete check.request.skipSSL
@@ -119,7 +132,7 @@ function pulumifyGroup (group) {
   const groupName = `group${groupCounter++}-${snakecase(group.name)}`
   const groupVariableName = groupName.replace(/-/g, '_')
   groupMap[group.id] = groupVariableName
-
+  group.apiCheckDefaults.headers = fixHeaders(group.apiCheckDefaults.headers)
   const groupCode = `
 const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   name: "${group.name}",
@@ -197,7 +210,7 @@ const snippetsMap = {}
 let snippetCounter = 0
 
 async function writeSnippets (basePath) {
-  const allSnippets = (await snippets.getAll()).data
+  const allSnippets = (await getAll(snippets))
   let snippetImportCode = ''
   let snippetCode = ''
   await fs.mkdir(basePath, { recursive: true })
@@ -227,6 +240,15 @@ function pulumifyAlertChannel (channel) {
   const channelName = `alert-channel-${alertChannelCounter++}-${snakecase(channel.type)}`
   const channelVariableName = channelName.replace(/-/g, '_')
   alertChannelMap[channel.id] = channelVariableName
+  if (channel.type === 'EMAIL') {
+    channel.config.address = 'daniel@checklyhq.com'
+  }
+  if (channel.type === 'SLACK') {
+    channel.config.channel = '#froopydoopydupdup'
+  }
+  if (channel.type === 'OPSGENIE') {
+    channel.config.apiKey = 'F5CEEBEF-ABB7-4BBA-BB6C-2E3D565B5F5B'
+  }
   const channelCode = `
 const ${channelVariableName} = new checkly.AlertChannel('${channelName}', {
   ${channel.type.toLowerCase()}: ${JSON5.stringify(channel.config, null, 2)},
@@ -240,11 +262,27 @@ const ${channelVariableName} = new checkly.AlertChannel('${channelName}', {
   return channelCode
 }
 
+async function getAll (what) {
+  const allChecks = []
+  let page = 1
+  while (true) {
+    const { data, hasMore } = await what.getAll({ limit: 100, page: page++ })
+    data.forEach(check => {
+      allChecks.push(check)
+    })
+
+    if (!hasMore) {
+      break
+    }
+  }
+  return allChecks
+}
+
 async function listChecks ({ output } = {}) {
   try {
-    const allChannels = (await alertChannels.getAll()).data
+    const allChannels = await getAll(alertChannels)
 
-    const allGroups = (await groups.getAll()).data
+    const allGroups = await getAll(groups)
 
     let channelCode = ''
     for (const channel of allChannels) {
