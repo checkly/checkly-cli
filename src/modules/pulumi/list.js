@@ -241,7 +241,7 @@ function pulumifyAlertChannel (channel) {
   const channelVariableName = channelName.replace(/-/g, '_')
   alertChannelMap[channel.id] = channelVariableName
   if (channel.type === 'EMAIL') {
-    channel.config.address = 'daniel@checklyhq.com'
+    channel.config.address = 'daniel@slkjösölkj.com'
   }
   if (channel.type === 'SLACK') {
     channel.config.channel = '#froopydoopydupdup'
