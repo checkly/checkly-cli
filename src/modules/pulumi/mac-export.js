@@ -278,8 +278,9 @@ async function getAll (what) {
   return allChecks
 }
 
-async function listChecks ({ output } = {}) {
+async function exportMaC (options) {
   try {
+    console.log(`exporting to path: ${options.basePath}`)
     const allChannels = await getAll(alertChannels)
 
     const allGroups = await getAll(groups)
@@ -347,4 +348,4 @@ ${browserCheckCode}
   }
 }
 
-module.exports = listChecks
+module.exports = exportMaC

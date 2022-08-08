@@ -9,6 +9,9 @@ const groups = ({ api, apiVersion = 'v1' }) => {
 
   async function getAll ({ limit, page } = {}) {
     const { data, headers } = await api.get(`/${apiVersion}/${PATH}?limit=${limit}&page=${page}`)
+    if (headers[CONTENT_RANGE_HEADER] === '*/0') {
+      return { data: [], headers, hasMore: false }
+    }
     const result = PAGINATION_REGEX.exec(headers[CONTENT_RANGE_HEADER])
     const endIndex = parseInt(result[2])
     const total = parseInt(result[3])

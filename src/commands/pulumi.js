@@ -1,6 +1,6 @@
 const { Command } = require('@oclif/command')
 
-const checks = require('../modules/pulumi')
+const { exportMaC } = require('../modules/pulumi')
 const { output } = require('../services/flags')
 const { id } = require('../services/args')
 
@@ -19,7 +19,7 @@ externalize scripts to folders
 
     switch (args.action) {
       default:
-        return checks.list({ ...flags })
+        return exportMaC({ ...flags, basePath: '/Users/danielpaulus/tmp/pulumi-test/' })
     }
   }
 }

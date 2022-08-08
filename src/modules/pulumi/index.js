@@ -1,6 +1,6 @@
-const list = require('./list')
+const exportMaC = require('./mac-export')
 
 module.exports = {
-  list,
+  exportMaC,
 
 }
