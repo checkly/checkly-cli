@@ -28,12 +28,21 @@ function frequency (check) {
 }
 
 function transformAlertSettings (settings) {
-  return {
+  const s = {
     escalationType: settings.escalationType,
     reminders: [settings.reminders],
     runBasedEscalations: [settings.runBasedEscalations],
     timeBasedEscalations: [settings.timeBasedEscalations],
   }
+  if (s.escalationType === 'RUN_BASED' &&
+    settings.reminders.amount === 0 &&
+    settings.reminders.interval === 5 &&
+    !settings.runBasedEscalations &&
+    !settings.timeBasedEscalations
+  ) {
+    return ''
+  }
+  return 'alertSettings:' + JSON5.stringify(s, null, 2) + '\n'
 }
 
 function fixHeaders (headers) {
@@ -51,18 +60,56 @@ function fixHeaders (headers) {
 
 function transformRequest (request) {
   const newParams = []
-  for (const queryParam of request.queryParameters) {
-    const qp = {}
-    qp[queryParam.key] = queryParam.value
-    newParams.push(qp)
+
+  if (request.queryParameters.length > 0) {
+    for (const queryParam of request.queryParameters) {
+      const qp = {}
+      qp[queryParam.key] = queryParam.value
+      newParams.push(qp)
+    }
+
+    request.queryParameters = newParams
+  } else {
+    delete request.queryParameters
   }
-  request.queryParameters = newParams
+
   request.headers = fixHeaders(request.headers)
-  return request
+  if (request.headers.length === 0) {
+    delete request.headers
+  }
+  if (request.assertions.length === 0) {
+    delete request.assertions
+  }
+  if (request.basicAuth?.password === '' && request.basicAuth?.username === '') {
+    delete request.basicAuth
+  }
+
+  if (!request.skipSsl) {
+    delete request.skipSsl
+  }
+
+  if (request.followRedirects) {
+    delete request.followRedirects
+  }
+
+  if (request.body === '') {
+    delete request.body
+  }
+  if (request.bodyType === 'NONE') {
+    delete request.bodyType
+  }
+
+  if (request.method === 'GET') {
+    delete request.method
+  }
+
+  const requestCode = JSON5.stringify(request, null, 2)
+  return requestCode.replace('{', '{...apiRequestDefaults, ')
 }
 
 let checkCounter = 0
 const groupsWithApiChecks = []
+const apiChecksPerGroup = {}
 // change to
 // newCheck({...defaults,
 // Name:"bla",
@@ -83,42 +130,116 @@ function pulumifyApiCheck (check) {
   delete check.request.skipSSL
   let groupId = ''
   if (check.groupId) {
-    groupId = `groupId: ${groupMap[check.groupId]}.id.apply(id => parseInt(id)),`
+    groupId = 'groupId: groupDefinition.id.apply(id => parseInt(id)),'
     groupsWithApiChecks.push(groupMap[check.groupId])
+    if (apiChecksPerGroup[check.groupId] === undefined) apiChecksPerGroup[check.groupId] = ''
   }
 
-  const checkCode = `
-new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
+  let checkCode = `
+new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...checkDefaults,
   name: "${check.name}",
-  type: "API",
-  request: ${JSON5.stringify(transformRequest(check.request), null, 2)} ,
+  request: ${transformRequest(check.request)},
   ${frequency(check)}
-  activated: ${check.activated},
-  muted: ${check.muted},
-  shouldFail: ${check.shouldFail},
-  doubleCheck: ${check.doubleCheck},
-  locations: ${JSON5.stringify(check.locations)},
-  privateLocations: ${JSON5.stringify(check.privateLocations)},
-  environmentVariables: ${JSON5.stringify(check.environmentVariables)},
-  tags: ${JSON5.stringify(check.tags)},
-  useGlobalAlertSettings: ${check.useGlobalAlertSettings},
-  alertSettings: ${JSON5.stringify(transformAlertSettings(check.alertSettings), null, 2)},
-  degradedResponseTime: ${check.degradedResponseTime},
-  maxResponseTime: ${check.maxResponseTime},
-  ${groupId}
-  localSetupScript: ${JSON5.stringify(check.localSetupScript)},
-  localTearDownScript: ${JSON5.stringify(check.localTearDownScript)},
-  ${snippetImport}
-  ${extractAlertSubscriberCode(check.alertChannelSubscriptions)}
-  })
   `
+  checkCode += apiCheckDefaults.activated(check.activated)
+  checkCode += apiCheckDefaults.muted(check.muted)
+  checkCode += apiCheckDefaults.shouldFail(check.shouldFail)
+  checkCode += apiCheckDefaults.doubleCheck(check.doubleCheck)
+  checkCode += apiCheckDefaults.locations(check.locations)
+  checkCode += apiCheckDefaults.privateLocations(check.privateLocations)
+  checkCode += apiCheckDefaults.environmentVariables(check.environmentVariables)
+  checkCode += apiCheckDefaults.tags(check.tags)
+  checkCode += apiCheckDefaults.useGlobalAlertSettings(check.useGlobalAlertSettings)
+  checkCode += transformAlertSettings(check.alertSettings)
+  checkCode += apiCheckDefaults.degradedResponseTime(check.degradedResponseTime)
+  checkCode += apiCheckDefaults.maxResponseTime(check.maxResponseTime)
+  checkCode += groupId
+  checkCode += apiCheckDefaults.localSetupScript(check.localSetupScript)
+  checkCode += apiCheckDefaults.localTearDownScript(check.localTearDownScript)
+  checkCode += snippetImport
+  checkCode += extractAlertSubscriberCode(check.alertChannelSubscriptions)
+
+  checkCode += '\n  })\n'
+
+  if (check.groupId) {
+    apiChecksPerGroup[check.groupId] += checkCode
+  }
+
   return checkCode
 }
+
+const apiCheckDefaults = {
+  muted: (x) => x ? `muted: ${x},\n` : '',
+  activated: (x) => !x ? `activated: ${x},\n` : '',
+  degradedResponseTime: (x) => x !== 5000 ? `degradedResponseTime: ${x},\n` : '',
+  maxResponseTime: (x) => x !== 20000 ? `maxResponseTime: ${x},\n` : '',
+  shouldFail: (x) => x ? `shouldFail: ${x},\n` : '',
+  doubleCheck: (x) => !x ? `doubleCheck: ${x},\n` : '',
+  privateLocations: (x) => x?.length === 0 ? '' : 'privateLocations: ' + JSON5.stringify(x) + ',\n',
+  locations: (x) => x?.length === 0 ? '' : 'locations: ' + JSON5.stringify(x) + ',\n',
+  environmentVariables: (x) => x?.length === 0 ? '' : 'environmentVariables: ' + JSON5.stringify(x) + ',\n',
+  tags: (x) => x?.length === 0 ? '' : 'tags: ' + JSON5.stringify(x) + ',\n',
+  useGlobalAlertSettings: (x) => !x ? `useGlobalAlertSettings: ${x},\n` : '',
+  localSetupScript: (x) => x === null ? '' : 'localSetupScript: ' + JSON5.stringify(x) + ',\n',
+  localTearDownScript: (x) => x === null ? '' : 'localTearDownScript: ' + JSON5.stringify(x) + ',\n',
+}
+
+const apiDefaultsCode = `
+const checkDefaults = {
+  type: "API",
+  muted : false,
+  activated: true,
+  shouldFail: false,
+  doubleCheck: true,
+  privateLocations: [],
+  environmentVariables: [],
+  tags: [],
+  useGlobalAlertSettings: true,
+  localSetupScript: null,
+  localTearDownScript: null,
+  degradedResponseTime: 5000,
+  maxResponseTime: 20000,
+  alertSettings: {
+    escalationType: 'RUN_BASED',
+    reminders: [
+      {
+        amount: 0,
+        interval: 5,
+      },
+    ],
+    runBasedEscalations: [],
+    timeBasedEscalations: [],
+  },
+  alertChannelSubscriptions: []
+}
+`
+
+const requestDefaultsCode = `
+const apiRequestDefaults = {
+  method: 'GET',
+  queryParameters: [],
+  headers: [],
+  assertions: [],
+  basicAuth: {
+    password: '',
+    username: '',
+  },
+  body: '',
+  bodyType: 'NONE',
+  assertions: [],
+  followRedirects: true,
+  skipSsl: false,
+
+}
+`
 
 let groupCounter = 0
 const groupMap = {}
 
 function extractAlertSubscriberCode (alertChannelSubscriptions) {
+  if (alertChannelSubscriptions.length === 0) {
+    return ''
+  }
   let alertChannelSubscriptionsCode = 'alertChannelSubscriptions: ['
   for (const sub of alertChannelSubscriptions) {
     alertChannelSubscriptionsCode += `
@@ -297,6 +418,7 @@ async function exportMaC (options) {
     console.log(`exporting to path: ${options.basePath}`)
     const snippetBasePath = path.join(options.basePath, 'snippets')
     const indexJsPath = path.join(options.basePath, 'index.js')
+    const checksPath = path.join(options.basePath, 'checks')
     const browserCheckBasePath = path.join(options.basePath, 'browser_check_code')
 
     const allChannels = await getAll(alertChannels)
@@ -310,8 +432,11 @@ async function exportMaC (options) {
 
     let groupCode = ''
 
+    const groupCodeMap = {}
     for (const group of allGroups) {
-      groupCode += pulumifyGroup(group)
+      const gcode = pulumifyGroup(group)
+      groupCode += gcode
+      groupCodeMap[group.id] = gcode
     }
 
     const snippetCode = await writeSnippets(snippetBasePath)
@@ -344,12 +469,29 @@ async function exportMaC (options) {
       apiCheckCode += pulumifyApiCheck(apicheck)
     }
 
+    const pulumiImport = 'const checkly = require("@checkly/pulumi")\n'
+    for (const entry of Object.entries(groupMap)) {
+      const groupPath = path.join(checksPath, entry[1])
+      await fs.mkdir(groupPath, { recursive: true })
+      const group = allGroups.filter(g => g.id === parseInt(entry[0]))[0]
+      await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
+      if (apiChecksPerGroup[group.id]) {
+        const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n"
+        await fs.writeFile(path.join(groupPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup[group.id])
+      }
+    }
+
     const allInOne = `
 // a file that contains all definitions in one file
 // delete if prefer having the resources split into multiple files
 // delete everything else otherwise and rename this to index.js
 const fs = require('fs')
 const checkly = require("@checkly/pulumi")
+
+${apiDefaultsCode}
+
+${requestDefaultsCode}
+
 ${channelCode}
 
 ${snippetCode}
@@ -368,6 +510,9 @@ ${browserCheckCode}
     }
     const apiCheckDefinitions = `
 const checkly = require("@checkly/pulumi")
+${apiDefaultsCode}
+${requestDefaultsCode}
+
 ${groupImport}
     ${apiCheckCode}
     `
