@@ -136,7 +136,7 @@ function pulumifyApiCheck (check) {
   }
 
   let checkCode = `
-new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...checkDefaults,
+new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...apiCheckDefaults,
   name: "${check.name}",
   request: ${transformRequest(check.request)},
   ${frequency(check)}
@@ -163,6 +163,8 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...checkD
 
   if (check.groupId) {
     apiChecksPerGroup[check.groupId] += checkCode
+  } else {
+    apiChecksPerGroup.__nogroup += checkCode
   }
 
   return checkCode
@@ -185,7 +187,7 @@ const apiCheckDefaults = {
 }
 
 const apiDefaultsCode = `
-const checkDefaults = {
+const apiCheckDefaults = {
   type: "API",
   muted : false,
   activated: true,
@@ -283,41 +285,63 @@ const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   return groupCode
 }
 
-let browserCheckCounter = 0
 const browserCheckScriptMap = {}
+const browserCheckScriptsPerGroup = {}
 
-async function extractScripts (browserChecks, scriptPath) {
+async function extractPerGroup (browserChecks, groups) {
+  for (const group of groups) {
+    const checksInGroup = browserChecks.filter(b => b.groupId === group.id)
+    if (!checksInGroup) {
+      continue
+    }
+    const scripts = await extractScripts(checksInGroup)
+    browserCheckScriptsPerGroup[group.id] = scripts
+  }
+}
+
+async function extractScripts (browserChecks) {
   let scode = ''
   const checks = []
   const readFiles = []
+  const fileInfo = []
+  const result = {}
+
   for (const bc of browserChecks) {
-    const checkName = `browsercheck${browserCheckCounter++}-${snakecase(bc.name)}`
+    const checkName = `check${checkCounter++}-${snakecase(bc.name)}`
+    checkNames[bc.id] = checkName
     const checkVariableName = checkName.replace(/-/g, '_')
-    browserCheckScriptMap[bc.id] = 'browserScript_' + checkVariableName
-    const filePath = path.join(scriptPath, checkVariableName + '.js')
-    await fs.writeFile(filePath, bc.script)
-    readFiles.push(`fs.readFile("./browserscripts/${checkVariableName + '.js'}","utf-8")`)
-    checks.push(`browserScript_${checkVariableName}`)
+    const scriptVariableName = 'browserScriptFor_' + checkVariableName
+    browserCheckScriptMap[bc.id] = scriptVariableName
+    fileInfo.push({ scriptVariableName, code: bc.script, filename: checkVariableName + '.script.js' })
+    readFiles.push(`fs.readFile("./scripts/${checkVariableName + '.script.js'}","utf-8")`)
+    checks.push(`browserScriptFor_${checkVariableName}`)
     // scode += `const browserScript_${checkVariableName} =
     // fs.readFile("./browserscripts/${checkVariableName + '.js'}","utf-8")
   }
   scode += `const promises = [${readFiles.join(', \n')}]\n`
   scode += `const [${checks.join(', ')}] = await Promise.all(promises)\n`
-  return scode
+  result.importSnippet = scode
+  result.fileInfo = fileInfo
+  return result
 }
 
 const groupsWithBrowserChecks = []
+const browserChecksPerGroups = {}
+const checkNames = {}
 
 function pulumifyBrowserCheck (check) {
   console.log(check)
   let groupId = ''
+  if (!browserChecksPerGroups[check.groupId]) {
+    browserChecksPerGroups[check.groupId] = ''
+  }
   if (check.groupId) {
-    groupId = `groupId: ${groupMap[check.groupId]}.id.apply(id => parseInt(id)),`
+    groupId = 'groupId: groupDefinition.id.apply(id => parseInt(id)),'
     groupsWithBrowserChecks.push(groupMap[check.groupId])
   }
 
   const checkCode = `
-new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
+new checkly.Check("${checkNames[check.id]}", {
   name: "${check.name}",
   type: "BROWSER",
   ${frequency(check)}
@@ -338,6 +362,11 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", {
   ${extractAlertSubscriberCode(check.alertChannelSubscriptions)}
   })
   `
+  if (check.groupId) {
+    browserChecksPerGroups[check.groupId] += (checkCode)
+  } else {
+    browserChecksPerGroups.__nogroup += (checkCode)
+  }
   return checkCode
 }
 
@@ -348,6 +377,7 @@ async function writeSnippets (basePath) {
   const allSnippets = (await getAll(snippets))
   let snippetImportCode = ''
   let snippetCode = ''
+  let exportCode = '\n\nmodule.exports = {'
   await fs.mkdir(basePath, { recursive: true })
   for (const snippet of allSnippets) {
     const snippetName = `snippet${snippetCounter++}-${snakecase(snippet.name)}`
@@ -364,8 +394,10 @@ const ${snippetVarName} = new checkly.Snippet('${snippetName}', {
 })`
     snippetCode += thisSnippetCode
     snippetsMap[snippet.id] = snippetVarName
+    exportCode += snippetVarName + ','
   }
-  return snippetImportCode + snippetCode
+  exportCode += '}'
+  return snippetImportCode + snippetCode + exportCode
 }
 
 let alertChannelCounter = 0
@@ -418,6 +450,7 @@ async function exportMaC (options) {
     console.log(`exporting to path: ${options.basePath}`)
     const snippetBasePath = path.join(options.basePath, 'snippets')
     const indexJsPath = path.join(options.basePath, 'index.js')
+    const defaultsPath = path.join(options.basePath, 'check.defaults.js')
     const checksPath = path.join(options.basePath, 'checks')
     const browserCheckBasePath = path.join(options.basePath, 'browser_check_code')
 
@@ -425,17 +458,16 @@ async function exportMaC (options) {
 
     const allGroups = await getAll(groups)
 
+    await fs.writeFile(defaultsPath, apiDefaultsCode + requestDefaultsCode + 'module.exports = {apiCheckDefaults, apiRequestDefaults}')
+
     let channelCode = ''
     for (const channel of allChannels) {
       channelCode += pulumifyAlertChannel(channel)
     }
 
-    let groupCode = ''
-
     const groupCodeMap = {}
     for (const group of allGroups) {
       const gcode = pulumifyGroup(group)
-      groupCode += gcode
       groupCodeMap[group.id] = gcode
     }
 
@@ -456,17 +488,18 @@ async function exportMaC (options) {
 
     await fs.mkdir(browserCheckBasePath, { recursive: true })
     const browserChecks = allChecks.filter(x => x.checkType === 'BROWSER')
-    const loadBrowserScripts = await extractScripts(browserChecks, browserCheckBasePath)
+    await extractPerGroup(browserChecks, allGroups)
 
-    let browserCheckCode = ''
+    browserChecksPerGroups.__nogroup = ''
     for (const browserCheck of browserChecks) {
-      browserCheckCode += pulumifyBrowserCheck(browserCheck)
+      pulumifyBrowserCheck(browserCheck)
     }
 
     const apichecks = allChecks.filter(x => x.checkType === 'API')
-    let apiCheckCode = ''
+
+    apiChecksPerGroup.__nogroup = ''
     for (const apicheck of apichecks) {
-      apiCheckCode += pulumifyApiCheck(apicheck)
+      pulumifyApiCheck(apicheck)
     }
 
     const pulumiImport = 'const checkly = require("@checkly/pulumi")\n'
@@ -476,71 +509,32 @@ async function exportMaC (options) {
       const group = allGroups.filter(g => g.id === parseInt(entry[0]))[0]
       await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
       if (apiChecksPerGroup[group.id]) {
-        const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n"
+        const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n" +
+          "const { apiCheckDefaults, apiRequestDefaults } = require('../../check.defaults.js')\n"
         await fs.writeFile(path.join(groupPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup[group.id])
       }
+      if (browserChecksPerGroups[group.id]) {
+        const footer = browserCheckScriptsPerGroup[group.id]?.importSnippet
+        const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n" + footer
+
+        await fs.writeFile(path.join(groupPath, 'browser.check.definition.js'), importHeader + browserChecksPerGroups[group.id])
+      }
+
+      if (browserCheckScriptsPerGroup[group.id]) {
+        const checkScripts = browserCheckScriptsPerGroup[group.id]
+        await fs.mkdir(path.join(groupPath, 'scripts'), { recursive: true })
+        for (const cScript of checkScripts.fileInfo) {
+          await fs.writeFile(path.join(groupPath, 'scripts', cScript.filename), cScript.code)
+        }
+      }
     }
+    const importHeader = pulumiImport + "const { apiCheckDefaults, apiRequestDefaults } = require('../check.defaults.js')\n"
+    await fs.writeFile(path.join(checksPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup.__nogroup)
 
-    const allInOne = `
-// a file that contains all definitions in one file
-// delete if prefer having the resources split into multiple files
-// delete everything else otherwise and rename this to index.js
-const fs = require('fs')
-const checkly = require("@checkly/pulumi")
+    await fs.writeFile(path.join(options.basePath, 'alertchannels.js'), pulumiImport + channelCode + `module.exports = { ${Object.values(alertChannelMap).join(', ')} }`)
+    await fs.writeFile(path.join(options.basePath, 'snippets.js'), pulumiImport + snippetCode)
 
-${apiDefaultsCode}
-
-${requestDefaultsCode}
-
-${channelCode}
-
-${snippetCode}
-
-${loadBrowserScripts}
-
-${groupCode}
-
-${apiCheckCode}
-
-${browserCheckCode}
-      `
-    let groupImport = ''
-    if (groupsWithApiChecks.length > 0) {
-      groupImport = `const { ${groupsWithApiChecks.join(', ')} } = require('./checkgroup.definitions')`
-    }
-    const apiCheckDefinitions = `
-const checkly = require("@checkly/pulumi")
-${apiDefaultsCode}
-${requestDefaultsCode}
-
-${groupImport}
-    ${apiCheckCode}
-    `
-    groupImport = ''
-
-    if (groupsWithBrowserChecks.length > 0) {
-      groupImport = `const { ${groupsWithBrowserChecks.join(', ')} } = require('./checkgroup.definitions')`
-    }
-
-    const browserCheckDefinitions = `
-const checkly = require("@checkly/pulumi")
-const fs = require('fs/promises')
-${groupImport}
-    ${browserCheckCode}
-    ${loadBrowserScripts}
-    `
-
-    const groupDefinitions = `
-const checkly = require("@checkly/pulumi")
-    ${groupCode}
-module.exports = { ${Object.values(groupMap).join(', ')} }
-    `
-
-    await fs.writeFile(path.join(options.basePath, 'api.check.definitions.js'), apiCheckDefinitions)
-    await fs.writeFile(path.join(options.basePath, 'browser.check.definitions.js'), browserCheckDefinitions)
-    await fs.writeFile(path.join(options.basePath, 'checkgroup.definitions.js'), groupDefinitions)
-    await fs.writeFile(path.join(options.basePath, 'index.allinone.js'), allInOne)
-    await fs.writeFile(indexJsPath, allInOne)
+    await fs.writeFile(indexJsPath, '')
   } catch (err) {
     consola.error(err)
     throw err
