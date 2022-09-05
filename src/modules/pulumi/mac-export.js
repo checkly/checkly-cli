@@ -110,19 +110,27 @@ function transformRequest (request) {
 let checkCounter = 0
 const groupsWithApiChecks = []
 const apiChecksPerGroup = {}
-// change to
-// newCheck({...defaults,
-// Name:"bla",
-// })
+const snippetsPerGroup = {}
+
 function pulumifyApiCheck (check) {
   let snippetImport = ''
   if (check.setupSnippetId != null) {
     snippetImport += `
     setupSnippetId: ${snippetsMap[check.setupSnippetId]}.id.apply(id => parseInt(id)),`
+    const groupId = check.groupId || '__nogroup'
+    if (!snippetsPerGroup[groupId]) {
+      snippetsPerGroup[groupId] = []
+    }
+    snippetsPerGroup[groupId].push(snippetsMap[check.setupSnippetId])
   }
   if (check.tearDownSnippetId != null) {
     snippetImport += `
     teardownSnippetId: ${snippetsMap[check.tearDownSnippetId]}.id.apply(id => parseInt(id)),`
+    const groupId = check.groupId || '__nogroup'
+    if (!snippetsPerGroup[groupId]) {
+      snippetsPerGroup[groupId] = []
+    }
+    snippetsPerGroup[groupId].push(snippetsMap[check.tearDownSnippetId])
   }
   check.headers = fixHeaders(check.headers)
   // console.log(check)
@@ -276,7 +284,7 @@ const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   environmentVariables: ${JSON5.stringify(group.environmentVariables)},
   tags: ${JSON5.stringify(group.tags)},
   useGlobalAlertSettings: ${group.useGlobalAlertSettings},
-  alertSettings: ${JSON5.stringify(transformAlertSettings(group.alertSettings), null, 2)},
+  ${transformAlertSettings(group.alertSettings)}
   degradedResponseTime: ${group.degradedResponseTime},
   maxResponseTime: ${group.maxResponseTime},
   ${extractAlertSubscriberCode(group.alertChannelSubscriptions)}
@@ -313,7 +321,7 @@ async function extractScripts (browserChecks) {
     const scriptVariableName = 'browserScriptFor_' + checkVariableName
     browserCheckScriptMap[bc.id] = scriptVariableName
     fileInfo.push({ scriptVariableName, code: bc.script, filename: checkVariableName + '.script.js' })
-    readFiles.push(`fs.readFile("./scripts/${checkVariableName + '.script.js'}","utf-8")`)
+    readFiles.push(`fs.readFile(path.join(__dirname,"./scripts/${checkVariableName + '.script.js'}"),"utf-8")`)
     checks.push(`browserScriptFor_${checkVariableName}`)
     // scode += `const browserScript_${checkVariableName} =
     // fs.readFile("./browserscripts/${checkVariableName + '.js'}","utf-8")
@@ -355,7 +363,7 @@ new checkly.Check("${checkNames[check.id]}", {
   environmentVariables: ${JSON5.stringify(check.environmentVariables)},
   tags: ${JSON5.stringify(check.tags)},
   useGlobalAlertSettings: ${check.useGlobalAlertSettings},
-  alertSettings: ${JSON5.stringify(transformAlertSettings(check.alertSettings), null, 2)},
+  ${transformAlertSettings(check.alertSettings)}
   degradedResponseTime: ${check.degradedResponseTime},
   maxResponseTime: ${check.maxResponseTime},
   ${groupId}
@@ -452,7 +460,9 @@ async function exportMaC (options) {
     const indexJsPath = path.join(options.basePath, 'index.js')
     const defaultsPath = path.join(options.basePath, 'check.defaults.js')
     const checksPath = path.join(options.basePath, 'checks')
-    const browserCheckBasePath = path.join(options.basePath, 'browser_check_code')
+    const fsImport = "const fs = require('fs')\n"
+    const fsPromisesImport = "const fs = require('fs/promises')\n"
+    const pathImport = "const path = require('path')\n"
 
     const allChannels = await getAll(alertChannels)
 
@@ -486,7 +496,6 @@ async function exportMaC (options) {
       }
     }
 
-    await fs.mkdir(browserCheckBasePath, { recursive: true })
     const browserChecks = allChecks.filter(x => x.checkType === 'BROWSER')
     await extractPerGroup(browserChecks, allGroups)
 
@@ -501,23 +510,35 @@ async function exportMaC (options) {
     for (const apicheck of apichecks) {
       pulumifyApiCheck(apicheck)
     }
-
+    const indexJsRequire = []
     const pulumiImport = 'const checkly = require("@checkly/pulumi")\n'
     for (const entry of Object.entries(groupMap)) {
       const groupPath = path.join(checksPath, entry[1])
       await fs.mkdir(groupPath, { recursive: true })
       const group = allGroups.filter(g => g.id === parseInt(entry[0]))[0]
-      await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
+      indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'group.definition.js')))
+      await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
       if (apiChecksPerGroup[group.id]) {
+        indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'api.check.definition.js')))
+        let snippetsImport = ''
+        if (snippetsPerGroup[group.id]) {
+          snippetsImport = `const { ${snippetsPerGroup[group.id].join(',')} } = require('../../snippets.js')\n`
+        }
+
         const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n" +
-          "const { apiCheckDefaults, apiRequestDefaults } = require('../../check.defaults.js')\n"
+          "const { apiCheckDefaults, apiRequestDefaults } = require('../../check.defaults.js')\n" +
+          `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` + snippetsImport
+
         await fs.writeFile(path.join(groupPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup[group.id])
       }
       if (browserChecksPerGroups[group.id]) {
-        const footer = browserCheckScriptsPerGroup[group.id]?.importSnippet
-        const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n" + footer
+        indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'browser.check.definition.js')))
+        const footer = 'async function load() {' + browserCheckScriptsPerGroup[group.id]?.importSnippet
+        const importHeader = pulumiImport + fsPromisesImport + pathImport +
+          `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` +
+          "const { groupDefinition } = require('./group.definition.js')\n" + footer
 
-        await fs.writeFile(path.join(groupPath, 'browser.check.definition.js'), importHeader + browserChecksPerGroups[group.id])
+        await fs.writeFile(path.join(groupPath, 'browser.check.definition.js'), importHeader + browserChecksPerGroups[group.id] + '}\nload()')
       }
 
       if (browserCheckScriptsPerGroup[group.id]) {
@@ -528,13 +549,28 @@ async function exportMaC (options) {
         }
       }
     }
-    const importHeader = pulumiImport + "const { apiCheckDefaults, apiRequestDefaults } = require('../check.defaults.js')\n"
-    await fs.writeFile(path.join(checksPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup.__nogroup)
+
+    if (apiChecksPerGroup.__nogroup) {
+      let snippetsImport = ''
+      if (snippetsPerGroup.__nogroup) {
+        snippetsImport = `const { ${snippetsPerGroup.__nogroup.join(',')} } = require('../snippets.js')\n`
+      }
+      const importHeader = pulumiImport + "const { apiCheckDefaults, apiRequestDefaults } = require('../check.defaults.js')\n" + snippetsImport +
+        `const { ${Object.values(alertChannelMap).join(', ')} } = require('../alertchannels.js')\n`
+      await fs.writeFile(path.join(checksPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup.__nogroup)
+      indexJsRequire.push('.' + path.sep + 'checks/api.check.definition.js')
+    }
 
     await fs.writeFile(path.join(options.basePath, 'alertchannels.js'), pulumiImport + channelCode + `module.exports = { ${Object.values(alertChannelMap).join(', ')} }`)
-    await fs.writeFile(path.join(options.basePath, 'snippets.js'), pulumiImport + snippetCode)
+    await fs.writeFile(path.join(options.basePath, 'snippets.js'), pulumiImport + fsImport + snippetCode)
 
-    await fs.writeFile(indexJsPath, '')
+    await fs.writeFile(indexJsPath,
+      `
+ ${pulumiImport}
+require('./alertchannels.js')
+require('./snippets.js')
+ ${indexJsRequire.map(x => `require('${x}')`).join('\n')}
+ `)
   } catch (err) {
     consola.error(err)
     throw err
