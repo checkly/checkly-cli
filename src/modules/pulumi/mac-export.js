@@ -305,6 +305,9 @@ async function extractPerGroup (browserChecks, groups) {
     const scripts = await extractScripts(checksInGroup)
     browserCheckScriptsPerGroup[group.id] = scripts
   }
+  const checksWithoutGroup = browserChecks.filter(b => b.groupId === undefined || b.groupId === null)
+  const scripts = await extractScripts(checksWithoutGroup)
+  browserCheckScriptsPerGroup.__nogroup = scripts
 }
 
 async function extractScripts (browserChecks) {
@@ -547,6 +550,21 @@ async function exportMaC (options) {
         for (const cScript of checkScripts.fileInfo) {
           await fs.writeFile(path.join(groupPath, 'scripts', cScript.filename), cScript.code)
         }
+      }
+    }
+
+    if (browserChecksPerGroups.__nogroup) {
+      indexJsRequire.push('.' + path.sep + 'checks/browser.check.definition.js')
+      const footer = 'async function load() {' + browserCheckScriptsPerGroup.__nogroup?.importSnippet
+      const importHeader = pulumiImport + fsPromisesImport + pathImport +
+        `const { ${Object.values(alertChannelMap).join(', ')} } = require('../alertchannels.js')\n` + footer
+
+      await fs.writeFile(path.join(checksPath, 'browser.check.definition.js'), importHeader + browserChecksPerGroups.__nogroup + '}\nload()')
+
+      const checkScripts = browserCheckScriptsPerGroup.__nogroup
+      await fs.mkdir(path.join(checksPath, 'scripts'), { recursive: true })
+      for (const cScript of checkScripts.fileInfo) {
+        await fs.writeFile(path.join(checksPath, 'scripts', cScript.filename), cScript.code)
       }
     }
 
