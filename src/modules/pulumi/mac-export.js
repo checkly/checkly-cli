@@ -459,6 +459,7 @@ async function getAll (what) {
 async function exportMaC (options) {
   try {
     console.log(`exporting to path: ${options.basePath}`)
+    // const importFromPulumi = options.importFromPulumi
     const snippetBasePath = path.join(options.basePath, 'snippets')
     const indexJsPath = path.join(options.basePath, 'index.js')
     const defaultsPath = path.join(options.basePath, 'check.defaults.js')
