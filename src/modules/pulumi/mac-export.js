@@ -8,6 +8,8 @@ const fs = require('fs/promises')
 const path = require('path')
 const JSON5 = require('json5')
 
+const importResources = { resources: [] }
+
 // super helpful to check for case mismatches etc.
 // https://github.com/checkly/pulumi-checkly/blob/main/provider/cmd/pulumi-resource-checkly/schema.json
 // nice examples: https://github.com/checkly/pulumi-checkly/blob/main/examples/js/index.js
@@ -406,6 +408,12 @@ const ${snippetVarName} = new checkly.Snippet('${snippetName}', {
     snippetCode += thisSnippetCode
     snippetsMap[snippet.id] = snippetVarName
     exportCode += snippetVarName + ','
+
+    importResources.resources.push({
+      type: 'checkly:index/snippet:Snippet',
+      id: snippet.id.toString(),
+      name: snippetName,
+    })
   }
   exportCode += '}'
   return snippetImportCode + snippetCode + exportCode
@@ -458,8 +466,6 @@ async function getAll (what) {
 
 async function exportMaC (options) {
   try {
-    console.log(`exporting to path: ${options.basePath}`)
-    // const importFromPulumi = options.importFromPulumi
     const snippetBasePath = path.join(options.basePath, 'snippets')
     const indexJsPath = path.join(options.basePath, 'index.js')
     const defaultsPath = path.join(options.basePath, 'check.defaults.js')
@@ -582,7 +588,7 @@ async function exportMaC (options) {
 
     await fs.writeFile(path.join(options.basePath, 'alertchannels.js'), pulumiImport + channelCode + `module.exports = { ${Object.values(alertChannelMap).join(', ')} }`)
     await fs.writeFile(path.join(options.basePath, 'snippets.js'), pulumiImport + fsImport + snippetCode)
-
+    await fs.writeFile(path.join(options.basePath, 'resources.json'), JSON.stringify(importResources, null, 2))
     await fs.writeFile(indexJsPath,
       `
  ${pulumiImport}
