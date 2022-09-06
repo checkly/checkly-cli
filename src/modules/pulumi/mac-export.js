@@ -136,7 +136,6 @@ function pulumifyApiCheck (check) {
     snippetsPerGroup[groupId].push(snippetsMap[check.tearDownSnippetId])
   }
   check.headers = fixHeaders(check.headers)
-  // console.log(check)
   check.request.skipSsl = check.request.skipSSL
   delete check.request.skipSSL
   let groupId = ''
@@ -260,6 +259,15 @@ function extractAlertSubscriberCode (alertChannelSubscriptions) {
   if (alertChannelSubscriptions.length === 0) {
     return ''
   }
+
+  const channelIds = Object.keys(alertChannelMap)
+  const subscriptionIds = alertChannelSubscriptions.map(x => x.alertChannelId.toString())
+  const hasAllIds = channelIds.every(id => subscriptionIds.includes(id))
+  const allActivated = alertChannelSubscriptions.every(sub => sub.activated)
+  if (hasAllIds && allActivated) {
+    return 'alertChannelSubscriptions: allChannels,'
+  }
+
   let alertChannelSubscriptionsCode = 'alertChannelSubscriptions: ['
   for (const sub of alertChannelSubscriptions) {
     alertChannelSubscriptionsCode += `
@@ -273,8 +281,22 @@ function extractAlertSubscriberCode (alertChannelSubscriptions) {
   return alertChannelSubscriptionsCode
 }
 
+function allChannelsSubscription () {
+  const channelIds = Object.keys(alertChannelMap)
+  let alertChannelSubscriptionsCode = 'const allChannels = ['
+  for (const id of channelIds) {
+    alertChannelSubscriptionsCode += `
+    {
+      activated: true,
+      channelId: ${alertChannelMap[id]}.id.apply(id => parseInt(id))
+    },
+    `
+  }
+  alertChannelSubscriptionsCode += ']\n'
+  return alertChannelSubscriptionsCode
+}
+
 function pulumifyGroup (group) {
-  console.log(group)
   const groupName = `group${groupCounter++}-${snakecase(group.name)}`
   const groupVariableName = groupName.replace(/-/g, '_')
   groupMap[group.id] = groupVariableName
@@ -356,7 +378,6 @@ const browserChecksPerGroups = {}
 const checkNames = {}
 
 function pulumifyBrowserCheck (check) {
-  console.log(check)
   let groupId = ''
   if (!browserChecksPerGroups[check.groupId]) {
     browserChecksPerGroups[check.groupId] = ''
@@ -511,16 +532,15 @@ async function exportMaC (options) {
     const fsImport = "const fs = require('fs')\n"
     const fsPromisesImport = "const fs = require('fs/promises')\n"
     const pathImport = "const path = require('path')\n"
-
+    const pulumiImport = 'const checkly = require("@checkly/pulumi")\n'
     const allChannels = await getAll(alertChannels)
-
+    console.log(`writing ${allChannels.length} alertChannels`)
     const allGroups = await getAll(groups)
-
+    console.log(`writing ${allGroups.length} groups`)
     const allEnvVars = await getAll(variables)
+    console.log(`writing ${allEnvVars.length} environment variables`)
     const variablesCode = await pulumifyVariables(allEnvVars)
-    await fs.writeFile(path.join(options.basePath, 'variables.js'), variablesCode)
-
-    await fs.writeFile(defaultsPath, apiDefaultsCode + requestDefaultsCode + 'module.exports = {apiCheckDefaults, apiRequestDefaults}')
+    await fs.writeFile(path.join(options.basePath, 'variables.js'), pulumiImport + variablesCode)
 
     let channelCode = ''
     for (const channel of allChannels) {
@@ -547,7 +567,7 @@ async function exportMaC (options) {
         break
       }
     }
-
+    console.log(`writing ${allChecks.length} checks`)
     const browserChecks = allChecks.filter(x => x.checkType === 'BROWSER')
     await extractPerGroup(browserChecks, allGroups)
 
@@ -563,13 +583,12 @@ async function exportMaC (options) {
       pulumifyApiCheck(apicheck)
     }
     const indexJsRequire = []
-    const pulumiImport = 'const checkly = require("@checkly/pulumi")\n'
     for (const entry of Object.entries(groupMap)) {
       const groupPath = path.join(checksPath, entry[1])
       await fs.mkdir(groupPath, { recursive: true })
       const group = allGroups.filter(g => g.id === parseInt(entry[0]))[0]
       indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'group.definition.js')))
-      await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
+      await fs.writeFile(path.join(groupPath, 'group.definition.js'), pulumiImport + "const { allChannels } = require('../../check.defaults.js')\n" + `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` + groupCodeMap[group.id] + `module.exports = {groupDefinition : ${entry[1]}}`)
       if (apiChecksPerGroup[group.id]) {
         indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'api.check.definition.js')))
         let snippetsImport = ''
@@ -578,7 +597,7 @@ async function exportMaC (options) {
         }
 
         const importHeader = pulumiImport + "const { groupDefinition } = require('./group.definition.js')\n" +
-          "const { apiCheckDefaults, apiRequestDefaults } = require('../../check.defaults.js')\n" +
+          "const { apiCheckDefaults, apiRequestDefaults, allChannels } = require('../../check.defaults.js')\n" +
           `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` + snippetsImport
 
         await fs.writeFile(path.join(groupPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup[group.id])
@@ -586,7 +605,7 @@ async function exportMaC (options) {
       if (browserChecksPerGroups[group.id]) {
         indexJsRequire.push('.' + path.sep + path.relative(options.basePath, path.join(groupPath, 'browser.check.definition.js')))
         const footer = 'async function load() {' + browserCheckScriptsPerGroup[group.id]?.importSnippet
-        const importHeader = pulumiImport + fsPromisesImport + pathImport +
+        const importHeader = pulumiImport + "const { allChannels } = require('../../check.defaults.js')\n" + fsPromisesImport + pathImport +
           `const { ${Object.values(alertChannelMap).join(', ')} } = require('../../alertchannels.js')\n` +
           "const { groupDefinition } = require('./group.definition.js')\n" + footer
 
@@ -605,7 +624,7 @@ async function exportMaC (options) {
     if (browserChecksPerGroups.__nogroup) {
       indexJsRequire.push('.' + path.sep + 'checks/browser.check.definition.js')
       const footer = 'async function load() {' + browserCheckScriptsPerGroup.__nogroup?.importSnippet
-      const importHeader = pulumiImport + fsPromisesImport + pathImport +
+      const importHeader = pulumiImport + "const { allChannels } = require('../check.defaults.js')\n" + fsPromisesImport + pathImport +
         `const { ${Object.values(alertChannelMap).join(', ')} } = require('../alertchannels.js')\n` + footer
 
       await fs.writeFile(path.join(checksPath, 'browser.check.definition.js'), importHeader + browserChecksPerGroups.__nogroup + '}\nload()')
@@ -622,12 +641,12 @@ async function exportMaC (options) {
       if (snippetsPerGroup.__nogroup) {
         snippetsImport = `const { ${snippetsPerGroup.__nogroup.join(',')} } = require('../snippets.js')\n`
       }
-      const importHeader = pulumiImport + "const { apiCheckDefaults, apiRequestDefaults } = require('../check.defaults.js')\n" + snippetsImport +
+      const importHeader = pulumiImport + "const { apiCheckDefaults, apiRequestDefaults, allChannels } = require('../check.defaults.js')\n" + snippetsImport +
         `const { ${Object.values(alertChannelMap).join(', ')} } = require('../alertchannels.js')\n`
       await fs.writeFile(path.join(checksPath, 'api.check.definition.js'), importHeader + apiChecksPerGroup.__nogroup)
       indexJsRequire.push('.' + path.sep + 'checks/api.check.definition.js')
     }
-
+    await fs.writeFile(defaultsPath, `const { ${Object.values(alertChannelMap).join(', ')} } = require('./alertchannels.js')\n` + apiDefaultsCode + requestDefaultsCode + allChannelsSubscription() + 'module.exports = {apiCheckDefaults, apiRequestDefaults, allChannels}')
     await fs.writeFile(path.join(options.basePath, 'alertchannels.js'), pulumiImport + channelCode + `module.exports = { ${Object.values(alertChannelMap).join(', ')} }`)
     await fs.writeFile(path.join(options.basePath, 'snippets.js'), pulumiImport + fsImport + snippetCode)
     await fs.writeFile(path.join(options.basePath, 'resources.json'), JSON.stringify(importResources, null, 2))
@@ -643,6 +662,7 @@ require('./variables.js')
     consola.error(err)
     throw err
   }
+  console.log("Done! Run 'pulumi up' to create new items. Run 'pulumi import -f resources.json' to attach the config to your existing account.")
 }
 
 module.exports = exportMaC
