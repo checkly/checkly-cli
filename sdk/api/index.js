@@ -8,6 +8,7 @@ const projects = require('./modules/projects')
 const locations = require('./modules/locations')
 const checkStatuses = require('./modules/check-statuses')
 const alertChannels = require('./modules/alert-channels')
+const variables = require('./modules/environment-variables')
 
 function init ({ api, apiVersion = 'v1' }) {
   return {
@@ -17,6 +18,7 @@ function init ({ api, apiVersion = 'v1' }) {
     checkStatuses: checkStatuses({ api, apiVersion }),
     runtimes: runtimes({ api, apiVersion }),
     snippets: snippets({ api, apiVersion }),
+    variables: variables({ api, apiVersion }),
     alertChannels: alertChannels({ api, apiVersion }),
 
     accounts: accounts({ api, apiVersion: 'next' }),

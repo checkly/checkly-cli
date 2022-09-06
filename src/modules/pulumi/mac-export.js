@@ -2,6 +2,7 @@ const consola = require('consola')
 const { checks } = require('../../services/api')
 const { groups } = require('../../services/api')
 const { snippets } = require('../../services/api')
+const { variables } = require('../../services/api')
 const { alertChannels } = require('../../services/api')
 
 const fs = require('fs/promises')
@@ -145,8 +146,9 @@ function pulumifyApiCheck (check) {
     if (apiChecksPerGroup[check.groupId] === undefined) apiChecksPerGroup[check.groupId] = ''
   }
 
+  const checkName = `check${checkCounter++}-${snakecase(check.name)}`
   let checkCode = `
-new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...apiCheckDefaults,
+new checkly.Check("${checkName}", { ...apiCheckDefaults,
   name: "${check.name}",
   request: ${transformRequest(check.request)},
   ${frequency(check)}
@@ -176,6 +178,12 @@ new checkly.Check("check${checkCounter++}-${snakecase(check.name)}", { ...apiChe
   } else {
     apiChecksPerGroup.__nogroup += checkCode
   }
+
+  importResources.resources.push({
+    type: 'checkly:index/check:Check',
+    id: check.id.toString(),
+    name: checkName,
+  })
 
   return checkCode
 }
@@ -292,6 +300,11 @@ const ${groupVariableName} = new checkly.CheckGroup("${groupName}", {
   ${extractAlertSubscriberCode(group.alertChannelSubscriptions)}
   })
   `
+  importResources.resources.push({
+    type: 'checkly:index/checkGroup:CheckGroup',
+    id: group.id.toString(),
+    name: groupName,
+  })
   return groupCode
 }
 
@@ -380,6 +393,12 @@ new checkly.Check("${checkNames[check.id]}", {
   } else {
     browserChecksPerGroups.__nogroup += (checkCode)
   }
+
+  importResources.resources.push({
+    type: 'checkly:index/check:Check',
+    id: check.id.toString(),
+    name: checkNames[check.id],
+  })
   return checkCode
 }
 
@@ -426,15 +445,7 @@ function pulumifyAlertChannel (channel) {
   const channelName = `alert-channel-${alertChannelCounter++}-${snakecase(channel.type)}`
   const channelVariableName = channelName.replace(/-/g, '_')
   alertChannelMap[channel.id] = channelVariableName
-  if (channel.type === 'EMAIL') {
-    channel.config.address = 'daniel@slkjösölkj.com'
-  }
-  if (channel.type === 'SLACK') {
-    channel.config.channel = '#froopydoopydupdup'
-  }
-  if (channel.type === 'OPSGENIE') {
-    channel.config.apiKey = 'F5CEEBEF-ABB7-4BBA-BB6C-2E3D565B5F5B'
-  }
+
   const channelCode = `
 const ${channelVariableName} = new checkly.AlertChannel('${channelName}', {
   ${channel.type.toLowerCase()}: ${JSON5.stringify(channel.config, null, 2)},
@@ -445,7 +456,34 @@ const ${channelVariableName} = new checkly.AlertChannel('${channelName}', {
   sslExpiryThreshold: ${channel.sslExpiryThreshold}
   })
   `
+  importResources.resources.push({
+    type: 'checkly:index/alertChannel:AlertChannel',
+    id: channel.id.toString(),
+    name: channelName,
+  })
   return channelCode
+}
+
+async function pulumifyVariables (allEnvVars) {
+  let code = ''
+  for (const variable of allEnvVars) {
+    const varName = 'env_' + variable.key.toLowerCase()
+    code +=
+      `
+   new checkly.EnvironmentVariable('${varName}', {
+   key: '${variable.key}',
+   value: '${variable.value}',
+   locked: ${variable.locked},
+   })
+     `
+    importResources.resources.push({
+      type: 'checkly:index/environmentVariable:EnvironmentVariable',
+      id: variable.key,
+      name: varName,
+    })
+  }
+
+  return code
 }
 
 async function getAll (what) {
@@ -477,6 +515,10 @@ async function exportMaC (options) {
     const allChannels = await getAll(alertChannels)
 
     const allGroups = await getAll(groups)
+
+    const allEnvVars = await getAll(variables)
+    const variablesCode = await pulumifyVariables(allEnvVars)
+    await fs.writeFile(path.join(options.basePath, 'variables.js'), variablesCode)
 
     await fs.writeFile(defaultsPath, apiDefaultsCode + requestDefaultsCode + 'module.exports = {apiCheckDefaults, apiRequestDefaults}')
 
@@ -594,6 +636,7 @@ async function exportMaC (options) {
  ${pulumiImport}
 require('./alertchannels.js')
 require('./snippets.js')
+require('./variables.js')
  ${indexJsRequire.map(x => `require('${x}')`).join('\n')}
  `)
   } catch (err) {
