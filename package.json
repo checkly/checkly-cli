@@ -75,7 +75,7 @@
     "console.table": "0.10.0",
     "date-fns": "2.28.0",
     "git-remote-origin-url": "3.1.0",
-    "inquirer": "8.2.0",
+    "inquirer": "9.1.4",
     "joi": "17.6.0",
     "jwt-decode": "3.1.2",
     "lodash.isequal": "4.5.0",
