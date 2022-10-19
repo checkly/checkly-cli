@@ -7,8 +7,7 @@ class CheckCommand extends Command {
   async run () {
     console.log('Running the checks...')
 
-    await jest.run(`--config='${__dirname}/../services/jest-config.js'`)
-    // TODO: Even write a custom reporter for the results?
+    await jest.run(`--config='${__dirname}/../services/jest-config.js'`)   
   }
 }
 
