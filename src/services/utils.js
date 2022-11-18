@@ -12,9 +12,11 @@ const CHECKLY_DIR_NAME = '.checkly'
 let CWD = process.cwd()
 let CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
 let SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
+const CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
 
 const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
 const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
+const hasChecklyConfigFile = () => fs.existsSync(CHECKLY_CONFIG_FILE)
 
 function print (data, { output } = {}) {
   if (!data && !data.length) {
@@ -92,11 +94,32 @@ function getGlobalSettings () {
   return fs.readFileSync(SETTINGS_FILE, 'utf8')
 }
 
+function getChecklyConfigPath () {
+  if (!hasChecklyConfigFile) {
+    throw new Error('Missing config file')
+  }
+
+  return CHECKLY_CONFIG_FILE
+}
+
+function isFunction (symbol) {
+  return symbol !== null &&
+   typeof variable === 'function'
+}
+
+function isObject (symbol) {
+  return symbol !== null &&
+   Object.prototype.toString.call(symbol) === '[object Object]'
+}
+
 module.exports = {
+  isFunction,
+  isObject,
   print,
   readLocal,
   getRepoUrl,
   findChecklyDir,
   getGlobalSettings,
-  getLocationsOutput
+  getLocationsOutput,
+  getChecklyConfigPath,
 }

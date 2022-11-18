@@ -23,7 +23,7 @@ const runDeploy = async ({ dryRun, preview, force }) => {
 
   const { data } = await projects.deploy(
     { projectId, ...parseResults },
-    { dryRun }
+    { dryRun },
   )
 
   consola.log(JSON.stringify(data, null, 2))
