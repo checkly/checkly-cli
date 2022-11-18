@@ -9,7 +9,7 @@ const { readLocal, findChecklyDir } = require('./../../services/utils')
 
 const runDeploy = async ({ dryRun, preview, force }) => {
   const parseResults = await parser()
-  const settings = await readLocal(path.join(findChecklyDir(), 'settings.yml'))
+  const settings = await readLocal(path.join(findChecklyDir(), 'checkly.settings.yml'))
   const projectId = settings.projectId
 
   preview && console.log(JSON.stringify(parseResults, null, 2))

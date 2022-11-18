@@ -7,14 +7,10 @@ const path = require('path')
 const { readFile } = require('fs/promises')
 require('console.table')
 
-const CHECKLY_DIR_NAME = '.checkly'
-
 let CWD = process.cwd()
-let CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
-let SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
-const CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
+let SETTINGS_FILE = path.join(CWD, 'checkly.settings.yml')
+let CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
 
-const hasChecklyDirectory = () => fs.existsSync(CHECKLY_DIR_PATH)
 const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 const hasChecklyConfigFile = () => fs.existsSync(CHECKLY_CONFIG_FILE)
 
@@ -73,15 +69,15 @@ function getLocationsOutput (locations) {
 function findChecklyDir () {
   while (CWD !== '/') {
     if (
-      hasChecklyDirectory() &&
+      hasChecklyConfigFile() &&
       hasGlobalSettingsFile()
     ) {
-      return CHECKLY_DIR_PATH
+      return CWD
     }
 
+    CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
     CWD = path.resolve(CWD, '..')
-    CHECKLY_DIR_PATH = path.join(CWD, CHECKLY_DIR_NAME)
-    SETTINGS_FILE = path.join(CWD, CHECKLY_DIR_NAME, 'settings.yml')
+    SETTINGS_FILE = path.join(CWD, 'checkly.settings.yml')
   }
   throw new Error('Directories missing, please see [docs](https://docs.com)')
 }
