@@ -14,13 +14,13 @@ const projects = ({ api, apiVersion = 'next' }) => {
   }
 
   function deleteProject (id) {
-    return api.delete(`/${apiVersion}/${PATH}/${id}?newSync=true`)
+    return api.delete(`/${apiVersion}/${PATH}/${id}`)
   }
 
-  function deploy (resources, { dryRun = false, newSync = true } = {}) {
+  function deploy (resources, { dryRun = false } = {}) {
     return api.post(
-      `/${apiVersion}/${PATH}/deploy?dryRun=${dryRun}&newSync=${newSync}`,
-      resources
+      `/${apiVersion}/${PATH}/deploy?dryRun=${dryRun}`,
+      resources,
     )
   }
 
@@ -29,7 +29,7 @@ const projects = ({ api, apiVersion = 'next' }) => {
     get,
     create,
     deploy,
-    delete: deleteProject
+    delete: deleteProject,
   }
 }
 
