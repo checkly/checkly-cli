@@ -1,4 +1,3 @@
-const path = require('path')
 const consola = require('consola')
 const { prompt } = require('inquirer')
 

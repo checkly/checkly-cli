@@ -18,6 +18,7 @@ const check = {
   checkType: 'BROWSER',
   // We parse the files and populate script and dependencies fields ourselves
   script: 'console.log(1)',
+  activated: false,
   entry: join(__dirname, 'dir/test.spec.js'),
   alertChannels: [alert],
 }
