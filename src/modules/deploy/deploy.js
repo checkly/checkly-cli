@@ -21,9 +21,7 @@ const runDeploy = async ({ dryRun, preview, force }) => {
     { ...parseResults },
     { dryRun },
   )
-
   consola.log(JSON.stringify(data, null, 2))
-
   return data
 }
 

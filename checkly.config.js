@@ -1,7 +1,9 @@
-const { join } = require('path')
+// const { join } = require('path')
+const { Project } = require('./sdk/constructs')
 // const { Project, Check, AlertChannel } = require('./sdk/types')
 
 // const alert = new AlertChannel({
+/*
 const alert = {
   type: 'EMAIL',
   config: {
@@ -10,9 +12,10 @@ const alert = {
   sslExpiry: false,
   sslExpiryThreshold: 30,
 }
-
+*/
 // Creating a check manually
 // const check = new Check({
+/*
 const check = {
   name: 'A check',
   checkType: 'BROWSER',
@@ -22,8 +25,10 @@ const check = {
   entry: join(__dirname, 'dir/test.spec.js'),
   alertChannels: [alert],
 }
+*/
 
 // const project = new Project('sampleProject')
+/*
 const project = {
   project: {
     name: 'Example',
@@ -36,8 +41,16 @@ const project = {
     example_check: check,
   },
 }
+*/
 
 // project.addAlertChannel('example_channel', alert)
 // project.addCheck('example_check', check)
+
+// Change the CHECK_ENV env variable to create different projects
+const environment = process.env.CHECK_ENV ?? 'prod'
+
+const project = new Project(`monitor-${environment}`, {
+  name: 'New Project',
+})
 
 module.exports = project
