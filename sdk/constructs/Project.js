@@ -12,13 +12,42 @@ class Project extends Construct {
     this.name = props.name
     this.repoUrl = props.repoUrl
     this.checks = {}
+    this.alertChannels = {}
+    this.alertChannelSubscriptions = {}
   }
 
   addCheck (check) {
-    if (this.checks[check.logicalId]) {
+    if (this.checks[check.logicalId] && this.checks[check.logicalId] !== check) {
       throw new ValidationError(`Detected multiple checks with the same logical ID ${check.logicalId}. Ensure that each check has a unique logical ID.`)
     }
     this.checks[check.logicalId] = check
+    check.alertChannelSubscriptions.forEach(alertChannel => {
+      this.addAlertChannel(alertChannel)
+      this._addAlertChannelSubscriptionCheck(check, alertChannel)
+    })
+  }
+
+  addAlertChannel (alertChannel) {
+    console.log('Adding alert channel ', alertChannel)
+    if (this.alertChannels[alertChannel.logicalId] && this.alertChannels[alertChannel.logicalId] !== alertChannel) {
+      throw new ValidationError(`Detected multiple alert channels with the same logical ID ${alertChannel.logicalId}. Ensure that each alert channel has a unique logical ID.`)
+    }
+    this.alertChannels[alertChannel.logicalId] = alertChannel
+  }
+
+  _addAlertChannelSubscriptionCheck (check, alertChannel) {
+    // TODO: This is only safe if # is not allowed in user created logical IDs.
+    // Rather than having to actually create an alert channel subscription entry,
+    // could the BE create these automatically based on check.alertChannelSubscriptions?
+    const logicalId = `check-alert-channel-subscription#${check.logicalId}#${alertChannel.logicalId}`
+    if (this.alertChannelSubscriptions[logicalId]) {
+      throw new ValidationError(`The check ${check.logicalId} is already using alert channel ${alertChannel.logicalId}`)
+    }
+    this.alertChannelSubscriptions[logicalId] = {
+      alertChannelId: { ref: alertChannel.logicalId },
+      checkId: { ref: check.logicalId },
+      activated: true,
+    }
   }
 
   synthesize () {
@@ -32,14 +61,18 @@ class Project extends Construct {
       return acc
     }, {})
     const groups = {}
-    const alertChannels = {}
+    console.log('Running with alert channels ', this.alertChannels, this.alertChannelSubscriptions)
+    const alertChannels = Object.values(this.alertChannels).reduce((acc, alertChannel) => {
+      acc[alertChannel.logicalId] = alertChannel.synthesize()
+      return acc
+    }, {})
+    const alertChannelSubscriptions = this.alertChannelSubscriptions
     return {
       project,
       checks,
       groups,
       alertChannels,
-      // TODO: Why do we also have a list of alert subscriptions here? This is already included in the `checks`, no?
-      alertChannelSubscriptions: {},
+      alertChannelSubscriptions,
     }
   }
 }

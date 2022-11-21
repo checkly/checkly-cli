@@ -5,7 +5,6 @@ class Check extends Construct {
   constructor (logicalId, props) {
     super(logicalId)
     this.name = props.name
-    this.alertChannels = null // TODO: Just track the alert channel subscriptions...
     this.activated = props.activated
     this.muted = props.muted
     this.doubleCheck = props.doubleCheck
@@ -13,8 +12,11 @@ class Check extends Construct {
     this.locations = props.locations
     this.tags = props.tags
     this.frequency = props.frequency
+    // Alert channel subscriptions will be synthesized separately in the Project construct.
+    // This is due to the way things are organized on the BE.
+    this.alertChannelSubscriptions = props.alertChannelSubscriptions ?? []
     // TODO:
-    // alertSettings, useGlobalAlertSettings, groupId, groupOrder, runtimeId, alertChannelSubscriptions
+    // alertSettings, useGlobalAlertSettings, groupId, groupOrder, runtimeId
   }
 
   synthesize () {
