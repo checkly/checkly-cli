@@ -1,6 +1,5 @@
 const { Command, flags } = require('@oclif/command')
 
-const config = require('../services/config')
 const projects = require('../modules/projects')
 const { output } = require('../services/flags')
 const { ACTIONS } = require('../services/constants')
@@ -11,7 +10,7 @@ class ProjectsCommand extends Command {
     required: false,
     description: 'Project action to execute',
     options: [ACTIONS.LIST, ACTIONS.CREATE, ACTIONS.DELETE],
-    default: ACTIONS.LIST
+    default: ACTIONS.LIST,
   }]
 
   async run () {
@@ -35,16 +34,15 @@ ProjectsCommand.flags = {
   projectId: flags.string({
     char: 'i',
     description: 'project id',
-    default: config.getProjectId()
   }),
   name: flags.string({
     char: 'n',
-    description: 'project name'
+    description: 'project name',
   }),
   repoUrl: flags.string({
     char: 'r',
-    description: 'repo url'
-  })
+    description: 'repo url',
+  }),
 }
 
 module.exports = ProjectsCommand

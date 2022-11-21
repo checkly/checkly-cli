@@ -9,12 +9,12 @@ const dataSchema = {
   output: { type: 'string', pattern: 'human|json|plain' },
   collectMetricts: { type: 'boolean' },
   accountId: { type: 'string' },
-  accountName: { type: 'string' }
+  accountName: { type: 'string' },
 }
 
 const authSchema = {
   _: { type: 'string' },
-  apiKey: { type: 'string' }
+  apiKey: { type: 'string' },
 }
 
 const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
@@ -23,12 +23,12 @@ const config = {
   auth: new Conf({
     configName: 'auth',
     projectSuffix,
-    schema: authSchema
+    schema: authSchema,
   }),
   data: new Conf({
     configName: 'config',
     projectSuffix,
-    schema: dataSchema
+    schema: dataSchema,
   }),
 
   clear () {
@@ -56,20 +56,6 @@ const config = {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId')
   },
 
-  getProjectId () {
-    try {
-      const parsedSettings = YAML.parse(
-        fs.readFileSync(
-          path.join(process.cwd(), '.checkly/settings.yml'),
-          'utf8'
-        )
-      )
-      return parsedSettings.projectId
-    } catch (e) {
-      return null
-    }
-  },
-
   hasValidSession () {
     return this.getApiKey() && this.getAccountId()
   },
@@ -84,13 +70,13 @@ const config = {
       'logout',
       '--help',
       '--version',
-      '--exit'
+      '--exit',
     ]
 
     if (!this.hasValidSession() && !publicCommands.includes(command)) {
       consola.error('Invalid Session')
       consola.info(
-        'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.'
+        'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.',
       )
       process.exit(1)
     }
@@ -100,7 +86,7 @@ const config = {
     this.validateAuth()
     this.data.set('_', 'This is your Checkly config file.')
     this.auth.set('_', 'This is your Checkly auth file.')
-  }
+  },
 }
 
 config.init()
