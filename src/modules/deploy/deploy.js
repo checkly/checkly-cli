@@ -5,12 +5,9 @@ const { prompt } = require('inquirer')
 const parser = require('./../../parser')
 const { projects } = require('./../../services/api')
 const { promptConfirm } = require('./../../services/prompts')
-const { readLocal, findChecklyDir } = require('./../../services/utils')
 
 const runDeploy = async ({ dryRun, preview, force }) => {
   const parseResults = await parser()
-  const settings = await readLocal(path.join(findChecklyDir(), 'checkly.settings.yml'))
-  const projectId = settings.projectId
 
   preview && console.log(JSON.stringify(parseResults, null, 2))
 
@@ -22,7 +19,7 @@ const runDeploy = async ({ dryRun, preview, force }) => {
   }
 
   const { data } = await projects.deploy(
-    { projectId, ...parseResults },
+    { ...parseResults },
     { dryRun },
   )
 

@@ -8,10 +8,8 @@ const { readFile } = require('fs/promises')
 require('console.table')
 
 let CWD = process.cwd()
-let SETTINGS_FILE = path.join(CWD, 'checkly.settings.yml')
 let CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
 
-const hasGlobalSettingsFile = () => fs.existsSync(SETTINGS_FILE)
 const hasChecklyConfigFile = () => fs.existsSync(CHECKLY_CONFIG_FILE)
 
 function print (data, { output } = {}) {
@@ -69,25 +67,15 @@ function getLocationsOutput (locations) {
 function findChecklyDir () {
   while (CWD !== '/') {
     if (
-      hasChecklyConfigFile() &&
-      hasGlobalSettingsFile()
+      hasChecklyConfigFile()
     ) {
       return CWD
     }
 
     CHECKLY_CONFIG_FILE = path.join(CWD, 'checkly.config.js')
     CWD = path.resolve(CWD, '..')
-    SETTINGS_FILE = path.join(CWD, 'checkly.settings.yml')
   }
   throw new Error('Directories missing, please see [docs](https://docs.com)')
-}
-
-function getGlobalSettings () {
-  if (!hasGlobalSettingsFile) {
-    throw new Error('Missing settings file')
-  }
-
-  return fs.readFileSync(SETTINGS_FILE, 'utf8')
 }
 
 function getChecklyConfigPath () {
@@ -115,7 +103,6 @@ module.exports = {
   readLocal,
   getRepoUrl,
   findChecklyDir,
-  getGlobalSettings,
   getLocationsOutput,
   getChecklyConfigPath,
 }
