@@ -5,10 +5,20 @@ class Project extends Construct {
   constructor (logicalId, props) {
     super(logicalId)
     if (!props.name) {
-      throw new ValidationError('The project must have a name.')
+      // TODO: Can we collect a list of validation errors and return them all at once? This might be better UX.
+      throw new ValidationError('The project must have a name specified')
     }
+
     this.name = props.name
     this.repoUrl = props.repoUrl
+    this.checks = {}
+  }
+
+  addCheck (check) {
+    if (this.checks[check.logicalId]) {
+      throw new ValidationError(`Detected multiple checks with the same logical ID ${check.logicalId}. Ensure that each check has a unique logical ID.`)
+    }
+    this.checks[check.logicalId] = check
   }
 
   synthesize () {
@@ -17,7 +27,10 @@ class Project extends Construct {
       name: this.name,
       repoUrl: this.repoUrl,
     }
-    const checks = {}
+    const checks = Object.values(this.checks).reduce((acc, check) => {
+      acc[check.logicalId] = check.synthesize()
+      return acc
+    }, {})
     const groups = {}
     const alertChannels = {}
     return {

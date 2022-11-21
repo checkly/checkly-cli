@@ -1,5 +1,5 @@
 // const { join } = require('path')
-const { Project } = require('./sdk/constructs')
+const { Project, BrowserCheck } = require('./sdk/constructs')
 // const { Project, Check, AlertChannel } = require('./sdk/types')
 
 // const alert = new AlertChannel({
@@ -52,5 +52,13 @@ const environment = process.env.CHECK_ENV ?? 'prod'
 const project = new Project(`monitor-${environment}`, {
   name: 'New Project',
 })
+
+const signupCheck = new BrowserCheck('signup', {
+  name: 'Signup Check',
+  activated: true,
+  script: 'console.log("it works")',
+})
+
+project.addCheck(signupCheck)
 
 module.exports = project

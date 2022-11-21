@@ -17,12 +17,16 @@ const runDeploy = async ({ dryRun, preview, force }) => {
     }
   }
 
-  const { data } = await projects.deploy(
-    { ...parseResults },
-    { dryRun },
-  )
-  consola.log(JSON.stringify(data, null, 2))
-  return data
+  try {
+    const { data } = await projects.deploy(
+      { ...parseResults },
+      { dryRun },
+    )
+    consola.log(JSON.stringify(data, null, 2))
+    return data
+  } catch (err) {
+    console.log('GOT ERR ', err)
+  }
 }
 
 module.exports = runDeploy
