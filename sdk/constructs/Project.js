@@ -69,7 +69,7 @@ class Project extends Construct {
       checks[check.logicalId] = await check.synthesize()
     }
     const groups = {}
-    for (const checkGroup of Object.values(this.groups)) {
+    for (const checkGroup of Object.values(this.checkGroups)) {
       groups[checkGroup.logicalId] = await checkGroup.synthesize()
     }
     const alertChannels = {}
