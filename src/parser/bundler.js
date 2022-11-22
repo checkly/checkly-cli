@@ -37,13 +37,14 @@ async function bundle (check) {
       if (check.entry.endsWith(filename)) {
         bundled.script = output[0].map.sourcesContent[index]
         bundled.scriptPath = filename
+      } else {
+        bundled.dependencies.push(
+          {
+            path: filename,
+            content: output[0].map.sourcesContent[index],
+          },
+        )
       }
-      bundled.dependencies.push(
-        {
-          path: filename,
-          content: output[0].map.sourcesContent[index],
-        },
-      )
     }
     return bundled
   } finally {
