@@ -1,3 +1,4 @@
+const { join } = require('path')
 const { Project, BrowserCheck, EmailAlertChannel, CheckGroup } = require('./sdk/constructs')
 
 // Change the CHECK_ENV env variable to create different projects
@@ -15,6 +16,7 @@ const signupCheck = new BrowserCheck('signup', {
   name: 'Signup Check',
   activated: true,
   script: 'console.log("it works")',
+  entry: join(__dirname, 'checks/example/script.js'),
   // TODO: All of these subscriptions are considered active.
   // Is there a nice way to allow users to set inactive subscriptions?
   // Or should we just disallow this?

@@ -58,24 +58,24 @@ class Project extends Construct {
     }
   }
 
-  synthesize () {
+  async synthesize () {
     const project = {
       logicalId: this.logicalId,
       name: this.name,
       repoUrl: this.repoUrl,
     }
-    const checks = Object.values(this.checks).reduce((acc, check) => {
-      acc[check.logicalId] = check.synthesize()
-      return acc
-    }, {})
-    const groups = Object.values(this.checkGroups).reduce((acc, checkGroup) => {
-      acc[checkGroup.logicalId] = checkGroup.synthesize()
-      return acc
-    }, {})
-    const alertChannels = Object.values(this.alertChannels).reduce((acc, alertChannel) => {
-      acc[alertChannel.logicalId] = alertChannel.synthesize()
-      return acc
-    }, {})
+    const checks = {}
+    for (const check of Object.values(this.checks)) {
+      checks[check.logicalId] = await check.synthesize()
+    }
+    const groups = {}
+    for (const checkGroup of Object.values(this.groups)) {
+      groups[checkGroup.logicalId] = await checkGroup.synthesize()
+    }
+    const alertChannels = {}
+    for (const alertChannel of Object.values(this.alertChannels)) {
+      alertChannels[alertChannel.logicalId] = await alertChannel.synthesize()
+    }
     const alertChannelSubscriptions = this.alertChannelSubscriptions
     return {
       project,
