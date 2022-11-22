@@ -1,7 +1,11 @@
 const {
   parseChecklyConfig,
 } = require('./config-parser')
+const {
+  processConfig,
+} = require('./config-processor')
 
 module.exports = async () => {
-  return parseChecklyConfig()
+  const config = await parseChecklyConfig()
+  return processConfig(config)
 }
