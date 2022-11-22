@@ -12,6 +12,7 @@ class Project extends Construct {
     this.name = props.name
     this.repoUrl = props.repoUrl
     this.checks = {}
+    this.checkGroups = {}
     this.alertChannels = {}
     this.alertChannelSubscriptions = {}
   }
@@ -25,6 +26,14 @@ class Project extends Construct {
       this.addAlertChannel(alertChannel)
       this._addAlertChannelSubscriptionCheck(check, alertChannel)
     })
+  }
+
+  addCheckGroup (checkGroup) {
+    if (this.checkGroups[checkGroup.logicalId] && this.checkGroups[checkGroup.logicalId] !== checkGroup) {
+      throw new ValidationError(`Detected multiple groups with the same logical ID ${checkGroup.logicalId}. Ensure that each group has a unique logical ID.`)
+    }
+    this.checkGroups[checkGroup.logicalId] = checkGroup
+    checkGroup.checks.forEach(check => this.addCheck(check))
   }
 
   addAlertChannel (alertChannel) {
@@ -59,7 +68,10 @@ class Project extends Construct {
       acc[check.logicalId] = check.synthesize()
       return acc
     }, {})
-    const groups = {}
+    const groups = Object.values(this.checkGroups).reduce((acc, checkGroup) => {
+      acc[checkGroup.logicalId] = checkGroup.synthesize()
+      return acc
+    }, {})
     const alertChannels = Object.values(this.alertChannels).reduce((acc, alertChannel) => {
       acc[alertChannel.logicalId] = alertChannel.synthesize()
       return acc
