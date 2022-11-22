@@ -30,6 +30,7 @@ class Check extends Construct {
       locations: this.locations,
       tags: this.tags,
       frequency: this.frequency,
+      groupId: this.groupId,
     }
   }
 }
