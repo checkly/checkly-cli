@@ -1,11 +1,9 @@
 const path = require('path')
 const rollup = require('rollup')
-const virtual = require('@rollup/plugin-virtual')
 const commonjs = require('@rollup/plugin-commonjs')
 const typescript = require('@rollup/plugin-typescript')
 const modulesAllowlist = require('./modules-allowlist')
 
-const OUTPUT_DIRECTORY = '../../.checkly/output'
 const TS = 'ts'
 
 async function bundle (check) {
@@ -32,7 +30,22 @@ async function bundle (check) {
   const bundle = await rollup.rollup(inputOptions)
   try {
     const { output } = await bundle.generate(outputOptions)
-    return output
+    const bundled = {
+      dependencies: [],
+    }
+    for (const [index, filename] of output[0].map.sources.entries()) {
+      if (check.entry.endsWith(filename)) {
+        bundled.script = output[0].map.sourcesContent[index]
+        bundled.scriptPath = filename
+      }
+      bundled.dependencies.push(
+        {
+          path: filename,
+          content: output[0].map.sourcesContent[index],
+        },
+      )
+    }
+    return bundled
   } finally {
     await bundle.close()
   }
