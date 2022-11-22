@@ -49,8 +49,6 @@ async function bundle (check) {
   } finally {
     await bundle.close()
   }
-
-  // for (for output)
 }
 
 module.exports = bundle
