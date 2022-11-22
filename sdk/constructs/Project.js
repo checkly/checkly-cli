@@ -28,7 +28,6 @@ class Project extends Construct {
   }
 
   addAlertChannel (alertChannel) {
-    console.log('Adding alert channel ', alertChannel)
     if (this.alertChannels[alertChannel.logicalId] && this.alertChannels[alertChannel.logicalId] !== alertChannel) {
       throw new ValidationError(`Detected multiple alert channels with the same logical ID ${alertChannel.logicalId}. Ensure that each alert channel has a unique logical ID.`)
     }
@@ -61,7 +60,6 @@ class Project extends Construct {
       return acc
     }, {})
     const groups = {}
-    console.log('Running with alert channels ', this.alertChannels, this.alertChannelSubscriptions)
     const alertChannels = Object.values(this.alertChannels).reduce((acc, alertChannel) => {
       acc[alertChannel.logicalId] = alertChannel.synthesize()
       return acc
