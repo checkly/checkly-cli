@@ -1,8 +1,7 @@
-const fs = require('fs')
 const Conf = require('conf')
-const YAML = require('yaml')
-const path = require('path')
 const consola = require('consola')
+const path = require('path')
+const os = require('os')
 
 const dataSchema = {
   _: { type: 'string' },
@@ -10,6 +9,7 @@ const dataSchema = {
   collectMetricts: { type: 'boolean' },
   accountId: { type: 'string' },
   accountName: { type: 'string' },
+  runtimesFolder: { type: 'string', default: path.join(os.homedir(), '.checkly-runtimes') },
 }
 
 const authSchema = {
