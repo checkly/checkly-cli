@@ -7,7 +7,7 @@ class RuntimesCommand extends Command {
   static args = [{
     name: 'action',
     required: false,
-    description: 'Project action to execute',
+    description: 'Runtimes action to execute',
     options: ['install', 'remove'],
   }]
 
