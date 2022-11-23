@@ -30,6 +30,8 @@ class ListReporter {
     this._clearSummary()
     if (checkResult.hasFailures) {
       console.log(chalk.red(`${checkResult.name} - FAILED`))
+      console.log('Logs: ')
+      console.log(checkResult.logs)
     } else {
       console.log(chalk.green(`${checkResult.name} - SUCCEEDED`))
     }
@@ -62,7 +64,7 @@ class ListReporter {
     const length = Math.floor(statusBarWidth * (totalChecks - numPendingChecks) / totalChecks)
     const statusBar = `${chalk.green('█').repeat(length)}${chalk.white('█').repeat(statusBarWidth - length)}`
 
-    const summary = [...inProgressCheckSummaries, checkCountOverview, statusBar].join('\n')
+    const summary = [...inProgressCheckSummaries, '', checkCountOverview, statusBar].join('\n')
     console.log(summary)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\u001B[2K\u001B[1A'.repeat(summary.split('\n').length + 1)

@@ -16,7 +16,11 @@ async function main () {
   listReporter.onCheckBegin(check1)
   await sleep(2000)
 
-  listReporter.onCheckEnd({ ...check1, hasFailures: true })
+  listReporter.onCheckEnd({
+    ...check1,
+    hasFailures: true,
+    logs: 'Navigating to homepage...\nAttempting signup..\nError, selector not found',
+  })
 
   // Imagine checks 2 and 3 run concurrently...
   listReporter.onCheckBegin(check3)
@@ -29,11 +33,15 @@ async function main () {
 
   listReporter.onCheckBegin(check4)
   await sleep(1000)
-  listReporter.onCheckEnd({ ...check4, hasFailures: true })
+  listReporter.onCheckEnd({ ...check4, hasFailures: false })
 
   listReporter.onCheckBegin(check5)
   await sleep(1000)
-  listReporter.onCheckEnd({ ...check5, hasFailures: true })
+  listReporter.onCheckEnd({
+    ...check5,
+    hasFailures: true,
+    logs: 'Error: received 404 requesting GET /users',
+  })
 }
 
 main()
