@@ -28,6 +28,13 @@ const signupCheck = new BrowserCheck('signup', {
 // A downside is that when the check is removed, we remove the alert channel...
 project.addCheck(signupCheck)
 
+const failingCheck = new BrowserCheck('fail', {
+  name: 'Failing Check',
+  activated: true,
+  script: 'throw new Error(\'Error during login\')',
+})
+project.addCheck(failingCheck)
+
 const loginCheck = new BrowserCheck('login', {
   name: 'Login Check',
   activated: true,

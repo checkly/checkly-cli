@@ -12,7 +12,7 @@ class RunCommand extends Command {
   static args = [{
     name: 'checkPath',
     required: false,
-    description: 'Which check would you like to execute?'
+    description: 'Which check would you like to execute?',
   }]
 
   async run () {
@@ -31,7 +31,7 @@ class RunCommand extends Command {
       consola.error(`Check not found, invalid check path ${checkPath}.`)
     }
 
-    check.checkType === CHECK_TYPES.BROWSER
+    check.checkType === CHECK_TYPES.BROWSER.toUpperCase()
       ? run.browserCheck({ check, location: flags.location })
       : run.apiCheck({ check, location: flags.location })
   }
@@ -42,8 +42,8 @@ RunCommand.flags = {
   location: flags.string({
     char: 'l',
     description: 'Where should the check run at?',
-    default: 'eu-central-1'
-  })
+    default: 'eu-central-1',
+  }),
 }
 
 RunCommand.description = 'Run and test your checks on Checkly'

@@ -2,7 +2,7 @@ const chalk = require('chalk')
 const consola = require('consola')
 const { v4: uuidv4 } = require('uuid')
 
-const { checks, sockets } = require('../../services/api')
+const { checks, sockets, assets } = require('../../services/api')
 const SocketClient = require('../../services/socket-client.js')
 
 async function browserCheck ({ check, location }) {
@@ -17,14 +17,14 @@ async function browserCheck ({ check, location }) {
     await socketClient.connect(presignedIotUrl.data.url)
 
     // Setup event handlers for various message types
-    socketClient.onMessageReceived((topic, message) => {
+    socketClient.onMessageReceived(async (topic, message) => {
       const type = topic.split('/')[2]
       switch (type) {
         case 'run-start':
           consola.debug('run-start', message)
           consola.info(' Browser check run started..')
           break
-        case 'run-end':
+        case 'run-end': {
           consola.debug('run-end', message)
           consola.info(' Check run complete')
 
@@ -32,50 +32,46 @@ async function browserCheck ({ check, location }) {
           consola.success(
             ` Run duration ${chalk.bold.blue(
               new Date(message.result.endTime).getTime() -
-                new Date(message.result.startTime).getTime()
-            )}ms`
+                new Date(message.result.startTime).getTime(),
+            )}ms`,
           )
-          break
-        case 'error':
-          consola.debug('error', message)
-          consola.error(' Check run error', message)
-          break
-        case 'screenshot-uploads':
-          consola.debug('screenshot-uploads', message)
-          consola.info(' Screenshots:')
-
-          // Print screenshot URLs of each taken screenshot
-          message.files.forEach((file, index) => {
-            console.log(` [${chalk.bold.blue(index + 1)}]`, file.url)
-          })
-          consola.log()
-          break
-        case 'logfile':
-          consola.debug('logfile', message)
-          consola.log('')
-          consola.info(' Console Log:')
-          message.file.forEach((msg, index) => {
+          const {
+            result: {
+              assets: {
+                region,
+                logPath,
+              },
+            },
+          } = message
+          const { data: logs } = await assets.get('log', region, logPath)
+          logs.forEach((msg, index) => {
             consola.log({
               tag: msg.level.toUpperCase(),
               message: ` [${chalk.bold.blue(index + 1)}] ${msg.msg}`,
               time: msg.time,
-              badge: false
+              badge: false,
             })
           })
-
-          // Logfiles are sent last, so we can close the socket and exit at this point
-          socketClient.end()
-          process.exit(0)
+          break
+        }
+        case 'error':
+          consola.debug('error', message)
+          consola.error(' Check run error', message)
+          break
       }
     })
 
     // Subscribe to the 'browser-check-run' topic with this clients socketId
     socketClient.subscribe(`browser-check-results/${socketClientId}/#`)
+    // TODO: We should eventually unsubscribe
 
     const browserCheck = {
       ...check,
       websocketClientId: socketClientId,
-      runLocation: location
+      runLocation: location,
+      // Joi doesn't allow the reference syntax for groups.
+      // TODO: Come up with a more appropriate fix for this.
+      groupId: null,
     }
 
     const results = await checks.run(browserCheck)
