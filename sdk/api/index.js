@@ -1,3 +1,4 @@
+const assets = require('./modules/assets')
 const checks = require('./modules/checks')
 const groups = require('./modules/groups')
 const sockets = require('./modules/sockets')
@@ -16,11 +17,12 @@ function init ({ api, apiVersion = 'v1' }) {
     runtimes: runtimes({ api, apiVersion }),
 
     accounts: accounts({ api, apiVersion: 'next' }),
+    assets: assets({ api, apiVersion: 'next' }),
     projects: projects({ api, apiVersion: 'next' }),
-    sockets: sockets({ api, apiVersion: 'next' })
+    sockets: sockets({ api, apiVersion: 'next' }),
   }
 }
 
 module.exports = {
-  init
+  init,
 }
