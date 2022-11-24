@@ -30,10 +30,12 @@ async function browserCheck ({ check, location }) {
               },
             },
           } = message
-          const { data: logs } = await assets.get('log', region, logPath)
+          if (logPath) {
+            const { data: logs } = await assets.get('log', region, logPath)
+            message.result.logs = logs
+          }
           resolve({
             ...message.result,
-            logs,
           })
           break
         }

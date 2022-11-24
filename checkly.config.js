@@ -1,5 +1,5 @@
 const { join } = require('path')
-const { Project, BrowserCheck, EmailAlertChannel, CheckGroup } = require('./sdk/constructs')
+const { Project, BrowserCheck, ApiCheck, EmailAlertChannel, CheckGroup } = require('./sdk/constructs')
 
 // Change the CHECK_ENV env variable to create different projects
 const environment = process.env.CHECK_ENV ?? 'prod'
@@ -27,6 +27,25 @@ const signupCheck = new BrowserCheck('signup', {
 // We track them because they belong to the check.
 // A downside is that when the check is removed, we remove the alert channel...
 project.addCheck(signupCheck)
+
+const googleCheck = new ApiCheck('google', {
+  name: 'Google Check',
+  activated: true,
+  request: {
+    url: 'https://google.com/',
+    method: 'GET',
+    followRedirects: true,
+    skipSsl: false,
+    assertion: {
+      source: 'STATUS_CODE',
+      comparison: 'EQUALS',
+      target: '200',
+    },
+  },
+  alertChannelSubscriptions: [emailAlertChannel],
+})
+
+project.addCheck(googleCheck)
 
 const failingCheck = new BrowserCheck('fail', {
   name: 'Failing Check',

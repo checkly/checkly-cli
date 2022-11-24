@@ -21,12 +21,12 @@ class TestCommand extends Command {
     reporter.onBegin(array)
     for (const check of array) {
       queue.add(async () => {
-        if (check.checkType === CHECK_TYPES.BROWSER.toUpperCase()) {
-          reporter.onCheckBegin(check)
-          const result = await run.browserCheck({ check, location: flags.location })
-          result.logicalId = check.logicalId
-          reporter.onCheckEnd(result)
-        }
+        reporter.onCheckBegin(check)
+        const result = check.checkType === CHECK_TYPES.BROWSER.toUpperCase()
+          ? await run.browserCheck({ check, location: flags.location })
+          : await run.apiCheck({ check, location: flags.location })
+        result.logicalId = check.logicalId
+        reporter.onCheckEnd(result)
       })
     }
     await queue.onIdle()
