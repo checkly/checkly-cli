@@ -6,7 +6,7 @@ const { force } = require('../services/flags')
 
 class DeployCommand extends Command {
   async run () {
-    consola.info('Deploying .checkly directory')
+    consola.info('Deploying the checkly config')
     const { flags } = this.parse(DeployCommand)
 
     try {
@@ -25,13 +25,13 @@ DeployCommand.flags = {
   preview: flags.boolean({
     char: 'p',
     default: false,
-    description: 'Show state preview'
+    description: 'Show state preview',
   }),
   dryRun: flags.boolean({
     char: 'x',
     default: false,
-    description: 'Do not actually write any changes'
-  })
+    description: 'Do not actually write any changes',
+  }),
 }
 
 module.exports = DeployCommand

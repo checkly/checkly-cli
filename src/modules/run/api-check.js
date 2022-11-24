@@ -1,20 +1,75 @@
 const consola = require('consola')
-const { checks } = require('../../services/api')
-const { print } = require('../../services/utils')
+const { v4: uuidv4 } = require('uuid')
+
+const { checks, sockets, assets } = require('../../services/api')
+const SocketClient = require('../../services/socket-client.js')
 
 async function apiCheck ({ check, location }) {
-  try {
+  // Setup Websocket IoT Core Connection
+  const presignedIotUrl = await sockets.getSignedUrl()
+
+  // Connect to our IoT Core SiWgned URL
+  const socketClientId = uuidv4()
+  const socketClient = new SocketClient()
+  await socketClient.connect(presignedIotUrl.data.url)
+  return new Promise((resolve, reject) => {
+    // Setup event handlers for various message types
+    socketClient.onMessageReceived(async (topic, message) => {
+      const type = topic.split('/')[2]
+      switch (type) {
+        case 'run-start':
+          consola.debug('run-start', message)
+          break
+        case 'run-end': {
+          consola.debug('run-end', message)
+          const {
+            result: {
+              assets: {
+                region,
+                logPath,
+              },
+            },
+          } = message
+          if (logPath) {
+            const { data: logs } = await assets.get('log', region, logPath)
+            message.result.logs = logs
+          }
+          resolve({
+            ...message.result,
+          })
+          break
+        }
+        case 'error':
+          consola.debug('error', message)
+          socketClient.end()
+          reject(message)
+          break
+      }
+    })
+
+    // Subscribe to the 'api-check-run' topic with this clients socketId
+    socketClient.subscribe(`api-check-results/${socketClientId}/#`)
+    // TODO: We should eventually unsubscribe
+
     const apiCheck = {
       ...check,
-      runLocation: location
+      websocketClientId: socketClientId,
+      runLocation: location,
+      // Joi doesn't allow the reference syntax for groups.
+      // TODO: Come up with a more appropriate fix for this.
+      groupId: null,
     }
 
-    const { data } = await checks.run(apiCheck)
-    print(data)
-  } catch (err) {
-    consola.error(err)
-    throw err
-  }
+    checks.run(apiCheck).then(results => {
+      if (results.status !== 202) {
+        socketClient.end()
+        resolve()
+      }
+    }).catch(err => {
+      socketClient.end()
+      resolve(err)
+    })
+  })
 }
 
 module.exports = apiCheck

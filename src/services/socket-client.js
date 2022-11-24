@@ -17,8 +17,8 @@ const client = function (url, topic) {
   const options = {
     will: {
       topic: LAST_WILL_TOPIC,
-      payload: getNotification(topic)
-    }
+      payload: getNotification(topic),
+    },
   }
   let client = null
   const clientWrapper = {}
