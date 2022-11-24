@@ -1,5 +1,19 @@
 const chalk = require('chalk')
 
+const FAIL = chalk.supportsColor
+  ? chalk.reset.inverse.bold.red(` ${'FAIL'} `)
+  : 'FAIL'
+
+const PASS = chalk.supportsColor
+  ? chalk.reset.inverse.bold.green(` ${'PASS'} `)
+  : 'PASS'
+
+const RUNS = chalk.supportsColor
+  ? chalk.reset.inverse.bold.yellow(` ${'RUNS'} `)
+  : 'RUNS'
+
+const TITLE_BULLET = chalk.bold('\u25cf ')
+
 class ListReporter {
   constructor () {
     this._clearString = ''
@@ -13,7 +27,8 @@ class ListReporter {
   }
 
   onEnd () {
-
+    this._clearSummary()
+    this._printSummary()
   }
 
   onCheckBegin (check) {
@@ -29,11 +44,10 @@ class ListReporter {
     // We want the SUCCEEDED/FAILED status to be above the summary, so we clear the summary first
     this._clearSummary()
     if (checkResult.hasFailures) {
-      console.log(chalk.red(`${checkResult.name} - FAILED`))
-      console.log('Logs: ')
-      console.log(checkResult.logs)
+      console.log(`${FAIL} - ${checkResult.name}`)
+      console.log(`  ${TITLE_BULLET}Console\n\n${this.getConsoleOutput(checkResult.logs)}`)
     } else {
-      console.log(chalk.green(`${checkResult.name} - SUCCEEDED`))
+      console.log(`${PASS} - ${checkResult.name}`)
     }
 
     this._printSummary()
@@ -46,7 +60,7 @@ class ListReporter {
 
   _printSummary () {
     const inProgressCheckSummaries = Object.values(this.inProgressChecks)
-      .map(({ name }) => chalk.yellow(`${name} - IN PROGRESS`))
+      .map(({ name }) => `${RUNS} - ${name}`)
 
     // TODO: We will probably need to skip the interactive summary in CI environments
     const numFailedChecks = this.results.filter(({ hasFailures }) => hasFailures).length
@@ -67,7 +81,51 @@ class ListReporter {
     const summary = [...inProgressCheckSummaries, '', checkCountOverview, statusBar].join('\n')
     console.log(summary)
     // Ansi escape code for erasing the line and moving the cursor up
-    this._clearString = '\u001B[2K\u001B[1A'.repeat(summary.split('\n').length + 1)
+    this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(summary.split('\n').length + 1)
+  }
+
+  getConsoleOutput (logs) {
+    const TITLE_INDENT = ' '.repeat(2)
+    const CONSOLE_INDENT = TITLE_INDENT + ' '.repeat(2)
+
+    const logEntries = logs.reduce((output, { level, msg: message, origin }) => {
+      const type = level.toLowerCase()
+      message = message
+        .split(/\n/)
+        .map(line => CONSOLE_INDENT + line)
+        .join('\n')
+
+      let typeMessage = `console.${type}`
+      // let noStackTrace = true
+      // let noCodeFrame = true
+
+      if (type === 'warn') {
+        message = chalk.yellow(message)
+        typeMessage = chalk.yellow(typeMessage)
+        // noStackTrace = globalConfig?.noStackTrace ?? false
+        // noCodeFrame = false
+      } else if (type === 'error') {
+        message = chalk.red(message)
+        typeMessage = chalk.red(typeMessage)
+        // noStackTrace = globalConfig?.noStackTrace ?? false
+        // noCodeFrame = false
+      }
+
+      // const options: StackTraceOptions = {
+      //   noCodeFrame,
+      //   noStackTrace,
+      // };
+
+      // const formattedStackTrace = formatStackTrace(origin, config, options);
+
+      return `${
+        output + TITLE_INDENT + chalk.dim(typeMessage)
+      }\n${message.trimRight()}\n${chalk.dim(
+        // formattedStackTrace.trimRight(),
+      )}\n`
+    }, '')
+
+    return `${logEntries.trimRight()}\n`
   }
 }
 

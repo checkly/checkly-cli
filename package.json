@@ -81,6 +81,7 @@
     "mqtt": "4.3.6",
     "open": "8.4.0",
     "ora": "5.4.1",
+    "p-queue": "6.6.2",
     "rollup": "2.75.7",
     "text-table": "0.2.0",
     "update-notifier": "5.1.0",
