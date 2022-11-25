@@ -1,15 +1,21 @@
 const {
   getChecklyConfigPath,
+  isFunction,
 } = require('../services/utils')
 const { Project } = require('../../sdk/constructs')
 
 async function getConfigOutput () {
   const exported = require(getChecklyConfigPath())
-  // TODO: Allow for `exported` to be a function (or even an async function?)
-  if (!(exported instanceof Project)) {
-    throw new Error(`Unsupported config export type: ${typeof exported}. Please export a Project.`)
+  let finalExport = exported
+  if (isFunction(finalExport)) {
+    finalExport = finalExport()
   }
-  return exported.synthesize()
+  // In case it is a Promise
+  finalExport = await finalExport
+  if (!(finalExport instanceof Project)) {
+    throw new Error(`Unsupported config export type: ${typeof finalExport}. Please export a Project.`)
+  }
+  return finalExport.synthesize()
 }
 
 async function parseChecklyConfig () {
