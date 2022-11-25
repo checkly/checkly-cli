@@ -1,5 +1,5 @@
 const { join } = require('path')
-const { Project, BrowserCheck, ApiCheck, EmailAlertChannel, CheckGroup } = require('./sdk/constructs')
+const { Project, BrowserCheck, ApiCheck, EmailAlertChannel, CheckGroup, EnvironmentVariable } = require('./sdk/constructs')
 
 // Change the CHECK_ENV env variable to create different projects
 const environment = process.env.CHECK_ENV ?? 'prod'
@@ -62,7 +62,10 @@ const loginCheck = new BrowserCheck('login', {
 
 const checkGroup = new CheckGroup('my-group', {
   name: 'Critical Checks',
+  activated: true,
   checks: [loginCheck],
+  concurrency: 5,
+  environmentVariables: [new EnvironmentVariable({ key: 'SECRET_ENV', value: 'So secret!!' })],
 })
 
 // Note that loginCheck is added automatically when the group is added.

@@ -4,6 +4,7 @@ const ApiCheck = require('./ApiCheck')
 const BrowserCheck = require('./BrowserCheck')
 const ValidationError = require('./ValidationError')
 const CheckGroup = require('./CheckGroup')
+const EnvironmentVariable = require('./EnvironmentVariable')
 
 module.exports = {
   EmailAlertChannel,
@@ -12,4 +13,5 @@ module.exports = {
   ApiCheck,
   ValidationError,
   CheckGroup,
+  EnvironmentVariable,
 }

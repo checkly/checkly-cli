@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid')
 const { checks, sockets, assets } = require('../../services/api')
 const SocketClient = require('../../services/socket-client.js')
 
-async function apiCheck ({ check, location }) {
+async function apiCheck ({ check, group, location }) {
   // Setup Websocket IoT Core Connection
   const presignedIotUrl = await sockets.getSignedUrl()
 
@@ -55,8 +55,7 @@ async function apiCheck ({ check, location }) {
       ...check,
       websocketClientId: socketClientId,
       runLocation: location,
-      // Joi doesn't allow the reference syntax for groups.
-      // TODO: Come up with a more appropriate fix for this.
+      group,
       groupId: null,
     }
 

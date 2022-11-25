@@ -10,7 +10,7 @@ const ListReporter = require('../reporters/list')
 class TestCommand extends Command {
   async run () {
     const { flags } = this.parse(TestCommand)
-    const { checks } = await parser()
+    const { checks, groups } = await parser()
     const queue = new PQueue({ concurrency: flags.parallel })
 
     const array = Object.entries(checks).map(([key, check]) => {
@@ -20,11 +20,12 @@ class TestCommand extends Command {
     const reporter = new ListReporter()
     reporter.onBegin(array)
     for (const check of array) {
+      const group = groups[check.groupId?.ref]
       queue.add(async () => {
         reporter.onCheckBegin(check)
         const result = check.checkType === CHECK_TYPES.BROWSER.toUpperCase()
-          ? await run.browserCheck({ check, location: flags.location })
-          : await run.apiCheck({ check, location: flags.location })
+          ? await run.browserCheck({ check, group, location: flags.location })
+          : await run.apiCheck({ check, group, location: flags.location })
         result.logicalId = check.logicalId
         reporter.onCheckEnd(result)
       })

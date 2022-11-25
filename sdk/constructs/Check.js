@@ -12,6 +12,7 @@ class Check extends Construct {
     this.locations = props.locations
     this.tags = props.tags
     this.frequency = props.frequency
+    this.environmentVariables = props.environmentVariables
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannelSubscriptions = props.alertChannelSubscriptions ?? []
@@ -31,6 +32,7 @@ class Check extends Construct {
       tags: this.tags,
       frequency: this.frequency,
       groupId: this.groupId,
+      environmentVariables: this.environmentVariables,
     }
   }
 }

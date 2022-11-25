@@ -1,5 +1,15 @@
 const Construct = require('./Construct')
 
+const defaultApiCheckDefaults = {
+  headers: [],
+  queryParameters: [],
+  url: '',
+  basicAuth: {
+    username: '',
+    password: '',
+  },
+}
+
 class CheckGroup extends Construct {
   constructor (logicalId, props) {
     super(logicalId)
@@ -8,10 +18,14 @@ class CheckGroup extends Construct {
     this.muted = props.muted
     this.tags = props.tags
     this.locations = props.locations
+    this.concurrency = props.concurrency
     this.checks = props.checks ?? []
     this.checks.forEach(check => {
       check.groupId = { ref: logicalId }
     })
+    this.apiCheckDefaults = props.apiCheckDefaults || defaultApiCheckDefaults
+    this.browserCheckDefaults = props.browserCheckDefaults || {}
+    this.environmentVariables = props.environmentVariables
     // TODO: Add additional fields
   }
 
@@ -22,6 +36,10 @@ class CheckGroup extends Construct {
       muted: this.muted,
       tags: this.tags,
       locations: this.locations,
+      concurrency: this.concurrency,
+      apiCheckDefaults: this.apiCheckDefaults,
+      browserCheckDefaults: this.browserCheckDefaults,
+      environmentVariables: this.environmentVariables,
     }
   }
 }
