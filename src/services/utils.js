@@ -86,7 +86,7 @@ function getChecklyConfigPath () {
 
 function isFunction (symbol) {
   return symbol !== null &&
-   typeof variable === 'function'
+  symbol instanceof Function
 }
 
 function isObject (symbol) {
