@@ -19,7 +19,6 @@ async function getConfigOutput () {
 }
 
 async function parseChecklyConfig () {
-  // TODO: Validate here that it is a Project object
   const result = await getConfigOutput()
   return result
 }
