@@ -1,5 +1,13 @@
 const { join } = require('path')
-const { Project, BrowserCheck, ApiCheck, EmailAlertChannel, CheckGroup, EnvironmentVariable } = require('./sdk/constructs')
+const {
+  Project,
+  BrowserCheck,
+  ApiCheck,
+  EmailAlertChannel,
+  CheckGroup,
+  EnvironmentVariable,
+  ProgrammableApiCheck,
+} = require('./sdk/constructs')
 
 // Change the CHECK_ENV env variable to create different projects
 const environment = process.env.CHECK_ENV ?? 'prod'
@@ -52,6 +60,13 @@ const failingCheck = new BrowserCheck('fail', {
   script: 'throw new Error(\'Error during login\')',
 })
 project.addCheck(failingCheck)
+
+const programmableCheck = new ProgrammableApiCheck('programmable-check', {
+  name: 'Programmable API Check',
+  activated: true,
+  entry: join(__dirname, 'examples/checks/programmable-api.js'),
+})
+project.addCheck(programmableCheck)
 
 const loginCheck = new BrowserCheck('login', {
   name: 'Login Check',

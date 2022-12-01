@@ -1,6 +1,7 @@
 const CHECK_TYPES = {
   BROWSER: 'browser',
-  API: 'api'
+  API: 'api',
+  PROGRAMMABLE: 'programmable',
 }
 
 const CHECK_FREQUENCIES = {
@@ -12,7 +13,7 @@ const CHECK_FREQUENCIES = {
     '30min',
     '60min',
     '720min',
-    '1440min'
+    '1440min',
   ],
   API: [
     '10sec',
@@ -25,39 +26,39 @@ const CHECK_FREQUENCIES = {
     '30min',
     '60min',
     '720min',
-    '1440min'
-  ]
+    '1440min',
+  ],
 }
 
 const CHECK_STATUS = {
   FAILING: 'Failing',
   DEGRADED: 'Degraded',
   PASSING: 'Passing',
-  PENDING: 'Pending'
+  PENDING: 'Pending',
 }
 
 const OUTPUTS = {
   JSON: 'json',
   HUMAN: 'human',
-  PLAIN: 'plain'
+  PLAIN: 'plain',
 }
 
 const RESOURCES = {
   CHECK: 'check',
   GROUP: 'group',
-  ALERT_CHANNEL: 'alert-channel'
+  ALERT_CHANNEL: 'alert-channel',
 }
 
 const ACTIONS = {
   LIST: 'list',
   INFO: 'info',
   CREATE: 'create',
-  DELETE: 'delete'
+  DELETE: 'delete',
 }
 
 const CONFIGURATION_MODES = {
   BASIC: 'basic',
-  ADVANCED: 'advanced'
+  ADVANCED: 'advanced',
 }
 
 const ALERT_CHANNEL_TYPES = {
@@ -66,7 +67,7 @@ const ALERT_CHANNEL_TYPES = {
   WEBHOOK: 'WEBHOOK',
   SMS: 'SMS',
   PAGERDUTY: 'PAGERDUTY',
-  OPSGENIE: 'OPSGENIE'
+  OPSGENIE: 'OPSGENIE',
 }
 
 module.exports = {
@@ -77,5 +78,5 @@ module.exports = {
   CHECK_STATUS,
   CHECK_FREQUENCIES,
   CONFIGURATION_MODES,
-  ALERT_CHANNEL_TYPES
+  ALERT_CHANNEL_TYPES,
 }

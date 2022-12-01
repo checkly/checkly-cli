@@ -45,9 +45,16 @@ class TestCommand extends Command {
       const group = groups[check.groupId?.ref]
       queue.add(async () => {
         reporter.onCheckBegin(check)
-        const result = check.checkType === CHECK_TYPES.BROWSER.toUpperCase()
-          ? await run.browserCheck({ check, group, location: flags.location })
-          : await run.apiCheck({ check, group, location: flags.location })
+        let result
+        if (check.checkType === CHECK_TYPES.BROWSER.toUpperCase()) {
+          result = await run.browserCheck({ check, group, location: flags.location })
+        } else if (check.checkType === CHECK_TYPES.API.toUpperCase()) {
+          result = await run.apiCheck({ check, group, location: flags.location })
+        } else if (check.checkType === CHECK_TYPES.PROGRAMMABLE.toUpperCase()) {
+          result = await run.programmableCheck({ check, group, location: flags.location })
+        } else {
+          throw new Error('Unsupported check type')
+        }
         result.logicalId = check.logicalId
         reporter.onCheckEnd(result)
       })
