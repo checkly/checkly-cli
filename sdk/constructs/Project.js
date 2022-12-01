@@ -24,7 +24,7 @@ class Project extends Construct {
     this.checks[check.logicalId] = check
     check.alertChannelSubscriptions.forEach(alertChannel => {
       this.addAlertChannel(alertChannel)
-      this._addAlertChannelSubscriptionCheck(check, alertChannel)
+      this.addAlertChannelSubscriptionCheck(check, alertChannel)
     })
   }
 
@@ -34,6 +34,10 @@ class Project extends Construct {
     }
     this.checkGroups[checkGroup.logicalId] = checkGroup
     checkGroup.checks.forEach(check => this.addCheck(check))
+    checkGroup.alertChannelSubscriptions.forEach(alertChannel => {
+      this.addAlertChannel(alertChannel)
+      this.addAlertChannelSubscriptionCheckGroup(checkGroup, alertChannel)
+    })
   }
 
   addAlertChannel (alertChannel) {
@@ -43,7 +47,7 @@ class Project extends Construct {
     this.alertChannels[alertChannel.logicalId] = alertChannel
   }
 
-  _addAlertChannelSubscriptionCheck (check, alertChannel) {
+  addAlertChannelSubscriptionCheck (check, alertChannel) {
     // TODO: This is only safe if # is not allowed in user created logical IDs.
     // Rather than having to actually create an alert channel subscription entry,
     // could the BE create these automatically based on check.alertChannelSubscriptions?
@@ -54,6 +58,21 @@ class Project extends Construct {
     this.alertChannelSubscriptions[logicalId] = {
       alertChannelId: { ref: alertChannel.logicalId },
       checkId: { ref: check.logicalId },
+      activated: true,
+    }
+  }
+
+  addAlertChannelSubscriptionCheckGroup (checkGroup, alertChannel) {
+    // TODO: This is only safe if # is not allowed in user created logical IDs.
+    // Rather than having to actually create an alert channel subscription entry,
+    // could the BE create these automatically based on check.alertChannelSubscriptions?
+    const logicalId = `check-alert-channel-subscription#${checkGroup.logicalId}#${alertChannel.logicalId}`
+    if (this.alertChannelSubscriptions[logicalId]) {
+      throw new ValidationError(`The check group ${checkGroup.logicalId} is already using alert channel ${alertChannel.logicalId}`)
+    }
+    this.alertChannelSubscriptions[logicalId] = {
+      alertChannelId: { ref: alertChannel.logicalId },
+      groupId: { ref: checkGroup.logicalId },
       activated: true,
     }
   }

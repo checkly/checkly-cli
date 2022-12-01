@@ -20,6 +20,10 @@ class Check extends Construct {
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder, runtimeId
   }
 
+  setGroup (group) {
+    this.groupId = { ref: group.logicalId }
+  }
+
   synthesize () {
     return {
       name: this.name,

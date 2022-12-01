@@ -26,6 +26,8 @@ class CheckGroup extends Construct {
     this.apiCheckDefaults = props.apiCheckDefaults || defaultApiCheckDefaults
     this.browserCheckDefaults = props.browserCheckDefaults || {}
     this.environmentVariables = props.environmentVariables
+    this.alertChannelSubscriptions = props.alertChannelSubscriptions ?? []
+    this.pattern = props.pattern
     // TODO: Add additional fields
   }
 

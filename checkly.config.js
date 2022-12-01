@@ -15,8 +15,7 @@ const emailAlertChannel = new EmailAlertChannel('email-chris', {
 const signupCheck = new BrowserCheck('signup', {
   name: 'Signup Check',
   activated: true,
-  script: 'console.log("it works")',
-  entry: join(__dirname, 'checks/example/script.js'),
+  entry: join(__dirname, 'examples/checks/script.js'),
   // TODO: All of these subscriptions are considered active.
   // Is there a nice way to allow users to set inactive subscriptions?
   // Or should we just disallow this?

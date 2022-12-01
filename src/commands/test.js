@@ -1,16 +1,38 @@
+const path = require('path')
 const { default: PQueue } = require('p-queue')
 const { Command, flags } = require('@oclif/command')
 
+const { parseChecklyResources } = require('./../parser/resource-parser')
 const parser = require('../parser')
 const run = require('../modules/run')
 const { output } = require('./../services/flags')
 const { CHECK_TYPES } = require('../services/constants')
 const ListReporter = require('../reporters/list')
 
+const tryPackageParser = async () => {
+  const packageJsonPath = path.join(process.cwd(), 'package.json')
+  try {
+    const packageJson = require(packageJsonPath)
+    const checklyConf = packageJson.checkly
+    if (!checklyConf) {
+      return null
+    }
+    if (!checklyConf.projectName) {
+      return null
+    }
+
+    const rootFolder = checklyConf.projectPath ? path.join(process.cwd(), checklyConf.projectPath) : process.cwd()
+
+    return parseChecklyResources(checklyConf.projectName, rootFolder)
+  } catch (err) {
+    return null
+  }
+}
+
 class TestCommand extends Command {
   async run () {
     const { flags } = this.parse(TestCommand)
-    const { checks, groups } = await parser()
+    const { checks, groups } = await tryPackageParser() || await parser()
     const queue = new PQueue({ concurrency: flags.parallel })
 
     const array = Object.entries(checks).map(([key, check]) => {
