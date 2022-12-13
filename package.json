@@ -1,0 +1,59 @@
+{
+  "name": "checkly-cli",
+  "version": "0.3.0",
+  "description": "Checkly CLI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\"",
+    "prepare": "tsc --build",
+    "lint": "eslint src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/checkly/checkly-cli.git"
+  },
+  "author": "Checkly Engineering <support@checklyhq.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/checkly/checkly-cli/issues"
+  },
+  "files": [
+    "/bin",
+    "/dist"
+  ],
+  "oclif": {
+    "bin": "checkly",
+    "commands": "./dist/commands",
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
+  },
+  "bin": {
+    "checkly": "./bin/run"
+  },
+  "homepage": "https://github.com/checkly/checkly-cli#readme",
+  "dependencies": {
+    "@oclif/core": "1.21.0",
+    "@oclif/plugin-help": "5.1.20"
+  },
+  "devDependencies": {
+    "@checkly/eslint-config": "0.14.1",
+    "@types/node": "18.11.15",
+    "@typescript-eslint/eslint-plugin": "5.46.1",
+    "@typescript-eslint/parser": "5.46.1",
+    "eslint": "8.29.0",
+    "ts-node": "10.9.1",
+    "typescript": "4.9.4"
+  },
+  "eslintConfig": {
+    "extends": [
+      "@checkly/eslint-config",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+name: test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test_and_lint:
+    name: test&lint
+    runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: "16"
+        cache: "npm"
+        cache-dependency-path: package-lock.json
+    - run: npm config set fund false && npm set audit false
+    - run: npm install
+    - run: npm run lint
+    - run: npm run test
