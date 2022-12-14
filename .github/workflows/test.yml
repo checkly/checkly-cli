@@ -1,4 +1,4 @@
-name: Test
+name: test
 
 on:
   pull_request:
@@ -6,68 +6,17 @@ on:
       - main
 
 jobs:
-  test:
-    name: Smoke Test
+  test_and_lint:
+    name: test&lint
     runs-on: ubuntu-latest
-    env:
-      GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: add checkly-cli to path
-        run: echo "./bin" >> $GITHUB_PATH
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '14'
-          cache: 'npm'
-      - run: npm install
-      - name: run e2e tests
-        run: node_modules/.bin/mocha --grep 'e2e.*' --exit
-        env:
-          CHECKLY_API_KEY: ${{ secrets.CHECKLY_API_KEY }}
-          CHECKLY_ACCOUNT_ID: ${{ secrets.CHECKLY_ACCOUNT_ID }}
-      - name: run unit tests
-        run: node_modules/.bin/mocha --grep 'e2e.*' -i --exit
-      - name: Login
-        run: checkly-cli login --api-key ${{ secrets.CHECKLY_API_KEY }} --account-id ${{ secrets.CHECKLY_ACCOUNT_ID }}
-      - name: Project init
-        run: checkly-cli init test-project-1 --force
-      - name: Initial deploy
-        run: checkly-cli deploy -f
-      - name: Change check name
-        run: sed -i 's/API Check/New API Check/' .checkly/checks/example-api.yml
-      - name: Deploy updated check
-        run: checkly-cli deploy -f
-      - name: Delete example api check
-        run: rm .checkly/checks/example-api.yml
-      - name: Deploy updated check
-        run: checkly-cli deploy -f
-      - name: Create test group files
-        run: |
-          mkdir -p .checkly/checks/group-1
-          cp test/fixtures/yml/group-valid.yml .checkly/checks/group-1/settings.yml
-          cp test/fixtures/yml/api-check-valid.yml .checkly/checks/group-1/api-check.yml
-      - name: Create group
-        run: checkly-cli deploy -f
-      - name: Change group name
-        run: sed -i 's/Group 1/New Group 1/' .checkly/checks/group-1/settings.yml
-      - name: Update group
-        run: checkly-cli deploy -f
-      - name: Remove group directory
-        run: rm -r .checkly/checks/group-1
-      - name: Delete group
-        run: checkly-cli deploy -f
-      - name: Delete created project
-        run: checkly-cli projects delete
-      - name: Slack Failure Notification
-        if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: Test Failed!
-          SLACK_MESSAGE: By <@${{ github.actor }}>
-          SLACK_USERNAME: Checkly Github Bot
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: eng-ci
-          SLACK_ICON: https://github.com/checkly.png?size=48
-          SLACK_LINK_NAMES: true
-          SLACK_FOOTER: ''
+  steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: "16"
+        cache: "npm"
+        cache-dependency-path: package-lock.json
+    - run: npm config set fund false && npm set audit false
+    - run: npm install
+    - run: npm run lint
+    - run: npm run test

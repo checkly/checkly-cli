@@ -1,9 +1,0 @@
-projectId: 6
-projectName: checkly-cli
-
-defaultCheckSettings:
-  runtimeId: "2021.10"
-  frequency: 15
-  locations:
-    - "us-west-1"
-
