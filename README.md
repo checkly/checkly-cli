@@ -1,7 +1,31 @@
-**🚨 This project is still in very early stages and is not stable, _use at your own risk_! 🚨**
+**🚨 This project is in alpha stage right now 🚨** 
 
-<p>
-  <img height="128" src="https://www.checklyhq.com/images/footer-logo.svg" align="right" />
-  <h1>checkly-cli</h1>
+<p align="center">
+  <a href="https://checklyhq.com">
+    <img height="56" src="https://www.checklyhq.com/images/footer-logo.svg"/>
+    <h3 align="center">Checkly</h3>
+  </a>
 </p>
 
+The Checkly CLI, SDK and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
+(MaC) workflow.
+
+This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
+debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
+
+## Release planning
+
+TBD
+
+
+## Usage
+
+```bash
+npm i -g @checkly/cli 
+```
+
+TBD
+
+## Local Development
+
+TBD
