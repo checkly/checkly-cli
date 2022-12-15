@@ -21,7 +21,6 @@ class ListReporter {
   inProgressChecks: Record<string, any>
 
   constructor (checks: Array<any>) {
-    this.results = []
     this.inProgressChecks = {}
     this.checks = checks
     this.results = []
