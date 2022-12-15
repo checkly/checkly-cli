@@ -1,17 +1,8 @@
 import * as chalk from 'chalk'
 
-const FAIL = chalk.supportsColor
-  ? chalk.reset.inverse.bold.red(` ${'FAIL'} `)
-  : 'FAIL'
-
-const PASS = chalk.supportsColor
-  ? chalk.reset.inverse.bold.green(` ${'PASS'} `)
-  : 'PASS'
-
-const RUNS = chalk.supportsColor
-  ? chalk.reset.inverse.bold.yellow(` ${'RUNS'} `)
-  : 'RUNS'
-
+const FAIL = chalk.reset.inverse.bold.red(` ${'FAIL'} `)
+const PASS = chalk.reset.inverse.bold.green(` ${'PASS'} `)
+const RUNS = chalk.reset.inverse.bold.yellow(` ${'RUNS'} `)
 const TITLE_BULLET = chalk.bold('\u25cf ')
 
 class ListReporter {
