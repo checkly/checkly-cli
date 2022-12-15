@@ -16,8 +16,8 @@ const TITLE_BULLET = chalk.bold('\u25cf ')
 
 class ListReporter {
   _clearString = ''
-  checks : Array<any>
-  results : Array<any>
+  checks: Array<any>
+  results: Array<any>
   inProgressChecks: Record<string, any>
 
   constructor (checks: Array<any>) {
