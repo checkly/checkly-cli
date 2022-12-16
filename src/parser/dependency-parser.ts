@@ -2,6 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as acorn from 'acorn'
 import * as tsParser from '@typescript-eslint/typescript-estree'
+import { TSESTree } from '@typescript-eslint/typescript-estree'
 import * as walk from 'acorn-walk'
 
 type UnsupportedNpmDependencies = {
@@ -165,16 +166,16 @@ function tsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<str
     }
   }
   return {
-    ImportDeclaration (node: any) {
+    ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
-      if (node.source.type !== 'Literal') return
+      if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
       registerDependency(node.source.value)
     },
-    ExportNamedDeclaration (node: any) {
+    ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
       if (node.source === null) return
       // For now, we only support literal strings in the import statement
-      if (node.source.type !== 'Literal') return
+      if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
       registerDependency(node.source.value)
     },
   }
