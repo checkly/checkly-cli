@@ -31,13 +31,18 @@ export class DependencyParseError extends Error {
   }
 }
 
-// TODO: Let's make this per-runtime? Also, does it make sense to fetch this from Checkly?
-const supportedNpmDependencies = new Set([
-  'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline', 'stream', 'string_decoder',
+const supportedBuiltinModules = [
+  'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline ', 'stream', 'string_decoder',
+  'timers', 'tls', 'url', 'util', 'zlib',
+]
+
+// TODO: Make this per-runtime. It may also make sense to fetch from the Checkly API.
+const supportedNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
   '@playwright/test', 'aws4', 'axios', 'btoa', 'chai', 'chai-string', 'crypto-js', 'expect', 'form-data',
   'jsonwebtoken', 'lodash', 'mocha', 'moment', 'otpauth', 'playwright', 'uuid',
-])
+]
+const supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
 
 export async function parseDependencies (entrypoint: string): Promise<string[]> {
   let extension: string
@@ -68,7 +73,7 @@ export async function parseDependencies (entrypoint: string): Promise<string[]> 
     const currentPath = bfsQueue.shift()!
     try {
       const { localDependencies, npmDependencies } = await parseDependenciesForFile(currentPath)
-      const unsupportedDependencies = npmDependencies.filter((dep) => !supportedNpmDependencies.has(dep))
+      const unsupportedDependencies = npmDependencies.filter((dep) => !supportedModules.has(dep))
       if (unsupportedDependencies.length) {
         unsupportedNpmDependencies.push({ file: currentPath, unsupportedDependencies })
       }
@@ -138,45 +143,24 @@ function jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<str
     CallExpression (node: Node) {
       if (!isRequireExpression(node)) return
       const requireStringArg = getRequireStringArg(node)
-      if (!requireStringArg) return
-      // Resolve the dependency more or less according to https://nodejs.org/api/modules.html#modules_all_together
-      if (requireStringArg.startsWith('/') || requireStringArg.startsWith('./') || requireStringArg.startsWith('../')) {
-        localDependencies.add(requireStringArg)
-      } else {
-        npmDependencies.add(requireStringArg)
-      }
+      registerDependency(requireStringArg, localDependencies, npmDependencies)
     },
   }
 }
 
 function tsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
-  const registerDependency = (importArg: string) => {
-    if (!importArg) {
-      // If there's no importArg, don't register a dependency
-    } else if (importArg.startsWith('/') || importArg.startsWith('./') || importArg.startsWith('../')) {
-      localDependencies.add(importArg)
-    } else if (importArg.startsWith('@')) {
-      // TODO: We currently don't support import path aliases.
-      // For example, `import { Something } from '@services/my-service'`
-      // It might make sense to support this, or at least surface a warning to the user.
-      // For now, though, we just silently skip the dependency.
-
-    } else {
-      npmDependencies.add(importArg)
-    }
-  }
   return {
     ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
       if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
-      registerDependency(node.source.value)
+      registerDependency(node.source.value, localDependencies, npmDependencies)
     },
     ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
       if (node.source === null) return
       // For now, we only support literal strings in the import statement
       if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
-      registerDependency(node.source.value)
+      registerDependency(node.source.value, localDependencies, npmDependencies)
     },
   }
 }
@@ -215,5 +199,16 @@ function getRequireStringArg (node: any): string | null {
     * We just skip the dependency and hope that the check still works.
     */
     return null
+  }
+}
+
+function registerDependency (importArg: string | null, localDependencies: Set<string>, npmDependencies: Set<string>) {
+  // TODO: We currently don't support import path aliases, f.ex: `import { Something } from '@services/my-service'`
+  if (!importArg) {
+    // If there's no importArg, don't register a dependency
+  } else if (importArg.startsWith('/') || importArg.startsWith('./') || importArg.startsWith('../')) {
+    localDependencies.add(importArg)
+  } else {
+    npmDependencies.add(importArg)
   }
 }
