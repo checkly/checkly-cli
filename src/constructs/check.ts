@@ -20,7 +20,7 @@ export interface CheckProps {
 }
 
 // This is an abstract class. It shouldn't be used directly.
-class Check extends Construct {
+abstract class Check extends Construct {
   name: string
   activated: boolean
   muted: boolean
@@ -53,9 +53,6 @@ class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
-
-    // TODO: remove
-    this.register(Check.__checklyType, this.logicalId, this.synthesize())
   }
 
   addSubscriptions () {
