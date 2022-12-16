@@ -4,8 +4,6 @@ import AlertChannel from './alert-channel'
 import EnvironmentVariable from './environment-variable'
 import AlertChannelSubscription from './alert-channel-subscription'
 
-const __checklyType = 'checks'
-
 export interface CheckProps {
   name: string
   activated: boolean
@@ -36,6 +34,8 @@ class Check extends Construct {
   groupId?: Ref
   alertChannels: Array<AlertChannel>
 
+  static readonly __checklyType = 'checks'
+
   constructor (logicalId: string, props: CheckProps) {
     super(logicalId)
     this.name = props.name
@@ -53,7 +53,9 @@ class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
-    this.register(__checklyType, this.logicalId, this.synthesize())
+
+    // TODO: remove
+    this.register(Check.__checklyType, this.logicalId, this.synthesize())
   }
 
   addSubscriptions () {

@@ -1,7 +1,5 @@
 import Ref from './ref'
 import Construct from './construct'
-
-const __checklyType = 'alertChannelSubscriptions'
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
     checkId?: Ref
@@ -14,13 +12,15 @@ class AlertChannelSubscription extends Construct {
   checkId?: Ref
   groupId?: Ref
   activated: boolean
+
+  static readonly __checklyType = 'alertChannelSubscriptions'
   constructor (logicalId: string, props: AlertChannelSubscriptionProps) {
     super(logicalId)
     this.alertChannelId = props.alertChannelId
     this.checkId = props.checkId
     this.groupId = props.groupId
     this.activated = props.activated
-    this.register(__checklyType, this.logicalId, this.synthesize())
+    this.register(AlertChannelSubscription.__checklyType, this.logicalId, this.synthesize())
   }
 
   synthesize () {

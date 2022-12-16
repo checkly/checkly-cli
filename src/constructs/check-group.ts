@@ -3,7 +3,6 @@ import AlertChannel from './alert-channel'
 import EnvironmentVariable from './environment-variable'
 import AlertChannelSubscription from './alert-channel-subscription'
 
-const __checklyType = 'groups'
 // TODO: turn this into type
 const defaultApiCheckDefaults = {
   headers: [],
@@ -44,6 +43,9 @@ class CheckGroup extends Construct {
   apiCheckDefaults: any
   browserCheckDefaults: any
   pattern: string
+
+  static readonly __checklyType = 'groups'
+
   constructor (logicalId: string, props: CheckGroupProps) {
     super(logicalId)
     this.name = props.name
@@ -58,7 +60,7 @@ class CheckGroup extends Construct {
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
     this.pattern = props.pattern
-    this.register(__checklyType, this.logicalId, this.synthesize())
+    this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
   }
 

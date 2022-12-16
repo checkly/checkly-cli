@@ -1,7 +1,5 @@
 import Construct from './construct'
 
-export const __checklyType = 'alertChannels'
-
 export interface AlertChannelProps {
     sendRecovery: boolean
     sendFailure: boolean
@@ -16,6 +14,8 @@ class AlertChannel extends Construct {
   sendDegraded: boolean
   sslExpiry: boolean
   sslExpiryThreshold: number
+
+  static readonly __checklyType = 'alertChannels'
 
   constructor (logicalId: string, props: AlertChannelProps) {
     super(logicalId)
