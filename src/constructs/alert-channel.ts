@@ -1,5 +1,7 @@
 import Construct from './construct'
 
+export const __checklyType = 'alertChannels'
+
 export interface AlertChannelProps {
     sendRecovery: boolean
     sendFailure: boolean

@@ -4,6 +4,8 @@ import AlertChannel from './alert-channel'
 import EnvironmentVariable from './environment-variable'
 import AlertChannelSubscription from './alert-channel-subscription'
 
+const __checklyType = 'checks'
+
 export interface CheckProps {
   name: string
   activated: boolean
@@ -51,19 +53,17 @@ class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     // TODO:
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder, runtimeId
-  }
-
-  setGroupdId (groupRef: Ref) {
-    this.groupId = groupRef
+    this.register(__checklyType, this.logicalId, this.synthesize())
+    for (const alertChannel of this.alertChannels) {
+      const subscription = new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
+        alertChannelId: { ref: alertChannel.logicalId },
+        checkId: { ref: this.logicalId },
+        activated: true,
+      })
+    }
   }
 
   synthesize () {
-    const alertChannelSubscriptions = this.alertChannels.map(channel =>
-      new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${channel.logicalId}`, {
-        alertChannelId: { ref: channel.logicalId },
-        checkId: { ref: this.logicalId },
-        activated: true,
-      }))
     return {
       name: this.name,
       activated: this.activated,
@@ -76,7 +76,6 @@ class Check extends Construct {
       frequency: this.frequency,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
-      alertChannelSubscriptions,
     }
   }
 }

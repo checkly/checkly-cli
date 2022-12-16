@@ -1,6 +1,7 @@
 import Ref from './ref'
 import Construct from './construct'
 
+const __checklyType = 'alertChannelSubscriptions'
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
     checkId: Ref
@@ -16,6 +17,7 @@ class AlertChannelSubscription extends Construct {
     this.alertChannelId = props.alertChannelId
     this.checkId = props.checkId
     this.activated = props.activated
+    this.register(__checklyType, this.logicalId, this.synthesize())
   }
 
   synthesize () {
