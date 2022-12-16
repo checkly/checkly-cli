@@ -11,6 +11,7 @@ class Project extends Construct {
   repoUrl: string
   data: Record<string, Record<string, any>> = {
     checks: {},
+    groups: {},
     alertChannels: {},
     alertChannelSubscriptions: {},
   }
