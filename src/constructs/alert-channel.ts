@@ -8,7 +8,7 @@ export interface AlertChannelProps {
     sslExpiryThreshold: number
   }
 
-class AlertChannel extends Construct {
+abstract class AlertChannel extends Construct {
   sendRecovery: boolean
   sendFailure: boolean
   sendDegraded: boolean
