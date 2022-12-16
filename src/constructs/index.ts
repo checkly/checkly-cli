@@ -1,2 +1,5 @@
 export * as Project from './project'
 export * as Check from './check'
+export * as AlertChannel from './alert-channel'
+export * as CheckGroup from './check-group'
+export * as AlertChannelSubscription from './alert-channel-subscription'

@@ -17,7 +17,7 @@ export interface CheckProps {
   tags: Array<string>
   frequency: number
   environmentVariables: Array<EnvironmentVariable>
-  groupId: Ref
+  groupId?: Ref
   alertChannels: Array<AlertChannel>
 }
 
@@ -33,7 +33,7 @@ class Check extends Construct {
   tags: Array<string>
   frequency: number
   environmentVariables: Array<EnvironmentVariable>
-  groupId!: Ref
+  groupId?: Ref
   alertChannels: Array<AlertChannel>
 
   constructor (logicalId: string, props: CheckProps) {
@@ -51,9 +51,12 @@ class Check extends Construct {
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannels = props.alertChannels ?? []
-    // TODO:
-    // alertSettings, useGlobalAlertSettings, groupId, groupOrder, runtimeId
+    this.groupId = props.groupId
+    // alertSettings, useGlobalAlertSettings, groupId, groupOrder
     this.register(__checklyType, this.logicalId, this.synthesize())
+  }
+
+  addSubscriptions () {
     for (const alertChannel of this.alertChannels) {
       const subscription = new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
         alertChannelId: { ref: alertChannel.logicalId },
