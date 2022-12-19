@@ -1,0 +1,16 @@
+{
+  "name": "simple-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "checkly": {
+    "logicalId": "my-project",
+    "name": "My Project",
+    "repoUrl": "https://github.com/checkly/checkly-cli"
+  }
+}

@@ -1,14 +1,14 @@
-import { parseDependencies } from '../dependency-parser'
+import { parseDependencies } from '../check-dependency-parser'
 import * as path from 'path'
 
 describe('dependency-parser - parseDependencies()', () => {
   it('should handle JS file with no dependencies', async () => {
-    const dependencies = await parseDependencies(path.join(__dirname, 'fixtures', 'no-dependencies.js'))
+    const dependencies = await parseDependencies(path.join(__dirname, 'check-dependency-parser-fixtures', 'no-dependencies.js'))
     expect(dependencies).toHaveLength(0)
   })
 
   it('should handle JS file with dependencies', async () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'simple-example', filename)
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'simple-example', filename)
     const dependencies = await parseDependencies(toAbsolutePath('entrypoint.js'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.js'),
@@ -18,35 +18,35 @@ describe('dependency-parser - parseDependencies()', () => {
   })
 
   it('should report a missing entrypoint file', async () => {
-    const missingEntrypoint = path.join(__dirname, 'fixtures', 'does-not-exist.js')
+    const missingEntrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'does-not-exist.js')
     await expect(parseDependencies(missingEntrypoint))
       .rejects
       .toMatchObject({ missingFiles: [missingEntrypoint] })
   })
 
   it('should report missing check dependencies', async () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', filename)
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', filename)
     await expect(parseDependencies(toAbsolutePath('missing-dependencies.js')))
       .rejects
       .toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
   })
 
   it('should report syntax errors', async () => {
-    const entrypoint = path.join(__dirname, 'fixtures', 'syntax-error.js')
+    const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'syntax-error.js')
     await expect(parseDependencies(entrypoint))
       .rejects
       .toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
   })
 
   it('should report unsupported dependencies', async () => {
-    const entrypoint = path.join(__dirname, 'fixtures', 'unsupported-dependencies.js')
+    const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'unsupported-dependencies.js')
     await expect(parseDependencies(entrypoint))
       .rejects
       .toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
   })
 
   it('should handle circular dependencies', async () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'circular-dependencies', filename)
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'circular-dependencies', filename)
     const dependencies = await parseDependencies(toAbsolutePath('entrypoint.js'))
     // Circular dependencies are allowed in Node.js
     // We just need to test that parsing the dependencies doesn't loop indefinitely
@@ -58,7 +58,7 @@ describe('dependency-parser - parseDependencies()', () => {
   })
 
   it('should parse typescript dependencies', async () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'typescript-example', filename)
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'typescript-example', filename)
     const dependencies = await parseDependencies(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.ts'),
@@ -73,7 +73,7 @@ describe('dependency-parser - parseDependencies()', () => {
    * We could address this by keeping track of assignments as we walk the AST.
    */
   it.skip('should ignore cases where require is reassigned', async () => {
-    const entrypoint = path.join(__dirname, 'fixtures', 'reassign-require.js')
+    const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'reassign-require.js')
     await expect(parseDependencies(entrypoint)).resolves.not.toThrow()
   })
 })

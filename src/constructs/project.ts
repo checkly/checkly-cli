@@ -25,6 +25,7 @@ export class Project extends Construct {
 
     this.name = props.name
     this.repoUrl = props.repoUrl
+    Session.project = this
   }
 
   addResource (type: string, logicalId: string, resource: any) {
