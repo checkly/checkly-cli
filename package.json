@@ -38,10 +38,16 @@
     "@oclif/plugin-help": "5.1.20",
     "@typescript-eslint/typescript-estree": "5.46.1",
     "acorn": "8.8.1",
-    "acorn-walk": "8.2.0"
+    "acorn-walk": "8.2.0",
+    "axios": "1.2.1",
+    "conf": "10.2.0",
+    "inquirer": "8.2.3",
+    "jwt-decode": "3.1.2",
+    "open": "8.4.0"
   },
   "devDependencies": {
     "@checkly/eslint-config": "0.14.1",
+    "@types/inquirer": "8.2.3",
     "@types/jest": "29.2.4",
     "@types/node": "18.11.15",
     "@typescript-eslint/eslint-plugin": "5.46.1",
