@@ -20,7 +20,6 @@ enum Env {
   test = 'test',
 }
 
-// There are some TS errors caused by ajv. We can keep this file as JS for the time being
 const config = {
   auth: new Conf({
     configName: 'auth',
