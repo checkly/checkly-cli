@@ -7,7 +7,6 @@ import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
 
-// const { accounts } = require('./../services/api')
 import {
   generateAuthenticationUrl,
   getAccessToken,
@@ -113,11 +112,10 @@ export default class Login extends Command {
     ])
 
     if (!openUrl) {
-      process.stdout.write('\n')
       console.info(
-        ` Please open the following URL in your browser: \n\n${chalk.blueBright(
+        `Please open the following URL in your browser: \n\n${chalk.blueBright(
           authServerUrl,
-        )}\n`,
+        )}`,
       )
     } else {
       await open(authServerUrl)
@@ -142,8 +140,7 @@ export default class Login extends Command {
     config.data.set('accountId', selectedAccount.id)
     config.data.set('accountName', selectedAccount.name)
 
-    process.stdout.write('\n')
-    console.info(` Successfully logged in as ${chalk.blue.bold(name)}`)
+    console.info(`Successfully logged in as ${chalk.blue.bold(name)}`)
 
     loginSuccess()
     process.exit(0)
