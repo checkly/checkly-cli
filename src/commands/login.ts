@@ -71,8 +71,7 @@ export default class Login extends Command {
     'account-id': Flags.string({
       char: 'i',
       name: 'accountId',
-      description:
-      'Checkly account ID. (This flag is required if you are using -k (--api-key) flag',
+      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag',
     }),
   }
 

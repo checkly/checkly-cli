@@ -10,7 +10,7 @@ export default class Switch extends Command {
     'account-id': Flags.string({
       char: 'a',
       name: 'accountId',
-      description: 'The id of the account you want to switch.',
+      description: 'The id of the account you want to switch to',
     }),
   }
 

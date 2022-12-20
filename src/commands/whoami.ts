@@ -8,14 +8,14 @@ export default class Whoami extends Command {
     const accountId = config.getAccountId()
 
     if (!accountId) {
-      console.info('You need to first login to find the use this comand')
+      console.info('You first need to login to use this command')
       process.exit(0)
     }
     try {
       const { data: account } = await api.accounts.get(accountId)
       console.info(`You are currently on "${account.name}" with id ${account.id}`)
     } catch (e) {
-      console.error('Failed to find the account corresponding to the account id')
+      console.error('Failed to find an account corresponding to the account id')
     }
   }
 }
