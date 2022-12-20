@@ -1,12 +1,13 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
-import { Project } from '../constructs'
+import { Project, Session } from '../constructs'
 import { Service } from 'ts-node'
 import { walkDirectory } from './util'
 
 export async function parseProject (): Promise<Project> {
   const { logicalId, name, repoUrl } = await readPackageJson()
   const project = new Project(logicalId, { name, repoUrl })
+  Session.project = project
 
   // TODO: allow users to configure this with glob patterns?
   const ignoreDirectories = new Set(['node_modules', '.git'])
