@@ -1,0 +1,16 @@
+{
+  "name": "typescript-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "checkly": {
+    "logicalId": "ts-project",
+    "name": "Typescript Project",
+    "repoUrl": "https://github.com/checkly/checkly-cli"
+  }
+}
