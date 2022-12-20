@@ -4,8 +4,8 @@ import { Project, Session } from '../constructs'
 import { Service } from 'ts-node'
 import { walkDirectory } from './util'
 
-export async function parseProject (): Promise<Project> {
-  const { logicalId, name, repoUrl } = await readPackageJson()
+export async function parseProject (folder: string): Promise<Project> {
+  const { logicalId, name, repoUrl } = await readPackageJson(folder)
   const project = new Project(logicalId, { name, repoUrl })
   Session.project = project
 
@@ -16,9 +16,9 @@ export async function parseProject (): Promise<Project> {
   return project
 }
 
-async function readPackageJson (): Promise<{ logicalId: string, name: string, repoUrl: string }> {
+async function readPackageJson (folder: string): Promise<{ logicalId: string, name: string, repoUrl: string }> {
   try {
-    const content = await fs.readFile(path.join(process.cwd(), 'package.json'), { encoding: 'utf8' })
+    const content = await fs.readFile(path.join(folder, 'package.json'), { encoding: 'utf8' })
     const packageJson = JSON.parse(content)
     if (!packageJson.checkly) {
       // TODO: Maybe accept the configuration from the command line instead

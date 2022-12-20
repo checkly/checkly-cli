@@ -39,7 +39,10 @@ export class Project extends Construct {
     }
     return {
       project,
-      ...this.data,
+      checks: this.data.checks,
+      groups: this.data.groups,
+      alertChannels: this.data.alertChannels,
+      alertChannelSubscriptions: this.data.alertChannelSubscriptions,
     }
   }
 }
