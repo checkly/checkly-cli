@@ -56,4 +56,4 @@ function init (): AxiosInstance {
 }
 const api = init()
 
-export const accounts = new Accounts(api, 'next')
+export const accounts = new Accounts(api)

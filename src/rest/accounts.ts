@@ -9,14 +9,16 @@ export interface Account {
 
 class Accounts {
   api: AxiosInstance
-  apiVersion: string
-  constructor (api: AxiosInstance, apiVersion = 'next') {
+  constructor (api: AxiosInstance) {
     this.api = api
-    this.apiVersion = apiVersion
   }
 
   getAll () {
-    return this.api.get<Array<Account>>(`/${this.apiVersion}/${PATH}`)
+    return this.api.get<Array<Account>>(`/next/${PATH}`)
+  }
+
+  get (accountId: string) {
+    return this.api.get<Account>(`/next/${PATH}/${accountId}`)
   }
 }
 
