@@ -77,7 +77,7 @@ async function getTsCompiler (): Promise<Service> {
     })
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND') {
-      throw new Error('Please install ts-node to use TypeScript configuration files')
+      throw new Error('Please install ts-node and typescript to use TypeScript configuration files')
     }
   }
   return tsCompiler
