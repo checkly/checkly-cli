@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
-import Project from '../constructs/project'
+import { Project } from '../constructs'
 import { Service } from 'ts-node'
 import { walkDirectory } from './util'
 

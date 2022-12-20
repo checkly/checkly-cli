@@ -1,3 +1,3 @@
-const { default: BrowserCheck } = require('../../../../../../constructs/browser-check')
+const { BrowserCheck } = require('../../../../../../constructs')
 
 new BrowserCheck('check-2', {})

@@ -1,4 +1,4 @@
-import BrowserCheck from '../../../../constructs/browser-check'
+import { BrowserCheck } from '../../../../constructs'
 
 
 export default async function createCheck () {
