@@ -2,6 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import Project from '../constructs/project'
 import { Service } from 'ts-node'
+import { walkDirectory } from './util'
 
 export async function parseProject (): Promise<Project> {
   const { logicalId, name, repoUrl } = await readPackageJson()
@@ -34,22 +35,14 @@ async function readPackageJson (): Promise<{ logicalId: string, name: string, re
 }
 
 async function loadAllChecklyConfigs (dir: string, ignoreDirectories: Set<string>): Promise<void> {
-  const files = await fs.readdir(dir)
-  // The files are sorted so that they're always processed in the same order
-  for (const file of files.sort()) {
-    const filepath = path.join(dir, file)
-    const stats = await fs.stat(filepath)
-    if (stats.isDirectory() && !ignoreDirectories.has(file)) {
-      await loadAllChecklyConfigs(filepath, ignoreDirectories)
-    } else {
-      if (file === 'checkly.config.js') {
-        // TODO: Handle errors in the checkly.config.js files
-        await loadChecklyConfigJs(filepath)
-      } else if (file === 'checkly.config.ts') {
-        await loadChecklyConfigTs(filepath)
-      }
+  await walkDirectory(dir, ignoreDirectories, async (filepath) => {
+    const filename = path.basename(filepath)
+    if (filename === 'checkly.config.js') {
+      await loadChecklyConfigJs(filepath)
+    } else if (filename === 'checkly.config.ts') {
+      await loadChecklyConfigTs(filepath)
     }
-  }
+  })
 }
 
 async function loadChecklyConfigJs (filepath: string): Promise<void> {
