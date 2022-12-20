@@ -1,7 +1,7 @@
-import Construct from './construct'
-import AlertChannel from './alert-channel'
-import EnvironmentVariable from './environment-variable'
-import AlertChannelSubscription from './alert-channel-subscription'
+import { Construct } from './construct'
+import { AlertChannel } from './alert-channel'
+import { EnvironmentVariable } from './environment-variable'
+import { AlertChannelSubscription } from './alert-channel-subscription'
 
 // TODO: turn this into type
 const defaultApiCheckDefaults = {
@@ -29,7 +29,7 @@ export interface CheckGroupProps {
     browserCheckDefaults: any
   }
 
-class CheckGroup extends Construct {
+export class CheckGroup extends Construct {
   name: string
   activated: boolean
   muted: boolean
@@ -88,5 +88,3 @@ class CheckGroup extends Construct {
     }
   }
 }
-
-export default CheckGroup

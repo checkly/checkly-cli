@@ -1,12 +1,12 @@
-import Construct from './construct'
-import ValidationError from './validator-error'
+import { Construct } from './construct'
+import { ValidationError } from './validator-error'
 
 export interface ProjectProps {
   name: string
   repoUrl: string
 }
 
-class Project extends Construct {
+export class Project extends Construct {
   name: string
   repoUrl: string
   data: Record<string, Record<string, any>> = {
@@ -47,4 +47,3 @@ class Project extends Construct {
 export class Session {
   static project: Project
 }
-export default Project

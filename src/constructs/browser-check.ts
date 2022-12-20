@@ -1,4 +1,4 @@
-import Check, { CheckProps } from './check'
+import { Check, CheckProps } from './check'
 
 export interface BrowserCheckProps extends CheckProps {
   script: string
@@ -11,7 +11,7 @@ export interface CheckDependency {
   content: string
 }
 
-class BrowserCheck extends Check {
+export class BrowserCheck extends Check {
   script: string
   scriptPath?: string
   dependencies?: Array<string>
@@ -35,5 +35,3 @@ class BrowserCheck extends Check {
     }
   }
 }
-
-export default BrowserCheck

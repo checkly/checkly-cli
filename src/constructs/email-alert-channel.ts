@@ -1,10 +1,10 @@
-import AlertChannel, { AlertChannelProps } from './alert-channel'
+import { AlertChannel, AlertChannelProps } from './alert-channel'
 
 export interface EmailAlertChannelProps extends AlertChannelProps {
     address: string
 }
 
-class EmailAlertChannel extends AlertChannel {
+export class EmailAlertChannel extends AlertChannel {
   address: string
   constructor (logicalId: string, props: EmailAlertChannelProps) {
     super(logicalId, props)
@@ -22,5 +22,3 @@ class EmailAlertChannel extends AlertChannel {
     }
   }
 }
-
-export default EmailAlertChannel

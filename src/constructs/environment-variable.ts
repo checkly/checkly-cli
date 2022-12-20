@@ -4,7 +4,7 @@ export interface EnvironmentVariableProps {
   locked: boolean
 }
 
-class EnvironmentVariable {
+export class EnvironmentVariable {
   key: string
   value: string
   locked: boolean
@@ -14,5 +14,3 @@ class EnvironmentVariable {
     this.locked = props.locked
   }
 }
-
-export default EnvironmentVariable

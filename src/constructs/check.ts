@@ -1,8 +1,8 @@
-import Ref from './ref'
-import Construct from './construct'
-import AlertChannel from './alert-channel'
-import EnvironmentVariable from './environment-variable'
-import AlertChannelSubscription from './alert-channel-subscription'
+import { Ref } from './ref'
+import { Construct } from './construct'
+import { AlertChannel } from './alert-channel'
+import { EnvironmentVariable } from './environment-variable'
+import { AlertChannelSubscription } from './alert-channel-subscription'
 
 export interface CheckProps {
   name: string
@@ -20,7 +20,7 @@ export interface CheckProps {
 }
 
 // This is an abstract class. It shouldn't be used directly.
-abstract class Check extends Construct {
+export abstract class Check extends Construct {
   name: string
   activated: boolean
   muted: boolean
@@ -81,5 +81,3 @@ abstract class Check extends Construct {
     }
   }
 }
-
-export default Check

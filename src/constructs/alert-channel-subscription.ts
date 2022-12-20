@@ -1,5 +1,5 @@
-import Ref from './ref'
-import Construct from './construct'
+import { Ref } from './ref'
+import { Construct } from './construct'
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
     checkId?: Ref
@@ -7,7 +7,7 @@ export interface AlertChannelSubscriptionProps {
     activated: boolean
   }
 
-class AlertChannelSubscription extends Construct {
+export class AlertChannelSubscription extends Construct {
   alertChannelId: Ref
   checkId?: Ref
   groupId?: Ref
@@ -31,5 +31,3 @@ class AlertChannelSubscription extends Construct {
     }
   }
 }
-
-export default AlertChannelSubscription
