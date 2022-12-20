@@ -1,4 +1,4 @@
-import Construct from './construct'
+import { Construct } from './construct'
 
 export interface AlertChannelProps {
     sendRecovery: boolean
@@ -8,7 +8,7 @@ export interface AlertChannelProps {
     sslExpiryThreshold: number
   }
 
-abstract class AlertChannel extends Construct {
+export abstract class AlertChannel extends Construct {
   sendRecovery: boolean
   sendFailure: boolean
   sendDegraded: boolean
@@ -36,5 +36,3 @@ abstract class AlertChannel extends Construct {
     }
   }
 }
-
-export default AlertChannel

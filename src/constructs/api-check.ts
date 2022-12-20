@@ -1,4 +1,4 @@
-import Check, { CheckProps } from './check'
+import { Check, CheckProps } from './check'
 
 export interface Assertion {
     source: string,
@@ -20,7 +20,7 @@ export interface ApiCheckProps extends CheckProps {
   request: Request
 }
 
-class ApiCheck extends Check {
+export class ApiCheck extends Check {
   request: Request
 
   constructor (logicalId: string, props: ApiCheckProps) {
@@ -38,5 +38,3 @@ class ApiCheck extends Check {
     }
   }
 }
-
-export default ApiCheck

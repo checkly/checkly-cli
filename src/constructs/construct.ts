@@ -1,6 +1,6 @@
 import { Session } from './project'
 
-class Construct {
+export class Construct {
   logicalId: string
   constructor (logicalId: string) {
     this.logicalId = logicalId
@@ -10,5 +10,3 @@ class Construct {
     Session.project.addResource(type, logicalId, resource)
   }
 }
-
-export default Construct
