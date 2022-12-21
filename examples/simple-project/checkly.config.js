@@ -1,4 +1,4 @@
-// eslint-disable-next-line
+/* eslint-disable */
 const path = require('path')
 const { constructs } = require('@checkly/cli')
 

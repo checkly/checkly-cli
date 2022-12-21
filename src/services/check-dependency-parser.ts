@@ -1,5 +1,5 @@
 import * as path from 'path'
-import * as fs from 'fs/promises'
+import * as fs from 'fs'
 import * as acorn from 'acorn'
 import * as tsParser from '@typescript-eslint/typescript-estree'
 import { TSESTree } from '@typescript-eslint/typescript-estree'
@@ -44,7 +44,7 @@ const supportedNpmModules = [
 ]
 const supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
 
-export async function parseDependencies (entrypoint: string): Promise<string[]> {
+export function parseDependencies (entrypoint: string): string[] {
   let extension: string
   if (entrypoint.endsWith('.js')) {
     extension = '.js'
@@ -72,7 +72,7 @@ export async function parseDependencies (entrypoint: string): Promise<string[]> 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const currentPath = bfsQueue.shift()!
     try {
-      const { localDependencies, npmDependencies } = await parseDependenciesForFile(currentPath)
+      const { localDependencies, npmDependencies } = parseDependenciesForFile(currentPath)
       const unsupportedDependencies = npmDependencies.filter((dep) => !supportedModules.has(dep))
       if (unsupportedDependencies.length) {
         unsupportedNpmDependencies.push({ file: currentPath, unsupportedDependencies })
@@ -116,11 +116,10 @@ function addExtension (extension: string, filePath: string) {
   }
 }
 
-async function parseDependenciesForFile (filePath: string):
-  Promise<{ localDependencies: string[], npmDependencies: string[] }> {
+function parseDependenciesForFile (filePath: string): { localDependencies: string[], npmDependencies: string[] } {
   const localDependencies = new Set<string>()
   const npmDependencies = new Set<string>()
-  const contents = await fs.readFile(filePath, { encoding: 'utf8' })
+  const contents = fs.readFileSync(filePath, { encoding: 'utf8' })
 
   if (filePath.endsWith('.js')) {
     const ast = acorn.parse(contents, { allowReturnOutsideFunction: true, ecmaVersion: 'latest' })

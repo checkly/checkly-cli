@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises'
+import * as fs from 'fs'
 import { Check, CheckProps } from './check'
 import { parseDependencies } from '../services/check-dependency-parser'
 
@@ -24,7 +24,7 @@ export class BrowserCheck extends Check {
 
   constructor (logicalId: string, props: BrowserCheckProps) {
     super(logicalId, props)
-    if (props.code instanceof String) {
+    if (typeof props.code === 'string') {
       const script = props.code as string
       this.script = script
     } else {
@@ -37,15 +37,15 @@ export class BrowserCheck extends Check {
     this.addSubscriptions()
   }
 
-  static async bundle (entry: string): Promise<Bundle> {
+  static bundle (entry: string): Bundle {
     // TODO: We need pass the runtimeId somehow
-    const parsed = await parseDependencies(entry)
+    const parsed = parseDependencies(entry)
     // Maybe we can get the parsed deps with the content immediately
-    const content = await fs.readFile(entry, { encoding: 'utf8' })
+    const content = fs.readFileSync(entry, { encoding: 'utf8' })
 
     const deps: CheckDependency[] = []
     for (const dep of parsed) {
-      const content = await fs.readFile(entry, { encoding: 'utf8' })
+      const content = fs.readFileSync(entry, { encoding: 'utf8' })
       deps.push({
         path: dep,
         content,

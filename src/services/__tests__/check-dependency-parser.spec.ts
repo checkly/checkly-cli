@@ -33,21 +33,25 @@ describe('dependency-parser - parseDependencies()', () => {
 
   it('should report syntax errors', async () => {
     const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'syntax-error.js')
-    await expect(parseDependencies(entrypoint))
-      .rejects
-      .toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
+    try {
+      parseDependencies(entrypoint)
+    } catch (err) {
+      expect(err).toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
+    }
   })
 
-  it('should report unsupported dependencies', async () => {
+  it('should report unsupported dependencies', () => {
     const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'unsupported-dependencies.js')
-    await expect(parseDependencies(entrypoint))
-      .rejects
-      .toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
+    try {
+      parseDependencies(entrypoint)
+    } catch (err) {
+      expect(err).toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
+    }
   })
 
-  it('should handle circular dependencies', async () => {
+  it('should handle circular dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'circular-dependencies', filename)
-    const dependencies = await parseDependencies(toAbsolutePath('entrypoint.js'))
+    const dependencies = parseDependencies(toAbsolutePath('entrypoint.js'))
     // Circular dependencies are allowed in Node.js
     // We just need to test that parsing the dependencies doesn't loop indefinitely
     // https://nodejs.org/api/modules.html#modules_cycles
