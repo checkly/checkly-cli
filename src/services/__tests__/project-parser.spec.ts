@@ -2,10 +2,9 @@ import * as path from 'path'
 import { parseProject } from '../project-parser'
 
 describe('parseProject()', () => {
-  const cwdMock = jest.spyOn(process, 'cwd')
   it('should parse a simple project', async () => {
-    cwdMock.mockReturnValue(path.join(__dirname, 'project-parser-fixtures', 'simple-project'))
-    const project = await parseProject()
+    const simpleProjectPath = path.join(__dirname, 'project-parser-fixtures', 'simple-project')
+    const project = await parseProject(simpleProjectPath)
     expect(project.synthesize()).toMatchObject({
       project: {
         logicalId: 'my-project',
@@ -20,8 +19,8 @@ describe('parseProject()', () => {
   })
 
   it('should parse a project with TypeScript configuration files', async () => {
-    cwdMock.mockReturnValue(path.join(__dirname, 'project-parser-fixtures', 'typescript-project'))
-    const project = await parseProject()
+    const tsProjectPath = path.join(__dirname, 'project-parser-fixtures', 'typescript-project')
+    const project = await parseProject(tsProjectPath)
     expect(project.synthesize()).toMatchObject({
       project: {
         logicalId: 'ts-project',
