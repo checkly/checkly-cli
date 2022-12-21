@@ -39,17 +39,22 @@
     "@typescript-eslint/typescript-estree": "5.46.1",
     "acorn": "8.8.1",
     "acorn-walk": "8.2.0",
+    "async-mqtt": "2.6.3",
     "axios": "1.2.1",
     "conf": "10.2.0",
     "inquirer": "8.2.3",
     "jwt-decode": "3.1.2",
-    "open": "8.4.0"
+    "open": "8.4.0",
+    "p-queue": "6.6.2",
+    "uuid": "9.0.0"
   },
   "devDependencies": {
     "@checkly/eslint-config": "0.14.1",
     "@types/inquirer": "8.2.3",
     "@types/jest": "29.2.4",
     "@types/node": "18.11.15",
+    "@types/uuid": "9.0.0",
+    "@types/ws": "8.5.3",
     "@typescript-eslint/eslint-plugin": "5.46.1",
     "@typescript-eslint/parser": "5.46.1",
     "eslint": "8.29.0",
