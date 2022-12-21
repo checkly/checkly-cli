@@ -1,7 +1,5 @@
 import type { AxiosInstance } from 'axios'
 
-const PATH = 'accounts'
-
 export interface Account {
   id: string
   name: string
@@ -14,11 +12,11 @@ class Accounts {
   }
 
   getAll () {
-    return this.api.get<Array<Account>>(`/next/${PATH}`)
+    return this.api.get<Array<Account>>('/next/accounts')
   }
 
   get (accountId: string) {
-    return this.api.get<Account>(`/next/${PATH}/${accountId}`)
+    return this.api.get<Account>(`/next/accounts/${accountId}`)
   }
 }
 

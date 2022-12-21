@@ -1,7 +1,5 @@
 import type { AxiosInstance } from 'axios'
 
-const PATH = 'projects'
-
 export interface Project {
   name: string
   logicalId: string
@@ -23,24 +21,24 @@ class Projects {
   }
 
   getAll () {
-    return this.api.get<Array<Project>>(`/next/${PATH}`)
+    return this.api.get<Array<Project>>('/next/accounts')
   }
 
   get (accountId: string) {
-    return this.api.get<Project>(`/next/${PATH}/${accountId}`)
+    return this.api.get<Project>(`/next/accounts/${accountId}`)
   }
 
   create (project: Project) {
-    return this.api.post(`/next/${PATH}`, project)
+    return this.api.post('/next/accounts', project)
   }
 
   deleteProject (id: string) {
-    return this.api.delete(`/next/${PATH}/${id}`)
+    return this.api.delete(`/next/accounts/${id}`)
   }
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {
     return this.api.post(
-      `/next/${PATH}/deploy?dryRun=${dryRun}`,
+      `/next/accounts/deploy?dryRun=${dryRun}`,
       resources,
     )
   }
