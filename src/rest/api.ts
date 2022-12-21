@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import config from '../services/config'
 import Accounts from './accounts'
+import Projects from './projects'
 
 export function getDefaults () {
   const environments = {
@@ -57,3 +58,4 @@ function init (): AxiosInstance {
 const api = init()
 
 export const accounts = new Accounts(api)
+export const projects = new Projects(api)
