@@ -21,24 +21,24 @@ class Projects {
   }
 
   getAll () {
-    return this.api.get<Array<Project>>('/next/accounts')
+    return this.api.get<Array<Project>>('/next/projects')
   }
 
   get (accountId: string) {
-    return this.api.get<Project>(`/next/accounts/${accountId}`)
+    return this.api.get<Project>(`/next/projects/${accountId}`)
   }
 
   create (project: Project) {
-    return this.api.post('/next/accounts', project)
+    return this.api.post('/next/projects', project)
   }
 
   deleteProject (id: string) {
-    return this.api.delete(`/next/accounts/${id}`)
+    return this.api.delete(`/next/projects/${id}`)
   }
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {
     return this.api.post(
-      `/next/accounts/deploy?dryRun=${dryRun}`,
+      `/next/projects/deploy?dryRun=${dryRun}`,
       resources,
     )
   }
