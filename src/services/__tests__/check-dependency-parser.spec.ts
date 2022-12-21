@@ -2,14 +2,14 @@ import { parseDependencies } from '../check-dependency-parser'
 import * as path from 'path'
 
 describe('dependency-parser - parseDependencies()', () => {
-  it('should handle JS file with no dependencies', async () => {
-    const dependencies = await parseDependencies(path.join(__dirname, 'check-dependency-parser-fixtures', 'no-dependencies.js'))
+  it('should handle JS file with no dependencies', () => {
+    const dependencies = parseDependencies(path.join(__dirname, 'check-dependency-parser-fixtures', 'no-dependencies.js'))
     expect(dependencies).toHaveLength(0)
   })
 
-  it('should handle JS file with dependencies', async () => {
+  it('should handle JS file with dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'simple-example', filename)
-    const dependencies = await parseDependencies(toAbsolutePath('entrypoint.js'))
+    const dependencies = parseDependencies(toAbsolutePath('entrypoint.js'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -19,19 +19,23 @@ describe('dependency-parser - parseDependencies()', () => {
 
   it('should report a missing entrypoint file', async () => {
     const missingEntrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'does-not-exist.js')
-    await expect(parseDependencies(missingEntrypoint))
-      .rejects
-      .toMatchObject({ missingFiles: [missingEntrypoint] })
+    try {
+      parseDependencies(missingEntrypoint)
+    } catch (err) {
+      expect(err).toMatchObject({ missingFiles: [missingEntrypoint] })
+    }
   })
 
-  it('should report missing check dependencies', async () => {
+  it('should report missing check dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', filename)
-    await expect(parseDependencies(toAbsolutePath('missing-dependencies.js')))
-      .rejects
-      .toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
+    try {
+      parseDependencies(toAbsolutePath('missing-dependencies.js'))
+    } catch (err) {
+      expect(err).toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
+    }
   })
 
-  it('should report syntax errors', async () => {
+  it('should report syntax errors', () => {
     const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'syntax-error.js')
     try {
       parseDependencies(entrypoint)
@@ -61,9 +65,9 @@ describe('dependency-parser - parseDependencies()', () => {
     ])
   })
 
-  it('should parse typescript dependencies', async () => {
+  it('should parse typescript dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'typescript-example', filename)
-    const dependencies = await parseDependencies(toAbsolutePath('entrypoint.ts'))
+    const dependencies = parseDependencies(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.ts'),
       toAbsolutePath('dep2.ts'),
@@ -76,8 +80,8 @@ describe('dependency-parser - parseDependencies()', () => {
    * Even though the check might execute fine, we throw an error for a missing dependency.
    * We could address this by keeping track of assignments as we walk the AST.
    */
-  it.skip('should ignore cases where require is reassigned', async () => {
+  it.skip('should ignore cases where require is reassigned', () => {
     const entrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'reassign-require.js')
-    await expect(parseDependencies(entrypoint)).resolves.not.toThrow()
+    parseDependencies(entrypoint)
   })
 })
