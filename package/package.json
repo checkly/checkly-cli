@@ -1,0 +1,89 @@
+{
+  "name": "@checkly/cli",
+  "version": "0.0.1",
+  "description": "Checkly CLI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "jest",
+    "prepare": "rm -rf dist && tsc --build",
+    "lint": "eslint src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/checkly/checkly-cli.git"
+  },
+  "author": "Checkly Engineering <support@checklyhq.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/checkly/checkly-cli/issues"
+  },
+  "files": [
+    "/bin",
+    "/dist"
+  ],
+  "oclif": {
+    "bin": "checkly",
+    "commands": "./dist/commands",
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
+  },
+  "bin": {
+    "checkly": "./bin/run"
+  },
+  "homepage": "https://github.com/checkly/checkly-cli#readme",
+  "dependencies": {
+    "@oclif/core": "1.21.0",
+    "@oclif/plugin-help": "5.1.20",
+    "@typescript-eslint/typescript-estree": "5.46.1",
+    "acorn": "8.8.1",
+    "acorn-walk": "8.2.0",
+    "async-mqtt": "2.6.3",
+    "axios": "1.2.1",
+    "chalk": "4.1.2",
+    "conf": "10.2.0",
+    "inquirer": "8.2.3",
+    "jwt-decode": "3.1.2",
+    "open": "8.4.0",
+    "p-queue": "6.6.2",
+    "uuid": "9.0.0"
+  },
+  "devDependencies": {
+    "@checkly/eslint-config": "0.14.1",
+    "@types/inquirer": "8.2.3",
+    "@types/jest": "29.2.4",
+    "@types/node": "18.11.15",
+    "@types/uuid": "9.0.0",
+    "@types/ws": "8.5.3",
+    "@typescript-eslint/eslint-plugin": "5.46.1",
+    "@typescript-eslint/parser": "5.46.1",
+    "eslint": "8.29.0",
+    "jest": "29.3.1",
+    "ts-jest": "29.0.3",
+    "ts-node": "10.9.1",
+    "typescript": "4.9.4"
+  },
+  "eslintConfig": {
+    "rules": {
+      "@typescript-eslint/type-annotation-spacing": 2,
+      "@typescript-eslint/no-explicit-any": 0,
+      "@typescript-eslint/ban-ts-comment": 0
+    },
+    "extends": [
+      "@checkly/eslint-config",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "preset": "ts-jest",
+    "testMatch": [
+      "**/*spec.ts"
+    ]
+  }
+}

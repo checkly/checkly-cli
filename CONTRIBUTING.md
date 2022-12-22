@@ -8,10 +8,12 @@ This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to 
 
 To run a build with TS for type checking, run:
 ```
-npm run prepare
+npm run prepare --workspace package
 ```
 
 To lint the project:
 ```
-npm run lint
+npm run lint --workspace package
 ```
+
+When running commands from the `package` directory, the `--workspace package` flag isn't necessary.
