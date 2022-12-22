@@ -27,11 +27,13 @@ export class BrowserCheck extends Check {
     if (typeof props.code === 'string') {
       const script = props.code as string
       this.script = script
-    } else {
+    } else if (typeof props.code === 'object') {
       const bundle = props.code as Bundle
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies
+    } else {
+      throw new Error('Unrecognized type for the code property')
     }
     this.register(Check.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
