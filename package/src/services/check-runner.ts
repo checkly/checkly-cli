@@ -26,6 +26,7 @@ export async function runChecks (checks: any[], location: string, reporter: List
           // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
           return
         }
+        throw err
       }
       await once(checkEventEmitter, 'finished')
     })
