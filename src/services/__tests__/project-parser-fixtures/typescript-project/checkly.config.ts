@@ -14,6 +14,6 @@ export default async function createCheck () {
     tags: [],
     environmentVariables: [],
     alertChannels: [],
-    script: '// check script'
+    code: '// check script'
   })
 }
