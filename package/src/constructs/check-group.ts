@@ -63,7 +63,7 @@ export class CheckGroup extends Construct {
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
     if (props.pattern) {
-      const matched = glob.sync(props.pattern, { nodir: true})
+      const matched = glob.sync(props.pattern, { nodir: true })
       for (const match of matched) {
         const check = new BrowserCheck(match, {
           groupId: new Ref(this.logicalId),
@@ -73,8 +73,8 @@ export class CheckGroup extends Construct {
           locations: this.locations,
           code: {
             // TODO: We need to make this relative to the previous caller in the stack
-            entrypoint: path.join(process.cwd(), match)
-          }
+            entrypoint: path.join(process.cwd(), match),
+          },
         })
       }
     }
