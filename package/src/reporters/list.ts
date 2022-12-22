@@ -41,7 +41,9 @@ class ListReporter {
     this._clearSummary()
     if (checkResult.hasFailures) {
       console.log(`${FAIL} - ${checkResult.name}`)
-      console.log(`  ${TITLE_BULLET}Console\n\n${this.getConsoleOutput(checkResult.logs)}`)
+      if (checkResult.logs) {
+        console.log(`  ${TITLE_BULLET}Console\n\n${this.getConsoleOutput(checkResult.logs)}`)
+      }
     } else {
       console.log(`${PASS} - ${checkResult.name}`)
     }

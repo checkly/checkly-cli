@@ -19,9 +19,12 @@ export default class Test extends Command {
     const { location } = flags
 
     const project = await parseProject(process.cwd())
-    const { checks: checksMap } = project.data
+    const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap).map(([key, check]) => {
       check.logicalId = key
+      // TODO: Add the group to check in a cleaner form
+      check.group = groupsMap[check.groupId.ref]
+      delete check.groupId
       return check
     })
     const reporter = new ListReporter(checks)

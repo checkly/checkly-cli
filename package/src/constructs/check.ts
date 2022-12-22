@@ -61,8 +61,8 @@ export abstract class Check extends Construct {
     }
     for (const alertChannel of this.alertChannels) {
       const subscription = new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
-        alertChannelId: { ref: alertChannel.logicalId },
-        checkId: { ref: this.logicalId },
+        alertChannelId: Ref.from(alertChannel.logicalId),
+        checkId: Ref.from(this.logicalId),
         activated: true,
       })
     }
