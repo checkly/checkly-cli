@@ -7,14 +7,16 @@ export interface CheckDependency {
   content: string
 }
 
-export interface Bundle {
-  script: string
-  scriptPath: string
-  dependencies: Array<CheckDependency>
+export interface Entrypoint {
+  entrypoint: string
+}
+
+export interface Content {
+  content: string
 }
 
 export interface BrowserCheckProps extends CheckProps {
-  code: string|Bundle
+  code: Content|Entrypoint
 }
 
 export class BrowserCheck extends Check {
@@ -24,11 +26,12 @@ export class BrowserCheck extends Check {
 
   constructor (logicalId: string, props: BrowserCheckProps) {
     super(logicalId, props)
-    if (typeof props.code === 'string') {
-      const script = props.code as string
+    if ('content' in props.code) {
+      const script = props.code.content
       this.script = script
-    } else if (typeof props.code === 'object') {
-      const bundle = props.code as Bundle
+    } else if ('entrypoint' in props.code) {
+      const entrypoint = props.code.entrypoint
+      const bundle = BrowserCheck.bundle(entrypoint)
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies
@@ -39,7 +42,7 @@ export class BrowserCheck extends Check {
     this.addSubscriptions()
   }
 
-  static bundle (entry: string): Bundle {
+  static bundle (entry: string) {
     // TODO: We need pass the runtimeId somehow
     const parsed = parseDependencies(entry)
     // Maybe we can get the parsed deps with the content immediately

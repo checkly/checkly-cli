@@ -14,6 +14,8 @@ export default async function createCheck () {
     tags: [],
     environmentVariables: [],
     alertChannels: [],
-    code: '// check script'
+    code: {
+      content: 'console.log(1)'
+    }
   })
 }
