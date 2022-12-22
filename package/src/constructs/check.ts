@@ -8,15 +8,15 @@ export interface CheckProps {
   name: string
   activated: boolean
   muted: boolean
-  doubleCheck: boolean
-  shouldFail: boolean
-  runtimeId: string
+  doubleCheck?: boolean
+  shouldFail?: boolean
+  runtimeId?: string
   locations: Array<string>
-  tags: Array<string>
-  frequency: number
-  environmentVariables: Array<EnvironmentVariable>
+  tags?: Array<string>
+  frequency?: number
+  environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
-  alertChannels: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel>
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -24,15 +24,15 @@ export abstract class Check extends Construct {
   name: string
   activated: boolean
   muted: boolean
-  doubleCheck: boolean
-  shouldFail: boolean
-  runtimeId: string
-  locations: Array<string>
-  tags: Array<string>
-  frequency: number
-  environmentVariables: Array<EnvironmentVariable>
+  doubleCheck?: boolean
+  shouldFail?: boolean
+  runtimeId?: string
+  locations?: Array<string>
+  tags?: Array<string>
+  frequency?: number
+  environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
-  alertChannels: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel>
 
   static readonly __checklyType = 'checks'
 
@@ -56,6 +56,9 @@ export abstract class Check extends Construct {
   }
 
   addSubscriptions () {
+    if (!this.alertChannels) {
+      return
+    }
     for (const alertChannel of this.alertChannels) {
       const subscription = new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
         alertChannelId: { ref: alertChannel.logicalId },

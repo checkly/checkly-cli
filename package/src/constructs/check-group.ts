@@ -1,7 +1,11 @@
+import * as glob from 'glob'
+import { Ref } from './ref'
 import { Construct } from './construct'
+import { BrowserCheck } from './browser-check'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
+import path = require('path')
 
 // TODO: turn this into type
 const defaultApiCheckDefaults = {
@@ -23,8 +27,8 @@ export interface CheckGroupProps {
     tags: Array<string>
     concurrency: number
     environmentVariables: Array<EnvironmentVariable>
-    alertChannels: Array<AlertChannel>
-    pattern: string
+    alertChannels?: Array<AlertChannel>
+    pattern?: string
     apiCheckDefaults: any
     browserCheckDefaults: any
   }
@@ -38,11 +42,10 @@ export class CheckGroup extends Construct {
   tags: Array<string>
   concurrency: number
   environmentVariables: Array<EnvironmentVariable>
-  alertChannels: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel>
   // TODO add types later on
   apiCheckDefaults: any
   browserCheckDefaults: any
-  pattern: string
 
   static readonly __checklyType = 'groups'
 
@@ -59,12 +62,30 @@ export class CheckGroup extends Construct {
     this.browserCheckDefaults = props.browserCheckDefaults || {}
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
-    this.pattern = props.pattern
+    if (props.pattern) {
+      const matched = glob.sync(props.pattern, { nodir: true })
+      for (const match of matched) {
+        const check = new BrowserCheck(match, {
+          groupId: new Ref(this.logicalId),
+          name: match,
+          activated: true,
+          muted: false,
+          locations: this.locations,
+          code: {
+            // TODO: We need to make this relative to the previous caller in the stack
+            entrypoint: path.join(process.cwd(), match),
+          },
+        })
+      }
+    }
     this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
   }
 
   addSubscriptions () {
+    if (!this.alertChannels) {
+      return
+    }
     for (const alertChannel of this.alertChannels) {
       const subscription = new AlertChannelSubscription(`check-group-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
         alertChannelId: { ref: alertChannel.logicalId },

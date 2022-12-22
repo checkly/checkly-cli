@@ -2,21 +2,14 @@
 const path = require('path')
 const { constructs } = require('@checkly/cli')
 
-const { BrowserCheck } = constructs
+const { CheckGroup } = constructs
 
-const browser = new BrowserCheck('check-1', {
+const browser = new CheckGroup('group-1', {
   name: 'simple-check-1',
   muted: false,
+  concurrency: 5,
   activated: true,
-  doubleCheck: false,
-  shouldFail: false,
   runtimeId: '2022.10',
   locations: ['eu-central-1'],
-  frequency: 10,
-  tags: [],
-  environmentVariables: [],
-  alertChannels: [],
-  code: {
-    entrypoint: path.join(__dirname, 'src', 'entrypoint.js'),
-  }
+  pattern: '**/*.checkly.js'
 })
