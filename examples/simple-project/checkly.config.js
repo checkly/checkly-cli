@@ -2,7 +2,9 @@
 const path = require('path')
 const { constructs } = require('@checkly/cli')
 
-const { CheckGroup } = constructs
+const { CheckGroup, SmsAlertChannel } = constructs
+
+const smsChannel = new SmsAlertChannel('sms-channel', {phoneNumber: '0125'})
 
 const browser = new CheckGroup('group-1', {
   name: 'simple-check-1',
@@ -11,5 +13,6 @@ const browser = new CheckGroup('group-1', {
   activated: true,
   runtimeId: '2022.10',
   locations: ['eu-central-1'],
+  alertChannels: [smsChannel],
   pattern: '**/*.checkly.js'
 })

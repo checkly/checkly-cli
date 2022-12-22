@@ -27,6 +27,7 @@ export class AlertChannelSubscription extends Construct {
     return {
       alertChannelId: this.alertChannelId,
       checkId: this.checkId,
+      groupId: this.groupId,
       activated: this.activated,
     }
   }
