@@ -44,15 +44,18 @@ const supportedNpmModules = [
 ]
 const supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
 
-export function parseDependencies (entrypoint: string): string[] {
-  let extension: string
+function parseExtension (entrypoint: string) {
   if (entrypoint.endsWith('.js')) {
-    extension = '.js'
+    return '.js'
   } else if (entrypoint.endsWith('.ts')) {
-    extension = '.ts'
+    return '.ts'
   } else {
     throw new Error(`Unsupported file extension for ${entrypoint}`)
   }
+}
+
+export function parseDependencies (entrypoint: string): string[] {
+  const extension = parseExtension(entrypoint)
 
   /*
   * The importing of files forms a directed graph.

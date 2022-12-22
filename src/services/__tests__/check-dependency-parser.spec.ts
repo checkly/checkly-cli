@@ -17,7 +17,7 @@ describe('dependency-parser - parseDependencies()', () => {
     ])
   })
 
-  it('should report a missing entrypoint file', async () => {
+  it('should report a missing entrypoint file', () => {
     const missingEntrypoint = path.join(__dirname, 'check-dependency-parser-fixtures', 'does-not-exist.js')
     try {
       parseDependencies(missingEntrypoint)
