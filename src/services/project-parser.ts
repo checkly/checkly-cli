@@ -12,7 +12,7 @@ export async function parseProject (folder: string): Promise<Project> {
   // TODO: allow users to configure this with glob patterns?
   const ignoreDirectories = new Set(['node_modules', '.git'])
 
-  await loadAllChecklyConfigs(process.cwd(), ignoreDirectories)
+  await loadAllChecklyConfigs(folder, ignoreDirectories)
   return project
 }
 
