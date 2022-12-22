@@ -63,23 +63,27 @@ export class CheckGroup extends Construct {
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
     if (props.pattern) {
-      const matched = glob.sync(props.pattern, { nodir: true })
-      for (const match of matched) {
-        const check = new BrowserCheck(match, {
-          groupId: new Ref(this.logicalId),
-          name: match,
-          activated: true,
-          muted: false,
-          locations: this.locations,
-          code: {
-            // TODO: We need to make this relative to the previous caller in the stack
-            entrypoint: path.join(process.cwd(), match),
-          },
-        })
-      }
+      this.addChecks(props.pattern)
     }
     this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
+  }
+
+  addChecks (pattern: string) {
+    const matched = glob.sync(pattern, { nodir: true })
+    for (const match of matched) {
+      const check = new BrowserCheck(match, {
+        groupId: Ref.from(this.logicalId),
+        name: match,
+        activated: true,
+        muted: false,
+        locations: this.locations,
+        code: {
+          // TODO: We need to make this relative to the previous caller in the stack
+          entrypoint: path.join(process.cwd(), match),
+        },
+      })
+    }
   }
 
   addSubscriptions () {
@@ -88,8 +92,8 @@ export class CheckGroup extends Construct {
     }
     for (const alertChannel of this.alertChannels) {
       const subscription = new AlertChannelSubscription(`check-group-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
-        alertChannelId: { ref: alertChannel.logicalId },
-        groupId: { ref: this.logicalId },
+        alertChannelId: Ref.from(alertChannel.logicalId),
+        groupId: Ref.from(this.logicalId),
         activated: true,
       })
     }

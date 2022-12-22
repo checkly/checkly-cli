@@ -14,11 +14,19 @@ export async function runChecks (checks: any[], location: string, reporter: List
       const websocketClientId = uuid.v4()
       // Configure the listener before triggering the check run
       const checkEventEmitter = await configureResultListener(websocketClientId, check, reporter, socketClient)
-      await checksApi.run({
-        runLocation: location,
-        websocketClientId,
-        ...check,
-      })
+      try {
+        await checksApi.run({
+          runLocation: location,
+          websocketClientId,
+          ...check,
+        })
+      } catch (err: any) {
+        if (err?.response?.status === 402) {
+          console.error(`Failed to run a check. ${err.response.data.message}`)
+          // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
+          return
+        }
+      }
       await once(checkEventEmitter, 'finished')
     })
   }
