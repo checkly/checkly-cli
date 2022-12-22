@@ -16,5 +16,7 @@ const browser = new BrowserCheck('check-1', {
   tags: [],
   environmentVariables: [],
   alertChannels: [],
-  code: BrowserCheck.bundle(path.join(__dirname, 'src', 'entrypoint.js')),
+  code: {
+    entrypoint: path.join(__dirname, 'src', 'entrypoint.js'),
+  }
 })

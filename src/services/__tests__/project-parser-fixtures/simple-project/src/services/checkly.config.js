@@ -12,5 +12,6 @@ const browser = new BrowserCheck('check-2', {
     tags: [],
     environmentVariables: [],
     alertChannels: [],
-    code: 'console.log(1)',
-  })
+    code: {
+        content: 'console.log(1)'
+    }  })
