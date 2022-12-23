@@ -1,7 +1,10 @@
 name: Publish Package to npmjs
-on: workflow_dispatch
+on:
+  release:
+    types: [created]
 jobs:
   build:
+    if: ${{ github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -16,3 +19,29 @@ jobs:
       - run: npm publish --workspace package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Slack failure alert
+      - name: Slack Failure Notification
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: proj-local-workflow
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':red_circle: NPM release failed'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''
+      # Slack success alert
+      - name: Slack Success Notification
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: proj-local-workflow
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':white_check_mark: NPM release succeeded'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''

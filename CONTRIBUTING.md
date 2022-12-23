@@ -1,5 +1,7 @@
 # checkly-cli
 
+## Running locally
+
 To run the project locally, use:
 ```
 ./bin/dev help
@@ -17,3 +19,9 @@ npm run lint --workspace package
 ```
 
 When running commands from the `package` directory, the `--workspace package` flag isn't necessary.
+
+## Releasing
+
+To release the project to NPM, create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new).
+
+This new tag will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
