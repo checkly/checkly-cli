@@ -4,7 +4,7 @@
     "importHelpers": true,
     "module": "commonjs",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDirs": ["src", "e2e"],
     "strict": true,
     "target": "es2019",
     "sourceMap": true
@@ -13,6 +13,7 @@
     "src/**/*"
   ],
   "exclude": [
-    "src/**/__tests__"
+    "src/**/__tests__",
+    "e2e"
   ]
 }

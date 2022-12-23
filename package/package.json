@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest",
+    "test": "jest --selectProjects unit",
+    "test:e2e": "npm run prepare && NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "prepare": "rm -rf dist && tsc --build",
     "lint": "eslint src"
   },
@@ -60,6 +61,7 @@
     "@types/ws": "8.5.3",
     "@typescript-eslint/eslint-plugin": "5.46.1",
     "@typescript-eslint/parser": "5.46.1",
+    "config": "3.3.8",
     "eslint": "8.29.0",
     "jest": "29.3.1",
     "ts-jest": "29.0.3",
@@ -82,10 +84,23 @@
     ]
   },
   "jest": {
-    "testEnvironment": "node",
-    "preset": "ts-jest",
-    "testMatch": [
-      "**/*spec.ts"
+    "projects": [
+      {
+        "displayName": "unit",
+        "testMatch": [
+          "<rootDir>/src/**/*.spec.ts"
+        ],
+        "preset": "ts-jest",
+        "testEnvironment": "node"
+      },
+      {
+        "displayName": "E2E",
+        "testMatch": [
+          "<rootDir>/e2e/__tests__/**/*.spec.ts"
+        ],
+        "preset": "ts-jest",
+        "testEnvironment": "node"
+      }
     ]
   }
 }
