@@ -1,0 +1,7 @@
+{
+  "checkly": {
+    "logicalId": "check-parse-error",
+    "name": "Check Parse Error",
+    "repoUrl": "https://github.com/checkly/checkly-cli"
+  }
+}
