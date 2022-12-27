@@ -46,7 +46,7 @@ export class DependencyParseError extends Error {
     if (parseErrors.length) {
       message += '\n\nThe following files couldn\'t be parsed:\n'
       for (const { file, error } of parseErrors) {
-        message += `t${file} - ${error}\n`
+        message += `\t${file} - ${error}\n`
       }
     }
     super(message)

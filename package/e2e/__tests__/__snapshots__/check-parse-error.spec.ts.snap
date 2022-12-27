@@ -17,8 +17,8 @@ exports[`check parse error "checkly test" should return a clear error when there
 
 
     The following files couldn't be parsed:
-    tsyntax-error-1.js - Unexpected token (3:0)
-    tsyntax-error-2.js - Unexpected token (2:0)
+    	syntax-error-1.js - Unexpected token (3:0)
+    	syntax-error-2.js - Unexpected token (2:0)
 
 "
 `;
