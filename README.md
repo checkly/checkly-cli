@@ -50,13 +50,19 @@ test('Playwright home page', async () => {
 })
 ```
 
-The above code is "pure" Playwright code. We just need to add some metadata so we can run it for you as a Check, e.g.
-giving it a name, setting a frequency how often we run it and from which regions. 
+The above code is "pure" Playwright code. We just need to add some options and resources to:
+
+1. Give it a name, set a frequency how often we run it and from which regions. 
+2. Add an alert channel to wake you up when the Check fails. Make sure to update your email address in the example below.
 
 Create another file `__checks__/home.check.js`
 
 ```js
-const { BrowserCheck } = require('@checkly/cli/constructs')
+const { BrowserCheck, EmailAlertChannel } = require('@checkly/cli/constructs')
+
+const emailChannel = new EmailAlertChannel('email-1', {
+  address: 'your@email.com'
+})
 
 new BrowserCheck('browser-check-1', {
   name: 'Browser check #1',
@@ -68,10 +74,14 @@ new BrowserCheck('browser-check-1', {
 })
 ```
 
-Now do a dry run against the global Checkly infrastructure so we can validate we didn't make any mistakes. 
+Now run `npx checkly test` to do a dry run against the global Checkly infrastructure so we validate we didn't make any mistakes. 
+This should print the message:
 
-```bash
-npx checkly test
+```
+ PASS  - Browser check #1
+
+Checks:    1 passed,  1 total
+████████████████████████████████████████
 ```
 
 After you have validated the check does the right thing and has no bugs, deploy the check to your account:
@@ -82,6 +92,76 @@ npx checkly deploy
 
 Et voilà, you have just created a synthetic monitoring check based on Playwright from your code base! Open up [your Checkly dashboard](https://app.checklyhq.com) and you should see a your Check, ready to start monitoring
 around the clock.
+
+## Project structure
+
+The getting started example above uses a set of defaults and conventions to get you going quickly, but the more checks you
+add the less DRY your code will become. The recommended way to tackle this is using a mix of **global** and **local** 
+configuration.
+
+### Global configuration
+
+Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
+
+```js
+// @ts-check
+
+/** @type {import('@checkly/cli').Config} */
+const config = {
+  activated: true,
+  muted: false,
+  runtimeId: '2022.10',
+  locations: ['us-east-1', 'eu-west-1'],
+  checkMatch: '**/*.check.js',
+  browserChecks: {
+    frequency: 10,
+    checkMatch: '**/*.spec.js',
+  },
+  cli: {
+    verbose: false,
+    runLocation: 'eu-west-1',
+  }
+}
+
+module.exports = config;
+```
+
+- `checkMatch`: By default, Checkly looks for files matching `.*check\.(js|ts)`.
+
+### Local configuration
+
+## CLI
+
+Dry run all checks in your repo:
+
+```bash
+npx checkly test
+```
+
+Dry run all checks against a specific location:
+
+```bash
+npx checkly test --run-location eu-west-1
+```
+
+Deploy all resources to your Checkly account
+
+```bash
+npx checkly deploy
+```
+
+### Reference
+
+### `checkly test`
+
+Executes all the checks in the scope of your project on the Checkly cloud infrastructure.
+
+- `--run-location <location>`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
+
+### `checkly deploy`
+
+Deploys all your checks and associated resouces like alert channels to your Checkly account.
+
 
 ## Local Development
 
