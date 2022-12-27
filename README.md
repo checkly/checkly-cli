@@ -13,7 +13,7 @@ The Checkly CLI, SDK and Constructs in this repo together form the basic buildin
 This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
 debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
 
-## Getting Started
+# Getting Started
 
 First, install the CLI.  
 
@@ -26,7 +26,7 @@ Then add the following section to your `package.json`
 ```json
 {
   "checkly": {
-    "logicalId": "project-1",
+    "projectId": "project-1",
     "name": "My Checkly project",
     "repoUrl": "https://github.com/user/repo"
   }
@@ -93,29 +93,37 @@ npx checkly deploy
 Et voilà, you have just created a synthetic monitoring check based on Playwright from your code base! Open up [your Checkly dashboard](https://app.checklyhq.com) and you should see a your Check, ready to start monitoring
 around the clock.
 
-## Project structure
+# Project structure
 
 The getting started example above uses a set of defaults and conventions to get you going quickly, but the more checks you
 add the less DRY your code will become. The recommended way to tackle this is using a mix of **global** and **local** 
 configuration.
 
-### Global configuration
+## Global configuration
 
 Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
 
 ```js
 // @ts-check
 
-/** @type {import('@checkly/cli').Config} */
+/** @type {import('@checkly/cli').ProjectConfig} */
 const config = {
-  activated: true,
-  muted: false,
-  runtimeId: '2022.10',
-  locations: ['us-east-1', 'eu-west-1'],
-  checkMatch: '**/*.check.js',
-  browserChecks: {
-    frequency: 10,
-    checkMatch: '**/*.spec.js',
+  projectName: 'Website Monitoring',
+  logicalId: 'website-monitoring-1',
+  repoUrl: 'https://github.com/acme/website',
+  checks: {
+    activated: true,
+    muted: false,
+    runtimeId: '2022.10',
+    frequency: 5,
+    locations: ['us-east-1', 'eu-west-1'],
+    tags: ['website', 'api'],
+    alertChannels: [],
+    checkMatch: '**/*.check.js',
+    browserChecks: {
+      frequency: 10,
+      checkMatch: '**/*.spec.js',
+    }
   },
   cli: {
     verbose: false,
@@ -128,9 +136,26 @@ module.exports = config;
 
 - `checkMatch`: By default, Checkly looks for files matching `.*check\.(js|ts)`.
 
-### Local configuration
+## Local configuration
 
-## CLI
+You can override any of the settings in the `checks` global configuration section at the individual check level.
+
+```js
+// __check__/api.check.js
+
+const api = new ApiCheck('hello-api', {
+  name: 'Hello API',
+  locations: ['ap-south-1'], // overrides the locations property
+  frequency: 30, // overrides the frequency property
+  request: {
+    method: 'GET',
+    url: 'https://api.checklyhq.com/public-stats',
+    assertions: [{ source: 'STATUS_CODE', comparison: 'EQUALS', target: '200' }]
+  }
+})
+```
+
+# CLI
 
 Dry run all checks in your repo:
 
@@ -150,7 +175,7 @@ Deploy all resources to your Checkly account
 npx checkly deploy
 ```
 
-### Reference
+## Reference
 
 ### `checkly test`
 
@@ -163,6 +188,28 @@ Executes all the checks in the scope of your project on the Checkly cloud infras
 Deploys all your checks and associated resouces like alert channels to your Checkly account.
 
 
-## Local Development
+# API 
+
+## ChecklyConfig
+
+## Checks
+
+### API Checks
+
+### Browser Checks
+
+Browser checks are based on [`@playwright/test`](https://playwright.dev/) 
+
+```js
+```
+
+### Freeform Checks (experimental)
+
+## Check Groups
+
+## Alert Channels
+
+
+# Local Development
 
 TBD
