@@ -1,0 +1,24 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`check parse error "checkly test" should return a clear error when there are check dependency errors 1`] = `
+"    Error: Encountered an error parsing check files for entrypoint.js.
+
+    The following dependencies weren't found:
+    	nonexistent-file.js
+    	nonexistent-file-2.js
+
+
+    The following NPM dependencies were used, but aren't supported in the 
+    runtimes.
+    For more information, see https://www.checklyhq.com/docs/runtimes/.
+    	entrypoint.js imports unsupported dependencies:
+    		unsupported-dependency
+    		unsupported-dependency-2
+
+
+    The following files couldn't be parsed:
+    	syntax-error-1.js - Unexpected token (3:0)
+    	syntax-error-2.js - Unexpected token (2:0)
+
+"
+`;
