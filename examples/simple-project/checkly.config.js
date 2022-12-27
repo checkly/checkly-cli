@@ -5,7 +5,7 @@ const config = {
   checks: {
     locations: [ 'us-east-1', 'eu-west-1' ],
     runtimeId: '2022.10',
-    checksMatch: '**/*.check.js',
+    checkMatch: '**/*.check.js',
     browserChecks: {
       checkMatch: '**/__checks__/*.spec.js',
     },
@@ -15,4 +15,5 @@ const config = {
   },
 }
 
-module.exports = config
+// We can export the config directly, or export an async function.
+module.exports = async () => config

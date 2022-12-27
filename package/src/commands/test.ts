@@ -2,6 +2,7 @@ import { Command, Flags } from '@oclif/core'
 import ListReporter from '../reporters/list'
 import { parseProject } from '../services/project-parser'
 import { runChecks } from '../services/check-runner'
+import { loadChecklyConfig } from '../services/checkly-config-loader'
 
 export default class Test extends Command {
   static description = 'Test checks on Checkly'
@@ -17,8 +18,18 @@ export default class Test extends Command {
   async run (): Promise<void> {
     const { flags } = await this.parse(Test)
     const { location } = flags
+    const cwd = process.cwd()
 
-    const project = await parseProject(process.cwd())
+    const checklyConfig = await loadChecklyConfig(cwd)
+    const project = await parseProject({
+      directory: cwd,
+      projectLogicalId: checklyConfig.logicalId,
+      projectName: checklyConfig.projectName,
+      repoUrl: checklyConfig.repoUrl,
+      checkMatch: checklyConfig.checks?.checkMatch,
+      browserCheckMatch: checklyConfig.checks?.browserChecks?.checkMatch,
+      ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+    })
     const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap).map(([key, check]) => {
       check.logicalId = key

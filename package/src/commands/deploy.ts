@@ -2,6 +2,7 @@ import * as api from '../rest/api'
 import { prompt } from 'inquirer'
 import { Command, Flags } from '@oclif/core'
 import { parseProject } from '../services/project-parser'
+import { loadChecklyConfig } from '../services/checkly-config-loader'
 
 export default class Deploy extends Command {
   static description = 'Deploy your changes'
@@ -16,8 +17,17 @@ export default class Deploy extends Command {
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
-
-    const project = await parseProject(process.cwd())
+    const cwd = process.cwd()
+    const checklyConfig = await loadChecklyConfig(cwd)
+    const project = await parseProject({
+      directory: cwd,
+      projectLogicalId: checklyConfig.logicalId,
+      projectName: checklyConfig.projectName,
+      repoUrl: checklyConfig.repoUrl,
+      checkMatch: checklyConfig.checks?.checkMatch,
+      browserCheckMatch: checklyConfig.checks?.browserChecks?.checkMatch,
+      ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+    })
 
     const { confirm } = await prompt([{
       name: 'confirm',
