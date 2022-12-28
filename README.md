@@ -21,8 +21,6 @@ First, install the CLI.
 npm i --save-dev @checkly/cli 
 ```
 
-Then add the following section to your `package.json`
-
 Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
 
 ```js
