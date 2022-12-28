@@ -3,22 +3,33 @@
 ## Running locally
 
 To run the project locally, use:
-```
+```bash
 ./bin/dev help
 ```
 This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to skip compiling the TS.
 
 To run a build with TS for type checking, run:
-```
+```bash
 npm run prepare --workspace package
 ```
 
 To lint the project:
-```
+```bash
 npm run lint --workspace package
 ```
 
 When running commands from the `package` directory, the `--workspace package` flag isn't necessary.
+
+## Running from source in another project
+
+You can use any branch of the code and `npm link` it so you can use the latest version in any other repo / project as if
+you are using the installed NPM package
+
+1. Go to the package directory and run `npm link`
+2. Go to your other project and run `npm link @checkly/cli`
+
+Make sure you are on the same NodeJS version if you are using `nvm` or `fnm`
+
 
 ## Releasing
 

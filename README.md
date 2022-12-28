@@ -23,14 +23,22 @@ npm i --save-dev @checkly/cli
 
 Then add the following section to your `package.json`
 
-```json
-{
-  "checkly": {
-    "projectId": "project-1",
-    "name": "My Checkly project",
-    "repoUrl": "https://github.com/user/repo"
+Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
+
+```js
+const config = {
+  projectName: 'My First Checkly Project',
+  logicalId: 'checkly-project-1',
+  checks: {
+    activated: true,
+    muted: false,
+    runtimeId: '2022.10',
+    frequency: 5,
+    locations: ['us-east-1', 'eu-west-1'],
   }
 }
+
+module.exports = config;
 ```
 
 Use the CLI to authenticate and pick a Checkly account. Make sure you have [signed up for a free account on checklyhq.com](https://www.checklyhq.com/).
@@ -39,38 +47,16 @@ Use the CLI to authenticate and pick a Checkly account. Make sure you have [sign
 checkly login
 ```
 
-Now, let's create your first check, starting with a `@playwright/test` based Browser check. Create a file name `__checks__/home.spec.js`.
+Now, let's create your first synthetic monitoring check, starting with a `@playwright/test` based Browser check. Create a file named `__checks__/home.spec.js`.
 
 ```js
 const { expect, test } = require('@playwright/test')
 
-test('Playwright home page', async () => {
-    await page.goto('https://checklyhq.com')
-    await expect(page).toHaveTitle(/Checkly/)
-})
-```
-
-The above code is "pure" Playwright code. We just need to add some options and resources to:
-
-1. Give it a name, set a frequency how often we run it and from which regions. 
-2. Add an alert channel to wake you up when the Check fails. Make sure to update your email address in the example below.
-
-Create another file `__checks__/home.check.js`
-
-```js
-const { BrowserCheck, EmailAlertChannel } = require('@checkly/cli/constructs')
-
-const emailChannel = new EmailAlertChannel('email-1', {
-  address: 'your@email.com'
-})
-
-new BrowserCheck('browser-check-1', {
-  name: 'Browser check #1',
-  frequency: 10, // minutes
-  regions: ['us-east-1', 'eu-west-1'],
-  code: {
-    entrypoint: './home.spec.js'
-  }
+test('Playwright home page', async ({ page }) => {
+  const response = await page.goto('https://playwright.dev/')
+  expect(response.status()).toBeLessThan(400)
+  expect(page).toHaveTitle(/Playwright/)
+  await page.screenshot({ path: 'homepage.jpg' })
 })
 ```
 
@@ -78,7 +64,7 @@ Now run `npx checkly test` to do a dry run against the global Checkly infrastruc
 This should print the message:
 
 ```
- PASS  - Browser check #1
+ PASS  - home.spec.js
 
 Checks:    1 passed,  1 total
 ████████████████████████████████████████
@@ -95,8 +81,8 @@ around the clock.
 
 # Project structure
 
-The getting started example above uses a set of defaults and conventions to get you going quickly, but the more checks you
-add the less DRY your code will become. The recommended way to tackle this is using a mix of **global** and **local** 
+The getting started example above uses a set of defaults and conventions to get you going quickly. In more complex cases
+you will want more control. The recommended way to tackle this is using a mix of **global** and **local** 
 configuration.
 
 ## Global configuration
@@ -198,9 +184,24 @@ Deploys all your checks and associated resouces like alert channels to your Chec
 
 ### Browser Checks
 
-Browser checks are based on [`@playwright/test`](https://playwright.dev/) 
+Browser checks are based on [`@playwright/test`](https://playwright.dev/). You can just write `.spec.js|ts` files with test cases
+and the Checkly CLI will pick them up and apply some default settings like a name, run locations and run frequency to turn 
+them into synthetic monitoring checks.
+
+However you can override these global settings and configure individual Browser checks just like all other built-in check
+types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file.
 
 ```js
+const { BrowserCheck } = require('@checkly/cli/constructs')
+
+new BrowserCheck('browser-check-1', {
+  name: 'Browser check #1',
+  frequency: 10, // minutes
+  regions: ['us-east-1', 'eu-west-1'],
+  code: {
+    entrypoint: './home.spec.js'
+  }
+})
 ```
 
 ### Freeform Checks (experimental)
@@ -212,4 +213,4 @@ Browser checks are based on [`@playwright/test`](https://playwright.dev/)
 
 # Local Development
 
-TBD
+To get started with local development check [CONTRIBUTING.MD](https://github.com/checkly/checkly-cli/blob/main/CONTRIBUTING.md)
