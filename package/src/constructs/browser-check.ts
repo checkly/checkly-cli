@@ -52,15 +52,15 @@ export class BrowserCheck extends Check {
 
     const deps: CheckDependency[] = []
     for (const dep of parsed) {
-      const content = fs.readFileSync(entry, { encoding: 'utf8' })
+      const content = fs.readFileSync(dep, { encoding: 'utf8' })
       deps.push({
-        path: path.relative(Session.basePath, dep),
+        path: path.relative(Session.basePath!, dep),
         content,
       })
     }
     return {
       script: content,
-      scriptPath: path.relative(Session.basePath, entry),
+      scriptPath: path.relative(Session.basePath!, entry),
       dependencies: deps,
     }
   }
