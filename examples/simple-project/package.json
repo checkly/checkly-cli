@@ -10,10 +10,5 @@
     "@checkly/cli": "*"
   },
   "author": "",
-  "license": "ISC",
-  "checkly": {
-    "logicalId": "my-project",
-    "name": "My Project",
-    "repoUrl": "https://github.com/checkly/checkly-cli"
-  }
+  "license": "ISC"
 }
