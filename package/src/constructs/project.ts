@@ -49,4 +49,5 @@ export class Project extends Construct {
 
 export class Session {
   static project: Project
+  static basePath?: string
 }

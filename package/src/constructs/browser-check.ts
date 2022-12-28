@@ -1,5 +1,7 @@
 import * as fs from 'fs'
+import * as path from 'path'
 import { Check, CheckProps } from './check'
+import { Session } from './project'
 import { parseDependencies } from '../services/check-dependency-parser'
 
 export interface CheckDependency {
@@ -50,15 +52,15 @@ export class BrowserCheck extends Check {
 
     const deps: CheckDependency[] = []
     for (const dep of parsed) {
-      const content = fs.readFileSync(entry, { encoding: 'utf8' })
+      const content = fs.readFileSync(dep, { encoding: 'utf8' })
       deps.push({
-        path: dep,
+        path: path.relative(Session.basePath!, dep),
         content,
       })
     }
     return {
       script: content,
-      scriptPath: entry,
+      scriptPath: path.relative(Session.basePath!, entry),
       dependencies: deps,
     }
   }

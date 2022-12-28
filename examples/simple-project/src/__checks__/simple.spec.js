@@ -1,3 +1,5 @@
+// This file matches browserChecks.checkMatch, so it will automatically be turned into a browser check
+
 // Require two other files
 const dep1 = require('./dep1')
 const dep2 = require('./dep2')
