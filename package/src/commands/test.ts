@@ -29,6 +29,8 @@ export default class Test extends Command {
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.checkMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+      checkDefaults: checklyConfig.checks,
+      browserCheckDefaults: checklyConfig.checks?.browserChecks,
     })
     const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap).map(([key, check]) => {

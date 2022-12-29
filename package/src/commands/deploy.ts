@@ -27,6 +27,8 @@ export default class Deploy extends Command {
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.checkMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+      checkDefaults: checklyConfig.checks,
+      browserCheckDefaults: checklyConfig.checks?.browserChecks,
     })
 
     const { confirm } = await prompt([{

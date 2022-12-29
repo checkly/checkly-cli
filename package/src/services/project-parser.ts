@@ -2,6 +2,7 @@ import { BrowserCheck, Project, Session } from '../constructs'
 import * as glob from 'glob'
 import { loadJsFile, loadTsFile } from './util'
 import * as path from 'path'
+import { CheckConfigDefaults } from './checkly-config-loader'
 
 type ProjectParseOpts = {
   directory: string,
@@ -11,6 +12,8 @@ type ProjectParseOpts = {
   checkMatch?: string,
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
+  checkDefaults?: CheckConfigDefaults,
+  browserCheckDefaults?: CheckConfigDefaults,
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -22,6 +25,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     projectName,
     repoUrl,
     ignoreDirectoriesMatch = [],
+    checkDefaults = {},
+    browserCheckDefaults = {},
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -29,6 +34,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   })
   Session.project = project
   Session.basePath = directory
+  Session.checkDefaults = checkDefaults
+  Session.browserCheckDefaults = browserCheckDefaults
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**/*', '**/.git/**/*', ...ignoreDirectoriesMatch]
@@ -78,9 +85,7 @@ function loadAllBrowserChecks (
     }
     const browserCheck = new BrowserCheck(relPath, {
       name: path.basename(checkFile),
-      activated: true,
-      muted: false,
-      locations: ['eu-central-1'],
+      activated: true, // TODO: Set an appropriate default for `activated` at the API level with Joi, then remove this.
       code: {
         entrypoint: checkFile,
       },
