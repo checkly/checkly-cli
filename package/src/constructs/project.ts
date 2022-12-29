@@ -1,3 +1,4 @@
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
@@ -50,4 +51,6 @@ export class Project extends Construct {
 export class Session {
   static project: Project
   static basePath?: string
+  static checkDefaults?: CheckConfigDefaults
+  static browserCheckDefaults?: CheckConfigDefaults
 }

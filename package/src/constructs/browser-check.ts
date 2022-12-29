@@ -3,6 +3,7 @@ import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { parseDependencies } from '../services/check-dependency-parser'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface CheckDependency {
   path: string
@@ -27,6 +28,7 @@ export class BrowserCheck extends Check {
   dependencies?: Array<CheckDependency>
 
   constructor (logicalId: string, props: BrowserCheckProps) {
+    BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)
     if ('content' in props.code) {
       const script = props.code.content
@@ -42,6 +44,17 @@ export class BrowserCheck extends Check {
     }
     this.register(Check.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
+  }
+
+  private static applyDefaultBrowserCheckConfig (props: CheckConfigDefaults) {
+    if (!Session.browserCheckDefaults) {
+      return
+    }
+    let configKey: keyof CheckConfigDefaults
+    for (configKey in Session.browserCheckDefaults) {
+      const newVal: any = props[configKey] ?? Session.browserCheckDefaults[configKey]
+      props[configKey] = newVal
+    }
   }
 
   static bundle (entry: string) {
