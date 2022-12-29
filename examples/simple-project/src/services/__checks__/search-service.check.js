@@ -11,8 +11,6 @@ new BrowserCheck('search-service-check', {
   code: {
     entrypoint: path.join(__dirname, 'search-service.spec.js')
   },
-  activated: true,
-  muted: false,
 })
 
 // We can define multiple checks in a single *.check.js file.
@@ -21,6 +19,4 @@ new BrowserCheck('search-selection-check', {
   code: {
     entrypoint: path.join(__dirname, 'search-selection.spec.js')
   },
-  activated: true,
-  muted: false,
 })
