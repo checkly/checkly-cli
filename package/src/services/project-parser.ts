@@ -85,9 +85,7 @@ function loadAllBrowserChecks (
     }
     const browserCheck = new BrowserCheck(relPath, {
       name: path.basename(checkFile),
-      activated: true,
-      muted: false,
-      locations: ['eu-central-1'],
+      activated: true, // TODO: Set an appropriate default for `activated` at the API level with Joi, then remove this.
       code: {
         entrypoint: checkFile,
       },
