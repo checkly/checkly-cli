@@ -17,6 +17,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
       - run: npm config set fund false && npm set audit false
-      - run: npm install --workspaces
+      - run: npm ci --workspaces
       - run: npm run lint --workspace package
       - run: npm run test --workspace package

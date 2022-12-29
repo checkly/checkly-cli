@@ -33,6 +33,9 @@ Make sure you are on the same NodeJS version if you are using `nvm` or `fnm`
 
 ## Releasing
 
-To release the project to NPM, create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new).
+To release the project to NPM:
 
-This new tag will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
+1. Update the `version` field in [package/package.json](./package/package.json)
+2. Create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new)
+
+The new version will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
