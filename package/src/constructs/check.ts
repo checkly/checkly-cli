@@ -3,15 +3,17 @@ import { Construct } from './construct'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
+import { Session } from './project'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
-export interface CheckProps {
+export interface CheckProps extends CheckConfigDefaults {
   name: string
-  activated: boolean
-  muted: boolean
+  activated?: boolean
+  muted?: boolean
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
-  locations: Array<string>
+  locations?: Array<string>
   tags?: Array<string>
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
@@ -22,8 +24,8 @@ export interface CheckProps {
 // This is an abstract class. It shouldn't be used directly.
 export abstract class Check extends Construct {
   name: string
-  activated: boolean
-  muted: boolean
+  activated?: boolean
+  muted?: boolean
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
@@ -38,6 +40,8 @@ export abstract class Check extends Construct {
 
   constructor (logicalId: string, props: CheckProps) {
     super(logicalId)
+    Check.applyDefaultCheckConfig(props)
+    // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
@@ -53,6 +57,17 @@ export abstract class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
+  }
+
+  private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
+    if (!Session.checkDefaults) {
+      return
+    }
+    let configKey: keyof CheckConfigDefaults
+    for (configKey in Session.checkDefaults) {
+      const newVal: any = props[configKey] ?? Session.checkDefaults[configKey]
+      props[configKey] = newVal
+    }
   }
 
   addSubscriptions () {

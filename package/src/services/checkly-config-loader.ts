@@ -1,17 +1,33 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
+import { EnvironmentVariable } from '../constructs/environment-variable'
+
+export type CheckConfigDefaults = {
+  activated?: boolean,
+  muted?: boolean,
+  doubleCheck?: boolean,
+  shouldFail?: boolean,
+  runtimeId?: string,
+  locations?: Array<string>,
+  tags?: Array<string>,
+  frequency?: number,
+  environmentVariables?: Array<EnvironmentVariable>,
+  // TODO: How would a user declare default alert channels?
+  // We need some additional work before constructs can be created in checkly.config.js.
+  // alertChannels?: Array<AlertChannel>,
+}
 
 export type ChecklyConfig = {
   projectName: string,
   logicalId: string,
   repoUrl: string,
-  checks?: {
+  checks?: CheckConfigDefaults & {
     locations?: string[],
     runtimeId?: string,
     checkMatch?: string,
     ignoreDirectoriesMatch?: string[],
-    browserChecks?: {
+    browserChecks?: CheckConfigDefaults & {
       checkMatch?: string,
     },
   },
