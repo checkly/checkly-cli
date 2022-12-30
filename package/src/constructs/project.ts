@@ -53,4 +53,5 @@ export class Session {
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults
   static browserCheckDefaults?: CheckConfigDefaults
+  static checkFilePath?: string
 }

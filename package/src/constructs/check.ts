@@ -35,6 +35,7 @@ export abstract class Check extends Construct {
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
+  __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'checks'
 
@@ -59,6 +60,8 @@ export abstract class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
+
+    this.__checkFilePath = Session.checkFilePath
   }
 
   private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
@@ -98,6 +101,7 @@ export abstract class Check extends Construct {
       frequency: this.frequency,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
+      __checkFilePath: this.__checkFilePath,
     }
   }
 }

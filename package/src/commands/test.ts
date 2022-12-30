@@ -51,7 +51,8 @@ export default class Test extends Command {
     const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap)
       .filter(([_, check]) => {
-        return filterByFileNamePattern(filePatterns, check.scriptPath)
+        return filterByFileNamePattern(filePatterns, check.scriptPath) ||
+          filterByFileNamePattern(filePatterns, check.__checkFilePath)
       })
       .filter(([_, check]) => {
         return filterByCheckNamePattern(grep, check.name)
