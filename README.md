@@ -48,7 +48,7 @@ module.exports = config;
 Use the CLI to authenticate and pick a Checkly account. Make sure you have [signed up for a free account on checklyhq.com](https://www.checklyhq.com/).
 
 ```bash
-checkly login
+npx checkly login
 ```
 
 Now, let's create your first synthetic monitoring check, starting with a `@playwright/test` based Browser check. Create a file named `__checks__/home.spec.js`.
@@ -153,6 +153,12 @@ Dry run all checks in your repo:
 npx checkly test
 ```
 
+Dry run checks that have `product` and `api` in the file name
+
+```bash
+npx checkly test product api
+```
+
 Dry run all checks against a specific location:
 
 ```bash
@@ -167,13 +173,15 @@ npx checkly deploy
 
 ## Reference
 
-### `checkly test`
+### `npx checkly test [FILES]`
 
-Executes all the checks in the scope of your project on the Checkly cloud infrastructure.
+Executes all the checks in the scope of your project on the Checkly cloud infrastructure. You can specify files to run by
+appending a pattern, e.g. `npx checkly test home.spec.js api`. 
 
 - `--run-location <location>`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
+- `--grep <pattern>`: Only run checks where the check name matches a regular expression.
 
-### `checkly deploy`
+### `npx checkly deploy`
 
 Deploys all your checks and associated resouces like alert channels to your Checkly account.
 

@@ -52,6 +52,8 @@ async function loadAllCheckFiles (
 ): Promise<void> {
   const checkFiles = findFilesWithPattern(directory, checkFilePattern, ignorePattern)
   for (const checkFile of checkFiles) {
+    // setting the checkFilePath is used for filtering by file name on the command line
+    Session.checkFilePath = path.relative(directory, checkFile)
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
@@ -60,6 +62,7 @@ async function loadAllCheckFiles (
       throw new Error('Unable to load check configuration file with unsupported extension. ' +
         `Please use a .js or .ts file instead.\n${checkFile}`)
     }
+    Session.checkFilePath = undefined
   }
 }
 
