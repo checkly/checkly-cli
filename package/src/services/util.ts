@@ -41,6 +41,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
   return exported
 }
 
+// To avoid a dependency on typescript for users with no TS checks, we need to dynamically import ts-node
 let tsCompiler: Service
 async function getTsCompiler (): Promise<Service> {
   if (tsCompiler) return tsCompiler
@@ -52,9 +53,10 @@ async function getTsCompiler (): Promise<Service> {
       },
     })
   } catch (err: any) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND') {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
       throw new Error('Please install ts-node and typescript to use TypeScript configuration files')
     }
+    throw err
   }
   return tsCompiler
 }

@@ -1,9 +1,8 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as acorn from 'acorn'
-import * as tsParser from '@typescript-eslint/typescript-estree'
-import { TSESTree } from '@typescript-eslint/typescript-estree'
 import * as walk from 'acorn-walk'
+import { TSESTree } from '@typescript-eslint/typescript-estree'
 
 type UnsupportedNpmDependencies = {
   file: string;
@@ -154,11 +153,12 @@ function parseDependenciesForFile (filePath: string): { localDependencies: strin
     const ast = acorn.parse(contents, { allowReturnOutsideFunction: true, ecmaVersion: 'latest' })
     walk.simple(ast, jsNodeVisitor(localDependencies, npmDependencies))
   } else if (filePath.endsWith('.ts')) {
+    const tsParser = getTsParser()
     const ast = tsParser.parse(contents, {})
     // The AST from typescript-estree is slightly different from the type used by acorn-walk.
     // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
     // @ts-ignore
-    walk.simple(ast, tsNodeVisitor(localDependencies, npmDependencies))
+    walk.simple(ast, tsNodeVisitor(tsParser, localDependencies, npmDependencies))
   } else {
     throw new Error(`Unsupported file extension for ${filePath}`)
   }
@@ -176,18 +176,18 @@ function jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<str
   }
 }
 
-function tsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
+function tsNodeVisitor (tsParser: any, localDependencies: Set<string>, npmDependencies: Set<string>): any {
   return {
     ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
-      if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
+      if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
       registerDependency(node.source.value, localDependencies, npmDependencies)
     },
     ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
       if (node.source === null) return
       // For now, we only support literal strings in the import statement
-      if (node.source.type !== TSESTree.AST_NODE_TYPES.Literal) return
+      if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
       registerDependency(node.source.value, localDependencies, npmDependencies)
     },
   }
@@ -239,4 +239,19 @@ function registerDependency (importArg: string | null, localDependencies: Set<st
   } else {
     npmDependencies.add(importArg)
   }
+}
+
+// To avoid a dependency on typescript for users with no TS checks, we need to dynamically import typescript-estree
+let tsParser: any
+function getTsParser (): any {
+  if (tsParser) return tsParser
+  try {
+    tsParser = require('@typescript-eslint/typescript-estree')
+  } catch (err: any) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
+      throw new Error('Please install typescript to use TypeScript in check files')
+    }
+    throw err
+  }
+  return tsParser
 }
