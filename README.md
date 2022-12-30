@@ -21,6 +21,12 @@ First, install the CLI.
 npm i --save-dev @checkly/cli 
 ```
 
+To use TypeScript, also install `ts-node` and `typescript`:
+
+```bash
+npm i --save-dev ts-node typescript
+```
+
 Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
 
 ```js
