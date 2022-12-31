@@ -3,6 +3,7 @@ import ListReporter from '../reporters/list'
 import { parseProject } from '../services/project-parser'
 import { runChecks } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
+import { filterByFileNamePattern, filterByCheckNamePattern } from './helpers/test-filters'
 
 export default class Test extends Command {
   static description = 'Test checks on Checkly'
@@ -12,12 +13,27 @@ export default class Test extends Command {
       description: 'The location to run the checks on',
       default: 'eu-central-1',
     }),
+    grep: Flags.string({
+      char: 'g',
+      description: 'Only run checks where the check name matches a regular expression.',
+      default: '.*',
+    }),
   }
-  // TODO: Add flags for running specific checks
+
+  static args = [
+    {
+      name: 'files',
+      required: false,
+      description: 'Only run checks where the file name matches a regular expression',
+      default: '.*',
+    },
+  ]
+
+  static strict = false
 
   async run (): Promise<void> {
-    const { flags } = await this.parse(Test)
-    const { location } = flags
+    const { flags, argv: filePatterns } = await this.parse(Test)
+    const { location, grep } = flags
     const cwd = process.cwd()
 
     const checklyConfig = await loadChecklyConfig(cwd)
@@ -33,15 +49,23 @@ export default class Test extends Command {
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
     })
     const { checks: checksMap, groups: groupsMap } = project.data
-    const checks = Object.entries(checksMap).map(([key, check]) => {
-      check.logicalId = key
-      // TODO: Add the group to check in a cleaner form
-      if (check.groupId) {
-        check.group = groupsMap[check.groupId.ref]
-        delete check.groupId
-      }
-      return check
-    })
+    const checks = Object.entries(checksMap)
+      .filter(([_, check]) => {
+        return filterByFileNamePattern(filePatterns, check.scriptPath) ||
+          filterByFileNamePattern(filePatterns, check.__checkFilePath)
+      })
+      .filter(([_, check]) => {
+        return filterByCheckNamePattern(grep, check.name)
+      })
+      .map(([key, check]) => {
+        check.logicalId = key
+        // TODO: Add the group to check in a cleaner form
+        if (check.groupId) {
+          check.group = groupsMap[check.groupId.ref]
+          delete check.groupId
+        }
+        return check
+      })
     const reporter = new ListReporter(checks)
     await runChecks(checks, location, reporter)
     // TODO - non-zero status code if checks fail

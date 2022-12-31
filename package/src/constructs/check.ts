@@ -35,6 +35,7 @@ export abstract class Check extends Construct {
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
+  __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'checks'
 
@@ -43,7 +44,9 @@ export abstract class Check extends Construct {
     Check.applyDefaultCheckConfig(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
-    this.activated = props.activated
+    // `activated` is required by the server side schema.
+    // Until the server side is changed to set a default value rather than throw an error, we set a default value here.
+    this.activated = props.activated ?? true
     this.muted = props.muted
     this.doubleCheck = props.doubleCheck
     this.shouldFail = props.shouldFail
@@ -57,6 +60,8 @@ export abstract class Check extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
+
+    this.__checkFilePath = Session.checkFilePath
   }
 
   private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
@@ -96,6 +101,7 @@ export abstract class Check extends Construct {
       frequency: this.frequency,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
+      __checkFilePath: this.__checkFilePath,
     }
   }
 }

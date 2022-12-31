@@ -20,6 +20,14 @@ npm run lint --workspace package
 
 When running commands from the `package` directory, the `--workspace package` flag isn't necessary.
 
+## Running from source in the `/examples` folder
+
+You can use the current branch of the code against the any examples in the `/examples` directory for developing and debugging.
+
+1. Go the the `/examples/<some-example>` directory.
+2. Run `npm install`. This installs the current branch using `workspaces` magic.
+3. Just use `npx checkly` as normal.
+
 ## Running from source in another project
 
 You can use any branch of the code and `npm link` it so you can use the latest version in any other repo / project as if
