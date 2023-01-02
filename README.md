@@ -185,6 +185,24 @@ appending a pattern, e.g. `npx checkly test home.spec.js api`.
 
 Deploys all your checks and associated resouces like alert channels to your Checkly account.
 
+# Authentication
+
+There are different ways to authenticate when using the CLI depending on the environment where you are running the CLI from.
+
+When **running the CLI interactively** from your dev environment, just use the built-in `login` command. If you have multiple
+Checkly accounts, it will prompt which account you want to target
+
+```bash
+npx checkly login
+```
+
+When **running the CLI from your CI pipeline** you will need to export two variables in the shell:
+- `CHECKLY_API_KEY`
+- `CHECKLY_ACCOUNT_ID`
+
+Go to your Settings page in Checkly and grab a fresh API key from [the API keys tab](https://app.checklyhq.com/settings/user/api-keys) and your
+Account ID from the [Account settings tab](https://app.checklyhq.com/settings/account/general).
+
 
 # API 
 
