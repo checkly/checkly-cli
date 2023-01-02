@@ -50,11 +50,6 @@ const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
 
 const loginSuccess = () => {
   console.info('Welcome to @checkly/cli 🦝')
-  console.info(
-    `\nYou can now run ${chalk.blue(
-      '`$ checkly init`',
-    )} to setup the project!`,
-  )
 }
 
 export default class Login extends Command {
