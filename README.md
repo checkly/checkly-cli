@@ -189,12 +189,28 @@ Deploys all your checks and associated resouces like alert channels to your Chec
 
 There are different ways to authenticate when using the CLI depending on the environment where you are running the CLI from.
 
+## Interactive
+
 When **running the CLI interactively** from your dev environment, just use the built-in `login` command. If you have multiple
 Checkly accounts, it will prompt which account you want to target
 
 ```bash
 npx checkly login
 ```
+
+Once authenticated, you can switch between accounts using
+
+```bash
+npx checkly switch
+```
+
+or quickly find out which account you are currently targeting with
+
+```bash
+npx checkly whoami
+```
+
+## From CI
 
 When **running the CLI from your CI pipeline** you will need to export two variables in the shell:
 - `CHECKLY_API_KEY`
