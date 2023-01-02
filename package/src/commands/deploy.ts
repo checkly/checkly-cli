@@ -13,10 +13,16 @@ export default class Deploy extends Command {
       description: 'Show state preview',
       default: false,
     }),
+    force: Flags.boolean({
+      char: 'f',
+      description: 'force mode',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
+    const { force, preview } = flags
     const cwd = process.cwd()
     const checklyConfig = await loadChecklyConfig(cwd)
     const project = await parseProject({
@@ -31,17 +37,19 @@ export default class Deploy extends Command {
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
     })
 
-    const { confirm } = await prompt([{
-      name: 'confirm',
-      type: 'confirm',
-      message: 'You are about to deploy your project. Do you want to continue?',
-    }])
-    if (!confirm) {
-      return
+    if (!force) {
+      const { confirm } = await prompt([{
+        name: 'confirm',
+        type: 'confirm',
+        message: 'You are about to deploy your project. Do you want to continue?',
+      }])
+      if (!confirm) {
+        return
+      }
     }
 
     try {
-      await api.projects.deploy(project.synthesize())
+      await api.projects.deploy(project.synthesize(), { dryRun: preview })
     } catch (err: any) {
       if (err?.response?.status === 400) {
         console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
