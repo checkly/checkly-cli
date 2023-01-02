@@ -38,14 +38,26 @@ export interface Request {
 }
 export interface ApiCheckProps extends CheckProps {
   request: Request
+  localSetupScript?: string
+  localTearDownScript?: string
+  degradedResponseTime: number
+  maxResponseTime: number
 }
 
 export class ApiCheck extends Check {
   request: Request
+  localSetupScript?: string
+  localTearDownScript?: string
+  degradedResponseTime: number
+  maxResponseTime: number
 
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
     this.request = props.request
+    this.localSetupScript = props.localSetupScript
+    this.localTearDownScript = props.localTearDownScript
+    this.degradedResponseTime = props.degradedResponseTime
+    this.maxResponseTime = props.maxResponseTime
     this.register(Check.__checklyType, this.logicalId, this.synthesize())
     this.addSubscriptions()
   }
@@ -55,6 +67,10 @@ export class ApiCheck extends Check {
       ...super.synthesize(),
       checkType: 'API',
       request: this.request,
+      localSetupScript: this.localSetupScript,
+      localTearDownScript: this.localTearDownScript,
+      degradedResponseTime: this.degradedResponseTime,
+      maxResponseTime: this.maxResponseTime,
     }
   }
 }
