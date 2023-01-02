@@ -32,8 +32,8 @@ export interface Request {
   assertions: Array<Assertion>
   body?: string
   bodyType?: BodyType
-  headers?: HeaderProps
-  queryParams?: QueryParamProps
+  headers?: Array<HeaderProps>
+  queryParams?: Array<QueryParamProps>
   basicAuth?: BasicAuth
 }
 export interface ApiCheckProps extends CheckProps {
