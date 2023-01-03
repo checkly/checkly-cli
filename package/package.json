@@ -21,7 +21,9 @@
   },
   "files": [
     "/bin",
-    "/dist"
+    "/dist",
+    "/constructs.js",
+    "/constructs.d.ts"
   ],
   "oclif": {
     "bin": "checkly",
