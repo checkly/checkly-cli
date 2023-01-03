@@ -1,5 +1,5 @@
 const path = require('path')
-const { BrowserCheck } = require('@checkly/cli/constructs')
+const { BrowserCheck, ApiCheck } = require('@checkly/cli/constructs')
 
 /*
 * Rather than create an automatic check for `search-service.spec.js`, we explicitly define a check here.
@@ -18,4 +18,15 @@ new BrowserCheck('search-selection-check', {
   code: {
     entrypoint: path.join(__dirname, 'search-selection.spec.js')
   },
+})
+
+new ApiCheck('failing-api-check', {
+  name: 'Failing Api Check',
+  request: {
+    url: 'https://checkly.com/does-not-exist',
+    method: 'GET',
+    followRedirects: false,
+    skipSsl: false,
+    assertions: [],
+  }
 })

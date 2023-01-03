@@ -1,4 +1,4 @@
-import { checks as checksApi } from '../rest/api'
+import { checks as checksApi, assets } from '../rest/api'
 import { SocketClient } from './socket-client'
 import * as uuid from 'uuid'
 import ListReporter from '../reporters/list'
@@ -54,8 +54,14 @@ async function configureResultListener (
     },
     [runEndTopic]: async (message: any) => {
       const { result } = message
-      // TODO: Handle check assets (logs, screenshots)
-      reporter.onCheckEnd({ logicalId: check.logicalId, ...result })
+      const { region, logPath } = result.assets
+      if (result.hasFailures && logPath) {
+        result.logs = await assets.getLogs(region, logPath)
+      }
+      reporter.onCheckEnd({
+        logicalId: check.logicalId,
+        ...result,
+      })
       await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
       checkEventEmitter.emit('finished')
     },
