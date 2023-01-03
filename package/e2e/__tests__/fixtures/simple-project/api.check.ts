@@ -2,6 +2,7 @@
 import { ApiCheck } from '@checkly/cli/constructs'
 new ApiCheck('api-check', {
   name: 'Api Check',
+  activated: false,
   request: {
     url: 'https://www.google.com',
     method: 'GET',
