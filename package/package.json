@@ -8,6 +8,7 @@
     "test": "jest --selectProjects unit",
     "test:e2e": "npm run prepare && NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "prepare": "rm -rf dist && tsc --build",
+    "prepack": "npx oclif manifest",
     "lint": "eslint src"
   },
   "repository": {
@@ -23,7 +24,8 @@
     "/bin",
     "/dist",
     "/constructs.js",
-    "/constructs.d.ts"
+    "/constructs.d.ts",
+    "/oclif.manifest.json"
   ],
   "oclif": {
     "bin": "checkly",
