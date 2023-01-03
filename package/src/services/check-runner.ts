@@ -55,8 +55,8 @@ async function configureResultListener (
     [runEndTopic]: async (message: any) => {
       const { result } = message
       const { region, logPath } = result.assets
-      if (result.hasFailures) {
-        result.logs = await assets.getAssets(assets.AssetType.LOG, region, logPath)
+      if (result.hasFailures && logPath) {
+        result.logs = await assets.getLogs(region, logPath)
       }
       reporter.onCheckEnd({
         logicalId: check.logicalId,

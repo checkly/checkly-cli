@@ -7,13 +7,16 @@ enum AssetType {
 }
 
 export default class Assets {
-  readonly AssetType = AssetType
   api: AxiosInstance
   constructor (api: AxiosInstance) {
     this.api = api
   }
 
-  async getAssets (assetType: AssetType, region: string, key: string): Promise<string> {
+  async getLogs (region: string, key: string): Promise<Array<{ time: number, msg: string, level: string }>> {
+    return this.getAssets(AssetType.LOG, region, key)
+  }
+
+  private async getAssets (assetType: AssetType, region: string, key: string): Promise<any> {
     const response = await this.api.get(`/next/assets/${assetType}/${region}/${encodeURIComponent(key)}`)
     return response.data
   }
