@@ -78,9 +78,12 @@ export default class CheckRunner extends EventEmitter {
       },
       [runEndTopic]: async (message: any) => {
         const { result } = message
-        const { region, logPath } = result.assets
+        const { region, logPath, checkRunDataPath } = result.assets
         if (result.hasFailures && logPath) {
           result.logs = await assets.getLogs(region, logPath)
+        }
+        if (result.hasFailures && result.checkType === 'API') {
+          result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
         await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
         this.emit(Events.CHECK_SUCCESSFUL, check, result)

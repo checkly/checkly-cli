@@ -102,6 +102,7 @@ export abstract class Check extends Construct {
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
       __checkFilePath: this.__checkFilePath,
+      sourceFile: this.__checkFilePath,
     }
   }
 }
