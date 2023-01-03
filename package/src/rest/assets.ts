@@ -12,7 +12,7 @@ export default class Assets {
     this.api = api
   }
 
-  async getLogs (region: string, key: string): Promise<Array<{ time: number, msg: string, level: string }>> {
+  getLogs (region: string, key: string): Promise<Array<{ time: number, msg: string, level: string }>> {
     return this.getAssets(AssetType.LOG, region, key)
   }
 
