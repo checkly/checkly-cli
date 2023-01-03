@@ -24,7 +24,8 @@
     "/bin",
     "/dist",
     "/constructs.js",
-    "/constructs.d.ts"
+    "/constructs.d.ts",
+    "/oclif.manifest.json"
   ],
   "oclif": {
     "bin": "checkly",
