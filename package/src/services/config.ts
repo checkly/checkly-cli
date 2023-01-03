@@ -1,13 +1,11 @@
 import Conf from 'conf'
 
 const dataSchema = {
-  _: { type: 'string' },
   accountId: { type: 'string' },
   accountName: { type: 'string' },
 }
 
 const authSchema = {
-  _: { type: 'string' },
   apiKey: { type: 'string' },
 }
 
@@ -63,20 +61,8 @@ const config = {
     return this.getApiKey() && this.getAccountId()
   },
 
-  validateAuth () {
-    const [, , command] = process.argv
-    const publicCommands = [
-      'conf',
-      'login',
-      'help',
-      'version',
-      'logout',
-      '--help',
-      '--version',
-      '--exit',
-    ]
-
-    if (!this.hasValidSession() && !publicCommands.includes(command)) {
+  validateAuth (auth: boolean) {
+    if (auth && !this.hasValidSession()) {
       console.error('Invalid Session')
       console.info(
         'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.',
@@ -84,13 +70,6 @@ const config = {
       process.exit(1)
     }
   },
-
-  init () {
-    this.validateAuth()
-    this.data.set('_', 'This is your Checkly config file.')
-    this.auth.set('_', 'This is your Checkly auth file.')
-  },
 }
 
-config.init()
 export default config
