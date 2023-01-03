@@ -1,6 +1,5 @@
 const path = require('path')
-const { constructs } = require('@checkly/cli')
-const { BrowserCheck } = constructs
+const { BrowserCheck } = require('@checkly/cli/constructs')
 
 /*
 * Rather than create an automatic check for `search-service.spec.js`, we explicitly define a check here.
