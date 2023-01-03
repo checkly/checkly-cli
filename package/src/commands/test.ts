@@ -3,7 +3,7 @@ import ListReporter from '../reporters/list'
 import { parseProject } from '../services/project-parser'
 import { runChecks } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { filterByFileNamePattern, filterByCheckNamePattern } from './helpers/test-filters'
+import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 
 export default class Test extends Command {
   static description = 'Test checks on Checkly'
