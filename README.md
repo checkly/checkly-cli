@@ -132,6 +132,7 @@ You can override any of the settings in the `checks` global configuration sectio
 
 ```js
 // __check__/api.check.js
+const { ApiCheck } = require('@checkly/cli/constructs')
 
 const api = new ApiCheck('hello-api', {
   name: 'Hello API',
@@ -183,7 +184,8 @@ appending a pattern, e.g. `npx checkly test home.spec.js api`.
 
 ### `npx checkly deploy`
 
-Deploys all your checks and associated resources like alert channels to your Checkly account.
+Deploys all your checks and associated resources like alert channels to your Checkly account. Use the `--force` flag to
+skip the confirmation dialog.
 
 # Authentication
 
@@ -250,13 +252,47 @@ So, I guess you know now that logical IDs are important!
 
 ### API Checks
 
+TODO: add explanation on
+- setup & teardown
+- assertions
+
+```
+├── __checks__
+│   ├── api.check.js
+│   ├── setup.js
+│   ├── teardown.js
+```
+
+```js
+const { ApiCheck } = require('@checkly/cli/constructs')
+const path = require('path')
+const { readFileSync } = require('fs')
+
+
+new ApiCheck('hello-api-1', {
+  name: 'Hello API',
+  localSetupScript: readFileSync(path.join(__dirname, 'setup.js'), 'utf-8'),
+  localTearDownScript: readFileSync(path.join(__dirname, 'teardown.js'), 'utf-8'),
+  request: {
+    method: 'GET',
+    url: 'https:///api.acme.com/v1/hello',
+    skipSsl: false,
+    followRedirects: true,
+    assertions: [
+      { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
+      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
+    ]
+  }
+})
+```
+
 ### Browser Checks
 
 Browser checks are based on [`@playwright/test`](https://playwright.dev/). You can just write `.spec.js|ts` files with test cases
 and the Checkly CLI will pick them up and apply some default settings like a name, run locations and run frequency to turn 
 them into synthetic monitoring checks.
 
-However you can override these global settings and configure individual Browser checks just like all other built-in check
+However, you can override these global settings and configure individual Browser checks just like all other built-in check
 types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file.
 
 ```js
