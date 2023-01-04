@@ -32,7 +32,12 @@
     "commands": "./dist/commands",
     "plugins": [
       "@oclif/plugin-help"
-    ]
+    ],
+    "hooks": {
+      "prerun": [
+        "./dist/hooks/auth-check"
+      ]
+    }
   },
   "bin": {
     "checkly": "./bin/run"

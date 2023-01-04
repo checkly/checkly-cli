@@ -20,6 +20,8 @@ export default class Test extends Command {
     }),
   }
 
+  static auth = true
+
   static args = [
     {
       name: 'files',
