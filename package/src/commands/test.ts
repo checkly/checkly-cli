@@ -37,7 +37,7 @@ export default class Test extends Command {
       default: [],
     }),
     'env-file': Flags.string({
-      description: '.dotenv file path to be passed.',
+      description: 'dotenv file path to be passed.',
       exclusive: ['env'],
     }),
   }
