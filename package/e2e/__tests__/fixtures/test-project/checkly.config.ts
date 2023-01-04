@@ -1,7 +1,7 @@
 
 const config = {
-  projectName: 'TypeScript Project',
-  logicalId: 'typescript-project',
+  projectName: 'Test Project',
+  logicalId: 'test-project',
   repoUrl: 'https://github.com/checkly/checkly-cli',
 }
 export default config
