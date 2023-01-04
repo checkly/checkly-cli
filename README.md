@@ -189,7 +189,7 @@ This very powerful when combined with passing environment variables using one of
 can target staging, test and preview environment with specific URLs, credentials and other common variables that differ 
 between environments.
 
-- `--location <location>` or `--l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
+- `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 - `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite
 any existing variables stored in your Checkly account.
@@ -197,8 +197,9 @@ any existing variables stored in your Checkly account.
 
 ### `npx checkly deploy`
 
-Deploys all your checks and associated resources like alert channels to your Checkly account. Use the `--force` flag to
-skip the confirmation dialog.
+Deploys all your checks and associated resources like alert channels to your Checkly account.
+
+- `--force` or `-f`: Skips the confirmation dialog when deploying. Handy in CI environments.
 
 # Authentication
 
