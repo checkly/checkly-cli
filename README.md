@@ -183,7 +183,7 @@ appending a pattern, e.g. `npx checkly test home.spec.js api`.
 
 ### `npx checkly deploy`
 
-Deploys all your checks and associated resouces like alert channels to your Checkly account.
+Deploys all your checks and associated resources like alert channels to your Checkly account.
 
 # Authentication
 
@@ -220,7 +220,29 @@ Go to your Settings page in Checkly and grab a fresh API key from [the API keys 
 Account ID from the [Account settings tab](https://app.checklyhq.com/settings/account/general).
 
 
-# API 
+# Creating Checks, Alert Channels and other resources
+
+Every resource you create using the Checkly CLI is represented by a "construct": it's a class you import from `@checkly/cli/constructs`.
+A construct is the "as-code" representation of the eventual resource created / deleted / updated on the Checkly cloud once
+you run `npx checkly deploy`.
+
+Remember the following rules when creating and updating constructs:
+
+1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e. 
+```js 
+const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
+```
+2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`. 
+3. A `logicalId` can be any string up to 255 characters in length.
+4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
+
+Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove 
+from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that 
+a resource was removed and a new resource was created.
+
+So, I guess you know now that logical IDs are important! 
+
+# Constructs API
 
 ## ChecklyConfig
 
