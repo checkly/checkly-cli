@@ -160,10 +160,16 @@ Dry run checks that have `product` and `api` in the file name
 npx checkly test product api
 ```
 
+Dry run checks while passing a specific URL and a password. These variables are available on `process.env`
+
+```bash
+npx checkly test --env "ENVIRONMENT_URL=https://preview.acme.com" --env PASSWORD=doremiabc123
+```
+
 Dry run all checks against a specific location:
 
 ```bash
-npx checkly test --run-location eu-west-1
+npx checkly test --location eu-west-1
 ```
 
 Deploy all resources to your Checkly account
@@ -174,13 +180,20 @@ npx checkly deploy
 
 ## Reference
 
-### `npx checkly test [FILES]`
+### `npx checkly test`
 
 Executes all the checks in the scope of your project on the Checkly cloud infrastructure. You can specify files to run by
 appending a pattern, e.g. `npx checkly test home.spec.js api`. 
 
-- `--run-location <location>`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
-- `--grep <pattern>`: Only run checks where the check name matches a regular expression.
+This very powerful when combined with passing environment variables using one of the flags `--env` or `--env-file` as you 
+can target staging, test and preview environment with specific URLs, credentials and other common variables that differ 
+between environments.
+
+- `--location <location>` or `--l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
+- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
+- `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite
+any existing variables stored in your Checkly account.
+- `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
 
 ### `npx checkly deploy`
 
