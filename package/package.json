@@ -1,6 +1,6 @@
 {
   "name": "@checkly/cli",
-  "version": "0.3.1-alpha3",
+  "version": "0.3.1-alpha4",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -53,6 +53,7 @@
     "axios": "1.2.1",
     "chalk": "4.1.2",
     "conf": "10.2.0",
+    "dotenv": "16.0.3",
     "glob": "8.0.3",
     "inquirer": "8.2.3",
     "jwt-decode": "3.1.2",
