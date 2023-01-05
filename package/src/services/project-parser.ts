@@ -1,8 +1,11 @@
 import { BrowserCheck, Project, Session } from '../constructs'
+import { promisify } from 'util'
 import * as glob from 'glob'
 import { loadJsFile, loadTsFile } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
+
+const globPromise = promisify(glob)
 
 type ProjectParseOpts = {
   directory: string,
@@ -38,9 +41,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.browserCheckDefaults = browserCheckDefaults
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
-  const ignoreDirectories = ['**/node_modules/**/*', '**/.git/**/*', ...ignoreDirectoriesMatch]
+  const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
   await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-  loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
 
   return project
 }
@@ -50,7 +53,7 @@ async function loadAllCheckFiles (
   checkFilePattern: string,
   ignorePattern: string[],
 ): Promise<void> {
-  const checkFiles = findFilesWithPattern(directory, checkFilePattern, ignorePattern)
+  const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
   for (const checkFile of checkFiles) {
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFilePath = path.relative(directory, checkFile)
@@ -66,13 +69,13 @@ async function loadAllCheckFiles (
   }
 }
 
-function loadAllBrowserChecks (
+async function loadAllBrowserChecks (
   directory: string,
   browserCheckFilePattern: string,
   ignorePattern: string[],
   project: Project,
-): void {
-  const checkFiles = findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
+): Promise<void> {
+  const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
   Object.values(project.data.checks).forEach(({ scriptPath }) => {
     if (scriptPath) {
@@ -95,16 +98,17 @@ function loadAllBrowserChecks (
   }
 }
 
-function findFilesWithPattern (
+async function findFilesWithPattern (
   directory: string,
   pattern: string,
   ignorePattern: string[],
-): string[] {
+): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
-  return glob.sync(pattern, {
+  const files = await globPromise(pattern, {
     nodir: true,
     cwd: directory,
     ignore: ignorePattern,
     absolute: true,
-  }).sort()
+  })
+  return files.sort()
 }
