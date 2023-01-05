@@ -1,49 +1,54 @@
 import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 import { DateTime } from 'luxon'
-import * as path from 'path'
+import * as logSymbols from 'log-symbols'
+
 import { Assertion } from '../constructs/api-check'
 
 export enum CheckStatus {
-  PENDING = 'pending',
-  FAILED = 'failed',
-  SUCCESSFUL = 'successful',
+  PENDING,
+  FAILED,
+  SUCCESSFUL,
 }
 
 export function formatCheckTitle (status: CheckStatus, check: any) {
-  const source = path.basename(check.sourceFile)
-  let durationString = ''
+  let duration
   if (check.startedAt && check.stoppedAt) {
-    const duration = DateTime.fromISO(check.stoppedAt)
+    duration = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
       .toHuman({ unitDisplay: 'narrow', listStyle: 'narrow' })
-    durationString = `(${duration}) `
   }
-  let title = `${status} ${durationString}> ${check.checkType.toLowerCase()} > ${source}`
-  if (source !== check.name) {
-    // For automatically generated Browser checks (.spec.js files), the source matches the name.
-    // In this case, it looks nicer to only print the name once.
-    title += `> ${check.name}`
-  }
-  if (status === CheckStatus.FAILED) {
-    return chalk.bold.red(title)
-  } else if (status === CheckStatus.PENDING) {
-    return chalk.bold.magenta(title)
+  let statusString
+  let format
+  if (status === CheckStatus.SUCCESSFUL) {
+    statusString = logSymbols.success
+    format = chalk.bold.green
+  } else if (status === CheckStatus.FAILED) {
+    statusString = logSymbols.error
+    format = chalk.bold.red
   } else {
-    return chalk.bold.green(title)
+    statusString = '-'
+    format = chalk.bold.dim
   }
+
+  let title = format(`${statusString} ${check.sourceFile} > ${check.name}`)
+  if (duration) {
+    title += chalk.dim(` (${duration})`)
+  }
+  return title
 }
 
 export function formatCheckResult (checkResult: any) {
   const result = []
   if (checkResult.checkType === 'API') {
+    // Order should follow the check lifecycle (response, then assertions)
+    if (checkResult.checkRunData?.response) {
+      result.push(formatSectionTitle('HTTP Response'))
+      result.push(formatHttpResponse(checkResult.checkRunData.response))
+    }
     if (checkResult.checkRunData?.assertions?.length) {
       result.push(formatSectionTitle('Assertions'))
       result.push(formatAssertions(checkResult.checkRunData.assertions))
-    }
-    if (checkResult.checkRunData?.response) {
-      result.push(formatSectionTitle('API Response'))
-      result.push(formatApiResponse(checkResult.checkRunData.response))
     }
   }
   if (checkResult.logs?.length) {
@@ -91,8 +96,6 @@ function formatAssertions (assertions: Array<Assertion&{ error: string, actual: 
         ending: chalk.magenta('\n...truncated...'),
       })
 
-      // TODO: Clean this up somehow
-      // If the string is multiple lines, we print it on a new line
       if (truncatedActualLines <= 1) {
         actualString = `Received: ${truncatedActual}.`
       } else {
@@ -100,29 +103,32 @@ function formatAssertions (assertions: Array<Assertion&{ error: string, actual: 
       }
     }
     const message = [
-      'Checking that the',
+      assertionFailed ? logSymbols.error : logSymbols.success,
       humanSource,
       property ? `property "${property}"` : undefined,
       regex ? `regex "${regex}"` : undefined,
       humanComparison,
-      `target "${target}"`,
-      assertionFailed ? 'failed.' : 'succeeded.',
+      `target "${target}".`,
       actualString,
     ].filter(Boolean).join(' ')
     return assertionFailed ? chalk.red(message) : chalk.green(message)
   }).join('\n')
 }
 
-function formatApiResponse (response: any) {
+function formatHttpResponse (response: any) {
+  // TODO: Provide a user for a way to see the full response. For example, write it to a file.
   const { truncated, result: stringBody } = truncate(response.body, {
     chars: 20 * 100,
     lines: 20,
     ending: chalk.magenta('\n...truncated...'),
   })
+  const headersString = Object.entries(response.headers ?? []).map(([key, val]) => `${key}: ${val}`).join('\n')
   return [
-    `Received ${response.status} ${response.statusText}`,
-    response.body ? 'With body:' : undefined,
-    stringBody, // TODO: Write to a local file if truncated.
+    `Status Code: ${response.status} ${response.statusText}`,
+    'Headers:',
+    indentString(headersString, 2),
+    response.body ? 'Body:' : undefined,
+    indentString(stringBody, 2),
   ].filter(Boolean).join('\n')
 }
 

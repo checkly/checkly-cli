@@ -4,7 +4,7 @@ import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
 
 import { runtimes } from '../rest/api'
-import MinimalReporter from '../reporters/minimal'
+import ListReporter from '../reporters/list'
 import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
 import CheckRunner, { Events } from '../services/check-runner'
@@ -117,12 +117,9 @@ export default class Test extends Command {
         }
         return check
       })
-    const reporter = isCI ? new CiReporter(location, checks) : new MinimalReporter(location, checks)
+    const reporter = isCI ? new CiReporter(location, checks) : new ListReporter(location, checks)
     const runner = new CheckRunner(checks, location)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
-    runner.on(Events.CHECK_INPROGRESS, (check) => {
-      reporter.onCheckBegin(check)
-    })
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1

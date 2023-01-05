@@ -82,7 +82,7 @@ export default class CheckRunner extends EventEmitter {
         if (result.hasFailures && logPath) {
           result.logs = await assets.getLogs(region, logPath)
         }
-        if (result.hasFailures && result.checkType === 'API') {
+        if (result.hasFailures && checkRunDataPath) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
         await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
