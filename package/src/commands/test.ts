@@ -3,7 +3,7 @@ import { Command, Flags } from '@oclif/core'
 import { parse } from 'dotenv'
 import ListReporter from '../reporters/list'
 import { parseProject } from '../services/project-parser'
-import { runChecks } from '../services/check-runner'
+import CheckRunner, { Events } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 
@@ -21,7 +21,7 @@ export default class Test extends Command {
   static flags = {
     location: Flags.string({
       char: 'l',
-      description: 'The location to run the checks on',
+      description: 'The location to run the checks at.',
       default: 'eu-central-1',
     }),
     grep: Flags.string({
@@ -57,7 +57,12 @@ export default class Test extends Command {
 
   async run (): Promise<void> {
     const { flags, argv: filePatterns } = await this.parse(Test)
-    const { location, grep, env, 'env-file': envFile } = flags
+    const {
+      location,
+      grep,
+      env,
+      'env-file': envFile,
+    } = flags
     const cwd = process.cwd()
 
     const testEnvVars = await getEnvs(envFile, env)
@@ -103,7 +108,25 @@ export default class Test extends Command {
         return check
       })
     const reporter = new ListReporter(checks)
-    await runChecks(checks, location, reporter)
-    // TODO - non-zero status code if checks fail
+    const runner = new CheckRunner(checks, location)
+    runner.on(Events.CHECK_INPROGRESS, (check) => {
+      reporter.onCheckBegin(check)
+    })
+    runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
+      if (result.hasFailures) {
+        process.exitCode = 1
+      }
+      reporter.onCheckEnd({
+        logicalId: check.logicalId,
+        ...result,
+      })
+    })
+    runner.on(Events.CHECK_FAILED, (check, message) => {
+      // TODO: We need a different handling here given we have no result here
+      console.error('Scheduler failure', message)
+      process.exitCode = 1
+    })
+    runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
+    await runner.run()
   }
 }

@@ -13,5 +13,6 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
     expect(result.stdout).toContain(secretEnv)
+    expect(result.status).not.toBe(0)
   })
 })
