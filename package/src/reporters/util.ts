@@ -144,7 +144,7 @@ export function formatLogs (logs: Array<{ level: string, msg: string, time: numb
 }
 
 function formatSectionTitle (title: string): string {
-  const width = process.stdout.isTTY ? process.stdout.columns - 18 : 80
+  const width = process.stdout.isTTY ? Math.min(process.stdout.columns, 80) : 80
   return `──${chalk.bold(title)}${'─'.repeat(width - title.length)}`
 }
 

@@ -1,5 +1,5 @@
 import * as chalk from 'chalk'
-import * as boxen from 'boxen' // TODO: Figure out the ESModules so that we're not stuck on old versions
+import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, formatCheckResult, CheckStatus } from './util'
@@ -43,8 +43,8 @@ export default class MinimalReporter implements Reporter {
     this._clearSummary()
 
     if (checkResult.hasFailures) {
-      const checkResultString = formatCheckResult(checkResult)
-      console.log(boxen(checkResultString, { title: formatCheckTitle(CheckStatus.FAILED, checkResult), padding: 2 }))
+      console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+      console.log(indentString(formatCheckResult(checkResult), 2))
     }
 
     this._printProgressSummary()

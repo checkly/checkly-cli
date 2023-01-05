@@ -51,7 +51,6 @@
     "acorn-walk": "8.2.0",
     "async-mqtt": "2.6.3",
     "axios": "1.2.1",
-    "boxen": "5.1.2",
     "chalk": "4.1.2",
     "ci-info": "3.7.1",
     "conf": "10.2.0",

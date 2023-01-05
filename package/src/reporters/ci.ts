@@ -1,4 +1,3 @@
-import * as boxen from 'boxen'
 import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
@@ -47,8 +46,8 @@ export default class CiReporter implements Reporter {
   onCheckEnd (checkResult: any) {
     this.results.push(checkResult)
     if (checkResult.hasFailures) {
-      const checkResultString = formatCheckResult(checkResult)
-      console.log(boxen(checkResultString, { title: formatCheckTitle(CheckStatus.FAILED, checkResult), padding: 1 }))
+      console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+      console.log(indentString(formatCheckResult(checkResult), 2))
     } else {
       console.log(formatCheckTitle(CheckStatus.SUCCESSFUL, checkResult))
     }
