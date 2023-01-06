@@ -13,7 +13,6 @@ describe('parseProject()', () => {
       projectLogicalId: 'project-id',
       projectName: 'project name',
       repoUrl: 'https://github.com/checkly/checkly-cli',
-      runtimeId: '2022.10',
       availableRuntimes: runtimes,
     })
     const synthesizedProject = project.synthesize()

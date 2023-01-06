@@ -19,7 +19,6 @@ type ProjectParseOpts = {
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
-  runtimeId?: string,
   availableRuntimes: Record<string, Runtime>
 }
 
@@ -32,9 +31,10 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     projectName,
     repoUrl,
     ignoreDirectoriesMatch = [],
-    checkDefaults = {},
+    checkDefaults = {
+      runtimeId: '2022.10',
+    },
     browserCheckDefaults = {},
-    runtimeId = '2022.10',
     availableRuntimes,
   } = opts
   const project = new Project(projectLogicalId, {
@@ -45,7 +45,6 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.basePath = directory
   Session.checkDefaults = checkDefaults
   Session.browserCheckDefaults = browserCheckDefaults
-  Session.projectRuntimeId = runtimeId
   Session.availableRuntimes = availableRuntimes
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?

@@ -35,7 +35,7 @@ export class BrowserCheck extends Check {
       this.script = script
     } else if ('entrypoint' in props.code) {
       const entrypoint = props.code.entrypoint
-      // runtimeId will always be set in the super class so it is safe to use ! operator
+      // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(entrypoint, this.runtimeId!)
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath

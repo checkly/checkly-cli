@@ -57,5 +57,4 @@ export class Session {
   static browserCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
   static availableRuntimes: Record<string, Runtime>
-  static projectRuntimeId: string
 }
