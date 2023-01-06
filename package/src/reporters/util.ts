@@ -68,7 +68,7 @@ export function formatCheckResult (checkResult: any) {
       formatLogs(checkResult.logs),
     ])
   }
-  return result.map(([title, body]) => title + '\n\n' + body).join('\n\n')
+  return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
 const assertionSources: any = {

@@ -20,8 +20,9 @@ export default class ListReporter extends AbstractListReporter {
     if (checkResult.hasFailures) {
       // Print the failed check result above the status section
       console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+      console.log('')
       console.log(indentString(formatCheckResult(checkResult), 4))
-      console.log('\n')
+      console.log('')
     }
     this._printSummary()
   }

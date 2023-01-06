@@ -18,8 +18,9 @@ export default class CiReporter extends AbstractListReporter {
     super.onCheckEnd(checkResult)
     if (checkResult.hasFailures) {
       console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+      console.log('')
       console.log(indentString(formatCheckResult(checkResult), 4))
-      console.log('\n')
+      console.log('')
     } else {
       console.log(formatCheckTitle(CheckStatus.SUCCESSFUL, checkResult))
     }
