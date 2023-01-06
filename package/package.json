@@ -102,7 +102,8 @@
           "<rootDir>/src/**/*.spec.ts"
         ],
         "preset": "ts-jest",
-        "testEnvironment": "node"
+        "testEnvironment": "node",
+        "reporters": ["default", "github-actions"]
       },
       {
         "displayName": "E2E",
@@ -110,7 +111,8 @@
           "<rootDir>/e2e/__tests__/**/*.spec.ts"
         ],
         "preset": "ts-jest",
-        "testEnvironment": "node"
+        "testEnvironment": "node",
+        "reporters": ["default", "github-actions"]
       }
     ]
   }
