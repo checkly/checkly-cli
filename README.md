@@ -73,10 +73,12 @@ Now run `npx checkly test` to do a dry run against the global Checkly infrastruc
 This should print the message:
 
 ```
- PASS  - home.spec.js
+Running 1 checks in eu-central-1.
 
-Checks:    1 passed,  1 total
-████████████████████████████████████████
+__checks__/js/home.spec.js
+  ✔ __checks__/home.spec.js > home.spec.js (4s)
+
+1 passed, 1 total
 ```
 
 After you have validated the check does the right thing and has no bugs, deploy the check to your account:
@@ -275,9 +277,9 @@ This very powerful when combined with passing environment variables using one of
 can target staging, test and preview environment with specific URLs, credentials and other common variables that differ 
 between environments.
 
-- `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
-- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite
+- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
+- `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 any existing variables stored in your Checkly account.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
 
@@ -286,6 +288,23 @@ any existing variables stored in your Checkly account.
 Deploys all your checks and associated resources like alert channels to your Checkly account.
 
 - `--force` or `-f`: Skips the confirmation dialog when deploying. Handy in CI environments.
+
+### `npx checkly login`
+
+Logs you in to your Checkly account and clear local credentials.
+
+### `npx checkly logout`
+
+Logs you out of your Checkly account.
+
+### `npx checkly whoami`
+
+Prints the account and user you are currently logged in with.
+
+### `npx checkly switch`
+
+Switch witch account you are logged into based on the accounts you can access with your credentials.
+
 
 # Authentication
 
