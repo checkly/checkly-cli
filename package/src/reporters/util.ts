@@ -36,7 +36,7 @@ export function formatCheckTitle (status: CheckStatus, check: any, opts: { inclu
     statusString = '-'
     format = chalk.bold.dim
   }
-  
+
   return [
     format(statusString),
     opts.includeSourceFile ? format(`${check.sourceFile} >`) : undefined,
@@ -68,7 +68,7 @@ export function formatCheckResult (checkResult: any) {
       formatLogs(checkResult.logs),
     ])
   }
-  return result.map(([title, body]) => title + '\n' + body).join('\n\n')
+  return result.map(([title, body]) => title + '\n\n' + body).join('\n\n')
 }
 
 const assertionSources: any = {

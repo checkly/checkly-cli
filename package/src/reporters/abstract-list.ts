@@ -39,7 +39,7 @@ export default abstract class AbstractListReporter implements Reporter {
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
     checkStatus.titleString = formatCheckTitle(status, checkResult, {
-      includeSourceFile: false
+      includeSourceFile: false,
     })
   }
 
