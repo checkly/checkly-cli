@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
-import { parseDependencies } from '../services/check-dependency-parser'
+import { Parser } from '../services/check-dependency-parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface CheckDependency {
@@ -58,8 +58,9 @@ export class BrowserCheck extends Check {
   }
 
   static bundle (entry: string) {
+    const parser = new Parser()
     // TODO: We need pass the runtimeId somehow
-    const parsed = parseDependencies(entry)
+    const parsed = parser.parseDependencies(entry)
     // Maybe we can get the parsed deps with the content immediately
     const content = fs.readFileSync(entry, { encoding: 'utf8' })
 

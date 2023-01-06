@@ -112,6 +112,7 @@
         "preset": "ts-jest",
         "testEnvironment": "node"
       }
-    ]
+    ],
+    "reporters": ["default", "github-actions"]
   }
 }
