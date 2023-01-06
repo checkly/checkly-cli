@@ -2,6 +2,8 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
+import type { Runtime } from '../rest/runtimes'
+
 export interface ProjectProps {
   name: string
   repoUrl: string
@@ -54,4 +56,5 @@ export class Session {
   static checkDefaults?: CheckConfigDefaults
   static browserCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
+  static availableRuntimes: Record<string, Runtime>
 }
