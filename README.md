@@ -1,5 +1,3 @@
-**🚨 This project is in alpha stage right now 🚨** 
-
 <p align="center">
   <a href="https://checklyhq.com">
     <img height="56" src="https://www.checklyhq.com/images/footer-logo.svg"/>
@@ -13,7 +11,7 @@ The Checkly CLI and Constructs in this repo together form the basic building blo
 This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
 debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
 
-On the `alpha` state:
+This project is now in `alpha`:
 1. Our goal is to first make a great DX / workflow for writing, debugging and deploying checks: focus on terminal, CLI and programming model.
 2. Not all TS types are done yet and also UI integration is largely not there.
 3. New check types, resources (like alerting channels) will follow soon.
