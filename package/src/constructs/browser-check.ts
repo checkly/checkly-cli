@@ -35,7 +35,7 @@ export class BrowserCheck extends Check {
       this.script = script
     } else if ('entrypoint' in props.code) {
       const entrypoint = props.code.entrypoint
-      // We are setting this from 'Session' if the resource doesn't have it in parent class but TS doesn't detect this
+      // runtimeId will always be set in the super class so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(entrypoint, this.runtimeId!)
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
