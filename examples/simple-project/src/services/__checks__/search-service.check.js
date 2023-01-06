@@ -23,10 +23,26 @@ new BrowserCheck('search-selection-check', {
 new ApiCheck('failing-api-check', {
   name: 'Failing Api Check',
   request: {
-    url: 'https://checkly.com/does-not-exist',
+    url: 'https://checklyhq.com/does-not-exist',
     method: 'GET',
-    followRedirects: false,
+    followRedirects: true,
     skipSsl: false,
-    assertions: [],
+    assertions: [
+      { source: 'TEXT_BODY', proprty: '', regex: '', comparison: 'CONTAINS', target: 'expected text' },
+    ],
+  }
+})
+
+new ApiCheck('failing-api-check-w-assertions', {
+  name: 'Failing Api Check w/ Assertions',
+  request: {
+    url: 'https://checklyhq.com',
+    method: 'GET',
+    followRedirects: true,
+    skipSsl: false,
+    assertions: [
+      { source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '200', regex: '' },
+      { source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '301', regex: '' },
+    ]
   }
 })

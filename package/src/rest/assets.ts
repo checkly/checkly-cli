@@ -16,6 +16,10 @@ export default class Assets {
     return this.getAssets(AssetType.LOG, region, key)
   }
 
+  getCheckRunData (region: string, key: string): Promise<any> {
+    return this.getAssets(AssetType.CHECK_RUN_DATA, region, key)
+  }
+
   private async getAssets (assetType: AssetType, region: string, key: string): Promise<any> {
     const response = await this.api.get(`/next/assets/${assetType}/${region}/${encodeURIComponent(key)}`)
     return response.data
