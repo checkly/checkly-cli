@@ -33,7 +33,7 @@ export interface Request {
   body?: string
   bodyType?: BodyType
   headers?: Array<HeaderProps>
-  queryParams?: Array<QueryParamProps>
+  queryParameters?: Array<QueryParamProps>
   basicAuth?: BasicAuth
 }
 export interface ApiCheckProps extends CheckProps {
