@@ -1,5 +1,3 @@
-**🚨 This project is in alpha stage right now 🚨** 
-
 <p align="center">
   <a href="https://checklyhq.com">
     <img height="56" src="https://www.checklyhq.com/images/footer-logo.svg"/>
@@ -7,11 +5,16 @@
   </a>
 </p>
 
-The Checkly CLI, SDK and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
+The Checkly CLI and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
 (MaC) workflow.
 
 This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
 debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
+
+This project is now in `alpha`:
+1. Our goal is to first make a great DX / workflow for writing, debugging and deploying checks: focus on terminal, CLI and programming model.
+2. Not all TS types are done yet and also UI integration is largely not there.
+3. New check types, resources (like alerting channels) will follow soon.
 
 # Getting Started
 
@@ -68,10 +71,12 @@ Now run `npx checkly test` to do a dry run against the global Checkly infrastruc
 This should print the message:
 
 ```
- PASS  - home.spec.js
+Running 1 checks in eu-central-1.
 
-Checks:    1 passed,  1 total
-████████████████████████████████████████
+__checks__/js/home.spec.js
+  ✔ __checks__/home.spec.js > home.spec.js (4s)
+
+1 passed, 1 total
 ```
 
 After you have validated the check does the right thing and has no bugs, deploy the check to your account:
@@ -146,6 +151,179 @@ const api = new ApiCheck('hello-api', {
 })
 ```
 
+# Creating Checks, Alert Channels and other resources
+
+Every resource you create using the Checkly CLI is represented by a "construct": it's a class you import from `@checkly/cli/constructs`.
+A construct is the "as-code" representation of the eventual resource created / deleted / updated on the Checkly cloud once
+you run `npx checkly deploy`.
+
+Remember the following rules when creating and updating constructs:
+
+1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e.
+```js 
+const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
+```
+2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`.
+3. A `logicalId` can be any string up to 255 characters in length.
+4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
+
+Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove
+from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that
+a resource was removed and a new resource was created.
+
+So, I guess you know now that logical IDs are important!
+
+## Creating an API Check
+
+API checks are used to validate your API endpoints. Let's look at the example below as it does a couple of things:
+
+- It defines the basic check properties like `name`, `activated` etc.
+- It defines the HTTP method `GET` the `url`.
+- It sets an extra header in the `headers` array.
+- It defines an array of assertions to assert the HTTP response status is correct and that the JSON response body
+has a property called `name` by using the [JSON path](https://jsonpath.com/) expression `*.name`
+- It runs a setup script and teardown script, which are just Javascript files referenced from the same directory. 
+
+The file hierarchy looks as follows:
+
+```
+├── __checks__
+│   ├── hello-api.check.js
+│   ├── setup.js
+│   ├── teardown.js
+```
+
+```js
+// hello-api.check.js
+
+const { ApiCheck } = require('@checkly/cli/constructs')
+const path = require('path')
+const { readFileSync } = require('fs')
+
+new ApiCheck('hello-api-1', {
+  name: 'Hello API',
+  activated: true,
+  localSetupScript: readFileSync(path.join(__dirname, 'setup.js'), 'utf-8'),
+  localTearDownScript: readFileSync(path.join(__dirname, 'teardown.js'), 'utf-8'),
+  request: {
+    method: 'GET',
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
+    skipSsl: false,
+    followRedirects: true,
+    headers: [
+      {
+        key: 'X-My-Header',
+        value: 'My custom header value'
+      }
+    ],
+    assertions: [
+      { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
+      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
+    ]
+  }
+})
+```
+
+The setup script just has a placeholder `console.log()` statement, but you can do a ton off stuff for authentication, overriding 
+headers or other parts of the eventual HTTP request. Check our docs for examples like:
+
+- [Fetching an OAuth2 token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#fetch-an-oauth2-access-token-using-the-client_credentials-grant)
+- [Sign an AWS API request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-aws-api-request)
+- [Sign an HMAC request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-hmac-request)
+- [Create a JWT token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#create-a-jwt-token-using-the-jsonwebtoken-library)
+- [Dismiss A Vercel password prompt](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#dismiss-password-protection-prompt-on-vercel-deployment)
+
+```js
+// setup.js
+console.log('this is a setup script')
+```
+
+Teardown script are commonly used to clean up any created test data. You can use access the previously executed HTTP request
+and [for example delete some resource on your API](https://www.checklyhq.com/docs/api-checks/teardown-script-examples/#delete-created-test-data-based-on-response)
+
+```js
+// teardown.js
+console.log('this is a teardown script')
+```
+
+
+## Creating and adding an Alert Channel
+
+When a check fails, you want to get alerted. There are two steps to take here:
+
+1. Create one or more alert channels. You can put them in a different file to DRY up your code, i.e. in `alert-channels.js`
+
+```js
+// alert-channels.js
+
+const { SmsAlertChannel, EmailAlertChannel } = require('@checkly/cli/constructs')
+
+const sendDefaults = {
+  sendFailure: true,
+  sendRecovery: true,
+  sendDegraded: false,
+}
+
+const smsChannel = new SmsAlertChannel('sms-channel-1', {
+  phoneNumber: '0031061234567890',
+  ...sendDefaults
+})
+
+const emailChannel = new EmailAlertChannel('email-channel-1', {
+  address: 'alerts@acme.com',
+  ...sendDefaults
+})
+
+module.exports = {
+  smsChannel,
+  emailChannel
+}
+```
+
+2. Now you can import these channels into one or more checks by passing the objects into the `alertChannels` array:
+
+```js
+// api.check.js
+
+const { ApiCheck } = require('@checkly/cli/constructs')
+const { smsChannel, emailChannel } = require('./alert-channels')
+
+new ApiCheck('hello-api-1', {
+  name: 'Hello API',
+  alertChannels: [smsChannel, emailChannel],
+  request: {
+    method: 'GET',
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
+  }
+})
+```
+
+**Current limitations:**
+- Not all Alert Channel types are supported yet. [Check the most current state in the codebase](https://github.com/checkly/checkly-cli/tree/main/package/src/constructs)
+
+# Runtimes and available NPM packages
+
+Checkly lets you use JavaScript / Typescript in your Browser checks and in the setup & teardown scripts you can 
+add to your API checks. This JavaScript code executes in a runtime environment managed by Checkly. 
+This environment has access to specific Node.js versions and NPM packages.
+
+> This means not all NPM packages from NPM are available inside the context of a Check.
+
+A runtime consists of a `runtimeId` which you can set at `Project` level or individual `Check` level.
+The latest runtime is `2022.10` at the time of writing. This runtime contains among others:
+
+- Nodejs 16.x
+- `@playwright/test 1.28.0`
+- `axios 0.27.2`
+- `lodash 4.17.21`
+- `moment 2.29.2`
+
+...and a range of other popular NPM package to help you write and assert checks.
+
+- [Browse the latest runtime specs](https://www.checklyhq.com/docs/runtimes/specs/)
+- [Learn more about runtimes](https://www.checklyhq.com/docs/runtimes/)
+
+
 # CLI
 
 Dry run all checks in your repo:
@@ -189,9 +367,9 @@ This very powerful when combined with passing environment variables using one of
 can target staging, test and preview environment with specific URLs, credentials and other common variables that differ 
 between environments.
 
-- `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
-- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite
+- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
+- `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 any existing variables stored in your Checkly account.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
 
@@ -200,6 +378,23 @@ any existing variables stored in your Checkly account.
 Deploys all your checks and associated resources like alert channels to your Checkly account.
 
 - `--force` or `-f`: Skips the confirmation dialog when deploying. Handy in CI environments.
+
+### `npx checkly login`
+
+Logs you in to your Checkly account and clear local credentials.
+
+### `npx checkly logout`
+
+Logs you out of your Checkly account.
+
+### `npx checkly whoami`
+
+Prints the account and user you are currently logged in with.
+
+### `npx checkly switch`
+
+Switch witch account you are logged into based on the accounts you can access with your credentials.
+
 
 # Authentication
 
@@ -235,70 +430,15 @@ When **running the CLI from your CI pipeline** you will need to export two varia
 Go to your Settings page in Checkly and grab a fresh API key from [the API keys tab](https://app.checklyhq.com/settings/user/api-keys) and your
 Account ID from the [Account settings tab](https://app.checklyhq.com/settings/account/general).
 
-
-# Creating Checks, Alert Channels and other resources
-
-Every resource you create using the Checkly CLI is represented by a "construct": it's a class you import from `@checkly/cli/constructs`.
-A construct is the "as-code" representation of the eventual resource created / deleted / updated on the Checkly cloud once
-you run `npx checkly deploy`.
-
-Remember the following rules when creating and updating constructs:
-
-1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e. 
-```js 
-const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
-```
-2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`. 
-3. A `logicalId` can be any string up to 255 characters in length.
-4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
-
-Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove 
-from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that 
-a resource was removed and a new resource was created.
-
-So, I guess you know now that logical IDs are important! 
-
 # Constructs API
 
-## ChecklyConfig
+*This will document all the properties of the various constructs based on TSDoc annotations*
 
-## Checks
+## Project
 
-### API Checks
+## Check
 
-TODO: add explanation on
-- setup & teardown
-- assertions
-
-```
-├── __checks__
-│   ├── api.check.js
-│   ├── setup.js
-│   ├── teardown.js
-```
-
-```js
-const { ApiCheck } = require('@checkly/cli/constructs')
-const path = require('path')
-const { readFileSync } = require('fs')
-
-
-new ApiCheck('hello-api-1', {
-  name: 'Hello API',
-  localSetupScript: readFileSync(path.join(__dirname, 'setup.js'), 'utf-8'),
-  localTearDownScript: readFileSync(path.join(__dirname, 'teardown.js'), 'utf-8'),
-  request: {
-    method: 'GET',
-    url: 'https:///api.acme.com/v1/hello',
-    skipSsl: false,
-    followRedirects: true,
-    assertions: [
-      { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
-      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
-    ]
-  }
-})
-```
+### ApiCheck
 
 ### Browser Checks
 
@@ -324,10 +464,9 @@ new BrowserCheck('browser-check-1', {
 
 ### Freeform Checks (experimental)
 
-## Check Groups
+## CheckGroup
 
-## Alert Channels
-
+## AlertChannel
 
 # Local Development
 
