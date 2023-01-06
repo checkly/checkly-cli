@@ -61,13 +61,6 @@ const supportedBuiltinModules = [
   'timers', 'tls', 'url', 'util', 'zlib',
 ]
 
-// TODO: Make this per-runtime. It may also make sense to fetch from the Checkly API.
-const defaultNpmModules = [
-  'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
-  '@playwright/test', 'aws4', 'axios', 'btoa', 'chai', 'chai-string', 'crypto-js', 'expect', 'form-data',
-  'jsonwebtoken', 'lodash', 'mocha', 'moment', 'otpauth', 'playwright', 'uuid',
-]
-
 function parseExtension (entrypoint: string) {
   if (entrypoint.endsWith('.js')) {
     return '.js'
@@ -94,7 +87,7 @@ export class Parser {
 
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
-  constructor (supportedNpmModules = defaultNpmModules) {
+  constructor (supportedNpmModules: Array<string>) {
     this.supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
   }
 
