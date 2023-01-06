@@ -40,7 +40,6 @@ export default class Deploy extends Command {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
-      runtimeId: checklyConfig.checks?.runtimeId,
       availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc

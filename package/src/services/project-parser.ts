@@ -22,6 +22,10 @@ type ProjectParseOpts = {
   availableRuntimes: Record<string, Runtime>
 }
 
+const BASE_CHECK_DEFAULTS = {
+  runtimeId: '2022.10',
+}
+
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const {
     directory,
@@ -31,9 +35,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     projectName,
     repoUrl,
     ignoreDirectoriesMatch = [],
-    checkDefaults = {
-      runtimeId: '2022.10',
-    },
+    checkDefaults = {},
     browserCheckDefaults = {},
     availableRuntimes,
   } = opts
@@ -43,8 +45,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   })
   Session.project = project
   Session.basePath = directory
-  Session.checkDefaults = checkDefaults
-  Session.browserCheckDefaults = browserCheckDefaults
+  Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
+  Session.browserCheckDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, browserCheckDefaults)
   Session.availableRuntimes = availableRuntimes
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
