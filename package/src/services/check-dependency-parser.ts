@@ -119,7 +119,7 @@ export class Parser {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const currentPath = bfsQueue.shift()!
       try {
-        const { localDependencies, npmDependencies } = this.parseDependenciesForFile(currentPath)
+        const { localDependencies, npmDependencies } = Parser.parseDependenciesForFile(currentPath)
         const unsupportedDependencies = npmDependencies.filter((dep) => !this.supportedModules.has(dep))
         if (unsupportedDependencies.length) {
           unsupportedNpmDependencies.push({ file: currentPath, unsupportedDependencies })
@@ -130,7 +130,7 @@ export class Parser {
           // The import call may not have the .js / .ts extension, so we add it here.
           // We assume that the other file is also a JS or typescript file based on the entrypoint file type.
           // At some point, though, it may make sense to add support for mixing JS and typescript.
-          return this.addExtension(extension, resolvedPath)
+          return Parser.addExtension(extension, resolvedPath)
         })
         localDependenciesResolvedPaths.forEach((path: string) => {
           if (!dependencies.has(path)) {
@@ -155,7 +155,7 @@ export class Parser {
     return Array.from(dependencies)
   }
 
-  addExtension (extension: string, filePath: string) {
+  static addExtension (extension: string, filePath: string) {
     if (!filePath.endsWith(extension)) {
       return filePath + extension
     } else {
@@ -163,21 +163,21 @@ export class Parser {
     }
   }
 
-  parseDependenciesForFile (filePath: string): { localDependencies: string[], npmDependencies: string[] } {
+  static parseDependenciesForFile (filePath: string): { localDependencies: string[], npmDependencies: string[] } {
     const localDependencies = new Set<string>()
     const npmDependencies = new Set<string>()
     const contents = fs.readFileSync(filePath, { encoding: 'utf8' })
 
     if (filePath.endsWith('.js')) {
       const ast = acorn.parse(contents, { allowReturnOutsideFunction: true, ecmaVersion: 'latest' })
-      walk.simple(ast, this.jsNodeVisitor(localDependencies, npmDependencies))
+      walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
     } else if (filePath.endsWith('.ts')) {
       const tsParser = getTsParser()
       const ast = tsParser.parse(contents, {})
       // The AST from typescript-estree is slightly different from the type used by acorn-walk.
       // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
       // @ts-ignore
-      walk.simple(ast, tsNodeVisitor(tsParser, localDependencies, npmDependencies))
+      walk.simple(ast, Parser.tsNodeVisitor(tsParser, localDependencies, npmDependencies))
     } else {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
@@ -185,34 +185,34 @@ export class Parser {
     return { localDependencies: Array.from(localDependencies), npmDependencies: Array.from(npmDependencies) }
   }
 
-  jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
+  static jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
     return {
       CallExpression (node: Node) {
-        if (!this.isRequireExpression(node)) return
-        const requireStringArg = this.getRequireStringArg(node)
-        this.registerDependency(requireStringArg, localDependencies, npmDependencies)
+        if (!Parser.isRequireExpression(node)) return
+        const requireStringArg = Parser.getRequireStringArg(node)
+        Parser.registerDependency(requireStringArg, localDependencies, npmDependencies)
       },
     }
   }
 
-  tsNodeVisitor (tsParser: any, localDependencies: Set<string>, npmDependencies: Set<string>): any {
+  static tsNodeVisitor (tsParser: any, localDependencies: Set<string>, npmDependencies: Set<string>): any {
     return {
       ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        this.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
       },
       ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
         if (node.source === null) return
         // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        this.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
       },
     }
   }
 
-  isRequireExpression (node: any): boolean {
+  static isRequireExpression (node: any): boolean {
     if (node.type !== 'CallExpression') {
     // Ignore AST nodes that aren't call expressions
       return false
@@ -234,7 +234,7 @@ export class Parser {
     }
   }
 
-  getRequireStringArg (node: any): string | null {
+  static getRequireStringArg (node: any): string | null {
     if (node.arguments[0].type === 'Literal') {
       return node.arguments[0].value
     } else if (node.arguments[0].type === 'TemplateLiteral') {
@@ -249,7 +249,7 @@ export class Parser {
     }
   }
 
-  registerDependency (importArg: string | null, localDependencies: Set<string>, npmDependencies: Set<string>) {
+  static registerDependency (importArg: string | null, localDependencies: Set<string>, npmDependencies: Set<string>) {
   // TODO: We currently don't support import path aliases, f.ex: `import { Something } from '@services/my-service'`
     if (!importArg) {
     // If there's no importArg, don't register a dependency
