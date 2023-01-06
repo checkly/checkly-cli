@@ -1,8 +1,11 @@
 import * as fs from 'node:fs/promises'
 import { Command, Flags } from '@oclif/core'
 import { parse } from 'dotenv'
+import { isCI } from 'ci-info'
+
 import { runtimes } from '../rest/api'
 import ListReporter from '../reporters/list'
+import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
 import CheckRunner, { Events } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
@@ -114,17 +117,16 @@ export default class Test extends Command {
         }
         return check
       })
-    const reporter = new ListReporter(checks)
+    const reporter = isCI ? new CiReporter(location, checks) : new ListReporter(location, checks)
     const runner = new CheckRunner(checks, location)
-    runner.on(Events.CHECK_INPROGRESS, (check) => {
-      reporter.onCheckBegin(check)
-    })
+    runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
       reporter.onCheckEnd({
         logicalId: check.logicalId,
+        sourceFile: check.sourceFile,
         ...result,
       })
     })
