@@ -3,6 +3,8 @@ import { prompt } from 'inquirer'
 import { Command, Flags } from '@oclif/core'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
+import { runtimes } from '../rest/api'
+import type { Runtime } from '../rest/runtimes'
 
 export default class Deploy extends Command {
   static description = 'Deploy your changes'
@@ -27,6 +29,7 @@ export default class Deploy extends Command {
     const { force, preview } = flags
     const cwd = process.cwd()
     const checklyConfig = await loadChecklyConfig(cwd)
+    const { data: avilableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
       projectLogicalId: checklyConfig.logicalId,
@@ -37,6 +40,11 @@ export default class Deploy extends Command {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
+      runtimeId: checklyConfig.checks?.runtimeId,
+      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+        acc[runtime.name] = runtime
+        return acc
+      }, <Record<string, Runtime>> {}),
     })
 
     if (!force) {

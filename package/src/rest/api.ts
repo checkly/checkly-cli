@@ -5,6 +5,7 @@ import Projects from './projects'
 import Checks from './checks'
 import Sockets from './sockets'
 import Assets from './assets'
+import Runtimes from './runtimes'
 
 export function getDefaults () {
   const environments = {
@@ -65,3 +66,4 @@ export const projects = new Projects(api)
 export const checks = new Checks(api)
 export const sockets = new Sockets(api)
 export const assets = new Assets(api)
+export const runtimes = new Runtimes(api)

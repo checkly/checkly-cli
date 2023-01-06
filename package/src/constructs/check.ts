@@ -53,7 +53,7 @@ export abstract class Check extends Construct {
     this.locations = props.locations
     this.tags = props.tags
     this.frequency = props.frequency
-    this.runtimeId = props.runtimeId
+    this.runtimeId = props.runtimeId ?? Session.projectRuntimeId
     this.environmentVariables = props.environmentVariables
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.

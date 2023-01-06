@@ -35,7 +35,8 @@ export class BrowserCheck extends Check {
       this.script = script
     } else if ('entrypoint' in props.code) {
       const entrypoint = props.code.entrypoint
-      const bundle = BrowserCheck.bundle(entrypoint)
+      // We are setting this from 'Session' if the resource doesn't have it in parent class but TS doesn't detect this
+      const bundle = BrowserCheck.bundle(entrypoint, this.runtimeId!)
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies
@@ -57,9 +58,12 @@ export class BrowserCheck extends Check {
     }
   }
 
-  static bundle (entry: string) {
-    const parser = new Parser()
-    // TODO: We need pass the runtimeId somehow
+  static bundle (entry: string, runtimeId: string) {
+    const runtime = Session.availableRuntimes[runtimeId]
+    if (!runtime) {
+      throw new Error(`${runtimeId} is not supported`)
+    }
+    const parser = new Parser(Object.keys(runtime.dependencies))
     const parsed = parser.parseDependencies(entry)
     // Maybe we can get the parsed deps with the content immediately
     const content = fs.readFileSync(entry, { encoding: 'utf8' })

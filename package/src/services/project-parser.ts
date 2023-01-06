@@ -5,6 +5,8 @@ import { loadJsFile, loadTsFile } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
+import type { Runtime } from '../rest/runtimes'
+
 const globPromise = promisify(glob)
 
 type ProjectParseOpts = {
@@ -17,6 +19,8 @@ type ProjectParseOpts = {
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
+  runtimeId?: string,
+  availableRuntimes: Record<string, Runtime>
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -30,6 +34,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     ignoreDirectoriesMatch = [],
     checkDefaults = {},
     browserCheckDefaults = {},
+    runtimeId = '2022.10',
+    availableRuntimes,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -39,6 +45,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.basePath = directory
   Session.checkDefaults = checkDefaults
   Session.browserCheckDefaults = browserCheckDefaults
+  Session.projectRuntimeId = runtimeId
+  Session.availableRuntimes = availableRuntimes
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]

@@ -1,11 +1,13 @@
 import * as fs from 'node:fs/promises'
 import { Command, Flags } from '@oclif/core'
 import { parse } from 'dotenv'
+import { runtimes } from '../rest/api'
 import ListReporter from '../reporters/list'
 import { parseProject } from '../services/project-parser'
 import CheckRunner, { Events } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
+import type { Runtime } from '../rest/runtimes'
 
 async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
   if (envFile) {
@@ -67,6 +69,7 @@ export default class Test extends Command {
 
     const testEnvVars = await getEnvs(envFile, env)
     const checklyConfig = await loadChecklyConfig(cwd)
+    const { data: avilableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
       projectLogicalId: checklyConfig.logicalId,
@@ -77,6 +80,11 @@ export default class Test extends Command {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
+      runtimeId: checklyConfig.checks?.runtimeId,
+      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+        acc[runtime.name] = runtime
+        return acc
+      }, <Record<string, Runtime>> {}),
     })
     const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap)
