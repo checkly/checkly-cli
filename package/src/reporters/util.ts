@@ -16,6 +16,7 @@ export function formatCheckTitle (status: CheckStatus, check: any) {
   if (check.startedAt && check.stoppedAt) {
     duration = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
+      .rescale()
       .toHuman({ unitDisplay: 'narrow', listStyle: 'narrow' })
   }
   let statusString
