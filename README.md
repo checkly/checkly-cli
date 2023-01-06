@@ -7,11 +7,16 @@
   </a>
 </p>
 
-The Checkly CLI, SDK and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
+The Checkly CLI and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
 (MaC) workflow.
 
 This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
 debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
+
+On the `alpha` state:
+1. Our goal is to first make a great DX / workflow for writing, debugging and deploying checks: focus on terminal, CLI and programming model.
+2. Not all TS types are done yet and also UI integration is largely not there.
+3. New check types, resources (like alerting channels) will follow soon.
 
 # Getting Started
 
@@ -146,6 +151,87 @@ const api = new ApiCheck('hello-api', {
 })
 ```
 
+# Creating Checks, Alert Channels and other resources
+
+Every resource you create using the Checkly CLI is represented by a "construct": it's a class you import from `@checkly/cli/constructs`.
+A construct is the "as-code" representation of the eventual resource created / deleted / updated on the Checkly cloud once
+you run `npx checkly deploy`.
+
+Remember the following rules when creating and updating constructs:
+
+1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e.
+```js 
+const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
+```
+2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`.
+3. A `logicalId` can be any string up to 255 characters in length.
+4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
+
+Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove
+from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that
+a resource was removed and a new resource was created.
+
+So, I guess you know now that logical IDs are important!
+
+## Creating an API Check
+
+
+
+
+## Creating and adding an Alert Channel
+
+When a check fails, you want to get alerted. There are two steps to take here:
+
+1. Create one or more alert channels. You can put them in a different file to DRY up your code, i.e. in `alert-channels.js`
+
+```js
+// alert-channels.js
+
+const { SmsAlertChannel, EmailAlertChannel } = require('@checkly/cli/constructs')
+
+const sendDefaults = {
+  sendFailure: true,
+  sendRecovery: true,
+  sendDegraded: false,
+}
+
+const smsChannel = new SmsAlertChannel('sms-channel-1', {
+  phoneNumber: '0031061234567890',
+  ...sendDefaults
+})
+
+const emailChannel = new EmailAlertChannel('email-channel-1', {
+  address: 'alerts@acme.com',
+  ...sendDefaults
+})
+
+module.exports = {
+  smsChannel,
+  emailChannel
+}
+```
+
+2. Now you can import these channels into one or more checks by passing the objects into the `alertChannels` array:
+
+```js
+// api.check.js
+
+const { ApiCheck } = require('@checkly/cli/constructs')
+const { smsChannel, emailChannel } = require('./alert-channels')
+
+new ApiCheck('hello-world-api-1', {
+  name: 'Hello World API',
+  alertChannels: [smsChannel, emailChannel],
+  request: {
+    method: 'GET',
+    url: 'https://api.checklyhq.com/public-stats',
+  }
+})
+```
+
+**Current limitations:**
+- Not all Alert Channel types are supported yet. [Check the most current state in the codebase](https://github.com/checkly/checkly-cli/tree/main/package/src/constructs)
+
 # CLI
 
 Dry run all checks in your repo:
@@ -235,36 +321,13 @@ When **running the CLI from your CI pipeline** you will need to export two varia
 Go to your Settings page in Checkly and grab a fresh API key from [the API keys tab](https://app.checklyhq.com/settings/user/api-keys) and your
 Account ID from the [Account settings tab](https://app.checklyhq.com/settings/account/general).
 
-
-# Creating Checks, Alert Channels and other resources
-
-Every resource you create using the Checkly CLI is represented by a "construct": it's a class you import from `@checkly/cli/constructs`.
-A construct is the "as-code" representation of the eventual resource created / deleted / updated on the Checkly cloud once
-you run `npx checkly deploy`.
-
-Remember the following rules when creating and updating constructs:
-
-1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e. 
-```js 
-const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
-```
-2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`. 
-3. A `logicalId` can be any string up to 255 characters in length.
-4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
-
-Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove 
-from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that 
-a resource was removed and a new resource was created.
-
-So, I guess you know now that logical IDs are important! 
-
 # Constructs API
 
-## ChecklyConfig
+## Project
 
-## Checks
+## Check
 
-### API Checks
+### APICheck
 
 TODO: add explanation on
 - setup & teardown
@@ -324,9 +387,9 @@ new BrowserCheck('browser-check-1', {
 
 ### Freeform Checks (experimental)
 
-## Check Groups
+## CheckGroup
 
-## Alert Channels
+## AlertChannel
 
 
 # Local Development
