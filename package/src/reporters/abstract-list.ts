@@ -38,7 +38,9 @@ export default abstract class AbstractListReporter implements Reporter {
     const checkStatus = this.checkFilesMap.get(checkResult.sourceFile)!.get(checkResult.logicalId)!
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
-    checkStatus.titleString = formatCheckTitle(status, checkResult)
+    checkStatus.titleString = formatCheckTitle(status, checkResult, {
+      includeSourceFile: false
+    })
   }
 
   // Clear the summary which was printed by _printStatus from stdout

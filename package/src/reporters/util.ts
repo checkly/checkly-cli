@@ -11,19 +11,24 @@ export enum CheckStatus {
   SUCCESSFUL,
 }
 
-export function formatCheckTitle (status: CheckStatus, check: any) {
+export function formatCheckTitle (status: CheckStatus, check: any, opts: { includeSourceFile?: boolean } = {}) {
   let duration
   if (check.startedAt && check.stoppedAt) {
-    duration = DateTime.fromISO(check.stoppedAt)
+    const durationMs = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
-      .rescale()
-      .toHuman({ unitDisplay: 'narrow', listStyle: 'narrow' })
+      .toMillis()
+    if (durationMs < 1000) {
+      duration = `${durationMs}ms`
+    } else {
+      duration = `${Math.ceil(durationMs / 1000)}s`
+    }
   }
+
   let statusString
   let format
   if (status === CheckStatus.SUCCESSFUL) {
-    statusString = logSymbols.success
-    format = chalk.bold.green
+    statusString = chalk.bold.green(logSymbols.success)
+    format = chalk.bold
   } else if (status === CheckStatus.FAILED) {
     statusString = logSymbols.error
     format = chalk.bold.red
@@ -31,12 +36,13 @@ export function formatCheckTitle (status: CheckStatus, check: any) {
     statusString = '-'
     format = chalk.bold.dim
   }
-
-  let title = format(`${statusString} ${check.sourceFile} > ${check.name}`)
-  if (duration) {
-    title += chalk.dim(` (${duration})`)
-  }
-  return title
+  
+  return [
+    format(statusString),
+    opts.includeSourceFile ? format(`${check.sourceFile} >`) : undefined,
+    format(check.name),
+    duration ? `(${duration})` : undefined,
+  ].filter(Boolean).join(' ')
 }
 
 export function formatCheckResult (checkResult: any) {
@@ -44,19 +50,25 @@ export function formatCheckResult (checkResult: any) {
   if (checkResult.checkType === 'API') {
     // Order should follow the check lifecycle (response, then assertions)
     if (checkResult.checkRunData?.response) {
-      result.push(formatSectionTitle('HTTP Response'))
-      result.push(formatHttpResponse(checkResult.checkRunData.response))
+      result.push([
+        formatSectionTitle('HTTP Response'),
+        formatHttpResponse(checkResult.checkRunData.response),
+      ])
     }
     if (checkResult.checkRunData?.assertions?.length) {
-      result.push(formatSectionTitle('Assertions'))
-      result.push(formatAssertions(checkResult.checkRunData.assertions))
+      result.push([
+        formatSectionTitle('Assertions'),
+        formatAssertions(checkResult.checkRunData.assertions),
+      ])
     }
   }
   if (checkResult.logs?.length) {
-    result.push(formatSectionTitle('Logs'))
-    result.push(formatLogs(checkResult.logs))
+    result.push([
+      formatSectionTitle('Logs'),
+      formatLogs(checkResult.logs),
+    ])
   }
-  return result.join('\n')
+  return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
 const assertionSources: any = {
@@ -133,7 +145,7 @@ function formatHttpResponse (response: any) {
   ].filter(Boolean).join('\n')
 }
 
-export function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) {
+function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) {
   return logs.flatMap(({ level, msg, time }) => {
     const timestamp = DateTime.fromMillis(time).toLocaleString(DateTime.TIME_WITH_SECONDS)
     let format = chalk.dim
@@ -155,7 +167,7 @@ function formatSectionTitle (title: string): string {
   return `──${chalk.bold(title)}${'─'.repeat(width - title.length)}`
 }
 
-export function truncate (val: any, opts: { chars?: number, lines?: number, ending?: string }) {
+function truncate (val: any, opts: { chars?: number, lines?: number, ending?: string }) {
   let truncated = false
   let result = toString(val)
   if (opts.chars && val.length > opts.chars) {
@@ -174,7 +186,7 @@ export function truncate (val: any, opts: { chars?: number, lines?: number, endi
   }
 }
 
-export function toString (val: any): string {
+function toString (val: any): string {
   if (typeof val === 'object') {
     return JSON.stringify(val, null, 2)
   } else {
