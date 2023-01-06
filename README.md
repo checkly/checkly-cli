@@ -177,7 +177,76 @@ So, I guess you know now that logical IDs are important!
 
 ## Creating an API Check
 
+API checks are used to validate your API endpoints. Let's look at the example below as it does a couple of things:
 
+- It defines the basic check properties like `name`, `activated` etc.
+- It defines the HTTP method `GET` the `url`.
+- It sets an extra header in the `headers` array.
+- It defines an array of assertions to assert the HTTP response status is correct and that the JSON response body
+has a property called `name` by using the [JSON path](https://jsonpath.com/) expression `*.name`
+- It runs a setup script and teardown script, which are just Javascript files referenced from the same directory. 
+
+The file hierarchy looks as follows:
+
+```
+├── __checks__
+│   ├── hello-api.check.js
+│   ├── setup.js
+│   ├── teardown.js
+```
+
+```js
+// hello-api.check.js
+
+const { ApiCheck } = require('@checkly/cli/constructs')
+const path = require('path')
+const { readFileSync } = require('fs')
+
+new ApiCheck('hello-api-1', {
+  name: 'Hello API',
+  activated: true,
+  localSetupScript: readFileSync(path.join(__dirname, 'setup.js'), 'utf-8'),
+  localTearDownScript: readFileSync(path.join(__dirname, 'teardown.js'), 'utf-8'),
+  request: {
+    method: 'GET',
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
+    skipSsl: false,
+    followRedirects: true,
+    headers: [
+      {
+        key: 'X-My-Header',
+        value: 'My custom header value'
+      }
+    ],
+    assertions: [
+      { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
+      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
+    ]
+  }
+})
+```
+
+The setup script just has a placeholder `console.log()` statement, but you can do a ton off stuff for authentication, overriding 
+headers or other parts of the eventual HTTP request. Check our docs for examples like:
+
+- [Fetching an OAuth2 token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#fetch-an-oauth2-access-token-using-the-client_credentials-grant)
+- [Sign an AWS API request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-aws-api-request)
+- [Sign an HMAC request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-hmac-request)
+- [Create a JWT token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#create-a-jwt-token-using-the-jsonwebtoken-library)
+- [Dismiss A Vercel password prompt](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#dismiss-password-protection-prompt-on-vercel-deployment)
+
+```js
+// setup.js
+console.log('this is a setup script')
+```
+
+Teardown script are commonly used to clean up any created test data. You can use access the previously executed HTTP request
+and [for example delete some resource on your API](https://www.checklyhq.com/docs/api-checks/teardown-script-examples/#delete-created-test-data-based-on-response)
+
+```js
+// teardown.js
+console.log('this is a teardown script')
+```
 
 
 ## Creating and adding an Alert Channel
@@ -221,18 +290,41 @@ module.exports = {
 const { ApiCheck } = require('@checkly/cli/constructs')
 const { smsChannel, emailChannel } = require('./alert-channels')
 
-new ApiCheck('hello-world-api-1', {
-  name: 'Hello World API',
+new ApiCheck('hello-api-1', {
+  name: 'Hello API',
   alertChannels: [smsChannel, emailChannel],
   request: {
     method: 'GET',
-    url: 'https://api.checklyhq.com/public-stats',
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
   }
 })
 ```
 
 **Current limitations:**
 - Not all Alert Channel types are supported yet. [Check the most current state in the codebase](https://github.com/checkly/checkly-cli/tree/main/package/src/constructs)
+
+# Runtimes and available NPM packages
+
+Checkly lets you use JavaScript / Typescript in your Browser checks and in the setup & teardown scripts you can 
+add to your API checks. This JavaScript code executes in a runtime environment managed by Checkly. 
+This environment has access to specific Node.js versions and NPM packages.
+
+> This means not all NPM packages from NPM are available inside the context of a Check.
+
+A runtime consists of a `runtimeId` which you can set at `Project` level or individual `Check` level.
+The latest runtime is `2022.10` at the time of writing. This runtime contains among others:
+
+- Nodejs 16.x
+- `@playwright/test 1.28.0`
+- `axios 0.27.2`
+- `lodash 4.17.21`
+- `moment 2.29.2`
+
+...and a range of other popular NPM package to help you write and assert checks.
+
+- [Browse the latest runtime specs](https://www.checklyhq.com/docs/runtimes/specs/)
+- [Learn more about runtimes](https://www.checklyhq.com/docs/runtimes/)
+
 
 # CLI
 
@@ -342,45 +434,13 @@ Account ID from the [Account settings tab](https://app.checklyhq.com/settings/ac
 
 # Constructs API
 
+*This will document all the properties of the various constructs based on TSDoc annotations*
+
 ## Project
 
 ## Check
 
-### APICheck
-
-TODO: add explanation on
-- setup & teardown
-- assertions
-
-```
-├── __checks__
-│   ├── api.check.js
-│   ├── setup.js
-│   ├── teardown.js
-```
-
-```js
-const { ApiCheck } = require('@checkly/cli/constructs')
-const path = require('path')
-const { readFileSync } = require('fs')
-
-
-new ApiCheck('hello-api-1', {
-  name: 'Hello API',
-  localSetupScript: readFileSync(path.join(__dirname, 'setup.js'), 'utf-8'),
-  localTearDownScript: readFileSync(path.join(__dirname, 'teardown.js'), 'utf-8'),
-  request: {
-    method: 'GET',
-    url: 'https:///api.acme.com/v1/hello',
-    skipSsl: false,
-    followRedirects: true,
-    assertions: [
-      { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
-      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
-    ]
-  }
-})
-```
+### ApiCheck
 
 ### Browser Checks
 
@@ -409,7 +469,6 @@ new BrowserCheck('browser-check-1', {
 ## CheckGroup
 
 ## AlertChannel
-
 
 # Local Development
 
