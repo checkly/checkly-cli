@@ -29,6 +29,8 @@ export interface CheckGroupProps {
     environmentVariables: Array<EnvironmentVariable>
     alertChannels?: Array<AlertChannel>
     pattern?: string
+    localSetupScript?: string
+    localTearDownScript?: string
     apiCheckDefaults: any
     browserCheckDefaults: any
   }
@@ -43,6 +45,8 @@ export class CheckGroup extends Construct {
   concurrency: number
   environmentVariables: Array<EnvironmentVariable>
   alertChannels?: Array<AlertChannel>
+  localSetupScript?: string
+  localTearDownScript?: string
   // TODO add types later on
   apiCheckDefaults: any
   browserCheckDefaults: any
@@ -107,6 +111,8 @@ export class CheckGroup extends Construct {
       tags: this.tags,
       locations: this.locations,
       concurrency: this.concurrency,
+      localSetupScript: this.localSetupScript,
+      localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       browserCheckDefaults: this.browserCheckDefaults,
       environmentVariables: this.environmentVariables,

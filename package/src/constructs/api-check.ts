@@ -12,11 +12,11 @@ export interface Assertion {
 }
 
 enum BodyType {
-  JSON,
-  FORM,
-  RAW,
-  GRAPHQL,
-  NONE
+  JSON = 'JSON',
+  FORM = 'FORM',
+  RAW = 'RAW',
+  GRAPHQL = 'GRAPHQL',
+  NONE = 'NONE'
 }
 
 interface BasicAuth {
