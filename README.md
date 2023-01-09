@@ -117,7 +117,7 @@ const config = {
     checkMatch: '**/*.check.js',
     browserChecks: {
       frequency: 10,
-      checkMatch: '**/*.spec.js',
+      testMatch: '**/*.spec.js',
     }
   },
   cli: {

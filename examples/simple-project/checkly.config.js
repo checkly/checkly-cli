@@ -7,7 +7,7 @@ const config = {
     runtimeId: '2022.10',
     checkMatch: '**/*.check.js',
     browserChecks: {
-      checkMatch: '**/__checks__/*.spec.js',
+      testMatch: '**/__checks__/*.spec.js',
     },
   },
   cli: {
