@@ -28,7 +28,7 @@ export type ChecklyConfig = {
     checkMatch?: string,
     ignoreDirectoriesMatch?: string[],
     browserChecks?: CheckConfigDefaults & {
-      checkMatch?: string,
+      testMatch?: string,
     },
   },
   cli?: {

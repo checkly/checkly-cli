@@ -79,7 +79,7 @@ export default class Test extends Command {
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       checkMatch: checklyConfig.checks?.checkMatch,
-      browserCheckMatch: checklyConfig.checks?.browserChecks?.checkMatch,
+      browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
