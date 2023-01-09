@@ -8,6 +8,8 @@ import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
 
+import { Config } from '@oclif/core'
+
 export function getDefaults () {
   const environments = {
     production: {
@@ -55,7 +57,7 @@ function init (): AxiosInstance {
 
   return api
 }
-const api = init()
+export const api = init()
 
 export const accounts = new Accounts(api)
 export const projects = new Projects(api)
