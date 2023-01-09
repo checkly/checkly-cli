@@ -44,9 +44,7 @@ export abstract class Check extends Construct {
     Check.applyDefaultCheckConfig(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
-    // `activated` is required by the server side schema.
-    // Until the server side is changed to set a default value rather than throw an error, we set a default value here.
-    this.activated = props.activated ?? true
+    this.activated = props.activated
     this.muted = props.muted
     this.doubleCheck = props.doubleCheck
     this.shouldFail = props.shouldFail
