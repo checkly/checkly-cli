@@ -1,4 +1,5 @@
 import * as api from '../rest/api'
+import config from '../services/config'
 import { prompt } from 'inquirer'
 import { Command, Flags } from '@oclif/core'
 import { parseProject } from '../services/project-parser'
@@ -45,12 +46,14 @@ export default class Deploy extends Command {
         return acc
       }, <Record<string, Runtime>> {}),
     })
+    // We can use a null-assertion operator safely since account ID was validated in auth-check hook
+    const { data: account } = await api.accounts.get(config.getAccountId()!)
 
     if (!force) {
       const { confirm } = await prompt([{
         name: 'confirm',
         type: 'confirm',
-        message: 'You are about to deploy your project. Do you want to continue?',
+        message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
       }])
       if (!confirm) {
         return
@@ -59,6 +62,7 @@ export default class Deploy extends Command {
 
     try {
       await api.projects.deploy(project.synthesize(), { dryRun: preview })
+      console.info(`Successfully deployed project ${project.name} to account "${account.name}."`)
     } catch (err: any) {
       if (err?.response?.status === 400) {
         console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
