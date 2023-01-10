@@ -62,7 +62,7 @@ export default class Deploy extends Command {
 
     try {
       await api.projects.deploy(project.synthesize(), { dryRun: preview })
-      console.info(`Successfully deployed project ${project.name} to account "${account.name}."`)
+      console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
     } catch (err: any) {
       if (err?.response?.status === 400) {
         console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
