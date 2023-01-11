@@ -147,6 +147,7 @@ export default class Test extends Command {
     await runner.run()
   }
 
+  // eslint-disable-next-line require-await
   async prepareRunLocation (
     configOptions: { runLocation?: string, privateRunLocation?: string } = {},
     cliFlags: { runLocation?: string, privateRunLocation?: string },
@@ -158,7 +159,7 @@ export default class Test extends Command {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
       this.error(
-        'Both runLocation and privateRunLocation fields were set in the Checkly config file.' + 
+        'Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
         ` Please only specify one run location. The configured locations were "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`,
         { exit: 1 },
       )
