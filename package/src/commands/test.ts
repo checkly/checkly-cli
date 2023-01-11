@@ -146,17 +146,17 @@ export default class Test extends Command {
     await runner.run()
   }
 
-  async prepareRunLocation (publicLocation: string, privateLocation?: string): Promise<RunLocation> {
-    if (!privateLocation) {
+  async prepareRunLocation (publicLocation: string, privateLocationSlugName?: string): Promise<RunLocation> {
+    if (!privateLocationSlugName) {
       return { type: 'PUBLIC', region: publicLocation }
     }
     const { data: privateLocations } = await api.privateLocations.getAll()
-    const hasPrivateLocation = privateLocations.some(({ slugName }) => slugName === privateLocation)
-    if (hasPrivateLocation) {
-      return { type: 'PRIVATE', slugName: privateLocation }
+    const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
+    if (privateLocation) {
+      return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
     }
     // We can use a null-assertion operator safely since account ID was validated in auth-check hook
     const { data: account } = await api.accounts.get(config.getAccountId()!)
-    this.error(`The specified private location ${privateLocation} was not found on account "${account.name}".`, { exit: 1 })
+    this.error(`The specified private location ${privateLocationSlugName} was not found on account "${account.name}".`, { exit: 1 })
   }
 }

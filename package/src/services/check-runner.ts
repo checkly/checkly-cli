@@ -16,6 +16,7 @@ export enum Events {
 
 type PrivateRunLocation = {
   type: 'PRIVATE',
+  id: string,
   slugName: string,
 }
 type PublicRunLocation = {

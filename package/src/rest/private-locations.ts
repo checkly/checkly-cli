@@ -1,7 +1,8 @@
 import type { AxiosInstance } from 'axios'
 
 interface PrivateLocation {
-  slugName: string
+  slugName: string,
+  id: string,
 }
 
 export default class PrivateLocations {
