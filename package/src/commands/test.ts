@@ -157,6 +157,6 @@ export default class Test extends Command {
     }
     // We can use a null-assertion operator safely since account ID was validated in auth-check hook
     const { data: account } = await api.accounts.get(config.getAccountId()!)
-    this.error(`The specified private location ${privateLocationSlugName} was not found on account "${account.name}".`, { exit: 1 })
+    this.error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`, { exit: 1 })
   }
 }
