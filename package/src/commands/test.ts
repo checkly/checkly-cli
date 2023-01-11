@@ -3,11 +3,12 @@ import { Command, Flags } from '@oclif/core'
 import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
 
-import { runtimes } from '../rest/api'
+import * as api from '../rest/api'
+import config from '../services/config'
 import ListReporter from '../reporters/list'
 import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
-import CheckRunner, { Events } from '../services/check-runner'
+import CheckRunner, { Events, RunLocation } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
@@ -28,6 +29,10 @@ export default class Test extends Command {
       char: 'l',
       description: 'The location to run the checks at.',
       default: 'eu-central-1',
+    }),
+    'private-location': Flags.string({
+      description: 'The private location to run checks at.',
+      exclusive: ['location'],
     }),
     grep: Flags.string({
       char: 'g',
@@ -63,16 +68,18 @@ export default class Test extends Command {
   async run (): Promise<void> {
     const { flags, argv: filePatterns } = await this.parse(Test)
     const {
-      location,
+      location: publicLocation,
+      'private-location': privateLocation,
       grep,
       env,
       'env-file': envFile,
     } = flags
     const cwd = process.cwd()
+    const location = await this.prepareRunLocation(publicLocation, privateLocation)
 
     const testEnvVars = await getEnvs(envFile, env)
     const checklyConfig = await loadChecklyConfig(cwd)
-    const { data: avilableRuntimes } = await runtimes.getAll()
+    const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
       projectLogicalId: checklyConfig.logicalId,
@@ -137,5 +144,19 @@ export default class Test extends Command {
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
     await runner.run()
+  }
+
+  async prepareRunLocation (publicLocation: string, privateLocationSlugName?: string): Promise<RunLocation> {
+    if (!privateLocationSlugName) {
+      return { type: 'PUBLIC', region: publicLocation }
+    }
+    const { data: privateLocations } = await api.privateLocations.getAll()
+    const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
+    if (privateLocation) {
+      return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
+    }
+    // We can use a null-assertion operator safely since account ID was validated in auth-check hook
+    const { data: account } = await api.accounts.get(config.getAccountId()!)
+    this.error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`, { exit: 1 })
   }
 }

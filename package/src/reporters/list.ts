@@ -5,7 +5,7 @@ import { formatCheckTitle, formatCheckResult, CheckStatus } from './util'
 
 export default class ListReporter extends AbstractListReporter {
   onBegin () {
-    console.log(`\nRunning ${this.numChecks} checks in ${this.runLocation}.\n`)
+    console.log(`\nRunning ${this.numChecks} checks in ${this._runLocationString()}.\n`)
     this._printSummary()
   }
 

@@ -3,17 +3,18 @@ import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus } from './util'
+import type { RunLocation } from '../services/check-runner'
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
-  runLocation: string
+  runLocation: RunLocation
   // Map from file -> check logicalId -> check+result.
   // This lets us print a structured list of the checks.
   // Map remembers the original insertion order, so each time we print the summary will be consistent.
   checkFilesMap: Map<string, Map<string, { check?: any, result?: any, titleString: string }>>
   numChecks: number
 
-  constructor (runLocation: string, checks: Array<any>) {
+  constructor (runLocation: RunLocation, checks: Array<any>) {
     this.numChecks = checks.length
     this.runLocation = runLocation
 
@@ -80,5 +81,13 @@ export default abstract class AbstractListReporter implements Reporter {
     console.log(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _runLocationString (): string {
+    if (this.runLocation.type === 'PUBLIC') {
+      return this.runLocation.region
+    } else {
+      return `private location ${this.runLocation.slugName}`
+    }
   }
 }
