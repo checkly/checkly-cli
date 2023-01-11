@@ -8,10 +8,12 @@ import config from '../services/config'
 import ListReporter from '../reporters/list'
 import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
-import CheckRunner, { Events, RunLocation } from '../services/check-runner'
+import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
+
+const DEFAULT_REGION = 'eu-central-1'
 
 async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
   if (envFile) {
@@ -28,7 +30,6 @@ export default class Test extends Command {
     location: Flags.string({
       char: 'l',
       description: 'The location to run the checks at.',
-      default: 'eu-central-1',
     }),
     'private-location': Flags.string({
       description: 'The private location to run checks at.',
@@ -68,17 +69,17 @@ export default class Test extends Command {
   async run (): Promise<void> {
     const { flags, argv: filePatterns } = await this.parse(Test)
     const {
-      location: publicLocation,
-      'private-location': privateLocation,
+      location: runLocation,
+      'private-location': privateRunLocation,
       grep,
       env,
       'env-file': envFile,
     } = flags
     const cwd = process.cwd()
-    const location = await this.prepareRunLocation(publicLocation, privateLocation)
 
     const testEnvVars = await getEnvs(envFile, env)
     const checklyConfig = await loadChecklyConfig(cwd)
+    const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
     const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
@@ -146,10 +147,32 @@ export default class Test extends Command {
     await runner.run()
   }
 
-  async prepareRunLocation (publicLocation: string, privateLocationSlugName?: string): Promise<RunLocation> {
-    if (!privateLocationSlugName) {
-      return { type: 'PUBLIC', region: publicLocation }
+  // eslint-disable-next-line require-await
+  async prepareRunLocation (
+    configOptions: { runLocation?: string, privateRunLocation?: string } = {},
+    cliFlags: { runLocation?: string, privateRunLocation?: string },
+  ): Promise<RunLocation> {
+    // Command line options take precedence
+    if (cliFlags.runLocation) {
+      return { type: 'PUBLIC', region: cliFlags.runLocation }
+    } else if (cliFlags.privateRunLocation) {
+      return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
+    } else if (configOptions.runLocation && configOptions.privateRunLocation) {
+      this.error(
+        'Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
+        ` Please only specify one run location. The configured locations were "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`,
+        { exit: 1 },
+      )
+    } else if (configOptions.runLocation) {
+      return { type: 'PUBLIC', region: configOptions.runLocation }
+    } else if (configOptions.privateRunLocation) {
+      return this.preparePrivateRunLocation(configOptions.privateRunLocation)
+    } else {
+      return { type: 'PUBLIC', region: DEFAULT_REGION }
     }
+  }
+
+  async preparePrivateRunLocation (privateLocationSlugName: string): Promise<PrivateRunLocation> {
     const { data: privateLocations } = await api.privateLocations.getAll()
     const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
     if (privateLocation) {
