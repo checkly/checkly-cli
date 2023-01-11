@@ -33,6 +33,7 @@ export type ChecklyConfig = {
   },
   cli?: {
     runLocation?: string,
+    privateRunLocation?: string,
   }
 }
 
