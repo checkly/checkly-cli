@@ -13,11 +13,22 @@ export enum Events {
   RUN_STARTED = 'RUN_STARTED',
   RUN_FINISHED = 'RUN_FINISHED'
 }
+
+type PrivateRunLocation = {
+  type: 'PRIVATE',
+  slugName: string,
+}
+type PublicRunLocation = {
+  type: 'PUBLIC',
+  region: string,
+}
+export type RunLocation = PublicRunLocation | PrivateRunLocation
+
 export default class CheckRunner extends EventEmitter {
   checks: any[]
-  location: string
+  location: RunLocation
   concurrency: number
-  constructor (checks: any[], location: string, concurrency = 5) {
+  constructor (checks: any[], location: RunLocation, concurrency = 5) {
     super()
     this.checks = checks
     this.location = location
