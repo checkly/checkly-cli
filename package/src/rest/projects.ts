@@ -6,6 +6,8 @@ export interface Project {
   repoUrl?: string
 }
 
+type ProjectResponse = Project & { id: string }
+
 export interface ProjectSync {
   project: Project,
   checks: Record<string, any>
@@ -21,11 +23,11 @@ class Projects {
   }
 
   getAll () {
-    return this.api.get<Array<Project>>('/next/projects')
+    return this.api.get<Array<ProjectResponse>>('/next/projects')
   }
 
-  get (accountId: string) {
-    return this.api.get<Project>(`/next/projects/${accountId}`)
+  get (id: string) {
+    return this.api.get<ProjectResponse>(`/next/projects/${id}`)
   }
 
   create (project: Project) {
