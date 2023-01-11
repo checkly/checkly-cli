@@ -13,12 +13,12 @@ export enum Events {
   RUN_FINISHED = 'RUN_FINISHED'
 }
 
-type PrivateRunLocation = {
+export type PrivateRunLocation = {
   type: 'PRIVATE',
   id: string,
   slugName: string,
 }
-type PublicRunLocation = {
+export type PublicRunLocation = {
   type: 'PUBLIC',
   region: string,
 }
