@@ -74,7 +74,7 @@ This should print the message:
 Running 1 checks in eu-central-1.
 
 __checks__/js/home.spec.js
-  ✔ __checks__/home.spec.js > home.spec.js (4s)
+  ✔ home.spec.js > home.spec.js (4s)
 
 1 passed, 1 total
 ```
@@ -99,9 +99,6 @@ configuration.
 Create a `checkly.config.js` (or `checkly.config.ts`) at the root of your project.
 
 ```js
-// @ts-check
-
-/** @type {import('@checkly/cli').ProjectConfig} */
 const config = {
   projectName: 'Website Monitoring',
   logicalId: 'website-monitoring-1',
@@ -453,6 +450,7 @@ However, you can override these global settings and configure individual Browser
 types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file.
 
 ```js
+const path = require('path')
 const { BrowserCheck } = require('@checkly/cli/constructs')
 
 new BrowserCheck('browser-check-1', {
@@ -460,7 +458,7 @@ new BrowserCheck('browser-check-1', {
   frequency: 10, // minutes
   regions: ['us-east-1', 'eu-west-1'],
   code: {
-    entrypoint: './home.spec.js'
+    entrypoint: path.join(__dirname, './home.spec.js')
   }
 })
 ```
