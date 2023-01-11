@@ -447,10 +447,9 @@ and the Checkly CLI will pick them up and apply some default settings like a nam
 them into synthetic monitoring checks.
 
 However, you can override these global settings and configure individual Browser checks just like all other built-in check
-types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file.
+types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file. This property supports relative and absolute paths.
 
 ```js
-const path = require('path')
 const { BrowserCheck } = require('@checkly/cli/constructs')
 
 new BrowserCheck('browser-check-1', {
@@ -458,7 +457,7 @@ new BrowserCheck('browser-check-1', {
   frequency: 10, // minutes
   regions: ['us-east-1', 'eu-west-1'],
   code: {
-    entrypoint: path.join(__dirname, './home.spec.js')
+    entrypoint: './home.spec.js'
   }
 })
 ```
