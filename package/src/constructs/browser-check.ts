@@ -42,7 +42,7 @@ export class BrowserCheck extends Check {
         if (!this.__checkFilePath) {
           throw new Error('You cant use relative paths without the __checkFilePath')
         }
-        absoluteEntrypoint = path.join(this.__checkFilePath, entrypoint)
+        absoluteEntrypoint = path.join(path.dirname(this.__checkFilePath), entrypoint)
       }
       // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)

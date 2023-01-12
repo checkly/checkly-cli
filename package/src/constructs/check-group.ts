@@ -77,7 +77,7 @@ export class CheckGroup extends Construct {
   }
 
   addChecks (pattern: string) {
-    const matched = glob.sync(pattern, { nodir: true, cwd: this.__checkFilePath })
+    const matched = glob.sync(pattern, { nodir: true, cwd: path.dirname(this.__checkFilePath) })
     for (const match of matched) {
       const check = new BrowserCheck(match, {
         groupId: Ref.from(this.logicalId),
