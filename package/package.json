@@ -35,6 +35,7 @@
     ],
     "hooks": {
       "prerun": [
+        "./dist/hooks/configure-api-client",
         "./dist/hooks/auth-check"
       ]
     }
