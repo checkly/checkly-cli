@@ -89,6 +89,8 @@ export function startServer (codeVerifier: string): Promise<string> {
     })
 
     server.listen(4242).on('error', err => {
+      // TODO: Update error handling to not have a console.log here.
+      // eslint-disable-next-line no-console
       console.log('Unable to start an HTTP server on port 4242.', err)
       reject(err)
     })
