@@ -1,7 +1,7 @@
-const { BrowserCheck } = require('@checkly/cli/constructs')
-new BrowserCheck('browser-check', {
-  name: 'Browser Check',
-  code: {
-    entrypoint: 'entrypoint.js',
-  },
-})
+const config = {
+  projectName: 'Check Parse Error',
+  logicalId: 'check-parse-error',
+  repoUrl: 'https://github.com/checkly/checkly-cli',
+}
+
+module.exports = config

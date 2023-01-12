@@ -22,3 +22,8 @@ jobs:
       - run: npm pack --workspace package
       - run: npm run lint --workspace package
       - run: npm run test --workspace package
+      - run: npm run test:e2e --workspace package
+        env:
+          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
+          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
