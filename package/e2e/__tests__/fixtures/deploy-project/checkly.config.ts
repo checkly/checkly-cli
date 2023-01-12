@@ -1,7 +1,6 @@
-
 const config = {
   projectName: 'Deploy Project',
-  logicalId: 'e2e-test-deploy-project',
+  logicalId: process.env.PROJECT_LOGICAL_ID,
   repoUrl: 'https://github.com/checkly/checkly-cli',
 }
 export default config

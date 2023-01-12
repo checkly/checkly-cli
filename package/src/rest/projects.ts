@@ -6,7 +6,7 @@ export interface Project {
   repoUrl?: string
 }
 
-type ProjectResponse = Project & { id: string }
+type ProjectResponse = Project & { id: string, created_at: string }
 
 export interface ProjectSync {
   project: Project,
