@@ -35,8 +35,17 @@ export class BrowserCheck extends Check {
       this.script = script
     } else if ('entrypoint' in props.code) {
       const entrypoint = props.code.entrypoint
+      let absoluteEntrypoint = null
+      if (path.isAbsolute(entrypoint)) {
+        absoluteEntrypoint = entrypoint
+      } else {
+        if (!this.__checkFilePath) {
+          throw new Error('You cant use relative paths without the __checkFilePath')
+        }
+        absoluteEntrypoint = path.join(path.dirname(this.__checkFilePath), entrypoint)
+      }
       // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
-      const bundle = BrowserCheck.bundle(entrypoint, this.runtimeId!)
+      const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies

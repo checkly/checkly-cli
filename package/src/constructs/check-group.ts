@@ -1,5 +1,6 @@
 import * as glob from 'glob'
 import { Ref } from './ref'
+import { Session } from './project'
 import { Construct } from './construct'
 import { BrowserCheck } from './browser-check'
 import { AlertChannel } from './alert-channel'
@@ -50,6 +51,7 @@ export class CheckGroup extends Construct {
   // TODO add types later on
   apiCheckDefaults: any
   browserCheckDefaults: any
+  __checkFilePath: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'groups'
 
@@ -66,6 +68,7 @@ export class CheckGroup extends Construct {
     this.browserCheckDefaults = props.browserCheckDefaults || {}
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
+    this.__checkFilePath = Session.checkFilePath!
     if (props.pattern) {
       this.addChecks(props.pattern)
     }
@@ -74,7 +77,7 @@ export class CheckGroup extends Construct {
   }
 
   addChecks (pattern: string) {
-    const matched = glob.sync(pattern, { nodir: true })
+    const matched = glob.sync(pattern, { nodir: true, cwd: path.dirname(this.__checkFilePath) })
     for (const match of matched) {
       const check = new BrowserCheck(match, {
         groupId: Ref.from(this.logicalId),
