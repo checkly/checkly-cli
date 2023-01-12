@@ -1,3 +1,5 @@
+// TODO: Update error handling to not print to the console and exit from this file.
+/* eslint-disable no-console */
 import Conf from 'conf'
 
 import type { Runtime } from '../rest/runtimes'
