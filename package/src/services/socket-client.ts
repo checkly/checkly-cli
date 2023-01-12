@@ -24,6 +24,7 @@ export class SocketClient {
   /**
   * Subscribe to topics on the socket.
   * Due to implementation details, wildcards aren't supported.
+  * Note that AWS has a limit of 8 topics per subscribe request.
   */
   async subscribe (topicHandlers: Record<string, (message: any) => Promise<void>|void>): Promise<void> {
     for (const [topic, handler] of Object.entries(topicHandlers)) {

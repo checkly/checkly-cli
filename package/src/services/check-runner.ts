@@ -25,32 +25,36 @@ export type PublicRunLocation = {
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 export default class CheckRunner extends EventEmitter {
-  checks: any[]
+  checks: Map<string, any>
   location: RunLocation
   constructor (checks: any[], location: RunLocation) {
     super()
-    this.checks = checks
     this.location = location
+    this.checks = new Map(
+      checks.map((check) => [check.logicalId, check]),
+    )
   }
 
   async run () {
     this.emit(Events.RUN_STARTED)
+
     const socketClient = await SocketClient.connect()
-    await Promise.all(this.checks.map((check) => this.runCheck(socketClient, check)))
+    const websocketClientId = uuid.v4()
+    await this.configureResultListener(websocketClientId, socketClient)
+    await Promise.all(Array.from(this.checks.values()).map((check) => this.scheduleCheck(websocketClientId, check)))
+    await this.allChecksFinished()
     await socketClient.end()
     this.emit(Events.RUN_FINISHED)
   }
 
-  private async runCheck (socketClient: SocketClient, check: any): Promise<void> {
-    const websocketClientId = uuid.v4()
+  private async scheduleCheck (websocketClientId: string, check: any): Promise<void> {
     const checkRun = {
       runLocation: this.location,
       websocketClientId,
+      sourceInfo: { logicalId: check.logicalId, ephemeral: true },
       ...check,
     }
     this.emit(Events.CHECK_REGISTERED, checkRun)
-    // Configure the listener before triggering the check run
-    const checkEventEmitter = await this.configureResultListener(websocketClientId, check, socketClient)
     try {
       await checksApi.run(checkRun)
     } catch (err: any) {
@@ -64,26 +68,23 @@ export default class CheckRunner extends EventEmitter {
       this.emit(Events.CHECK_FAILED, checkRun, err)
       this.emit(Events.CHECK_FINISHED, check)
     }
-    await once(checkEventEmitter, 'finished')
   }
 
-  private async configureResultListener (
-    websocketClientId: string,
-    check: any,
-    socketClient: SocketClient,
-  ): Promise<EventEmitter> {
-    const baseTopic = `${check.checkType.toLowerCase()}-check-results/${websocketClientId}`
-    const runStartTopic = `${baseTopic}/run-start`
-    const runEndTopic = `${baseTopic}/run-end`
-    const runErrorTopic = `${baseTopic}/error`
-
-    const checkEventEmitter = new EventEmitter()
-    await socketClient.subscribe({
-      [runStartTopic]: () => {
+  private async configureResultListener (websocketClientId: string, socketClient: SocketClient) {
+    const checks = this.checks // Assign a variable so that it's available in the arrow functions
+    const checkTypes = ['browser', 'api']
+    for (const checkType of checkTypes) {
+      const subscriptions: any = {}
+      subscriptions[`${checkType}-check-results/${websocketClientId}/run-start`] = (message: any) => {
+        // Old private locations (<v1.0.6) won't pass the sourceInfo in /run-start.
+        // In this case, we emit the event with check=undefined.
+        const logicalId = message?.sourceInfo?.logicalId
+        const check = checks.get(logicalId)
         this.emit(Events.CHECK_INPROGRESS, check)
-      },
-      [runEndTopic]: async (message: any) => {
+      }
+      subscriptions[`${checkType}-check-results/${websocketClientId}/run-end`] = async (message: any) => {
         const { result } = message
+        const check = checks.get(result.sourceInfo.logicalId)!
         const { region, logPath, checkRunDataPath } = result.assets
         if (result.hasFailures && logPath) {
           result.logs = await assets.getLogs(region, logPath)
@@ -91,18 +92,30 @@ export default class CheckRunner extends EventEmitter {
         if (result.hasFailures && checkRunDataPath) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
-        await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
-        checkEventEmitter.emit('finished')
-      },
-      [runErrorTopic]: async (message: any) => {
-        await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
+      }
+      subscriptions[`${checkType}-check-results/${websocketClientId}/error`] = (message: any) => {
+        // Old private locations (<v1.0.6) won't pass the sourceInfo in /run-end.
+        // In this case, we emit the events with check=undefined.
+        const logicalId = message?.sourceInfo?.logicalId
+        const check = checks.get(logicalId)
         this.emit(Events.CHECK_FAILED, check, message)
         this.emit(Events.CHECK_FINISHED, check)
-        checkEventEmitter.emit('finished')
-      },
+      }
+      // Note that there is a limit in AWS of 8 subscriptions per subscribe request.
+      await socketClient.subscribe(subscriptions)
+    }
+  }
+
+  private allChecksFinished (): Promise<void> {
+    let finishedCheckCount = 0
+    const checks = this.checks
+    return new Promise((resolve) => {
+      this.on(Events.CHECK_FINISHED, () => {
+        finishedCheckCount++
+        if (finishedCheckCount === checks.size) resolve()
+      })
     })
-    return checkEventEmitter
   }
 }
