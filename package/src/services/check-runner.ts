@@ -1,6 +1,7 @@
 import { checks as checksApi, assets } from '../rest/api'
 import { SocketClient } from './socket-client'
 import * as uuid from 'uuid'
+import PQueue from 'p-queue'
 import { EventEmitter, once } from 'node:events'
 
 export enum Events {
@@ -27,47 +28,52 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 export default class CheckRunner extends EventEmitter {
   checks: any[]
   location: RunLocation
-  constructor (checks: any[], location: RunLocation) {
+  concurrency: number
+  constructor (checks: any[], location: RunLocation, concurrency = 5) {
     super()
     this.checks = checks
     this.location = location
+    this.concurrency = concurrency
   }
 
   async run () {
     this.emit(Events.RUN_STARTED)
     const socketClient = await SocketClient.connect()
-    await Promise.all(this.checks.map((check) => this.runCheck(socketClient, check)))
+    // TODO: Remove the queue and run all checks in parallel?
+    const queue = new PQueue({ concurrency: this.concurrency })
+    for (const check of this.checks) {
+      const websocketClientId = uuid.v4()
+      const checkRun = {
+        runLocation: this.location,
+        websocketClientId,
+        ...check,
+      }
+      this.emit(Events.CHECK_REGISTERED, checkRun)
+      queue.add(async () => {
+        // Configure the listener before triggering the check run
+        const checkEventEmitter = await this.configureResultListener(websocketClientId, check, socketClient)
+        try {
+          await checksApi.run(checkRun)
+        } catch (err: any) {
+          if (err?.response?.status === 402) {
+            const errorMessage = `Failed to run a check. ${err.response.data.message}`
+            this.emit(Events.CHECK_FAILED, checkRun, new Error(errorMessage))
+            this.emit(Events.CHECK_FINISHED, check)
+            // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
+            return
+          }
+          this.emit(Events.CHECK_FAILED, checkRun, err)
+          this.emit(Events.CHECK_FINISHED, check)
+        }
+        await once(checkEventEmitter, 'finished')
+      })
+    }
+    await queue.onIdle()
     await socketClient.end()
     this.emit(Events.RUN_FINISHED)
   }
 
-  private async runCheck (socketClient: SocketClient, check: any): Promise<void> {
-    const websocketClientId = uuid.v4()
-    const checkRun = {
-      runLocation: this.location,
-      websocketClientId,
-      ...check,
-    }
-    this.emit(Events.CHECK_REGISTERED, checkRun)
-    // Configure the listener before triggering the check run
-    const checkEventEmitter = await this.configureResultListener(websocketClientId, check, socketClient)
-    try {
-      await checksApi.run(checkRun)
-    } catch (err: any) {
-      if (err?.response?.status === 402) {
-        const errorMessage = `Failed to run a check. ${err.response.data.message}`
-        this.emit(Events.CHECK_FAILED, checkRun, new Error(errorMessage))
-        this.emit(Events.CHECK_FINISHED, check)
-        // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
-        return
-      }
-      this.emit(Events.CHECK_FAILED, checkRun, err)
-      this.emit(Events.CHECK_FINISHED, check)
-    }
-    await once(checkEventEmitter, 'finished')
-  }
-
-  private async configureResultListener (
+  async configureResultListener (
     websocketClientId: string,
     check: any,
     socketClient: SocketClient,
