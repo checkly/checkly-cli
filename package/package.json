@@ -63,6 +63,7 @@
     "log-symbols": "4.1.0",
     "luxon": "3.2.0",
     "open": "8.4.0",
+    "p-queue": "6.6.2",
     "uuid": "9.0.0"
   },
   "devDependencies": {
