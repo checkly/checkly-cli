@@ -3,11 +3,10 @@ import * as os from 'os'
 import * as http from 'http'
 import * as crypto from 'crypto'
 
-const AUTH0_DOMAIN = 'checkly'
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 
 export const generateAuthenticationUrl = (codeChallenge: string, scope: string, state: string) => {
-  const url = new URL(`https://${AUTH0_DOMAIN}.eu.auth0.com/authorize`)
+  const url = new URL('https://auth.checklyhq.com/authorize')
   const params = new URLSearchParams({
     client_id: AUTH0_CLIENT_ID,
     code_challenge: codeChallenge,
@@ -107,7 +106,7 @@ export async function getAccessToken (code: string, codeVerifier: string) {
   })
 
   const tokenResponse = await axios.post(
-    `https://${AUTH0_DOMAIN}.eu.auth0.com/oauth/token`,
+    'https://auth.checklyhq.com/oauth/token',
     tokenParams,
     {
       headers: {
