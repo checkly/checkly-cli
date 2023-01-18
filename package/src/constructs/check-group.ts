@@ -25,6 +25,7 @@ export interface CheckGroupProps {
     muted: boolean
     runtimeId: string
     locations: Array<string>
+    privateLocations?: Array<string>
     tags: Array<string>
     concurrency: number
     environmentVariables: Array<EnvironmentVariable>
@@ -42,6 +43,7 @@ export class CheckGroup extends Construct {
   muted: boolean
   runtimeId: string
   locations: Array<string>
+  privateLocations?: Array<string>
   tags: Array<string>
   concurrency: number
   environmentVariables: Array<EnvironmentVariable>
@@ -63,6 +65,7 @@ export class CheckGroup extends Construct {
     this.tags = props.tags
     this.runtimeId = props.runtimeId
     this.locations = props.locations
+    this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
     this.apiCheckDefaults = props.apiCheckDefaults || defaultApiCheckDefaults
     this.browserCheckDefaults = props.browserCheckDefaults || {}
@@ -113,6 +116,7 @@ export class CheckGroup extends Construct {
       muted: this.muted,
       tags: this.tags,
       locations: this.locations,
+      privateLocations: this.privateLocations,
       concurrency: this.concurrency,
       localSetupScript: this.localSetupScript,
       localTearDownScript: this.localTearDownScript,
