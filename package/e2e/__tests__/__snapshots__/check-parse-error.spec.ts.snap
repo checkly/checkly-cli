@@ -11,14 +11,14 @@ exports[`check parse error "checkly test" should return a clear error when there
     The following NPM dependencies were used, but aren't supported in the 
     runtimes.
     For more information, see https://www.checklyhq.com/docs/runtimes/.
-    	entrypoint.js imports unsupported dependencies:
+    	/home/runner/work/checkly-cli/checkly-cli/package/e2e/__tests__/fixtures/check-parse-error/entrypoint.js imports unsupported dependencies:
     		unsupported-dependency
     		unsupported-dependency-2
 
 
     The following files couldn't be parsed:
-    	syntax-error-1.js - Unexpected token (3:0)
-    	syntax-error-2.js - Unexpected token (2:0)
+    	/home/runner/work/checkly-cli/checkly-cli/package/e2e/__tests__/fixtures/check-parse-error/syntax-error-1.js - Unexpected token (3:0)
+    	/home/runner/work/checkly-cli/checkly-cli/package/e2e/__tests__/fixtures/check-parse-error/syntax-error-2.js - Unexpected token (2:0)
 
 "
 `;
