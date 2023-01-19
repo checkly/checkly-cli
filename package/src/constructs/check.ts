@@ -14,6 +14,7 @@ export interface CheckProps extends CheckConfigDefaults {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<string>
+  privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
@@ -30,6 +31,7 @@ export abstract class Check extends Construct {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<string>
+  privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
@@ -49,6 +51,7 @@ export abstract class Check extends Construct {
     this.doubleCheck = props.doubleCheck
     this.shouldFail = props.shouldFail
     this.locations = props.locations
+    this.privateLocations = props.privateLocations
     this.tags = props.tags
     this.frequency = props.frequency
     this.runtimeId = props.runtimeId
@@ -95,6 +98,7 @@ export abstract class Check extends Construct {
       shouldFail: this.shouldFail,
       runtimeId: this.runtimeId,
       locations: this.locations,
+      privateLocations: this.privateLocations,
       tags: this.tags,
       frequency: this.frequency,
       groupId: this.groupId,
