@@ -85,7 +85,7 @@ After you have validated the check does the right thing and has no bugs, deploy 
 npx checkly deploy
 ```
 
-Et voilà, you have just created a synthetic monitoring check based on Playwright from your code base! Open up [your Checkly dashboard](https://app.checklyhq.com) and you should see a your Check, ready to start monitoring
+Et voilà, you have just created a synthetic monitoring check based on Playwright from your code base! Open up [your Checkly dashboard](https://app.checklyhq.com) and you should see your Check, ready to start monitoring
 around the clock.
 
 # Project structure
@@ -393,7 +393,7 @@ Prints the account and user you are currently logged in with.
 
 ### `npx checkly switch`
 
-Switch witch account you are logged into based on the accounts you can access with your credentials.
+Switch which account you are logged into based on the accounts you can access with your credentials.
 
 
 # Authentication
