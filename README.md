@@ -176,9 +176,7 @@ API checks are used to validate your HTTP based API endpoints. Let's look at the
 
 - It defines the basic check properties like `name`, `activated` etc.
 - It defines the HTTP method `GET` the `url`.
-- It sets an extra header in the `headers` array.
-- It defines an array of assertions to assert the HTTP response status is correct and that the JSON response body
-has a property called `name` by using the [JSON path](https://jsonpath.com/) expression `*.name`
+- It defines an array of assertions to assert the HTTP response status is correct.
 
 ```js
 // hello-api.check.js
@@ -193,17 +191,8 @@ new ApiCheck('hello-api-1', {
   request: {
     method: 'GET',
     url: 'https://mac-demo-repo.vercel.app/api/hello',
-    skipSsl: false,
-    followRedirects: true,
-    headers: [
-      {
-        key: 'X-My-Header',
-        value: 'My custom header value'
-      }
-    ],
     assertions: [
       { source: 'STATUS_CODE', regex: '', property: '', comparison: 'EQUALS', target: '200' },
-      { source: 'JSON_BODY', regex: '', property: '$.name', comparison: 'NOT_EMPTY', target: '' }
     ]
   }
 })
