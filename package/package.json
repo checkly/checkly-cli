@@ -46,7 +46,7 @@
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
     "@oclif/core": "1.23.0",
-    "@oclif/plugin-help": "5.1.20",
+    "@oclif/plugin-help": "5.2.0",
     "@typescript-eslint/typescript-estree": "5.46.1",
     "acorn": "8.8.1",
     "acorn-walk": "8.2.0",
