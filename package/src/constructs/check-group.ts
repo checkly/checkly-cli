@@ -53,7 +53,6 @@ export class CheckGroup extends Construct {
   // TODO add types later on
   apiCheckDefaults: any
   browserCheckDefaults: any
-  __checkFilePath: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'groups'
 
@@ -71,16 +70,17 @@ export class CheckGroup extends Construct {
     this.browserCheckDefaults = props.browserCheckDefaults || {}
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
-    this.__checkFilePath = Session.checkFilePath!
+    const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.pattern) {
-      this.addChecks(props.pattern)
+      this.__addChecks(fileAbsolutePath, props.pattern)
     }
     this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
-    this.addSubscriptions()
+    this.__addSubscriptions()
   }
 
-  addChecks (pattern: string) {
-    const matched = glob.sync(pattern, { nodir: true, cwd: path.dirname(this.__checkFilePath) })
+  private __addChecks (fileAbsolutePath: string, pattern: string) {
+    const parent = path.dirname(fileAbsolutePath)
+    const matched = glob.sync(pattern, { nodir: true, cwd: parent })
     for (const match of matched) {
       const check = new BrowserCheck(match, {
         groupId: Ref.from(this.logicalId),
@@ -89,14 +89,13 @@ export class CheckGroup extends Construct {
         muted: false,
         locations: this.locations,
         code: {
-          // TODO: We need to make this relative to the previous caller in the stack
-          entrypoint: path.join(process.cwd(), match),
+          entrypoint: path.join(parent, match),
         },
       })
     }
   }
 
-  addSubscriptions () {
+  private __addSubscriptions () {
     if (!this.alertChannels) {
       return
     }

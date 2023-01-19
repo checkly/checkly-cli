@@ -13,7 +13,7 @@ import { Config } from '@oclif/core'
 export function getDefaults () {
   const environments = {
     production: {
-      apiUrl: 'https://api.checklyhq.com',
+      apiUrl: 'http://api.checklyhq.com',
     },
 
     development: {
