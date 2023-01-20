@@ -123,7 +123,7 @@ const config = {
 module.exports = config;
 ```
 
-- `checkMatch`: By default, Checkly looks for files matching `.*check\.(js|ts)`.
+- `checkMatch`: By default, Checkly looks for files matching `**/*.check.{js,ts}`.
 - `cli`: Sets default values for command line flags. Setting command line flags will still override these values.
   - `runLocation`: The default run location for `checkly test`.
   - `privateRunLocation`: A [private run location](https://www.checklyhq.com/docs/private-locations/) for `checkly test`. Both `runLocation` and `privateRunLocation` can't be set at once.
