@@ -1,6 +1,6 @@
 const path = require('path')
 const { BrowserCheck, ApiCheck } = require('@checkly/cli/constructs')
-const { smsChannel, emailChannel } = require('./alert-channels')
+const { smsChannel, emailChannel } = require('../alert-channels')
 const alertChannels = [smsChannel, emailChannel]
 /*
 * In this example, we bundle all basic checks needed to check the Checkly homepage. We explicitly define the Browser
@@ -23,18 +23,4 @@ new BrowserCheck('404-browser-check-1', {
   code: {
     entrypoint: path.join(__dirname, '404.spec.js')
   },
-})
-
-new ApiCheck('homepage-api-check-1', {
-  name: 'Homepage - fetch stats',
-  alertChannels,
-  request: {
-    url: 'https://api.checklyhq.com/public-stats',
-    method: 'GET',
-    followRedirects: true,
-    skipSsl: false,
-    assertions: [
-      { source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '200', regex: '' },
-    ],
-  }
 })
