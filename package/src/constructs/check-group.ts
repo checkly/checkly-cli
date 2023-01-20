@@ -1,3 +1,4 @@
+import * as path from 'path'
 import * as glob from 'glob'
 import { Ref } from './ref'
 import { Session } from './project'
@@ -6,7 +7,7 @@ import { BrowserCheck } from './browser-check'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
-import path = require('path')
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 // TODO: turn this into type
 const defaultApiCheckDefaults = {
@@ -17,6 +18,10 @@ const defaultApiCheckDefaults = {
     username: '',
     password: '',
   },
+}
+
+type BrowserCheckConfig = CheckConfigDefaults & {
+  testMatch: string,
 }
 
 export interface CheckGroupProps {
@@ -30,7 +35,7 @@ export interface CheckGroupProps {
     concurrency: number
     environmentVariables: Array<EnvironmentVariable>
     alertChannels?: Array<AlertChannel>
-    pattern?: string
+    browserChecks?: BrowserCheckConfig,
     localSetupScript?: string
     localTearDownScript?: string
     apiCheckDefaults: any
@@ -71,27 +76,34 @@ export class CheckGroup extends Construct {
     this.environmentVariables = props.environmentVariables
     this.alertChannels = props.alertChannels ?? []
     const fileAbsolutePath = Session.checkFileAbsolutePath!
-    if (props.pattern) {
-      this.__addChecks(fileAbsolutePath, props.pattern)
+    if (props.browserChecks?.testMatch) {
+      this.__addChecks(fileAbsolutePath, props.browserChecks)
     }
     this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
     this.__addSubscriptions()
   }
 
-  private __addChecks (fileAbsolutePath: string, pattern: string) {
+  private __addChecks (fileAbsolutePath: string, browserChecks: BrowserCheckConfig) {
     const parent = path.dirname(fileAbsolutePath)
-    const matched = glob.sync(pattern, { nodir: true, cwd: parent })
+    const matched = glob.sync(browserChecks.testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {
-      const check = new BrowserCheck(match, {
-        groupId: Ref.from(this.logicalId),
+      const defaults: CheckConfigDefaults = {}
+      let configKey: keyof CheckConfigDefaults
+      for (configKey in browserChecks as CheckConfigDefaults) {
+        const newVal: any = browserChecks[configKey]
+        defaults[configKey] = newVal
+      }
+      const filepath = path.join(parent, match)
+      const props = {
+        groupId: this.ref(),
         name: match,
-        activated: true,
-        muted: false,
-        locations: this.locations,
+        ...defaults,
         code: {
-          entrypoint: path.join(parent, match),
+          entrypoint: filepath,
         },
-      })
+      }
+      const checkLogicalId = path.relative(Session.basePath!, filepath)
+      const check = new BrowserCheck(checkLogicalId, props)
     }
   }
 
