@@ -1,8 +1,6 @@
 import { Check, CheckProps } from './check'
-
-import KeyValuePair from './key-value-pair'
-export type QueryParamProps = KeyValuePair
-export type HeaderProps = KeyValuePair
+import { HttpHeader } from './http-header'
+import { QueryParam } from './query-param'
 export interface Assertion {
   source: string,
   property: string,
@@ -32,8 +30,8 @@ export interface Request {
   assertions: Array<Assertion>
   body?: string
   bodyType?: BodyType
-  headers?: Array<HeaderProps>
-  queryParameters?: Array<QueryParamProps>
+  headers?: Array<HttpHeader>
+  queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
 }
 export interface ApiCheckProps extends CheckProps {
