@@ -1,9 +1,14 @@
 import { Session } from './project'
+import { Ref } from './ref'
 
 export class Construct {
   logicalId: string
   constructor (logicalId: string) {
     this.logicalId = logicalId
+  }
+
+  ref () {
+    return Ref.from(this.logicalId)
   }
 
   register (type: string, logicalId: string, resource: any) {

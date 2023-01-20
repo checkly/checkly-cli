@@ -512,6 +512,30 @@ new BrowserCheck('browser-check-1', {
 
 😔 sorry, no docs here yet. We are working on getting model right for Check groups.
 
+```js
+
+const { CheckGroup, ApiCheck } = require('@checkly/cli/constructs')
+
+const group = new CheckGroup('check-group-1', {
+  name: 'Group',
+  activated: true,
+  concurrency: 10,
+  browserChecks: {
+    testMatch: '*.spec.js'
+  }
+})
+
+new ApiCheck('check-group-api-check-1', {
+  name: 'Api check #1',
+  groupId: group.ref(),
+  request: {
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
+    method: 'GET',
+    followRedirects: true,
+    skipSsl: false,
+  }
+})
+```
 
 ## Alert Channels
 
