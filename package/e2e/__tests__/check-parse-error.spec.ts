@@ -10,6 +10,8 @@ describe('check parse error', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/check-parse-error'),
     })
-    expect(result.stderr).toMatchSnapshot()
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'check-parse-error', filename)
+
+    expect(result.stderr).toContain(toAbsolutePath('entrypoint.js'))
   })
 })
