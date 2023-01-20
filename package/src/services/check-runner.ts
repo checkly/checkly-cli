@@ -1,7 +1,8 @@
 import { checks as checksApi, assets } from '../rest/api'
 import { SocketClient } from './socket-client'
 import * as uuid from 'uuid'
-import { EventEmitter, once } from 'node:events'
+import { EventEmitter } from 'node:events'
+import type { AsyncMqttClient } from 'async-mqtt'
 
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
@@ -25,32 +26,54 @@ export type PublicRunLocation = {
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 export default class CheckRunner extends EventEmitter {
-  checks: any[]
+  checks: Map<string, any> // A map of checkRunId->check
   location: RunLocation
-  constructor (checks: any[], location: RunLocation) {
+  accountId: string
+  apiKey: string
+
+  constructor (accountId: string, apiKey: string, checks: any[], location: RunLocation) {
     super()
-    this.checks = checks
+    this.checks = new Map(
+      checks.map((check) => [uuid.v4(), check]),
+    )
     this.location = location
+    this.accountId = accountId
+    this.apiKey = apiKey
   }
 
   async run () {
     this.emit(Events.RUN_STARTED)
     const socketClient = await SocketClient.connect()
-    await Promise.all(this.checks.map((check) => this.runCheck(socketClient, check)))
+
+    const checkRunSuiteId = uuid.v4()
+    // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
+    await this.configureResultListener(checkRunSuiteId, socketClient)
+    const allChecksFinished = this.allChecksFinished()
+
+    await this.scheduleAllChecks(checkRunSuiteId)
+
+    await allChecksFinished
     await socketClient.end()
     this.emit(Events.RUN_FINISHED)
   }
 
-  private async runCheck (socketClient: SocketClient, check: any): Promise<void> {
-    const websocketClientId = uuid.v4()
+  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
+    const checkEntries = Array.from(this.checks.entries())
+    await Promise.all(checkEntries.map(
+      ([checkRunId, check]) => this.scheduleCheck(checkRunSuiteId, checkRunId, check),
+    ))
+  }
+
+  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: any): Promise<void> {
     const checkRun = {
-      runLocation: this.location,
-      websocketClientId,
       ...check,
+      runLocation: this.location,
+      sourceInfo: { checkRunId, checkRunSuiteId },
+      // We keep passing the websocket client ID for the case of old Agent versions.
+      // If the old Agent doesn't receive a client ID, it won't publish socket updates.
+      websocketClientId: uuid.v4(),
     }
     this.emit(Events.CHECK_REGISTERED, checkRun)
-    // Configure the listener before triggering the check run
-    const checkEventEmitter = await this.configureResultListener(websocketClientId, check, socketClient)
     try {
       await checksApi.run(checkRun)
     } catch (err: any) {
@@ -64,25 +87,18 @@ export default class CheckRunner extends EventEmitter {
       this.emit(Events.CHECK_FAILED, checkRun, err)
       this.emit(Events.CHECK_FINISHED, check)
     }
-    await once(checkEventEmitter, 'finished')
   }
 
-  private async configureResultListener (
-    websocketClientId: string,
-    check: any,
-    socketClient: SocketClient,
-  ): Promise<EventEmitter> {
-    const baseTopic = `${check.checkType.toLowerCase()}-check-results/${websocketClientId}`
-    const runStartTopic = `${baseTopic}/run-start`
-    const runEndTopic = `${baseTopic}/run-end`
-    const runErrorTopic = `${baseTopic}/error`
-
-    const checkEventEmitter = new EventEmitter()
-    await socketClient.subscribe({
-      [runStartTopic]: () => {
+  private async configureResultListener (checkRunSuiteId: string, socketClient: AsyncMqttClient): Promise<void> {
+    socketClient.on('message', async (topic: string, rawMessage: string|Buffer) => {
+      const message = JSON.parse(rawMessage.toString('utf8'))
+      const topicComponents = topic.split('/')
+      const checkRunId = topicComponents[4]
+      const subtopic = topicComponents[5]
+      const check = this.checks.get(checkRunId)!
+      if (subtopic === 'run-start') {
         this.emit(Events.CHECK_INPROGRESS, check)
-      },
-      [runEndTopic]: async (message: any) => {
+      } else if (subtopic === 'run-end') {
         const { result } = message
         const { region, logPath, checkRunDataPath } = result.assets
         if (result.hasFailures && logPath) {
@@ -91,18 +107,24 @@ export default class CheckRunner extends EventEmitter {
         if (result.hasFailures && checkRunDataPath) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
-        await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
-        checkEventEmitter.emit('finished')
-      },
-      [runErrorTopic]: async (message: any) => {
-        await socketClient.unsubscribe([runStartTopic, runEndTopic, runErrorTopic])
+      } else if (subtopic === 'error') {
         this.emit(Events.CHECK_FAILED, check, message)
         this.emit(Events.CHECK_FINISHED, check)
-        checkEventEmitter.emit('finished')
-      },
+      }
     })
-    return checkEventEmitter
+    await socketClient.subscribe(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+`)
+  }
+
+  private allChecksFinished (): Promise<void> {
+    let finishedCheckCount = 0
+    const checks = this.checks
+    return new Promise((resolve) => {
+      this.on(Events.CHECK_FINISHED, () => {
+        finishedCheckCount++
+        if (finishedCheckCount === checks.size) resolve()
+      })
+    })
   }
 }
