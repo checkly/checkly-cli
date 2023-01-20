@@ -1,4 +1,6 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
+import { HttpHeader } from './http-header'
+import { QueryParam } from './query-param'
 
 export interface WebhookAlertChannelProps extends AlertChannelProps {
   name: string
@@ -7,6 +9,8 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
   template?: string
   // We can create a http enum to be shared with api checks
   method?: string
+  headers?: Array<HttpHeader>
+  queryParameters?: Array<QueryParam>
 }
 
 export class WebhookAlertChannel extends AlertChannel {
@@ -15,6 +19,8 @@ export class WebhookAlertChannel extends AlertChannel {
   url: URL
   template?: string
   method?: string
+  headers?: Array<HttpHeader>
+  queryParameters?: Array<QueryParam>
   constructor (logicalId: string, props: WebhookAlertChannelProps) {
     super(logicalId, props)
     this.name = props.name
@@ -22,6 +28,8 @@ export class WebhookAlertChannel extends AlertChannel {
     this.url = props.url
     this.template = props.template
     this.method = props.method
+    this.headers = props.headers
+    this.queryParameters = props.queryParameters
     this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
   }
 
@@ -35,6 +43,8 @@ export class WebhookAlertChannel extends AlertChannel {
         url: this.url,
         template: this.template,
         method: this.method,
+        headers: this.headers,
+        queryParameters: this.queryParameters,
       },
     }
   }
