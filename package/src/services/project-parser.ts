@@ -65,6 +65,7 @@ async function loadAllCheckFiles (
   const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
   for (const checkFile of checkFiles) {
     // setting the checkFilePath is used for filtering by file name on the command line
+    Session.checkFileAbsolutePath = checkFile
     Session.checkFilePath = path.relative(directory, checkFile)
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
@@ -75,6 +76,7 @@ async function loadAllCheckFiles (
         `Please use a .js or .ts file instead.\n${checkFile}`)
     }
     Session.checkFilePath = undefined
+    Session.checkFileAbsolutePath = undefined
   }
 }
 

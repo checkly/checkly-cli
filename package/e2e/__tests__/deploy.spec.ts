@@ -6,13 +6,13 @@ import { runChecklyCli } from '../run-checkly'
 import Projects from '../../src/rest/projects'
 import { DateTime, Duration } from 'luxon'
 
-async function cleanupProjects(projectLogicalId?: string) {
+async function cleanupProjects (projectLogicalId?: string) {
   const baseURL: string = config.get('baseURL')
   const accountId: string = config.get('accountId')
   const apiKey: string = config.get('apiKey')
   // Why create an axios client rather than using the one in rest/api?
   // The rest/api client is configured based on the NODE_ENV and CLI config file, which isn't suitable for e2e tests.
-  const api = axios.create({ 
+  const api = axios.create({
     baseURL,
     headers: {
       'x-checkly-account': accountId,
@@ -24,8 +24,8 @@ async function cleanupProjects(projectLogicalId?: string) {
   for (const project of projects) {
     const matchesLogicalId = project.logicalId === projectLogicalId
     // Also delete any old projects that may have been missed in previous e2e tests
-    const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') 
-      && DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 10 }))
+    const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') &&
+      DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 10 }))
     if (matchesLogicalId || leftoverE2eProject) {
       await projectsApi.deleteProject(project.id)
     }
@@ -46,7 +46,7 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId }
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
     expect(result.stderr).toBe('')
   })
