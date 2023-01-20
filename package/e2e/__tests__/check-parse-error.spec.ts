@@ -12,6 +12,6 @@ describe('check parse error', () => {
     })
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'check-parse-error', filename)
 
-    expect(result.stderr).toContain(toAbsolutePath('entrypoint.js'))
+    expect(result.stderr.trim()).toContain(toAbsolutePath('entrypoint.js'))
   })
 })
