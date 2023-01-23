@@ -46,7 +46,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.project = project
   Session.basePath = directory
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
-  Session.browserCheckDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, browserCheckDefaults)
+  Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
