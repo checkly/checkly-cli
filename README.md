@@ -392,13 +392,15 @@ choice. Loops, variables, if-statements, file imports, extensions etc.
 
 ## Checks
 
-The CLI currently supports two Check types: API Checks and Browser Checks. All checks share common properties, like:
+The CLI currently supports two Check types: API Checks and Browser Checks. All checks share the following common properties:
 
 - `name` : A human readable name for your Check.
 - `frequency`: How often to run you check in minutes, i.e. `60` for every hour.
 - `locations`: An array of location codes where to run your checks, i.e. `['us-east-1', 'eu-west-1]`.
+- `privateLocations`: an array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
 - `activated`: A boolean value if your check is activated or not.
 - `muted`: A boolean value if alert notifications from your check are muted, i.e. not sent out.
+- `alertChannels`: an array of `AlertChannel` objects to which to send alert notifications.
 - `doubleCheck`: A boolean value if Checkly should double check on failure.
 - `tags`: An array of tags to help you organize your checks, i.e. `['product', 'api']`
 - `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for this check.
@@ -510,8 +512,63 @@ new BrowserCheck('browser-check-1', {
 
 ## Check Groups
 
-😔 sorry, no docs here yet. We are working on getting model right for Check groups.
+You can explicitly organize checks in Check Groups. 
 
+This brings the following benefits:
+
+1. Your checks are organized in a folder in the Checkly web UI.
+2. You can trigger all checks in a group from the web UI and via a command line trigger.
+3. You can manage group-level configuration like the runtime, activated & muted-state, tags and alert channels that trickle
+down the all the checks in the group.
+
+> Note: you will notice that managing shared configuration between checks is very easy just using JS/TS. You might not need
+Check Groups for that purpose. 
+
+### Adding Checks to a Check Group
+
+You can add a check to a group in two ways.
+
+1. Assign `group.ref()` to the `groupId` property of a Check.
+2. For Browser Checks, we allow you to use the `testMatch` glob pattern to include any `.spec.js` file, without having to 
+create a `BrowserCheck` construct. This works the same ast the `testMatch` glob at the Project level.
+
+```js
+const { CheckGroup, ApiCheck } = require('@checkly/cli/constructs')
+
+const group = new CheckGroup('check-group-1', {
+  name: 'Group',
+  activated: true,
+  tags: ['api-group'],
+  concurrency: 10,
+  browserChecks: {
+    testMatch: '*.spec.js' 
+  }
+})
+
+new ApiCheck('check-group-api-check-1', {
+  name: 'API check #1',
+  groupId: group.ref(),
+  request: {
+    method: 'GET',
+    url: 'https://mac-demo-repo.vercel.app/api/hello',
+  }
+})
+```
+
+- `name` : A human readable name for your Check Group.
+- `concurrency`: A number indicating the number of concurrent checks to run when a group is triggered. 
+- `locations`: An array of location codes where to run the checks in the group, i.e. `['us-east-1', 'eu-west-1]`.
+- `privateLocations`: an array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
+- `alertChannels`: an array of `AlertChannel` objects to which to send alert notifications.
+- `activated`: A boolean value if all the checks in the group are activated.
+- `muted`: A boolean value if alert notifications from the checks in the group are muted, i.e. not sent out.
+- `tags`: An array of tags. Group tags trickle down to tags on the individual checks. i.e. `['product', 'api']`
+- `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for the checks in the group.
+- `environmentVariables`: an array of objects defining variables in the group scope, i.e. `[{ key: 'DEBUG', value: 'true' }]`   
+- `localSetupScript`: any JS/TS code as a string to run before each API check in this group.
+- `localTearDownScript`: any JS/TS code as a string to run after each API check in this group.
+- `apiCheckDefaults`: A set of defaults for API checks. This should not be needed. Just compose shared defaults using JS/TS.
+- `browserCheckDefaults`: A set of defaults for API checks. This should not be needed. Just compose shared defaults using JS/TS.
 
 ## Alert Channels
 
@@ -524,6 +581,8 @@ All alert channels share a set of common properties to define when / how they sh
 - `sslExpiry`: A boolean if you want to receive a notification when a SSL/TLS certificate expires. This works only for API checks.
 - `sslExpiryThreshold`: a number indicating. 
 
+Alert channels are assigned to Checks and CheckGroups by instantiating a class and adding the resulting object to the 
+`alertChannels` array.
 
 ### SMS Alert Channel
 
