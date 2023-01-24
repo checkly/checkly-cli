@@ -5,7 +5,7 @@
   </a>
 </p>
 
-The Checkly CLI and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code 
+The Checkly CLI and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code
 (MaC) workflow.
 
 This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
@@ -15,10 +15,10 @@ This project is now in `alpha`, we aim for `beta` mid-February '23. `GA` should 
 
 # Getting Started
 
-First, install the CLI.  
+First, install the CLI.
 
 ```bash
-npm i --save-dev @checkly/cli 
+npm i --save-dev @checkly/cli
 ```
 
 To use TypeScript, also install `ts-node` and `typescript`:
@@ -64,7 +64,7 @@ test('Playwright home page', async ({ page }) => {
 })
 ```
 
-Now run `npx checkly test` to do a dry run against the global Checkly infrastructure so we validate we didn't make any mistakes. 
+Now run `npx checkly test` to do a dry run against the global Checkly infrastructure so we validate we didn't make any mistakes.
 This should print the message:
 
 ```
@@ -88,7 +88,7 @@ around the clock.
 # Project structure
 
 The getting started example above uses a set of defaults and conventions to get you going quickly. In more complex cases
-you will want more control. The recommended way to tackle this is using a mix of **global** and **local** 
+you will want more control. The recommended way to tackle this is using a mix of **global** and **local**
 configuration.
 
 ## Global configuration
@@ -128,6 +128,29 @@ module.exports = config;
   - `runLocation`: The default run location for `checkly test`.
   - `privateRunLocation`: A [private run location](https://www.checklyhq.com/docs/private-locations/) for `checkly test`. Both `runLocation` and `privateRunLocation` can't be set at once.
 
+### Config Intellisense
+The CLI ships TypeScript typings, so you add hints to your IDE by either annotating the config object type in JSDoc:
+
+```js
+/** @type {import('vite').ChecklyConfig} */
+const config = {
+  // …
+}
+
+module.exports = config;
+```
+
+Or alternatively, import and use the `defineConfig` helper which will provide typings intellisense without needing to annotate the object:
+```js
+const { defineConfig } = require('@checkly/cli')
+
+const config = defineConfig({
+  // …
+})
+
+module.exports = config;
+```
+
 ## Local configuration
 
 You can override any of the settings in the `checks` global configuration section at the individual check level.
@@ -157,7 +180,7 @@ you run `npx checkly deploy`.
 Remember the following rules when creating and updating constructs:
 
 1. Every construct needs to have a `logicalId`. This is the first argument when instantiating a class, i.e.
-```js 
+```js
 const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
 ```
 2. Every `logicalId` needs to be unique within the scope of a `Project`. A Project also has a `logicalId`.
@@ -251,8 +274,8 @@ new ApiCheck('hello-api-1', {
 
 # Runtimes and available NPM packages
 
-Checkly lets you use JavaScript / Typescript in your Browser checks and in the setup & teardown scripts you can 
-add to your API checks. This JavaScript code executes in a runtime environment managed by Checkly. 
+Checkly lets you use JavaScript / Typescript in your Browser checks and in the setup & teardown scripts you can
+add to your API checks. This JavaScript code executes in a runtime environment managed by Checkly.
 This environment has access to specific Node.js versions and NPM packages.
 
 > This means not all NPM packages from NPM are available inside the context of a Check.
@@ -309,10 +332,10 @@ npx checkly deploy
 ### `npx checkly test`
 
 Executes all the checks in the scope of your project on the Checkly cloud infrastructure. You can specify files to run by
-appending a pattern, e.g. `npx checkly test home.spec.js api`. 
+appending a pattern, e.g. `npx checkly test home.spec.js api`.
 
-This very powerful when combined with passing environment variables using one of the flags `--env` or `--env-file` as you 
-can target staging, test and preview environment with specific URLs, credentials and other common variables that differ 
+This very powerful when combined with passing environment variables using one of the flags `--env` or `--env-file` as you
+can target staging, test and preview environment with specific URLs, credentials and other common variables that differ
 between environments.
 
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite any existing variables stored in your Checkly account.
@@ -380,8 +403,8 @@ Account ID from the [Account settings tab](https://app.checklyhq.com/settings/ac
 
 # Using the Constructs API
 
-All resources you can create and manage using the Checkly CLI are derived from "constructs". These constructs are just 
-[TypeScript classes](https://github.com/checkly/checkly-cli/tree/main/package/src/constructs) like `ApiCheck` in `api-check.ts` and 
+All resources you can create and manage using the Checkly CLI are derived from "constructs". These constructs are just
+[TypeScript classes](https://github.com/checkly/checkly-cli/tree/main/package/src/constructs) like `ApiCheck` in `api-check.ts` and
 `SlackAlertChannel` in `slack-alert-channel.ts`.
 
 You can use standard JS/TS programming to use these constructs to create the monitoring setup of your
@@ -491,7 +514,7 @@ console.log('this is a teardown script')
 ### Browser Checks
 
 Browser checks are based on [`@playwright/test`](https://playwright.dev/). You can just write `.spec.js|ts` files with test cases
-and the Checkly CLI will pick them up and apply some default settings like a name, run locations and run frequency to turn 
+and the Checkly CLI will pick them up and apply some default settings like a name, run locations and run frequency to turn
 them into synthetic monitoring checks.
 
 However, you can override these global settings and configure individual Browser checks just like all other built-in check
@@ -512,7 +535,7 @@ new BrowserCheck('browser-check-1', {
 
 ## Check Groups
 
-You can explicitly organize checks in Check Groups. 
+You can explicitly organize checks in Check Groups.
 
 This brings the following benefits:
 
@@ -522,14 +545,14 @@ This brings the following benefits:
 down the all the checks in the group.
 
 > Note: you will notice that managing shared configuration between checks is very easy just using JS/TS. You might not need
-Check Groups for that purpose. 
+Check Groups for that purpose.
 
 ### Adding Checks to a Check Group
 
 You can add a check to a group in two ways.
 
 1. Assign `group.ref()` to the `groupId` property of a Check.
-2. For Browser Checks, we allow you to use the `testMatch` glob pattern to include any `.spec.js` file, without having to 
+2. For Browser Checks, we allow you to use the `testMatch` glob pattern to include any `.spec.js` file, without having to
 create a `BrowserCheck` construct. This works the same ast the `testMatch` glob at the Project level.
 
 ```js
@@ -541,7 +564,7 @@ const group = new CheckGroup('check-group-1', {
   tags: ['api-group'],
   concurrency: 10,
   browserChecks: {
-    testMatch: '*.spec.js' 
+    testMatch: '*.spec.js'
   }
 })
 
@@ -556,7 +579,7 @@ new ApiCheck('check-group-api-check-1', {
 ```
 
 - `name` : A human readable name for your Check Group.
-- `concurrency`: A number indicating the number of concurrent checks to run when a group is triggered. 
+- `concurrency`: A number indicating the number of concurrent checks to run when a group is triggered.
 - `locations`: An array of location codes where to run the checks in the group, i.e. `['us-east-1', 'eu-west-1]`.
 - `privateLocations`: an array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
 - `alertChannels`: an array of `AlertChannel` objects to which to send alert notifications.
@@ -564,7 +587,7 @@ new ApiCheck('check-group-api-check-1', {
 - `muted`: A boolean value if alert notifications from the checks in the group are muted, i.e. not sent out.
 - `tags`: An array of tags. Group tags trickle down to tags on the individual checks. i.e. `['product', 'api']`
 - `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for the checks in the group.
-- `environmentVariables`: an array of objects defining variables in the group scope, i.e. `[{ key: 'DEBUG', value: 'true' }]`   
+- `environmentVariables`: an array of objects defining variables in the group scope, i.e. `[{ key: 'DEBUG', value: 'true' }]`
 - `localSetupScript`: any JS/TS code as a string to run before each API check in this group.
 - `localTearDownScript`: any JS/TS code as a string to run after each API check in this group.
 - `apiCheckDefaults`: A set of defaults for API checks. This should not be needed. Just compose shared defaults using JS/TS.
@@ -579,14 +602,14 @@ All alert channels share a set of common properties to define when / how they sh
 - `sendFailure`: A boolean if you want to receive failure notifications.
 - `sendDegrade`: A boolean if you want to receive degraded notifications. These only apply to API checks.
 - `sslExpiry`: A boolean if you want to receive a notification when a SSL/TLS certificate expires. This works only for API checks.
-- `sslExpiryThreshold`: a number indicating. 
+- `sslExpiryThreshold`: a number indicating.
 
-Alert channels are assigned to Checks and CheckGroups by instantiating a class and adding the resulting object to the 
+Alert channels are assigned to Checks and CheckGroups by instantiating a class and adding the resulting object to the
 `alertChannels` array.
 
 ### SMS Alert Channel
 
-Sends SMS notifications to phone number. Make sure to use standard international notation. 
+Sends SMS notifications to phone number. Make sure to use standard international notation.
 
 ```js
 const { SmsAlertChannel } = require('@checkly/cli/constructs'
@@ -610,7 +633,7 @@ const emailChannel = new EmailAlertChannel('email-channel-1', {
 
 ### Slack Alert Channel
 
-Sends a Slack message to an incoming Slack webhook address. You can specify the target `channel`. 
+Sends a Slack message to an incoming Slack webhook address. You can specify the target `channel`.
 
 ````js
 
@@ -648,13 +671,13 @@ const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
 ```
 - `url`: The URL where to send the webhook HTTP request.
 - `method`: A string, either `GET`, `POST`, `PUT`, `PATCH`, `HEAD` or `DELETE` just like an API check.
-- `template`: This is commonly a JSON body. You can use Handlebars-style template variables to add custom data to the template. 
-See all supported template variables available in 
+- `template`: This is commonly a JSON body. You can use Handlebars-style template variables to add custom data to the template.
+See all supported template variables available in
 [our docs section on using variables with webhooks.](https://www.checklyhq.com/docs/alerting/webhooks/#using-variables)
 
 ### Opsgenie Alert Channel
 
-Sends an alert notification to your Opsgenie account. 
+Sends an alert notification to your Opsgenie account.
 
 ```js
 const { OpsgenieAlertChannel } = require('@checkly/cli/constructs')
@@ -670,7 +693,7 @@ const opsGenieChannel = new OpsgenieAlertChannel('opsgenie-channel-1', {
 - `name`: Friendly name to recognise the integration.
 - `region`: A string representing the Opsgenie location, either `EU` or `US`.
 - `priority`: A string representing the severity level, `P1` to `P5`.
-- `apiKey`: An API key for your Opsgenie account. [See our docs on where to create this API key](https://www.checklyhq.com/docs/integrations/opsgenie/) 
+- `apiKey`: An API key for your Opsgenie account. [See our docs on where to create this API key](https://www.checklyhq.com/docs/integrations/opsgenie/)
 
 ### Pagerduty Alert Channel
 
@@ -687,7 +710,7 @@ const pagerdutyChannel = new PagerdutyAlertChannel('pagerduty-channel-1', {
 - `account`: The name of your Pagerduty account.
 - `serviceName`: The name of your service defined in Pagerduty under which the alerts should be nested.
 - `serviceKey`: The API key created by installing the Checkly integration in Pagerduty. We would advise you to [install the
-Pagerduty alert channel first from our UI](https://app.checklyhq.com/alerts/settings/channels/new/pagerduty) to grab 
+Pagerduty alert channel first from our UI](https://app.checklyhq.com/alerts/settings/channels/new/pagerduty) to grab
 the `serviceKey` because Pagerduty is...great!
 
 # Local Development
