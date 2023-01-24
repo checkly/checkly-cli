@@ -8,6 +8,7 @@ import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import type { LocationCode } from '../types/LocationCode'
 
 // TODO: turn this into type
 const defaultApiCheckDefaults = {
@@ -29,7 +30,7 @@ export interface CheckGroupProps {
     activated: boolean
     muted: boolean
     runtimeId: string
-    locations: Array<string>
+    locations: Array<LocationCode>
     privateLocations?: Array<string>
     tags: Array<string>
     concurrency: number
@@ -47,7 +48,7 @@ export class CheckGroup extends Construct {
   activated: boolean
   muted: boolean
   runtimeId: string
-  locations: Array<string>
+  locations: Array<LocationCode>
   privateLocations?: Array<string>
   tags: Array<string>
   concurrency: number

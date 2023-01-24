@@ -5,6 +5,7 @@ import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import type { LocationCode } from '../types/LocationCode'
 
 export interface CheckProps extends CheckConfigDefaults {
   name: string
@@ -13,7 +14,7 @@ export interface CheckProps extends CheckConfigDefaults {
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
-  locations?: Array<string>
+  locations?: Array<LocationCode>
   privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
@@ -30,7 +31,7 @@ export abstract class Check extends Construct {
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
-  locations?: Array<string>
+  locations?: Array<LocationCode>
   privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number

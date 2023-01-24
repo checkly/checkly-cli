@@ -2,6 +2,8 @@ import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
 import { EnvironmentVariable } from '../constructs/environment-variable'
+import type { LocationCode } from '../types/LocationCode'
+
 
 export type CheckConfigDefaults = {
   activated?: boolean,
@@ -23,7 +25,7 @@ export type ChecklyConfig = {
   logicalId: string,
   repoUrl: string,
   checks?: CheckConfigDefaults & {
-    locations?: string[],
+    locations?: LocationCode[],
     runtimeId?: string,
     checkMatch?: string,
     ignoreDirectoriesMatch?: string[],
