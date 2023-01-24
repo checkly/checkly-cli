@@ -132,7 +132,7 @@ module.exports = config;
 The CLI ships TypeScript typings, so you add hints to your IDE by either annotating the config object type in JSDoc:
 
 ```js
-/** @type {import('vite').ChecklyConfig} */
+/** @type {import('@checkly/cli').ChecklyConfig} */
 const config = {
   // …
 }
