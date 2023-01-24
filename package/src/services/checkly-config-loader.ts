@@ -11,7 +11,7 @@ export type CheckConfigDefaults = {
   doubleCheck?: boolean,
   shouldFail?: boolean,
   runtimeId?: string,
-  locations?: Array<string>,
+  locations?: Array<LocationCode>,
   tags?: Array<string>,
   frequency?: number,
   environmentVariables?: Array<EnvironmentVariable>,
