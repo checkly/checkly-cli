@@ -4,7 +4,6 @@ import { loadJsFile, loadTsFile } from './util'
 import { EnvironmentVariable } from '../constructs/environment-variable'
 import type { LocationCode } from '../types/LocationCode'
 
-
 export type CheckConfigDefaults = {
   activated?: boolean,
   muted?: boolean,
