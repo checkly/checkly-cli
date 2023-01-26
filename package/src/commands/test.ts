@@ -126,7 +126,7 @@ export default class Test extends Command {
         return check
       })
     const reporter = isCI ? new CiReporter(location, checks) : new ListReporter(location, checks)
-    const runner = new CheckRunner(checks, location)
+    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
