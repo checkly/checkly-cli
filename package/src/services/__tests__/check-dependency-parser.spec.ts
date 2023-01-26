@@ -89,6 +89,17 @@ describe('dependency-parser - parseDependencies()', () => {
     ])
   })
 
+  it('should handle ES Modules', () => {
+    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-dependency-parser-fixtures', 'esmodules-example', filename)
+    const parser = new Parser(defaultNpmModules)
+    const dependencies = parser.parseDependencies(toAbsolutePath('entrypoint.js'))
+    expect(dependencies.sort()).toEqual([
+      toAbsolutePath('dep1.js'),
+      toAbsolutePath('dep2.js'),
+      toAbsolutePath('dep3.js'),
+    ])
+  })
+
   /*
    * There is an unhandled edge-case when require() is reassigned.
    * Even though the check might execute fine, we throw an error for a missing dependency.
