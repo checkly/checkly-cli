@@ -162,7 +162,11 @@ export class Parser {
     const contents = fs.readFileSync(filePath, { encoding: 'utf8' })
 
     if (filePath.endsWith('.js')) {
-      const ast = acorn.parse(contents, { allowReturnOutsideFunction: true, ecmaVersion: 'latest' })
+      const ast = acorn.parse(contents, {
+        allowReturnOutsideFunction: true,
+        ecmaVersion: 'latest',
+        allowImportExportEverywhere: true,
+      })
       walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
     } else if (filePath.endsWith('.ts')) {
       const tsParser = getTsParser()
@@ -184,6 +188,15 @@ export class Parser {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
         Parser.registerDependency(requireStringArg, localDependencies, npmDependencies)
+      },
+      ImportDeclaration (node: any) {
+        if (node.source.type !== 'Literal') return
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+      },
+      ExportNamedDeclaration (node: any) {
+        if (node.source === null) return
+        if (node.source.type !== 'Literal') return
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
       },
     }
   }
