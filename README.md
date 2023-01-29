@@ -8,7 +8,7 @@
 The Checkly CLI and Constructs in this repo together form the basic building blocks of the Checkly Monitoring-as-Code
 (MaC) workflow.
 
-This goal of this repo and the larger MaC project is to deliver a Javascript/Typescript-native workflow for creating,
+The goal of this repo and the larger MaC project is to deliver a JavaScript/TypeScript-native workflow for creating,
 debugging, deploying and life cycling synthetic monitors (checks) at scale, from your code base.
 
 This project is now in `alpha`, we aim for `beta` mid-February '23. `GA` should be before end Q1 '23.
@@ -187,7 +187,7 @@ const check  = new ApiCheck('my-logical-id', { name: 'My API check' })
 3. A `logicalId` can be any string up to 255 characters in length.
 4. There is no hard limit on the amount of `Project`'s you can have in your Checkly account.
 
-Behind the scenes, we use the `logicalId` to create a graph of your resources so we now what to persist, update and remove
+Behind the scenes, we use the `logicalId` to create a graph of your resources so we know what to persist, update and remove
 from our database. Changing the `logicalId` on an existing resource in your code base will tell the Checkly backend that
 a resource was removed and a new resource was created.
 
@@ -274,9 +274,9 @@ new ApiCheck('hello-api-1', {
 
 # Runtimes and available NPM packages
 
-Checkly lets you use JavaScript / Typescript in your Browser checks and in the setup & teardown scripts you can
+Checkly lets you use JavaScript / TypeScript in your Browser checks and in the setup & teardown scripts you can
 add to your API checks. This JavaScript code executes in a runtime environment managed by Checkly.
-This environment has access to specific Node.js versions and NPM packages.
+This environment has access to a specific Node.js versions and NPM packages.
 
 > This means not all NPM packages from NPM are available inside the context of a Check.
 
@@ -334,12 +334,12 @@ npx checkly deploy
 Executes all the checks in the scope of your project on the Checkly cloud infrastructure. You can specify files to run by
 appending a pattern, e.g. `npx checkly test home.spec.js api`.
 
-This very powerful when combined with passing environment variables using one of the flags `--env` or `--env-file` as you
+This is very powerful when combined with passing environment variables using one of the flags `--env` or `--env-file` as you
 can target staging, test and preview environment with specific URLs, credentials and other common variables that differ
 between environments.
 
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite any existing variables stored in your Checkly account.
-- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
+- `--grep <pattern>` or `-g`: Only run checks that names match a regular expression.
 - `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 - `--private-location <private location ID>`: Run checks against the specified private location.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
@@ -418,12 +418,12 @@ choice. Loops, variables, if-statements, file imports, extensions etc.
 The CLI currently supports two Check types: API Checks and Browser Checks. All checks share the following common properties:
 
 - `name` : A human readable name for your Check.
-- `frequency`: How often to run you check in minutes, i.e. `60` for every hour.
+- `frequency`: How often to run your check in minutes, i.e. `60` for every hour.
 - `locations`: An array of location codes where to run your checks, i.e. `['us-east-1', 'eu-west-1]`.
 - `privateLocations`: an array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
 - `activated`: A boolean value if your check is activated or not.
 - `muted`: A boolean value if alert notifications from your check are muted, i.e. not sent out.
-- `alertChannels`: an array of `AlertChannel` objects to which to send alert notifications.
+- `alertChannels`: An array of `AlertChannel` objects to which to send alert notifications.
 - `doubleCheck`: A boolean value if Checkly should double check on failure.
 - `tags`: An array of tags to help you organize your checks, i.e. `['product', 'api']`
 - `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for this check.
@@ -441,7 +441,7 @@ used for form encoded payloads. [Read more about API checks in our docs](https:/
 - It sets an extra param in the `queryParams` array, although you could add that to the URL directly too.
 - It defines an array of assertions to assert the HTTP response status is correct and that the JSON response body
   has a property called `name` by using the [JSON path](https://jsonpath.com/) expression `*.name`
-- It runs a **setup script** and **teardown script**, which are just Javascript files referenced from the same directory.
+- It runs a **setup script** and **teardown script**, which are just JavaScript files referenced from the same directory.
 
 The file hierarchy looks as follows:
 
@@ -494,9 +494,9 @@ headers or other parts of the eventual HTTP request. Check our docs for examples
 
 - [Fetching an OAuth2 token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#fetch-an-oauth2-access-token-using-the-client_credentials-grant)
 - [Sign an AWS API request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-aws-api-request)
-- [Sign an HMAC request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-hmac-request)
+- [Sign a HMAC request](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#sign-an-hmac-request)
 - [Create a JWT token](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#create-a-jwt-token-using-the-jsonwebtoken-library)
-- [Dismiss A Vercel password prompt](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#dismiss-password-protection-prompt-on-vercel-deployment)
+- [Dismiss a Vercel password prompt](https://www.checklyhq.com/docs/api-checks/setup-script-examples/#dismiss-password-protection-prompt-on-vercel-deployment)
 
 ```js
 // setup.js
@@ -518,7 +518,7 @@ and the Checkly CLI will pick them up and apply some default settings like a nam
 them into synthetic monitoring checks.
 
 However, you can override these global settings and configure individual Browser checks just like all other built-in check
-types. The most important thing to is set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file. This property supports relative and absolute paths.
+types. The most important thing is to set the `code.entrypoint` property and point it to your Playwright `.spec.js|ts` file. This property supports relative and absolute paths.
 
 ```js
 const { BrowserCheck } = require('@checkly/cli/constructs')
@@ -542,7 +542,7 @@ This brings the following benefits:
 1. Your checks are organized in a folder in the Checkly web UI.
 2. You can trigger all checks in a group from the web UI and via a command line trigger.
 3. You can manage group-level configuration like the runtime, activated & muted-state, tags and alert channels that trickle
-down the all the checks in the group.
+down to all the checks in the group.
 
 > Note: you will notice that managing shared configuration between checks is very easy just using JS/TS. You might not need
 Check Groups for that purpose.
@@ -579,17 +579,17 @@ new ApiCheck('check-group-api-check-1', {
 ```
 
 - `name` : A human readable name for your Check Group.
-- `concurrency`: A number indicating the number of concurrent checks to run when a group is triggered.
+- `concurrency`: A number indicating the ammount of concurrent checks to run when a group is triggered.
 - `locations`: An array of location codes where to run the checks in the group, i.e. `['us-east-1', 'eu-west-1]`.
-- `privateLocations`: an array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
-- `alertChannels`: an array of `AlertChannel` objects to which to send alert notifications.
+- `privateLocations`: An array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
+- `alertChannels`: An array of `AlertChannel` objects to which to send alert notifications.
 - `activated`: A boolean value if all the checks in the group are activated.
 - `muted`: A boolean value if alert notifications from the checks in the group are muted, i.e. not sent out.
 - `tags`: An array of tags. Group tags trickle down to tags on the individual checks. i.e. `['product', 'api']`
 - `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for the checks in the group.
-- `environmentVariables`: an array of objects defining variables in the group scope, i.e. `[{ key: 'DEBUG', value: 'true' }]`
-- `localSetupScript`: any JS/TS code as a string to run before each API check in this group.
-- `localTearDownScript`: any JS/TS code as a string to run after each API check in this group.
+- `environmentVariables`: An array of objects defining variables in the group scope, i.e. `[{ key: 'DEBUG', value: 'true' }]`
+- `localSetupScript`: Any JS/TS code as a string to run before each API check in this group.
+- `localTearDownScript`: Any JS/TS code as a string to run after each API check in this group.
 - `apiCheckDefaults`: A set of defaults for API checks. This should not be needed. Just compose shared defaults using JS/TS.
 - `browserCheckDefaults`: A set of defaults for API checks. This should not be needed. Just compose shared defaults using JS/TS.
 
@@ -602,7 +602,7 @@ All alert channels share a set of common properties to define when / how they sh
 - `sendFailure`: A boolean if you want to receive failure notifications.
 - `sendDegrade`: A boolean if you want to receive degraded notifications. These only apply to API checks.
 - `sslExpiry`: A boolean if you want to receive a notification when a SSL/TLS certificate expires. This works only for API checks.
-- `sslExpiryThreshold`: a number indicating.
+- `sslExpiryThreshold`: A number indicating how many days before the certificate expire date will trigger the notification.  
 
 Alert channels are assigned to Checks and CheckGroups by instantiating a class and adding the resulting object to the
 `alertChannels` array.
