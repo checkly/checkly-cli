@@ -339,7 +339,7 @@ can target staging, test and preview environment with specific URLs, credentials
 between environments.
 
 - `--env <key=value>` or `-e`: Pass environment variables to the check execution runtime. Variables passed here overwrite any existing variables stored in your Checkly account.
-- `--grep <pattern>` or `-g`: Only run checks that names match a regular expression.
+- `--grep <pattern>` or `-g`: Only run checks where the check name matches a regular expression.
 - `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 - `--private-location <private location ID>`: Run checks against the specified private location.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
@@ -579,7 +579,7 @@ new ApiCheck('check-group-api-check-1', {
 ```
 
 - `name` : A human readable name for your Check Group.
-- `concurrency`: A number indicating the ammount of concurrent checks to run when a group is triggered.
+- `concurrency`: A number indicating the amount of concurrent checks to run when a group is triggered.
 - `locations`: An array of location codes where to run the checks in the group, i.e. `['us-east-1', 'eu-west-1]`.
 - `privateLocations`: An array of [Private Locations](https://www.checklyhq.com/docs/private-locations/) slugs, i.e. `['datacenter-east-1]`.
 - `alertChannels`: An array of `AlertChannel` objects to which to send alert notifications.
@@ -602,7 +602,7 @@ All alert channels share a set of common properties to define when / how they sh
 - `sendFailure`: A boolean if you want to receive failure notifications.
 - `sendDegrade`: A boolean if you want to receive degraded notifications. These only apply to API checks.
 - `sslExpiry`: A boolean if you want to receive a notification when a SSL/TLS certificate expires. This works only for API checks.
-- `sslExpiryThreshold`: A number indicating how many days before the certificate expire date will trigger the notification.  
+- `sslExpiryThreshold`: A number indicating how many days before the certificate expiry date a notification will be triggered.
 
 Alert channels are assigned to Checks and CheckGroups by instantiating a class and adding the resulting object to the
 `alertChannels` array.
