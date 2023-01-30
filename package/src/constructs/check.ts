@@ -6,19 +6,56 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
-export interface CheckProps extends CheckConfigDefaults {
+export interface CheckProps {
+  /**
+   *  The name of the check.
+   */
   name: string
+  /**
+   *  Determines if the check is running or not.
+   */
   activated?: boolean
+  /**
+   * Determines if any notifications will be send out when a check fails and/or recovers.
+   */
   muted?: boolean
+  /**
+   * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
+   * randomly selected region before marking the check as failed.
+   */
   doubleCheck?: boolean
+  /**
+   * Allows to invert the behaviour of when a check is considered to fail. Allows for validating error status like 404.
+   */
   shouldFail?: boolean
+  /**
+   * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
+   */
   runtimeId?: string
+  /**
+   * An array of one or more data center locations where to run this check.
+   */
   locations?: Array<string>
+  /**
+   * An array of one or more private locations where to run the check.
+   */
   privateLocations?: Array<string>
+  /**
+   * Tags for organizing and filtering checks.
+   */
   tags?: Array<string>
+  /**
+   * How often the check should run in minutes.
+   */
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
+  /**
+   * The id of the check group this check is part of.
+   */
   groupId?: Ref
+  /**
+   * List of alert channel subscriptions.
+   */
   alertChannels?: Array<AlertChannel>
 }
 

@@ -19,14 +19,32 @@ export interface Content {
 }
 
 export interface BrowserCheckProps extends CheckProps {
+  /**
+   * A valid piece of Node.js javascript code describing a browser interaction
+   * with the Puppeteer or Playwright frameworks.
+   */
   code: Content|Entrypoint
 }
 
+/**
+ * Creates a Browser Check
+ *
+ * @remarks
+ *
+ * This class make use of the Browser Checks endpoints
+ * listed {@link https://developers.checklyhq.com/reference/postv1checksbrowser here}
+ */
 export class BrowserCheck extends Check {
   script: string
   scriptPath?: string
   dependencies?: Array<CheckDependency>
 
+  /**
+   * Constructs the Browser Check instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props check configuration properties
+   */
   constructor (logicalId: string, props: BrowserCheckProps) {
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)

@@ -14,17 +14,44 @@ export enum OpsgenieRegion {
 }
 
 export interface OpsgenieAlertChannelProps extends AlertChannelProps {
+  /**
+   * Friendly name to recognise the integration.
+   */
   name: string
+  /**
+   * An API key for your Opsgenie account. See our
+   * {@link https://www.checklyhq.com/docs/integrations/opsgenie/ docs} on where to create this API key
+   */
   apiKey: string
+  /**
+   * Configure the Opsgenie location, either `EU` or `US`.
+   */
   region: OpsgenieRegion
+  /**
+   * Configure the severity level, `P1` to `P5`.
+   */
   priority: OpsgeniePriority
 }
 
+/**
+ * Creates an Opsgenie Alert Channel
+ *
+ * @remarks
+ *
+ * This class make use of the Alert Channel endpoints
+ * listed {@link https://developers.checklyhq.com/reference/postv1alertchannels here}
+ */
 export class OpsgenieAlertChannel extends AlertChannel {
   name: string
   apiKey: string
   region: OpsgenieRegion
   priority: OpsgeniePriority
+  /**
+   * Constructs the Opsgenie Alert Channel instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props Opsgenie alert channel configuration properties
+   */
   constructor (logicalId: string, props: OpsgenieAlertChannelProps) {
     super(logicalId, props)
     this.name = props.name

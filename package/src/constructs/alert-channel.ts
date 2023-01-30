@@ -1,13 +1,36 @@
 import { Construct } from './construct'
 
 export interface AlertChannelProps {
-    sendRecovery: boolean
-    sendFailure: boolean
-    sendDegraded: boolean
-    sslExpiry: boolean
-    sslExpiryThreshold: number
-  }
+  /**
+   * Determines if an alert should be send for check recoveries.
+   */
+  sendRecovery: boolean
+  /**
+   * Determines if an alert should be send for check failures.
+   */
+  sendFailure: boolean
+  /**
+   * Determines if an alert should be send when a check is degraded.
+   */
+  sendDegraded: boolean
+  /**
+   * Determines if an alert should be send for expiring SSL certificates.
+   */
+  sslExpiry: boolean
+  /**
+   * At what moment in time to start alerting on SSL certificates.
+   */
+  sslExpiryThreshold: number
+}
 
+/**
+ * Creates an Alert Channels
+ *
+ * @remarks
+ *
+ * This class make use of the Alert Channels endpoints
+ * listed {@link https://developers.checklyhq.com/reference/postv1alertchannels here}
+ */
 export abstract class AlertChannel extends Construct {
   sendRecovery: boolean
   sendFailure: boolean
@@ -17,6 +40,12 @@ export abstract class AlertChannel extends Construct {
 
   static readonly __checklyType = 'alertChannels'
 
+  /**
+   * Constructs the Alert Channel instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props alert channel configuration properties
+   */
   constructor (logicalId: string, props: AlertChannelProps) {
     super(logicalId)
     this.sendRecovery = props.sendRecovery

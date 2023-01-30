@@ -1,36 +1,40 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
-import { EnvironmentVariable } from '../constructs/environment-variable'
+import { CheckProps } from '../constructs/check'
 
-export type CheckConfigDefaults = {
-  activated?: boolean,
-  muted?: boolean,
-  doubleCheck?: boolean,
-  shouldFail?: boolean,
-  runtimeId?: string,
-  locations?: Array<string>,
-  tags?: Array<string>,
-  frequency?: number,
-  environmentVariables?: Array<EnvironmentVariable>,
-  // TODO: How would a user declare default alert channels?
-  // We need some additional work before constructs can be created in checkly.config.js.
-  // alertChannels?: Array<AlertChannel>,
-}
+// TODO: How would a user declare default alert channels?
+// We need some additional work before constructs can be created in checkly.config.js.
+// alertChannels?: Array<AlertChannel>,
+export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
+  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'>
 
 export type ChecklyConfig = {
+  /**
+   * Friendly name for your project.
+   */
   projectName: string,
+  /**
+   * Unique project indentifier.
+   */
   logicalId: string,
+  /**
+   * Git repository URL.
+   */
   repoUrl: string,
+  /**
+   * Checks default configuration properties.
+   */
   checks?: CheckConfigDefaults & {
-    locations?: string[],
-    runtimeId?: string,
     checkMatch?: string,
     ignoreDirectoriesMatch?: string[],
     browserChecks?: CheckConfigDefaults & {
       testMatch?: string,
     },
   },
+  /**
+   * CLI default configuration properties.
+   */
   cli?: {
     runLocation?: string,
     privateRunLocation?: string,
