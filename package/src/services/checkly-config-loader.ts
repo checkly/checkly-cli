@@ -26,9 +26,21 @@ export type ChecklyConfig = {
    * Checks default configuration properties.
    */
   checks?: CheckConfigDefaults & {
+    /**
+     * Glob pattern to where Checkly looks for checks.
+     */
     checkMatch?: string,
+    /**
+     * List of glob patterns with directories to ignore.
+     */
     ignoreDirectoriesMatch?: string[],
+    /**
+     * Browser checks default configuration properties.
+     */
     browserChecks?: CheckConfigDefaults & {
+      /**
+       * Glob pattern to include multiple files, i.e. all `.spec.js` files
+       */
       testMatch?: string,
     },
   },

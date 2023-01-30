@@ -17,15 +17,14 @@ enum BodyType {
   NONE = 'NONE'
 }
 
-export enum HttpRequestMethod {
-  GET = 'GET',
-  POST = 'POST',
-  PUT = 'PUT',
-  PATCH = 'PATCH',
-  HEAD = 'HEAD',
-  DELETE = 'DELETE',
-  OPTIONS = 'OPTIONS',
-}
+export type HttpRequestMethod =
+  | 'get' | 'GET'
+  | 'post' | 'POST'
+  | 'put' | 'PUT'
+  | 'patch' | 'PATCH'
+  | 'head' | 'HEAD'
+  | 'delete' | 'DELETE'
+  | 'options' | 'OPTIONS'
 
 interface BasicAuth {
   username: string
