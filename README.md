@@ -343,6 +343,7 @@ between environments.
 - `--location <location>` or `-l`: Run checks against a specified location, e.g. `eu-west-1`. Defaults to `us-east-1`.
 - `--private-location <private location ID>`: Run checks against the specified private location.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
+- `--list`: Just list the checks in your project, but don't run them.
 
 ### `npx checkly deploy`
 
