@@ -51,6 +51,10 @@ export default class Test extends Command {
       description: 'dotenv file path to be passed.',
       exclusive: ['env'],
     }),
+    list: Flags.boolean({
+      default: false,
+      description: 'list all checks but don\'t run them',
+    }),
   }
 
   static auth = true
@@ -74,13 +78,14 @@ export default class Test extends Command {
       grep,
       env,
       'env-file': envFile,
+      list,
     } = flags
     const cwd = process.cwd()
 
     const testEnvVars = await getEnvs(envFile, env)
     const checklyConfig = await loadChecklyConfig(cwd)
     const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
-    const { data: avilableRuntimes } = await api.runtimes.getAll()
+    const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
       projectLogicalId: checklyConfig.logicalId,
@@ -91,7 +96,7 @@ export default class Test extends Command {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
-      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+      availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
@@ -126,6 +131,12 @@ export default class Test extends Command {
         return check
       })
     const reporter = isCI ? new CiReporter(location, checks) : new ListReporter(location, checks)
+
+    if (list) {
+      reporter.onBeginStatic()
+      return
+    }
+
     const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
