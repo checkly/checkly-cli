@@ -3,62 +3,11 @@ import * as fs from 'fs'
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { TSESTree } from '@typescript-eslint/typescript-estree'
-
-type UnsupportedNpmDependencies = {
-  file: string;
-  unsupportedDependencies: string[];
-}
-
-type ParseError = {
-  file: string;
-  error: string;
-}
+import { Collector } from './collector'
 
 enum SupportedExtensions {
   JS = '.js',
   TS = '.ts'
-}
-
-export class DependencyParseError extends Error {
-  entrypoint: string
-  missingFiles: string[]
-  unsupportedNpmDependencies: UnsupportedNpmDependencies[]
-  parseErrors: ParseError[]
-  constructor (
-    entrypoint: string,
-    missingFiles: string[],
-    unsupportedNpmDependencies: UnsupportedNpmDependencies[],
-    parseErrors: ParseError[],
-  ) {
-    let message = `Encountered an error parsing check files for ${entrypoint}.`
-    if (missingFiles.length) {
-      message += '\n\nThe following dependencies weren\'t found:\n'
-      for (const missingFile of missingFiles) {
-        message += `\t${missingFile}\n`
-      }
-    }
-    if (unsupportedNpmDependencies.length) {
-      message += '\n\nThe following NPM dependencies were used, but aren\'t supported in the runtimes.\n'
-      message += 'For more information, see https://www.checklyhq.com/docs/runtimes/.\n'
-      for (const { file, unsupportedDependencies } of unsupportedNpmDependencies) {
-        message += `\t${file} imports unsupported dependencies:\n`
-        for (const unsupportedDependency of unsupportedDependencies) {
-          message += `\t\t${unsupportedDependency}\n`
-        }
-      }
-    }
-    if (parseErrors.length) {
-      message += '\n\nThe following files couldn\'t be parsed:\n'
-      for (const { file, error } of parseErrors) {
-        message += `\t${file} - ${error}\n`
-      }
-    }
-    super(message)
-    this.entrypoint = entrypoint
-    this.missingFiles = missingFiles
-    this.unsupportedNpmDependencies = unsupportedNpmDependencies
-    this.parseErrors = parseErrors
-  }
 }
 
 const supportedBuiltinModules = [
@@ -106,11 +55,9 @@ export class Parser {
   * We can find all of the files we need to run the check by traversing this graph.
   * In this implementation, we use breadth first search.
   */
-    const missingFiles: string[] = []
-    const unsupportedNpmDependencies: UnsupportedNpmDependencies[] = []
-    const parseErrors: ParseError[] = []
-    const dependencies = new Set<string>()
-    dependencies.add(entrypoint)
+    const collector = new Collector(entrypoint)
+    // Stop adding entrypoint as dependency later on
+    collector.addDependency(entrypoint)
     const bfsQueue: string[] = [entrypoint]
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
@@ -121,7 +68,7 @@ export class Parser {
         const { localDependencies, npmDependencies } = Parser.parseDependenciesForFile(currentPath)
         const unsupportedDependencies = npmDependencies.filter((dep) => !this.supportedModules.has(dep))
         if (unsupportedDependencies.length) {
-          unsupportedNpmDependencies.push({ file: currentPath, unsupportedDependencies })
+          collector.addUnsupportedNpmDependencies(currentPath, unsupportedDependencies)
         }
         const localDependenciesResolvedPaths = localDependencies.map((localDependency: string) => {
         // Convert a relative path to an absolute path.
@@ -132,26 +79,23 @@ export class Parser {
           return Parser.addExtension(extension, resolvedPath)
         })
         localDependenciesResolvedPaths.forEach((path: string) => {
-          if (!dependencies.has(path)) {
-            dependencies.add(path)
+          if (!collector.hasDependency(path)) {
+            collector.addDependency(path)
             bfsQueue.push(path)
           }
         })
       } catch (err: any) {
         if (err.code === 'ENOENT') {
-          missingFiles.push(currentPath)
+          collector.addMissingFile(currentPath)
         } else {
-          parseErrors.push({ file: currentPath, error: err.message })
+          collector.addParsingError(currentPath, err.message)
         }
       }
     }
 
-    if (missingFiles.length || parseErrors.length || unsupportedNpmDependencies.length) {
-      throw new DependencyParseError(entrypoint, missingFiles, unsupportedNpmDependencies, parseErrors)
-    }
+    collector.validate()
 
-    dependencies.delete(entrypoint)
-    return Array.from(dependencies)
+    return collector.collect()
   }
 
   static addExtension (extension: string, filePath: string) {
