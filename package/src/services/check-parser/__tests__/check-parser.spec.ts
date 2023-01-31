@@ -7,17 +7,17 @@ const defaultNpmModules = [
   'jsonwebtoken', 'lodash', 'mocha', 'moment', 'otpauth', 'playwright', 'uuid',
 ]
 
-describe('dependency-parser - parseDependencies()', () => {
+describe('dependency-parser - parser()', () => {
   it('should handle JS file with no dependencies', () => {
     const parser = new Parser(defaultNpmModules)
-    const dependencies = parser.parseDependencies(path.join(__dirname, 'check-parser-fixtures', 'no-dependencies.js'))
+    const dependencies = parser.parse(path.join(__dirname, 'check-parser-fixtures', 'no-dependencies.js'))
     expect(dependencies).toHaveLength(0)
   })
 
   it('should handle JS file with dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', filename)
     const parser = new Parser(defaultNpmModules)
-    const dependencies = parser.parseDependencies(toAbsolutePath('entrypoint.js'))
+    const dependencies = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -29,7 +29,7 @@ describe('dependency-parser - parseDependencies()', () => {
     const missingEntrypoint = path.join(__dirname, 'check-parser-fixtures', 'does-not-exist.js')
     try {
       const parser = new Parser(defaultNpmModules)
-      parser.parseDependencies(missingEntrypoint)
+      parser.parse(missingEntrypoint)
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [missingEntrypoint] })
     }
@@ -39,7 +39,7 @@ describe('dependency-parser - parseDependencies()', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', filename)
     try {
       const parser = new Parser(defaultNpmModules)
-      parser.parseDependencies(toAbsolutePath('missing-dependencies.js'))
+      parser.parse(toAbsolutePath('missing-dependencies.js'))
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
     }
@@ -49,7 +49,7 @@ describe('dependency-parser - parseDependencies()', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'syntax-error.js')
     try {
       const parser = new Parser(defaultNpmModules)
-      parser.parseDependencies(entrypoint)
+      parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
     }
@@ -59,7 +59,7 @@ describe('dependency-parser - parseDependencies()', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
     try {
       const parser = new Parser(defaultNpmModules)
-      parser.parseDependencies(entrypoint)
+      parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
     }
@@ -68,7 +68,7 @@ describe('dependency-parser - parseDependencies()', () => {
   it('should handle circular dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', filename)
     const parser = new Parser(defaultNpmModules)
-    const dependencies = parser.parseDependencies(toAbsolutePath('entrypoint.js'))
+    const dependencies = parser.parse(toAbsolutePath('entrypoint.js'))
     // Circular dependencies are allowed in Node.js
     // We just need to test that parsing the dependencies doesn't loop indefinitely
     // https://nodejs.org/api/modules.html#modules_cycles
@@ -81,18 +81,19 @@ describe('dependency-parser - parseDependencies()', () => {
   it('should parse typescript dependencies', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', filename)
     const parser = new Parser(defaultNpmModules)
-    const dependencies = parser.parseDependencies(toAbsolutePath('entrypoint.ts'))
+    const dependencies = parser.parse(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.ts'),
       toAbsolutePath('dep2.ts'),
       toAbsolutePath('dep3.ts'),
+      toAbsolutePath('dep4.js'),
     ])
   })
 
   it('should handle ES Modules', () => {
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', filename)
     const parser = new Parser(defaultNpmModules)
-    const dependencies = parser.parseDependencies(toAbsolutePath('entrypoint.js'))
+    const dependencies = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -108,6 +109,6 @@ describe('dependency-parser - parseDependencies()', () => {
   it.skip('should ignore cases where require is reassigned', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'reassign-require.js')
     const parser = new Parser(defaultNpmModules)
-    parser.parseDependencies(entrypoint)
+    parser.parse(entrypoint)
   })
 })

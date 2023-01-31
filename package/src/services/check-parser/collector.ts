@@ -12,21 +12,23 @@ export type ParseError = {
 
 export class Collector {
   entrypoint: string
+  entrypointContent: string
   missingFiles: string[] = []
   parseErrors: ParseError[] = []
   unsupportedNpmDependencies: UnsupportedNpmDependencies[] = []
-  dependencies = new Set<string>()
+  dependencies = new Map<string, string>()
 
-  constructor (entrypoint: string) {
+  constructor (entrypoint: string, entrypointContent: string) {
     this.entrypoint = entrypoint
+    this.entrypointContent = entrypointContent
   }
 
   hasDependency (path: string) {
     return this.dependencies.has(path)
   }
 
-  addDependency (path: string) {
-    this.dependencies.add(path)
+  addDependency (path: string, content: string) {
+    this.dependencies.set(path, content)
   }
 
   addUnsupportedNpmDependencies (file: string, unsupportedDependencies: string[]) {
@@ -53,7 +55,6 @@ export class Collector {
   }
 
   getDependencies () {
-    this.dependencies.delete(this.entrypoint)
-    return Array.from(this.dependencies)
+    return Array.from(this.dependencies.keys())
   }
 }

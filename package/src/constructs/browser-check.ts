@@ -90,7 +90,7 @@ export class BrowserCheck extends Check {
       throw new Error(`${runtimeId} is not supported`)
     }
     const parser = new Parser(Object.keys(runtime.dependencies))
-    const parsed = parser.parseDependencies(entry)
+    const parsed = parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
     const content = fs.readFileSync(entry, { encoding: 'utf8' })
 
