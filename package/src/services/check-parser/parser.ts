@@ -4,6 +4,7 @@ import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { TSESTree } from '@typescript-eslint/typescript-estree'
 import { Collector } from './collector'
+import { DependencyParseError } from './errors'
 
 enum SupportedExtensions {
   JS = '.js',
@@ -15,14 +16,23 @@ const supportedBuiltinModules = [
   'timers', 'tls', 'url', 'util', 'zlib',
 ]
 
-function parseExtension (entrypoint: string) {
+function validateEntrypoint (entrypoint: string) {
+  let extension
   switch (path.extname(entrypoint)) {
     case SupportedExtensions.JS:
-      return SupportedExtensions.JS
+      extension = SupportedExtensions.JS
+      break
     case SupportedExtensions.TS:
-      return SupportedExtensions.TS
+      extension = SupportedExtensions.TS
+      break
     default:
       throw new Error(`Unsupported file extension for ${entrypoint}`)
+  }
+  try {
+    const content = fs.readFileSync(entrypoint, { encoding: 'utf-8' })
+    return { extension, content }
+  } catch (err) {
+    throw new DependencyParseError(entrypoint, [entrypoint], [], [])
   }
 }
 
@@ -46,8 +56,8 @@ export class Parser {
     this.supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
   }
 
-  parseDependencies (entrypoint: string): string[] {
-    const extension = parseExtension(entrypoint)
+  parse (entrypoint: string) {
+    const { extension, content } = validateEntrypoint(entrypoint)
 
     /*
   * The importing of files forms a directed graph.
@@ -55,42 +65,39 @@ export class Parser {
   * We can find all of the files we need to run the check by traversing this graph.
   * In this implementation, we use breadth first search.
   */
-    const collector = new Collector(entrypoint)
-    // Stop adding entrypoint as dependency later on
-    collector.addDependency(entrypoint)
-    const bfsQueue: string[] = [entrypoint]
+    const collector = new Collector(entrypoint, content)
+    const bfsQueue: [{filePath: string, content: string}] = [{ filePath: entrypoint, content }]
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
     // We can add a not-null assertion operator (!).
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const currentPath = bfsQueue.shift()!
-      try {
-        const { localDependencies, npmDependencies } = Parser.parseDependenciesForFile(currentPath)
-        const unsupportedDependencies = npmDependencies.filter((dep) => !this.supportedModules.has(dep))
-        if (unsupportedDependencies.length) {
-          collector.addUnsupportedNpmDependencies(currentPath, unsupportedDependencies)
-        }
-        const localDependenciesResolvedPaths = localDependencies.map((localDependency: string) => {
-        // Convert a relative path to an absolute path.
-          const resolvedPath = path.join(path.dirname(currentPath), localDependency)
-          // The import call may not have the .js / .ts extension, so we add it here.
-          // We assume that the other file is also a JS or typescript file based on the entrypoint file type.
-          // At some point, though, it may make sense to add support for mixing JS and typescript.
-          return Parser.addExtension(extension, resolvedPath)
-        })
-        localDependenciesResolvedPaths.forEach((path: string) => {
-          if (!collector.hasDependency(path)) {
-            collector.addDependency(path)
-            bfsQueue.push(path)
-          }
-        })
-      } catch (err: any) {
-        if (err.code === 'ENOENT') {
-          collector.addMissingFile(currentPath)
-        } else {
-          collector.addParsingError(currentPath, err.message)
-        }
+      const item = bfsQueue.shift()!
+      const { localDependencies, npmDependencies, error } = Parser.parseDependencies(item.filePath, item.content)
+      if (error) {
+        collector.addParsingError(item.filePath, error.message)
+        continue
       }
+      const unsupportedDependencies = npmDependencies.filter((dep) => !this.supportedModules.has(dep))
+      if (unsupportedDependencies.length) {
+        collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
+      }
+      const localDependenciesResolvedPaths: Array<{filePath: string, content: string}> = []
+      localDependencies.forEach((localDependency: string) => {
+        const filePath = path.join(path.dirname(item.filePath), localDependency)
+        try {
+          const dep = Parser.readDependency(filePath, extension)
+          localDependenciesResolvedPaths.push(dep)
+        } catch (err: any) {
+          collector.addMissingFile(filePath)
+        }
+      })
+      localDependenciesResolvedPaths.forEach(({ filePath, content }: {filePath: string, content: string}) => {
+        if (collector.hasDependency(filePath)) {
+          return
+        }
+        collector.addDependency(filePath, content)
+        bfsQueue.push({ filePath, content })
+      })
     }
 
     collector.validate()
@@ -98,37 +105,61 @@ export class Parser {
     return collector.getDependencies()
   }
 
-  static addExtension (extension: string, filePath: string) {
-    if (!filePath.endsWith(extension)) {
-      return filePath + extension
+  static readDependency (filePath: string, preferedExtenstion: SupportedExtensions) {
+    // Read the specific file if it has an extension
+    if (path.extname(filePath).length) {
+      const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
+      return { filePath, content }
     } else {
-      return filePath
+      if (preferedExtenstion === SupportedExtensions.JS) {
+        return Parser.tryReadFileExt(filePath, [SupportedExtensions.JS])
+      } else {
+        return Parser.tryReadFileExt(filePath, [SupportedExtensions.TS, SupportedExtensions.JS])
+      }
     }
   }
 
-  static parseDependenciesForFile (filePath: string): { localDependencies: string[], npmDependencies: string[] } {
+  static tryReadFileExt (filePath: string, exts: Array<SupportedExtensions>) {
+    for (const extension of exts) {
+      try {
+        const fullPath = filePath + extension
+        const content = fs.readFileSync(fullPath, { encoding: 'utf-8' })
+        return { filePath: fullPath, content }
+      } catch (err) {}
+    }
+    throw new Error(`Cant find file ${filePath}`)
+  }
+
+  static parseDependencies (filePath: string, contents: string):
+  { localDependencies: string[], npmDependencies: string[], error?: any } {
     const localDependencies = new Set<string>()
     const npmDependencies = new Set<string>()
-    const contents = fs.readFileSync(filePath, { encoding: 'utf8' })
 
     const extension = path.extname(filePath)
-
-    if (extension === SupportedExtensions.JS) {
-      const ast = acorn.parse(contents, {
-        allowReturnOutsideFunction: true,
-        ecmaVersion: 'latest',
-        allowImportExportEverywhere: true,
-      })
-      walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
-    } else if (extension === SupportedExtensions.TS) {
-      const tsParser = getTsParser()
-      const ast = tsParser.parse(contents, {})
-      // The AST from typescript-estree is slightly different from the type used by acorn-walk.
-      // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
-      // @ts-ignore
-      walk.simple(ast, Parser.tsNodeVisitor(tsParser, localDependencies, npmDependencies))
-    } else {
-      throw new Error(`Unsupported file extension for ${filePath}`)
+    try {
+      if (extension === SupportedExtensions.JS) {
+        const ast = acorn.parse(contents, {
+          allowReturnOutsideFunction: true,
+          ecmaVersion: 'latest',
+          allowImportExportEverywhere: true,
+        })
+        walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
+      } else if (extension === SupportedExtensions.TS) {
+        const tsParser = getTsParser()
+        const ast = tsParser.parse(contents, {})
+        // The AST from typescript-estree is slightly different from the type used by acorn-walk.
+        // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
+        // @ts-ignore
+        walk.simple(ast, Parser.tsNodeVisitor(tsParser, localDependencies, npmDependencies))
+      } else {
+        throw new Error(`Unsupported file extension for ${filePath}`)
+      }
+    } catch (err) {
+      return {
+        localDependencies: Array.from(localDependencies),
+        npmDependencies: Array.from(npmDependencies),
+        error: err,
+      }
     }
 
     return { localDependencies: Array.from(localDependencies), npmDependencies: Array.from(npmDependencies) }
