@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
-import { Parser } from '../services/check-dependency-parser'
+import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface CheckDependency {
