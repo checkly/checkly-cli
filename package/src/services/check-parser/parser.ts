@@ -6,6 +6,11 @@ import { TSESTree } from '@typescript-eslint/typescript-estree'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 
+type Module = {
+  localDependencies: Array<string>,
+  npmDependencies: Array<string>
+}
+
 enum SupportedExtensions {
   JS = '.js',
   TS = '.ts'
@@ -72,17 +77,17 @@ export class Parser {
     // We can add a not-null assertion operator (!).
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const item = bfsQueue.shift()!
-      const { localDependencies, npmDependencies, error } = Parser.parseDependencies(item.filePath, item.content)
+      const { module, error } = Parser.parseDependencies(item.filePath, item.content)
       if (error) {
         collector.addParsingError(item.filePath, error.message)
         continue
       }
-      const unsupportedDependencies = npmDependencies.filter((dep) => !this.supportedModules.has(dep))
+      const unsupportedDependencies = module.npmDependencies.filter((dep) => !this.supportedModules.has(dep))
       if (unsupportedDependencies.length) {
         collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
       }
       const localDependenciesResolvedPaths: Array<{filePath: string, content: string}> = []
-      localDependencies.forEach((localDependency: string) => {
+      module.localDependencies.forEach((localDependency: string) => {
         const filePath = path.join(path.dirname(item.filePath), localDependency)
         try {
           const dep = Parser.readDependency(filePath, extension)
@@ -131,7 +136,7 @@ export class Parser {
   }
 
   static parseDependencies (filePath: string, contents: string):
-  { localDependencies: string[], npmDependencies: string[], error?: any } {
+  { module: Module, error?: any } {
     const localDependencies = new Set<string>()
     const npmDependencies = new Set<string>()
 
@@ -156,13 +161,20 @@ export class Parser {
       }
     } catch (err) {
       return {
-        localDependencies: Array.from(localDependencies),
-        npmDependencies: Array.from(npmDependencies),
+        module: {
+          localDependencies: Array.from(localDependencies),
+          npmDependencies: Array.from(npmDependencies),
+        },
         error: err,
       }
     }
 
-    return { localDependencies: Array.from(localDependencies), npmDependencies: Array.from(npmDependencies) }
+    return {
+      module: {
+        localDependencies: Array.from(localDependencies),
+        npmDependencies: Array.from(npmDependencies),
+      },
+    }
   }
 
   static jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
