@@ -17,6 +17,15 @@ enum BodyType {
   NONE = 'NONE'
 }
 
+export type HttpRequestMethod =
+  | 'get' | 'GET'
+  | 'post' | 'POST'
+  | 'put' | 'PUT'
+  | 'patch' | 'PATCH'
+  | 'head' | 'HEAD'
+  | 'delete' | 'DELETE'
+  | 'options' | 'OPTIONS'
+
 interface BasicAuth {
   username: string
   password: string
@@ -24,9 +33,13 @@ interface BasicAuth {
 
 export interface Request {
   url: string,
-  method: string,
+  method: HttpRequestMethod,
   followRedirects: boolean,
   skipSsl: boolean,
+  /**
+   * Check the main Checkly documentation on assertions for specific values like regular expressions
+   * and JSON path descriptors you can use in the "property" field.
+   */
   assertions: Array<Assertion>
   body?: string
   bodyType?: BodyType
@@ -35,13 +48,35 @@ export interface Request {
   basicAuth?: BasicAuth
 }
 export interface ApiCheckProps extends CheckProps {
+  /**
+   *  Determines the request that the check is going to run.
+   */
   request: Request
+  /**
+   * A valid piece of Node.js code to run in the setup phase.
+   */
   localSetupScript?: string
+  /**
+   * A valid piece of Node.js code to run in the teardown phase.
+   */
   localTearDownScript?: string
+  /**
+   * The response time in milliseconds where a check should be considered degraded.
+   */
   degradedResponseTime: number
+  /**
+   * The response time in milliseconds where a check should be considered failing.
+   */
   maxResponseTime: number
 }
 
+/**
+ * Creates an API Check
+ *
+ * @remarks
+ *
+ * This class make use of the API Checks endpoints.
+ */
 export class ApiCheck extends Check {
   request: Request
   localSetupScript?: string
@@ -49,6 +84,12 @@ export class ApiCheck extends Check {
   degradedResponseTime: number
   maxResponseTime: number
 
+  /**
+   * Constructs the API Check instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props check configuration properties
+   */
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
     this.request = props.request

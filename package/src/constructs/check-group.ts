@@ -21,27 +21,70 @@ const defaultApiCheckDefaults = {
 }
 
 type BrowserCheckConfig = CheckConfigDefaults & {
+  /**
+   * Glob pattern to include multiple files, i.e. all `.spec.js` files
+   */
   testMatch: string,
 }
 
 export interface CheckGroupProps {
-    name: string
-    activated: boolean
-    muted: boolean
-    runtimeId: string
-    locations: Array<string>
-    privateLocations?: Array<string>
-    tags: Array<string>
-    concurrency: number
-    environmentVariables: Array<EnvironmentVariable>
-    alertChannels?: Array<AlertChannel>
-    browserChecks?: BrowserCheckConfig,
-    localSetupScript?: string
-    localTearDownScript?: string
-    apiCheckDefaults: any
-    browserCheckDefaults: any
-  }
+  /**
+   * The name of the check group.
+   */
+  name: string
+  /**
+   * Determines if the checks in the group are running or not.
+   */
+  activated: boolean
+  /**
+   * Determines if any notifications will be send out when a check in this group fails and/or recovers.
+   */
+  muted: boolean
+  /**
+   * The runtime version, i.e. fixed set of runtime dependencies, used to execute checks in this group.
+   */
+  runtimeId: string
+  /**
+   * An array of one or more data center locations where to run the checks.
+   */
+  locations: Array<string>
+  /**
+   * An array of one or more private locations where to run the checks.
+   */
+  privateLocations?: Array<string>
+  /**
+   * Tags for organizing and filtering checks.
+   */
+  tags: Array<string>
+  /**
+   * Determines how many checks are invoked concurrently when triggering a check group from CI/CD or through the API.
+   */
+  concurrency: number
+  environmentVariables: Array<EnvironmentVariable>
+  /**
+   * List of alert channel subscriptions.
+   */
+  alertChannels?: Array<AlertChannel>
+  browserChecks?: BrowserCheckConfig,
+  /**
+   * A valid piece of Node.js code to run in the setup phase of an API check in this group.
+   */
+  localSetupScript?: string
+  /**
+   * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
+   */
+  localTearDownScript?: string
+  apiCheckDefaults: any
+  browserCheckDefaults: any
+}
 
+/**
+ * Creates a Check Group
+ *
+ * @remarks
+ *
+ * This class make use of the Check Groups endpoints.
+ */
 export class CheckGroup extends Construct {
   name: string
   activated: boolean

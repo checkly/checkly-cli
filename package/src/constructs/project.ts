@@ -5,7 +5,13 @@ import { ValidationError } from './validator-error'
 import type { Runtime } from '../rest/runtimes'
 
 export interface ProjectProps {
+  /**
+   * Friendly name for your project.
+   */
   name: string
+  /**
+   * Git repository URL.
+   */
   repoUrl: string
 }
 
@@ -19,6 +25,12 @@ export class Project extends Construct {
     alertChannelSubscriptions: {},
   }
 
+  /**
+   * Constructs the Email Alert Channel instance
+   *
+   * @param logicalId unique project name
+   * @param props project configuration properties
+   */
   constructor (logicalId: string, props: ProjectProps) {
     super(logicalId)
     if (!props.name) {
