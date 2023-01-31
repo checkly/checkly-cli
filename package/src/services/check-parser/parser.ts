@@ -95,7 +95,7 @@ export class Parser {
 
     collector.validate()
 
-    return collector.collect()
+    return collector.getDependencies()
   }
 
   static addExtension (extension: string, filePath: string) {

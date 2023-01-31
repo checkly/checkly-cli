@@ -52,7 +52,7 @@ export class Collector {
     }
   }
 
-  collect () {
+  getDependencies () {
     this.dependencies.delete(this.entrypoint)
     return Array.from(this.dependencies)
   }
