@@ -14,6 +14,11 @@ type ParseError = {
   error: string;
 }
 
+enum SupportedExtensions {
+  JS = '.js',
+  TS = '.ts'
+}
+
 export class DependencyParseError extends Error {
   entrypoint: string
   missingFiles: string[]
@@ -62,12 +67,13 @@ const supportedBuiltinModules = [
 ]
 
 function parseExtension (entrypoint: string) {
-  if (entrypoint.endsWith('.js')) {
-    return '.js'
-  } else if (entrypoint.endsWith('.ts')) {
-    return '.ts'
-  } else {
-    throw new Error(`Unsupported file extension for ${entrypoint}`)
+  switch (path.extname(entrypoint)) {
+    case SupportedExtensions.JS:
+      return SupportedExtensions.JS
+    case SupportedExtensions.TS:
+      return SupportedExtensions.TS
+    default:
+      throw new Error(`Unsupported file extension for ${entrypoint}`)
   }
 }
 
@@ -161,14 +167,16 @@ export class Parser {
     const npmDependencies = new Set<string>()
     const contents = fs.readFileSync(filePath, { encoding: 'utf8' })
 
-    if (filePath.endsWith('.js')) {
+    const extension = path.extname(filePath)
+
+    if (extension === SupportedExtensions.JS) {
       const ast = acorn.parse(contents, {
         allowReturnOutsideFunction: true,
         ecmaVersion: 'latest',
         allowImportExportEverywhere: true,
       })
       walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
-    } else if (filePath.endsWith('.ts')) {
+    } else if (extension === SupportedExtensions.TS) {
       const tsParser = getTsParser()
       const ast = tsParser.parse(contents, {})
       // The AST from typescript-estree is slightly different from the type used by acorn-walk.
