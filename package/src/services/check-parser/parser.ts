@@ -107,7 +107,7 @@ export class Parser {
 
     collector.validate()
 
-    return collector.getDependencies()
+    return collector.getItems()
   }
 
   static readDependency (filePath: string, preferedExtenstion: SupportedExtensions) {
