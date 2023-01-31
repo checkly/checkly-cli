@@ -54,6 +54,19 @@ export class Collector {
     }
   }
 
+  getItems () {
+    return {
+      entrypoint: {
+        filePath: this.entrypoint,
+        content: this.entrypointContent,
+      },
+      dependencies: Array.from(this.dependencies.entries(), ([key, value]) => ({
+        filePath: key,
+        content: value,
+      })),
+    }
+  }
+
   getDependencies () {
     return Array.from(this.dependencies.keys())
   }

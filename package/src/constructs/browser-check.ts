@@ -1,4 +1,3 @@
-import * as fs from 'fs'
 import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
@@ -92,19 +91,17 @@ export class BrowserCheck extends Check {
     const parser = new Parser(Object.keys(runtime.dependencies))
     const parsed = parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
-    const content = fs.readFileSync(entry, { encoding: 'utf8' })
 
     const deps: CheckDependency[] = []
-    for (const dep of parsed) {
-      const content = fs.readFileSync(dep, { encoding: 'utf8' })
+    for (const { filePath, content } of parsed.dependencies) {
       deps.push({
-        path: path.relative(Session.basePath!, dep),
+        path: path.relative(Session.basePath!, filePath),
         content,
       })
     }
     return {
-      script: content,
-      scriptPath: path.relative(Session.basePath!, entry),
+      script: parsed.entrypoint.content,
+      scriptPath: path.relative(Session.basePath!, parsed.entrypoint.filePath),
       dependencies: deps,
     }
   }
