@@ -5,9 +5,22 @@ export interface SlackAlertChannelProps extends AlertChannelProps {
   channel?: string
 }
 
+/**
+ * Creates an Slack Alert Channel
+ *
+ * @remarks
+ *
+ * This class make use of the Alert Channel endpoints.
+ */
 export class SlackAlertChannel extends AlertChannel {
   url: URL
   channel?: string
+  /**
+   * Constructs the Slack Alert Channel instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props Slack alert channel configuration properties
+   */
   constructor (logicalId: string, props: SlackAlertChannelProps) {
     super(logicalId, props)
     this.url = props.url
