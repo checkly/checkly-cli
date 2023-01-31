@@ -9,6 +9,7 @@ export function runChecklyCli (options: {
   apiKey?: string,
   accountId?: string,
   env?: object,
+  timeout?: number,
 }) {
   const {
     directory,
@@ -16,6 +17,7 @@ export function runChecklyCli (options: {
     apiKey,
     accountId,
     env = {},
+    timeout = 10000,
   } = options
   return childProcess.spawnSync(CHECKLY_PATH, args, {
     env: {
@@ -26,5 +28,6 @@ export function runChecklyCli (options: {
     },
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',
+    timeout,
   })
 }

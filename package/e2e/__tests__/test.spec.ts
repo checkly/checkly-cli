@@ -15,4 +15,15 @@ describe('test', () => {
     expect(result.stdout).toContain(secretEnv)
     expect(result.status).not.toBe(0)
   })
+
+  it('Should terminate when no checks are found', () => {
+    const result = runChecklyCli({
+      args: ['test', 'does-not-exist.js'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-project'),
+      timeout: 5000,
+    })
+    expect(result.status).toBe(0)
+  })
 })
