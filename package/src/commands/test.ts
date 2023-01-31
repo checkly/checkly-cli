@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises'
-import { Command, Flags } from '@oclif/core'
+import { Command, Flags, Args } from '@oclif/core'
 import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
 
@@ -59,19 +59,19 @@ export default class Test extends Command {
 
   static auth = true
 
-  static args = [
-    {
+  static args = {
+    fileArgs: Args.string({
       name: 'files',
       required: false,
       description: 'Only run checks where the file name matches a regular expression',
       default: '.*',
-    },
-  ]
+    }),
+  }
 
   static strict = false
 
   async run (): Promise<void> {
-    const { flags, argv: filePatterns } = await this.parse(Test)
+    const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
       'private-location': privateRunLocation,
@@ -81,6 +81,7 @@ export default class Test extends Command {
       list,
     } = flags
     const cwd = process.cwd()
+    const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
     const checklyConfig = await loadChecklyConfig(cwd)
