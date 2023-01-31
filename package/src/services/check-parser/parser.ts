@@ -6,6 +6,13 @@ import { TSESTree } from '@typescript-eslint/typescript-estree'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 
+// Our custom configuration to handle walking errors
+// This is to handle 'import type { Type }'
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const ignore = (_node: any, _st: any, _c: any) => {}
+walk.base.TSParameterProperty = ignore
+walk.base.TSTypeAliasDeclaration = ignore
+
 type Module = {
   localDependencies: Array<string>,
   npmDependencies: Array<string>

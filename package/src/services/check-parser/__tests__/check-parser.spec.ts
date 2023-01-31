@@ -88,6 +88,7 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('dep2.ts'),
       toAbsolutePath('dep3.ts'),
       toAbsolutePath('dep4.js'),
+      toAbsolutePath('type.ts'),
     ])
   })
 
