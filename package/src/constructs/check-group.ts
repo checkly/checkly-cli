@@ -115,8 +115,8 @@ export class CheckGroup extends Construct {
     this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
     this.apiCheckDefaults = props.apiCheckDefaults || defaultApiCheckDefaults
-    this.browserCheckDefaults = props.browserCheckDefaults || {}
-    this.environmentVariables = props.environmentVariables
+    this.browserCheckDefaults = props.browserCheckDefaults ?? {}
+    this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
