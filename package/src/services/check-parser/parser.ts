@@ -2,9 +2,20 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-import { TSESTree } from '@typescript-eslint/typescript-estree'
+import { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
+
+// Our custom configuration to handle walking errors
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const ignore = (_node: any, _st: any, _c: any) => {}
+Object.values(AST_NODE_TYPES).forEach((astType) => {
+  // Only handle the TS specific ones
+  if (!astType.startsWith('TS')) {
+    return
+  }
+  walk.base[astType] = walk.base[astType] ?? ignore
+})
 
 type Module = {
   localDependencies: Array<string>,
