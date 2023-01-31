@@ -22,8 +22,7 @@ export interface AlertChannelSubscriptionProps {
  *
  * @remarks
  *
- * This class make use of the Alert Channel Subscriptions endpoints
- * listed {@link https://developers.checklyhq.com/reference/putv1alertchannelsidsubscriptions here}
+ * This class make use of the Alert Channel Subscriptions endpoints.
  */
 export class AlertChannelSubscription extends Construct {
   alertChannelId: Ref

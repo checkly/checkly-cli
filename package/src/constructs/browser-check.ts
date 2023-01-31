@@ -31,8 +31,7 @@ export interface BrowserCheckProps extends CheckProps {
  *
  * @remarks
  *
- * This class make use of the Browser Checks endpoints
- * listed {@link https://developers.checklyhq.com/reference/postv1checksbrowser here}
+ * This class make use of the Browser Checks endpoints.
  */
 export class BrowserCheck extends Check {
   script: string

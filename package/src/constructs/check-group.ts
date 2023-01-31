@@ -83,8 +83,7 @@ export interface CheckGroupProps {
  *
  * @remarks
  *
- * This class make use of the Check Groups endpoints
- * listed {@link https://developers.checklyhq.com/reference/postv1checkgroups here}
+ * This class make use of the Check Groups endpoints.
  */
 export class CheckGroup extends Construct {
   name: string

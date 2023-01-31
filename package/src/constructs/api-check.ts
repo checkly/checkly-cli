@@ -75,8 +75,7 @@ export interface ApiCheckProps extends CheckProps {
  *
  * @remarks
  *
- * This class make use of the API Checks endpoints
- * listed {@link https://developers.checklyhq.com/reference/postv1checksapi here}
+ * This class make use of the API Checks endpoints.
  */
 export class ApiCheck extends Check {
   request: Request

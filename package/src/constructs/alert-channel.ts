@@ -28,8 +28,7 @@ export interface AlertChannelProps {
  *
  * @remarks
  *
- * This class make use of the Alert Channels endpoints
- * listed {@link https://developers.checklyhq.com/reference/postv1alertchannels here}
+ * This class make use of the Alert Channels endpoints.
  */
 export abstract class AlertChannel extends Construct {
   sendRecovery: boolean

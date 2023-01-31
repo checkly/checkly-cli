@@ -12,8 +12,7 @@ export interface EmailAlertChannelProps extends AlertChannelProps {
  *
  * @remarks
  *
- * This class make use of the Alert Channel endpoints
- * listed {@link https://developers.checklyhq.com/reference/postv1alertchannels here}
+ * This class make use of the Alert Channel endpoints.
  */
 export class EmailAlertChannel extends AlertChannel {
   address: string
