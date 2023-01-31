@@ -66,8 +66,4 @@ export class Collector {
       })),
     }
   }
-
-  getDependencies () {
-    return Array.from(this.dependencies.keys())
-  }
 }
