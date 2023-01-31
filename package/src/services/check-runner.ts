@@ -119,11 +119,14 @@ export default class CheckRunner extends EventEmitter {
 
   private allChecksFinished (): Promise<void> {
     let finishedCheckCount = 0
-    const checks = this.checks
+    const numChecks = this.checks.size
+    if (numChecks === 0) {
+      return Promise.resolve()
+    }
     return new Promise((resolve) => {
       this.on(Events.CHECK_FINISHED, () => {
         finishedCheckCount++
-        if (finishedCheckCount === checks.size) resolve()
+        if (finishedCheckCount === numChecks) resolve()
       })
     })
   }
