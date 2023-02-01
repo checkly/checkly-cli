@@ -1,13 +1,12 @@
 import axios, { AxiosInstance } from 'axios'
 import config from '../services/config'
 import Accounts from './accounts'
+import Users from './users'
 import Projects from './projects'
 import Checks from './checks'
 import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
-
-import { Config } from '@oclif/core'
 
 export function getDefaults () {
   const environments = {
@@ -59,6 +58,7 @@ function init (): AxiosInstance {
 export const api = init()
 
 export const accounts = new Accounts(api)
+export const user = new Users(api)
 export const projects = new Projects(api)
 export const checks = new Checks(api)
 export const assets = new Assets(api)
