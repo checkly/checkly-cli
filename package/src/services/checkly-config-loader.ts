@@ -5,11 +5,9 @@ import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import type { Construct } from '../constructs/construct'
 
-// TODO: How would a user declare default alert channels?
-// We need some additional work before constructs can be created in checkly.config.js.
-// alertChannels?: Array<AlertChannel>,
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
-  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'>
+  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
+  | 'alertChannels'>
 
 export type ChecklyConfig = {
   /**
