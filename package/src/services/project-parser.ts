@@ -6,6 +6,7 @@ import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
+import type { Construct } from '../constructs/construct'
 
 const globPromise = promisify(glob)
 
@@ -19,7 +20,8 @@ type ProjectParseOpts = {
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
-  availableRuntimes: Record<string, Runtime>
+  availableRuntimes: Record<string, Runtime>,
+  checklyConfigConstructs?: Construct[],
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -38,11 +40,15 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     checkDefaults = {},
     browserCheckDefaults = {},
     availableRuntimes,
+    checklyConfigConstructs,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
   })
+  checklyConfigConstructs?.forEach(
+    (construct) => project.addResource(construct.type, construct.logicalId, construct.synthesize())
+  )
   Session.project = project
   Session.basePath = directory
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)

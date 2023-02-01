@@ -84,7 +84,7 @@ export default class Test extends Command {
     const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
-    const checklyConfig = await loadChecklyConfig(cwd)
+    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
@@ -101,6 +101,7 @@ export default class Test extends Command {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      checklyConfigConstructs,
     })
     const { checks: checksMap, groups: groupsMap } = project.data
     const checks = Object.entries(checksMap)
