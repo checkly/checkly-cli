@@ -90,7 +90,7 @@ export class Session {
     } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
       // Creating the construct is allowed - We're in the process of parsing the Checkly config.
     } else if (Session.loadingChecklyConfigFile) {
-      throw new Error(`Creating a ${typeof construct} construct in the Checkly config file isn't supported.`)
+      throw new Error(`Creating a ${construct.constructor.name} construct in the Checkly config file isn't supported.`)
     } else {
       throw new Error('Unable to create a construct due to an unexpected error. Please contact Checkly support.')
     }
