@@ -13,7 +13,8 @@ export default class Whoami extends Command {
     }
     try {
       const { data: account } = await api.accounts.get(accountId)
-      console.info(`You are currently on "${account.name}" with id ${account.id}`)
+      const { data: user } = await api.user.get()
+      console.info(`You are currently on account "${account.name}" as ${user.name}.`)
     } catch (e) {
       console.error('Failed to find an account corresponding to the account id')
     }
