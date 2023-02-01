@@ -2,6 +2,7 @@ import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { HttpHeader } from './http-header'
 import { HttpRequestMethod } from './api-check'
 import { QueryParam } from './query-param'
+import { Session } from './project'
 
 export interface WebhookAlertChannelProps extends AlertChannelProps {
   /**
@@ -63,7 +64,7 @@ export class WebhookAlertChannel extends AlertChannel {
     this.method = props.method
     this.headers = props.headers
     this.queryParameters = props.queryParameters
-    this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {

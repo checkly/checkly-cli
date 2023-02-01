@@ -1,20 +1,16 @@
-import { Session } from './project'
 import { Ref } from './ref'
 
-export class Construct {
+export abstract class Construct {
+  type: string
   logicalId: string
-  constructor (logicalId: string) {
+  constructor (type: string, logicalId: string) {
     this.logicalId = logicalId
+    this.type = type
   }
 
   ref () {
     return Ref.from(this.logicalId)
   }
 
-  register (type: string, logicalId: string, resource: any) {
-    if (!Session.project) {
-      throw new Error('A project is not registered to the session')
-    }
-    Session.project.addResource(type, logicalId, resource)
-  }
+  abstract synthesize(): any
 }

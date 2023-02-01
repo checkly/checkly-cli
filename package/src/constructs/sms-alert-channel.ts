@@ -1,4 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
+import { Session } from './project'
 
 export interface SmsAlertChannelProps extends AlertChannelProps {
   /**
@@ -25,7 +26,7 @@ export class SmsAlertChannel extends AlertChannel {
   constructor (logicalId: string, props: SmsAlertChannelProps) {
     super(logicalId, props)
     this.phoneNumber = props.phoneNumber
-    this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {

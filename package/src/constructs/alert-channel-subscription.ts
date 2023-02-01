@@ -1,5 +1,6 @@
 import { Ref } from './ref'
 import { Construct } from './construct'
+import { Session } from './project'
 
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
@@ -39,12 +40,12 @@ export class AlertChannelSubscription extends Construct {
    * @param props alert channel subscription configuration properties
    */
   constructor (logicalId: string, props: AlertChannelSubscriptionProps) {
-    super(logicalId)
+    super(AlertChannelSubscription.__checklyType, logicalId)
     this.alertChannelId = props.alertChannelId
     this.checkId = props.checkId
     this.groupId = props.groupId
     this.activated = props.activated
-    this.register(AlertChannelSubscription.__checklyType, this.logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {

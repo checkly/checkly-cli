@@ -79,7 +79,7 @@ export abstract class Check extends Construct {
   static readonly __checklyType = 'checks'
 
   constructor (logicalId: string, props: CheckProps) {
-    super(logicalId)
+    super(Check.__checklyType, logicalId)
     Check.applyDefaultCheckConfig(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
