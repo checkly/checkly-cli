@@ -11,7 +11,6 @@ const alertChannels = [smsChannel, emailChannel]
 // We can define multiple checks in a single *.check.js file.
 new BrowserCheck('homepage-browser-check-1', {
   name: 'Homepage',
-  alertChannels,
   code: {
     entrypoint: path.join(__dirname, 'homepage.spec.js')
   },
@@ -19,7 +18,6 @@ new BrowserCheck('homepage-browser-check-1', {
 
 new BrowserCheck('404-browser-check-1', {
   name: '404 page',
-  alertChannels,
   code: {
     entrypoint: path.join(__dirname, '404.spec.js')
   },

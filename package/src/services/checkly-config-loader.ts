@@ -3,7 +3,7 @@ import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
-import type { Construct } from '../constructs/construct'
+import { Construct } from '../constructs/construct'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
@@ -54,9 +54,9 @@ export type ChecklyConfig = {
 }
 
 export async function loadChecklyConfig (dir: string): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
-  Session.checklyConfigConstructs = []
-  // TODO: Add proper error messages for missing config fields
   let config
+  Session.loadingChecklyConfigFile = true
+  Session.checklyConfigFileConstructs = []
   if (existsSync(path.join(dir, 'checkly.config.js'))) {
     config = await loadJsFile(path.join(dir, 'checkly.config.js'))
   } else if (existsSync(path.join(dir, 'checkly.config.ts'))) {
@@ -64,8 +64,8 @@ export async function loadChecklyConfig (dir: string): Promise<{ config: Checkly
   } else {
     throw new Error('Unable to find checkly.config.js or checkly.config.ts in the current directory.')
   }
-  const constructs = Session.checklyConfigConstructs
-  // Overwrite `Session.checklyConfigConstructs` since the checkly cofnig is now parsed
-  Session.checklyConfigConstructs = undefined
+  const constructs = Session.checklyConfigFileConstructs
+  Session.loadingChecklyConfigFile = false
+  Session.checklyConfigFileConstructs = []
   return { config, constructs }
 }

@@ -54,6 +54,10 @@ export abstract class AlertChannel extends Construct {
     this.sslExpiryThreshold = props.sslExpiryThreshold
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return {
       sendRecovery: this.sendRecovery,

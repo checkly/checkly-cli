@@ -71,15 +71,28 @@ export class Session {
   static checkFilePath?: string
   static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>
-  static checklyConfigConstructs?: Array<Construct>
+  static loadingChecklyConfigFile: boolean
+  static checklyConfigFileConstructs?: Construct[]
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
       Session.project.addResource(construct.type, construct.logicalId, construct.synthesize())
-    } else if (Session.checklyConfigConstructs) {
-      Session.checklyConfigConstructs.push(construct)
+    } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
+      Session.checklyConfigFileConstructs!.push(construct)
     } else {
       throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support.')
+    }
+  }
+
+  static validateCreateConstruct (construct: Construct) {
+    if (Session.project) {
+      // Creating the construct is allowed - We're in the process of parsing the project.
+    } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
+      // Creating the construct is allowed - We're in the process of parsing the Checkly config.
+    } else if (Session.loadingChecklyConfigFile) {
+      throw new Error(`Creating a ${typeof construct} construct in the Checkly config file isn't supported.`)
+    } else {
+      throw new Error('Unable to create a construct due to an unexpected error. Please contact Checkly support.')
     }
   }
 }
