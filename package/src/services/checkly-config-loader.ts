@@ -66,6 +66,6 @@ export async function loadChecklyConfig (dir: string): Promise<{ config: Checkly
   }
   const constructs = Session.checklyConfigConstructs
   // Overwrite `Session.checklyConfigConstructs` since the checkly cofnig is now parsed
-  Session.checklyConfigConstructs = undefined 
+  Session.checklyConfigConstructs = undefined
   return { config, constructs }
 }

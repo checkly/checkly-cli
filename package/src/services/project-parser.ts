@@ -47,7 +47,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     repoUrl,
   })
   checklyConfigConstructs?.forEach(
-    (construct) => project.addResource(construct.type, construct.logicalId, construct.synthesize())
+    (construct) => project.addResource(construct.type, construct.logicalId, construct.synthesize()),
   )
   Session.project = project
   Session.basePath = directory
