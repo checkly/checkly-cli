@@ -10,21 +10,21 @@ This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to 
 
 To run a build with TS for type checking, run:
 ```bash
-npm run prepare --workspace package
+npm run prepare --workspace packages/cli
 ```
 
 To lint the project:
 ```bash
-npm run lint --workspace package
+npm run lint --workspace packages/cli
 ```
 
-When running commands from the `package` directory, the `--workspace package` flag isn't necessary.
+When running commands from the `packages/cli` directory, the `--workspace packages/cli` flag isn't necessary.
 
 ## Running from source in the `/examples` folder
 
 You can use the current branch of the code against the any examples in the `/examples` directory for developing and debugging.
 
-1. Go the the `/examples/<some-example>` directory.
+1. Go the `/examples/<some-example>` directory.
 2. Run `npm install`. This installs the current branch using `workspaces` magic.
 3. Just use `npx checkly` as normal.
 
