@@ -1,4 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
+import { Session } from './project'
 
 export interface SlackAlertChannelProps extends AlertChannelProps {
   url: URL
@@ -25,7 +26,7 @@ export class SlackAlertChannel extends AlertChannel {
     super(logicalId, props)
     this.url = props.url
     this.channel = props.channel
-    this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {
