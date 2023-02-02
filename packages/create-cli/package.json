@@ -1,0 +1,121 @@
+{
+  "name": "@checkly/create-cli",
+  "version": "0.0.1",
+  "description": "Checkly Create CLI",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "jest --selectProjects unit",
+    "prepare": "rm -rf dist && tsc --build",
+    "prepack": "npx oclif manifest",
+    "lint": "eslint src",
+    "start": "node ./index.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/checkly/checkly-cli.git"
+  },
+  "author": "Checkly Engineering <support@checklyhq.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/checkly/checkly-cli/issues"
+  },
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "bin": {
+    "create-cli": "./index.mjs"
+  },
+  "files": [
+    "dist",
+    "create-cli.js"
+  ],
+  "homepage": "https://github.com/checkly/checkly-cli#readme",
+  "dependencies": {
+    "@oclif/core": "2.0.7",
+    "@oclif/plugin-help": "5.1.20",
+    "@oclif/plugin-plugins": "2.3.0",
+    "@typescript-eslint/typescript-estree": "5.46.1",
+    "chalk": "4.1.2",
+    "debug": "^4.3.4",
+    "execa": "^6.1.0",
+    "giget": "^1.0.0",
+    "ora": "^6.1.2",
+    "prompts": "^2.4.2",
+    "unique-names-generator": "^4.7.1",
+    "which-pm-runs": "^1.1.0"
+  },
+  "devDependencies": {
+    "@checkly/eslint-config": "0.14.1",
+    "@types/config": "3.3.0",
+    "@types/debug": "^4.1.7",
+    "@types/glob": "8.0.0",
+    "@types/jest": "29.2.4",
+    "@types/luxon": "3.2.0",
+    "@types/node": "18.11.18",
+    "@types/prompts": "^2.4.2",
+    "@types/uuid": "9.0.0",
+    "@types/which-pm-runs": "^1.0.0",
+    "@types/ws": "8.5.3",
+    "@typescript-eslint/eslint-plugin": "5.46.1",
+    "@typescript-eslint/parser": "5.46.1",
+    "config": "3.3.8",
+    "eslint": "8.30.0",
+    "jest": "29.3.1",
+    "ts-jest": "29.0.3",
+    "ts-node": "10.9.1",
+    "typescript": "4.9.4"
+  },
+  "eslintConfig": {
+    "rules": {
+      "@typescript-eslint/type-annotation-spacing": 2,
+      "@typescript-eslint/no-explicit-any": 0,
+      "@typescript-eslint/ban-ts-comment": 0,
+      "no-console": 2
+    },
+    "extends": [
+      "@checkly/eslint-config",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "src/commands/*",
+          "src/reporters/*"
+        ],
+        "rules": {
+          "no-console": 0
+        }
+      }
+    ]
+  },
+  "jest": {
+    "projects": [
+      {
+        "displayName": "unit",
+        "testMatch": [
+          "<rootDir>/src/**/*.spec.ts"
+        ],
+        "preset": "ts-jest",
+        "testEnvironment": "node"
+      },
+      {
+        "displayName": "E2E",
+        "testMatch": [
+          "<rootDir>/e2e/__tests__/**/*.spec.ts"
+        ],
+        "preset": "ts-jest",
+        "testEnvironment": "node"
+      }
+    ],
+    "reporters": [
+      "default",
+      "github-actions"
+    ]
+  }
+}

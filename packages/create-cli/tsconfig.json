@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "importHelpers": true,
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "rootDirs": ["src", "e2e"],
+    "strict": true,
+    "target": "ES2020",
+    "sourceMap": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/**/__tests__",
+    "e2e"
+  ]
+}
