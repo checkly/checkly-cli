@@ -7,6 +7,7 @@ import { execa, execaCommand } from 'execa'
 import detectPackageManager from 'which-pm-runs'
 import { isValidProjectDirectory, hasGitDir } from '../utils/directory.js'
 import { spinner } from '../utils/terminal.js'
+import chalk from 'chalk'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -14,6 +15,7 @@ import { spinner } from '../utils/terminal.js'
  */
 
 const debug = Debug('checkly:create-cli')
+const templateBaseRepo = 'checkly-cli/tree/main/examples/'
 
 function generateProjectName (): string {
   return uniqueNamesGenerator({
@@ -37,7 +39,7 @@ export default class Bootstrap extends Command {
       initial: generateProjectName(),
       validate (dirName) {
         if (!isValidProjectDirectory(dirName)) {
-          return false
+          return `"${chalk.bold(dirName)}" is not empty!`
         }
         return true
       },
@@ -47,13 +49,15 @@ export default class Bootstrap extends Command {
 
     const projectTypeResponse = await prompts({
       type: 'select',
-      name: 'projectType',
+      name: 'template',
       message: 'How would you like to setup your new project?',
       choices: [
-        { value: 'best', title: 'A project with a set of best practices (recommended)' },
-        { value: 'basic', title: 'An empty project with basic config' },
+        { value: 'simple-project', title: 'A simple project with a set of best practices (recommended)' },
+        { value: 'empty-project', title: 'An empty project with basic config' },
       ],
     })
+
+    const { template } = projectTypeResponse
 
     const useTSResponse = await prompts({
       type: 'confirm',
@@ -61,21 +65,31 @@ export default class Bootstrap extends Command {
       message: 'Would you like to use Typescript?',
     })
 
+    const { useTS } = useTSResponse
+
     debug('Downloading template')
 
+    const downloadTemplateSpinner = spinner('Downloading example template...')
+
     try {
-      await downloadTemplate('checkly/mac-demo-repo', {
+      await downloadTemplate(`${templateBaseRepo}/${useTS ? 'ts' : 'js'}/${template}`, {
         force: true,
         provider: 'github',
         cwd: targetDir,
         dir: '.',
       })
     } catch (e: any) {
-      console.error(e.message)
+      if (e.message.includes('404')) {
+        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${template}"`)
+        downloadTemplateSpinner.fail()
+      } else {
+        console.error(e.message)
+      }
       process.exit(1)
     }
 
-    console.log('Project template copied!')
+    downloadTemplateSpinner.text = chalk.green('Example template copied!')
+    downloadTemplateSpinner.succeed()
 
     const installDepsResponse = await prompts({
       type: 'confirm',
@@ -98,7 +112,7 @@ export default class Bootstrap extends Command {
       installSpinner.text = 'Packages installed successfully'
       installSpinner.succeed()
     } else {
-      console.log('No worries, just remember to install the dependencies after this setup')
+      this.log('No worries, just remember to install the dependencies after this setup')
     }
 
     const initGitResponse = await prompts({
@@ -110,7 +124,7 @@ export default class Bootstrap extends Command {
 
     if (initGitResponse.initGit) {
       if (hasGitDir()) {
-        console.log('A .git directory already exists. Skipping...')
+        this.log('A .git directory already exists. Skipping...')
       } else {
         await execaCommand('git init', { cwd: targetDir })
       }
