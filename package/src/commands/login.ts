@@ -91,10 +91,16 @@ export default class Login extends Command {
 
     await checkExistingLogin()
     const { codeChallenge, codeVerifier } = generatePKCE()
+    const { authListener, serverUri } = await startServer(codeVerifier)
+    const authCodePromise: Promise<string> = new Promise((resolve, reject) => {
+      authListener.on('successful-auth', (code) => resolve(code))
+      authListener.on('error', () => reject())
+    })
     const authServerUrl = generateAuthenticationUrl(
       codeChallenge,
       'openid profile',
       codeVerifier,
+      serverUri,
     )
 
     const { openUrl } = await inquirer.prompt([
@@ -114,11 +120,8 @@ export default class Login extends Command {
     } else {
       await open(authServerUrl)
     }
-
-    // TODO: add error handling here
-    const code = await startServer(codeVerifier)
-
-    const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier)
+    const code = await authCodePromise
+    const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier, serverUri)
     const { name } = jwtDecode<any>(idToken)
     const { key } = await getApiKey({
       accessToken,
