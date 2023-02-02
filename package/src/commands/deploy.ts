@@ -29,7 +29,7 @@ export default class Deploy extends Command {
     const { flags } = await this.parse(Deploy)
     const { force, preview } = flags
     const cwd = process.cwd()
-    const checklyConfig = await loadChecklyConfig(cwd)
+    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const { data: avilableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
@@ -45,6 +45,7 @@ export default class Deploy extends Command {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      checklyConfigConstructs,
     })
     // We can use a null-assertion operator safely since account ID was validated in auth-check hook
     const { data: account } = await api.accounts.get(config.getAccountId()!)

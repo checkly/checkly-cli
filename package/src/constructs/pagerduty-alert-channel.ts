@@ -1,4 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
+import { Session } from './project'
 
 export interface PagerdutyAlertChannelProps extends AlertChannelProps {
   /**
@@ -39,7 +40,7 @@ export class PagerdutyAlertChannel extends AlertChannel {
     this.account = props.account
     this.serviceName = props.serviceName
     this.serviceKey = props.serviceKey
-    this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {

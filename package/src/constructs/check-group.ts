@@ -105,7 +105,7 @@ export class CheckGroup extends Construct {
   static readonly __checklyType = 'groups'
 
   constructor (logicalId: string, props: CheckGroupProps) {
-    super(logicalId)
+    super(CheckGroup.__checklyType, logicalId)
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
@@ -122,7 +122,7 @@ export class CheckGroup extends Construct {
     if (props.browserChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.browserChecks)
     }
-    this.register(CheckGroup.__checklyType, this.logicalId, this.synthesize())
+    Session.registerConstruct(this)
     this.__addSubscriptions()
   }
 

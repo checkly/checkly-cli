@@ -68,7 +68,7 @@ export class BrowserCheck extends Check {
     } else {
       throw new Error('Unrecognized type for the code property')
     }
-    this.register(Check.__checklyType, this.logicalId, this.synthesize())
+    Session.registerConstruct(this)
     this.addSubscriptions()
   }
 

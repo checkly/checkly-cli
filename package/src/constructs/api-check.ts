@@ -1,5 +1,6 @@
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
+import { Session } from './project'
 import { QueryParam } from './query-param'
 export interface Assertion {
   source: string,
@@ -97,7 +98,7 @@ export class ApiCheck extends Check {
     this.localTearDownScript = props.localTearDownScript
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
-    this.register(Check.__checklyType, this.logicalId, this.synthesize())
+    Session.registerConstruct(this)
     this.addSubscriptions()
   }
 

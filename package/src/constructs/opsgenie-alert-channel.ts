@@ -1,4 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
+import { Session } from './project'
 
 export enum OpsgeniePriority {
   P1 = 'P1',
@@ -57,7 +58,7 @@ export class OpsgenieAlertChannel extends AlertChannel {
     this.apiKey = props.apiKey
     this.region = props.region
     this.priority = props.priority
-    this.register(AlertChannel.__checklyType, logicalId, this.synthesize())
+    Session.registerConstruct(this)
   }
 
   synthesize () {

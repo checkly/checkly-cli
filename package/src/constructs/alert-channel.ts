@@ -46,12 +46,16 @@ export abstract class AlertChannel extends Construct {
    * @param props alert channel configuration properties
    */
   constructor (logicalId: string, props: AlertChannelProps) {
-    super(logicalId)
+    super(AlertChannel.__checklyType, logicalId)
     this.sendRecovery = props.sendRecovery
     this.sendFailure = props.sendFailure
     this.sendDegraded = props.sendDegraded
     this.sslExpiry = props.sslExpiry
     this.sslExpiryThreshold = props.sslExpiryThreshold
+  }
+
+  allowInChecklyConfig () {
+    return true
   }
 
   synthesize () {
