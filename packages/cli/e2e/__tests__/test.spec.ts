@@ -22,7 +22,6 @@ describe('test', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/test-project'),
-      timeout: 5000,
     })
     expect(result.status).toBe(0)
   })
