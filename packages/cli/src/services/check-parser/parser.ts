@@ -108,7 +108,7 @@ export class Parser {
       const item = bfsQueue.shift()!
 
       if (item.filePath.endsWith(FileExtensions.PACKAGE)) {
-        // Hold info about the main file and doesn't need to be parser
+        // Holds info about the main file and doesn't need to be parsed
         continue
       }
       const { module, error } = Parser.parseDependencies(item.filePath, item.content)
