@@ -24,6 +24,7 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-project'),
       timeout: 5000,
     })
+    console.log('Received ', result)
     expect(result.status).toBe(0)
   })
 })
