@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { isValidProjectDirectory, hasGitDir } from '../directory.js'
+import { isValidProjectDirectory } from '../directory'
 
 describe('isValidProjectDirectory()', () => {
   type TestTuple = [string, boolean]
