@@ -23,7 +23,7 @@ const group = new CheckGroup('check-group-1', {
   concurrency: 100,
   alertChannels,
   browserChecks: {
-    testMatch: '*.spec.ts'
+    testMatch: 'some-dir/*.spec.ts'
   }
 })
 
