@@ -1,13 +1,21 @@
 import Debug from 'debug'
-import { Command } from '@oclif/core'
+import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
 import { downloadTemplate } from 'giget'
 import { execa, execaCommand } from 'execa'
 import detectPackageManager from 'which-pm-runs'
+import chalk from 'chalk'
 import { isValidProjectDirectory, hasGitDir } from '../utils/directory.js'
 import { spinner } from '../utils/terminal.js'
-import chalk from 'chalk'
+import {
+  getUserGreeting,
+  getVersion,
+  header,
+  bail,
+  hint,
+  footer,
+} from '../utils/messages.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -15,7 +23,7 @@ import chalk from 'chalk'
  */
 
 const debug = Debug('checkly:create-cli')
-const templateBaseRepo = 'checkly-cli/tree/main/examples/'
+const templateBaseRepo = 'checkly/checkly-cli/examples'
 
 function generateProjectName (): string {
   return uniqueNamesGenerator({
@@ -26,10 +34,34 @@ function generateProjectName (): string {
   })
 }
 
+function onCancel (): void {
+  bail()
+  process.exit(1)
+}
+
 export default class Bootstrap extends Command {
   static description = 'Bootstrap a Checkly project'
 
+  static flags = {
+    template: Flags.string({
+      char: 't',
+      description: 'An optional template name',
+    }),
+  }
+
   async run (): Promise<void> {
+    const { flags } = await this.parse(Bootstrap)
+    const { template } = flags
+
+    // This overrides the template prompt and skips to the next prompt
+    if (template) {
+      prompts.override({ template })
+    }
+
+    const [version, greeting] = await Promise.all([getVersion(), getUserGreeting()])
+
+    await header(version, greeting)
+
     debug('Ask for directory name')
 
     const projectDirResponse = await prompts({
@@ -43,36 +75,38 @@ export default class Bootstrap extends Command {
         }
         return true
       },
-    })
+    },
+    { onCancel },
+    )
 
     const targetDir = projectDirResponse.projectDirectory
 
-    const projectTypeResponse = await prompts({
+    if (!targetDir) {
+      process.exit(1)
+    }
+
+    await hint('Cool.', `Your project will be created in the directory "${targetDir}"`)
+
+    const templateResponse = await prompts({
       type: 'select',
       name: 'template',
-      message: 'How would you like to setup your new project?',
+      message: 'Which template would you like to use for your new project',
       choices: [
-        { value: 'simple-project', title: 'A simple project with a set of best practices (recommended)' },
-        { value: 'empty-project', title: 'An empty project with basic config' },
+        { value: 'advanced-project', title: 'An advanced project with multiple examples and best practices (recommended)' },
+        { value: 'boilerplate-project', title: 'A boilerplate project with basic config' },
       ],
-    })
+    },
+    { onCancel },
+    )
 
-    const { template } = projectTypeResponse
-
-    const useTSResponse = await prompts({
-      type: 'confirm',
-      name: 'useTS',
-      message: 'Would you like to use Typescript?',
-    })
-
-    const { useTS } = useTSResponse
 
     debug('Downloading template')
 
     const downloadTemplateSpinner = spinner('Downloading example template...')
-
+    const templatePath = `${templateBaseRepo}/${templateResponse.template}`
     try {
-      await downloadTemplate(`${templateBaseRepo}/${useTS ? 'ts' : 'js'}/${template}`, {
+      debug(`Attempting download of template: ${templatePath}`)
+      await downloadTemplate(templatePath, {
         force: true,
         provider: 'github',
         cwd: targetDir,
@@ -80,7 +114,7 @@ export default class Bootstrap extends Command {
       })
     } catch (e: any) {
       if (e.message.includes('404')) {
-        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${template}"`)
+        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${templateResponse.template}"`)
         downloadTemplateSpinner.fail()
       } else {
         console.error(e.message)
@@ -112,9 +146,8 @@ export default class Bootstrap extends Command {
       installSpinner.text = 'Packages installed successfully'
       installSpinner.succeed()
     } else {
-      this.log('No worries, just remember to install the dependencies after this setup')
+      await hint('No worries.', 'Just remember to install the dependencies after this setup')
     }
-
     const initGitResponse = await prompts({
       type: 'confirm',
       name: 'initGit',
@@ -124,10 +157,11 @@ export default class Bootstrap extends Command {
 
     if (initGitResponse.initGit) {
       if (hasGitDir()) {
-        this.log('A .git directory already exists. Skipping...')
+        await hint('Oh wait!', 'A .git directory already exists. Skipping...')
       } else {
         await execaCommand('git init', { cwd: targetDir })
       }
     }
+    await footer(targetDir)
   }
 }

@@ -1,5 +1,5 @@
-const { CheckGroup, ApiCheck } = require('@checkly/cli/constructs')
-const { smsChannel, emailChannel } = require('../alert-channels')
+import { CheckGroup, ApiCheck } from '@checkly/cli/constructs'
+import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 /*
 * In this example, we bundle checks using a Check Group. We add checks to this group in two ways:
@@ -13,18 +13,30 @@ const alertChannels = [smsChannel, emailChannel]
 const group = new CheckGroup('check-group-1', {
   name: 'Group',
   activated: true,
+  muted: false,
+  runtimeId: '2022.10',
+  locations: ['us-east-1', 'eu-west-1'],
+  tags: ['mac', 'group'],
+  environmentVariables: [],
+  apiCheckDefaults: {},
+  browserCheckDefaults: {},
+  concurrency: 100,
   alertChannels,
-  concurrency: 10,
   browserChecks: {
-    testMatch: '*.spec.js'
+    testMatch: 'some-dir/*.spec.ts'
   }
 })
 
 new ApiCheck('check-group-api-check-1', {
   name: 'Homepage - fetch stats',
   groupId: group.ref(),
+  degradedResponseTime: 10000,
+  maxResponseTime: 20000,
   request: {
     method: 'GET',
     url: 'https://api.checklyhq.com/public-stats',
+    followRedirects: true,
+    skipSsl: false,
+    assertions: []
   }
 })

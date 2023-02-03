@@ -1,5 +1,6 @@
-const { test, expect } = require('@playwright/test')
-const { defaults } = require('../defaults')
+// @ts-ignore
+import { test, expect } from '@playwright/test'
+import { defaults } from '../defaults'
 
 test('Checkly 404 page', async ({ page }) => {
   await page.setViewportSize(defaults.playwright.viewportSize)

@@ -1,10 +1,8 @@
-const { test, expect } = require('@playwright/test')
-const { defaults } = require('../defaults')
+// @ts-ignore
+import { test, expect } from '@playwright/test'
 
 test('Checkly Homepage', async ({ page }) => {
-  await page.setViewportSize(defaults.playwright.viewportSize)
-  const response = await page.goto(defaults.pageUrl)
-
+  const response = await page.goto('https://checklyhq.com')
   expect(response.status()).toBeLessThan(400)
   await expect(page).toHaveTitle(/Build and Run Synthetics That Scale/)
   await page.screenshot({ path: 'homepage.jpg' })
