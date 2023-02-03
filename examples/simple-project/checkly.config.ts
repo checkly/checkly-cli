@@ -6,9 +6,9 @@ const config = {
     locations: [ 'us-east-1', 'eu-west-1' ],
     tags: ['mac'],
     runtimeId: '2022.10',
-    checkMatch: '**/*.check.js',
+    checkMatch: '**/*.check.ts',
     browserChecks: {
-      testMatch: '**/__checks__/*.spec.js', // this matches any Playwright spec-files and automagically creates a Browser check
+      testMatch: '**/__checks__/*.spec.ts', // this matches any Playwright spec-files and automagically creates a Browser check
     },
   },
   cli: {
@@ -16,5 +16,4 @@ const config = {
   },
 }
 
-// We can export the config directly, or export an async function.
-module.exports = async () => config
+module.exports = config

@@ -19,26 +19,26 @@ This project mimics a typical app where you organize code with top-level default
 .
 |-- _github
 |   `-- workflow.yml
-|-- checkly.config.js
+|-- checkly.config.ts
 |-- package.json
 `-- src
     |-- __checks__
-    |   |-- 404.spec.js
-    |   |-- group.check.js
-    |   |-- home.check.js
-    |   `-- homepage.spec.js
-    |-- alert-channels.js
-    |-- defaults.js
+    |   |-- 404.spec.ts
+    |   |-- group.check.ts
+    |   |-- home.check.ts
+    |   `-- homepage.spec.ts
+    |-- alert-channels.ts
+    |-- defaults.ts
     `-- services
         |-- api
-        |   `-- api.check.js
+        |   `-- api.check.ts
         `-- docs
             `-- __checks__
-                `-- docs-search.spec.js
+                `-- docs-search.spec.ts
 
 ```
 
-- Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
+- Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
 
 - Running `npx check deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
 region `us-east-1` and `eu-west-1`

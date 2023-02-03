@@ -1,6 +1,6 @@
-const path = require('path')
-const { BrowserCheck, ApiCheck } = require('@checkly/cli/constructs')
-const { smsChannel, emailChannel } = require('../alert-channels')
+import * as path from 'path'
+import { BrowserCheck } from '@checkly/cli/constructs'
+import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 /*
 * In this example, we bundle all basic checks needed to check the Checkly homepage. We explicitly define the Browser
@@ -13,7 +13,7 @@ new BrowserCheck('homepage-browser-check-1', {
   name: 'Homepage',
   alertChannels,
   code: {
-    entrypoint: path.join(__dirname, 'homepage.spec.js')
+    entrypoint: path.join(__dirname, 'homepage.spec.ts')
   },
 })
 
@@ -21,6 +21,6 @@ new BrowserCheck('404-browser-check-1', {
   name: '404 page',
   alertChannels,
   code: {
-    entrypoint: path.join(__dirname, '404.spec.js')
+    entrypoint: path.join(__dirname, '404.spec.ts')
   },
 })

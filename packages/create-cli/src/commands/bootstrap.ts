@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import {Command, Flags} from '@oclif/core'
+import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
 import { downloadTemplate } from 'giget'

@@ -1,5 +1,6 @@
-const { test, expect } = require('@playwright/test')
-const { defaults } = require('../../../defaults')
+// @ts-ignore
+import { test, expect } from '@playwright/test'
+import { defaults } from '../../../defaults'
 
 /**
  * This spec file will be picked up and turned into a Browser check, using the defaults from the checkly.config.js file
