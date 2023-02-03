@@ -1,10 +1,18 @@
 # checkly-cli
 
+### Dependencies
+
+You will need to install the project's npm dependencies:
+
+```bash
+npm install --workspace packages/cli
+```
+
 ## Running locally
 
 To run the project locally, use:
 ```bash
-./bin/dev help
+./packages/cli/bin/dev help
 ```
 This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to skip compiling the TS.
 
