@@ -2,20 +2,14 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-import { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
+// Only import types given this is an optional dependency
+import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 
 // Our custom configuration to handle walking errors
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 const ignore = (_node: any, _st: any, _c: any) => {}
-Object.values(AST_NODE_TYPES).forEach((astType) => {
-  // Only handle the TS specific ones
-  if (!astType.startsWith('TS')) {
-    return
-  }
-  walk.base[astType] = walk.base[astType] ?? ignore
-})
 
 type Module = {
   localDependencies: Array<string>,
@@ -70,9 +64,25 @@ function validateEntrypoint (entrypoint: string): {extension: SupportedExtension
   }
 }
 
+let tsParser: any
 function getTsParser (): any {
+  if (tsParser) {
+    return tsParser
+  }
+
   try {
-    return require('@typescript-eslint/typescript-estree')
+    tsParser = require('@typescript-eslint/typescript-estree')
+    const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
+    // Our custom configuration to handle walking errors
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    Object.values(AST_NODE_TYPES).forEach((astType) => {
+      // Only handle the TS specific ones
+      if (!astType.startsWith('TS')) {
+        return
+      }
+      walk.base[astType] = walk.base[astType] ?? ignore
+    })
+    return tsParser
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
       throw new Error('Please install typescript to use TypeScript in check files')
