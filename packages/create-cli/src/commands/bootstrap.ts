@@ -158,7 +158,7 @@ export default class Bootstrap extends Command {
 
     if (initGitResponse.initGit) {
       if (hasGitDir()) {
-        this.log('A .git directory already exists. Skipping...')
+        await hint('Oh wait!', 'A .git directory already exists. Skipping...')
       } else {
         await execaCommand('git init', { cwd: targetDir })
       }
