@@ -13,7 +13,7 @@ jobs:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
-      - run: rm -f package/README.md && cp README.md package/
+      - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci --workspace packages/cli
       - run: npm publish --workspace packages/cli
         env:
