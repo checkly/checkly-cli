@@ -92,7 +92,7 @@ export default class Bootstrap extends Command {
       name: 'template',
       message: 'Which template would you like to use for your new project',
       choices: [
-        { value: 'simple-project', title: 'A simple project template with a set of best practices (recommended)' },
+        { value: 'advanced-project', title: 'An advanced project with multiple examples and best practices (recommended)' },
         { value: 'boilerplate-project', title: 'A boilerplate project with basic config' },
       ],
     },

@@ -1,6 +1,6 @@
 const config = {
-  projectName: 'Simple Project',
-  logicalId: 'simple-project',
+  projectName: 'Advanced Example Project',
+  logicalId: 'advanced-example-project',
   repoUrl: 'https://github.com/checkly/checkly-cli',
   checks: {
     locations: [ 'us-east-1', 'eu-west-1' ],

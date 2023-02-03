@@ -1,4 +1,4 @@
-# Checkly Monitoring-as-code: Simple Project
+# Checkly Monitoring-as-code: Advanced Project
 
 This example project shows how you can use the Checkly CLI in a Monitoring-as-Code (MaC) workflow. We are using the
 https://checklyhq.com website as a monitoring target.
@@ -8,7 +8,7 @@ https://checklyhq.com website as a monitoring target.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
-npm create @checkly/cli -- --template simple-project
+npm create @checkly/cli -- --template advanced-project
 ```
 
 ## Project Structure
