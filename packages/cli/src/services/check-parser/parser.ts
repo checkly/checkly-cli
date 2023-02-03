@@ -22,24 +22,42 @@ type Module = {
   npmDependencies: Array<string>
 }
 
-enum SupportedExtensions {
+enum FileExtensions {
   JS = '.js',
-  TS = '.ts'
+  TS = '.ts',
+  PACKAGE = '/package.json',
+  INDEX_JS = '/index.js',
+  INDEX_TS = '/index.ts'
 }
+
+const JS_RESOLVE_ORDER = [
+  FileExtensions.JS,
+  FileExtensions.PACKAGE,
+  FileExtensions.INDEX_JS,
+]
+const TS_RESOLVE_ORDER = [
+  FileExtensions.TS,
+  FileExtensions.JS,
+  FileExtensions.PACKAGE,
+  FileExtensions.INDEX_TS,
+  FileExtensions.INDEX_JS,
+]
+
+type SupportedExtensions = FileExtensions.JS | FileExtensions.TS
 
 const supportedBuiltinModules = [
   'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline ', 'stream', 'string_decoder',
   'timers', 'tls', 'url', 'util', 'zlib',
 ]
 
-function validateEntrypoint (entrypoint: string) {
-  let extension
+function validateEntrypoint (entrypoint: string): {extension: SupportedExtensions, content: string} {
+  let extension: SupportedExtensions
   switch (path.extname(entrypoint)) {
-    case SupportedExtensions.JS:
-      extension = SupportedExtensions.JS
+    case FileExtensions.JS:
+      extension = FileExtensions.JS
       break
-    case SupportedExtensions.TS:
-      extension = SupportedExtensions.TS
+    case FileExtensions.TS:
+      extension = FileExtensions.TS
       break
     default:
       throw new Error(`Unsupported file extension for ${entrypoint}`)
@@ -88,6 +106,11 @@ export class Parser {
     // We can add a not-null assertion operator (!).
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const item = bfsQueue.shift()!
+
+      if (item.filePath.endsWith(FileExtensions.PACKAGE)) {
+        // Holds info about the main file and doesn't need to be parsed
+        continue
+      }
       const { module, error } = Parser.parseDependencies(item.filePath, item.content)
       if (error) {
         collector.addParsingError(item.filePath, error.message)
@@ -101,8 +124,8 @@ export class Parser {
       module.localDependencies.forEach((localDependency: string) => {
         const filePath = path.join(path.dirname(item.filePath), localDependency)
         try {
-          const dep = Parser.readDependency(filePath, extension)
-          localDependenciesResolvedPaths.push(dep)
+          const deps = Parser.readDependency(filePath, extension)
+          localDependenciesResolvedPaths.push(...deps)
         } catch (err: any) {
           collector.addMissingFile(filePath)
         }
@@ -125,22 +148,35 @@ export class Parser {
     // Read the specific file if it has an extension
     if (path.extname(filePath).length) {
       const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
-      return { filePath, content }
+      return [{ filePath, content }]
     } else {
-      if (preferedExtenstion === SupportedExtensions.JS) {
-        return Parser.tryReadFileExt(filePath, [SupportedExtensions.JS])
+      if (preferedExtenstion === FileExtensions.JS) {
+        return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
       } else {
-        return Parser.tryReadFileExt(filePath, [SupportedExtensions.TS, SupportedExtensions.JS])
+        return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
       }
     }
   }
 
-  static tryReadFileExt (filePath: string, exts: Array<SupportedExtensions>) {
+  static tryReadFileExt (filePath: string, exts: Array<FileExtensions>) {
     for (const extension of exts) {
       try {
+        const deps = []
         const fullPath = filePath + extension
         const content = fs.readFileSync(fullPath, { encoding: 'utf-8' })
-        return { filePath: fullPath, content }
+        deps.push({ filePath: fullPath, content })
+        if (extension === FileExtensions.PACKAGE) {
+          const { main } = JSON.parse(content)
+          if (!main || !main.length) {
+            // No main is defined. This means package.json doesn't have a specific entry
+            continue
+          }
+          const mainFile = path.join(filePath, main)
+          deps.push({
+            filePath: mainFile, content: fs.readFileSync(mainFile, { encoding: 'utf-8' }),
+          })
+        }
+        return deps
       } catch (err) {}
     }
     throw new Error(`Cant find file ${filePath}`)
@@ -153,14 +189,14 @@ export class Parser {
 
     const extension = path.extname(filePath)
     try {
-      if (extension === SupportedExtensions.JS) {
+      if (extension === FileExtensions.JS) {
         const ast = acorn.parse(contents, {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
           allowImportExportEverywhere: true,
         })
         walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
-      } else if (extension === SupportedExtensions.TS) {
+      } else if (extension === FileExtensions.TS) {
         const tsParser = getTsParser()
         const ast = tsParser.parse(contents, {})
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.

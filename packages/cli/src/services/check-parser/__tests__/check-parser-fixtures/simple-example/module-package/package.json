@@ -1,0 +1,5 @@
+{
+    "name": "module-package-json",
+    "description": "Module with package.json",
+    "main": "main.js"
+}
