@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { Command } from '@oclif/core'
+import {Command, Flags} from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
 import { downloadTemplate } from 'giget'
@@ -42,7 +42,22 @@ function onCancel (): void {
 export default class Bootstrap extends Command {
   static description = 'Bootstrap a Checkly project'
 
+  static flags = {
+    template: Flags.string({
+      char: 't',
+      description: 'An optional template name',
+    }),
+  }
+
   async run (): Promise<void> {
+    const { flags } = await this.parse(Bootstrap)
+    const { template } = flags
+
+    // This overrides the template prompt and skips to the next prompt
+    if (template) {
+      prompts.override({ template })
+    }
+
     const [version, greeting] = await Promise.all([getVersion(), getUserGreeting()])
 
     await header(version, greeting)
@@ -72,7 +87,7 @@ export default class Bootstrap extends Command {
 
     await hint('Cool.', `Your project will be created in the directory "${targetDir}"`)
 
-    const projectTypeResponse = await prompts({
+    const templateResponse = await prompts({
       type: 'select',
       name: 'template',
       message: 'How would you like to setup your new project?',
@@ -83,8 +98,6 @@ export default class Bootstrap extends Command {
     },
     { onCancel },
     )
-
-    const { template } = projectTypeResponse
 
     const useTSResponse = await prompts({
       type: 'confirm',
@@ -104,7 +117,7 @@ export default class Bootstrap extends Command {
     debug('Downloading template')
 
     const downloadTemplateSpinner = spinner('Downloading example template...')
-    const templatePath = `${templateBaseRepo}/${useTS ? 'ts' : 'js'}/${template}`
+    const templatePath = `${templateBaseRepo}/${useTS ? 'ts' : 'js'}/${templateResponse.template}`
     try {
       debug(`Attempting download of template: ${templatePath}`)
       await downloadTemplate(templatePath, {
@@ -115,7 +128,7 @@ export default class Bootstrap extends Command {
       })
     } catch (e: any) {
       if (e.message.includes('404')) {
-        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${template}"`)
+        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${templateResponse.template}"`)
         downloadTemplateSpinner.fail()
       } else {
         console.error(e.message)
