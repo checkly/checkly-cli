@@ -22,6 +22,9 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
       toAbsolutePath('dep3.js'),
+      toAbsolutePath('module-package/main.js'),
+      toAbsolutePath('module-package/package.json'),
+      toAbsolutePath('module/index.js'),
     ])
   })
 
@@ -88,6 +91,9 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('dep2.ts'),
       toAbsolutePath('dep3.ts'),
       toAbsolutePath('dep4.js'),
+      toAbsolutePath('module-package/main.js'),
+      toAbsolutePath('module-package/package.json'),
+      toAbsolutePath('module/index.ts'),
       toAbsolutePath('type.ts'),
     ])
   })
