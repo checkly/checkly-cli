@@ -90,34 +90,20 @@ export default class Bootstrap extends Command {
     const templateResponse = await prompts({
       type: 'select',
       name: 'template',
-      message: 'How would you like to setup your new project?',
+      message: 'Which template would you like to use for your new project',
       choices: [
-        { value: 'simple-project', title: 'A simple project with a set of best practices (recommended)' },
-        { value: 'empty-project', title: 'An empty project with basic config' },
+        { value: 'simple-project', title: 'A simple project template with a set of best practices (recommended)' },
+        { value: 'boilerplate-project', title: 'A boilerplate project with basic config' },
       ],
     },
     { onCancel },
     )
 
-    const useTSResponse = await prompts({
-      type: 'confirm',
-      name: 'useTS',
-      message: 'Would you like to use Typescript?',
-    },
-    {
-      onCancel: () => {
-        bail()
-        process.exit(1)
-      },
-    },
-    )
-
-    const { useTS } = useTSResponse
 
     debug('Downloading template')
 
     const downloadTemplateSpinner = spinner('Downloading example template...')
-    const templatePath = `${templateBaseRepo}/${useTS ? 'ts' : 'js'}/${templateResponse.template}`
+    const templatePath = `${templateBaseRepo}/${templateResponse.template}`
     try {
       debug(`Attempting download of template: ${templatePath}`)
       await downloadTemplate(templatePath, {
