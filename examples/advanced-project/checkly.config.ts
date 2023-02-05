@@ -3,7 +3,7 @@ const config = {
   logicalId: 'advanced-example-project',
   repoUrl: 'https://github.com/checkly/checkly-cli',
   checks: {
-    locations: [ 'us-east-1', 'eu-west-1' ],
+    locations: ['us-east-1', 'eu-west-1'],
     tags: ['mac'],
     runtimeId: '2022.10',
     checkMatch: '**/*.check.ts',
