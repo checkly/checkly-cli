@@ -1,0 +1,38 @@
+name: "New Story"
+description: Create a new working ticket (maintainers only)
+title: 'story: '
+labels:
+  - 'type: epic'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before You Start...**
+
+        🚨 This issue type is supposed to be uses only by project maintainers.
+        If you want to request a feature or report a bug, please use the existing templates
+
+        Do not forget:
+        - [ ] Assign an issue owner
+        - [ ] Tag with proper labels (type & priority)
+        - [ ] Set a project and milestone
+  - type: textarea
+    id: description
+    attributes:
+      label: Story description
+      description: |
+        Explain your use case, context, and rationale behind this feature request. More importantly, what is the **end user experience** you are trying to build that led to the need for this feature?
+      placeholder: Problem description
+    validations:
+      required: true
+  - type: input
+    id: shortcut
+    attributes:
+      label: Shortcut link
+  - type: textarea
+    id: resources
+    attributes:
+      label: Additional resources
+      description: |
+        Add files, designs, documents, links or whatever you consider useful for this story
+
