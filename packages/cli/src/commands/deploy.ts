@@ -16,6 +16,11 @@ export default class Deploy extends Command {
       description: 'Show state preview',
       default: false,
     }),
+    output: Flags.boolean({
+      char: 'o',
+      description: 'Show output',
+      default: false,
+    }),
     force: Flags.boolean({
       char: 'f',
       description: 'force mode',
@@ -27,7 +32,7 @@ export default class Deploy extends Command {
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
-    const { force, preview } = flags
+    const { force, preview, output } = flags
     const cwd = process.cwd()
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const { data: avilableRuntimes } = await runtimes.getAll()
@@ -62,8 +67,13 @@ export default class Deploy extends Command {
     }
 
     try {
-      await api.projects.deploy(project.synthesize(), { dryRun: preview })
-      console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      const { data } = await api.projects.deploy(project.synthesize(), { dryRun: preview })
+      if (preview || output) {
+        console.info(data)
+      }
+      if (!preview) {
+        console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      }
     } catch (err: any) {
       if (err?.response?.status === 400) {
         console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)

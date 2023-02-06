@@ -2,8 +2,6 @@
 /* eslint-disable no-console */
 import Conf from 'conf'
 
-import type { Runtime } from '../rest/runtimes'
-
 const dataSchema = {
   accountId: { type: 'string' },
   accountName: { type: 'string' },
