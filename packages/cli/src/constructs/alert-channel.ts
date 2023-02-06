@@ -4,23 +4,23 @@ export interface AlertChannelProps {
   /**
    * Determines if an alert should be send for check recoveries.
    */
-  sendRecovery: boolean
+  sendRecovery?: boolean
   /**
    * Determines if an alert should be send for check failures.
    */
-  sendFailure: boolean
+  sendFailure?: boolean
   /**
    * Determines if an alert should be send when a check is degraded.
    */
-  sendDegraded: boolean
+  sendDegraded?: boolean
   /**
    * Determines if an alert should be send for expiring SSL certificates.
    */
-  sslExpiry: boolean
+  sslExpiry?: boolean
   /**
    * At what moment in time to start alerting on SSL certificates.
    */
-  sslExpiryThreshold: number
+  sslExpiryThreshold?: number
 }
 
 /**
@@ -31,11 +31,11 @@ export interface AlertChannelProps {
  * This class make use of the Alert Channels endpoints.
  */
 export abstract class AlertChannel extends Construct {
-  sendRecovery: boolean
-  sendFailure: boolean
-  sendDegraded: boolean
-  sslExpiry: boolean
-  sslExpiryThreshold: number
+  sendRecovery?: boolean
+  sendFailure?: boolean
+  sendDegraded?: boolean
+  sslExpiry?: boolean
+  sslExpiryThreshold?: number
 
   static readonly __checklyType = 'alertChannels'
 
