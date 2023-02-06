@@ -1,5 +1,3 @@
-// TODO: Update error handling to not print to the console and exit from this file.
-/* eslint-disable no-console */
 import Conf from 'conf'
 
 const dataSchema = {
@@ -44,19 +42,18 @@ const config = {
     const env = process.env.NODE_ENV as string || environments[0] as string
 
     if (!(env in Env)) {
-      console.error('Invalid NODE_ENV')
-      process.exit(1)
+      throw new Error('Invalid NODE_ENV')
     }
 
     return env as Env
   },
 
-  getApiKey (): string|null|undefined {
-    return process.env.CHECKLY_API_KEY || this.auth.get<string>('apiKey') as string
+  getApiKey (): string {
+    return process.env.CHECKLY_API_KEY || this.auth.get<string>('apiKey') as string || ''
   },
 
-  getAccountId (): string|null|undefined {
-    return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string
+  getAccountId (): string {
+    return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string || ''
   },
 
   getMqttUrl (): string|null|undefined {
@@ -69,18 +66,11 @@ const config = {
     return environments[this.getEnv()]
   },
 
-  hasValidSession () {
-    return this.getApiKey() && this.getAccountId()
-  },
-
-  validateAuth (auth: boolean) {
-    if (auth && !this.hasValidSession()) {
-      console.error('Invalid Session')
-      console.info(
-        'Run `checkly login` or manually set `CHECKLY_API_KEY` & `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.',
-      )
-      process.exit(1)
+  hasValidCredentials (): boolean {
+    if (this.getApiKey() !== '' && this.getAccountId() !== '') {
+      return true
     }
+    return false
   },
 }
 

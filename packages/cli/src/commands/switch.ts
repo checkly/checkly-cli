@@ -1,10 +1,12 @@
 import * as chalk from 'chalk'
-import { Command, Flags } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import * as inquirer from 'inquirer'
 import config from '../services/config'
 import * as api from '../rest/api'
+import { AuthCommand } from './authCommand'
 
-export default class Switch extends Command {
+export default class Switch extends AuthCommand {
+  static hidden = false
   static description = 'Switch user account'
   static flags = {
     'account-id': Flags.string({
@@ -22,37 +24,41 @@ export default class Switch extends Command {
       try {
         const { data: account } = await api.accounts.get(accountId)
         config.data.set('accountId', account.id)
-        console.info(`Account switched to ${chalk.bold.blue(accountId)}`)
+        this.log(`Account switched to ${chalk.bold.blue(accountId)}`)
       } catch (e) {
-        console.error('Failed to find the account corresponding to the account id')
+        throw new Error('Failed to find the account corresponding to the account id')
       }
       this.exit(0)
     }
 
-    const { data: accounts } = await api.accounts.getAll()
+    try {
+      const { data: accounts } = await api.accounts.getAll()
 
-    if (accounts.length === 1) {
-      console.warn(
-        'Your user is only a member of one account: ' +
-          chalk.bold.blue(accounts[0].name),
-      )
-      this.exit(0)
+      if (accounts.length === 1) {
+        console.warn(
+          'Your user is only a member of one account: ' +
+            chalk.bold.blue(accounts[0].name),
+        )
+        this.exit(0)
+      }
+
+      const { selectedAccountName } = await inquirer.prompt([
+        {
+          name: 'selectedAccountName',
+          type: 'list',
+          choices: accounts.map((account) => account.name),
+          message: 'Select a new Checkly account',
+        },
+      ])
+
+      const { id, name } = accounts.find((account) => account.name === selectedAccountName)!
+
+      config.data.set('accountId', id)
+      config.data.set('accountName', name)
+
+      this.log(`Account switched to ${chalk.bold.blue(name)}`)
+    } catch (err: any) {
+      throw new Error(`Failed to switch account. ${err.response.data.message}`)
     }
-
-    const { selectedAccountName } = await inquirer.prompt([
-      {
-        name: 'selectedAccountName',
-        type: 'list',
-        choices: accounts.map((account) => account.name),
-        message: 'Select a new Checkly account',
-      },
-    ])
-
-    const { id, name } = accounts.find((account) => account.name === selectedAccountName)!
-
-    config.data.set('accountId', id)
-    config.data.set('accountName', name)
-
-    console.info(`Account switched to ${chalk.bold.blue(name)}`)
   }
 }

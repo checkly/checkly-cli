@@ -1,13 +1,15 @@
 import * as api from '../rest/api'
 import config from '../services/config'
 import { prompt } from 'inquirer'
-import { Command, Flags } from '@oclif/core'
+import { Flags } from '@oclif/core'
+import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 
-export default class Deploy extends Command {
+export default class Deploy extends AuthCommand {
+  static hidden = false
   static description = 'Deploy your changes'
 
   static flags = {
@@ -52,8 +54,8 @@ export default class Deploy extends Command {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-    // We can use a null-assertion operator safely since account ID was validated in auth-check hook
-    const { data: account } = await api.accounts.get(config.getAccountId()!)
+
+    const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
       const { confirm } = await prompt([{
@@ -83,16 +85,17 @@ export default class Deploy extends Command {
 
       const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
-        console.info(data)
+        this.log(data)
       }
       if (!preview) {
-        console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+        this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {
-        console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
+        throw new Error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
+      } else {
+        throw new Error(`Failed to deploy the project. ${err.response.data.message}`)
       }
-      throw err
     }
   }
 }

@@ -1,12 +1,12 @@
 import * as open from 'open'
 import * as chalk from 'chalk'
-import { Command, Flags } from '@oclif/core'
+import { Flags } from '@oclif/core'
+import { BaseCommand } from './baseCommand'
 import * as inquirer from 'inquirer'
 import jwtDecode from 'jwt-decode'
 import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
-
 import {
   generateAuthenticationUrl,
   getAccessToken,
@@ -48,11 +48,8 @@ const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   return accounts.find(({ name }) => name === accountName)!
 }
 
-const loginSuccess = () => {
-  console.info('Welcome to @checkly/cli 🦝')
-}
-
-export default class Login extends Command {
+export default class Login extends BaseCommand {
+  static hidden = false
   static description = 'Login with a Checkly API Key'
 
   static flags = {
@@ -70,22 +67,36 @@ export default class Login extends Command {
     }),
   }
 
+  private _loginSuccess = () => {
+    this.log('Welcome to @checkly/cli 🦝')
+  }
+
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
     const { 'api-key': apiKey, 'account-id': accountId } = flags
 
     if (apiKey) {
       if (!accountId) {
-        console.error(
-          'The flag --account-id (-i) is required when using --api-key (-k)',
-        )
-        this.exit(1)
+        throw new Error('The flag --account-id (-i) is required when using --api-key (-k)')
       }
 
       config.auth.set('apiKey', apiKey)
       config.data.set('accountId', accountId)
 
-      loginSuccess()
+      try {
+        await api.accounts.get(accountId)
+      } catch (err: any) {
+        // remove stored credentials if fails
+        config.auth.delete('apiKey')
+        config.data.delete('accountId')
+        const { status } = err.response
+        if (status === 401) {
+          throw new Error(`Authentication failed with Account ID "${accountId}" ` +
+            `and API key "${apiKey?.substring(0, 8)}..."`)
+        }
+      }
+
+      this._loginSuccess()
       this.exit(0)
     }
 
@@ -106,7 +117,7 @@ export default class Login extends Command {
     ])
 
     if (!openUrl) {
-      console.info(
+      this.log(
         `Please open the following URL in your browser: \n\n${chalk.blueBright(
           authServerUrl,
         )}`,
@@ -115,7 +126,6 @@ export default class Login extends Command {
       await open(authServerUrl)
     }
 
-    // TODO: add error handling here
     const code = await startServer(codeVerifier)
 
     const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier)
@@ -134,9 +144,9 @@ export default class Login extends Command {
     config.data.set('accountId', selectedAccount.id)
     config.data.set('accountName', selectedAccount.name)
 
-    console.info(`Successfully logged in as ${chalk.blue.bold(name)}`)
+    this.log(`Successfully logged in as ${chalk.blue.bold(name)}`)
 
-    loginSuccess()
+    this._loginSuccess()
     process.exit(0)
   }
 }

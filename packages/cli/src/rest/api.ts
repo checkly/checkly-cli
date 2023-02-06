@@ -7,6 +7,7 @@ import Checks from './checks'
 import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
+import Locations from './locations'
 
 export function getDefaults () {
   const environments = {
@@ -33,7 +34,7 @@ export function getDefaults () {
   const baseURL = environments[env].apiUrl
   const Authorization = `Bearer ${apiKey}`
 
-  return { baseURL, accountId, Authorization }
+  return { baseURL, accountId, Authorization, apiKey }
 }
 
 function init (): AxiosInstance {
@@ -52,7 +53,6 @@ function init (): AxiosInstance {
 
     return config
   })
-
   return api
 }
 export const api = init()
@@ -63,4 +63,5 @@ export const projects = new Projects(api)
 export const checks = new Checks(api)
 export const assets = new Assets(api)
 export const runtimes = new Runtimes(api)
+export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
