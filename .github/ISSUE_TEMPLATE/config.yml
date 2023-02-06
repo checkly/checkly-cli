@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Docs
+    url: https://www.checklyhq.com/docs/
+    about: If you need help, you can start checking out our documentation
+  - name: API Reference
+    url: https://developers.checklyhq.com
+    about: The API is also a great way to help you debugging issues
