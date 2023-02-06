@@ -35,13 +35,13 @@ interface BasicAuth {
 export interface Request {
   url: string,
   method: HttpRequestMethod,
-  followRedirects: boolean,
-  skipSsl: boolean,
+  followRedirects?: boolean,
+  skipSsl?: boolean,
   /**
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
    */
-  assertions: Array<Assertion>
+  assertions?: Array<Assertion>
   body?: string
   bodyType?: BodyType
   headers?: Array<HttpHeader>
@@ -64,11 +64,11 @@ export interface ApiCheckProps extends CheckProps {
   /**
    * The response time in milliseconds where a check should be considered degraded.
    */
-  degradedResponseTime: number
+  degradedResponseTime?: number
   /**
    * The response time in milliseconds where a check should be considered failing.
    */
-  maxResponseTime: number
+  maxResponseTime?: number
 }
 
 /**
@@ -82,8 +82,8 @@ export class ApiCheck extends Check {
   request: Request
   localSetupScript?: string
   localTearDownScript?: string
-  degradedResponseTime: number
-  maxResponseTime: number
+  degradedResponseTime?: number
+  maxResponseTime?: number
 
   /**
    * Constructs the API Check instance
