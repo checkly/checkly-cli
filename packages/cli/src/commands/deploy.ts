@@ -55,7 +55,7 @@ export default class Deploy extends Command {
     // We can use a null-assertion operator safely since account ID was validated in auth-check hook
     const { data: account } = await api.accounts.get(config.getAccountId()!)
 
-    if (!force) {
+    if (!force && !preview) {
       const { confirm } = await prompt([{
         name: 'confirm',
         type: 'confirm',
@@ -67,7 +67,21 @@ export default class Deploy extends Command {
     }
 
     try {
-      const { data } = await api.projects.deploy(project.synthesize(), { dryRun: preview })
+      const projectPayload = project.synthesize()
+
+      // TODO: refactor Check construct to handle internal attributes properly
+      projectPayload.checks = Object.keys(projectPayload.checks).reduce((acc, checkLogicalId) => {
+        const check = projectPayload.checks[checkLogicalId]
+        delete check.__checkFilePath
+        delete check.sourceFile
+        acc = {
+          ...acc,
+          [checkLogicalId]: check,
+        }
+        return acc
+      }, {})
+
+      const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
         console.info(data)
       }
