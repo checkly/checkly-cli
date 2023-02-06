@@ -35,15 +35,15 @@ export interface CheckGroupProps {
   /**
    * Determines if the checks in the group are running or not.
    */
-  activated: boolean
+  activated?: boolean
   /**
    * Determines if any notifications will be send out when a check in this group fails and/or recovers.
    */
-  muted: boolean
+  muted?: boolean
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute checks in this group.
    */
-  runtimeId: string
+  runtimeId?: string
   /**
    * An array of one or more data center locations where to run the checks.
    */
@@ -55,12 +55,12 @@ export interface CheckGroupProps {
   /**
    * Tags for organizing and filtering checks.
    */
-  tags: Array<string>
+  tags?: Array<string>
   /**
    * Determines how many checks are invoked concurrently when triggering a check group from CI/CD or through the API.
    */
-  concurrency: number
-  environmentVariables: Array<EnvironmentVariable>
+  concurrency?: number
+  environmentVariables?: Array<EnvironmentVariable>
   /**
    * List of alert channel subscriptions.
    */
@@ -74,8 +74,8 @@ export interface CheckGroupProps {
    * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
    */
   localTearDownScript?: string
-  apiCheckDefaults: any
-  browserCheckDefaults: any
+  apiCheckDefaults?: any
+  browserCheckDefaults?: any
 }
 
 /**
@@ -87,14 +87,14 @@ export interface CheckGroupProps {
  */
 export class CheckGroup extends Construct {
   name: string
-  activated: boolean
-  muted: boolean
-  runtimeId: string
+  activated?: boolean
+  muted?: boolean
+  runtimeId?: string
   locations: Array<string>
   privateLocations?: Array<string>
-  tags: Array<string>
-  concurrency: number
-  environmentVariables: Array<EnvironmentVariable>
+  tags?: Array<string>
+  concurrency?: number
+  environmentVariables?: Array<EnvironmentVariable>
   alertChannels?: Array<AlertChannel>
   localSetupScript?: string
   localTearDownScript?: string
