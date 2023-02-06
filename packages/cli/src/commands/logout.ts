@@ -15,10 +15,12 @@ export default class Logout extends Command {
   async run (): Promise<void> {
     const { flags } = await this.parse(Logout)
     const { force } = flags
+    const accountName = config.data.get('accountName')
 
     if (!force) {
-      const message = `You are about to clear your local session of
-        \`${config.data.get('accountName')}\`, do you want to continue?`
+      const message = `You are about to clear your local session${accountName
+        ? ' of "' + accountName + '"'
+        : ''}, do you want to continue?`
 
       const { confirm } = await prompt([{
         name: 'confirm',

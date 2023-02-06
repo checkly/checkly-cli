@@ -16,6 +16,11 @@ export default class Deploy extends Command {
       description: 'Show state preview',
       default: false,
     }),
+    output: Flags.boolean({
+      char: 'o',
+      description: 'Show output',
+      default: false,
+    }),
     force: Flags.boolean({
       char: 'f',
       description: 'force mode',
@@ -27,7 +32,7 @@ export default class Deploy extends Command {
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
-    const { force, preview } = flags
+    const { force, preview, output } = flags
     const cwd = process.cwd()
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const { data: avilableRuntimes } = await runtimes.getAll()
@@ -50,7 +55,7 @@ export default class Deploy extends Command {
     // We can use a null-assertion operator safely since account ID was validated in auth-check hook
     const { data: account } = await api.accounts.get(config.getAccountId()!)
 
-    if (!force) {
+    if (!force && !preview) {
       const { confirm } = await prompt([{
         name: 'confirm',
         type: 'confirm',
@@ -62,8 +67,27 @@ export default class Deploy extends Command {
     }
 
     try {
-      await api.projects.deploy(project.synthesize(), { dryRun: preview })
-      console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      const projectPayload = project.synthesize()
+
+      // TODO: refactor Check construct to handle internal attributes properly
+      projectPayload.checks = Object.keys(projectPayload.checks).reduce((acc, checkLogicalId) => {
+        const check = projectPayload.checks[checkLogicalId]
+        delete check.__checkFilePath
+        delete check.sourceFile
+        acc = {
+          ...acc,
+          [checkLogicalId]: check,
+        }
+        return acc
+      }, {})
+
+      const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
+      if (preview || output) {
+        console.info(data)
+      }
+      if (!preview) {
+        console.info(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      }
     } catch (err: any) {
       if (err?.response?.status === 400) {
         console.error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
