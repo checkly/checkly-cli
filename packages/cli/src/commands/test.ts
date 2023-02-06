@@ -53,7 +53,11 @@ export default class Test extends Command {
     }),
     list: Flags.boolean({
       default: false,
-      description: 'list all checks but don\'t run them',
+      description: 'list all checks but don\'t run them.',
+    }),
+    timeout: Flags.integer({
+      default: 240,
+      description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
   }
 
@@ -79,6 +83,7 @@ export default class Test extends Command {
       env,
       'env-file': envFile,
       list,
+      timeout,
     } = flags
     const cwd = process.cwd()
     const filePatterns = argv as string[]
@@ -139,7 +144,7 @@ export default class Test extends Command {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location)
+    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location, timeout)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
@@ -152,8 +157,13 @@ export default class Test extends Command {
       })
     })
     runner.on(Events.CHECK_FAILED, (check, message) => {
-      // TODO: We need a different handling here given we have no result here
-      console.error('Scheduler failure', message)
+      reporter.onCheckEnd({
+        ...check,
+        logicalId: check.logicalId,
+        sourceFile: check.sourceFile,
+        hasFailures: true,
+        runError: message,
+      })
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())

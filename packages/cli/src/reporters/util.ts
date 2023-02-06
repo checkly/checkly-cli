@@ -68,6 +68,12 @@ export function formatCheckResult (checkResult: any) {
       formatLogs(checkResult.logs),
     ])
   }
+  if (checkResult.runError) {
+    result.push([
+      formatSectionTitle('Execution Error'),
+      formatRunError(checkResult.runError),
+    ])
+  }
   return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
@@ -160,6 +166,14 @@ function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) 
       ...remainingLines.map((line) => format(line)),
     ]
   }).join('\n')
+}
+
+function formatRunError (err: string | Error): string {
+  if (typeof err === 'string') {
+    return err
+  } else {
+    return err.message
+  }
 }
 
 function formatSectionTitle (title: string): string {
