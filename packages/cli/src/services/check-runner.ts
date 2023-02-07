@@ -91,7 +91,7 @@ export default class CheckRunner extends EventEmitter {
       await checksApi.run(checkRun)
     } catch (err: any) {
       if (err?.response?.status === 402) {
-        const errorMessage = `Failed to run a check. ${err.response.data.message}`
+        const errorMessage = `Failed to run a check. ${err.message}`
         this.emit(Events.CHECK_FAILED, checkRun, new Error(errorMessage))
         this.emit(Events.CHECK_FINISHED, check)
         // TODO: Find a way to abort. The latest version supports this but doesn't work with TS

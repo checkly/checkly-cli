@@ -15,22 +15,6 @@ import {
   getApiKey,
 } from '../auth'
 
-const checkExistingLogin = async () => {
-  if (config.getApiKey()) {
-    const { setNewkey } = await inquirer.prompt([
-      {
-        name: 'setNewkey',
-        type: 'confirm',
-        message: `Existing session with account ${chalk.bold.blue(
-          config.data.get('accountName'),
-        )}, do you want to continue?`,
-      },
-    ])
-
-    !setNewkey && process.exit(0)
-  }
-}
-
 const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   if (accounts.length === 1) {
     return accounts[0]
@@ -67,13 +51,37 @@ export default class Login extends BaseCommand {
     }),
   }
 
-  private _loginSuccess = () => {
+  private _checkExistingCredentials = async () => {
+    if (config.hasEnvVarsConfigured()) {
+      this.warn('`CHECKLY_API_KEY` ' +
+      'or `CHECKLY_ACCOUNT_ID` environment variables are configured. You must delete them to use `npx checkly login`.')
+      this.exit(0)
+    }
+
+    const hasValidCredentials = config.hasValidCredentials()
+
+    if (hasValidCredentials) {
+      const { setNewkey } = await inquirer.prompt([
+        {
+          name: 'setNewkey',
+          type: 'confirm',
+          message: `Existing session with account "${config.data.get('accountName')}", do you want to continue?`,
+        },
+      ])
+      !setNewkey && this.exit(0)
+    }
+  }
+
+  private _isLoginSuccess = async () => {
+    await api.isAuthenticated()
     this.log('Welcome to @checkly/cli 🦝')
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
     const { 'api-key': apiKey, 'account-id': accountId } = flags
+
+    await this._checkExistingCredentials()
 
     if (apiKey) {
       if (!accountId) {
@@ -83,24 +91,10 @@ export default class Login extends BaseCommand {
       config.auth.set('apiKey', apiKey)
       config.data.set('accountId', accountId)
 
-      try {
-        await api.accounts.get(accountId)
-      } catch (err: any) {
-        // remove stored credentials if fails
-        config.auth.delete('apiKey')
-        config.data.delete('accountId')
-        const { status } = err.response
-        if (status === 401) {
-          throw new Error(`Authentication failed with Account ID "${accountId}" ` +
-            `and API key "${apiKey?.substring(0, 8)}..."`)
-        }
-      }
-
-      this._loginSuccess()
+      await this._isLoginSuccess()
       this.exit(0)
     }
 
-    await checkExistingLogin()
     const { codeChallenge, codeVerifier } = generatePKCE()
     const authServerUrl = generateAuthenticationUrl(
       codeChallenge,
@@ -146,7 +140,7 @@ export default class Login extends BaseCommand {
 
     this.log(`Successfully logged in as ${chalk.blue.bold(name)}`)
 
-    this._loginSuccess()
+    await this._isLoginSuccess()
     process.exit(0)
   }
 }

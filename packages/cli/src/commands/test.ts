@@ -143,7 +143,7 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location, timeout)
+    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location, timeout)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
@@ -163,7 +163,7 @@ export default class Test extends AuthCommand {
         hasFailures: true,
         runError: message,
       })
-      throw new Error(`Scheduler failure:, ${message}.`)
+      process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
     await runner.run()
@@ -177,7 +177,7 @@ export default class Test extends AuthCommand {
     if (cliFlags.runLocation) {
       const { data: availableLocations } = await api.locations.getAll()
       if (availableLocations.some(l => l.region === cliFlags.runLocation)) {
-        return Promise.resolve({ type: 'PUBLIC', region: cliFlags.runLocation })
+        return { type: 'PUBLIC', region: cliFlags.runLocation }
       }
       throw new Error(`Unable to run checks on unsupported location "${cliFlags.runLocation}". ` +
         `Supported locations are:\n${availableLocations.map(l => `${l.region}`).join('\n')}`)
@@ -188,11 +188,11 @@ export default class Test extends AuthCommand {
         ` Please only specify one run location. The configured locations were' + 
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
-      return Promise.resolve({ type: 'PUBLIC', region: configOptions.runLocation })
+      return { type: 'PUBLIC', region: configOptions.runLocation }
     } else if (configOptions.privateRunLocation) {
       return this.preparePrivateRunLocation(configOptions.privateRunLocation)
     } else {
-      return Promise.resolve({ type: 'PUBLIC', region: DEFAULT_REGION })
+      return { type: 'PUBLIC', region: DEFAULT_REGION }
     }
   }
 
@@ -203,11 +203,10 @@ export default class Test extends AuthCommand {
       if (privateLocation) {
         return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
       }
-      // We can use a null-assertion operator safely since account ID was validated in auth-check hook
       const { data: account } = await api.accounts.get(config.getAccountId())
       throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
     } catch (err: any) {
-      throw new Error(`Failed to get private locations. ${err.response.data.message}.`)
+      throw new Error(`Failed to get private locations. ${err.message}.`)
     }
   }
 }

@@ -56,6 +56,12 @@ const config = {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string || ''
   },
 
+  hasEnvVarsConfigured (): boolean {
+    const apiKey = process.env.CHECKLY_API_KEY || ''
+    const accoundId = process.env.CHECKLY_ACCOUNT_ID || ''
+    return apiKey !== '' || accoundId !== ''
+  },
+
   getMqttUrl (): string|null|undefined {
     const environments = {
       development: 'wss://events-local.checklyhq.com',

@@ -90,9 +90,9 @@ export default class Deploy extends AuthCommand {
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy the project due to a missing field. ${err.response.data.message}`)
+        throw new Error(`Failed to deploy the project due to a missing field. ${err.message}`)
       } else {
-        throw new Error(`Failed to deploy the project. ${err.response.data.message}`)
+        throw new Error(`Failed to deploy the project. ${err.message}`)
       }
     }
   }

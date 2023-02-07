@@ -37,6 +37,33 @@ export function getDefaults () {
   return { baseURL, accountId, Authorization, apiKey }
 }
 
+export async function isAuthenticated (): Promise<boolean> {
+  if (!config.hasValidCredentials()) {
+    throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` ' +
+      '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
+  }
+
+  const accountId = config.getAccountId()
+  const apiKey = config.getApiKey()
+
+  try {
+    // check if credentials works
+    await accounts.get(accountId)
+    return true
+  } catch (err: any) {
+    // if fails remove stored credentials
+    config.auth.delete('apiKey')
+    config.data.delete('accountId')
+    config.data.delete('accountName')
+    const { status } = err.response
+    if (status === 401) {
+      throw new Error(`Authentication failed with Account ID "${accountId}" ` +
+        `and API key "...${apiKey?.slice(-4)}"`)
+    }
+  }
+  return false
+}
+
 function init (): AxiosInstance {
   const { baseURL } = getDefaults()
   const api = axios.create({ baseURL })
