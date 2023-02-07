@@ -344,6 +344,7 @@ between environments.
 - `--private-location <private location ID>`: Run checks against the specified private location.
 - `--env-file`: You can read variables from a `.env` file by passing the file path e.g. `--env-file="./.env"`
 - `--list`: Just list the checks in your project, but don't run them.
+- `--timeout`: A fallback timeout (in seconds) to wait for checks to complete.
 
 ### `npx checkly deploy`
 
