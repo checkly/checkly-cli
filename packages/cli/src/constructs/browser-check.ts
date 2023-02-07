@@ -106,6 +106,10 @@ export class BrowserCheck extends Check {
     }
   }
 
+  getSourceFile () {
+    return this.__checkFilePath ?? this.scriptPath
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),
@@ -113,7 +117,6 @@ export class BrowserCheck extends Check {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
-      sourceFile: this.__checkFilePath ?? this.scriptPath,
     }
   }
 }

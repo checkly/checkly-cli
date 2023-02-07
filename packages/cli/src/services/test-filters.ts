@@ -3,9 +3,9 @@ export function filterByCheckNamePattern (checkNamePattern = '', checkName: stri
   return re.test(checkName)
 }
 
-export function filterByFileNamePattern (filePatterns: Array<string> = [], path: string) {
+export function filterByFileNamePattern (filePatterns: Array<string> = [], path: string|undefined) {
   return !!filePatterns.find(filePattern => {
     const re = new RegExp(filePattern)
-    return re.test(path)
+    return re.test(path as any)
   })
 }

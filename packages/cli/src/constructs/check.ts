@@ -141,6 +141,10 @@ export abstract class Check extends Construct {
     }
   }
 
+  getSourceFile () {
+    return this.__checkFilePath
+  }
+
   synthesize () {
     return {
       name: this.name,
@@ -155,8 +159,6 @@ export abstract class Check extends Construct {
       frequency: this.frequency,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
-      __checkFilePath: this.__checkFilePath,
-      sourceFile: this.__checkFilePath,
     }
   }
 }
