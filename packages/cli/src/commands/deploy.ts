@@ -30,8 +30,6 @@ export default class Deploy extends AuthCommand {
     }),
   }
 
-  static auth = true
-
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
     const { force, preview, output } = flags

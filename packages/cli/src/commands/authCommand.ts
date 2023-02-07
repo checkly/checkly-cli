@@ -26,8 +26,4 @@ export abstract class AuthCommand extends BaseCommand {
       }
     }
   }
-
-  protected catch (err: Error & {exitCode?: number}): Promise<any> {
-    return super.catch(err)
-  }
 }

@@ -14,7 +14,7 @@ export abstract class BaseCommand extends Command {
   }
 
   protected catch (err: Error & {exitCode?: number}): Promise<any> {
-    // this.error(err, { exit: 1 })
+    // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)
   }
 }

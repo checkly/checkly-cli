@@ -58,8 +58,6 @@ export default class Test extends AuthCommand {
     }),
   }
 
-  static auth = true
-
   static args = {
     fileArgs: Args.string({
       name: 'files',
