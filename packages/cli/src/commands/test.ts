@@ -54,7 +54,11 @@ export default class Test extends AuthCommand {
     }),
     list: Flags.boolean({
       default: false,
-      description: 'list all checks but don\'t run them',
+      description: 'list all checks but don\'t run them.',
+    }),
+    timeout: Flags.integer({
+      default: 240,
+      description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
   }
 
@@ -78,6 +82,7 @@ export default class Test extends AuthCommand {
       env,
       'env-file': envFile,
       list,
+      timeout,
     } = flags
     const cwd = process.cwd()
     const filePatterns = argv as string[]
@@ -138,7 +143,7 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location)
+    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location, timeout)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
@@ -151,6 +156,13 @@ export default class Test extends AuthCommand {
       })
     })
     runner.on(Events.CHECK_FAILED, (check, message) => {
+      reporter.onCheckEnd({
+        ...check,
+        logicalId: check.logicalId,
+        sourceFile: check.sourceFile,
+        hasFailures: true,
+        runError: message,
+      })
       throw new Error(`Scheduler failure:, ${message}.`)
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())

@@ -25,20 +25,28 @@ export type PublicRunLocation = {
 }
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
+type CheckRunId = string
+
 export default class CheckRunner extends EventEmitter {
-  checks: Map<string, any> // A map of checkRunId->check
+  checks: Map<CheckRunId, any>
+  // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
+  // To avoid this case, we set a per-check timeout.
+  timeouts: Map<CheckRunId, NodeJS.Timeout>
   location: RunLocation
   accountId: string
   apiKey: string
+  timeout: number
 
-  constructor (accountId: string, apiKey: string, checks: any[], location: RunLocation) {
+  constructor (accountId: string, apiKey: string, checks: any[], location: RunLocation, timeout: number) {
     super()
     this.checks = new Map(
       checks.map((check) => [uuid.v4(), check]),
     )
+    this.timeouts = new Map()
     this.location = location
     this.accountId = accountId
     this.apiKey = apiKey
+    this.timeout = timeout
   }
 
   async run () {
@@ -65,6 +73,11 @@ export default class CheckRunner extends EventEmitter {
   }
 
   private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: any): Promise<void> {
+    this.timeouts.set(checkRunId, setTimeout(() => {
+      this.timeouts.delete(checkRunId)
+      this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+      this.emit(Events.CHECK_FINISHED, check)
+    }, this.timeout * 1000))
     const checkRun = {
       ...check,
       runLocation: this.location,
@@ -96,9 +109,14 @@ export default class CheckRunner extends EventEmitter {
       const checkRunId = topicComponents[4]
       const subtopic = topicComponents[5]
       const check = this.checks.get(checkRunId)!
+      if (!this.timeouts.has(checkRunId)) {
+        // The check has already timed out. We return early to avoid reporting a duplicate result.
+        return
+      }
       if (subtopic === 'run-start') {
         this.emit(Events.CHECK_INPROGRESS, check)
       } else if (subtopic === 'run-end') {
+        this.disableTimeout(checkRunId)
         const { result } = message
         const { region, logPath, checkRunDataPath } = result.assets
         if (result.hasFailures && logPath) {
@@ -110,6 +128,7 @@ export default class CheckRunner extends EventEmitter {
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (subtopic === 'error') {
+        this.disableTimeout(checkRunId)
         this.emit(Events.CHECK_FAILED, check, message)
         this.emit(Events.CHECK_FINISHED, check)
       }
@@ -129,5 +148,11 @@ export default class CheckRunner extends EventEmitter {
         if (finishedCheckCount === numChecks) resolve()
       })
     })
+  }
+
+  private disableTimeout (checkRunId: string) {
+    const timeout = this.timeouts.get(checkRunId)
+    clearTimeout(timeout)
+    this.timeouts.delete(checkRunId)
   }
 }
