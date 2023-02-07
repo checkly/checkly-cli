@@ -39,6 +39,9 @@ const config = {
     runtimeId: '2022.10',
     frequency: 5,
     locations: ['us-east-1', 'eu-west-1'],
+    browserChecks: {
+      testMatch: '**/*.spec.js',
+    },
   }
 }
 
@@ -112,7 +115,7 @@ const config = {
     browserChecks: {
       frequency: 10,
       testMatch: '**/*.spec.js',
-    }
+    },
   },
   cli: {
     verbose: false,
