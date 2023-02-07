@@ -32,7 +32,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const {
     directory,
     checkMatch = '**/*.check.{js,ts}',
-    browserCheckMatch = '**/*.spec.{js,ts}',
+    browserCheckMatch,
     projectLogicalId,
     projectName,
     repoUrl,
@@ -88,10 +88,13 @@ async function loadAllCheckFiles (
 
 async function loadAllBrowserChecks (
   directory: string,
-  browserCheckFilePattern: string,
+  browserCheckFilePattern: string | undefined,
   ignorePattern: string[],
   project: Project,
 ): Promise<void> {
+  if (!browserCheckFilePattern) {
+    return
+  }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
   Object.values(project.data.checks).forEach(({ scriptPath }) => {
