@@ -336,12 +336,6 @@ Deploy all resources to your Checkly account
 npx checkly deploy
 ```
 
-List all available runtimes and their dependencies:
-
-```bash
-npx checkly runtimes
-```
-
 ## Reference
 
 ### `npx checkly test`
@@ -385,6 +379,9 @@ Prints the account and user you are currently logged in with.
 
 Switch which account you are logged into based on the accounts you can access with your credentials.
 
+### `npx checkly runtimes`
+
+List all available runtimes and their dependencies.
 
 # Authentication
 
