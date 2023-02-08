@@ -1,8 +1,10 @@
 import { prompt } from 'inquirer'
-import { Command, Flags } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import config from '../services/config'
+import { BaseCommand } from './baseCommand'
 
-export default class Logout extends Command {
+export default class Logout extends BaseCommand {
+  static hidden = false
   static description = 'Logout and clear local conf'
   static flags = {
     force: Flags.boolean({
@@ -34,8 +36,6 @@ export default class Logout extends Command {
     }
 
     config.clear()
-    console.info('See you soon! 👋')
-
-    this.exit(0)
+    this.log('See you soon! 👋')
   }
 }

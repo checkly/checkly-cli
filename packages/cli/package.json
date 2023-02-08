@@ -34,12 +34,6 @@
       "@oclif/plugin-help",
       "@oclif/plugin-warn-if-update-available"
     ],
-    "hooks": {
-      "prerun": [
-        "./dist/hooks/configure-api-client",
-        "./dist/hooks/auth-check"
-      ]
-    },
     "warn-if-update-available": {
       "timeoutInDays": 30,
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."

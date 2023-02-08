@@ -1,8 +1,7 @@
 import * as fs from 'node:fs/promises'
-import { Command, Flags, Args } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
-
 import * as api from '../rest/api'
 import config from '../services/config'
 import ListReporter from '../reporters/list'
@@ -12,6 +11,7 @@ import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../service
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
+import { AuthCommand } from './authCommand'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -24,7 +24,8 @@ async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
   return parse(envsString)
 }
 
-export default class Test extends Command {
+export default class Test extends AuthCommand {
+  static hidden = false
   static description = 'Test checks on Checkly'
   static flags = {
     location: Flags.string({
@@ -60,8 +61,6 @@ export default class Test extends Command {
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
   }
-
-  static auth = true
 
   static args = {
     fileArgs: Args.string({
@@ -144,7 +143,7 @@ export default class Test extends Command {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId()!, config.getApiKey()!, checks, location, timeout)
+    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location, timeout)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
@@ -170,22 +169,24 @@ export default class Test extends Command {
     await runner.run()
   }
 
-  // eslint-disable-next-line require-await
   async prepareRunLocation (
     configOptions: { runLocation?: string, privateRunLocation?: string } = {},
     cliFlags: { runLocation?: string, privateRunLocation?: string },
   ): Promise<RunLocation> {
     // Command line options take precedence
     if (cliFlags.runLocation) {
-      return { type: 'PUBLIC', region: cliFlags.runLocation }
+      const { data: availableLocations } = await api.locations.getAll()
+      if (availableLocations.some(l => l.region === cliFlags.runLocation)) {
+        return { type: 'PUBLIC', region: cliFlags.runLocation }
+      }
+      throw new Error(`Unable to run checks on unsupported location "${cliFlags.runLocation}". ` +
+        `Supported locations are:\n${availableLocations.map(l => `${l.region}`).join('\n')}`)
     } else if (cliFlags.privateRunLocation) {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-      this.error(
-        'Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
-        ` Please only specify one run location. The configured locations were "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`,
-        { exit: 1 },
-      )
+      throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
+        ` Please only specify one run location. The configured locations were' + 
+        ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
       return { type: 'PUBLIC', region: configOptions.runLocation }
     } else if (configOptions.privateRunLocation) {
@@ -196,13 +197,16 @@ export default class Test extends Command {
   }
 
   async preparePrivateRunLocation (privateLocationSlugName: string): Promise<PrivateRunLocation> {
-    const { data: privateLocations } = await api.privateLocations.getAll()
-    const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
-    if (privateLocation) {
-      return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
+    try {
+      const { data: privateLocations } = await api.privateLocations.getAll()
+      const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
+      if (privateLocation) {
+        return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
+      }
+      const { data: account } = await api.accounts.get(config.getAccountId())
+      throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
+    } catch (err: any) {
+      throw new Error(`Failed to get private locations. ${err.message}.`)
     }
-    // We can use a null-assertion operator safely since account ID was validated in auth-check hook
-    const { data: account } = await api.accounts.get(config.getAccountId()!)
-    this.error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`, { exit: 1 })
   }
 }

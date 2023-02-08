@@ -324,6 +324,12 @@ Dry run all checks against a specific location:
 npx checkly test --location eu-west-1
 ```
 
+Preview the differences between your actual configuration and your account
+
+```bash
+npx checkly deploy --preview
+```
+
 Deploy all resources to your Checkly account
 
 ```bash
@@ -354,6 +360,8 @@ between environments.
 Deploys all your checks and associated resources like alert channels to your Checkly account.
 
 - `--force` or `-f`: Skips the confirmation dialog when deploying. Handy in CI environments.
+- `--preview` or `-p`: Preview the differences between your actual configuration and your account.
+- `--output` or `-o`: Show applied differences after deploying.
 
 ### `npx checkly login`
 

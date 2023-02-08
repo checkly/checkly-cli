@@ -7,6 +7,7 @@ import Checks from './checks'
 import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
+import Locations from './locations'
 
 export function getDefaults () {
   const environments = {
@@ -33,7 +34,30 @@ export function getDefaults () {
   const baseURL = environments[env].apiUrl
   const Authorization = `Bearer ${apiKey}`
 
-  return { baseURL, accountId, Authorization }
+  return { baseURL, accountId, Authorization, apiKey }
+}
+
+export async function isAuthenticated (): Promise<boolean> {
+  if (!config.hasValidCredentials()) {
+    throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` ' +
+      '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
+  }
+
+  const accountId = config.getAccountId()
+  const apiKey = config.getApiKey()
+
+  try {
+    // check if credentials works
+    await accounts.get(accountId)
+    return true
+  } catch (err: any) {
+    const { status } = err.response
+    if (status === 401) {
+      throw new Error(`Authentication failed with Account ID "${accountId}" ` +
+        `and API key "...${apiKey?.slice(-4)}"`)
+    }
+  }
+  return false
 }
 
 function init (): AxiosInstance {
@@ -52,7 +76,6 @@ function init (): AxiosInstance {
 
     return config
   })
-
   return api
 }
 export const api = init()
@@ -63,4 +86,5 @@ export const projects = new Projects(api)
 export const checks = new Checks(api)
 export const assets = new Assets(api)
 export const runtimes = new Runtimes(api)
+export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
