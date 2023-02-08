@@ -336,6 +336,12 @@ Deploy all resources to your Checkly account
 npx checkly deploy
 ```
 
+List all available runtimes and their dependencies:
+
+```bash
+npx checkly runtimes
+```
+
 ## Reference
 
 ### `npx checkly test`
