@@ -51,10 +51,6 @@ export async function isAuthenticated (): Promise<boolean> {
     await accounts.get(accountId)
     return true
   } catch (err: any) {
-    // if fails remove stored credentials
-    config.auth.delete('apiKey')
-    config.data.delete('accountId')
-    config.data.delete('accountName')
     const { status } = err.response
     if (status === 401) {
       throw new Error(`Authentication failed with Account ID "${accountId}" ` +
