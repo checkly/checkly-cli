@@ -31,7 +31,7 @@ export class Project extends Construct {
   /**
    * Constructs the Project instance
    *
-   * @param logicalId unique project identificator
+   * @param logicalId unique project identifier
    * @param props project configuration properties
    */
   constructor (logicalId: string, props: ProjectProps) {
