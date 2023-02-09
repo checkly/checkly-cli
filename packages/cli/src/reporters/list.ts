@@ -25,6 +25,8 @@ export default class ListReporter extends AbstractListReporter {
     if (checkResult.hasFailures) {
       // Print the failed check result above the status section
       console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+    }
+    if (this.verbose || checkResult.hasFailures) {
       console.log('')
       console.log(indentString(formatCheckResult(checkResult), 4))
       console.log('')
