@@ -379,6 +379,9 @@ Prints the account and user you are currently logged in with.
 
 Switch which account you are logged into based on the accounts you can access with your credentials.
 
+### `npx checkly runtimes`
+
+List all available runtimes and their dependencies.
 
 # Authentication
 
