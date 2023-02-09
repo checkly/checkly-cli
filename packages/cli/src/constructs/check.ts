@@ -6,6 +6,17 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
+/**
+ *  Supported regions
+ */
+export type Region = 'us-east-1' | 'us-east-2' | 'us-west-1' | 'us-west-2'
+  | 'ca-central-1' | 'sa-east-1'
+  | 'eu-west-1' | 'eu-central-1' | 'eu-west-2' | 'eu-west-3' | 'eu-north-1' | 'eu-south-1'
+  | 'me-south-1'
+  | 'ap-southeast-1' | 'ap-northeast-1' | 'ap-east-1'
+  | 'ap-southeast-2' | 'ap-southeast-3' | 'ap-northeast-2' | 'ap-northeast-3'
+  | 'ap-south-1' | 'af-south-1'
+
 export interface CheckProps {
   /**
    *  The name of the check.
@@ -33,9 +44,13 @@ export interface CheckProps {
    */
   runtimeId?: string
   /**
-   * An array of one or more data center locations where to run this check.
+   * An array of one or more data center locations where to run this check. The supported regions are:
+   * us-east-1, us-east-2, us-west-1, us-west-2, ca-central-1, sa-east-1,
+   * eu-west-1, eu-central-1, eu-west-2, eu-west-3, eu-north-1, eu-south-1, me-south-1,
+   * ap-southeast-1, ap-northeast-1, ap-east-1, ap-southeast-2, ap-southeast-3, ap-northeast-2, ap-northeast-3,
+   * ap-south-1, af-south-1
    */
-  locations?: Array<string>
+  locations?: Array<Region>
   /**
    * An array of one or more private locations where to run the check.
    */
@@ -67,7 +82,7 @@ export abstract class Check extends Construct {
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
-  locations?: Array<string>
+  locations?: Array<Region>
   privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
