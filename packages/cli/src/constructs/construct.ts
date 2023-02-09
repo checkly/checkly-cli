@@ -1,13 +1,14 @@
 import { Session } from './project'
 import { Ref } from './ref'
+import { ValidationError } from './validator-error'
 
 export abstract class Construct {
   type: string
   logicalId: string
   constructor (type: string, logicalId: string) {
-    Session.validateCreateConstruct(this)
     this.logicalId = logicalId
     this.type = type
+    Session.validateCreateConstruct(this)
   }
 
   ref () {

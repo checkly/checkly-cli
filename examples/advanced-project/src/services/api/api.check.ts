@@ -1,4 +1,4 @@
-import { ApiCheck } from '@checkly/cli/dist/constructs'
+import { ApiCheck } from '@checkly/cli/constructs'
 import { slackChannel, webhookChannel } from '../../alert-channels'
 
 new ApiCheck('homepage-api-check-1', {

@@ -15,7 +15,7 @@ export interface ProjectProps {
   repoUrl: string
 }
 
-export class Project {
+export class Project extends Construct {
   name: string
   repoUrl: string
   logicalId: string
@@ -26,13 +26,16 @@ export class Project {
     alertChannelSubscriptions: {},
   }
 
+  static readonly __checklyType = 'project'
+
   /**
-   * Constructs the Email Alert Channel instance
+   * Constructs the Project instance
    *
-   * @param logicalId unique project name
+   * @param logicalId unique project identifier
    * @param props project configuration properties
    */
   constructor (logicalId: string, props: ProjectProps) {
+    super(Project.__checklyType, logicalId)
     if (!props.name) {
       // TODO: Can we collect a list of validation errors and return them all at once? This might be better UX.
       throw new ValidationError('The project must have a name specified')
@@ -85,7 +88,13 @@ export class Session {
   }
 
   static validateCreateConstruct (construct: Construct) {
-    if (Session.project) {
+    if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
+      throw new ValidationError(`The 'logicalId' must includes only allowed characters [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
+    }
+
+    if (construct.type === Project.__checklyType) {
+      // Creating the construct is allowed - We're creating the project.
+    } else if (Session.project) {
       // Creating the construct is allowed - We're in the process of parsing the project.
     } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
       // Creating the construct is allowed - We're in the process of parsing the Checkly config.
