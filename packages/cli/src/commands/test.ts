@@ -142,7 +142,7 @@ export default class Test extends AuthCommand {
         }
         return check
       })
-    const reporter = isCI ? new CiReporter(location, checks) : new ListReporter(location, checks)
+    const reporter = isCI ? new CiReporter(location, checks, verbose) : new ListReporter(location, checks, verbose)
 
     if (list) {
       reporter.onBeginStatic()
