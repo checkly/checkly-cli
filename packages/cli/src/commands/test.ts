@@ -60,6 +60,11 @@ export default class Test extends AuthCommand {
       default: 240,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
+    verbose: Flags.boolean({
+      char: 'v',
+      default: false,
+      description: 'Always show the logs of the checks.',
+    }),
   }
 
   static args = {
@@ -83,6 +88,7 @@ export default class Test extends AuthCommand {
       'env-file': envFile,
       list,
       timeout,
+      verbose,
     } = flags
     const cwd = process.cwd()
     const filePatterns = argv as string[]
@@ -143,7 +149,7 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location, timeout)
+    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location, timeout, verbose)
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {

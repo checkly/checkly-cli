@@ -36,8 +36,11 @@ export default class CheckRunner extends EventEmitter {
   accountId: string
   apiKey: string
   timeout: number
+  verbose: boolean
 
-  constructor (accountId: string, apiKey: string, checks: any[], location: RunLocation, timeout: number) {
+  constructor (
+    accountId: string, apiKey: string, checks: any[], location: RunLocation, timeout: number, verbose: boolean,
+  ) {
     super()
     this.checks = new Map(
       checks.map((check) => [uuid.v4(), check]),
@@ -47,6 +50,7 @@ export default class CheckRunner extends EventEmitter {
     this.accountId = accountId
     this.apiKey = apiKey
     this.timeout = timeout
+    this.verbose = verbose
   }
 
   async run () {
@@ -119,10 +123,10 @@ export default class CheckRunner extends EventEmitter {
         this.disableTimeout(checkRunId)
         const { result } = message
         const { region, logPath, checkRunDataPath } = result.assets
-        if (result.hasFailures && logPath) {
+        if (logPath && (this.verbose || result.hasFailures)) {
           result.logs = await assets.getLogs(region, logPath)
         }
-        if (result.hasFailures && checkRunDataPath) {
+        if (checkRunDataPath && (this.verbose || result.hasFailures)) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
