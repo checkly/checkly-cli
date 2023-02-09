@@ -6,12 +6,9 @@ export abstract class Construct {
   type: string
   logicalId: string
   constructor (type: string, logicalId: string) {
-    if (!/^[A-Za-z0-9_\-/#.]+$/.test(logicalId)) {
-      throw new ValidationError('The `logicalId` must includes only allowed characters [A-Za-z0-9_-/#.]')
-    }
-    Session.validateCreateConstruct(this)
     this.logicalId = logicalId
     this.type = type
+    Session.validateCreateConstruct(this)
   }
 
   ref () {
