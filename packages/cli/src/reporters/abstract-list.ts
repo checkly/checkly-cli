@@ -13,10 +13,12 @@ export default abstract class AbstractListReporter implements Reporter {
   // Map remembers the original insertion order, so each time we print the summary will be consistent.
   checkFilesMap: Map<string, Map<string, { check?: any, result?: any, titleString: string }>>
   numChecks: number
+  verbose: boolean
 
-  constructor (runLocation: RunLocation, checks: Array<any>) {
+  constructor (runLocation: RunLocation, checks: Array<any>, verbose: boolean) {
     this.numChecks = checks.length
     this.runLocation = runLocation
+    this.verbose = verbose
 
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
     const sortedCheckFiles = [...new Set(checks.map(({ sourceFile }) => sourceFile))].sort()

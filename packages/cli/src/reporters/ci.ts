@@ -21,13 +21,12 @@ export default class CiReporter extends AbstractListReporter {
 
   onCheckEnd (checkResult: any) {
     super.onCheckEnd(checkResult)
-    if (checkResult.hasFailures) {
-      console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+    console.log(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
+
+    if (this.verbose || checkResult.hasFailures) {
       console.log('')
       console.log(indentString(formatCheckResult(checkResult), 4))
       console.log('')
-    } else {
-      console.log(formatCheckTitle(CheckStatus.SUCCESSFUL, checkResult))
     }
   }
 }
