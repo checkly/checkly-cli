@@ -8,11 +8,15 @@ export default class Runtimes extends BaseCommand {
     const { data: runtimes } = await api.runtimes.getAll()
     const output = runtimes
       .sort((a, b) => b.name.localeCompare(a.name))
-      .map(r => ({
-        name: r.name,
-        description: r.description,
-        dependencies: r.dependencies,
-      }))
+      .map(r => {
+        const { node, ...dependencies } = r.dependencies
+        return {
+          name: r.name,
+          description: r.description,
+          nodeVersion: node,
+          dependencies,
+        }
+      })
     this.log(JSON.stringify(output, null, 2))
   }
 }
