@@ -74,7 +74,7 @@ function loadFile (file: string) {
   }
 }
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.ts']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
