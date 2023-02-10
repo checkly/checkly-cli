@@ -7,13 +7,13 @@ describe('test', () => {
   it('Test project should run successfully', () => {
     const secretEnv = uuid.v4()
     const result = runChecklyCli({
-      args: ['test', '-e', `SECRET_ENV=${secretEnv}`],
+      args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
     expect(result.stdout).toContain(secretEnv)
-    expect(result.status).not.toBe(0)
+    expect(result.status).toBe(0)
   })
 
   it('Should terminate when no checks are found', () => {

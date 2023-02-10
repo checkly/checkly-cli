@@ -63,8 +63,8 @@ export default class Test extends AuthCommand {
     }),
     verbose: Flags.boolean({
       char: 'v',
-      default: false,
       description: 'Always show the logs of the checks.',
+      allowNo: true,
     }),
   }
 
@@ -89,7 +89,7 @@ export default class Test extends AuthCommand {
       'env-file': envFile,
       list,
       timeout,
-      verbose,
+      verbose: verboseFlag,
     } = flags
     const cwd = process.cwd()
     const filePatterns = argv as string[]
@@ -97,6 +97,7 @@ export default class Test extends AuthCommand {
     const testEnvVars = await getEnvs(envFile, env)
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
+    const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
@@ -182,9 +183,13 @@ export default class Test extends AuthCommand {
     await runner.run()
   }
 
+  prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
+    return verboseFlag ?? cliVerboseFlag ?? false
+  }
+
   async prepareRunLocation (
     configOptions: { runLocation?: string, privateRunLocation?: string } = {},
-    cliFlags: { runLocation?: string, privateRunLocation?: string },
+    cliFlags: { runLocation?: string, privateRunLocation?: string } = {},
   ): Promise<RunLocation> {
     // Command line options take precedence
     if (cliFlags.runLocation) {

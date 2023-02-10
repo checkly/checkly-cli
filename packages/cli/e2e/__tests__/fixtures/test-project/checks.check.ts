@@ -21,6 +21,6 @@ new BrowserCheck('browser-check', {
   activated: false,
   code: {
     // Remove the throw new Error when we support a verbose flag for check output
-    content: 'console.info(process.env.SECRET_ENV); throw new Error();'
+    content: 'console.info(process.env.SECRET_ENV);'
   }
 })
