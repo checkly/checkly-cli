@@ -79,14 +79,16 @@ export default class CheckRunner extends EventEmitter {
     this.emit(Events.RUN_FINISHED)
   }
 
-  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
+  private async scheduleAllChecks (checkRunSuiteId: string):
+    Promise<PromiseSettledResult<Check>[]> {
     const checkEntries = Array.from(this.checks.entries())
-    await Promise.all(checkEntries.map(
+    const res = await Promise.allSettled(checkEntries.map(
       ([checkRunId, check]) => this.scheduleCheck(checkRunSuiteId, checkRunId, check),
     ))
+    return res
   }
 
-  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<void> {
+  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<Check> {
     this.timeouts.set(checkRunId, setTimeout(() => {
       this.timeouts.delete(checkRunId)
       this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
@@ -104,19 +106,19 @@ export default class CheckRunner extends EventEmitter {
       checkRun.group = this.groups[check.groupId!.ref].synthesize()
       delete checkRun.groupId
     }
-    this.emit(Events.CHECK_REGISTERED, checkRun)
+    this.emit(Events.CHECK_REGISTERED, check)
     try {
       await checksApi.run(checkRun)
+      return check
     } catch (err: any) {
       if (err?.response?.status === 402) {
         const errorMessage = `Failed to run a check. ${err.response.data?.message}`
-        this.emit(Events.CHECK_FAILED, checkRun, new Error(errorMessage))
-        this.emit(Events.CHECK_FINISHED, check)
-        // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
-        return
+        this.emit(Events.CHECK_FAILED, check, new Error(errorMessage))
+      } else {
+        this.emit(Events.CHECK_FAILED, check, err)
       }
-      this.emit(Events.CHECK_FAILED, checkRun, err)
       this.emit(Events.CHECK_FINISHED, check)
+      throw new Error('Failed to run a check.')
     }
   }
 
@@ -126,7 +128,7 @@ export default class CheckRunner extends EventEmitter {
       const topicComponents = topic.split('/')
       const checkRunId = topicComponents[4]
       const subtopic = topicComponents[5]
-      const check = this.checks.get(checkRunId)!
+      const check = this.checks.get(checkRunId)
       if (!this.timeouts.has(checkRunId)) {
         // The check has already timed out. We return early to avoid reporting a duplicate result.
         return
