@@ -73,13 +73,17 @@ async function loadAllCheckFiles (
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFileAbsolutePath = checkFile
     Session.checkFilePath = path.relative(directory, checkFile)
-    if (checkFile.endsWith('.js')) {
-      await loadJsFile(checkFile)
-    } else if (checkFile.endsWith('.ts')) {
-      await loadTsFile(checkFile)
-    } else {
-      throw new Error('Unable to load check configuration file with unsupported extension. ' +
+    try {
+      if (checkFile.endsWith('.js')) {
+        await loadJsFile(checkFile)
+      } else if (checkFile.endsWith('.ts')) {
+        await loadTsFile(checkFile)
+      } else {
+        throw new Error('Unable to load check configuration file with unsupported extension. ' +
         `Please use a .js or .ts file instead.\n${checkFile}`)
+      }
+    } catch (err: any) {
+      throw new Error(`Error loading file ${checkFile}\n${err.message}\n${err.stack}`)
     }
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined
