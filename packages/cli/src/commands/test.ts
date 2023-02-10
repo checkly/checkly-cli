@@ -12,6 +12,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
+import { BrowserCheck } from '../constructs'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -113,13 +114,16 @@ export default class Test extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-    const { checks: checksMap, groups: groupsMap } = project.data
-    const checks = Object.entries(checksMap)
-      .filter(([_, check]) => {
-        return filterByFileNamePattern(filePatterns, check.scriptPath) ||
-          filterByFileNamePattern(filePatterns, check.__checkFilePath)
+    const checks = Object.entries(project.data.checks)
+      .filter(([, check]) => {
+        if (check instanceof BrowserCheck) {
+          return filterByFileNamePattern(filePatterns, check.scriptPath) ||
+            filterByFileNamePattern(filePatterns, check.__checkFilePath)
+        } else {
+          return filterByFileNamePattern(filePatterns, check.__checkFilePath)
+        }
       })
-      .filter(([_, check]) => {
+      .filter(([, check]) => {
         return filterByCheckNamePattern(grep, check.name)
       })
       .map(([key, check]) => {
@@ -135,11 +139,6 @@ export default class Test extends AuthCommand {
             })
           }
         }
-        // TODO: Add the group to check in a cleaner form
-        if (check.groupId) {
-          check.group = groupsMap[check.groupId.ref]
-          delete check.groupId
-        }
         return check
       })
     const reporter = isCI ? new CiReporter(location, checks, verbose) : new ListReporter(location, checks, verbose)
@@ -149,7 +148,15 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const runner = new CheckRunner(config.getAccountId(), config.getApiKey(), checks, location, timeout, verbose)
+    const runner = new CheckRunner(
+      config.getAccountId(),
+      config.getApiKey(),
+      checks,
+      project.data.groups,
+      location,
+      timeout,
+      verbose,
+    )
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
@@ -157,7 +164,7 @@ export default class Test extends AuthCommand {
       }
       reporter.onCheckEnd({
         logicalId: check.logicalId,
-        sourceFile: check.sourceFile,
+        sourceFile: check.getSourceFile(),
         ...result,
       })
     })
@@ -165,7 +172,7 @@ export default class Test extends AuthCommand {
       reporter.onCheckEnd({
         ...check,
         logicalId: check.logicalId,
-        sourceFile: check.sourceFile,
+        sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
       })

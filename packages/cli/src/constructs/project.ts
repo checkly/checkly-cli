@@ -3,6 +3,10 @@ import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
+import { Check } from './check'
+import { CheckGroup } from './check-group'
+import { AlertChannel } from './alert-channel'
+import { AlertChannelSubscription } from './alert-channel-subscription'
 
 export interface ProjectProps {
   /**
@@ -15,11 +19,18 @@ export interface ProjectProps {
   repoUrl: string
 }
 
+interface ProjectData {
+  checks: Record<string, Check>,
+  groups: Record<string, CheckGroup>,
+  alertChannels: Record<string, AlertChannel>,
+  alertChannelSubscriptions: Record<string, AlertChannelSubscription>,
+}
+
 export class Project extends Construct {
   name: string
   repoUrl: string
   logicalId: string
-  data: Record<string, Record<string, any>> = {
+  data: ProjectData = {
     checks: {},
     groups: {},
     alertChannels: {},
@@ -46,8 +57,8 @@ export class Project extends Construct {
     this.logicalId = logicalId
   }
 
-  addResource (type: string, logicalId: string, resource: any) {
-    this.data[type][logicalId] = resource
+  addResource (type: string, logicalId: string, resource: Construct) {
+    this.data[type as keyof ProjectData][logicalId] = resource
   }
 
   synthesize () {
@@ -58,11 +69,16 @@ export class Project extends Construct {
     }
     return {
       project,
-      checks: this.data.checks,
-      groups: this.data.groups,
-      alertChannels: this.data.alertChannels,
-      alertChannelSubscriptions: this.data.alertChannelSubscriptions,
+      checks: this.synthesizeRecord(this.data.checks),
+      groups: this.synthesizeRecord(this.data.groups),
+      alertChannels: this.synthesizeRecord(this.data.alertChannels),
+      alertChannelSubscriptions: this.synthesizeRecord(this.data.alertChannelSubscriptions),
     }
+  }
+
+  private synthesizeRecord (record: Record<string, Construct>) {
+    const synthesizedConstructs = Object.entries(record).map(([key, construct]) => [key, construct.synthesize()])
+    return Object.fromEntries(synthesizedConstructs)
   }
 }
 
@@ -79,7 +95,7 @@ export class Session {
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
-      Session.project.addResource(construct.type, construct.logicalId, construct.synthesize())
+      Session.project.addResource(construct.type, construct.logicalId, construct)
     } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
       Session.checklyConfigFileConstructs!.push(construct)
     } else {

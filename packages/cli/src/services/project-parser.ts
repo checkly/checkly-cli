@@ -47,7 +47,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     repoUrl,
   })
   checklyConfigConstructs?.forEach(
-    (construct) => project.addResource(construct.type, construct.logicalId, construct.synthesize()),
+    (construct) => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
   Session.basePath = directory
@@ -97,9 +97,9 @@ async function loadAllBrowserChecks (
   }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.checks).forEach(({ scriptPath }) => {
-    if (scriptPath) {
-      preexistingCheckFiles.add(scriptPath)
+  Object.values(project.data.checks).forEach((check) => {
+    if (check instanceof BrowserCheck && check.scriptPath) {
+      preexistingCheckFiles.add(check.scriptPath)
     }
   })
 

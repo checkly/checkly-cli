@@ -3,6 +3,8 @@ import { SocketClient } from './socket-client'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
+import { Check } from '../constructs/check'
+import { CheckGroup } from '../constructs'
 
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
@@ -29,6 +31,7 @@ type CheckRunId = string
 
 export default class CheckRunner extends EventEmitter {
   checks: Map<CheckRunId, any>
+  groups: Record<string, CheckGroup>
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
   timeouts: Map<CheckRunId, NodeJS.Timeout>
@@ -39,12 +42,19 @@ export default class CheckRunner extends EventEmitter {
   verbose: boolean
 
   constructor (
-    accountId: string, apiKey: string, checks: any[], location: RunLocation, timeout: number, verbose: boolean,
+    accountId: string,
+    apiKey: string,
+    checks: Check[],
+    groups: Record<string, CheckGroup>,
+    location: RunLocation,
+    timeout: number,
+    verbose: boolean,
   ) {
     super()
     this.checks = new Map(
       checks.map((check) => [uuid.v4(), check]),
     )
+    this.groups = groups
     this.timeouts = new Map()
     this.location = location
     this.accountId = accountId
@@ -76,19 +86,23 @@ export default class CheckRunner extends EventEmitter {
     ))
   }
 
-  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: any): Promise<void> {
+  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<void> {
     this.timeouts.set(checkRunId, setTimeout(() => {
       this.timeouts.delete(checkRunId)
       this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
       this.emit(Events.CHECK_FINISHED, check)
     }, this.timeout * 1000))
-    const checkRun = {
-      ...check,
+    const checkRun: any = {
+      ...check.synthesize(),
       runLocation: this.location,
       sourceInfo: { checkRunId, checkRunSuiteId },
       // We keep passing the websocket client ID for the case of old Agent versions.
       // If the old Agent doesn't receive a client ID, it won't publish socket updates.
       websocketClientId: uuid.v4(),
+    }
+    if (checkRun.groupId) {
+      checkRun.group = this.groups[check.groupId!.ref].synthesize()
+      delete checkRun.groupId
     }
     this.emit(Events.CHECK_REGISTERED, checkRun)
     try {
