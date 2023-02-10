@@ -16,7 +16,7 @@ export interface ProjectProps {
   /**
    * Git repository URL.
    */
-  repoUrl: string
+  repoUrl?: string
 }
 
 interface ProjectData {
@@ -28,7 +28,7 @@ interface ProjectData {
 
 export class Project extends Construct {
   name: string
-  repoUrl: string
+  repoUrl?: string
   logicalId: string
   data: ProjectData = {
     checks: {},
