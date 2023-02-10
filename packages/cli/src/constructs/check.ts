@@ -72,6 +72,10 @@ export interface CheckProps {
    * List of alert channel subscriptions.
    */
   alertChannels?: Array<AlertChannel>
+  /**
+   * Determines if the check is available only when 'test' runs (not included when 'deploy' is executed).
+   */
+  testOnly?: boolean
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -89,6 +93,7 @@ export abstract class Check extends Construct {
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
+  testOnly?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'checks'
@@ -114,6 +119,7 @@ export abstract class Check extends Construct {
     this.groupId = props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
+    this.testOnly = props.testOnly ?? false
     this.__checkFilePath = Session.checkFilePath
   }
 
