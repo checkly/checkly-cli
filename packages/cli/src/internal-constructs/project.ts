@@ -3,10 +3,10 @@ import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
-import { Check } from './check'
-import { CheckGroup } from './check-group'
-import { AlertChannel } from './alert-channel'
-import { AlertChannelSubscription } from './alert-channel-subscription'
+import { Check } from '../constructs/check'
+import { CheckGroup } from '../constructs/check-group'
+import { AlertChannel } from '../constructs/alert-channel'
+import { AlertChannelSubscription } from '../constructs/alert-channel-subscription'
 
 export interface ProjectProps {
   /**
