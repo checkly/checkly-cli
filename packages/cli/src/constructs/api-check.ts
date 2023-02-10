@@ -65,23 +65,23 @@ class NumericAssertionBuilder {
   }
 
   equals (target: number): Assertion {
-    return this.toAssertion(AssertionComparison.EQUALS, target)
+    return this._toAssertion(AssertionComparison.EQUALS, target)
   }
 
   notEquals (target: number): Assertion {
-    return this.toAssertion(AssertionComparison.NOT_EQUALS, target)
+    return this._toAssertion(AssertionComparison.NOT_EQUALS, target)
   }
 
   lessThan (target: number): Assertion {
-    return this.toAssertion(AssertionComparison.LESS_THAN, target)
+    return this._toAssertion(AssertionComparison.LESS_THAN, target)
   }
 
   greaterThan (target: number): Assertion {
-    return this.toAssertion(AssertionComparison.GREATER_THAN, target)
+    return this._toAssertion(AssertionComparison.GREATER_THAN, target)
   }
 
   /** @private */
-  private toAssertion (comparison: AssertionComparison, target: number): Assertion {
+  private _toAssertion (comparison: AssertionComparison, target: number): Assertion {
     return { source: this.source, comparison, property: '', target: target.toString(), regex: null }
   }
 }
@@ -97,68 +97,68 @@ class GeneralAssertionBuilder {
   }
 
   equals (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.EQUALS, target)
+    return this._toAssertion(AssertionComparison.EQUALS, target)
   }
 
   notEquals (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.NOT_EQUALS, target)
+    return this._toAssertion(AssertionComparison.NOT_EQUALS, target)
   }
 
   hasKey (target: string): Assertion {
-    return this.toAssertion(AssertionComparison.HAS_KEY, target)
+    return this._toAssertion(AssertionComparison.HAS_KEY, target)
   }
 
   notHasKey (target: string): Assertion {
-    return this.toAssertion(AssertionComparison.NOT_HAS_KEY, target)
+    return this._toAssertion(AssertionComparison.NOT_HAS_KEY, target)
   }
 
   hasValue (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.HAS_VALUE, target)
+    return this._toAssertion(AssertionComparison.HAS_VALUE, target)
   }
 
   notHasValue (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.NOT_HAS_VALUE, target)
+    return this._toAssertion(AssertionComparison.NOT_HAS_VALUE, target)
   }
 
   isEmpty () {
-    return this.toAssertion(AssertionComparison.IS_EMPTY)
+    return this._toAssertion(AssertionComparison.IS_EMPTY)
   }
 
   notEmpty () {
-    return this.toAssertion(AssertionComparison.NOT_EMPTY)
+    return this._toAssertion(AssertionComparison.NOT_EMPTY)
   }
 
   lessThan (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.LESS_THAN, target)
+    return this._toAssertion(AssertionComparison.LESS_THAN, target)
   }
 
   greaterThan (target: string|number|boolean): Assertion {
-    return this.toAssertion(AssertionComparison.GREATER_THAN, target)
+    return this._toAssertion(AssertionComparison.GREATER_THAN, target)
   }
 
   contains (target: string): Assertion {
-    return this.toAssertion(AssertionComparison.CONTAINS, target)
+    return this._toAssertion(AssertionComparison.CONTAINS, target)
   }
 
   notContains (target: string): Assertion {
-    return this.toAssertion(AssertionComparison.CONTAINS, target)
+    return this._toAssertion(AssertionComparison.CONTAINS, target)
   }
 
   isNull () {
-    return this.toAssertion(AssertionComparison.IS_NULL)
+    return this._toAssertion(AssertionComparison.IS_NULL)
   }
 
   isNotNull () {
-    return this.toAssertion(AssertionComparison.NOT_NULL)
+    return this._toAssertion(AssertionComparison.NOT_NULL)
   }
 
   /** @private */
-  private toAssertion (comparison: AssertionComparison, target?: string|number|boolean): Assertion {
+  private _toAssertion (comparison: AssertionComparison, target?: string|number|boolean): Assertion {
     return {
       source: this.source,
       comparison,
       property: this.property ?? '',
-      target: target !== undefined ? target.toString() : '',
+      target: target?.toString() ?? '',
       regex: this.regex ?? null,
     }
   }
