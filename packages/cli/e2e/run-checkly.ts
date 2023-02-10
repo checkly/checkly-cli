@@ -26,7 +26,6 @@ export function runChecklyCli (options: {
       CHECKLY_ACCOUNT_ID: accountId,
       ...env,
     },
-    maxBuffer: 1024 * 1024,
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',
     timeout,
