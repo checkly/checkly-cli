@@ -68,19 +68,6 @@ export default class Deploy extends AuthCommand {
 
     try {
       const projectPayload = project.synthesize()
-
-      // TODO: refactor Check construct to handle internal attributes properly
-      projectPayload.checks = Object.keys(projectPayload.checks).reduce((acc, checkLogicalId) => {
-        const check = projectPayload.checks[checkLogicalId]
-        delete check.__checkFilePath
-        delete check.sourceFile
-        acc = {
-          ...acc,
-          [checkLogicalId]: check,
-        }
-        return acc
-      }, {})
-
       const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
         this.log(data)

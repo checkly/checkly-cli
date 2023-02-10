@@ -4,6 +4,7 @@ import * as indentString from 'indent-string'
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus } from './util'
 import type { RunLocation } from '../services/check-runner'
+import { Check } from '../constructs/check'
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
@@ -11,21 +12,21 @@ export default abstract class AbstractListReporter implements Reporter {
   // Map from file -> check logicalId -> check+result.
   // This lets us print a structured list of the checks.
   // Map remembers the original insertion order, so each time we print the summary will be consistent.
-  checkFilesMap: Map<string, Map<string, { check?: any, result?: any, titleString: string }>>
+  checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
   numChecks: number
   verbose: boolean
 
-  constructor (runLocation: RunLocation, checks: Array<any>, verbose: boolean) {
+  constructor (runLocation: RunLocation, checks: Array<Check>, verbose: boolean) {
     this.numChecks = checks.length
     this.runLocation = runLocation
     this.verbose = verbose
 
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
-    const sortedCheckFiles = [...new Set(checks.map(({ sourceFile }) => sourceFile))].sort()
+    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()!))].sort()
     const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
     this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
     sortedChecks.forEach(check => {
-      const fileMap = this.checkFilesMap.get(check.sourceFile)!
+      const fileMap = this.checkFilesMap.get(check.getSourceFile()!)!
       fileMap.set(check.logicalId, {
         check,
         titleString: formatCheckTitle(CheckStatus.PENDING, check),

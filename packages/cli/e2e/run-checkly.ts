@@ -24,7 +24,7 @@ export function runChecklyCli (options: {
       PATH: process.env.PATH,
       CHECKLY_API_KEY: apiKey,
       CHECKLY_ACCOUNT_ID: accountId,
-      ...env
+      ...env,
     },
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',

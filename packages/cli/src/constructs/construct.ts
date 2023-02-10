@@ -1,6 +1,5 @@
 import { Session } from './project'
 import { Ref } from './ref'
-import { ValidationError } from './validator-error'
 
 export abstract class Construct {
   type: string
