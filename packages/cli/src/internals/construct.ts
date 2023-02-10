@@ -1,5 +1,4 @@
-import { Session } from './project'
-import { Ref } from './ref'
+import { Session, Ref } from '.'
 
 export abstract class Construct {
   type: string

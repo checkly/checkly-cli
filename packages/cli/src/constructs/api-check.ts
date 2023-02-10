@@ -1,6 +1,6 @@
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
-import { Session } from './project'
+import { Session } from '../internals'
 import { QueryParam } from './query-param'
 export interface Assertion {
   source: string,

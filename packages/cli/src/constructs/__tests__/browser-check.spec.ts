@@ -1,5 +1,5 @@
 import { BrowserCheck } from '../index'
-import { Project, Session } from '../project'
+import { Project, Session } from '../../internals'
 import * as path from 'path'
 
 const runtimes = {

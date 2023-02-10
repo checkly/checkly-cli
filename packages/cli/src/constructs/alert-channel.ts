@@ -1,4 +1,4 @@
-import { Construct } from './construct'
+import { Construct } from '../internals'
 
 export interface AlertChannelProps {
   /**

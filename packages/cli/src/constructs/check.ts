@@ -1,9 +1,7 @@
-import { Ref } from './ref'
-import { Construct } from './construct'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
-import { Session } from './project'
+import { Construct, Session, Ref } from '../internals'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 /**

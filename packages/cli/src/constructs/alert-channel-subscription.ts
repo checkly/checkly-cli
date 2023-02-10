@@ -1,6 +1,4 @@
-import { Ref } from './ref'
-import { Construct } from './construct'
-import { Session } from './project'
+import { Construct, Session, Ref } from '../internals'
 
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
