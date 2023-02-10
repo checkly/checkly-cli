@@ -9,7 +9,11 @@ import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
 import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
+import {
+  filterByFileNamePattern,
+  filterBrowserCheckByFileNamePattern,
+  filterByCheckNamePattern,
+} from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
@@ -94,6 +98,12 @@ export default class Test extends AuthCommand {
     const cwd = process.cwd()
     const filePatterns = argv as string[]
 
+    try {
+      filePatterns.forEach(p => new RegExp(p))
+    } catch (err: any) {
+      throw new Error(`[FILEARGS] must include valid regular expression strings.\n${err}`)
+    }
+
     const testEnvVars = await getEnvs(envFile, env)
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
@@ -116,14 +126,9 @@ export default class Test extends AuthCommand {
       checklyConfigConstructs,
     })
     const checks = Object.entries(project.data.checks)
-      .filter(([, check]) => {
-        if (check instanceof BrowserCheck) {
-          return filterByFileNamePattern(filePatterns, check.scriptPath) ||
-            filterByFileNamePattern(filePatterns, check.__checkFilePath)
-        } else {
-          return filterByFileNamePattern(filePatterns, check.__checkFilePath)
-        }
-      })
+      .filter(([, check]) => (check instanceof BrowserCheck)
+        ? filterBrowserCheckByFileNamePattern(filePatterns, check)
+        : filterByFileNamePattern(filePatterns, check.__checkFilePath || ''))
       .filter(([, check]) => {
         return filterByCheckNamePattern(grep, check.name)
       })
