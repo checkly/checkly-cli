@@ -1,4 +1,3 @@
-export * from './project'
 export * from './sms-alert-channel'
 export * from './email-alert-channel'
 export * from './slack-alert-channel'

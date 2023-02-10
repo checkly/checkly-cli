@@ -2,7 +2,7 @@ import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
-import { Session } from '../constructs'
+import { Session } from '../constructs/project'
 import { Construct } from '../constructs/construct'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'

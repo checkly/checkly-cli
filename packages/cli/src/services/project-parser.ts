@@ -1,4 +1,5 @@
-import { BrowserCheck, Project, Session } from '../constructs'
+import { Project, Session } from '../constructs/project'
+import { BrowserCheck } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
 import { loadJsFile, loadTsFile } from './util'
