@@ -14,7 +14,7 @@ type ProjectParseOpts = {
   directory: string,
   projectLogicalId: string,
   projectName: string,
-  repoUrl: string,
+  repoUrl?: string,
   checkMatch?: string,
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
