@@ -21,7 +21,7 @@ describe('loadChecklyConfig()', () => {
     try {
       const config = await loadChecklyConfig(configDir)
     } catch (e: any) {
-      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.ts'].join(', ')}.`)
+      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.js'].join(', ')}.`)
     }
   })
 })
