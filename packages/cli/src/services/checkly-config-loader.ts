@@ -85,6 +85,10 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
     }
   }
 
+  if (!config) {
+    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+  }
+
   for (const field of ['logicalId', 'projectName']) {
     const requiredField = config?.[field]
     if (!requiredField || !(requiredField instanceof String)) {

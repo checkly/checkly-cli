@@ -16,4 +16,12 @@ describe('loadChecklyConfig()', () => {
       expect(e.message).toContain('Config object missing a logicalId as type string')
     }
   })
+  it('error should indicate the tried file name combinations', async () => {
+    const configDir = path.join(__dirname, 'fixtures', 'not-existing-config-path')
+    try {
+      const config = await loadChecklyConfig(configDir)
+    } catch (e: any) {
+      expect(e.message).toBe(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.ts'].join(', ')}.`)
+    }
+  })
 })
