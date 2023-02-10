@@ -13,7 +13,7 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
     expect(result.stdout).toContain(secretEnv)
-    expect(result.status).toBe(0)
+    expect(result.status).toBeNull()
   })
 
   it('Should terminate when no checks are found', () => {

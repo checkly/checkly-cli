@@ -5,8 +5,6 @@ export abstract class BaseCommand extends Command {
   static hidden = true
 
   protected init (): Promise<void> {
-    // It is otherwise null
-    process.exitCode = 0
     api.defaults.headers['x-checkly-cli-version'] = this.config.version
     return super.init()
   }
