@@ -74,6 +74,10 @@ function loadFile (file: string) {
   }
 }
 
+function isString (obj: any) {
+  return (Object.prototype.toString.call(obj) === '[object String]')
+}
+
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
@@ -91,7 +95,7 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
 
   for (const field of ['logicalId', 'projectName']) {
     const requiredField = config?.[field]
-    if (!requiredField || !(requiredField instanceof String)) {
+    if (!requiredField || !(isString(requiredField))) {
       throw new Error(`Config object missing a ${field} as type string`)
     }
   }
