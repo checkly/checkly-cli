@@ -1,5 +1,5 @@
 import { BrowserCheck } from '../constructs'
-import { Project, Session } from '../internals'
+import { Project, Session } from '../internal-constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
 import { loadJsFile, loadTsFile } from './util'
@@ -7,7 +7,7 @@ import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
-import type { Construct } from '../internals'
+import type { Construct } from '../internal-constructs'
 
 const globPromise = promisify(glob)
 

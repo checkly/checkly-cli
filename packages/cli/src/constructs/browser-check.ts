@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { Check, CheckProps } from './check'
-import { Session } from '../internals'
+import { Session } from '../internal-constructs'
 import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 

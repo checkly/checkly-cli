@@ -1,5 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
-import { Session } from '../internals'
+import { Session } from '../internal-constructs'
 
 export interface SlackAlertChannelProps extends AlertChannelProps {
   url: URL

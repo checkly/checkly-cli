@@ -1,4 +1,4 @@
-import { Construct, Session, Ref } from '../internals'
+import { Construct, Session, Ref } from '../internal-constructs'
 
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref

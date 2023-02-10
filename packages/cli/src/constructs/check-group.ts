@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as glob from 'glob'
-import { Construct, Session, Ref } from '../internals'
+import { Construct, Session, Ref } from '../internal-constructs'
 import { BrowserCheck } from './browser-check'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
