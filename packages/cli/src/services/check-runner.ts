@@ -79,13 +79,11 @@ export default class CheckRunner extends EventEmitter {
     this.emit(Events.RUN_FINISHED)
   }
 
-  private async scheduleAllChecks (checkRunSuiteId: string):
-    Promise<PromiseSettledResult<Check>[]> {
+  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
     const checkEntries = Array.from(this.checks.entries())
-    const res = await Promise.allSettled(checkEntries.map(
+    await Promise.allSettled(checkEntries.map(
       ([checkRunId, check]) => this.scheduleCheck(checkRunSuiteId, checkRunId, check),
     ))
-    return res
   }
 
   private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<Check> {
