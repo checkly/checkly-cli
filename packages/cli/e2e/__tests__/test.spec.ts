@@ -25,4 +25,16 @@ describe('test', () => {
     })
     expect(result.status).toBe(0)
   })
+
+  it('Should terminate with error when duplicated logicalId', () => {
+    const result = runChecklyCli({
+      args: ['test'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-duplicated-groups'),
+    })
+    expect(result.stderr.replace(/(\n {4})/gm, ''))
+      .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' is duplicated.")
+    expect(result.status).toBe(1)
+  })
 })
