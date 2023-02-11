@@ -25,4 +25,16 @@ describe('test', () => {
     })
     expect(result.status).toBe(0)
   })
+
+  it('Should terminate with error when JS/TS throws error', () => {
+    const result = runChecklyCli({
+      args: ['test', 'does-not-exist.js'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-parse-error'),
+    })
+    expect(result.stderr).toContain('Error loading file')
+    expect(result.stderr).toContain('Error: Big bang!')
+    expect(result.status).toBe(1)
+  })
 })
