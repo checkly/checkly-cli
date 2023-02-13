@@ -5,7 +5,7 @@ synthetic monitors (checks) at scale, from your code base. We call this workflow
 - **Codeable, testable, reviewable.** Works with your dev pipeline. From your IDE, via PR to CI.
 - **Native `@playwright/test` support.** No lock-in, just write standard `*.spec.ts` files.
 - **Alerting baked in.** Set alerts for Slack, SMS and many more channels.
-- **Typescript-first.** Fully typings and code completion.
+- **Typescript-first.** Fully typed for easy refactoring and code completion.
 - **Run in the cloud or on-prem.** Run on the Checkly cloud or in your network using the [Private Locations](https://www.checklyhq.com/docs/private-locations/)
 
 
