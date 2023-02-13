@@ -34,7 +34,7 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-duplicated-groups'),
     })
     expect(result.stderr.replace(/(\n {4})/gm, ''))
-      .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' is duplicated.")
+      .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' already exists.")
     expect(result.status).toBe(1)
   })
 

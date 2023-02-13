@@ -59,7 +59,7 @@ export class Project extends Construct {
 
   addResource (type: string, logicalId: string, resource: Construct) {
     if (this.data[type as keyof ProjectData][logicalId]) {
-      throw new Error(`Resource of type '${type}' with logical id '${logicalId}' is duplicated.`)
+      throw new Error(`Resource of type '${type}' with logical id '${logicalId}' already exists.`)
     }
     this.data[type as keyof ProjectData][logicalId] = resource
   }
