@@ -25,4 +25,17 @@ describe('test', () => {
     })
     expect(result.status).toBe(0)
   })
+
+  it('Should include a testOnly check', () => {
+    const result = runChecklyCli({
+      args: ['test'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-only-project'),
+    })
+    expect(result.stdout).toContain('TestOnly=false (default) Check')
+    expect(result.stdout).toContain('TestOnly=false Check')
+    expect(result.stdout).toContain('TestOnly=true Check')
+    expect(result.status).toBe(0)
+  })
 })
