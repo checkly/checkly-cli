@@ -50,4 +50,18 @@ describe('deploy', () => {
     })
     expect(result.stderr).toBe('')
   })
+
+  it('Shouldn\'t include a testOnly check', () => {
+    const result = runChecklyCli({
+      args: ['deploy', '--preview'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-only-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.stdout).toContain('not-testonly-default-check')
+    expect(result.stdout).toContain('not-testonly-false-check')
+    expect(result.stdout).not.toContain('testonly-true-check')
+    expect(result.status).toBe(0)
+  })
 })

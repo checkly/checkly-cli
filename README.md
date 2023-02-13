@@ -443,6 +443,7 @@ The CLI currently supports two Check types: API Checks and Browser Checks. All c
 - `doubleCheck`: A boolean value if Checkly should double check on failure.
 - `tags`: An array of tags to help you organize your checks, i.e. `['product', 'api']`
 - `runtimeId`: The ID of which [runtime](https://www.checklyhq.com/docs/runtimes/specs/) to use for this check.
+- `testOnly`: A boolean value if check is available only for `test` command (the `deploy` command discards it).
 
 Note that most properties have sane default values and do not need to be specified.
 
