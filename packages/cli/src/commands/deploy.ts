@@ -67,7 +67,7 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const projectPayload = project.synthesize()
+      const projectPayload = project.synthesize(false)
       const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
         this.log(data)
