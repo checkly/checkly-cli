@@ -1,4 +1,6 @@
-const config = {
+import { defineConfig } from '@checkly/cli'
+
+const config = defineConfig({
   projectName: 'Advanced Example Project',
   logicalId: 'advanced-example-project',
   repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -14,6 +16,6 @@ const config = {
   cli: {
     runLocation: 'eu-west-1',
   },
-}
+})
 
 export default config
