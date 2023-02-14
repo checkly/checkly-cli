@@ -181,7 +181,6 @@ export default class Test extends AuthCommand {
     })
     runner.on(Events.RUN_FINISHED, () => {
       reporter.onEnd()
-      this.exit()
     })
     await runner.run()
   }

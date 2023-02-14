@@ -81,17 +81,12 @@ export default class CheckRunner extends EventEmitter {
 
   private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
     const checkEntries = Array.from(this.checks.entries())
-    await Promise.allSettled(checkEntries.map(
+    await Promise.all(checkEntries.map(
       ([checkRunId, check]) => this.scheduleCheck(checkRunSuiteId, checkRunId, check),
     ))
   }
 
-  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<Check> {
-    this.timeouts.set(checkRunId, setTimeout(() => {
-      this.timeouts.delete(checkRunId)
-      this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
-      this.emit(Events.CHECK_FINISHED, check)
-    }, this.timeout * 1000))
+  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<void> {
     const checkRun: any = {
       ...check.synthesize(),
       runLocation: this.location,
@@ -104,19 +99,17 @@ export default class CheckRunner extends EventEmitter {
       checkRun.group = this.groups[check.groupId!.ref].synthesize()
       delete checkRun.groupId
     }
-    this.emit(Events.CHECK_REGISTERED, check)
     try {
       await checksApi.run(checkRun)
-      return check
+      this.timeouts.set(checkRunId, setTimeout(() => {
+        this.timeouts.delete(checkRunId)
+        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+        this.emit(Events.CHECK_FINISHED, check)
+      }, this.timeout * 1000))
     } catch (err: any) {
-      if (err?.response?.status === 402) {
-        const errorMessage = `Failed to run a check. ${err.response.data?.message}`
-        this.emit(Events.CHECK_FAILED, check, new Error(errorMessage))
-      } else {
-        this.emit(Events.CHECK_FAILED, check, err)
-      }
+      this.emit(Events.CHECK_FAILED, check,
+        new Error(`Failed to run a check. ${err.response ? err.response.data?.message : err.message}`))
       this.emit(Events.CHECK_FINISHED, check)
-      throw new Error('Failed to run a check.')
     }
   }
 
