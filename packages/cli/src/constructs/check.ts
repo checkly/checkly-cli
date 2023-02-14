@@ -27,7 +27,7 @@ export interface CheckProps {
    */
   activated?: boolean
   /**
-   * Determines if any notifications will be send out when a check fails and/or recovers.
+   * Determines if any notifications will be sent out when a check fails and/or recovers.
    */
   muted?: boolean
   /**
@@ -37,6 +37,7 @@ export interface CheckProps {
   doubleCheck?: boolean
   /**
    * Allows to invert the behaviour of when a check is considered to fail. Allows for validating error status like 404.
+   * This only applies to API Checks.
    */
   shouldFail?: boolean
   /**
@@ -65,11 +66,11 @@ export interface CheckProps {
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
   /**
-   * The id of the check group this check is part of.
+   * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
    */
   groupId?: Ref
   /**
-   * List of alert channel subscriptions.
+   * List of alert channels this check should subscribe to.
    */
   alertChannels?: Array<AlertChannel>
   /**
