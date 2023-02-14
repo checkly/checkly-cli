@@ -13,6 +13,7 @@ import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/t
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
+import type { Region } from '..'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -96,7 +97,10 @@ export default class Test extends AuthCommand {
 
     const testEnvVars = await getEnvs(envFile, env)
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
-    const location = await this.prepareRunLocation(checklyConfig.cli, { runLocation, privateRunLocation })
+    const location = await this.prepareRunLocation(checklyConfig.cli, {
+      runLocation: runLocation as keyof Region,
+      privateRunLocation,
+    })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
@@ -188,8 +192,8 @@ export default class Test extends AuthCommand {
   }
 
   async prepareRunLocation (
-    configOptions: { runLocation?: string, privateRunLocation?: string } = {},
-    cliFlags: { runLocation?: string, privateRunLocation?: string } = {},
+    configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
+    cliFlags: { runLocation?: keyof Region, privateRunLocation?: string } = {},
   ): Promise<RunLocation> {
     // Command line options take precedence
     if (cliFlags.runLocation) {

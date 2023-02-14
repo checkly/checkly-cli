@@ -4,6 +4,7 @@ import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
+import type { Region } from '..'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
@@ -48,7 +49,7 @@ export type ChecklyConfig = {
    * CLI default configuration properties.
    */
   cli?: {
-    runLocation?: string,
+    runLocation?: keyof Region,
     privateRunLocation?: string,
     verbose?: boolean
   }
