@@ -48,7 +48,7 @@ export interface CheckGroupProps {
   /**
    * An array of one or more data center locations where to run the checks.
    */
-  locations: Array<Region>
+  locations: Array<keyof Region>
   /**
    * An array of one or more private locations where to run the checks.
    */
@@ -91,7 +91,7 @@ export class CheckGroup extends Construct {
   activated?: boolean
   muted?: boolean
   runtimeId?: string
-  locations: Array<Region>
+  locations: Array<keyof Region>
   privateLocations?: Array<string>
   tags?: Array<string>
   concurrency?: number
