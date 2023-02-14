@@ -79,7 +79,7 @@ async function loadAllCheckFiles (
       await loadTsFile(checkFile)
     } else {
       throw new Error('Unable to load check configuration file with unsupported extension. ' +
-        `Please use a .js or .ts file instead.\n${checkFile}`)
+      `Please use a .js or .ts file instead.\n${checkFile}`)
     }
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined
