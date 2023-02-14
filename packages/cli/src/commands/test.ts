@@ -179,9 +179,7 @@ export default class Test extends AuthCommand {
       })
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => {
-      reporter.onEnd()
-    })
+    runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
     await runner.run()
   }
 
