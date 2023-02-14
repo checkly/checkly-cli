@@ -21,24 +21,32 @@ export async function walkDirectory (
 }
 
 export async function loadJsFile (filepath: string): Promise<any> {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let exported = require(filepath)
-  if (exported instanceof Function) {
-    exported = await exported()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    let exported = require(filepath)
+    if (exported instanceof Function) {
+      exported = await exported()
+    }
+    return exported
+  } catch (err: any) {
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
-  return exported
 }
 
 export async function loadTsFile (filepath: string): Promise<any> {
-  const tsCompiler = await getTsCompiler()
-  tsCompiler.enabled(true)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let { default: exported } = require(filepath)
-  if (exported instanceof Function) {
-    exported = await exported()
+  try {
+    const tsCompiler = await getTsCompiler()
+    tsCompiler.enabled(true)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    let { default: exported } = require(filepath)
+    if (exported instanceof Function) {
+      exported = await exported()
+    }
+    tsCompiler.enabled(false) // Re-disable the TS compiler
+    return exported
+  } catch (err: any) {
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
-  tsCompiler.enabled(false) // Re-disable the TS compiler
-  return exported
 }
 
 // To avoid a dependency on typescript for users with no TS checks, we need to dynamically import ts-node

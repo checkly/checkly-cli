@@ -1,4 +1,4 @@
-import { ApiCheck } from '@checkly/cli/constructs'
+import { ApiCheck, AssertionBuilder } from '@checkly/cli/constructs'
 import { slackChannel, webhookChannel } from '../../alert-channels'
 
 new ApiCheck('homepage-api-check-1', {
@@ -12,8 +12,8 @@ new ApiCheck('homepage-api-check-1', {
     followRedirects: true,
     skipSsl: false,
     assertions: [
-      { source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '200', regex: '' },
-      { source: 'JSON_BODY', regex: '', property: '$.apiCheckResults', comparison: 'GREATER_THAN', target: '0' }
+      AssertionBuilder.statusCode().equals(200),
+      AssertionBuilder.jsonBody('$.apiCheckResults').greaterThan(0),
     ],
   }
 })
