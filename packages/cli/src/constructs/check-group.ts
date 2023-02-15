@@ -23,7 +23,7 @@ const defaultApiCheckDefaults = {
 
 type BrowserCheckConfig = CheckConfigDefaults & {
   /**
-   * Glob pattern to include multiple files, i.e. all `.spec.js` files
+   * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
   testMatch: string,
 }
@@ -38,7 +38,7 @@ export interface CheckGroupProps {
    */
   activated?: boolean
   /**
-   * Determines if any notifications will be send out when a check in this group fails and/or recovers.
+   * Determines if any notifications will be sent out when a check in this group fails and/or recovers.
    */
   muted?: boolean
   /**
@@ -63,7 +63,7 @@ export interface CheckGroupProps {
   concurrency?: number
   environmentVariables?: Array<EnvironmentVariable>
   /**
-   * List of alert channel subscriptions.
+   * List of alert channels to be alerted when checks in this group fail or recover.
    */
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,

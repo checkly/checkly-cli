@@ -16,7 +16,7 @@ export type ChecklyConfig = {
    */
   projectName: string,
   /**
-   * Unique project indentifier.
+   * Unique project identifier.
    */
   logicalId: string,
   /**
@@ -28,7 +28,7 @@ export type ChecklyConfig = {
    */
   checks?: CheckConfigDefaults & {
     /**
-     * Glob pattern to where Checkly looks for checks.
+     * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
     checkMatch?: string,
     /**
@@ -40,7 +40,7 @@ export type ChecklyConfig = {
      */
     browserChecks?: CheckConfigDefaults & {
       /**
-       * Glob pattern to include multiple files, i.e. all `.spec.js` files
+       * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
       testMatch?: string,
     },

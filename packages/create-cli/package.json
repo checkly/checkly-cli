@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "private": false,
   "scripts": {
     "test": "jest --selectProjects unit",
     "prepare": "rm -rf dist && tsc --build",
