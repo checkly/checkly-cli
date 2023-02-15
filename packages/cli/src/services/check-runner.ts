@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
 import { Check } from '../constructs/check'
 import { CheckGroup } from '../constructs'
+import type { Region } from '..'
 
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
@@ -23,7 +24,7 @@ export type PrivateRunLocation = {
 }
 export type PublicRunLocation = {
   type: 'PUBLIC',
-  region: string,
+  region: keyof Region,
 }
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
