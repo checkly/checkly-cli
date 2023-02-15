@@ -63,7 +63,7 @@ export interface CheckGroupProps {
   concurrency?: number
   environmentVariables?: Array<EnvironmentVariable>
   /**
-   * List of alert channels this check should subscribe to.
+   * List of alert channels to be alerted when checks in this group fail or recover.
    */
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,
