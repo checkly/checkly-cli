@@ -70,7 +70,7 @@ export interface CheckProps {
    */
   groupId?: Ref
   /**
-   * List of alert channels this check should subscribe to.
+   * List of alert channels to notify when the check fails or recovers.
    */
   alertChannels?: Array<AlertChannel>
   /**
