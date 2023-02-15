@@ -27,7 +27,7 @@ export type ChecklyConfig = {
    */
   checks?: CheckConfigDefaults & {
     /**
-     * Glob pattern where the CLI looks for file containing Check constructs, i.e. all `.checks.ts` files
+     * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
     checkMatch?: string,
     /**
