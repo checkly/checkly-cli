@@ -129,7 +129,7 @@ export class Session {
     } else if (Session.loadingChecklyConfigFile) {
       throw new Error(`Creating a ${construct.constructor.name} construct in the Checkly config file isn't supported.`)
     } else {
-      throw new Error('Unable to create a construct due to an unexpected error. Please contact Checkly support.')
+      throw new Error(`Unable to create a construct '${construct.constructor.name}' outside a Checkly CLI project.`)
     }
   }
 }
