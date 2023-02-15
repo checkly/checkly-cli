@@ -59,9 +59,9 @@ describe('deploy', () => {
       directory: path.join(__dirname, 'fixtures/test-only-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.stdout).toContain('not-testonly-default-check')
-    expect(result.stdout).toContain('not-testonly-false-check')
-    expect(result.stdout).not.toContain('testonly-true-check')
+    expect(result.stdout).toContain('TestOnly=false (default) Check')
+    expect(result.stdout).toContain('TestOnly=false Check')
+    expect(result.stdout).not.toContain('TestOnly=true Check')
     expect(result.status).toBe(0)
   })
 })
