@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
 import { Check } from '../constructs/check'
 import { CheckGroup } from '../constructs'
+import type { Region } from '..'
 
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
@@ -23,7 +24,7 @@ export type PrivateRunLocation = {
 }
 export type PublicRunLocation = {
   type: 'PUBLIC',
-  region: string,
+  region: keyof Region,
 }
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
@@ -87,11 +88,6 @@ export default class CheckRunner extends EventEmitter {
   }
 
   private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<void> {
-    this.timeouts.set(checkRunId, setTimeout(() => {
-      this.timeouts.delete(checkRunId)
-      this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
-      this.emit(Events.CHECK_FINISHED, check)
-    }, this.timeout * 1000))
     const checkRun: any = {
       ...check.synthesize(),
       runLocation: this.location,
@@ -104,18 +100,16 @@ export default class CheckRunner extends EventEmitter {
       checkRun.group = this.groups[check.groupId!.ref].synthesize()
       delete checkRun.groupId
     }
-    this.emit(Events.CHECK_REGISTERED, checkRun)
     try {
       await checksApi.run(checkRun)
-    } catch (err: any) {
-      if (err?.response?.status === 402) {
-        const errorMessage = `Failed to run a check. ${err.response.data?.message}`
-        this.emit(Events.CHECK_FAILED, checkRun, new Error(errorMessage))
+      this.timeouts.set(checkRunId, setTimeout(() => {
+        this.timeouts.delete(checkRunId)
+        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
         this.emit(Events.CHECK_FINISHED, check)
-        // TODO: Find a way to abort. The latest version supports this but doesn't work with TS
-        return
-      }
-      this.emit(Events.CHECK_FAILED, checkRun, err)
+      }, this.timeout * 1000))
+    } catch (err: any) {
+      this.emit(Events.CHECK_FAILED, check,
+        new Error(`Failed to run a check. ${err.response ? err.response.data?.message : err.message}`))
       this.emit(Events.CHECK_FINISHED, check)
     }
   }
@@ -126,7 +120,7 @@ export default class CheckRunner extends EventEmitter {
       const topicComponents = topic.split('/')
       const checkRunId = topicComponents[4]
       const subtopic = topicComponents[5]
-      const check = this.checks.get(checkRunId)!
+      const check = this.checks.get(checkRunId)
       if (!this.timeouts.has(checkRunId)) {
         // The check has already timed out. We return early to avoid reporting a duplicate result.
         return
