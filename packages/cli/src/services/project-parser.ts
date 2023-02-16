@@ -38,6 +38,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     repoUrl,
     ignoreDirectoriesMatch = [],
     checkDefaults = {},
+    browserCheckDefaults = {},
     availableRuntimes,
     checklyConfigConstructs,
   } = opts
@@ -51,6 +52,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.project = project
   Session.basePath = directory
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
+  Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
