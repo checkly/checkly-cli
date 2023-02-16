@@ -1,8 +1,8 @@
 import { defineConfig } from '@checkly/cli'
 
 const config = defineConfig({
-  projectName: 'Advanced Example Project',
-  logicalId: 'advanced-example-project',
+  projectName: 'Test Project',
+  logicalId: 'test-project',
   repoUrl: 'https://github.com/checkly/checkly-cli',
   checks: {
     locations: ['us-east-1', 'eu-west-1'],
@@ -14,7 +14,7 @@ const config = defineConfig({
     },
   },
   cli: {
-    runLocation: 'eu-west-1',
+    runLocation: 'us-east-1',
   },
 })
 

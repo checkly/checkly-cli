@@ -13,7 +13,20 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
     expect(result.status).toBeNull()
+    expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
+  })
+
+  it('Should include only one check', () => {
+    const result = runChecklyCli({
+      args: ['test', 'secret.check.ts'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/test-project'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Show SECRET_ENV value')
+    expect(result.stdout).toContain('1 passed, 1 total')
   })
 
   it('Should terminate when no checks are found', () => {
@@ -24,11 +37,12 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
     expect(result.status).toBe(0)
+    expect(result.stdout).toContain('0 total')
   })
 
   it('Should terminate with error when JS/TS throws error', () => {
     const result = runChecklyCli({
-      args: ['test', 'does-not-exist.js'],
+      args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/test-parse-error'),

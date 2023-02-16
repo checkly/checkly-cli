@@ -1,15 +1,7 @@
-import { CheckGroup, ApiCheck } from '@checkly/cli/constructs'
+import { CheckGroup, ApiCheck, BrowserCheck } from '@checkly/cli/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
-/*
-* In this example, we bundle checks using a Check Group. We add checks to this group in two ways:
-* 1. By calling the ref() method for the groupId property of the check.
-* 2. By defining a glob pattern that matches browser checks using *.spec.js.
-*
-* You can use either or both.
-*/
 
-// We can define multiple checks in a single *.check.js file.
 const group = new CheckGroup('check-group-1', {
   name: 'Group',
   activated: true,
@@ -22,20 +14,15 @@ const group = new CheckGroup('check-group-1', {
   concurrency: 100,
   alertChannels,
   browserChecks: {
-    testMatch: 'some-dir/*.spec.ts',
+    testMatch: '**/*.spec.ts',
   },
 })
 
-const apiCheck = new ApiCheck('check-group-api-check-1', {
-  name: 'Homepage - fetch stats',
+const browserCheck = new BrowserCheck('group-browser-check-1', {
+  name: 'Check with group',
+  activated: false,
   groupId: group.ref(),
-  degradedResponseTime: 10000,
-  maxResponseTime: 20000,
-  request: {
-    method: 'GET',
-    url: 'https://api.checklyhq.com/public-stats',
-    followRedirects: true,
-    skipSsl: false,
-    assertions: [],
+  code: {
+    content: 'console.info(process.env.NODE_ENV);',
   },
 })
