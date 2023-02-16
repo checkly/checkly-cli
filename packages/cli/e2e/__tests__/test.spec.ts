@@ -12,8 +12,8 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures/test-project'),
     })
-    expect(result.stdout).toContain(secretEnv)
     expect(result.status).toBeNull()
+    expect(result.stdout).toContain(secretEnv)
   })
 
   it('Should terminate when no checks are found', () => {
