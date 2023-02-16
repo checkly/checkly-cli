@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, BrowserCheck } from '@checkly/cli/constructs'
+import { ApiCheck, BrowserCheck, CheckGroup } from '@checkly/cli/constructs'
 new ApiCheck('api-check', {
   name: 'Api Check',
   activated: false,
@@ -14,6 +14,21 @@ new ApiCheck('api-check', {
   localTearDownScript: "console.log('hi from teardown')",
   degradedResponseTime: 20000,
   maxResponseTime: 30000
+})
+
+new CheckGroup('check-group-1', {
+  name: 'Group',
+  activated: true,
+  muted: false,
+  runtimeId: '2022.10',
+  locations: ['us-east-1', 'eu-west-1'],
+  tags: ['mac', 'group'],
+  environmentVariables: [],
+  apiCheckDefaults: {},
+  concurrency: 100,
+  browserChecks: {
+    testMatch: '__checks__/*.spec.ts'
+  }
 })
 
 new BrowserCheck('browser-check', {
