@@ -181,9 +181,16 @@ export type HttpRequestMethod =
   | 'delete' | 'DELETE'
   | 'options' | 'OPTIONS'
 
-interface BasicAuth {
+export interface BasicAuth {
   username: string
   password: string
+}
+
+export type ApiCheckDefaultConfig = {
+  url?: string,
+  headers?: Array<HttpHeader>
+  queryParameters?: Array<QueryParam>
+  basicAuth?: BasicAuth
 }
 
 export interface Request {

@@ -19,6 +19,7 @@ type ProjectParseOpts = {
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
+  browserCheckDefaults?: CheckConfigDefaults,
   availableRuntimes: Record<string, Runtime>,
   checklyConfigConstructs?: Construct[],
 }

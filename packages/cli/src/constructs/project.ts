@@ -98,6 +98,7 @@ export class Session {
   static project?: Project
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults
+  static browserCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
   static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>

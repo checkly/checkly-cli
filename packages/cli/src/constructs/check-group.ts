@@ -8,10 +8,8 @@ import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { Request } from './api-check'
+import { ApiCheckDefaultConfig } from './api-check'
 import type { Region } from '..'
-
-type ApiCheckDefaultConfig = Pick<Request, 'headers' | 'queryParameters' | 'basicAuth'> & { url?: string }
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
