@@ -19,7 +19,6 @@ const group = new CheckGroup('check-group-1', {
   tags: ['mac', 'group'],
   environmentVariables: [],
   apiCheckDefaults: {},
-  browserCheckDefaults: {},
   concurrency: 100,
   alertChannels,
   browserChecks: {

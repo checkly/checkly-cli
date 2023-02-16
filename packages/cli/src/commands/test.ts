@@ -112,7 +112,6 @@ export default class Test extends AuthCommand {
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
-      browserCheckDefaults: checklyConfig.checks?.browserChecks,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc

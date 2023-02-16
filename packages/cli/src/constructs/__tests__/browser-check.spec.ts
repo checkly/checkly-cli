@@ -57,20 +57,4 @@ describe('BrowserCheck', () => {
     delete Session.checkDefaults
     expect(browserCheck).toMatchObject({ tags: ['test check'] })
   })
-
-  it('should apply browser check defaults instead of generic check defaults', () => {
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-    Session.checkDefaults = { tags: ['check default'] }
-    Session.browserCheckDefaults = { tags: ['browser check default'] }
-    const browserCheck = new BrowserCheck('test-check', {
-      name: 'Test Check',
-      code: { content: 'console.log("test check")' },
-    })
-    delete Session.checkDefaults
-    delete Session.browserCheckDefaults
-    expect(browserCheck).toMatchObject({ tags: ['browser check default'] })
-  })
 })

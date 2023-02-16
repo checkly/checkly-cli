@@ -44,7 +44,6 @@ export class BrowserCheck extends Check {
    * @param props check configuration properties
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
-    BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)
     if ('content' in props.code) {
       const script = props.code.content
@@ -70,17 +69,6 @@ export class BrowserCheck extends Check {
     }
     Session.registerConstruct(this)
     this.addSubscriptions()
-  }
-
-  private static applyDefaultBrowserCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.browserCheckDefaults) {
-      return
-    }
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in Session.browserCheckDefaults) {
-      const newVal: any = props[configKey] ?? Session.browserCheckDefaults[configKey]
-      props[configKey] = newVal
-    }
   }
 
   static bundle (entry: string, runtimeId: string) {
