@@ -22,6 +22,8 @@ export class SmsAlertChannel extends AlertChannel {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props SMS alert channel configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#smsalertchannel Read more in the docs}
    */
   constructor (logicalId: string, props: SmsAlertChannelProps) {
     super(logicalId, props)
