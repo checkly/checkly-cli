@@ -34,6 +34,8 @@ export class PagerdutyAlertChannel extends AlertChannel {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props Pagerduty alert channel configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#pagerdutyalertchannel Read more in the docs}
    */
   constructor (logicalId: string, props: PagerdutyAlertChannelProps) {
     super(logicalId, props)

@@ -238,13 +238,15 @@ export class ApiCheck extends Check {
   localTearDownScript?: string
   degradedResponseTime?: number
   maxResponseTime?: number
-
   /**
    * Constructs the API Check instance
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#apicheck Read more in the docs}
    */
+
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
     this.request = props.request
