@@ -42,6 +42,11 @@ export interface CheckGroupProps {
    */
   muted?: boolean
   /**
+   * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
+   * randomly selected region before marking the check as failed.
+   */
+  doubleCheck?: boolean
+  /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute checks in this group.
    */
   runtimeId?: string
@@ -90,6 +95,7 @@ export class CheckGroup extends Construct {
   name: string
   activated?: boolean
   muted?: boolean
+  doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
   privateLocations?: Array<string>
@@ -110,6 +116,7 @@ export class CheckGroup extends Construct {
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
+    this.doubleCheck = props.doubleCheck
     this.tags = props.tags
     this.runtimeId = props.runtimeId
     this.locations = props.locations
@@ -169,6 +176,7 @@ export class CheckGroup extends Construct {
       name: this.name,
       activated: this.activated,
       muted: this.muted,
+      doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
       privateLocations: this.privateLocations,
