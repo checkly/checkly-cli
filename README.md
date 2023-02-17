@@ -1,5 +1,5 @@
 The Checkly CLI gives you a JavaScript/TypeScript-native **workflow** for creating, testing, deploying and life cycling 
-synthetic monitors (checks) at scale, from your code base. We call this workflow **Monitoring as Code**.
+synthetic monitors (checks) at scale, from your code base. We call this workflow **monitoring as code** (MaC).
 
 - **Unite E2E testing & monitoring in one workflow.** No more silos between Dev, QA and Ops.
 - **Codeable, testable, reviewable.** Works with your dev pipeline. From your IDE, via PR to CI.
