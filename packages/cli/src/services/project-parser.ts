@@ -1,7 +1,7 @@
 import { BrowserCheck, Project, Session } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
-import { loadJsFile, loadTsFile } from './util'
+import { loadJsFile, loadTsFile, pathToLogicalId } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
@@ -109,7 +109,7 @@ async function loadAllBrowserChecks (
     if (preexistingCheckFiles.has(relPath)) {
       continue
     }
-    const browserCheck = new BrowserCheck(relPath, {
+    const browserCheck = new BrowserCheck(pathToLogicalId(relPath), {
       name: path.basename(checkFile),
       code: {
         entrypoint: checkFile,
