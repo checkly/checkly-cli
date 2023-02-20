@@ -8,6 +8,7 @@ import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { pathToLogicalId } from '../services/util'
 import type { Region } from '..'
 
 // TODO: turn this into type
@@ -161,7 +162,7 @@ export class CheckGroup extends Construct {
           entrypoint: filepath,
         },
       }
-      const checkLogicalId = path.relative(Session.basePath!, filepath)
+      const checkLogicalId = pathToLogicalId(path.relative(Session.basePath!, filepath))
       const check = new BrowserCheck(checkLogicalId, props)
     }
   }
