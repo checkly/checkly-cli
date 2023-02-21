@@ -109,7 +109,6 @@ export class CheckGroup extends Construct {
   // TODO add types later on
   apiCheckDefaults: any
   browserCheckDefaults: any
-  __checkFilePath?: string
 
   static readonly __checklyType = 'groups'
 
@@ -142,7 +141,6 @@ export class CheckGroup extends Construct {
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
-    this.__checkFilePath = Session.checkFilePath
   }
 
   private __addChecks (fileAbsolutePath: string, browserChecks: BrowserCheckConfig) {

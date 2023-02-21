@@ -84,9 +84,7 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
   for (const filename of filenames) {
-    Session.checkFilePath = filename
     config = await loadFile(path.join(dir, filename))
-    Session.checkFilePath = undefined
     if (config) {
       break
     }
