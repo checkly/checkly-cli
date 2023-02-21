@@ -10,7 +10,7 @@
     "checkly:test": "npx checkly test"
   },
   "dependencies": {
-    "@checkly/cli": "^0.3.13"
+    "@checkly/cli": "latest"
   },
   "author": "",
   "license": "ISC",
