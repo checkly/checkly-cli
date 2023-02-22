@@ -36,7 +36,7 @@
     ],
     "warn-if-update-available": {
       "timeoutInDays": 7,
-      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. Run <%= chalk.greenBright('npm update @checkly/cli') %> to update. Release notes: https://github.com/checkly/checkly-cli/releases/tag/v<%= latest %>"
+      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. Release notes: https://github.com/checkly/checkly-cli/releases/tag/v<%= latest %>"
     }
   },
   "bin": {
