@@ -6,6 +6,7 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
+import { CheckGroup } from './check-group'
 
 export interface CheckProps {
   /**
@@ -57,8 +58,13 @@ export interface CheckProps {
   environmentVariables?: Array<EnvironmentVariable>
   /**
    * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
+   * @deprecated Use {@link CheckProps.group} instead.
    */
   groupId?: Ref
+  /**
+   * The CheckGroup that this check is part of.
+   */
+  group?: CheckGroup
   /**
    * List of alert channels to notify when the check fails or recovers.
    */
@@ -107,7 +113,8 @@ export abstract class Check extends Construct {
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannels = props.alertChannels ?? []
-    this.groupId = props.groupId
+    // Prefer the `group` parameter, but support groupId for backwards compatibility.
+    this.groupId = props.group?.ref() ?? props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
     this.testOnly = props.testOnly ?? false
