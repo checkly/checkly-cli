@@ -7,6 +7,16 @@ import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
+import { AlertChannelSubscription, CheckGroup, Project, ProjectData } from '../constructs'
+import chalk = require('chalk')
+import { Check } from '../constructs/check'
+import { AlertChannel } from '../constructs/alert-channel'
+
+enum ResourceDeployStatus {
+  UPDATE = 'UPDATE',
+  CREATE = 'CREATE',
+  DELETE = 'DELETE',
+}
 
 export default class Deploy extends AuthCommand {
   static hidden = false
@@ -70,7 +80,7 @@ export default class Deploy extends AuthCommand {
       const projectPayload = project.synthesize(false)
       const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
-        this.log(data)
+        this.log(this.formatPreview(data, project))
       }
       if (!preview) {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
@@ -82,5 +92,69 @@ export default class Deploy extends AuthCommand {
         throw new Error(`Failed to deploy the project. ${err.message}`)
       }
     }
+  }
+
+  private formatPreview (previewData: any, project: Project): string {
+    // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
+    // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
+    // This makes it easier to display.
+    const updating = []
+    const creating = []
+    const deleting = []
+    for (const [resourceType, resourceStatuses] of Object.entries(previewData?.diff ?? {})) {
+      if (resourceType === AlertChannelSubscription.__checklyType) {
+        // Don't report changes to alert channel subscriptions.
+        // User's don't create these directly, so it's more intuitive to consider it as part of the check.
+        continue
+      }
+      for (const [logicalId, resourceStatus] of Object.entries(resourceStatuses ?? {})) {
+        if (resourceStatus === ResourceDeployStatus.UPDATE) {
+          const construct = project.data[resourceType as keyof ProjectData][logicalId]
+          updating.push({ resourceType, logicalId, construct })
+        } else if (resourceStatus === ResourceDeployStatus.CREATE) {
+          const construct = project.data[resourceType as keyof ProjectData][logicalId]
+          creating.push({ resourceType, logicalId, construct })
+        } else if (resourceStatus === ResourceDeployStatus.DELETE) {
+          // Since the resource is being deleted, the construct isn't in the project.
+          deleting.push({ resourceType, logicalId })
+        }
+      }
+    }
+    // Having some order will make the output easier to read.
+    const compareEntries = (a: any, b: any) =>
+      a.resourceType.localeCompare(b.resourceType) ||
+      a.logicalId.localeCompare(b.logicalId)
+    updating.sort(compareEntries)
+    creating.sort(compareEntries)
+    deleting.sort(compareEntries)
+
+    const output = []
+    if (creating.length) {
+      output.push(chalk.bold.green('Create:'))
+      for (const { logicalId, construct } of creating) {
+        output.push(`    ${construct.constructor.name}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    if (deleting.length) {
+      output.push(chalk.bold.red('Delete:'))
+      const prettyResourceTypes: Record<string, string> = {
+        [Check.__checklyType]: 'Check',
+        [AlertChannel.__checklyType]: 'AlertChannel',
+        [CheckGroup.__checklyType]: 'CheckGroup',
+      }
+      for (const { resourceType, logicalId } of deleting) {
+        output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    if (updating.length) {
+      output.push(chalk.bold.magenta('Update and Unchanged:'))
+      for (const { logicalId, construct } of updating) {
+        output.push(`    ${construct.constructor.name}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    return output.join('\n')
   }
 }

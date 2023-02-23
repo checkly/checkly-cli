@@ -3,7 +3,7 @@ import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 /*
 * In this example, we bundle checks using a Check Group. We add checks to this group in two ways:
-* 1. By calling the ref() method for the groupId property of the check.
+* 1. By passing the `CheckGroup` object for the `group` property of the check.
 * 2. By defining a glob pattern that matches browser checks using *.spec.js.
 *
 * You can use either or both.
@@ -28,7 +28,7 @@ const group = new CheckGroup('check-group-1', {
 
 new ApiCheck('check-group-api-check-1', {
   name: 'Homepage - fetch stats',
-  groupId: group.ref(),
+  group,
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
   request: {

@@ -1,4 +1,4 @@
-import { BrowserCheck } from '../index'
+import { BrowserCheck, CheckGroup } from '../index'
 import { Project, Session } from '../project'
 import * as path from 'path'
 
@@ -72,5 +72,33 @@ describe('BrowserCheck', () => {
     delete Session.checkDefaults
     delete Session.browserCheckDefaults
     expect(browserCheck).toMatchObject({ tags: ['browser check default'] })
+  })
+
+  it('should support setting groups with `groupId`', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    const group = new CheckGroup('main-group', { name: 'Main Group', locations: [] })
+    const check = new BrowserCheck('main-check', {
+      name: 'Main Check',
+      code: { content: '' },
+      groupId: group.ref(),
+    })
+    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
+  })
+
+  it('should support setting groups with `group`', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    const group = new CheckGroup('main-group', { name: 'Main Group', locations: [] })
+    const check = new BrowserCheck('main-check', {
+      name: 'Main Check',
+      code: { content: '' },
+      group,
+    })
+    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 })

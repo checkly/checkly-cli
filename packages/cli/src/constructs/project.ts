@@ -19,7 +19,7 @@ export interface ProjectProps {
   repoUrl?: string
 }
 
-interface ProjectData {
+export interface ProjectData {
   checks: Record<string, Check>,
   groups: Record<string, CheckGroup>,
   alertChannels: Record<string, AlertChannel>,

@@ -51,6 +51,8 @@ export class OpsgenieAlertChannel extends AlertChannel {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props Opsgenie alert channel configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#opsgeniealertchannel Read more in the docs}
    */
   constructor (logicalId: string, props: OpsgenieAlertChannelProps) {
     super(logicalId, props)

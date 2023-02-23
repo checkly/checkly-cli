@@ -42,6 +42,7 @@ export class BrowserCheck extends Check {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
+   * {@link https://checklyhq.com/docs/cli/constructs/#browsercheck Read more in the docs}
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
     BrowserCheck.applyDefaultBrowserCheckConfig(props)

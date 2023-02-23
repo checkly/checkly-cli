@@ -6,6 +6,6 @@ export abstract class AuthCommand extends BaseCommand {
 
   protected async init (): Promise<any> {
     super.init()
-    await api.isAuthenticated()
+    await api.validateAuthentication()
   }
 }

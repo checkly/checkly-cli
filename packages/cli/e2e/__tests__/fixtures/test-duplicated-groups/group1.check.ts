@@ -13,5 +13,5 @@ new BrowserCheck('browser-check', {
     // Remove the throw new Error when we support a verbose flag for check output
     content: 'console.info(process.env.SECRET_ENV);'
   },
-  groupId: group2.ref()
+  group: group2,
 })

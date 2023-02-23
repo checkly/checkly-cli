@@ -73,7 +73,7 @@ export default class Login extends BaseCommand {
   }
 
   private _isLoginSuccess = async () => {
-    await api.isAuthenticated()
+    await api.validateAuthentication()
     this.log('Welcome to @checkly/cli 🦝')
   }
 

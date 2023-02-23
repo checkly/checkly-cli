@@ -9,6 +9,7 @@ import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
+import { pathToLogicalId } from '../services/util'
 import type { Region } from '..'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
@@ -41,6 +42,11 @@ export interface CheckGroupProps {
    * Determines if any notifications will be sent out when a check in this group fails and/or recovers.
    */
   muted?: boolean
+  /**
+   * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
+   * randomly selected region before marking the check as failed.
+   */
+  doubleCheck?: boolean
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute checks in this group.
    */
@@ -89,6 +95,7 @@ export class CheckGroup extends Construct {
   name: string
   activated?: boolean
   muted?: boolean
+  doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
   privateLocations?: Array<string>
@@ -102,11 +109,20 @@ export class CheckGroup extends Construct {
 
   static readonly __checklyType = 'groups'
 
+  /**
+   * Constructs the CheckGroup instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props CheckGroup configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#checkgroup Read more in the docs}
+   */
   constructor (logicalId: string, props: CheckGroupProps) {
     super(CheckGroup.__checklyType, logicalId)
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
+    this.doubleCheck = props.doubleCheck
     this.tags = props.tags
     this.runtimeId = props.runtimeId
     this.locations = props.locations
@@ -135,14 +151,14 @@ export class CheckGroup extends Construct {
       }
       const filepath = path.join(parent, match)
       const props = {
-        groupId: this.ref(),
+        group: this,
         name: match,
         ...defaults,
         code: {
           entrypoint: filepath,
         },
       }
-      const checkLogicalId = path.relative(Session.basePath!, filepath)
+      const checkLogicalId = pathToLogicalId(path.relative(Session.basePath!, filepath))
       const check = new BrowserCheck(checkLogicalId, props)
     }
   }
@@ -165,6 +181,7 @@ export class CheckGroup extends Construct {
       name: this.name,
       activated: this.activated,
       muted: this.muted,
+      doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
       privateLocations: this.privateLocations,
