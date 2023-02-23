@@ -8,11 +8,11 @@ import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { ApiCheckDefaultConfig } from './api-check'
 import { pathToLogicalId } from '../services/util'
 import type { Region } from '..'
 
-// TODO: turn this into type
-const defaultApiCheckDefaults = {
+const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
   queryParameters: [],
   url: '',
@@ -81,8 +81,7 @@ export interface CheckGroupProps {
    * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
    */
   localTearDownScript?: string
-  apiCheckDefaults?: any
-  browserCheckDefaults?: any
+  apiCheckDefaults?: ApiCheckDefaultConfig
 }
 
 /**
@@ -106,9 +105,7 @@ export class CheckGroup extends Construct {
   alertChannels?: Array<AlertChannel>
   localSetupScript?: string
   localTearDownScript?: string
-  // TODO add types later on
-  apiCheckDefaults: any
-  browserCheckDefaults: any
+  apiCheckDefaults: ApiCheckDefaultConfig
 
   static readonly __checklyType = 'groups'
 
@@ -131,8 +128,7 @@ export class CheckGroup extends Construct {
     this.locations = props.locations
     this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
-    this.apiCheckDefaults = props.apiCheckDefaults || defaultApiCheckDefaults
-    this.browserCheckDefaults = props.browserCheckDefaults ?? {}
+    this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
     this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
     const fileAbsolutePath = Session.checkFileAbsolutePath!
@@ -193,7 +189,6 @@ export class CheckGroup extends Construct {
       localSetupScript: this.localSetupScript,
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
-      browserCheckDefaults: this.browserCheckDefaults,
       environmentVariables: this.environmentVariables,
     }
   }

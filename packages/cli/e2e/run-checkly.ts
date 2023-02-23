@@ -17,7 +17,7 @@ export function runChecklyCli (options: {
     apiKey,
     accountId,
     env = {},
-    timeout = 10000,
+    timeout = 30000,
   } = options
   return childProcess.spawnSync(CHECKLY_PATH, args, {
     env: {
