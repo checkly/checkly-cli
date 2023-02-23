@@ -155,7 +155,7 @@ export class CheckGroup extends Construct {
       }
       const filepath = path.join(parent, match)
       const props = {
-        groupId: this.ref(),
+        group: this,
         name: match,
         ...defaults,
         code: {

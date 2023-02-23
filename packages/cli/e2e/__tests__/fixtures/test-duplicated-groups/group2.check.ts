@@ -9,7 +9,7 @@ const group1 = new CheckGroup('my-check-group', {
 new ApiCheck('api-check', {
   name: 'Api Check',
   activated: false,
-  groupId: group1.ref(),
+  group: group1,
   request: {
     url: 'https://www.google.com',
     method: 'GET',
