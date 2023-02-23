@@ -100,7 +100,6 @@ export class Session {
   static checkDefaults?: CheckConfigDefaults
   static browserCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
-  static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]

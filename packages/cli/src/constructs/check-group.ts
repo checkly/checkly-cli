@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as glob from 'glob'
+import * as getCallerFile from 'get-caller-file'
 import { Ref } from './ref'
 import { Session } from './project'
 import { Construct } from './construct'
@@ -135,16 +136,19 @@ export class CheckGroup extends Construct {
     this.browserCheckDefaults = props.browserCheckDefaults ?? {}
     this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
-    const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
-      this.__addChecks(fileAbsolutePath, props.browserChecks)
+      // getCallerFile() finds the exact file where the CheckGroup constructor was called.
+      // It does this by parsing the stack trace of an Error.
+      // This is a fragile hack, but it's nice to not require users to pass the base file explicitly.
+      const baseFileAbsolutepath = getCallerFile()
+      this.__addChecks(baseFileAbsolutepath, props.browserChecks)
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
   }
 
-  private __addChecks (fileAbsolutePath: string, browserChecks: BrowserCheckConfig) {
-    const parent = path.dirname(fileAbsolutePath)
+  private __addChecks (baseFileAbsolutePath: string, browserChecks: BrowserCheckConfig) {
+    const parent = path.dirname(baseFileAbsolutePath)
     const matched = glob.sync(browserChecks.testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {
       const defaults: CheckConfigDefaults = {}

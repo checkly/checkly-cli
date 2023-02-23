@@ -1,4 +1,5 @@
 import * as path from 'path'
+import * as getCallerFile from 'get-caller-file'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { Parser } from '../services/check-parser/parser'
@@ -56,10 +57,11 @@ export class BrowserCheck extends Check {
       if (path.isAbsolute(entrypoint)) {
         absoluteEntrypoint = entrypoint
       } else {
-        if (!Session.checkFileAbsolutePath) {
-          throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
-        }
-        absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
+        // getCallerFile() finds the exact file where the CheckGroup constructor was called.
+        // It does this by parsing the stack trace of an Error.
+        // This is a fragile hack, but it's nice to not require users to pass the base file explicitly.
+        const baseFileAbsolutePath = getCallerFile()
+        absoluteEntrypoint = path.join(path.dirname(baseFileAbsolutePath), entrypoint)
       }
       // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)

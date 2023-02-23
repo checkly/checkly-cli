@@ -64,4 +64,22 @@ describe('deploy', () => {
     expect(result.stdout).not.toContain('testonly-true-check')
     expect(result.status).toBe(0)
   })
+
+  /**
+  * `CheckGroup` supports loading *.spec.ts checks using `testMatch`, and `BrowserCheck` supports relative paths for *.spec.ts files.
+  * The base path for loading these extra files should be the file where `CheckGroup`/`BrowserCheck` are actually instantiated.
+  * This test checks the edge case where `CheckGroup` and `BrowserCheck` aren't instantiated directly in the *.check.ts file.
+  * Instead the objects are imported from helper files.
+  */
+  it('Should correctly detect files based on where constructs are stored', () => {
+    const result = runChecklyCli({
+      args: ['deploy', '--preview'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures/relative-path-edge-case'),
+    })
+    expect(result.stdout).toContain('BrowserCheck: group-dir/example.ts')
+    expect(result.stdout).toContain('BrowserCheck: example-check')
+    expect(result.status).toBe(0)
+  })
 })
