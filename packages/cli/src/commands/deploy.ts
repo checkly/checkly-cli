@@ -155,6 +155,9 @@ export default class Deploy extends AuthCommand {
       }
       output.push('')
     }
+    if (!creating.length && !deleting.length && !updating.length) {
+      output.push('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
+    }
     return output.join('\n')
   }
 }
