@@ -120,6 +120,11 @@ export default class Deploy extends AuthCommand {
         }
       }
     }
+
+    if (!creating.length && !deleting.length && !updating.length) {
+      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
+    }
+
     // Having some order will make the output easier to read.
     const compareEntries = (a: any, b: any) =>
       a.resourceType.localeCompare(b.resourceType) ||
