@@ -14,7 +14,6 @@ body:
         Do not forget:
         - [ ] Assign an issue owner
         - [ ] Tag with proper labels (type & priority)
-        - [ ] Set a project and milestone
   - type: textarea
     id: description
     attributes:
