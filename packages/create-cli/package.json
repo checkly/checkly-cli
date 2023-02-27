@@ -7,8 +7,9 @@
   "types": "dist/index.d.ts",
   "private": false,
   "scripts": {
+    "clean" : "rimraf ./dist",
     "test": "jest --selectProjects unit",
-    "prepare": "rm -rf dist && tsc --build",
+    "prepare": "npm run clean && tsc --build",
     "prepack": "npx oclif manifest",
     "lint": "eslint src",
     "start": "node ./index.mjs"

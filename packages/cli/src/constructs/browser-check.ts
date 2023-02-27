@@ -96,13 +96,13 @@ export class BrowserCheck extends Check {
     const deps: CheckDependency[] = []
     for (const { filePath, content } of parsed.dependencies) {
       deps.push({
-        path: path.relative(Session.basePath!, filePath),
+        path: path.relative(Session.basePath!, filePath).split(path.sep).join(path.posix.sep),
         content,
       })
     }
     return {
       script: parsed.entrypoint.content,
-      scriptPath: path.relative(Session.basePath!, parsed.entrypoint.filePath),
+      scriptPath: path.relative(Session.basePath!, parsed.entrypoint.filePath).split(path.sep).join(path.posix.sep),
       dependencies: deps,
     }
   }

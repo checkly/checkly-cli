@@ -5,9 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "clean" : "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "test:e2e": "npm run prepare && NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
-    "prepare": "rm -rf dist && tsc --build",
+    "prepare": "npm run clean && tsc --build",
     "prepack": "npx oclif manifest",
     "lint": "eslint src"
   },
