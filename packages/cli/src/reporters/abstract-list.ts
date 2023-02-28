@@ -47,6 +47,10 @@ export default abstract class AbstractListReporter implements Reporter {
     })
   }
 
+  onError (err: Error) {
+    console.log(chalk.red('Unable to run checks: ') + err.message + '\n')
+  }
+
   // Clear the summary which was printed by _printStatus from stdout
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.

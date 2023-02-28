@@ -156,8 +156,8 @@ export default class Test extends AuthCommand {
     const runner = new CheckRunner(
       config.getAccountId(),
       config.getApiKey(),
+      project,
       checks,
-      project.data.groups,
       location,
       timeout,
       verbose,
@@ -184,6 +184,10 @@ export default class Test extends AuthCommand {
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
+    runner.on(Events.ERROR, (err) => {
+      reporter.onError(err)
+      process.exitCode = 1
+    })
     await runner.run()
   }
 

@@ -33,4 +33,9 @@ export default class ListReporter extends AbstractListReporter {
     }
     this._printSummary()
   }
+
+  onError (err: Error) {
+    this._clearSummary()
+    super.onError(err)
+  }
 }

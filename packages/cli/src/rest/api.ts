@@ -3,11 +3,11 @@ import config from '../services/config'
 import Accounts from './accounts'
 import Users from './users'
 import Projects from './projects'
-import Checks from './checks'
 import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
 import Locations from './locations'
+import TestSessions from './test-sessions'
 
 export function getDefaults () {
   const environments = {
@@ -85,8 +85,8 @@ export const api = init()
 export const accounts = new Accounts(api)
 export const user = new Users(api)
 export const projects = new Projects(api)
-export const checks = new Checks(api)
 export const assets = new Assets(api)
 export const runtimes = new Runtimes(api)
 export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
+export const testSessions = new TestSessions(api)
