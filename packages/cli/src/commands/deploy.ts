@@ -11,6 +11,7 @@ import { AlertChannelSubscription, CheckGroup, Project, ProjectData } from '../c
 import chalk = require('chalk')
 import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
+import { getGitInformation } from '../services/util'
 
 enum ResourceDeployStatus {
   UPDATE = 'UPDATE',
@@ -46,11 +47,13 @@ export default class Deploy extends AuthCommand {
     const cwd = process.cwd()
     const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
     const { data: avilableRuntimes } = await runtimes.getAll()
+    const gitInfo = getGitInformation()
     const project = await parseProject({
       directory: cwd,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
+      repoInfo: gitInfo ?? undefined,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,

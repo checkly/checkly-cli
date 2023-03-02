@@ -1,6 +1,27 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import { Service } from 'ts-node'
+import * as gitRepoInfo from 'git-repo-info'
+import * as childProcess from 'node:child_process'
+
+export interface GitInformation {
+  originUrl: string|null
+  sha: string
+  abbreviatedSha: string
+  branch: string
+  tag: string|null
+  committer: string
+  committerDate: Date
+  author: string
+  authorDate: Date
+  commitMessage: string
+  // TODO: decide which properties to keep
+  // root: string
+  // commonGitDir: string
+  // worktreeGitDir: string
+  // lastTag: string|null
+  // commitsSinceLastTag: number
+}
 
 // TODO: Remove this in favor of glob? It's unused.
 export async function walkDirectory (
@@ -74,4 +95,34 @@ export function pathToLogicalId (relPath: string): string {
   // It's important that logical ID's are consistent across platforms, though.
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
   return relPath.split(path.sep).join(path.posix.sep)
+}
+
+export function getGitInformation (): GitInformation|null {
+  const repositoryInfo = gitRepoInfo()
+
+  if (!repositoryInfo.sha) {
+    return null
+  }
+
+  const gitRemoteCommand = childProcess.spawnSync('git', ['config', '--get', 'remote.origin.url'],
+    { encoding: 'utf8', timeout: 3000 })
+
+  return {
+    originUrl: gitRemoteCommand.status === 0 ? gitRemoteCommand.output.filter(Boolean).join().replace('\n', '') : null,
+    sha: repositoryInfo.sha,
+    abbreviatedSha: repositoryInfo.abbreviatedSha,
+    branch: repositoryInfo.branch,
+    tag: repositoryInfo.tag,
+    committer: repositoryInfo.committer,
+    committerDate: new Date(repositoryInfo.committerDate),
+    author: repositoryInfo.author,
+    authorDate: new Date(repositoryInfo.authorDate),
+    commitMessage: repositoryInfo.commitMessage,
+    // TODO: decide which properties to keep
+    // root: repositoryInfo.root,
+    // commonGitDir: repositoryInfo.commonGitDir,
+    // worktreeGitDir: repositoryInfo.worktreeGitDir,
+    // lastTag: repositoryInfo.lastTag,
+    // commitsSinceLastTag: repositoryInfo.commitsSinceLastTag,
+  }
 }
