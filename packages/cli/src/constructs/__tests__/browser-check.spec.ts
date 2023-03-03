@@ -16,16 +16,16 @@ describe('BrowserCheck', () => {
     delete Session.basePath
 
     expect(bundle).toEqual({
-      script: fs.readFileSync(getFilePath('entrypoint.js')),
+      script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
       scriptPath: 'fixtures/browser-check/entrypoint.js',
       dependencies: [
         {
           path: 'fixtures/browser-check/dep1.js',
-          content: fs.readFileSync(getFilePath('dep1.js')),
+          content: fs.readFileSync(getFilePath('dep1.js')).toString(),
         },
         {
           path: 'fixtures/browser-check/dep2.js',
-          content: fs.readFileSync(getFilePath('dep2.js')),
+          content: fs.readFileSync(getFilePath('dep2.js')).toString(),
         },
       ],
     })
