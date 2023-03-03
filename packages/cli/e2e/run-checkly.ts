@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as childProcess from 'node:child_process'
 
-const CHECKLY_PATH = path.resolve(path.dirname(__filename), '../bin/run')
+const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
 export function runChecklyCli (options: {
   directory?: string,
