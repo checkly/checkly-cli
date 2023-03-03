@@ -11,6 +11,7 @@ const authSchema = {
 
 const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
 
+// eslint-disable-next-line no-restricted-syntax
 enum Env {
   production = 'production',
   staging = 'staging',

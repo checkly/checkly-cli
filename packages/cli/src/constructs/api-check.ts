@@ -3,6 +3,7 @@ import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
 
+// eslint-disable-next-line no-restricted-syntax
 enum AssertionSource {
   STATUS_CODE = 'STATUS_CODE',
   JSON_BODY = 'JSON_BODY',
@@ -11,6 +12,7 @@ enum AssertionSource {
   RESPONSE_TIME = 'RESPONSE_TIME',
 }
 
+// eslint-disable-next-line no-restricted-syntax
 enum AssertionComparison {
   EQUALS = 'EQUALS',
   NOT_EQUALS = 'NOT_EQUALS',

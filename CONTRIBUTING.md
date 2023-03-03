@@ -67,3 +67,31 @@ To release the project to NPM:
 2. Create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new)
 
 The new version will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
+
+## Style Guide
+
+#### Enums vs. Union Types
+
+In general, prefer to use Union Types rather than Enums.
+
+Rather than:
+```
+enum BodyType {
+  JSON = 'JSON',
+  FORM = 'FORM',
+  RAW = 'RAW',
+}
+```
+
+use:
+```
+type BodyType = 'JSON' | 'FORM' | 'RAW'
+```
+
+This is especially important in public facing code (the `constructs` directory). The main goal is consistency for users. This rule is enforced by ESLint.
+
+If an enum makes sense for a particular use case (internal code), you can explicitly disable the ESLint rule by adding:
+```
+// eslint-disable-next-line no-restricted-syntax
+```
+
