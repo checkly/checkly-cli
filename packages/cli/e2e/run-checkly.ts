@@ -29,5 +29,6 @@ export function runChecklyCli (options: {
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',
     timeout,
+    shell: process.platform === "win32",
   })
 }
