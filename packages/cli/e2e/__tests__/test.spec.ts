@@ -10,7 +10,7 @@ describe('test', () => {
       args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-project'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
     expect(result.status).toBe(0)
     expect(result.stdout).not.toContain('File extension type example')
@@ -22,7 +22,7 @@ describe('test', () => {
       args: ['test', 'secret.check.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-project'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('Show SECRET_ENV value')
@@ -34,7 +34,7 @@ describe('test', () => {
       args: ['test', 'does-not-exist.js'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-project'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('0 total')
@@ -45,7 +45,7 @@ describe('test', () => {
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-parse-error'),
+      directory: path.join(__dirname, 'fixtures', 'test-parse-error'),
     })
     expect(result.stderr).toContain('Error loading file')
     expect(result.stderr).toContain('Error: Big bang!')
@@ -57,7 +57,7 @@ describe('test', () => {
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-duplicated-groups'),
+      directory: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
     })
     expect(result.stderr.replace(/(\n {4})/gm, ''))
       .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' already exists.")
@@ -69,7 +69,7 @@ describe('test', () => {
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-only-project'),
+      directory: path.join(__dirname, 'fixtures', 'test-only-project'),
     })
     expect(result.stdout).toContain('TestOnly=false (default) Check')
     expect(result.stdout).toContain('TestOnly=false Check')
