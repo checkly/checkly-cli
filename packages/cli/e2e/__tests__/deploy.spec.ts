@@ -45,7 +45,7 @@ describe('deploy', () => {
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/deploy-project'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
     expect(result.stderr).toBe('')
@@ -56,7 +56,7 @@ describe('deploy', () => {
       args: ['deploy', '--preview'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/test-only-project'),
+      directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
     expect(result.stdout).toContain('not-testonly-default-check')
