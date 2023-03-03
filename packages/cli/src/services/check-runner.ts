@@ -7,6 +7,7 @@ import { Check } from '../constructs/check'
 import { CheckGroup } from '../constructs'
 import type { Region } from '..'
 
+// eslint-disable-next-line no-restricted-syntax
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
   CHECK_INPROGRESS = 'CHECK_INPROGRESS',

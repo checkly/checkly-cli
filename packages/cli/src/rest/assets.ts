@@ -1,5 +1,6 @@
 import type { AxiosInstance } from 'axios'
 
+// eslint-disable-next-line no-restricted-syntax
 enum AssetType {
   LOG = 'log',
   CHECK_RUN_DATA = 'check-run-data',
