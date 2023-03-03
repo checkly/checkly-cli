@@ -164,13 +164,7 @@ class GeneralAssertionBuilder {
   }
 }
 
-enum BodyType {
-  JSON = 'JSON',
-  FORM = 'FORM',
-  RAW = 'RAW',
-  GRAPHQL = 'GRAPHQL',
-  NONE = 'NONE'
-}
+export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
 
 export type HttpRequestMethod =
   | 'get' | 'GET'
