@@ -10,7 +10,8 @@ const config = defineConfig({
     runtimeId: '2022.10',
     checkMatch: '**/*.check.ts',
     browserChecks: {
-      testMatch: '**/__checks__/*.spec.ts', // this matches any Playwright spec-files and automagically creates a Browser check
+      // using .test.ts suffix (no .spec.ts) to avoid '@playwright/test not found error' when Jest transpile the spec.ts
+      testMatch: '**/__checks__/*.test.ts',
     },
   },
   cli: {
