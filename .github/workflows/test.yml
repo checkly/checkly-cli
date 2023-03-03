@@ -6,12 +6,8 @@ on:
       - main
 
 jobs:
-  test_and_lint:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    name: test&lint - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  lint:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -24,6 +20,21 @@ jobs:
       # Test that the packaging works as well
       - run: npm pack --workspace packages/cli
       - run: npm run lint --workspace packages/cli
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    name: test - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm config set fund false && npm set audit false
+      - run: npm ci --workspaces
       - run: npm run test --workspace packages/cli
       - run: npm run test:e2e --workspace packages/cli
         env:
