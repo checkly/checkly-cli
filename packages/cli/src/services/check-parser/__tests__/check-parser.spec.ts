@@ -15,16 +15,16 @@ describe('dependency-parser - parser()', () => {
   })
 
   it('should handle JS file with dependencies', () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', filename)
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
     const parser = new Parser(defaultNpmModules)
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
       toAbsolutePath('dep3.js'),
-      toAbsolutePath('module-package/main.js'),
-      toAbsolutePath('module-package/package.json'),
-      toAbsolutePath('module/index.js'),
+      toAbsolutePath('module-package', 'main.js'),
+      toAbsolutePath('module-package', 'package.json'),
+      toAbsolutePath('module', 'index.js'),
     ])
   })
 
@@ -39,7 +39,7 @@ describe('dependency-parser - parser()', () => {
   })
 
   it('should report missing check dependencies', () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', filename)
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', ...filepath)
     try {
       const parser = new Parser(defaultNpmModules)
       parser.parse(toAbsolutePath('missing-dependencies.js'))
@@ -69,7 +69,7 @@ describe('dependency-parser - parser()', () => {
   })
 
   it('should handle circular dependencies', () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', filename)
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', ...filepath)
     const parser = new Parser(defaultNpmModules)
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
 
@@ -83,7 +83,7 @@ describe('dependency-parser - parser()', () => {
   })
 
   it('should parse typescript dependencies', () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', filename)
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', ...filepath)
     const parser = new Parser(defaultNpmModules)
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
@@ -91,15 +91,15 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('dep2.ts'),
       toAbsolutePath('dep3.ts'),
       toAbsolutePath('dep4.js'),
-      toAbsolutePath('module-package/main.js'),
-      toAbsolutePath('module-package/package.json'),
-      toAbsolutePath('module/index.ts'),
+      toAbsolutePath('module-package', 'main.js'),
+      toAbsolutePath('module-package', 'package.json'),
+      toAbsolutePath('module', 'index.ts'),
       toAbsolutePath('type.ts'),
     ])
   })
 
   it('should handle ES Modules', () => {
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', filename)
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
     const parser = new Parser(defaultNpmModules)
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
