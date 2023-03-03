@@ -24,7 +24,6 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    console.log('GOT ', result)
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('Show SECRET_ENV value')
     expect(result.stdout).toContain('1 passed, 1 total')
