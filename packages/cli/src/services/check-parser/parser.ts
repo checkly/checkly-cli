@@ -144,7 +144,8 @@ export class Parser {
 
   static readDependency (filePath: string, preferedExtenstion: SupportedFileExtension) {
     // Read the specific file if it has an extension
-    if (path.extname(filePath).length) {
+    const fileExtension = path.extname(filePath)
+    if (fileExtension && ['.js', '.ts'].some(e => e === fileExtension)) {
       const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
       return [{ filePath, content }]
     } else {
