@@ -1,12 +1,12 @@
 import path from 'path'
-import { pathToPosix } from '../util'
+import { pathToLogicalId } from '../util'
 
-describe('pathToPosix()', () => {
+describe('pathToLogicalId()', () => {
   it('should convert Windows paths', () => {
     const originalSep = path.sep
     try {
       path.sep = '\\'
-      expect(pathToPosix('src\\__checks__\\my_check.spec.ts'))
+      expect(pathToLogicalId('src\\__checks__\\my_check.spec.ts'))
         .toEqual('src/__checks__/my_check.spec.ts')
     } finally {
       path.sep = originalSep
@@ -17,7 +17,7 @@ describe('pathToPosix()', () => {
     const originalSep = path.sep
     try {
       path.sep = '/'
-      expect(pathToPosix('src/__checks__/my_check.spec.ts'))
+      expect(pathToLogicalId('src/__checks__/my_check.spec.ts'))
         .toEqual('src/__checks__/my_check.spec.ts')
     } finally {
       path.sep = originalSep

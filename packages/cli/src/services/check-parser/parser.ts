@@ -144,21 +144,15 @@ export class Parser {
 
   static readDependency (filePath: string, preferedExtenstion: SupportedFileExtension) {
     // Read the specific file if it has an extension
-    const fileExtension = path.extname(filePath)
-    if (fileExtension && ['.js', '.ts'].some(e => e === fileExtension)) {
-      const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
-      return [{ filePath, content }]
+    if (preferedExtenstion === '.js') {
+      return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
     } else {
-      if (preferedExtenstion === '.js') {
-        return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
-      } else {
-        return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
-      }
+      return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
     }
   }
 
   static tryReadFileExt (filePath: string, exts: typeof JS_RESOLVE_ORDER | typeof TS_RESOLVE_ORDER) {
-    for (const extension of exts) {
+    for (const extension of ['', ...exts]) {
       try {
         const deps = []
         const fullPath = filePath + extension

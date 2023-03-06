@@ -3,7 +3,6 @@ import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { pathToPosix } from '../services/util'
 
 export interface CheckDependency {
   path: string
@@ -97,13 +96,13 @@ export class BrowserCheck extends Check {
     const deps: CheckDependency[] = []
     for (const { filePath, content } of parsed.dependencies) {
       deps.push({
-        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        path: path.relative(Session.basePath!, filePath).split(path.sep).join(path.posix.sep),
         content,
       })
     }
     return {
       script: parsed.entrypoint.content,
-      scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
+      scriptPath: path.relative(Session.basePath!, parsed.entrypoint.filePath).split(path.sep).join(path.posix.sep),
       dependencies: deps,
     }
   }
