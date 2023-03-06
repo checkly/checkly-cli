@@ -9,7 +9,7 @@ import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
-import { pathToLogicalId } from '../services/util'
+import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
@@ -158,7 +158,7 @@ export class CheckGroup extends Construct {
           entrypoint: filepath,
         },
       }
-      const checkLogicalId = pathToLogicalId(path.relative(Session.basePath!, filepath))
+      const checkLogicalId = pathToPosix(path.relative(Session.basePath!, filepath))
       const check = new BrowserCheck(checkLogicalId, props)
     }
   }

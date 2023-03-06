@@ -13,6 +13,10 @@ const group = new CheckGroup('check-group-1', {
   apiCheckDefaults: {},
   concurrency: 100,
   alertChannels,
+  browserChecks: {
+    // using .test.ts suffix (no .spec.ts) to avoid '@playwright/test not found error' when Jest transpile the spec.ts
+    testMatch: '**/*.test.ts',
+  },
 })
 
 const browserCheck = new BrowserCheck('group-browser-check-1', {
