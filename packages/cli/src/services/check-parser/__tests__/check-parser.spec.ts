@@ -94,6 +94,8 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('module-package', 'main.js'),
       toAbsolutePath('module-package', 'package.json'),
       toAbsolutePath('module', 'index.ts'),
+      toAbsolutePath('pages/external.first.page.js'),
+      toAbsolutePath('pages/external.second.page.ts'),
       toAbsolutePath('type.ts'),
     ])
   })

@@ -1,4 +1,4 @@
-import { CheckGroup, ApiCheck, BrowserCheck } from '@checkly/cli/constructs'
+import { CheckGroup, BrowserCheck } from '@checkly/cli/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 
@@ -13,9 +13,6 @@ const group = new CheckGroup('check-group-1', {
   apiCheckDefaults: {},
   concurrency: 100,
   alertChannels,
-  browserChecks: {
-    testMatch: '**/*.spec.ts',
-  },
 })
 
 const browserCheck = new BrowserCheck('group-browser-check-1', {
