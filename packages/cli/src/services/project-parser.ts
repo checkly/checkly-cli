@@ -104,7 +104,7 @@ async function loadAllBrowserChecks (
   })
 
   for (const checkFile of checkFiles) {
-    const relPath = pathToLogicalId(path.relative(directory, checkFile))
+    const relPath = path.relative(directory, checkFile)
     // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
     if (preexistingCheckFiles.has(relPath)) {
       continue
