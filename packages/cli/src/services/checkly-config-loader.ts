@@ -79,10 +79,11 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filename: string = ''): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
+  const filenames = filename ? [filename] : ['checkly.config.ts', 'checkly.config.js']
   for (const filename of filenames) {
     config = await loadFile(path.join(dir, filename))
     if (config) {

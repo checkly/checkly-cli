@@ -39,13 +39,18 @@ export default class Deploy extends AuthCommand {
       description: 'force mode',
       default: false,
     }),
+    config: Flags.string({
+      char: 'c',
+      description: 'The Checkly CLI config filename.',
+      allowNo: true,
+    }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
-    const { force, preview, output } = flags
+    const { force, preview, output, config: configFilename } = flags
     const cwd = process.cwd()
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
+    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd, configFilename!)
     const { data: avilableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: cwd,

@@ -67,6 +67,11 @@ export default class Test extends AuthCommand {
       description: 'Always show the logs of the checks.',
       allowNo: true,
     }),
+    config: Flags.string({
+      char: 'c',
+      description: 'The Checkly CLI config filename.',
+      allowNo: true,
+    }),
   }
 
   static args = {
@@ -91,12 +96,13 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
+      config: configFilename,
     } = flags
     const cwd = process.cwd()
     const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
+    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd, configFilename)
     const location = await this.prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
