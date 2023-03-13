@@ -79,7 +79,8 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export async function loadChecklyConfig (dir: string, filename: string = ''): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string , filename = ''):
+  Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
