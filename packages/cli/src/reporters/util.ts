@@ -5,6 +5,7 @@ import * as logSymbols from 'log-symbols'
 
 import { Assertion } from '../constructs/api-check'
 
+// eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
   PENDING,
   FAILED,

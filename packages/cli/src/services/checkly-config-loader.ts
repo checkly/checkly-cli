@@ -55,10 +55,10 @@ export type ChecklyConfig = {
   }
 }
 
+// eslint-disable-next-line no-restricted-syntax
 enum Extension {
   JS = '.js',
-  TS = '.ts'
-
+  TS = '.ts',
 }
 
 function loadFile (file: string) {

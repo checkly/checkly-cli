@@ -1,7 +1,7 @@
 import { BrowserCheck, Project, Session } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
-import { GitInformation, loadJsFile, loadTsFile, pathToLogicalId } from './util'
+import { GitInformation, loadJsFile, loadTsFile, pathToPosix } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
@@ -75,7 +75,7 @@ async function loadAllCheckFiles (
   for (const checkFile of checkFiles) {
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFileAbsolutePath = checkFile
-    Session.checkFilePath = path.relative(directory, checkFile)
+    Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
@@ -107,12 +107,12 @@ async function loadAllBrowserChecks (
   })
 
   for (const checkFile of checkFiles) {
-    const relPath = path.relative(directory, checkFile)
+    const relPath = pathToPosix(path.relative(directory, checkFile))
     // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
     if (preexistingCheckFiles.has(relPath)) {
       continue
     }
-    const browserCheck = new BrowserCheck(pathToLogicalId(relPath), {
+    const browserCheck = new BrowserCheck(pathToPosix(relPath), {
       name: path.basename(checkFile),
       code: {
         entrypoint: checkFile,

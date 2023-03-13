@@ -13,6 +13,7 @@ import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
 import { getGitInformation } from '../services/util'
 
+// eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
   UPDATE = 'UPDATE',
   CREATE = 'CREATE',
