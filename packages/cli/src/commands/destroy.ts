@@ -18,7 +18,7 @@ export default class Destroy extends AuthCommand {
       message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" to account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
     }])
     if (projectName !== checklyConfig.projectName) {
-      this.log(`Entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
+      this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
       return
     }
     await api.projects.deleteProject(checklyConfig.logicalId)
