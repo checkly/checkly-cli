@@ -15,7 +15,7 @@ export default class Destroy extends AuthCommand {
     const { projectName } = await prompt([{
       name: 'projectName',
       type: 'test',
-      message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" to account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
+      message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" for account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
     }])
     if (projectName !== checklyConfig.projectName) {
       this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
