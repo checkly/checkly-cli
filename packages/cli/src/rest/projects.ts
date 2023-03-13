@@ -34,8 +34,8 @@ class Projects {
     return this.api.post('/next/projects', project)
   }
 
-  deleteProject (id: string) {
-    return this.api.delete(`/next/projects/${id}`)
+  deleteProject (logicalId: string) {
+    return this.api.delete(`/next/projects/${logicalId}`)
   }
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {

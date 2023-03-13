@@ -27,7 +27,7 @@ async function cleanupProjects (projectLogicalId?: string) {
     const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') &&
       DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 10 }))
     if (matchesLogicalId || leftoverE2eProject) {
-      await projectsApi.deleteProject(project.id)
+      await projectsApi.deleteProject(project.logicalId)
     }
   }
 }

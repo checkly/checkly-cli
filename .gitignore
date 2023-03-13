@@ -13,3 +13,4 @@ oclif.manifest.json
 local
 .env*
 .eslintcache
+.tsbuildinfo
