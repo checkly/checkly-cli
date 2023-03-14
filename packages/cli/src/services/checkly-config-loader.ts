@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { loadJsFile, loadTsFile } from './util'
+import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
@@ -79,21 +79,25 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export async function loadChecklyConfig (dir: string, filename?: string):
-  Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (filename?: string):
+  Promise<{ config: ChecklyConfig, constructs: Construct[], projectCwd: string }> {
+  const cwd = process.cwd()
   let config
+  let projectCwd: string = cwd
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
   const filenames = filename ? [filename] : ['checkly.config.ts', 'checkly.config.js']
   for (const filename of filenames) {
-    config = await loadFile(path.join(dir, filename))
+    const file = pathToPosix(path.join(cwd, filename))
+    config = await loadFile(file)
+    projectCwd = path.dirname(file)
     if (config) {
       break
     }
   }
 
   if (!config) {
-    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+    throw new Error(`Unable to locate a files [${filenames.map(f => path.basename(f)).join(',')}] config at ${projectCwd}`)
   }
 
   for (const field of ['logicalId', 'projectName']) {
@@ -106,5 +110,5 @@ export async function loadChecklyConfig (dir: string, filename?: string):
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
   Session.checklyConfigFileConstructs = []
-  return { config, constructs }
+  return { config, constructs, projectCwd }
 }

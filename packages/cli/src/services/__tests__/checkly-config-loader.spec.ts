@@ -2,26 +2,72 @@ import * as path from 'path'
 import { loadChecklyConfig } from '../checkly-config-loader'
 
 describe('loadChecklyConfig()', () => {
-  it('config file should export an object', async () => {
-    try {
-      const config = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), 'no-export-config.js')
-    } catch (e: any) {
-      expect(e.message).toContain('Config object missing a logicalId as type string')
-    }
+  beforeEach(() => {
+    process.chdir(__dirname)
+  })
+  it('config default file should export an object', async () => {
+    const cwd = path.join(__dirname, 'fixtures/configs')
+    // change working directory to access checkly.config.ts from the cwd
+    process.chdir(cwd)
+    const {
+      config,
+      projectCwd,
+    } = await loadChecklyConfig()
+    expect(config).toMatchObject({
+      checks: {
+        checkMatch: '**/*.check.ts',
+        browserChecks: {
+          testMatch: '**/__checks__/*.spec.ts',
+        },
+      },
+    })
+    expect(projectCwd).toEqual(process.cwd())
+  })
+  it('config TS file should export an object', async () => {
+    const configFile = './fixtures/configs/good-config.ts'
+    const {
+      config,
+      projectCwd,
+    } = await loadChecklyConfig(configFile)
+    expect(config).toMatchObject({
+      checks: {
+        checkMatch: '**/*.check.ts',
+        browserChecks: {
+          testMatch: '**/__checks__/*.spec.ts',
+        },
+      },
+    })
+    expect(projectCwd).toEqual(path.dirname(path.join(process.cwd(), configFile)))
+  })
+  it('config JS file should export an object', async () => {
+    const configFile = './fixtures/configs/good-config.js'
+    const {
+      config,
+      projectCwd,
+    } = await loadChecklyConfig(configFile)
+    expect(config).toMatchObject({
+      checks: {
+        checkMatch: '**/*.check.ts',
+        browserChecks: {
+          testMatch: '**/__checks__/*.spec.ts',
+        },
+      },
+    })
+    expect(projectCwd).toEqual(path.dirname(path.join(process.cwd(), configFile)))
   })
   it('config file should export an object with projectName and logicalId', async () => {
     try {
-      const config = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), 'no-logical-id-config.js')
+      await loadChecklyConfig('./fixtures/configs/no-logical-id-config.js')
     } catch (e: any) {
       expect(e.message).toContain('Config object missing a logicalId as type string')
     }
   })
   it('error should indicate the tried file name combinations', async () => {
-    const configDir = path.join(__dirname, 'fixtures', 'not-existing-config-path')
+    const configFile = './fixtures/not-existing-config-path'
     try {
-      const config = await loadChecklyConfig(configDir)
+      await loadChecklyConfig('./fixtures/not-existing-config-path')
     } catch (e: any) {
-      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.js'].join(', ')}.`)
+      expect(e.message).toContain(`Unable to locate a files [${path.basename(configFile)}]`)
     }
   })
 })

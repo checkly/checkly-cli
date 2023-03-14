@@ -98,11 +98,14 @@ export default class Test extends AuthCommand {
       verbose: verboseFlag,
       config: configFilename,
     } = flags
-    const cwd = process.cwd()
     const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd, configFilename)
+    const {
+      config: checklyConfig,
+      constructs: checklyConfigConstructs,
+      projectCwd,
+    } = await loadChecklyConfig(configFilename)
     const location = await this.prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
@@ -110,7 +113,7 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
-      directory: cwd,
+      directory: projectCwd,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
