@@ -50,7 +50,7 @@ export default class Deploy extends AuthCommand {
     const { flags } = await this.parse(Deploy)
     const { force, preview, output, config: configFilename } = flags
     const cwd = process.cwd()
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd, configFilename!)
+    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd, configFilename)
     const { data: avilableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: cwd,
