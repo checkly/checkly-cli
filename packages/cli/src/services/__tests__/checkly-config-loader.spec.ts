@@ -1,11 +1,12 @@
 import * as path from 'path'
 import { loadChecklyConfig } from '../checkly-config-loader'
+import { pathToPosix } from '../util'
 
 describe('loadChecklyConfig()', () => {
   beforeEach(() => {
     process.chdir(__dirname)
   })
-  it('config default file should export an object', async () => {
+  it('default config file should export an object', async () => {
     const cwd = path.join(__dirname, 'fixtures/configs')
     // change working directory to access checkly.config.ts from the cwd
     process.chdir(cwd)
@@ -21,7 +22,7 @@ describe('loadChecklyConfig()', () => {
         },
       },
     })
-    expect(projectCwd).toEqual(process.cwd())
+    expect(projectCwd).toEqual(pathToPosix(process.cwd()))
   })
   it('config TS file should export an object', async () => {
     const configFile = './fixtures/configs/good-config.ts'
@@ -37,7 +38,7 @@ describe('loadChecklyConfig()', () => {
         },
       },
     })
-    expect(projectCwd).toEqual(path.dirname(path.join(process.cwd(), configFile)))
+    expect(projectCwd).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
   })
   it('config JS file should export an object', async () => {
     const configFile = './fixtures/configs/good-config.js'
@@ -53,7 +54,7 @@ describe('loadChecklyConfig()', () => {
         },
       },
     })
-    expect(projectCwd).toEqual(path.dirname(path.join(process.cwd(), configFile)))
+    expect(projectCwd).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
   })
   it('config file should export an object with projectName and logicalId', async () => {
     try {

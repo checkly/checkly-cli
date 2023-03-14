@@ -73,5 +73,5 @@ export function pathToPosix (relPath: string): string {
   // Windows uses \ rather than / as a path separator.
   // It's important that logical ID's are consistent across platforms, though.
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
-  return relPath.split(path.sep).join(path.posix.sep)
+  return path.normalize(relPath).split(path.sep).join(path.posix.sep).replace(/^C:/, '')
 }
