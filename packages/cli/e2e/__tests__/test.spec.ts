@@ -29,6 +29,28 @@ describe('test', () => {
     expect(result.stdout).toContain('1 passed, 1 total')
   })
 
+  it('Should use different config file', () => {
+    const result = runChecklyCli({
+      args: ['test', 'secret.check.ts', '--config', 'checkly.staging.config.ts'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('Show SECRET_ENV value')
+    expect(result.stdout).toContain('1 passed, 1 total')
+  })
+
+  it('Should fail with config file not found', () => {
+    const result = runChecklyCli({
+      args: ['test', 'secret.check.ts', '--config', 'checkly.notfound.config.ts'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.status).toBe(1)
+  })
+
   it('Should terminate when no checks are found', () => {
     const result = runChecklyCli({
       args: ['test', 'does-not-exist.js'],

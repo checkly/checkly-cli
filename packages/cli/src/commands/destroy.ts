@@ -1,16 +1,29 @@
+import { Flags } from '@oclif/core'
 import * as api from '../rest/api'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { AuthCommand } from './authCommand'
 import { prompt } from 'inquirer'
 import config from '../services/config'
+import { splitConfigFilePath } from '../services/util'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
   static description = 'Destroy your project'
 
+  static flags = {
+    config: Flags.string({
+      char: 'c',
+      description: 'The Checkly CLI config filename.',
+    }),
+  }
+
   async run (): Promise<void> {
-    const cwd = process.cwd()
-    const { config: checklyConfig } = await loadChecklyConfig(cwd)
+    const { flags } = await this.parse(Destroy)
+    const { config: configFilename } = flags
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+    const {
+      config: checklyConfig,
+    } = await loadChecklyConfig(configDirectory, configFilenames)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { projectName } = await prompt([{
       name: 'projectName',
