@@ -19,7 +19,6 @@ export default class Destroy extends AuthCommand {
     config: Flags.string({
       char: 'c',
       description: 'The Checkly CLI config filename.',
-      allowNo: true,
     }),
   }
 
