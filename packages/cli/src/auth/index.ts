@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosError } from 'axios'
 import * as os from 'os'
 import * as http from 'http'
 import * as crypto from 'crypto'
@@ -124,6 +124,20 @@ export async function getAccessToken (code: string, codeVerifier: string) {
 
 // TODO: Move this to API SDK
 export async function getApiKey ({ accessToken, baseHost }: {accessToken: string, baseHost: string}) {
+  try {
+    await fetchUser({
+      accessToken,
+      baseHost,
+    })
+  } catch (error: unknown) {
+    if ((error as AxiosError).response?.status === 401) {
+      console.log(error)
+      await registerUser({ baseHost, accessToken })
+    } else {
+      throw error
+    }
+  }
+
   const { data } = await axios.post(
       `${baseHost}/users/me/api-keys?name=${
         'CLI User Key (' + os.hostname() + ')'
@@ -137,4 +151,32 @@ export async function getApiKey ({ accessToken, baseHost }: {accessToken: string
       },
   )
   return data
+}
+
+export async function fetchUser ({ accessToken, baseHost }: { accessToken: string, baseHost: string }) {
+  const { data } = await axios.get(`${baseHost}/users/me`, {
+    headers: {
+      Accept: 'application/json, text/plain, */*',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  return data
+}
+
+export async function registerUser ({ accessToken, baseHost }: { accessToken: string, baseHost: string }) {
+  try {
+    const { data } = await axios.post(`${baseHost}/users/`, {
+      accessToken,
+    }, {
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    return data
+  } catch (error) {
+    console.log(error)
+  }
 }

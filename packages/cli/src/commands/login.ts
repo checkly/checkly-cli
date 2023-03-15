@@ -123,7 +123,9 @@ export default class Login extends BaseCommand {
     const code = await startServer(codeVerifier)
 
     const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier)
+
     const { name } = jwtDecode<any>(idToken)
+
     const { key } = await getApiKey({
       accessToken,
       baseHost: api.getDefaults().baseURL,
