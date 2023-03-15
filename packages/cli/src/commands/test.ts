@@ -14,6 +14,7 @@ import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
+import { splitConfigFilePath } from '../services/util'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -101,11 +102,11 @@ export default class Test extends AuthCommand {
     const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
-      projectCwd,
-    } = await loadChecklyConfig(configFilename)
+    } = await loadChecklyConfig(configDirectory, configFilenames)
     const location = await this.prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
@@ -113,7 +114,7 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
-      directory: projectCwd,
+      directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,

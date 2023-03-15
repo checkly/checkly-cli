@@ -75,3 +75,10 @@ export function pathToPosix (relPath: string): string {
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
   return path.normalize(relPath).split(path.sep).join(path.posix.sep).replace(/^C:/, '')
 }
+
+export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {
+  return {
+    configDirectory: configFile ? pathToPosix(path.join(process.cwd(), path.dirname(configFile))) : process.cwd(),
+    configFilenames: configFile ? [path.basename(configFile)] : undefined,
+  }
+}
