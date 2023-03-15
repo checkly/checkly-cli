@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
