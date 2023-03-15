@@ -8,7 +8,7 @@ import type { Region } from '..'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels'>
+  | 'alertChannels' | 'privateLocations'>
 
 export type ChecklyConfig = {
   /**
