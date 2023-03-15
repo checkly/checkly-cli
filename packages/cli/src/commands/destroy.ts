@@ -11,6 +11,11 @@ export default class Destroy extends AuthCommand {
   static description = 'Destroy your project'
 
   static flags = {
+    force: Flags.boolean({
+      char: 'f',
+      description: 'force mode',
+      default: false,
+    }),
     config: Flags.string({
       char: 'c',
       description: 'The Checkly CLI config filename.',
@@ -19,20 +24,20 @@ export default class Destroy extends AuthCommand {
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Destroy)
-    const { config: configFilename } = flags
+    const { force, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
-    const {
-      config: checklyConfig,
-    } = await loadChecklyConfig(configDirectory, configFilenames)
+    const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
     const { data: account } = await api.accounts.get(config.getAccountId())
-    const { projectName } = await prompt([{
-      name: 'projectName',
-      type: 'test',
-      message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" for account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
-    }])
-    if (projectName !== checklyConfig.projectName) {
-      this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
-      return
+    if (!force) {
+      const { projectName } = await prompt([{
+        name: 'projectName',
+        type: 'test',
+        message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" for account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
+      }])
+      if (projectName !== checklyConfig.projectName) {
+        this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
+        return
+      }
     }
     await api.projects.deleteProject(checklyConfig.logicalId)
     this.log(`All resources associated with project "${checklyConfig.projectName}" have been successfully deleted.`)
