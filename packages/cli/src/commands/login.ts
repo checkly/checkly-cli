@@ -65,7 +65,7 @@ export default class Login extends BaseCommand {
         {
           name: 'setNewkey',
           type: 'confirm',
-          message: `Existing session with account "${config.data.get('accountName')}", do you want to continue?`,
+          message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
         },
       ])
       !setNewkey && this.exit(0)
