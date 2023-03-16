@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { loadChecklyConfig } from '../checkly-config-loader'
-import { pathToPosix, splitConfigFilePath } from '../util'
+import { splitConfigFilePath } from '../util'
 
 describe('loadChecklyConfig()', () => {
   it('config file should export an object', async () => {
@@ -31,7 +31,7 @@ describe('loadChecklyConfig()', () => {
     const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
 
     expect(configFilenames).toEqual([filename])
-    expect(configDirectory).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
 
     const {
       config,
@@ -52,7 +52,7 @@ describe('loadChecklyConfig()', () => {
     const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
 
     expect(configFilenames).toEqual([filename])
-    expect(configDirectory).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
 
     const {
       config,
@@ -73,7 +73,7 @@ describe('loadChecklyConfig()', () => {
     const { configDirectory, configFilenames } = splitConfigFilePath(path.join(process.cwd(), configFile))
 
     expect(configFilenames).toEqual([filename])
-    expect(configDirectory).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
 
     const {
       config,

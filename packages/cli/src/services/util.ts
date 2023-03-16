@@ -80,7 +80,7 @@ export function splitConfigFilePath (configFile?: string): { configDirectory: st
   if (configFile) {
     const cwd = path.resolve(path.dirname(configFile))
     return {
-      configDirectory: pathToPosix(cwd),
+      configDirectory: cwd,
       configFilenames: [path.basename(configFile)],
     }
   }
