@@ -78,8 +78,7 @@ export function pathToPosix (relPath: string): string {
 
 export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {
   if (configFile) {
-    const dirname = path.dirname(configFile)
-    const cwd = path.isAbsolute(configFile) ? dirname : path.join(process.cwd(), dirname)
+    const cwd = path.resolve(path.dirname(configFile))
     return {
       configDirectory: pathToPosix(cwd),
       configFilenames: [path.basename(configFile)],
