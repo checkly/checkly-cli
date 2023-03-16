@@ -5,8 +5,17 @@ import * as crypto from 'crypto'
 
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 
-export const generateAuthenticationUrl = (codeChallenge: string, scope: string, state: string) => {
+export const generateAuthenticationUrl = ({
+  codeChallenge,
+  scope,
+  state,
+}: {
+  codeChallenge: string,
+  scope: string,
+  state: string
+}) => {
   const url = new URL('https://auth.checklyhq.com/authorize')
+
   const params = new URLSearchParams({
     client_id: AUTH0_CLIENT_ID,
     code_challenge: codeChallenge,
@@ -131,7 +140,6 @@ export async function getApiKey ({ accessToken, baseHost }: {accessToken: string
     })
   } catch (error: unknown) {
     if ((error as AxiosError).response?.status === 401) {
-      console.log(error)
       await registerUser({ baseHost, accessToken })
     } else {
       throw error
@@ -165,18 +173,14 @@ export async function fetchUser ({ accessToken, baseHost }: { accessToken: strin
 }
 
 export async function registerUser ({ accessToken, baseHost }: { accessToken: string, baseHost: string }) {
-  try {
-    const { data } = await axios.post(`${baseHost}/users/`, {
-      accessToken,
-    }, {
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
+  const { data } = await axios.post(`${baseHost}/users/`, {
+    accessToken,
+  }, {
+    headers: {
+      Accept: 'application/json, text/plain, */*',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
 
-    return data
-  } catch (error) {
-    console.log(error)
-  }
+  return data
 }

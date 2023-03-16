@@ -96,11 +96,12 @@ export default class Login extends BaseCommand {
     }
 
     const { codeChallenge, codeVerifier } = generatePKCE()
-    const authServerUrl = generateAuthenticationUrl(
+
+    const authServerUrl = generateAuthenticationUrl({
       codeChallenge,
-      'openid profile',
-      codeVerifier,
-    )
+      scope: 'openid profile email',
+      state: codeVerifier,
+    })
 
     const { openUrl } = await inquirer.prompt([
       {
