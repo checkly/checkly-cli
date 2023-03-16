@@ -12,9 +12,10 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
+    console.info(result)
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
+    expect(result.status).toBe(0)
   })
 
   it('Should include only one check', () => {
@@ -24,9 +25,10 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
+    console.info(result)
     expect(result.stdout).toContain('Show SECRET_ENV value')
     expect(result.stdout).toContain('1 passed, 1 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should use different config file', () => {
@@ -36,9 +38,10 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
+    console.info(result)
     expect(result.stdout).toContain('Show SECRET_ENV value')
     expect(result.stdout).toContain('1 passed, 1 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should fail with config file not found', () => {
@@ -48,6 +51,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
+    console.info(result)
     expect(result.status).toBe(1)
   })
 
@@ -58,8 +62,9 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
+    console.info(result)
     expect(result.stdout).toContain('0 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should terminate with error when JS/TS throws error', () => {
@@ -69,6 +74,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-parse-error'),
     })
+    console.info(result)
     expect(result.stderr).toContain('Error loading file')
     expect(result.stderr).toContain('Error: Big bang!')
     expect(result.status).toBe(1)
@@ -81,6 +87,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
     })
+    console.info(result)
     expect(result.stderr.replace(/(\n {4})/gm, ''))
       .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' already exists.")
     expect(result.status).toBe(1)
@@ -93,6 +100,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
     })
+    console.info(result)
     expect(result.stdout).toContain('TestOnly=false (default) Check')
     expect(result.stdout).toContain('TestOnly=false Check')
     expect(result.stdout).toContain('TestOnly=true Check')
