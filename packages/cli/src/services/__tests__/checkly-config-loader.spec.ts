@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { loadChecklyConfig } from '../checkly-config-loader'
-import { pathToPosix, splitConfigFilePath } from '../util'
+import { splitConfigFilePath } from '../util'
 
 describe('loadChecklyConfig()', () => {
   it('config file should export an object', async () => {
@@ -26,15 +26,16 @@ describe('loadChecklyConfig()', () => {
     }
   })
   it('config TS file should export an object', async () => {
-    const configFile = './fixtures/configs/good-config.ts'
+    const filename = 'good-config.ts'
+    const configFile = `./fixtures/configs/${filename}`
     const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
 
-    expect(configFilenames).toEqual(['good-config.ts'])
-    expect(configDirectory).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
+    expect(configFilenames).toEqual([filename])
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
 
     const {
       config,
-    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), ['good-config.ts'])
+    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
 
     expect(config).toMatchObject({
       checks: {
@@ -45,16 +46,38 @@ describe('loadChecklyConfig()', () => {
       },
     })
   })
-  it('config TS file should export an object', async () => {
-    const configFile = './fixtures/configs/good-config.js'
+  it('config JS file should export an object', async () => {
+    const filename = 'good-config.js'
+    const configFile = `./fixtures/configs/${filename}`
     const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
 
-    expect(configFilenames).toEqual(['good-config.js'])
-    expect(configDirectory).toEqual(pathToPosix(path.dirname(path.join(process.cwd(), configFile))))
+    expect(configFilenames).toEqual([filename])
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
 
     const {
       config,
-    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), ['good-config.js'])
+    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
+
+    expect(config).toMatchObject({
+      checks: {
+        checkMatch: '**/*.check.ts',
+        browserChecks: {
+          testMatch: '**/__checks__/*.spec.ts',
+        },
+      },
+    })
+  })
+  it('config from absolute path', async () => {
+    const filename = 'good-config.ts'
+    const configFile = `./fixtures/configs/${filename}`
+    const { configDirectory, configFilenames } = splitConfigFilePath(path.join(process.cwd(), configFile))
+
+    expect(configFilenames).toEqual([filename])
+    expect(configDirectory).toEqual(path.dirname(path.join(process.cwd(), configFile)))
+
+    const {
+      config,
+    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
 
     expect(config).toMatchObject({
       checks: {

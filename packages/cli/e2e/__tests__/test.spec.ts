@@ -12,9 +12,9 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
+    expect(result.status).toBe(0)
   })
 
   it('Should include only one check', () => {
@@ -24,9 +24,9 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
     expect(result.stdout).toContain('Show SECRET_ENV value')
     expect(result.stdout).toContain('1 passed, 1 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should use different config file', () => {
@@ -36,9 +36,9 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
     expect(result.stdout).toContain('Show SECRET_ENV value')
     expect(result.stdout).toContain('1 passed, 1 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should fail with config file not found', () => {
@@ -58,8 +58,8 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.status).toBe(0)
     expect(result.stdout).toContain('0 total')
+    expect(result.status).toBe(0)
   })
 
   it('Should terminate with error when JS/TS throws error', () => {
