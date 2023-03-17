@@ -4,6 +4,7 @@ import { Session } from './project'
 import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
+import { type CheckGroupFallbackConfig } from './check-group'
 
 export interface CheckDependency {
   path: string
@@ -47,6 +48,7 @@ export class BrowserCheck extends Check {
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
+    BrowserCheck.applyDefaultBrowserCheckGroupConfig(props)
     super(logicalId, props)
     if ('content' in props.code) {
       const script = props.code.content
@@ -81,6 +83,17 @@ export class BrowserCheck extends Check {
     let configKey: keyof CheckConfigDefaults
     for (configKey in Session.browserCheckDefaults) {
       const newVal: any = props[configKey] ?? Session.browserCheckDefaults[configKey]
+      props[configKey] = newVal
+    }
+  }
+
+  private static applyDefaultBrowserCheckGroupConfig (props: BrowserCheckProps) {
+    if (!props.group) {
+      return
+    }
+    let configKey: keyof CheckGroupFallbackConfig
+    for (configKey in props.group.getFallbackChecksProps()) {
+      const newVal: any = props[configKey] ?? props.group[configKey]
       props[configKey] = newVal
     }
   }

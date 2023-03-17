@@ -29,6 +29,8 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   testMatch: string,
 }
 
+export type CheckGroupFallbackConfig = Pick<BrowserCheckConfig, 'frequency'>
+
 export interface CheckGroupProps {
   /**
    * The name of the check group.
@@ -179,8 +181,8 @@ export class CheckGroup extends Construct {
     }
   }
 
-  public getChecksProps (): { frequency?: number } {
-    // default props for children checks
+  public getFallbackChecksProps (): CheckGroupFallbackConfig {
+    // fallback props for children checks
     return {
       frequency: this.frequency,
     }

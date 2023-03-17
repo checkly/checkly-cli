@@ -107,7 +107,7 @@ export abstract class Check extends Construct {
     this.locations = props.locations
     this.privateLocations = props.privateLocations
     this.tags = props.tags
-    this.frequency = props.frequency ?? props.group?.getChecksProps()?.frequency
+    this.frequency = props.frequency ?? props.group?.getFallbackChecksProps()?.frequency
     this.runtimeId = props.runtimeId
     this.environmentVariables = props.environmentVariables ?? []
     // Alert channel subscriptions will be synthesized separately in the Project construct.
