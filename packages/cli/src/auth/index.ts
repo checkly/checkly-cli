@@ -1,4 +1,4 @@
-import axios, { Axios, type AxiosError } from 'axios'
+import axios, { type AxiosError } from 'axios'
 import * as os from 'os'
 import * as http from 'http'
 import * as crypto from 'crypto'
@@ -38,8 +38,8 @@ export class AuthContext {
   #codeChallenge: string
   #codeVerifier: string
 
-  #axiosInstance!: Axios
-  #accessToken!: string
+  #accessToken?: string
+  #idToken?: string
 
   constructor () {
     const { codeChallenge, codeVerifier } = generatePKCE()
@@ -50,18 +50,13 @@ export class AuthContext {
   }
 
   async getAuth0Credentials () {
-    const { access_token: accessToken, id_token: idToken } = await this.#getAccessToken()
+    await this.#fetchAccessToken()
 
-    this.#accessToken = accessToken
-    this.#axiosInstance = axios.create({
-      baseURL: getApiDefaults().baseURL,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        Authorization: `Bearer ${this.#accessToken}`,
-      },
-    })
+    if (!this.#accessToken || !this.#idToken) {
+      throw new Error('There was an error retrieving Auth0 token.')
+    }
 
-    const { name } = jwtDecode<any>(idToken)
+    const { name } = jwtDecode<any>(this.#idToken)
 
     const { key } = await this.#getApiKey()
 
@@ -144,7 +139,7 @@ export class AuthContext {
     })
   }
 
-  async #getAccessToken () {
+  async #fetchAccessToken () {
     const code = await this.#startServer()
 
     const tokenParams = new URLSearchParams({
@@ -166,7 +161,10 @@ export class AuthContext {
       },
     )
 
-    return tokenResponse.data
+    const { access_token: accessToken, id_token: idToken } = tokenResponse.data
+
+    this.#accessToken = accessToken
+    this.#idToken = idToken
   }
 
   async #getApiKey () {
@@ -197,5 +195,16 @@ export class AuthContext {
     const { data } = await this.#axiosInstance.post('/users/', { accessToken: this.#accessToken })
 
     return data
+  }
+
+  get #axiosInstance () {
+    // Keep axios instance stateless
+    return axios.create({
+      baseURL: getApiDefaults().baseURL,
+      headers: {
+        Accept: 'application/json, text/plain, */*',
+        Authorization: `Bearer ${this.#accessToken}`,
+      },
+    })
   }
 }
