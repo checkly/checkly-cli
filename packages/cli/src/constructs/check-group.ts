@@ -29,7 +29,8 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   testMatch: string,
 }
 
-export type CheckGroupFallbackConfig = Pick<BrowserCheckConfig, 'frequency'>
+export type CheckGroupFallbackConfig = Pick<BrowserCheckConfig, 'activated' | 'muted' | 'doubleCheck'
+| 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'alertChannels' | 'privateLocations'>
 
 export interface CheckGroupProps {
   /**
@@ -69,6 +70,10 @@ export interface CheckGroupProps {
    * Determines how many checks are invoked concurrently when triggering a check group from CI/CD or through the API.
    */
   concurrency?: number
+  /**
+   * Optional fallback value for checks belonging to the group. How often the check should run in minutes.
+   */
+  frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
   /**
    * List of alert channels to be alerted when checks in this group fail or recover.
@@ -131,11 +136,11 @@ export class CheckGroup extends Construct {
     this.locations = props.locations
     this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
+    // `frequency` is not a CheckGroup resource property. Not present in synthesize()
+    this.frequency = props.frequency
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
     this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
-    // `frequency` is not a CheckGroup resource property
-    this.frequency = props.browserChecks?.frequency
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.browserChecks)
@@ -184,7 +189,15 @@ export class CheckGroup extends Construct {
   public getFallbackChecksProps (): CheckGroupFallbackConfig {
     // fallback props for children checks
     return {
+      activated: this.activated,
+      muted: this.muted,
+      doubleCheck: this.doubleCheck,
+      runtimeId: this.runtimeId,
+      locations: this.locations,
+      tags: this.tags,
       frequency: this.frequency,
+      alertChannels: this.alertChannels,
+      privateLocations: this.privateLocations,
     }
   }
 
