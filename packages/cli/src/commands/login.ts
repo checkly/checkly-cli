@@ -3,17 +3,10 @@ import * as chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import { BaseCommand } from './baseCommand'
 import * as inquirer from 'inquirer'
-import jwtDecode from 'jwt-decode'
 import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
-import {
-  generateAuthenticationUrl,
-  getAccessToken,
-  generatePKCE,
-  startServer,
-  getApiKey,
-} from '../auth'
+import { AuthContext } from '../auth'
 
 const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   if (accounts.length === 1) {
@@ -95,12 +88,7 @@ export default class Login extends BaseCommand {
       this.exit(0)
     }
 
-    const { codeChallenge, codeVerifier } = generatePKCE()
-    const authServerUrl = generateAuthenticationUrl(
-      codeChallenge,
-      'openid profile',
-      codeVerifier,
-    )
+    const authContext = new AuthContext()
 
     const { openUrl } = await inquirer.prompt([
       {
@@ -113,21 +101,14 @@ export default class Login extends BaseCommand {
     if (!openUrl) {
       this.log(
         `Please open the following URL in your browser: \n\n${chalk.blueBright(
-          authServerUrl,
+          authContext.authenticationUrl,
         )}`,
       )
     } else {
-      await open(authServerUrl)
+      await open(authContext.authenticationUrl)
     }
 
-    const code = await startServer(codeVerifier)
-
-    const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier)
-    const { name } = jwtDecode<any>(idToken)
-    const { key } = await getApiKey({
-      accessToken,
-      baseHost: api.getDefaults().baseURL,
-    })
+    const { key, name } = await authContext.getAuth0Credentials()
 
     config.auth.set('apiKey', key)
 
