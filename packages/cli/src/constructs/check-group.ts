@@ -101,6 +101,7 @@ export class CheckGroup extends Construct {
   privateLocations?: Array<string>
   tags?: Array<string>
   concurrency?: number
+  frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
   alertChannels?: Array<AlertChannel>
   localSetupScript?: string
@@ -131,6 +132,8 @@ export class CheckGroup extends Construct {
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
     this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
+    // `frequency` is not a CheckGroup resource property
+    this.frequency = props.browserChecks?.frequency
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.browserChecks)
@@ -173,6 +176,13 @@ export class CheckGroup extends Construct {
         groupId: Ref.from(this.logicalId),
         activated: true,
       })
+    }
+  }
+
+  public getChecksProps (): { frequency?: number } {
+    // default props for children checks
+    return {
+      frequency: this.frequency,
     }
   }
 
