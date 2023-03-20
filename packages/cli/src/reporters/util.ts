@@ -208,3 +208,11 @@ function toString (val: any): string {
     return val.toString()
   }
 }
+
+export function stdOutWrite (text: string) {
+  process.stdout.write(text)
+}
+
+export function stdOutWriteLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
+  process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
+}

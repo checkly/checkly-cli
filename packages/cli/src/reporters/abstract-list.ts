@@ -2,7 +2,7 @@ import chalk = require('chalk')
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus } from './util'
+import { formatCheckTitle, CheckStatus, stdOutWriteLn } from './util'
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
 
@@ -34,6 +34,8 @@ export default abstract class AbstractListReporter implements Reporter {
     })
   }
 
+  abstract onBeginStatic(): void
+
   abstract onBegin(): void
 
   abstract onEnd(): void
@@ -51,7 +53,7 @@ export default abstract class AbstractListReporter implements Reporter {
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
-    console.log(this._clearString)
+    stdOutWriteLn(this._clearString)
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
@@ -81,7 +83,35 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     status.push('')
     const statusString = status.join('\n')
-    console.log(statusString)
+    stdOutWriteLn(statusString)
+    // Ansi escape code for erasing the line and moving the cursor up
+    this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _printBriefSummary () {
+    const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
+    const status = []
+    for (const [, checkMap] of this.checkFilesMap.entries()) {
+      for (const [_, { result }] of checkMap.entries()) {
+        if (!result) {
+          counts.numPending++
+        } else if (result.hasFailures) {
+          counts.numFailed++
+        } else {
+          counts.numPassed++
+        }
+      }
+    }
+    status.push('')
+    status.push([
+      counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+      counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+      counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
+      `${this.numChecks} total`,
+    ].filter(Boolean).join(', '))
+    status.push('')
+    const statusString = status.join('\n')
+    stdOutWriteLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
   }

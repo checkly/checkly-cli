@@ -1,16 +1,16 @@
 import * as indentString from 'indent-string'
 
 import AbstractListReporter from './abstract-list'
-import { formatCheckTitle, formatCheckResult, CheckStatus } from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, stdOutWriteLn } from './util'
 
 export default class ListReporter extends AbstractListReporter {
   onBeginStatic () {
-    console.log('\nListing all checks:\n')
+    stdOutWriteLn('Listing all checks:', 2, 1)
     this._printSummary({ skipCheckCount: true })
   }
 
   onBegin () {
-    console.log(`\nRunning ${this.numChecks} checks in ${this._runLocationString()}.\n`)
+    stdOutWriteLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
     this._printSummary()
   }
 
@@ -24,12 +24,12 @@ export default class ListReporter extends AbstractListReporter {
     this._clearSummary()
     if (checkResult.hasFailures) {
       // Print the failed check result above the status section
-      console.log(formatCheckTitle(CheckStatus.FAILED, checkResult))
+      stdOutWriteLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
     }
     if (this.verbose || checkResult.hasFailures) {
-      console.log('')
-      console.log(indentString(formatCheckResult(checkResult), 4))
-      console.log('')
+      stdOutWriteLn('')
+      stdOutWriteLn(indentString(formatCheckResult(checkResult), 4))
+      stdOutWriteLn('')
     }
     this._printSummary()
   }
