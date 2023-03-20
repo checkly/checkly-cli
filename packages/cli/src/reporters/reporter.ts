@@ -23,6 +23,8 @@ export const createReporter = (
   switch (type) {
     case 'dot':
       return new DotReporter(runLocation, checks, verbose)
+    case 'list':
+      return new CiReporter(runLocation, checks, verbose)
     case 'ci':
       return new CiReporter(runLocation, checks, verbose)
     default:
