@@ -193,7 +193,11 @@ export interface Request {
   url: string,
   method: HttpRequestMethod,
   followRedirects?: boolean,
+  /**
+   * To be deprecated, use `skipSSL`
+   */
   skipSsl?: boolean,
+  skipSSL?: boolean,
   /**
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
@@ -252,7 +256,12 @@ export class ApiCheck extends Check {
 
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
-    this.request = props.request
+    this.request = {
+      ...props.request,
+      // TODO: remove the `skipSsl` property after deprecate it
+      skipSSL: props.request.skipSSL ?? props.request.skipSsl,
+      skipSsl: undefined,
+    }
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
     this.degradedResponseTime = props.degradedResponseTime
