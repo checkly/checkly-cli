@@ -209,10 +209,10 @@ function toString (val: any): string {
   }
 }
 
-export function stdOutWrite (text: string) {
+export function print (text: string) {
   process.stdout.write(text)
 }
 
-export function stdOutWriteLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
+export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
   process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }

@@ -2,7 +2,7 @@ import chalk = require('chalk')
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus, stdOutWriteLn } from './util'
+import { formatCheckTitle, CheckStatus, printLn } from './util'
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
 
@@ -53,7 +53,7 @@ export default abstract class AbstractListReporter implements Reporter {
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
-    stdOutWriteLn(this._clearString)
+    printLn(this._clearString)
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
@@ -83,7 +83,7 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     status.push('')
     const statusString = status.join('\n')
-    stdOutWriteLn(statusString)
+    printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
   }
@@ -111,7 +111,7 @@ export default abstract class AbstractListReporter implements Reporter {
     ].filter(Boolean).join(', '))
     status.push('')
     const statusString = status.join('\n')
-    stdOutWriteLn(statusString)
+    printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
   }
