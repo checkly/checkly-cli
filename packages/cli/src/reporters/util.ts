@@ -12,17 +12,21 @@ export enum CheckStatus {
   SUCCESSFUL,
 }
 
+export function formarDuration (ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`
+  } else {
+    return `${Math.ceil(ms / 1000)}s`
+  }
+}
+
 export function formatCheckTitle (status: CheckStatus, check: any, opts: { includeSourceFile?: boolean } = {}) {
   let duration
   if (check.startedAt && check.stoppedAt) {
     const durationMs = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
       .toMillis()
-    if (durationMs < 1000) {
-      duration = `${durationMs}ms`
-    } else {
-      duration = `${Math.ceil(durationMs / 1000)}s`
-    }
+    duration = formarDuration(durationMs)
   }
 
   let statusString

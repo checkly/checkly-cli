@@ -69,7 +69,7 @@ export default class Test extends AuthCommand {
     reporter: Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
-      options: ['list', 'dot', 'ci'],
+      options: ['list', 'dot', 'ci', 'github'],
       default: 'list',
     }),
     config: Flags.string({

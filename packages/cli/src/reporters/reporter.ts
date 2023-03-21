@@ -3,6 +3,7 @@ import { Check } from '../constructs/check'
 import { RunLocation } from '../services/check-runner'
 import CiReporter from './ci'
 import DotReporter from './dot'
+import GithubReporter from './github'
 import ListReporter from './list'
 
 export interface Reporter {
@@ -12,7 +13,7 @@ export interface Reporter {
   onCheckEnd(checkResult: any): void;
 }
 
-export type ReporterType = 'list' | 'dot' | 'ci'
+export type ReporterType = 'list' | 'dot' | 'ci' | 'github'
 
 export const createReporter = (
   type: ReporterType = 'list',
@@ -27,6 +28,8 @@ export const createReporter = (
       return new CiReporter(runLocation, checks, verbose)
     case 'ci':
       return new CiReporter(runLocation, checks, verbose)
+    case 'github':
+      return new GithubReporter(runLocation, checks, verbose)
     default:
       return isCI ? new CiReporter(runLocation, checks, verbose) : new ListReporter(runLocation, checks, verbose)
   }
