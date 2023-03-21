@@ -1,11 +1,8 @@
 import * as fs from 'node:fs/promises'
 import { Flags, Args } from '@oclif/core'
 import { parse } from 'dotenv'
-import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
-import ListReporter from '../reporters/list'
-import CiReporter from '../reporters/ci'
 import { parseProject } from '../services/project-parser'
 import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
@@ -14,6 +11,8 @@ import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
+import { splitConfigFilePath } from '../services/util'
+import { createReporter, ReporterType } from '../reporters/reporter'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -67,6 +66,16 @@ export default class Test extends AuthCommand {
       description: 'Always show the logs of the checks.',
       allowNo: true,
     }),
+    reporter: Flags.string({
+      char: 'r',
+      description: 'A list of custom reporters for the test output.',
+      options: ['list', 'dot', 'ci'],
+      default: 'list',
+    }),
+    config: Flags.string({
+      char: 'c',
+      description: 'The Checkly CLI config filename.',
+    }),
   }
 
   static args = {
@@ -91,12 +100,17 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
+      reporter: reporterType,
+      config: configFilename,
     } = flags
-    const cwd = process.cwd()
     const filePatterns = argv as string[]
 
     const testEnvVars = await getEnvs(envFile, env)
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+    const {
+      config: checklyConfig,
+      constructs: checklyConfigConstructs,
+    } = await loadChecklyConfig(configDirectory, configFilenames)
     const location = await this.prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
@@ -104,7 +118,7 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
-      directory: cwd,
+      directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
@@ -146,7 +160,7 @@ export default class Test extends AuthCommand {
         }
         return check
       })
-    const reporter = isCI ? new CiReporter(location, checks, verbose) : new ListReporter(location, checks, verbose)
+    const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
 
     if (list) {
       reporter.onBeginStatic()

@@ -48,6 +48,7 @@ describe('deploy', () => {
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
+    expect(result.status).toBe(0)
     expect(result.stderr).toBe('')
   })
 
@@ -63,5 +64,25 @@ describe('deploy', () => {
     expect(result.stdout).toContain('not-testonly-false-check')
     expect(result.stdout).not.toContain('testonly-true-check')
     expect(result.status).toBe(0)
+  })
+
+  it('Should deploy with different config file', () => {
+    const resultOne = runChecklyCli({
+      args: ['deploy', '--preview'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    const resultTwo = runChecklyCli({
+      args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(resultOne.status).toBe(0)
+    expect(resultTwo.status).toBe(0)
+    expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
   })
 })
