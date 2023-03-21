@@ -52,8 +52,8 @@ export function formatCheckResult (checkResult: any) {
     // Order should follow the check lifecycle (response, then assertions)
     if (checkResult.checkRunData?.requestError) {
       result.push([
-        formatSectionTitle(checkResult.checkRunData?.requestError),
-        '',
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
       ])
     } else {
       if (checkResult.checkRunData?.response) {
