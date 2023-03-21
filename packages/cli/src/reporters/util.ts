@@ -215,3 +215,11 @@ function toString (val: any): string {
     return val.toString()
   }
 }
+
+export function print (text: string) {
+  process.stdout.write(text)
+}
+
+export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
+  process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
+}
