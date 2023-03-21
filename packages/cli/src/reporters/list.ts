@@ -27,9 +27,7 @@ export default class ListReporter extends AbstractListReporter {
       stdOutWriteLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
     }
     if (this.verbose || checkResult.hasFailures) {
-      stdOutWriteLn('')
-      stdOutWriteLn(indentString(formatCheckResult(checkResult), 4))
-      stdOutWriteLn('')
+      stdOutWriteLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
     }
     this._printSummary()
   }
