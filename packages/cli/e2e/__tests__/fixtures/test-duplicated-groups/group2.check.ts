@@ -14,7 +14,7 @@ new ApiCheck('api-check', {
     url: 'https://www.google.com',
     method: 'GET',
     followRedirects: false,
-    skipSsl: false,
+    skipSSL: false,
     assertions: []
   },
   localSetupScript: "console.log('hi from setup')",
