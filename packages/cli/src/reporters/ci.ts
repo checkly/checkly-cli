@@ -24,9 +24,7 @@ export default class CiReporter extends AbstractListReporter {
     stdOutWriteLn(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
 
     if (this.verbose || checkResult.hasFailures) {
-      stdOutWriteLn('')
-      stdOutWriteLn(indentString(formatCheckResult(checkResult), 4))
-      stdOutWriteLn('')
+      stdOutWriteLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
     }
   }
 }
