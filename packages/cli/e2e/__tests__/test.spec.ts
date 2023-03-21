@@ -101,7 +101,7 @@ describe('test', () => {
   })
 
   it('Should use Github reporter', () => {
-    const reportFilename = '/tmp/checkly-summary.md'
+    const reportFilename = './reports/checkly-summary.md'
     try {
       fs.unlinkSync(reportFilename)
     } catch {
@@ -113,9 +113,9 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures', 'test-project'),
       env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
     })
-    expect(result.stdout).toContain(`Github summary saved in '${reportFilename}'`)
+    expect(result.stdout).toContain('Github summary saved in')
     expect(result.stdout).toContain('::notice title=')
-    expect(fs.existsSync(reportFilename)).toBe(true)
+    expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
   })
 })

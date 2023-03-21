@@ -1,5 +1,6 @@
 import chalk = require('chalk')
 import * as fs from 'fs'
+import * as path from 'path'
 
 import AbstractListReporter from './abstract-list'
 import type { PublicRunLocation } from '../services/check-runner'
@@ -38,13 +39,14 @@ export default class GithubReporter extends AbstractListReporter {
         )
       }
     }
-    const summaryFilename = process.env.CHECKLY_REPORTER_GITHUB_OUTPUT ?? 'checkly-github-report.md'
+    const summaryFilename = process.env.CHECKLY_REPORTER_GITHUB_OUTPUT ?? './checkly-github-report.md'
+    fs.mkdirSync(path.resolve(path.dirname(summaryFilename)), { recursive: true })
     fs.writeFileSync(summaryFilename,
       '| Check Result | Type | Filename | Name | Location | Duration |' +
       '\n' + '| - | - | - | - | - | - |' + '\n' +
       githubSummaryEntries.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n',
     )
-    printLn(`Github summary saved in '${summaryFilename}'.`, 2)
+    printLn(`Github summary saved in '${path.resolve(summaryFilename)}'.`, 2)
 
     githubAnnotation.forEach(r => printLn(r))
 
