@@ -50,17 +50,24 @@ export function formatCheckResult (checkResult: any) {
   const result = []
   if (checkResult.checkType === 'API') {
     // Order should follow the check lifecycle (response, then assertions)
-    if (checkResult.checkRunData?.response) {
+    if (checkResult.checkRunData?.requestError) {
       result.push([
-        formatSectionTitle('HTTP Response'),
-        formatHttpResponse(checkResult.checkRunData.response),
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
       ])
-    }
-    if (checkResult.checkRunData?.assertions?.length) {
-      result.push([
-        formatSectionTitle('Assertions'),
-        formatAssertions(checkResult.checkRunData.assertions),
-      ])
+    } else {
+      if (checkResult.checkRunData?.response) {
+        result.push([
+          formatSectionTitle('HTTP Response'),
+          formatHttpResponse(checkResult.checkRunData.response),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
     }
   }
   if (checkResult.logs?.length) {
@@ -207,4 +214,12 @@ function toString (val: any): string {
   } else {
     return val.toString()
   }
+}
+
+export function print (text: string) {
+  process.stdout.write(text)
+}
+
+export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
+  process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }
