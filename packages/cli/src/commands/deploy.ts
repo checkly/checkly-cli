@@ -11,7 +11,7 @@ import { AlertChannelSubscription, CheckGroup, Project, ProjectData } from '../c
 import chalk = require('chalk')
 import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
-import { getGitInformation } from '../services/util'
+import { splitConfigFilePath, getGitInformation } from '../services/util'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -40,17 +40,24 @@ export default class Deploy extends AuthCommand {
       description: 'force mode',
       default: false,
     }),
+    config: Flags.string({
+      char: 'c',
+      description: 'The Checkly CLI config filename.',
+    }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Deploy)
-    const { force, preview, output } = flags
-    const cwd = process.cwd()
-    const { config: checklyConfig, constructs: checklyConfigConstructs } = await loadChecklyConfig(cwd)
+    const { force, preview, output, config: configFilename } = flags
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+    const {
+      config: checklyConfig,
+      constructs: checklyConfigConstructs,
+    } = await loadChecklyConfig(configDirectory, configFilenames)
     const { data: avilableRuntimes } = await runtimes.getAll()
     const gitInfo = getGitInformation()
     const project = await parseProject({
-      directory: cwd,
+      directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,

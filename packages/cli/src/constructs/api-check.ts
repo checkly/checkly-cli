@@ -193,7 +193,7 @@ export interface Request {
   url: string,
   method: HttpRequestMethod,
   followRedirects?: boolean,
-  skipSsl?: boolean,
+  skipSSL?: boolean,
   /**
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.

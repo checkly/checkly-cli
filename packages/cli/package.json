@@ -1,6 +1,6 @@
 {
   "name": "@checkly/cli",
-  "version": "0.4.6",
+  "version": "0.4.9",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,6 +8,7 @@
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
+    "watch": "tsc --watch",
     "prepare": "npm run clean && tsc --build",
     "prepack": "npx oclif manifest",
     "lint": "eslint src"
