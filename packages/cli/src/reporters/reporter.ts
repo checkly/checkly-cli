@@ -24,7 +24,7 @@ export const createReporter = (
     case 'dot':
       return new DotReporter(runLocation, checks, verbose)
     case 'list':
-      return new CiReporter(runLocation, checks, verbose)
+      return new ListReporter(runLocation, checks, verbose)
     case 'ci':
       return new CiReporter(runLocation, checks, verbose)
     default:

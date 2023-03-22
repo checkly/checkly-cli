@@ -70,7 +70,6 @@ export default class Test extends AuthCommand {
       char: 'r',
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci'],
-      default: 'list',
     }),
     config: Flags.string({
       char: 'c',
