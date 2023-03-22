@@ -168,7 +168,8 @@ export default class Test extends AuthCommand {
       })
 
     if (!checks.length) {
-      throw new Error('Unable to find checks to test.')
+      this.log(`Unable to find checks to run using '[FILEARGS]=${filePatterns}'.`)
+      return
     }
 
     const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
