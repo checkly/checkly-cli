@@ -101,10 +101,14 @@ export default class CheckRunner extends EventEmitter {
       logicalId: check.logicalId,
     }))
     try {
+      if (!checkRunJobs.length) {
+        throw new Error('Unable to find checks to run.')
+      }
       await testSessions.run({
         checkRunJobs,
         project: { logicalId: this.project.logicalId },
         runLocation: this.location,
+        repoInfo: this.project.repoInfo,
         shouldRecord: this.shouldRecord,
       })
       Array.from(this.checks.entries()).forEach(([checkRunId, check]) =>

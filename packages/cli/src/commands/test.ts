@@ -166,6 +166,11 @@ export default class Test extends AuthCommand {
         }
         return check
       })
+
+    if (!checks.length) {
+      throw new Error('Unable to find checks to test.')
+    }
+
     const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
 
     if (list) {

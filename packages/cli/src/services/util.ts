@@ -6,7 +6,7 @@ import * as gitRepoInfo from 'git-repo-info'
 export interface GitInformation {
   commitId: string
   branchName: string
-  committOwner: string
+  commitOwner: string
   commitMessage: string
 }
 
@@ -108,7 +108,7 @@ export function getGitInformation (): GitInformation|null {
   return {
     commitId: repositoryInfo.sha,
     branchName: repositoryInfo.branch,
-    committOwner: repositoryInfo.committer,
+    commitOwner: repositoryInfo.committer,
     commitMessage: repositoryInfo.commitMessage,
   }
 }
