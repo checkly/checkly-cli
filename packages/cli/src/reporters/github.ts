@@ -33,17 +33,16 @@ export default class GithubReporter extends AbstractListReporter {
           )
         }
         githubSummaryEntries.push(
-          `| ${result.hasFailures ? ':x: Fail' : ':white_check_mark: Pass'} | ${result.checkType} | ${
-            result.sourceFile.replace(/_/g, '\\_')} | ${result.name} | ${
-              result.runLocation} | ${formarDuration(result.responseTime)} |`,
+          `| ${result.hasFailures ? ':red_circle: Fail' : ':green_circle: Pass'} | ${result.name} | ${
+            result.checkType} | \`${result.sourceFile}\` | ${formarDuration(result.responseTime)} | ${result.runLocation} |`,
         )
       }
     }
     const summaryFilename = process.env.CHECKLY_REPORTER_GITHUB_OUTPUT ?? './checkly-github-report.md'
     fs.mkdirSync(path.resolve(path.dirname(summaryFilename)), { recursive: true })
     fs.writeFileSync(summaryFilename,
-      '| Check Result | Type | Filename | Name | Location | Duration |' +
-      '\n' + '| - | - | - | - | - | - |' + '\n' +
+      '| Check Result | Name | Type | Filename | Duration | Location |' +
+      '\n' + '|:- |:- |:- |:- |:- |:- |' + '\n' +
       githubSummaryEntries.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n',
     )
     printLn(`Github summary saved in '${path.resolve(summaryFilename)}'.`, 2)
