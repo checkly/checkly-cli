@@ -118,7 +118,6 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const gitInfo = getGitInformation()
-    console.info(gitInfo)
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
