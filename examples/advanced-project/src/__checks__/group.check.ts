@@ -35,7 +35,7 @@ new ApiCheck('check-group-api-check-1', {
     method: 'GET',
     url: 'https://api.checklyhq.com/public-stats',
     followRedirects: true,
-    skipSsl: false,
+    skipSSL: false,
     assertions: []
   }
 })
