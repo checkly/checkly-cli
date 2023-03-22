@@ -33,7 +33,7 @@ export default class GithubReporter extends AbstractListReporter {
           )
         }
         githubSummaryEntries.push(
-          `| ${result.hasFailures ? ':red_circle: Fail' : ':green_circle: Pass'} | ${result.name} | ${
+          `| ${result.hasFailures ? ':x: Fail' : ':white_check_mark: Pass'} | ${result.name} | ${
             result.checkType} | \`${result.sourceFile}\` | ${formarDuration(result.responseTime)} | ${result.runLocation} |`,
         )
       }
