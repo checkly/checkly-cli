@@ -2,25 +2,12 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
-import * as childProcess from 'node:child_process'
 
 export interface GitInformation {
-  originUrl: string|null
-  sha: string
-  abbreviatedSha: string
-  branch: string
-  tag: string|null
-  committer: string
-  committerDate: Date
-  author: string
-  authorDate: Date
+  commitId: string
+  branchName: string
+  committOwner: string
   commitMessage: string
-  // TODO: decide which properties to keep
-  // root: string
-  // commonGitDir: string
-  // worktreeGitDir: string
-  // lastTag: string|null
-  // commitsSinceLastTag: number
 }
 
 // TODO: Remove this in favor of glob? It's unused.
@@ -118,25 +105,10 @@ export function getGitInformation (): GitInformation|null {
     return null
   }
 
-  const gitRemoteCommand = childProcess.spawnSync('git', ['config', '--get', 'remote.origin.url'],
-    { encoding: 'utf8', timeout: 3000 })
-
   return {
-    originUrl: gitRemoteCommand.status === 0 ? gitRemoteCommand.output.filter(Boolean).join().replace('\n', '') : null,
-    sha: repositoryInfo.sha,
-    abbreviatedSha: repositoryInfo.abbreviatedSha,
-    branch: repositoryInfo.branch,
-    tag: repositoryInfo.tag,
-    committer: repositoryInfo.committer,
-    committerDate: new Date(repositoryInfo.committerDate),
-    author: repositoryInfo.author,
-    authorDate: new Date(repositoryInfo.authorDate),
+    commitId: repositoryInfo.sha,
+    branchName: repositoryInfo.branch,
+    committOwner: repositoryInfo.committer,
     commitMessage: repositoryInfo.commitMessage,
-    // TODO: decide which properties to keep
-    // root: repositoryInfo.root,
-    // commonGitDir: repositoryInfo.commonGitDir,
-    // worktreeGitDir: repositoryInfo.worktreeGitDir,
-    // lastTag: repositoryInfo.lastTag,
-    // commitsSinceLastTag: repositoryInfo.commitsSinceLastTag,
   }
 }
