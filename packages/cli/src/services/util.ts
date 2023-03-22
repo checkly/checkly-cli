@@ -1,6 +1,14 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import { Service } from 'ts-node'
+import * as gitRepoInfo from 'git-repo-info'
+
+export interface GitInformation {
+  commitId: string
+  branchName: string
+  committOwner: string
+  commitMessage: string
+}
 
 // TODO: Remove this in favor of glob? It's unused.
 export async function walkDirectory (
@@ -87,5 +95,20 @@ export function splitConfigFilePath (configFile?: string): { configDirectory: st
   return {
     configDirectory: process.cwd(),
     configFilenames: undefined,
+  }
+}
+
+export function getGitInformation (): GitInformation|null {
+  const repositoryInfo = gitRepoInfo()
+
+  if (!repositoryInfo.sha) {
+    return null
+  }
+
+  return {
+    commitId: repositoryInfo.sha,
+    branchName: repositoryInfo.branch,
+    committOwner: repositoryInfo.committer,
+    commitMessage: repositoryInfo.commitMessage,
   }
 }
