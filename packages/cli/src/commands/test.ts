@@ -11,7 +11,7 @@ import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
-import { splitConfigFilePath } from '../services/util'
+import { splitConfigFilePath, getGitInformation } from '../services/util'
 import { createReporter, ReporterType } from '../reporters/reporter'
 
 const DEFAULT_REGION = 'eu-central-1'
@@ -116,11 +116,13 @@ export default class Test extends AuthCommand {
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const { data: availableRuntimes } = await api.runtimes.getAll()
+    const gitInfo = getGitInformation()
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
+      repoInfo: gitInfo ?? undefined,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,

@@ -1,7 +1,7 @@
 import { BrowserCheck, Project, Session } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import { GitInformation, loadJsFile, loadTsFile, pathToPosix } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
@@ -15,6 +15,7 @@ type ProjectParseOpts = {
   projectLogicalId: string,
   projectName: string,
   repoUrl?: string,
+  repoInfo?: GitInformation,
   checkMatch?: string,
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
@@ -36,6 +37,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     projectLogicalId,
     projectName,
     repoUrl,
+    repoInfo,
     ignoreDirectoriesMatch = [],
     checkDefaults = {},
     browserCheckDefaults = {},
@@ -45,6 +47,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
+    repoInfo,
   })
   checklyConfigConstructs?.forEach(
     (construct) => project.addResource(construct.type, construct.logicalId, construct),
