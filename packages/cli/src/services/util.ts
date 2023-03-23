@@ -101,16 +101,14 @@ export function splitConfigFilePath (configFile?: string): { configDirectory: st
 export function getGitInformation (): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
-  console.info(repositoryInfo)
-
   if (!repositoryInfo.sha) {
     return null
   }
 
   return {
     commitId: repositoryInfo.sha,
-    branchName: repositoryInfo.branch ?? '',
-    commitOwner: repositoryInfo.committer ?? '',
-    commitMessage: repositoryInfo.commitMessage ?? '',
+    branchName: repositoryInfo.branch,
+    commitOwner: repositoryInfo.committer,
+    commitMessage: repositoryInfo.commitMessage,
   }
 }
