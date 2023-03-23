@@ -1,6 +1,6 @@
 # Checkly Monitoring-as-code: Boilerplate Project
 
-This example project shows how you can use the Checkly CLI in a Monitoring-as-Code (MaC) workflow. We are using the
+This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
 https://checklyhq.com website as a monitoring target.
 
 1. Write API Checks and Playwright-powered Browser Checks!
@@ -38,6 +38,9 @@ Run the core CLI commands with `npx checkly <command>`
 | `npx checkly deploy` | Deploy your checks to the Checkly cloud          |
 | `npx checkly login`  | Log in to your Checkly account                   |
 | `npx checkly --help` | Show help for each command.                      |
+
+
+[Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/)
 
 ## Questions?
 

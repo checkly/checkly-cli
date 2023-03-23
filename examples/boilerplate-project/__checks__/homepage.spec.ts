@@ -1,4 +1,3 @@
-// @ts-ignore
 import { test, expect } from '@playwright/test'
 
 test('Checkly Homepage', async ({ page }) => {

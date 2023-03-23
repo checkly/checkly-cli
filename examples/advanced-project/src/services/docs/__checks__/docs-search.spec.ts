@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 import { defaults } from '../../../defaults'
 
 /**
- * This spec file will be picked up and turned into a Browser check, using the defaults from the checkly.config.js file
+ * This spec file will be picked up and turned into a Browser Check, using the defaults from the checkly.config.ts file
  * at the root of this example.
  */
 
