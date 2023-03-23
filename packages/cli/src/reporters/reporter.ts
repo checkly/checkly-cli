@@ -8,7 +8,7 @@ import ListReporter from './list'
 export interface Reporter {
   onBeginStatic(): void;
   onBegin(): void;
-  onEnd(): void;
+  onEnd(testSessionId: string, testResultIds?: Record<string, string>[]): void;
   onCheckEnd(checkResult: any): void;
   onError(err: Error): void,
 }

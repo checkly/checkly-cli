@@ -14,9 +14,12 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary()
   }
 
-  onEnd () {
+  onEnd (testSessionId?: string, testResultIds?: Record<string, string>[]) {
     this._clearSummary()
     this._printSummary()
+    if (testSessionId) {
+      this._printTestSessionsUrl(testSessionId, testResultIds)
+    }
   }
 
   onCheckEnd (checkResult: any) {

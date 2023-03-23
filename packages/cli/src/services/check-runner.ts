@@ -81,10 +81,10 @@ export default class CheckRunner extends EventEmitter {
     const allChecksFinished = this.allChecksFinished()
 
     try {
-      await this.scheduleAllChecks(checkRunSuiteId)
+      const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
 
       await allChecksFinished
-      this.emit(Events.RUN_FINISHED)
+      this.emit(Events.RUN_FINISHED, testSessionId, testResultIds)
     } catch (err) {
       this.emit(Events.ERROR, err)
     } finally {
@@ -92,7 +92,10 @@ export default class CheckRunner extends EventEmitter {
     }
   }
 
-  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
+  private async scheduleAllChecks (checkRunSuiteId: string): Promise<{
+    testSessionId?: string,
+    testResultIds?: Record<string, string>,
+  }> {
     const checkRunJobs = Array.from(this.checks.entries()).map(([checkRunId, check]) => ({
       ...check.synthesize(),
       group: check.groupId ? this.groups[check.groupId.ref].synthesize() : undefined,
@@ -104,7 +107,7 @@ export default class CheckRunner extends EventEmitter {
       if (!checkRunJobs.length) {
         throw new Error('Unable to find checks to run.')
       }
-      await testSessions.run({
+      const { data } = await testSessions.run({
         checkRunJobs,
         project: { logicalId: this.project.logicalId },
         runLocation: this.location,
@@ -118,6 +121,7 @@ export default class CheckRunner extends EventEmitter {
           this.emit(Events.CHECK_FINISHED, check)
         }, this.timeout * 1000),
         ))
+      return data
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.message)
     }

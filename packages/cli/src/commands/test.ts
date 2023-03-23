@@ -210,7 +210,10 @@ export default class Test extends AuthCommand {
       })
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
+    runner.on(Events.RUN_FINISHED,
+      (testSessionId: string, testResultIds?: Record<string, string>[]) =>
+        reporter.onEnd(testSessionId, testResultIds),
+    )
     runner.on(Events.ERROR, (err) => {
       reporter.onError(err)
       process.exitCode = 1

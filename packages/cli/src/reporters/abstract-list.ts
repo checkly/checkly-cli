@@ -1,10 +1,12 @@
 import chalk = require('chalk')
 import * as indentString from 'indent-string'
+import * as logSymbols from 'log-symbols'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn } from './util'
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
+import { getDefaults } from '../rest/api'
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
@@ -38,7 +40,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   abstract onBegin(): void
 
-  abstract onEnd(): void
+  abstract onEnd(testSessionId: string, testResultIds?: Record<string, string>[]): void
 
   onCheckEnd (checkResult: any) {
     const checkStatus = this.checkFilesMap.get(checkResult.sourceFile)!.get(checkResult.logicalId)!
@@ -118,6 +120,29 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _printTestSessionsUrl (testSessionId: string, testResultIds?: Record<string, string>[]) {
+    const { baseURL } = getDefaults()
+    const sessionUrl = `${baseURL}/test-sessions/${testSessionId}`
+    printLn(`${chalk.bold.green(logSymbols.info)} ${chalk.bold.grey('Explore test session results -> ')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
+
+    if (testResultIds) {
+      const failedStatuses: { [key: string]: boolean } = {}
+      for (const [, checkMap] of this.checkFilesMap.entries()) {
+        for (const [checkId, { result }] of checkMap.entries()) {
+          failedStatuses[checkId] = result.hasFailures
+        }
+      }
+      Object.entries(testResultIds).forEach(r => printLn(
+        indentString(
+          `${failedStatuses[r[0]] ? chalk.bold.red(logSymbols.error) : chalk.bold.green(logSymbols.success)}  ${
+            chalk.bold.grey('\'' + r[0] + '\': ' + chalk.dim.underline(sessionUrl + '/' + r[1]))}`,
+          4,
+        ),
+      ))
+    }
+    printLn('')
   }
 
   _runLocationString (): string {
