@@ -168,7 +168,7 @@ export default class Test extends AuthCommand {
       })
 
     if (!checks.length) {
-      this.log(`Unable to find checks to run using '[FILEARGS]=${filePatterns}'.`)
+      this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
       return
     }
 
