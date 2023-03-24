@@ -2,12 +2,17 @@ import { formatCheckTitle, formatCheckResult, CheckStatus } from '../util'
 import { simpleCheckFixture } from './fixtures/simple-check'
 import { apiCheckResult } from './fixtures/api-check-result'
 import { browserCheckResult } from './fixtures/browser-check-result'
+import { Settings } from 'luxon'
 
 function stripAnsi (input: string): string {
   return input.replace(
     // eslint-disable-next-line no-control-regex
     /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
 }
+
+beforeAll(() => {
+  Settings.defaultZone = 'GMT'
+})
 
 describe('formatCheckTitle()', () => {
   it('should print a failed check title', () => {
