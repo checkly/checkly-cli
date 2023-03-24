@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`formatCheckResult() API Check result formats a basic API Check result : api-check-result-basic-format 1`] = `
-"──[1mHTTP Request[22m────────────────────────────────────────────────────────────────────
+"──HTTP Request────────────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -10,7 +10,7 @@ Headers:
 Body:
   {"data":1}
 
-──[1mHTTP Response[22m───────────────────────────────────────────────────────────────────
+──HTTP Response───────────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -43,7 +43,7 @@ Body:
 `;
 
 exports[`formatCheckResult() API Check result formats an API Check result with assertions: api-check-result-assertions-format 1`] = `
-"──[1mHTTP Request[22m────────────────────────────────────────────────────────────────────
+"──HTTP Request────────────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -52,7 +52,7 @@ Headers:
 Body:
   {"data":1}
 
-──[1mHTTP Response[22m───────────────────────────────────────────────────────────────────
+──HTTP Response───────────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -85,7 +85,7 @@ Body:
 `;
 
 exports[`formatCheckResult() API Check result formats an API Check result with setup & teardown logs: api-check-result-logs-format 1`] = `
-"──[1mHTTP Request[22m────────────────────────────────────────────────────────────────────
+"──HTTP Request────────────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -94,7 +94,7 @@ Headers:
 Body:
   {"data":1}
 
-──[1mHTTP Response[22m───────────────────────────────────────────────────────────────────
+──HTTP Response───────────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -127,25 +127,25 @@ Body:
 `;
 
 exports[`formatCheckResult() Browser Check result formats a Browser Check result with logs: browser-check-result-logs-format 1`] = `
-"──[1mLogs[22m────────────────────────────────────────────────────────────────────────────
-11:53:15 DEBUG [2mStarting job[22m
-11:53:15 DEBUG [2mCompiling environment variables[22m
-11:53:15 DEBUG [2mCreating runtime using version 2022.10[22m
-11:53:15 DEBUG [2mRunning Playwright test script[22m
-11:53:16 INFO  [2mRunning 1 test using 1 worker[22m
+"──Logs────────────────────────────────────────────────────────────────────────────
+11:53:15 DEBUG Starting job
+11:53:15 DEBUG Compiling environment variables
+11:53:15 DEBUG Creating runtime using version 2022.10
+11:53:15 DEBUG Running Playwright test script
+11:53:16 INFO  Running 1 test using 1 worker
 11:53:16 INFO  
-11:53:18 INFO  [2m[1/1] [chromium] › ../../var/task/src/2022-10/node_modules/vm2/lib/bridge.js:479:11 › visit page and take screenshot[22m
+11:53:18 INFO  [1/1] [chromium] › ../../var/task/src/2022-10/node_modules/vm2/lib/bridge.js:479:11 › visit page and take screenshot
 11:53:22 INFO  
 11:53:22 INFO  
-11:53:22 INFO  [2m1 passed (5s)[22m
-11:53:22 DEBUG [2mRun finished[22m
-11:53:22 DEBUG [2mUploading log file[22m"
+11:53:22 INFO  1 passed (5s)
+11:53:22 DEBUG Run finished
+11:53:22 DEBUG Uploading log file"
 `;
 
 exports[`formatCheckResult() Browser Check result formats a basic Browser Check result : browser-check-result-basic-format 1`] = `""`;
 
-exports[`formatCheckTitle() should print a failed check title: failed-check-title 1`] = `"[1m[31m[31m✖[39m[31m[39m[22m [1m[31m/test/test-file.check.ts >[39m[22m [1m[31mTest Check[39m[22m (11s)"`;
+exports[`formatCheckTitle() should print a failed check title: failed-check-title 1`] = `"✖ /test/test-file.check.ts > Test Check (11s)"`;
 
-exports[`formatCheckTitle() should print a passed check title: passed-check-title 1`] = `"[1m[1m[32m[32m✔[39m[32m[39m[22m[1m[22m [1m/test/test-file.check.ts >[22m [1mTest Check[22m (11s)"`;
+exports[`formatCheckTitle() should print a passed check title: passed-check-title 1`] = `"✔ /test/test-file.check.ts > Test Check (11s)"`;
 
-exports[`formatCheckTitle() should print a pending check title: pending-check-title 1`] = `"[1m[2m-[22m[22m [1m[2m/test/test-file.check.ts >[22m[22m [1m[2mTest Check[22m[22m (11s)"`;
+exports[`formatCheckTitle() should print a pending check title: pending-check-title 1`] = `"- /test/test-file.check.ts > Test Check (11s)"`;
