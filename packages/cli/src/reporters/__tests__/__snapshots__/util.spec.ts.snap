@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`formatCheckResult() Browser Check result formats a basic Browser Check result : browser-check-result-basic-format 1`] = `""`;
