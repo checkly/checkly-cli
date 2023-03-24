@@ -7,6 +7,9 @@ import { defaults } from '../../../defaults'
  * at the root of this example.
  */
 
+// You can override the default Playwright test timeout of 30s
+// test.setTimeout(60_000);
+
 test.describe('Docs', () => {
   test('Docs Landing Page', async ({ page }) => {
     await page.setViewportSize(defaults.playwright.viewportSize)
