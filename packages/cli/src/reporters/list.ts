@@ -25,12 +25,15 @@ export default class ListReporter extends AbstractListReporter {
   onCheckEnd (checkResult: any) {
     super.onCheckEnd(checkResult)
     this._clearSummary()
-    if (checkResult.hasFailures) {
-      // Print the failed check result above the status section
-      printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
-    }
-    if (this.verbose || checkResult.hasFailures) {
+
+    if (this.verbose) {
+      printLn(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
       printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
+    } else {
+      if (checkResult.hasFailures) {
+        printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
+        printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
+      }
     }
     this._printSummary()
   }
