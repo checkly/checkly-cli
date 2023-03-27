@@ -138,7 +138,7 @@ export default abstract class AbstractListReporter implements Reporter {
   _printTestSessionsUrl () {
     if (this.testSessionId) {
       const { baseURL } = getDefaults()
-      const sessionUrl = `${baseURL}/test-sessions/${this.testSessionId}`
+      const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
       printLn(`${chalk.bold.white('Detailed session summary at:')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
     }
   }

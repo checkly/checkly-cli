@@ -38,7 +38,7 @@ export default class ListReporter extends AbstractListReporter {
       }
     }
     const { baseURL } = getDefaults()
-    const sessionUrl = `${baseURL}/test-sessions/${this.testSessionId}`
+    const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
 
     if (checkResult.hasFailures && this.testResultIds) {
       printLn(indentString(
