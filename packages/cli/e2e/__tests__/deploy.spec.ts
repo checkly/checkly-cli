@@ -20,13 +20,16 @@ async function cleanupProjects (projectLogicalId?: string) {
     },
   })
   const projectsApi = new Projects(api)
+  if (projectLogicalId) {
+    await projectsApi.deleteProject(projectLogicalId)
+    return
+  }
   const { data: projects } = await projectsApi.getAll()
   for (const project of projects) {
-    const matchesLogicalId = project.logicalId === projectLogicalId
     // Also delete any old projects that may have been missed in previous e2e tests
     const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') &&
-      DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 10 }))
-    if (matchesLogicalId || leftoverE2eProject) {
+      DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 20 }))
+    if (leftoverE2eProject) {
       await projectsApi.deleteProject(project.logicalId)
     }
   }
@@ -34,11 +37,15 @@ async function cleanupProjects (projectLogicalId?: string) {
 
 describe('deploy', () => {
   // Create a unique ID suffix to support parallel test executions
-  const projectLogicalId = `e2e-test-deploy-project-${uuidv4()}`
+  let projectLogicalId
   // Cleanup projects that may have not been deleted in previous runs
   beforeAll(() => cleanupProjects())
+  beforeEach(() => {
+    projectLogicalId = `e2e-test-deploy-project-${uuidv4()}`
+  })
   // Clean up by deleting the project
-  afterAll(() => cleanupProjects(projectLogicalId))
+  afterEach(() => cleanupProjects(projectLogicalId))
+  afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully', () => {
     const result = runChecklyCli({
