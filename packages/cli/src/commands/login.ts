@@ -132,7 +132,7 @@ export default class Login extends BaseCommand {
       {
         name: 'mode',
         type: 'list',
-        message: 'Do you want to login or sign up to Checkly?',
+        message: 'Do you want to log in or sign up to Checkly?',
         choices: [{
           name: 'I want to log in with an existing Checkly account',
           value: 'login',
