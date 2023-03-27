@@ -5,9 +5,9 @@ import * as gitRepoInfo from 'git-repo-info'
 
 export interface GitInformation {
   commitId: string
-  branchName: string
-  committOwner: string
-  commitMessage: string
+  branchName?: string | null
+  commitOwner?: string | null
+  commitMessage?: string | null
 }
 
 // TODO: Remove this in favor of glob? It's unused.
@@ -108,7 +108,7 @@ export function getGitInformation (): GitInformation|null {
   return {
     commitId: repositoryInfo.sha,
     branchName: repositoryInfo.branch,
-    committOwner: repositoryInfo.committer,
+    commitOwner: repositoryInfo.committer,
     commitMessage: repositoryInfo.commitMessage,
   }
 }

@@ -75,6 +75,10 @@ export default class Test extends AuthCommand {
       char: 'c',
       description: 'The Checkly CLI config filename.',
     }),
+    record: Flags.boolean({
+      description: 'Record test results in Checkly.',
+      default: false,
+    }),
   }
 
   static args = {
@@ -101,6 +105,7 @@ export default class Test extends AuthCommand {
       verbose: verboseFlag,
       reporter: reporterType,
       config: configFilename,
+      record: shouldRecord,
     } = flags
     const filePatterns = argv as string[]
 
@@ -161,6 +166,12 @@ export default class Test extends AuthCommand {
         }
         return check
       })
+
+    if (!checks.length) {
+      this.log(`Unable to find checks to run using '[FILEARGS]=${filePatterns}'.`)
+      return
+    }
+
     const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
 
     if (list) {
@@ -171,11 +182,12 @@ export default class Test extends AuthCommand {
     const runner = new CheckRunner(
       config.getAccountId(),
       config.getApiKey(),
+      project,
       checks,
-      project.data.groups,
       location,
       timeout,
       verbose,
+      shouldRecord,
     )
     runner.on(Events.RUN_STARTED, () => reporter.onBegin())
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
@@ -199,6 +211,10 @@ export default class Test extends AuthCommand {
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
+    runner.on(Events.ERROR, (err) => {
+      reporter.onError(err)
+      process.exitCode = 1
+    })
     await runner.run()
   }
 
