@@ -5,6 +5,8 @@ import * as crypto from 'crypto'
 import jwtDecode from 'jwt-decode'
 import { getDefaults as getApiDefaults } from '../rest/api'
 
+export type AuthMode = 'signup' | 'login'
+
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 const AUTH0_AUTHORIZATION_URL = 'https://auth.checklyhq.com/authorize'
 const AUTH0_SCOPES = 'openid profile email'
@@ -41,7 +43,7 @@ export class AuthContext {
   #accessToken?: string
   #idToken?: string
 
-  constructor () {
+  constructor (private mode: AuthMode) {
     const { codeChallenge, codeVerifier } = generatePKCE()
     this.#codeChallenge = codeChallenge
     this.#codeVerifier = codeVerifier
@@ -77,6 +79,9 @@ export class AuthContext {
       redirect_uri: AUTH0_CALLBACK_URL,
       scope: AUTH0_SCOPES,
       state: this.#codeVerifier,
+      mode: this.mode === 'signup' ? 'signUp' : '',
+      allowLogin: this.mode === 'signup' ? 'false' : 'true',
+      allowSignUp: this.mode === 'signup' ? 'true' : 'false',
     })
 
     url.search = params.toString()
