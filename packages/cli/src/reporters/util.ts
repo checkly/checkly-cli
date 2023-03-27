@@ -56,6 +56,12 @@ export function formatCheckResult (checkResult: any) {
         checkResult.checkRunData.requestError,
       ])
     } else {
+      if (checkResult.checkRunData?.request) {
+        result.push([
+          formatSectionTitle('HTTP Request'),
+          formatHttpRequest(checkResult.checkRunData.request),
+        ])
+      }
       if (checkResult.checkRunData?.response) {
         result.push([
           formatSectionTitle('HTTP Response'),
@@ -66,6 +72,18 @@ export function formatCheckResult (checkResult: any) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
+      if (checkResult.logs?.setup.length) {
+        result.push([
+          formatSectionTitle('Setup Script Logs'),
+          formatLogs(checkResult.logs.setup),
+        ])
+      }
+      if (checkResult.logs?.teardown.length) {
+        result.push([
+          formatSectionTitle('Teardown Script Logs'),
+          formatLogs(checkResult.logs.teardown),
         ])
       }
     }
@@ -142,6 +160,22 @@ function formatAssertions (assertions: Array<Assertion&{ error: string, actual: 
   }).join('\n')
 }
 
+function formatHttpRequest (request: any) {
+  const { truncated, result: stringBody } = truncate(request.data, {
+    chars: 20 * 100,
+    lines: 20,
+    ending: chalk.magenta('\n...truncated...'),
+  })
+  const headersString = Object.entries(request.headers ?? []).map(([key, val]) => `${key}: ${val}`).join('\n')
+  return [
+    `${request.method} ${request.url}`,
+    'Headers:',
+    indentString(headersString, 2),
+    request.data ? 'Body:' : undefined,
+    indentString(stringBody, 2),
+  ].filter(Boolean).join('\n')
+}
+
 function formatHttpResponse (response: any) {
   // TODO: Provide a user for a way to see the full response. For example, write it to a file.
   const { truncated, result: stringBody } = truncate(response.body, {
@@ -161,7 +195,7 @@ function formatHttpResponse (response: any) {
 
 function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) {
   return logs.flatMap(({ level, msg, time }) => {
-    const timestamp = DateTime.fromMillis(time).toLocaleString(DateTime.TIME_WITH_SECONDS)
+    const timestamp = DateTime.fromMillis(time).toLocaleString(DateTime.TIME_24_WITH_SECONDS)
     let format = chalk.dim
     if (level === 'WARN') {
       format = chalk.dim.yellow
@@ -170,7 +204,7 @@ function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) 
     }
     const [firstLine, ...remainingLines] = msg.split('\n')
     return [
-      `${level}, ${timestamp}, ${format(firstLine)}`,
+      `${timestamp} ${level.padEnd(5, ' ')} ${format(firstLine)}`,
       ...remainingLines.map((line) => format(line)),
     ]
   }).join('\n')
