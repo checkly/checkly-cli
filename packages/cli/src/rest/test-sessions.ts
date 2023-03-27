@@ -2,6 +2,7 @@ import type { AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util'
 
 type RunTestSessionRequest = {
+  name: string,
   checkRunJobs: any[],
   project: { logicalId: string },
   runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },

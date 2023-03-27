@@ -1,10 +1,10 @@
 # Checkly Monitoring-as-code: Advanced Project
 
-This example project shows how you can use the Checkly CLI in a Monitoring-as-Code (MaC) workflow. We are using the
+This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
 https://checklyhq.com website as a monitoring target.
 
-1. Write API Checks and Playwright-powered Browser Checks!
-2. Add alert channels, a run schedule and any global regions.
+1. Write API Checks and Playwright-powered Browser Checks.
+2. Add Alert Channels, and dry-run your Checks on 20+ global locations.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
@@ -17,21 +17,23 @@ This project mimics a typical app where you organize code with top-level default
 
 ```
 .
-|-- _github
+|-- .github
 |   `-- workflow.yml
 |-- checkly.config.ts
 |-- package.json
 `-- src
     |-- __checks__
     |   |-- 404.spec.ts
-    |   |-- group.check.ts
-    |   |-- home.check.ts
-    |   `-- homepage.spec.ts
+    |   |-- api.check.ts
+    |   |-- home.check.ts 
+    |   |-- homepage.spec.ts     
+    |   `-- website.check-group.ts
     |-- alert-channels.ts
     |-- defaults.ts
     `-- services
         |-- api
-        |   `-- api.check.ts
+        |   `-- __checks__        
+        |       `-- api.check.ts
         `-- docs
             `-- __checks__
                 `-- docs-search.spec.ts
@@ -43,7 +45,7 @@ This project mimics a typical app where you organize code with top-level default
 - Running `npx check deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
 region `us-east-1` and `eu-west-1`
 
-- An example GitHub Actions workflow is in the `_github/workflow.yml` file. It triggers all the checks in the project and deploys
+- An example GitHub Actions workflow is in the `.github/workflow.yml` file. It triggers all the checks in the project and deploys
 them if they pass.
 
 ## CLI Commands
@@ -57,7 +59,18 @@ Run the core CLI commands with `npx checkly <command>`
 | `npx checkly login`  | Log in to your Checkly account                   |
 | `npx checkly --help` | Show help for each command.                      |
 
+[Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/).
+
+## Adding and running `@playwright/test`
+
+You can add `@playwright/test` to this project to get full code completion and run `.spec.ts` files for local debugging.
+It's best to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
+
+```bash
+npm install --save-dev @playwright/test@1.28.0
+```
+
 ## Questions?
 
 Check [our CLI docs](https://github.com/checkly/checkly-cli), the [main Checkly docs](https://checklyhq.com/docs) or 
-join our [Slack community](https://checklyhq.com/slack)
+join our [Slack community](https://checklyhq.com/slack).
