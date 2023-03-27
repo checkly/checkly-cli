@@ -58,7 +58,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.stdout).toContain('0 total')
+    expect(result.stdout).toContain('Unable to find checks to run using \'[FILEARGS]=')
     expect(result.status).toBe(0)
   })
 

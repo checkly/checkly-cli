@@ -10,6 +10,7 @@ export interface Reporter {
   onBegin(): void;
   onEnd(): void;
   onCheckEnd(checkResult: any): void;
+  onError(err: Error): void,
 }
 
 export type ReporterType = 'list' | 'dot' | 'ci'
