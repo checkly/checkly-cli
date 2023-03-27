@@ -37,7 +37,7 @@ async function cleanupProjects (projectLogicalId?: string) {
 
 describe('deploy', () => {
   // Create a unique ID suffix to support parallel test executions
-  let projectLogicalId
+  let projectLogicalId: string
   // Cleanup projects that may have not been deleted in previous runs
   beforeAll(() => cleanupProjects())
   beforeEach(() => {
