@@ -3,7 +3,7 @@ import { GitInformation } from '../services/util'
 
 type RunTestSessionRequest = {
   checkRunJobs: any[],
-  project: { logicalId: string },
+  project: { logicalId: string, name: string },
   runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
   repoInfo?: GitInformation | null,
   shouldRecord: boolean,

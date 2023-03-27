@@ -106,7 +106,10 @@ export default class CheckRunner extends EventEmitter {
       }
       await testSessions.run({
         checkRunJobs,
-        project: { logicalId: this.project.logicalId },
+        project: {
+          name: this.project.name,
+          logicalId: this.project.logicalId,
+        },
         runLocation: this.location,
         repoInfo: this.project.repoInfo,
         shouldRecord: this.shouldRecord,
