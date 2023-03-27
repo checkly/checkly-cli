@@ -1,4 +1,6 @@
 import * as indentString from 'indent-string'
+import chalk = require('chalk')
+import { getDefaults } from '../rest/api'
 
 import AbstractListReporter from './abstract-list'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
@@ -9,17 +11,17 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary({ skipCheckCount: true })
   }
 
-  onBegin () {
+  onBegin (testSessionId?: string, testResultIds?: { [key: string]: string }) {
+    this._setTestSessionId(testSessionId)
+    this._setTestResultIds(testResultIds)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
     this._printSummary()
   }
 
-  onEnd (testSessionId?: string, testResultIds?: Record<string, string>[]) {
+  onEnd () {
     this._clearSummary()
     this._printSummary()
-    if (testSessionId) {
-      this._printTestSessionsUrl(testSessionId, testResultIds)
-    }
+    this._printTestSessionsUrl()
   }
 
   onCheckEnd (checkResult: any) {
@@ -35,6 +37,16 @@ export default class ListReporter extends AbstractListReporter {
         printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
       }
     }
+    const { baseURL } = getDefaults()
+    const sessionUrl = `${baseURL}/test-sessions/${this.testSessionId}`
+
+    if (checkResult.hasFailures && this.testResultIds) {
+      printLn(indentString(
+        'View results: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
+        , 4,
+      ), 2)
+    }
+
     this._printSummary()
   }
 

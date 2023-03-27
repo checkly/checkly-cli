@@ -1,6 +1,5 @@
 import chalk = require('chalk')
 import * as indentString from 'indent-string'
-import * as logSymbols from 'log-symbols'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn } from './util'
@@ -17,8 +16,14 @@ export default abstract class AbstractListReporter implements Reporter {
   checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
   numChecks: number
   verbose: boolean
+  testSessionId?: string
+  testResultIds?: { [key: string]: string }
 
-  constructor (runLocation: RunLocation, checks: Array<Check>, verbose: boolean) {
+  constructor (
+    runLocation: RunLocation,
+    checks: Array<Check>,
+    verbose: boolean,
+  ) {
     this.numChecks = checks.length
     this.runLocation = runLocation
     this.verbose = verbose
@@ -38,9 +43,9 @@ export default abstract class AbstractListReporter implements Reporter {
 
   abstract onBeginStatic(): void
 
-  abstract onBegin(): void
+  abstract onBegin(testSessionId: string, testResultIds?: { [key: string]: string }): void
 
-  abstract onEnd(testSessionId: string, testResultIds?: Record<string, string>[]): void
+  abstract onEnd(): void
 
   onCheckEnd (checkResult: any) {
     const checkStatus = this.checkFilesMap.get(checkResult.sourceFile)!.get(checkResult.logicalId)!
@@ -53,6 +58,14 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onError (err: Error) {
     printLn(chalk.red('Unable to run checks: ') + err.message)
+  }
+
+  _setTestSessionId (testSessionId?: string) {
+    this.testSessionId = testSessionId
+  }
+
+  _setTestResultIds (testResultIds?: { [key: string]: string }) {
+    this.testResultIds = testResultIds
   }
 
   // Clear the summary which was printed by _printStatus from stdout
@@ -122,27 +135,12 @@ export default abstract class AbstractListReporter implements Reporter {
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
   }
 
-  _printTestSessionsUrl (testSessionId: string, testResultIds?: Record<string, string>[]) {
-    const { baseURL } = getDefaults()
-    const sessionUrl = `${baseURL}/test-sessions/${testSessionId}`
-    printLn(`${chalk.bold.green(logSymbols.info)} ${chalk.bold.grey('Explore test session results -> ')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
-
-    if (testResultIds) {
-      const failedStatuses: { [key: string]: boolean } = {}
-      for (const [, checkMap] of this.checkFilesMap.entries()) {
-        for (const [checkId, { result }] of checkMap.entries()) {
-          failedStatuses[checkId] = result.hasFailures
-        }
-      }
-      Object.entries(testResultIds).forEach(r => printLn(
-        indentString(
-          `${failedStatuses[r[0]] ? chalk.bold.red(logSymbols.error) : chalk.bold.green(logSymbols.success)}  ${
-            chalk.bold.grey('\'' + r[0] + '\': ' + chalk.dim.underline(sessionUrl + '/' + r[1]))}`,
-          4,
-        ),
-      ))
+  _printTestSessionsUrl () {
+    if (this.testSessionId) {
+      const { baseURL } = getDefaults()
+      const sessionUrl = `${baseURL}/test-sessions/${this.testSessionId}`
+      printLn(`${chalk.bold.white('Detailed session summary at:')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
     }
-    printLn('')
   }
 
   _runLocationString (): string {

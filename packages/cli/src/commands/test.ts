@@ -189,7 +189,9 @@ export default class Test extends AuthCommand {
       verbose,
       shouldRecord,
     )
-    runner.on(Events.RUN_STARTED, () => reporter.onBegin())
+    runner.on(Events.RUN_STARTED,
+      (testSessionId: string, testResultIds: { [key: string]: string }) =>
+        reporter.onBegin(testSessionId, testResultIds))
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1
@@ -200,7 +202,7 @@ export default class Test extends AuthCommand {
         ...result,
       })
     })
-    runner.on(Events.CHECK_FAILED, (check, message) => {
+    runner.on(Events.CHECK_FAILED, (check, message: string) => {
       reporter.onCheckEnd({
         ...check,
         logicalId: check.logicalId,
@@ -210,9 +212,7 @@ export default class Test extends AuthCommand {
       })
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED,
-      (testSessionId: string, testResultIds?: Record<string, string>[]) =>
-        reporter.onEnd(testSessionId, testResultIds),
+    runner.on(Events.RUN_FINISHED, () => reporter.onEnd(),
     )
     runner.on(Events.ERROR, (err) => {
       reporter.onError(err)

@@ -72,29 +72,32 @@ export default class CheckRunner extends EventEmitter {
   }
 
   async run () {
-    this.emit(Events.RUN_STARTED)
-    const socketClient = await SocketClient.connect()
-
-    const checkRunSuiteId = uuid.v4()
-    // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
-    await this.configureResultListener(checkRunSuiteId, socketClient)
-    const allChecksFinished = this.allChecksFinished()
-
+    let socketClient = null
     try {
+      socketClient = await SocketClient.connect()
+
+      const checkRunSuiteId = uuid.v4()
+      // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
+      await this.configureResultListener(checkRunSuiteId, socketClient)
+      const allChecksFinished = this.allChecksFinished()
+
       const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
+      this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
 
       await allChecksFinished
-      this.emit(Events.RUN_FINISHED, testSessionId, testResultIds)
+      this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
       this.emit(Events.ERROR, err)
     } finally {
-      await socketClient.end()
+      if (socketClient) {
+        await socketClient.end()
+      }
     }
   }
 
   private async scheduleAllChecks (checkRunSuiteId: string): Promise<{
     testSessionId?: string,
-    testResultIds?: Record<string, string>,
+    testResultIds?: { [key: string]: string },
   }> {
     const checkRunJobs = Array.from(this.checks.entries()).map(([checkRunId, check]) => ({
       ...check.synthesize(),
