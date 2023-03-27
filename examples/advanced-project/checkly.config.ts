@@ -16,13 +16,13 @@ const config = defineConfig({
   checks: {
     /* A default for how often your Check should run in minutes */
     frequency: 10,
-    /* Checkly datacenters where to run your Checks as monitors */
+    /* Checkly data centers to run your Checks as monitors */
     locations: ['us-east-1', 'eu-west-1'],
     /* An optional array of tags to organize your Checks */
     tags: ['mac'],
-    /** The Checkly Runtime identifier, determining NPM packages and the Node.js version available at runtime.
-    * See https://www.checklyhq.com/docs/cli/npm-packages/
-    */
+    /** The Checkly Runtime identifier, determining npm packages and the Node.js version available at runtime.
+     * See https://www.checklyhq.com/docs/cli/npm-packages/
+     */
     runtimeId: '2022.10',
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.ts',

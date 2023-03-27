@@ -59,18 +59,18 @@ Run the core CLI commands with `npx checkly <command>`
 | `npx checkly login`  | Log in to your Checkly account                   |
 | `npx checkly --help` | Show help for each command.                      |
 
-[Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/)
+[Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/).
 
 ## Adding and running `@playwright/test`
 
 You can add `@playwright/test` to this project to get full code completion and run `.spec.ts` files for local debugging.
-It's best to install the Playwright NPM package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/)
+It's best to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
 
 ```bash
-npm i -D @playwright/test@1.28.0
+npm install --save-dev @playwright/test@1.28.0
 ```
 
 ## Questions?
 
 Check [our CLI docs](https://github.com/checkly/checkly-cli), the [main Checkly docs](https://checklyhq.com/docs) or 
-join our [Slack community](https://checklyhq.com/slack)
+join our [Slack community](https://checklyhq.com/slack).
