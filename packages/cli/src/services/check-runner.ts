@@ -105,9 +105,9 @@ export default class CheckRunner extends EventEmitter {
         throw new Error('Unable to find checks to run.')
       }
       await testSessions.run({
+        name: this.project.name,
         checkRunJobs,
         project: {
-          name: this.project.name,
           logicalId: this.project.logicalId,
         },
         runLocation: this.location,
