@@ -25,4 +25,10 @@ export default class Assets {
     const response = await this.api.get(`/next/assets/${assetType}/${region}/${encodeURIComponent(key)}`)
     return response.data
   }
+
+  async getAssetsLink (region: string, key: string): Promise<any> {
+    const response = await this.api.get<string>(
+      `/next/assets/${AssetType.CHECK_RUN_DATA}/${region}/${encodeURIComponent(key)}/redirect?link=true`)
+    return response.data
+  }
 }

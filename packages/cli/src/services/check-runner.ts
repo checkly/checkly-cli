@@ -147,13 +147,35 @@ export default class CheckRunner extends EventEmitter {
       } else if (subtopic === 'run-end') {
         this.disableTimeout(checkRunId)
         const { result } = message
-        const { region, logPath, checkRunDataPath } = result.assets
+        const {
+          region,
+          logPath,
+          checkRunDataPath,
+          playwrightTestTraceFiles,
+          playwrightTestVideoFiles,
+        } = result.assets
         if (logPath && (this.verbose || result.hasFailures)) {
           result.logs = await assets.getLogs(region, logPath)
         }
         if (checkRunDataPath && (this.verbose || result.hasFailures)) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
+
+        try {
+          if (result.hasFailures) {
+            if (playwrightTestTraceFiles && playwrightTestTraceFiles.length) {
+              result.traceFilesUrls = await Promise
+                .all(playwrightTestTraceFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+            if (playwrightTestVideoFiles && playwrightTestVideoFiles.length) {
+              result.videoFilesUrls = await Promise
+                .all(playwrightTestVideoFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+          }
+        } catch {
+          // TODO: remove the try/catch after deploy endpoint to fetch assets link
+        }
+
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (subtopic === 'error') {

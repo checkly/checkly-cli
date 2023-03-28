@@ -40,11 +40,29 @@ export default class ListReporter extends AbstractListReporter {
     const { baseURL } = getDefaults()
     const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
 
-    if (checkResult.hasFailures && this.testResultIds) {
-      printLn(indentString(
-        'View results: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
-        , 4,
-      ), 2)
+    if (checkResult.hasFailures) {
+      if (checkResult.traceFilesUrls) {
+        // TODO: print all video files URLs
+        printLn(indentString(
+          'View trace : ' + chalk.bold.underline.blue(
+            `https://trace.playwright.dev/?trace=${encodeURIComponent(checkResult.traceFilesUrls[0])}`)
+          , 4,
+        ))
+      }
+      if (checkResult.videoFilesUrls) {
+        // TODO: print all trace files URLs
+        printLn(indentString(
+          'View video : ' + chalk.bold.underline.blue(
+            `${checkResult.videoFilesUrls[0]}`)
+          , 4,
+        ))
+      }
+      if (this.testResultIds) {
+        printLn(indentString(
+          'View result: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
+          , 4,
+        ), 2)
+      }
     }
 
     this._printSummary()
