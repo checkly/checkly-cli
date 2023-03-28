@@ -5,6 +5,7 @@ import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn } from './util'
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
+import { getDefaults } from '../rest/api'
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
@@ -15,8 +16,14 @@ export default abstract class AbstractListReporter implements Reporter {
   checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
   numChecks: number
   verbose: boolean
+  testSessionId?: string
+  testResultIds?: { [key: string]: string }
 
-  constructor (runLocation: RunLocation, checks: Array<Check>, verbose: boolean) {
+  constructor (
+    runLocation: RunLocation,
+    checks: Array<Check>,
+    verbose: boolean,
+  ) {
     this.numChecks = checks.length
     this.runLocation = runLocation
     this.verbose = verbose
@@ -36,7 +43,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   abstract onBeginStatic(): void
 
-  abstract onBegin(): void
+  abstract onBegin(testSessionId: string, testResultIds?: { [key: string]: string }): void
 
   abstract onEnd(): void
 
@@ -51,6 +58,14 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onError (err: Error) {
     printLn(chalk.red('Unable to run checks: ') + err.message)
+  }
+
+  _setTestSessionId (testSessionId?: string) {
+    this.testSessionId = testSessionId
+  }
+
+  _setTestResultIds (testResultIds?: { [key: string]: string }) {
+    this.testResultIds = testResultIds
   }
 
   // Clear the summary which was printed by _printStatus from stdout
@@ -118,6 +133,14 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _printTestSessionsUrl () {
+    if (this.testSessionId) {
+      const { baseURL } = getDefaults()
+      const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
+      printLn(`${chalk.bold.white('Detailed session summary at:')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
+    }
   }
 
   _runLocationString (): string {

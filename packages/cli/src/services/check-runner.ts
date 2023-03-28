@@ -72,27 +72,33 @@ export default class CheckRunner extends EventEmitter {
   }
 
   async run () {
-    this.emit(Events.RUN_STARTED)
-    const socketClient = await SocketClient.connect()
-
-    const checkRunSuiteId = uuid.v4()
-    // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
-    await this.configureResultListener(checkRunSuiteId, socketClient)
-    const allChecksFinished = this.allChecksFinished()
-
+    let socketClient = null
     try {
-      await this.scheduleAllChecks(checkRunSuiteId)
+      socketClient = await SocketClient.connect()
+
+      const checkRunSuiteId = uuid.v4()
+      // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
+      await this.configureResultListener(checkRunSuiteId, socketClient)
+      const allChecksFinished = this.allChecksFinished()
+
+      const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
+      this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
 
       await allChecksFinished
-      this.emit(Events.RUN_FINISHED)
+      this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
       this.emit(Events.ERROR, err)
     } finally {
-      await socketClient.end()
+      if (socketClient) {
+        await socketClient.end()
+      }
     }
   }
 
-  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
+  private async scheduleAllChecks (checkRunSuiteId: string): Promise<{
+    testSessionId?: string,
+    testResultIds?: { [key: string]: string },
+  }> {
     const checkRunJobs = Array.from(this.checks.entries()).map(([checkRunId, check]) => ({
       ...check.synthesize(),
       group: check.groupId ? this.groups[check.groupId.ref].synthesize() : undefined,
@@ -104,12 +110,10 @@ export default class CheckRunner extends EventEmitter {
       if (!checkRunJobs.length) {
         throw new Error('Unable to find checks to run.')
       }
-      await testSessions.run({
+      const { data } = await testSessions.run({
         name: this.project.name,
         checkRunJobs,
-        project: {
-          logicalId: this.project.logicalId,
-        },
+        project: { logicalId: this.project.logicalId },
         runLocation: this.location,
         repoInfo: this.project.repoInfo,
         shouldRecord: this.shouldRecord,
@@ -121,6 +125,7 @@ export default class CheckRunner extends EventEmitter {
           this.emit(Events.CHECK_FINISHED, check)
         }, this.timeout * 1000),
         ))
+      return data
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.message)
     }
@@ -142,13 +147,35 @@ export default class CheckRunner extends EventEmitter {
       } else if (subtopic === 'run-end') {
         this.disableTimeout(checkRunId)
         const { result } = message
-        const { region, logPath, checkRunDataPath } = result.assets
+        const {
+          region,
+          logPath,
+          checkRunDataPath,
+          playwrightTestTraceFiles,
+          playwrightTestVideoFiles,
+        } = result.assets
         if (logPath && (this.verbose || result.hasFailures)) {
           result.logs = await assets.getLogs(region, logPath)
         }
         if (checkRunDataPath && (this.verbose || result.hasFailures)) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
+
+        try {
+          if (result.hasFailures) {
+            if (playwrightTestTraceFiles && playwrightTestTraceFiles.length) {
+              result.traceFilesUrls = await Promise
+                .all(playwrightTestTraceFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+            if (playwrightTestVideoFiles && playwrightTestVideoFiles.length) {
+              result.videoFilesUrls = await Promise
+                .all(playwrightTestVideoFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+          }
+        } catch {
+          // TODO: remove the try/catch after deploy endpoint to fetch assets link
+        }
+
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (subtopic === 'error') {
