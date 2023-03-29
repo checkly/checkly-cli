@@ -207,3 +207,9 @@ exports[`formatCheckResult() Browser Check result formats a Browser Check result
 `;
 
 exports[`formatCheckResult() Browser Check result formats a basic Browser Check result : browser-check-result-basic-format 1`] = `""`;
+
+exports[`formatCheckTitle() should print a failed check title: failed-check-title 1`] = `"✖ /test/test-file.check.ts > Test Check (11s)"`;
+
+exports[`formatCheckTitle() should print a passed check title: passed-check-title 1`] = `"✔ /test/test-file.check.ts > Test Check (11s)"`;
+
+exports[`formatCheckTitle() should print a pending check title: pending-check-title 1`] = `"- /test/test-file.check.ts > Test Check (11s)"`;
