@@ -2,13 +2,13 @@ import { runChecklyCli } from '../run-checkly'
 import * as config from 'config'
 import '../command-matchers'
 
-describe('whomai', () => {
-  it('should give correct user', () => {
+describe('locations', () => {
+  it('should give locations list', () => {
     const result = runChecklyCli({
-      args: ['whoami'],
+      args: ['locations'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result).toHaveStdoutContaining(config.get('accountName'))
+    expect(result).toHaveStdoutContaining('us-east-1')
   })
 })
