@@ -52,6 +52,15 @@ describe('formatCheckResult()', () => {
       expect(stripAnsi(formatCheckResult(apiCheckResult)))
         .toMatchSnapshot('api-check-result-logs-format')
     })
+    it('formats an API Check result with a scheduleError', () => {
+      const basicApiCheckResult = { ...apiCheckResult }
+      basicApiCheckResult.checkRunData.assertions = []
+      basicApiCheckResult.logs.setup = []
+      basicApiCheckResult.logs.teardown = []
+      basicApiCheckResult.scheduleError = 'There was a scheduling error'
+      expect(stripAnsi(formatCheckResult(basicApiCheckResult)))
+        .toMatchSnapshot('api-check-result-schedule-error-format')
+    })
   })
   describe('Browser Check result', () => {
     it('formats a basic Browser Check result ', () => {
@@ -63,6 +72,12 @@ describe('formatCheckResult()', () => {
     it('formats a Browser Check result with logs', () => {
       expect(stripAnsi(formatCheckResult(browserCheckResult)))
         .toMatchSnapshot('browser-check-result-logs-format')
+    })
+    it('formats a Browser Check result with a scheduleError', () => {
+      const basicBrowserCheckResult = { ...browserCheckResult }
+      basicBrowserCheckResult.scheduleError = 'There was a scheduling error'
+      expect(stripAnsi(formatCheckResult(basicBrowserCheckResult)))
+        .toMatchSnapshot('browser-check-result-schedule-error-format')
     })
   })
 })
