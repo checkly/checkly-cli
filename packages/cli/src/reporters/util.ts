@@ -263,3 +263,7 @@ export function print (text: string) {
 export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
   process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }
+
+export function printDeprecationWarning (text: string): void {
+  console.log(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
+}

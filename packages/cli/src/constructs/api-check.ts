@@ -5,6 +5,7 @@ import { Session } from './project'
 import { QueryParam } from './query-param'
 import { Parser } from '../services/check-parser/parser'
 import { pathToPosix, isFileSync } from '../services/util'
+import { printDeprecationWarning } from '../reporters/util'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssertionSource {
@@ -169,6 +170,12 @@ class GeneralAssertionBuilder {
   }
 }
 
+function _printWarning (path: string | undefined): void {
+  printDeprecationWarning(`API check "${path}" is probably providing a setup ` +
+  'or tearDown script using "readFileSync()". Please update your API checks to reference any setup / tearDown ' +
+  'scripts using just the file path, for example with "path.join()". See the docs at https://checklyhq.com/docs/cli')
+}
+
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
 
 export type HttpRequestMethod =
@@ -252,8 +259,8 @@ export class ApiCheck extends Check {
   maxResponseTime?: number
   private readonly setupScriptDependencies?: Array<ScriptDependency>
   private readonly tearDownScriptDependencies?: Array<ScriptDependency>
-  private setupScriptPath?: string
-  private tearDownScriptPath?: string
+  private readonly setupScriptPath?: string
+  private readonly tearDownScriptPath?: string
 
   /**
    * Constructs the API Check instance
@@ -274,6 +281,7 @@ export class ApiCheck extends Check {
         this.setupScriptPath = scriptPath
         this.setupScriptDependencies = dependencies
       } else {
+        _printWarning(Session.checkFilePath)
         this.localSetupScript = props.localSetupScript
       }
     }
@@ -285,6 +293,7 @@ export class ApiCheck extends Check {
         this.tearDownScriptPath = scriptPath
         this.tearDownScriptDependencies = dependencies
       } else {
+        _printWarning(Session.checkFilePath)
         this.localTearDownScript = props.localTearDownScript
       }
     }
