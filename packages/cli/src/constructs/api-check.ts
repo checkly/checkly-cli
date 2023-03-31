@@ -1,7 +1,10 @@
+import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
+import { Parser } from '../services/check-parser/parser'
+import { pathToPosix, isFileSync } from '../services/util'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssertionSource {
@@ -205,6 +208,12 @@ export interface Request {
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
 }
+
+interface ScriptDependency {
+  path: string
+  content: string
+}
+
 export interface ApiCheckProps extends CheckProps {
   /**
    *  Determines the request that the check is going to run.
@@ -241,6 +250,11 @@ export class ApiCheck extends Check {
   localTearDownScript?: string
   degradedResponseTime?: number
   maxResponseTime?: number
+  private readonly setupScriptDependencies?: Array<ScriptDependency>
+  private readonly tearDownScriptDependencies?: Array<ScriptDependency>
+  private setupScriptPath?: string
+  private tearDownScriptPath?: string
+
   /**
    * Constructs the API Check instance
    *
@@ -252,13 +266,68 @@ export class ApiCheck extends Check {
 
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
+
+    if (props.localSetupScript) {
+      if (isFileSync(props.localSetupScript)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.localSetupScript, this.runtimeId!)
+        this.localSetupScript = script
+        this.setupScriptPath = scriptPath
+        this.setupScriptDependencies = dependencies
+      } else {
+        this.localSetupScript = props.localSetupScript
+      }
+    }
+
+    if (props.localTearDownScript) {
+      if (isFileSync(props.localTearDownScript)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.localTearDownScript, this.runtimeId!)
+        this.localTearDownScript = script
+        this.tearDownScriptPath = scriptPath
+        this.tearDownScriptDependencies = dependencies
+      } else {
+        this.localTearDownScript = props.localTearDownScript
+      }
+    }
+
     this.request = props.request
-    this.localSetupScript = props.localSetupScript
-    this.localTearDownScript = props.localTearDownScript
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
+
     Session.registerConstruct(this)
     this.addSubscriptions()
+  }
+
+  static bundle (entrypoint: string, runtimeId: string) {
+    let absoluteEntrypoint = null
+    if (path.isAbsolute(entrypoint)) {
+      absoluteEntrypoint = entrypoint
+    } else {
+      if (!Session.checkFileAbsolutePath) {
+        throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
+      }
+      absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
+    }
+
+    const runtime = Session.availableRuntimes[runtimeId]
+    if (!runtime) {
+      throw new Error(`${runtimeId} is not supported`)
+    }
+    const parser = new Parser(Object.keys(runtime.dependencies))
+    const parsed = parser.parse(absoluteEntrypoint)
+    // Maybe we can get the parsed deps with the content immediately
+
+    const deps: ScriptDependency[] = []
+    for (const { filePath, content } of parsed.dependencies) {
+      deps.push({
+        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        content,
+      })
+    }
+    return {
+      script: parsed.entrypoint.content,
+      scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
+      dependencies: deps,
+    }
   }
 
   synthesize () {
@@ -267,7 +336,11 @@ export class ApiCheck extends Check {
       checkType: 'API',
       request: this.request,
       localSetupScript: this.localSetupScript,
+      setupScriptPath: this.setupScriptPath,
+      setupScriptDependencies: this.setupScriptDependencies,
       localTearDownScript: this.localTearDownScript,
+      tearDownScriptPath: this.tearDownScriptPath,
+      tearDownScriptDependencies: this.tearDownScriptDependencies,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
