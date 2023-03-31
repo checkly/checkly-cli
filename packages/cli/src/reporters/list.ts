@@ -1,4 +1,6 @@
 import * as indentString from 'indent-string'
+import * as chalk from 'chalk'
+import { getDefaults } from '../rest/api'
 
 import AbstractListReporter from './abstract-list'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
@@ -9,7 +11,9 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary({ skipCheckCount: true })
   }
 
-  onBegin () {
+  onBegin (testSessionId?: string, testResultIds?: { [key: string]: string }) {
+    this._setTestSessionId(testSessionId)
+    this._setTestResultIds(testResultIds)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
     this._printSummary()
   }
@@ -17,18 +21,55 @@ export default class ListReporter extends AbstractListReporter {
   onEnd () {
     this._clearSummary()
     this._printSummary()
+    this._printTestSessionsUrl()
   }
 
   onCheckEnd (checkResult: any) {
     super.onCheckEnd(checkResult)
     this._clearSummary()
-    if (checkResult.hasFailures) {
-      // Print the failed check result above the status section
-      printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
-    }
-    if (this.verbose || checkResult.hasFailures) {
+
+    if (this.verbose) {
+      printLn(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
       printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
+    } else {
+      if (checkResult.hasFailures) {
+        printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
+        printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
+      }
     }
+    const { baseURL } = getDefaults()
+    const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
+
+    if (checkResult.hasFailures) {
+      if (checkResult.traceFilesUrls) {
+        // TODO: print all video files URLs
+        printLn(indentString(
+          'View trace : ' + chalk.bold.underline.blue(
+            `https://trace.playwright.dev/?trace=${encodeURIComponent(checkResult.traceFilesUrls[0])}`)
+          , 4,
+        ))
+      }
+      if (checkResult.videoFilesUrls) {
+        // TODO: print all trace files URLs
+        printLn(indentString(
+          'View video : ' + chalk.bold.underline.blue(
+            `${checkResult.videoFilesUrls[0]}`)
+          , 4,
+        ))
+      }
+      if (this.testResultIds) {
+        printLn(indentString(
+          'View result: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
+          , 4,
+        ), 2)
+      }
+    }
+
     this._printSummary()
+  }
+
+  onError (err: Error) {
+    this._clearSummary()
+    super.onError(err)
   }
 }

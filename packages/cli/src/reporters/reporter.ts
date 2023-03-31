@@ -8,9 +8,10 @@ import ListReporter from './list'
 
 export interface Reporter {
   onBeginStatic(): void;
-  onBegin(): void;
+  onBegin(testSessionId: string, testResultIds?: { [key: string]: string }): void;
   onEnd(): void;
   onCheckEnd(checkResult: any): void;
+  onError(err: Error): void,
 }
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github'

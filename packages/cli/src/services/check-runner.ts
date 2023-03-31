@@ -1,10 +1,10 @@
-import { checks as checksApi, assets } from '../rest/api'
+import { testSessions, assets } from '../rest/api'
 import { SocketClient } from './socket-client'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
 import { Check } from '../constructs/check'
-import { CheckGroup } from '../constructs'
+import { CheckGroup, Project } from '../constructs'
 import type { Region } from '..'
 
 // eslint-disable-next-line no-restricted-syntax
@@ -15,7 +15,8 @@ export enum Events {
   CHECK_SUCCESSFUL = 'CHECK_SUCCESSFUL',
   CHECK_FINISHED = 'CHECK_FINISHED',
   RUN_STARTED = 'RUN_STARTED',
-  RUN_FINISHED = 'RUN_FINISHED'
+  RUN_FINISHED = 'RUN_FINISHED',
+  ERROR = 'ERROR',
 }
 
 export type PrivateRunLocation = {
@@ -32,6 +33,7 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 type CheckRunId = string
 
 export default class CheckRunner extends EventEmitter {
+  project: Project
   checks: Map<CheckRunId, any>
   groups: Record<string, CheckGroup>
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
@@ -42,76 +44,90 @@ export default class CheckRunner extends EventEmitter {
   apiKey: string
   timeout: number
   verbose: boolean
+  shouldRecord: boolean
 
   constructor (
     accountId: string,
     apiKey: string,
+    project: Project,
     checks: Check[],
-    groups: Record<string, CheckGroup>,
     location: RunLocation,
     timeout: number,
     verbose: boolean,
+    shouldRecord: boolean,
   ) {
     super()
+    this.project = project
     this.checks = new Map(
       checks.map((check) => [uuid.v4(), check]),
     )
-    this.groups = groups
+    this.groups = project.data.groups
     this.timeouts = new Map()
     this.location = location
     this.accountId = accountId
     this.apiKey = apiKey
     this.timeout = timeout
     this.verbose = verbose
+    this.shouldRecord = shouldRecord
   }
 
   async run () {
-    this.emit(Events.RUN_STARTED)
-    const socketClient = await SocketClient.connect()
-
-    const checkRunSuiteId = uuid.v4()
-    // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
-    await this.configureResultListener(checkRunSuiteId, socketClient)
-    const allChecksFinished = this.allChecksFinished()
-
-    await this.scheduleAllChecks(checkRunSuiteId)
-
-    await allChecksFinished
-    await socketClient.end()
-    this.emit(Events.RUN_FINISHED)
-  }
-
-  private async scheduleAllChecks (checkRunSuiteId: string): Promise<void> {
-    const checkEntries = Array.from(this.checks.entries())
-    await Promise.all(checkEntries.map(
-      ([checkRunId, check]) => this.scheduleCheck(checkRunSuiteId, checkRunId, check),
-    ))
-  }
-
-  private async scheduleCheck (checkRunSuiteId: string, checkRunId: string, check: Check): Promise<void> {
-    const checkRun: any = {
-      ...check.synthesize(),
-      runLocation: this.location,
-      sourceInfo: { checkRunId, checkRunSuiteId },
-      // We keep passing the websocket client ID for the case of old Agent versions.
-      // If the old Agent doesn't receive a client ID, it won't publish socket updates.
-      websocketClientId: uuid.v4(),
-    }
-    if (checkRun.groupId) {
-      checkRun.group = this.groups[check.groupId!.ref].synthesize()
-      delete checkRun.groupId
-    }
+    let socketClient = null
     try {
-      await checksApi.run(checkRun)
-      this.timeouts.set(checkRunId, setTimeout(() => {
-        this.timeouts.delete(checkRunId)
-        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
-        this.emit(Events.CHECK_FINISHED, check)
-      }, this.timeout * 1000))
+      socketClient = await SocketClient.connect()
+
+      const checkRunSuiteId = uuid.v4()
+      // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
+      await this.configureResultListener(checkRunSuiteId, socketClient)
+      const allChecksFinished = this.allChecksFinished()
+
+      const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
+      this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
+
+      await allChecksFinished
+      this.emit(Events.RUN_FINISHED, testSessionId)
+    } catch (err) {
+      this.emit(Events.ERROR, err)
+    } finally {
+      if (socketClient) {
+        await socketClient.end()
+      }
+    }
+  }
+
+  private async scheduleAllChecks (checkRunSuiteId: string): Promise<{
+    testSessionId?: string,
+    testResultIds?: { [key: string]: string },
+  }> {
+    const checkRunJobs = Array.from(this.checks.entries()).map(([checkRunId, check]) => ({
+      ...check.synthesize(),
+      group: check.groupId ? this.groups[check.groupId.ref].synthesize() : undefined,
+      groupId: undefined,
+      sourceInfo: { checkRunSuiteId, checkRunId },
+      logicalId: check.logicalId,
+    }))
+    try {
+      if (!checkRunJobs.length) {
+        throw new Error('Unable to find checks to run.')
+      }
+      const { data } = await testSessions.run({
+        name: this.project.name,
+        checkRunJobs,
+        project: { logicalId: this.project.logicalId },
+        runLocation: this.location,
+        repoInfo: this.project.repoInfo,
+        shouldRecord: this.shouldRecord,
+      })
+      Array.from(this.checks.entries()).forEach(([checkRunId, check]) =>
+        this.timeouts.set(checkRunId, setTimeout(() => {
+          this.timeouts.delete(checkRunId)
+          this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+          this.emit(Events.CHECK_FINISHED, check)
+        }, this.timeout * 1000),
+        ))
+      return data
     } catch (err: any) {
-      this.emit(Events.CHECK_FAILED, check,
-        new Error(`Failed to run a check. ${err.response ? err.response.data?.message : err.message}`))
-      this.emit(Events.CHECK_FINISHED, check)
+      throw new Error(err.response?.data?.message ?? err.message)
     }
   }
 
@@ -131,13 +147,35 @@ export default class CheckRunner extends EventEmitter {
       } else if (subtopic === 'run-end') {
         this.disableTimeout(checkRunId)
         const { result } = message
-        const { region, logPath, checkRunDataPath } = result.assets
+        const {
+          region,
+          logPath,
+          checkRunDataPath,
+          playwrightTestTraceFiles,
+          playwrightTestVideoFiles,
+        } = result.assets
         if (logPath && (this.verbose || result.hasFailures)) {
           result.logs = await assets.getLogs(region, logPath)
         }
         if (checkRunDataPath && (this.verbose || result.hasFailures)) {
           result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
         }
+
+        try {
+          if (result.hasFailures) {
+            if (playwrightTestTraceFiles && playwrightTestTraceFiles.length) {
+              result.traceFilesUrls = await Promise
+                .all(playwrightTestTraceFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+            if (playwrightTestVideoFiles && playwrightTestVideoFiles.length) {
+              result.videoFilesUrls = await Promise
+                .all(playwrightTestVideoFiles.map((t: string) => assets.getAssetsLink(region, t)))
+            }
+          }
+        } catch {
+          // TODO: remove the try/catch after deploy endpoint to fetch assets link
+        }
+
         this.emit(Events.CHECK_SUCCESSFUL, check, result)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (subtopic === 'error') {

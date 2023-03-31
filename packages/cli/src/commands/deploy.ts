@@ -8,7 +8,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import { AlertChannelSubscription, CheckGroup, Project, ProjectData } from '../constructs'
-import chalk = require('chalk')
+import * as chalk from 'chalk'
 import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
 import { splitConfigFilePath } from '../services/util'

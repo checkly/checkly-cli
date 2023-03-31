@@ -1,5 +1,4 @@
-import chalk = require('chalk')
-
+import * as chalk from 'chalk'
 import AbstractListReporter from './abstract-list'
 import type { PublicRunLocation } from '../services/check-runner'
 import { print, printLn } from './util'

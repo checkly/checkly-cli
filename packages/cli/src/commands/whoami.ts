@@ -8,6 +8,6 @@ export default class Whoami extends AuthCommand {
   async run (): Promise<void> {
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: user } = await api.user.get()
-    this.log(`You are currently on account "${account.name}" as ${user.name}.`)
+    this.log(`You are currently on account "${account.name}" (${account.id}) as ${user.name}.`)
   }
 }
