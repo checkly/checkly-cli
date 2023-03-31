@@ -42,6 +42,51 @@ Body:
 "
 `;
 
+exports[`formatCheckResult() API Check result formats an API Check result with a scheduleError: api-check-result-schedule-error-format 1`] = `
+"──HTTP Request────────────────────────────────────────────────────────────────────
+POST https://httpbin.org/post
+Headers:
+  User-Agent: Checkly/1.0 (https://www.checklyhq.com)
+  accept-encoding: gzip, deflate
+  content-length: 10
+Body:
+  {"data":1}
+
+──HTTP Response───────────────────────────────────────────────────────────────────
+Status Code: 200 OK
+Headers:
+  date: Fri, 24 Mar 2023 10:45:42 GMT
+  content-type: application/json
+  content-length: 422
+  connection: close
+  server: gunicorn/19.9.0
+  access-control-allow-origin: *
+  access-control-allow-credentials: true
+Body:
+  {
+    "args": {}, 
+    "data": "{\\"data\\":1}", 
+    "files": {}, 
+    "form": {}, 
+    "headers": {
+      "Accept-Encoding": "gzip, deflate", 
+      "Content-Length": "10", 
+      "Host": "httpbin.org", 
+      "User-Agent": "Checkly/1.0 (https://www.checklyhq.com)", 
+      "X-Amzn-Trace-Id": "Root=1-641d7f55-0b99ca310b7322250bd32d00"
+    }, 
+    "json": {
+      "data": 1
+    }, 
+    "origin": "3.251.180.115", 
+    "url": "https://httpbin.org/post"
+  }
+
+
+──Scheduling Error────────────────────────────────────────────────────────────────
+There was a scheduling error"
+`;
+
 exports[`formatCheckResult() API Check result formats an API Check result with assertions: api-check-result-assertions-format 1`] = `
 "──HTTP Request────────────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
@@ -124,6 +169,25 @@ Body:
     "url": "https://httpbin.org/post"
   }
 "
+`;
+
+exports[`formatCheckResult() Browser Check result formats a Browser Check result with a scheduleError: browser-check-result-schedule-error-format 1`] = `
+"──Logs────────────────────────────────────────────────────────────────────────────
+10:53:15 DEBUG Starting job
+10:53:15 DEBUG Compiling environment variables
+10:53:15 DEBUG Creating runtime using version 2022.10
+10:53:15 DEBUG Running Playwright test script
+10:53:16 INFO  Running 1 test using 1 worker
+10:53:16 INFO  
+10:53:18 INFO  [1/1] [chromium] › ../../var/task/src/2022-10/node_modules/vm2/lib/bridge.js:479:11 › visit page and take screenshot
+10:53:22 INFO  
+10:53:22 INFO  
+10:53:22 INFO  1 passed (5s)
+10:53:22 DEBUG Run finished
+10:53:22 DEBUG Uploading log file
+
+──Scheduling Error────────────────────────────────────────────────────────────────
+There was a scheduling error"
 `;
 
 exports[`formatCheckResult() Browser Check result formats a Browser Check result with logs: browser-check-result-logs-format 1`] = `

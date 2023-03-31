@@ -157,5 +157,6 @@ export const browserCheckResult = {
       "msg": "Uploading log file",
       "level": "DEBUG"
     }
-  ]
+  ],
+  "scheduleError" : ''
 }

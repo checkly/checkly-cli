@@ -132,6 +132,7 @@ export const apiCheckResult = {
         "total": 1234.2094030000735
       }
     },
-    "requestError": null
-  }
+    "requestError": null,
+  },
+  "scheduleError" : ""
 }

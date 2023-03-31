@@ -100,6 +100,12 @@ export function formatCheckResult (checkResult: any) {
       formatRunError(checkResult.runError),
     ])
   }
+  if (checkResult.scheduleError) {
+    result.push([
+      formatSectionTitle('Scheduling Error'),
+      formatRunError(checkResult.scheduleError),
+    ])
+  }
   return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
