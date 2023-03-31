@@ -1,5 +1,5 @@
 import * as indentString from 'indent-string'
-import chalk = require('chalk')
+import * as chalk from 'chalk'
 import { getDefaults } from '../rest/api'
 
 import AbstractListReporter from './abstract-list'
