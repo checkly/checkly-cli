@@ -1,6 +1,5 @@
 import * as indentString from 'indent-string'
 import * as chalk from 'chalk'
-import { getDefaults } from '../rest/api'
 
 import AbstractListReporter from './abstract-list'
 import {formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl} from './util'
