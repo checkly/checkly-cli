@@ -13,6 +13,7 @@ export default class Runtimes extends BaseCommand {
         return {
           name: r.name,
           description: r.description,
+          stage: r.stage,
           nodeVersion: node,
           dependencies,
         }
