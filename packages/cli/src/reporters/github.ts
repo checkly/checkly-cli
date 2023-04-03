@@ -1,11 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import AbstractListReporter from './abstract-list'
-import { checkFilesMap } from './abstract-list'
+import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { formatDuration, printLn, getTestSessionUrl, getTraceUrl } from './util'
 
-const outputFile: string = './checkly-github-report.md'
+const outputFile = './checkly-github-report.md'
 
 type GithubMdBuilderOptions = {
   testSessionId?: string
@@ -29,7 +28,7 @@ export class GithubMdBuilder {
   readonly header: string = '# Checkly Test Session Summary'
   readonly tableSeparatorFiller: string = '|:-'
   readonly tableSeparator: string = '|'
-  constructor(options: GithubMdBuilderOptions) {
+  constructor (options: GithubMdBuilderOptions) {
     this.testSessionId = options.testSessionId
     this.testResultIds = options.testResultIds
     this.numChecks = options.numChecks
@@ -53,7 +52,6 @@ export class GithubMdBuilder {
       this.tableHeaders = this.tableHeaders.concat(this.extraTableHeadersWithLinks)
     }
 
-
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
       for (const [_, { check, result }] of checkMap.entries()) {
         const tableRow: Array<string> = [
@@ -61,11 +59,10 @@ export class GithubMdBuilder {
           `${result.name}`,
           `${result.checkType}`,
           `\`${result.sourceFile}\``,
-          `${formatDuration(result.responseTime)} `
+          `${formatDuration(result.responseTime)} `,
         ]
 
         if (this.testSessionId && this.testResultIds) {
-
           const assets: Array<string> = []
 
           if (result.hasFailures && result.traceFilesUrls) {
@@ -78,7 +75,7 @@ export class GithubMdBuilder {
 
           const assetsColumn: string = assets.join(' \\| ')
 
-          const linkColumn : string = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
+          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
           tableRow.push(assetsColumn, linkColumn)
         }
 
@@ -118,7 +115,7 @@ export default class GithubReporter extends AbstractListReporter {
       testResultIds: this.testResultIds,
       numChecks: this.numChecks,
       runLocation: this._runLocationString(),
-      checkFilesMap: this.checkFilesMap
+      checkFilesMap: this.checkFilesMap,
     })
 
     const markDown = githubMdBuilder.render()

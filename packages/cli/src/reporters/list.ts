@@ -2,7 +2,7 @@ import * as indentString from 'indent-string'
 import * as chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list'
-import {formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl} from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl } from './util'
 
 export default class ListReporter extends AbstractListReporter {
   onBeginStatic () {
