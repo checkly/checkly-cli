@@ -6,13 +6,15 @@ import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './uti
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
 
+// Map from file -> check logicalId -> check+result.
+// This lets us print a structured list of the checks.
+// Map remembers the original insertion order, so each time we print the summary will be consistent.
+export type checkFilesMap = Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
+
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
   runLocation: RunLocation
-  // Map from file -> check logicalId -> check+result.
-  // This lets us print a structured list of the checks.
-  // Map remembers the original insertion order, so each time we print the summary will be consistent.
-  checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
+  checkFilesMap: checkFilesMap
   numChecks: number
   verbose: boolean
   testSessionId?: string

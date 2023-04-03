@@ -273,3 +273,7 @@ export function getTestSessionUrl (testSessionId: string): string {
   const { baseURL } = getDefaults()
   return `${baseURL.replace(/api/, 'app')}/test-sessions/${testSessionId}`
 }
+
+export function getTraceUrl (traceUrl: string): string {
+  return `https://trace.playwright.dev/?trace=${encodeURIComponent(traceUrl)}`
+}
