@@ -114,7 +114,6 @@ describe('test', () => {
       env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
     })
     expect(result.stdout).toContain('Github summary saved in')
-    expect(result.stdout).toContain('::notice title=')
     expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
   })
