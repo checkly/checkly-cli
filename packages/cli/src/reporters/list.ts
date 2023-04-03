@@ -44,7 +44,7 @@ export default class ListReporter extends AbstractListReporter {
       if (checkResult.traceFilesUrls) {
         // TODO: print all video files URLs
         printLn(indentString(
-          'View trace : ' + chalk.bold.underline.blue(
+          'View trace : ' + chalk.underline.cyan(
             `https://trace.playwright.dev/?trace=${encodeURIComponent(checkResult.traceFilesUrls[0])}`)
           , 4,
         ))
@@ -52,14 +52,14 @@ export default class ListReporter extends AbstractListReporter {
       if (checkResult.videoFilesUrls) {
         // TODO: print all trace files URLs
         printLn(indentString(
-          'View video : ' + chalk.bold.underline.blue(
+          'View video : ' + chalk.underline.cyan(
             `${checkResult.videoFilesUrls[0]}`)
           , 4,
         ))
       }
       if (this.testResultIds) {
         printLn(indentString(
-          'View result: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
+          'View result: ' + chalk.underline.cyan(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
           , 4,
         ), 2)
       }
