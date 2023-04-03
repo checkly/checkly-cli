@@ -31,7 +31,7 @@ export async function walkDirectory (
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let exported = require(filepath)
+    let exported = await import(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -46,7 +46,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let { default: exported } = require(filepath)
+    let { default: exported } = await import(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
