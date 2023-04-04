@@ -7,7 +7,9 @@ new ApiCheck('check-group-api-check-1', {
   group: websiteGroup,
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
-  localSetupScript: path.join(__dirname, './utils/setup.ts'),
+  setupScript: {
+    entrypoint: path.join(__dirname, './utils/setup.ts'),
+  },
   request: {
     method: 'GET',
     url: 'https://api.checklyhq.com/public-stats',
