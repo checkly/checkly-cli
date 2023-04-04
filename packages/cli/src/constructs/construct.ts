@@ -20,3 +20,11 @@ export abstract class Construct {
 
   abstract synthesize(): any
 }
+
+export interface Entrypoint {
+  entrypoint: string
+}
+
+export interface Content {
+  content: string
+}

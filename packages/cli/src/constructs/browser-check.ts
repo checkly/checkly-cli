@@ -4,17 +4,10 @@ import { Session } from './project'
 import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
+import { Content, Entrypoint } from './construct'
 
 export interface CheckDependency {
   path: string
-  content: string
-}
-
-export interface Entrypoint {
-  entrypoint: string
-}
-
-export interface Content {
   content: string
 }
 

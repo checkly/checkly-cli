@@ -6,6 +6,7 @@ import { QueryParam } from './query-param'
 import { Parser } from '../services/check-parser/parser'
 import { pathToPosix, isFileSync } from '../services/util'
 import { printDeprecationWarning } from '../reporters/util'
+import { Content, Entrypoint } from './construct'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssertionSource {
@@ -172,8 +173,9 @@ class GeneralAssertionBuilder {
 
 function _printWarning (path: string | undefined): void {
   printDeprecationWarning(`API check "${path}" is probably providing a setup ` +
-  'or tearDown script using "readFileSync()". Please update your API checks to reference any setup / tearDown ' +
-  'scripts using just the file path, for example with "path.join()". See the docs at https://checklyhq.com/docs/cli')
+  'or tearDown script using the "localSetupScript" or "localTearDownScript" property. Please update your API checks to ' +
+  'reference any setup / tearDown using the "setupScript" and "tearDownScript" properties See the docs at ' +
+  'https://checklyhq.com/docs/cli/constructs-reference#apicheck')
 }
 
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
@@ -228,12 +230,22 @@ export interface ApiCheckProps extends CheckProps {
   request: Request
   /**
    * A valid piece of Node.js code to run in the setup phase.
+   * @deprecated use the "setupScript" property instead
    */
   localSetupScript?: string
   /**
+   * A valid piece of Node.js code to run in the setup phase.
+   */
+  setupScript?: Content|Entrypoint
+  /**
    * A valid piece of Node.js code to run in the teardown phase.
+   * @deprecated use the "tearDownScript" property instead
    */
   localTearDownScript?: string
+  /**
+   * A valid piece of Node.js code to run in the teardown phase.
+   */
+  tearDownScript?: Content|Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
    */
@@ -274,28 +286,38 @@ export class ApiCheck extends Check {
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
 
-    if (props.localSetupScript) {
-      if (isFileSync(props.localSetupScript)) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.localSetupScript, this.runtimeId!)
+    if (props.setupScript) {
+      if ('entrypoint' in props.setupScript && isFileSync(props.setupScript.entrypoint)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId!)
         this.localSetupScript = script
         this.setupScriptPath = scriptPath
         this.setupScriptDependencies = dependencies
+      } else if ('content' in props.setupScript) {
+        this.localSetupScript = props.setupScript.content
       } else {
-        _printWarning(Session.checkFilePath)
-        this.localSetupScript = props.localSetupScript
+        throw new Error('Unrecognized type for setupScript property')
+      }
+    }
+
+    if (props.localSetupScript) {
+      _printWarning(Session.checkFilePath)
+      this.localSetupScript = props.localSetupScript
+    }
+
+    if (props.tearDownScript) {
+      if ('entrypoint' in props.tearDownScript && isFileSync(props.tearDownScript.entrypoint)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId!)
+        this.localTearDownScript = script
+        this.tearDownScriptPath = scriptPath
+        this.tearDownScriptDependencies = dependencies
+      } else if ('content' in props.tearDownScript) {
+        this.localTearDownScript = props.tearDownScript.content
       }
     }
 
     if (props.localTearDownScript) {
-      if (isFileSync(props.localTearDownScript)) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.localTearDownScript, this.runtimeId!)
-        this.localTearDownScript = script
-        this.tearDownScriptPath = scriptPath
-        this.tearDownScriptDependencies = dependencies
-      } else {
-        _printWarning(Session.checkFilePath)
-        this.localTearDownScript = props.localTearDownScript
-      }
+      _printWarning(Session.checkFilePath)
+      this.localTearDownScript = props.localTearDownScript
     }
 
     this.request = props.request
