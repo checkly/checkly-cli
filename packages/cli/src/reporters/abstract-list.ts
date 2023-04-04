@@ -1,4 +1,4 @@
-import chalk = require('chalk')
+import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
