@@ -19,12 +19,19 @@ export class DependencyParseError extends Error {
       }
     }
     if (unsupportedNpmDependencies.length) {
-      message += '\n\nThe following NPM dependencies were used, but aren\'t supported in the runtimes.\n'
-      message += 'For more information, see https://www.checklyhq.com/docs/runtimes/.\n'
-      for (const { file, unsupportedDependencies } of unsupportedNpmDependencies) {
-        message += `\t${file} imports unsupported dependencies:\n`
-        for (const unsupportedDependency of unsupportedDependencies) {
-          message += `\t\t${unsupportedDependency}\n`
+      if (unsupportedNpmDependencies.some(d => d.unsupportedDependencies.some(ud => ud === '@checkly/cli/constructs'))) {
+        message += '\n\nIt looks like you\'re trying to use @checkly/cli/constructs in a browser check file. ' +
+          '@checkly/cli/constructs should only be used in check files: files ending in .check.ts and .check.js, ' +
+          'or the checkMatch pattern set in your configuration. For more information see on the difference between ' +
+          'test files and check files, see https://www.checklyhq.com/docs/cli/\n'
+      } else {
+        message += '\n\nThe following NPM dependencies were used, but aren\'t supported in the runtimes.\n'
+        message += 'For more information, see https://www.checklyhq.com/docs/runtimes/.\n'
+        for (const { file, unsupportedDependencies } of unsupportedNpmDependencies) {
+          message += `\t${file} imports unsupported dependencies:\n`
+          for (const unsupportedDependency of unsupportedDependencies) {
+            message += `\t\t${unsupportedDependency}\n`
+          }
         }
       }
     }

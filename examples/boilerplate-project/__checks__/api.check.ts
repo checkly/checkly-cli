@@ -1,4 +1,4 @@
-import { ApiCheck } from '@checkly/cli/dist/constructs'
+import { ApiCheck, AssertionBuilder } from '@checkly/cli/constructs'
 
 new ApiCheck('homepage-api-check-1', {
   name: 'Homepage - fetch stats',
@@ -9,10 +9,10 @@ new ApiCheck('homepage-api-check-1', {
     url: 'https://api.checklyhq.com/public-stats',
     method: 'GET',
     followRedirects: true,
-    skipSsl: false,
+    skipSSL: false,
     assertions: [
-      { source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '200', regex: '' },
-      { source: 'JSON_BODY', regex: '', property: '$.apiCheckResults', comparison: 'GREATER_THAN', target: '0' }
+      AssertionBuilder.statusCode().equals(200),
+      AssertionBuilder.jsonBody('$.apiCheckResults').greaterThan(0),
     ],
   }
 })

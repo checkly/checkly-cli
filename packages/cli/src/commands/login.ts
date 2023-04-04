@@ -3,17 +3,10 @@ import * as chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import { BaseCommand } from './baseCommand'
 import * as inquirer from 'inquirer'
-import jwtDecode from 'jwt-decode'
 import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
-import {
-  generateAuthenticationUrl,
-  getAccessToken,
-  generatePKCE,
-  startServer,
-  getApiKey,
-} from '../auth'
+import { AuthContext, type AuthMode } from '../auth'
 
 const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   if (accounts.length === 1) {
@@ -65,7 +58,7 @@ export default class Login extends BaseCommand {
         {
           name: 'setNewkey',
           type: 'confirm',
-          message: `Existing session with account "${config.data.get('accountName')}", do you want to continue?`,
+          message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
         },
       ])
       !setNewkey && this.exit(0)
@@ -73,7 +66,7 @@ export default class Login extends BaseCommand {
   }
 
   private _isLoginSuccess = async () => {
-    await api.isAuthenticated()
+    await api.validateAuthentication()
     this.log('Welcome to @checkly/cli 🦝')
   }
 
@@ -95,39 +88,29 @@ export default class Login extends BaseCommand {
       this.exit(0)
     }
 
-    const { codeChallenge, codeVerifier } = generatePKCE()
-    const authServerUrl = generateAuthenticationUrl(
-      codeChallenge,
-      'openid profile',
-      codeVerifier,
-    )
+    const mode = await this.#promptForLoginOrSignUp()
+
+    const authContext = new AuthContext(mode)
 
     const { openUrl } = await inquirer.prompt([
       {
         name: 'openUrl',
         type: 'confirm',
-        message: 'Do you allow to open the browser to continue with login?',
+        message: `Do you allow to open the browser to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
       },
     ])
 
     if (!openUrl) {
       this.log(
         `Please open the following URL in your browser: \n\n${chalk.blueBright(
-          authServerUrl,
+          authContext.authenticationUrl,
         )}`,
       )
     } else {
-      await open(authServerUrl)
+      await open(authContext.authenticationUrl)
     }
 
-    const code = await startServer(codeVerifier)
-
-    const { access_token: accessToken, id_token: idToken } = await getAccessToken(code, codeVerifier)
-    const { name } = jwtDecode<any>(idToken)
-    const { key } = await getApiKey({
-      accessToken,
-      baseHost: api.getDefaults().baseURL,
-    })
+    const { key, name } = await authContext.getAuth0Credentials()
 
     config.auth.set('apiKey', key)
 
@@ -142,5 +125,24 @@ export default class Login extends BaseCommand {
 
     await this._isLoginSuccess()
     process.exit(0)
+  }
+
+  async #promptForLoginOrSignUp () {
+    const { mode } = await inquirer.prompt<Record<string, AuthMode>>([
+      {
+        name: 'mode',
+        type: 'list',
+        message: 'Do you want to log in or sign up to Checkly?',
+        choices: [{
+          name: 'I want to log in with an existing Checkly account',
+          value: 'login',
+        }, {
+          name: 'I want to sign up for a new Checkly account',
+          value: 'signup',
+        }],
+      },
+    ])
+
+    return mode
   }
 }

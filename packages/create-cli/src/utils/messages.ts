@@ -28,7 +28,7 @@ export async function header (version: string, greeting: string): Promise<void> 
       'Build and Run Synthetics That Scale')}\n`,
   )
   await sleep(1000)
-  console.log(`${greeting} Let's get you started on your ${chalk.green.bold('Monitoring-as-Code')} journey!\n`)
+  console.log(`${greeting} Let's get you started on your ${chalk.green.bold('monitoring as code')} journey!\n`)
   await sleep(500)
 }
 
@@ -69,5 +69,7 @@ export async function footer (targetDir: string): Promise<void> {
     `${prefix}> Run ${chalk.cyan('npx checkly deploy')} to deploy your checks to the Checkly cloud`,
   )
   await sleep(200)
-  console.log(`\n${prefix}Questions? Don't be a stranger, join the community at ${chalk.cyan('https://checklyhq.com/slack')}\n`)
+  console.log(`\n${prefix}Questions?\n`)
+  console.log(`${prefix}- Check the docs at ${chalk.cyan('https://checklyhq.com/docs/cli')}`)
+  console.log(`${prefix}- Join the Checkly Slack community at ${chalk.cyan('https://checklyhq.com/slack')}\n`)
 }

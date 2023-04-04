@@ -1,7 +1,7 @@
 import { BrowserCheck, Project, Session } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
-import { loadJsFile, loadTsFile } from './util'
+import { GitInformation, loadJsFile, loadTsFile, pathToPosix } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
@@ -14,7 +14,8 @@ type ProjectParseOpts = {
   directory: string,
   projectLogicalId: string,
   projectName: string,
-  repoUrl: string,
+  repoUrl?: string,
+  repoInfo?: GitInformation,
   checkMatch?: string,
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
@@ -36,6 +37,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     projectLogicalId,
     projectName,
     repoUrl,
+    repoInfo,
     ignoreDirectoriesMatch = [],
     checkDefaults = {},
     browserCheckDefaults = {},
@@ -45,9 +47,10 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
+    repoInfo,
   })
   checklyConfigConstructs?.forEach(
-    (construct) => project.addResource(construct.type, construct.logicalId, construct.synthesize()),
+    (construct) => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
   Session.basePath = directory
@@ -72,14 +75,14 @@ async function loadAllCheckFiles (
   for (const checkFile of checkFiles) {
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFileAbsolutePath = checkFile
-    Session.checkFilePath = path.relative(directory, checkFile)
+    Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
       await loadTsFile(checkFile)
     } else {
       throw new Error('Unable to load check configuration file with unsupported extension. ' +
-        `Please use a .js or .ts file instead.\n${checkFile}`)
+      `Please use a .js or .ts file instead.\n${checkFile}`)
     }
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined
@@ -97,19 +100,19 @@ async function loadAllBrowserChecks (
   }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.checks).forEach(({ scriptPath }) => {
-    if (scriptPath) {
-      preexistingCheckFiles.add(scriptPath)
+  Object.values(project.data.checks).forEach((check) => {
+    if (check instanceof BrowserCheck && check.scriptPath) {
+      preexistingCheckFiles.add(check.scriptPath)
     }
   })
 
   for (const checkFile of checkFiles) {
-    const relPath = path.relative(directory, checkFile)
+    const relPath = pathToPosix(path.relative(directory, checkFile))
     // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
     if (preexistingCheckFiles.has(relPath)) {
       continue
     }
-    const browserCheck = new BrowserCheck(relPath, {
+    const browserCheck = new BrowserCheck(pathToPosix(relPath), {
       name: path.basename(checkFile),
       code: {
         entrypoint: checkFile,

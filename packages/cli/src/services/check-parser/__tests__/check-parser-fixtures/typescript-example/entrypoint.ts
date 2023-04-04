@@ -5,6 +5,8 @@ import * as axios from 'axios'
 import type { UniqueType } from './type'
 import * as moduleImport from './module'
 import * as modulePackage from './module-package'
+import { ExternalFirstPage } from './pages/external.first.page.js'
+import { ExternalSecondPage } from './pages/external.second.page'
 
 export function doMath (num: number): number {
   return add(num, subtract(10, 7))

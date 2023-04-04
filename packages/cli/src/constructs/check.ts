@@ -5,6 +5,8 @@ import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import type { Region } from '..'
+import { CheckGroup } from './check-group'
 
 export interface CheckProps {
   /**
@@ -16,7 +18,7 @@ export interface CheckProps {
    */
   activated?: boolean
   /**
-   * Determines if any notifications will be send out when a check fails and/or recovers.
+   * Determines if any notifications will be sent out when a check fails and/or recovers.
    */
   muted?: boolean
   /**
@@ -26,6 +28,7 @@ export interface CheckProps {
   doubleCheck?: boolean
   /**
    * Allows to invert the behaviour of when a check is considered to fail. Allows for validating error status like 404.
+   * This only applies to API Checks.
    */
   shouldFail?: boolean
   /**
@@ -33,9 +36,13 @@ export interface CheckProps {
    */
   runtimeId?: string
   /**
-   * An array of one or more data center locations where to run this check.
+   * An array of one or more data center locations where to run this check. The supported regions are:
+   * us-east-1, us-east-2, us-west-1, us-west-2, ca-central-1, sa-east-1,
+   * eu-west-1, eu-central-1, eu-west-2, eu-west-3, eu-north-1, eu-south-1, me-south-1,
+   * ap-southeast-1, ap-northeast-1, ap-east-1, ap-southeast-2, ap-southeast-3, ap-northeast-2, ap-northeast-3,
+   * ap-south-1, af-south-1
    */
-  locations?: Array<string>
+  locations?: Array<keyof Region>
   /**
    * An array of one or more private locations where to run the check.
    */
@@ -50,13 +57,22 @@ export interface CheckProps {
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
   /**
-   * The id of the check group this check is part of.
+   * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
+   * @deprecated Use {@link CheckProps.group} instead.
    */
   groupId?: Ref
   /**
-   * List of alert channel subscriptions.
+   * The CheckGroup that this check is part of.
+   */
+  group?: CheckGroup
+  /**
+   * List of alert channels to notify when the check fails or recovers.
    */
   alertChannels?: Array<AlertChannel>
+  /**
+   * Determines if the check is available only when 'test' runs (not included when 'deploy' is executed).
+   */
+  testOnly?: boolean
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -67,13 +83,14 @@ export abstract class Check extends Construct {
   doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
-  locations?: Array<string>
+  locations?: Array<keyof Region>
   privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
+  testOnly?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'checks'
@@ -96,9 +113,11 @@ export abstract class Check extends Construct {
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannels = props.alertChannels ?? []
-    this.groupId = props.groupId
+    // Prefer the `group` parameter, but support groupId for backwards compatibility.
+    this.groupId = props.group?.ref() ?? props.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
+    this.testOnly = props.testOnly ?? false
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -126,6 +145,10 @@ export abstract class Check extends Construct {
     }
   }
 
+  getSourceFile () {
+    return this.__checkFilePath
+  }
+
   synthesize () {
     return {
       name: this.name,
@@ -140,8 +163,6 @@ export abstract class Check extends Construct {
       frequency: this.frequency,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
-      __checkFilePath: this.__checkFilePath,
-      sourceFile: this.__checkFilePath,
     }
   }
 }

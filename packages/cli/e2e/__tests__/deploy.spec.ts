@@ -27,7 +27,7 @@ async function cleanupProjects (projectLogicalId?: string) {
     const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') &&
       DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 10 }))
     if (matchesLogicalId || leftoverE2eProject) {
-      await projectsApi.deleteProject(project.id)
+      await projectsApi.deleteProject(project.logicalId)
     }
   }
 }
@@ -45,9 +45,44 @@ describe('deploy', () => {
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/deploy-project'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
+    expect(result.status).toBe(0)
     expect(result.stderr).toBe('')
+  })
+
+  it('Shouldn\'t include a testOnly check', () => {
+    const result = runChecklyCli({
+      args: ['deploy', '--preview'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-only-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.stdout).toContain('not-testonly-default-check')
+    expect(result.stdout).toContain('not-testonly-false-check')
+    expect(result.stdout).not.toContain('testonly-true-check')
+    expect(result.status).toBe(0)
+  })
+
+  it('Should deploy with different config file', () => {
+    const resultOne = runChecklyCli({
+      args: ['deploy', '--preview'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    const resultTwo = runChecklyCli({
+      args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(resultOne.status).toBe(0)
+    expect(resultTwo.status).toBe(0)
+    expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
   })
 })

@@ -1,8 +1,7 @@
 name: "New Story"
 description: Create a new working ticket (maintainers only)
 title: 'story: '
-labels:
-  - 'type: epic'
+labels: []
 body:
   - type: markdown
     attributes:
@@ -15,7 +14,6 @@ body:
         Do not forget:
         - [ ] Assign an issue owner
         - [ ] Tag with proper labels (type & priority)
-        - [ ] Set a project and milestone
   - type: textarea
     id: description
     attributes:

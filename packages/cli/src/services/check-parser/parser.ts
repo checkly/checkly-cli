@@ -16,45 +16,33 @@ type Module = {
   npmDependencies: Array<string>
 }
 
-enum FileExtensions {
-  JS = '.js',
-  TS = '.ts',
-  PACKAGE = '/package.json',
-  INDEX_JS = '/index.js',
-  INDEX_TS = '/index.ts'
-}
+type SupportedFileExtension = '.js' | '.ts'
+
+const PACKAGE_EXTENSION = `${path.sep}package.json`
 
 const JS_RESOLVE_ORDER = [
-  FileExtensions.JS,
-  FileExtensions.PACKAGE,
-  FileExtensions.INDEX_JS,
-]
-const TS_RESOLVE_ORDER = [
-  FileExtensions.TS,
-  FileExtensions.JS,
-  FileExtensions.PACKAGE,
-  FileExtensions.INDEX_TS,
-  FileExtensions.INDEX_JS,
+  '.js',
+  PACKAGE_EXTENSION,
+  `${path.sep}index.js`,
 ]
 
-type SupportedExtensions = FileExtensions.JS | FileExtensions.TS
+const TS_RESOLVE_ORDER = [
+  '.ts',
+  '.js',
+  PACKAGE_EXTENSION,
+  `${path.sep}index.ts`,
+  `${path.sep}index.js`,
+]
 
 const supportedBuiltinModules = [
   'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline ', 'stream', 'string_decoder',
   'timers', 'tls', 'url', 'util', 'zlib',
 ]
 
-function validateEntrypoint (entrypoint: string): {extension: SupportedExtensions, content: string} {
-  let extension: SupportedExtensions
-  switch (path.extname(entrypoint)) {
-    case FileExtensions.JS:
-      extension = FileExtensions.JS
-      break
-    case FileExtensions.TS:
-      extension = FileExtensions.TS
-      break
-    default:
-      throw new Error(`Unsupported file extension for ${entrypoint}`)
+function validateEntrypoint (entrypoint: string): {extension: SupportedFileExtension, content: string} {
+  const extension = path.extname(entrypoint)
+  if (extension !== '.js' && extension !== '.ts') {
+    throw new Error(`Unsupported file extension for ${entrypoint}`)
   }
   try {
     const content = fs.readFileSync(entrypoint, { encoding: 'utf-8' })
@@ -117,7 +105,7 @@ export class Parser {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const item = bfsQueue.shift()!
 
-      if (item.filePath.endsWith(FileExtensions.PACKAGE)) {
+      if (item.filePath.endsWith(PACKAGE_EXTENSION)) {
         // Holds info about the main file and doesn't need to be parsed
         continue
       }
@@ -154,28 +142,23 @@ export class Parser {
     return collector.getItems()
   }
 
-  static readDependency (filePath: string, preferedExtenstion: SupportedExtensions) {
+  static readDependency (filePath: string, preferedExtenstion: SupportedFileExtension) {
     // Read the specific file if it has an extension
-    if (path.extname(filePath).length) {
-      const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
-      return [{ filePath, content }]
+    if (preferedExtenstion === '.js') {
+      return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
     } else {
-      if (preferedExtenstion === FileExtensions.JS) {
-        return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
-      } else {
-        return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
-      }
+      return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
     }
   }
 
-  static tryReadFileExt (filePath: string, exts: Array<FileExtensions>) {
-    for (const extension of exts) {
+  static tryReadFileExt (filePath: string, exts: typeof JS_RESOLVE_ORDER | typeof TS_RESOLVE_ORDER) {
+    for (const extension of ['', ...exts]) {
       try {
         const deps = []
         const fullPath = filePath + extension
         const content = fs.readFileSync(fullPath, { encoding: 'utf-8' })
         deps.push({ filePath: fullPath, content })
-        if (extension === FileExtensions.PACKAGE) {
+        if (extension === PACKAGE_EXTENSION) {
           const { main } = JSON.parse(content)
           if (!main || !main.length) {
             // No main is defined. This means package.json doesn't have a specific entry
@@ -199,14 +182,14 @@ export class Parser {
 
     const extension = path.extname(filePath)
     try {
-      if (extension === FileExtensions.JS) {
+      if (extension === '.js') {
         const ast = acorn.parse(contents, {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
           allowImportExportEverywhere: true,
         })
         walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
-      } else if (extension === FileExtensions.TS) {
+      } else if (extension === '.ts') {
         const tsParser = getTsParser()
         const ast = tsParser.parse(contents, {})
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.

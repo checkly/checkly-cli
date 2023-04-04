@@ -1,6 +1,14 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import { Service } from 'ts-node'
+import * as gitRepoInfo from 'git-repo-info'
+
+export interface GitInformation {
+  commitId: string
+  branchName?: string | null
+  commitOwner?: string | null
+  commitMessage?: string | null
+}
 
 // TODO: Remove this in favor of glob? It's unused.
 export async function walkDirectory (
@@ -21,24 +29,32 @@ export async function walkDirectory (
 }
 
 export async function loadJsFile (filepath: string): Promise<any> {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let exported = require(filepath)
-  if (exported instanceof Function) {
-    exported = await exported()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    let exported = require(filepath)
+    if (exported instanceof Function) {
+      exported = await exported()
+    }
+    return exported
+  } catch (err: any) {
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
-  return exported
 }
 
 export async function loadTsFile (filepath: string): Promise<any> {
-  const tsCompiler = await getTsCompiler()
-  tsCompiler.enabled(true)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let { default: exported } = require(filepath)
-  if (exported instanceof Function) {
-    exported = await exported()
+  try {
+    const tsCompiler = await getTsCompiler()
+    tsCompiler.enabled(true)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    let { default: exported } = require(filepath)
+    if (exported instanceof Function) {
+      exported = await exported()
+    }
+    tsCompiler.enabled(false) // Re-disable the TS compiler
+    return exported
+  } catch (err: any) {
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
-  tsCompiler.enabled(false) // Re-disable the TS compiler
-  return exported
 }
 
 // To avoid a dependency on typescript for users with no TS checks, we need to dynamically import ts-node
@@ -59,4 +75,40 @@ async function getTsCompiler (): Promise<Service> {
     throw err
   }
   return tsCompiler
+}
+
+export function pathToPosix (relPath: string): string {
+  // Windows uses \ rather than / as a path separator.
+  // It's important that logical ID's are consistent across platforms, though.
+  // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
+  return path.normalize(relPath).split(path.sep).join(path.posix.sep).replace(/^C:/, '')
+}
+
+export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {
+  if (configFile) {
+    const cwd = path.resolve(path.dirname(configFile))
+    return {
+      configDirectory: cwd,
+      configFilenames: [path.basename(configFile)],
+    }
+  }
+  return {
+    configDirectory: process.cwd(),
+    configFilenames: undefined,
+  }
+}
+
+export function getGitInformation (): GitInformation|null {
+  const repositoryInfo = gitRepoInfo()
+
+  if (!repositoryInfo.sha) {
+    return null
+  }
+
+  return {
+    commitId: repositoryInfo.sha,
+    branchName: repositoryInfo.branch,
+    commitOwner: repositoryInfo.committer,
+    commitMessage: repositoryInfo.commitMessage,
+  }
 }

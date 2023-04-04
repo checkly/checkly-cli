@@ -3,11 +3,11 @@ import config from '../services/config'
 import Accounts from './accounts'
 import Users from './users'
 import Projects from './projects'
-import Checks from './checks'
 import Assets from './assets'
 import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
 import Locations from './locations'
+import TestSessions from './test-sessions'
 
 export function getDefaults () {
   const environments = {
@@ -37,7 +37,7 @@ export function getDefaults () {
   return { baseURL, accountId, Authorization, apiKey }
 }
 
-export async function isAuthenticated (): Promise<boolean> {
+export async function validateAuthentication (): Promise<void> {
   if (!config.hasValidCredentials()) {
     throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` ' +
       '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
@@ -49,15 +49,17 @@ export async function isAuthenticated (): Promise<boolean> {
   try {
     // check if credentials works
     await accounts.get(accountId)
-    return true
   } catch (err: any) {
-    const { status } = err.response
-    if (status === 401) {
+    if (err.response?.status === 401) {
       throw new Error(`Authentication failed with Account ID "${accountId}" ` +
         `and API key "...${apiKey?.slice(-4)}"`)
+    } else if (!err.response) {
+      // The request was made but no response was received. This may be due to an internet connection issue.
+      throw new Error(`Encountered an error connecting to Checkly. Please check that the internet conenction is working.\nCause: ${err.message}`)
+    } else {
+      throw new Error(`Encountered an unexpected error connecting to Checkly: ${err.message}`)
     }
   }
-  return false
 }
 
 function init (): AxiosInstance {
@@ -83,8 +85,8 @@ export const api = init()
 export const accounts = new Accounts(api)
 export const user = new Users(api)
 export const projects = new Projects(api)
-export const checks = new Checks(api)
 export const assets = new Assets(api)
 export const runtimes = new Runtimes(api)
 export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
+export const testSessions = new TestSessions(api)

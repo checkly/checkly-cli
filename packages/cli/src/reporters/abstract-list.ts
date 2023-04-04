@@ -1,9 +1,11 @@
-import chalk = require('chalk')
+import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus } from './util'
+import { formatCheckTitle, CheckStatus, printLn } from './util'
 import type { RunLocation } from '../services/check-runner'
+import { Check } from '../constructs/check'
+import { getDefaults } from '../rest/api'
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
@@ -11,21 +13,27 @@ export default abstract class AbstractListReporter implements Reporter {
   // Map from file -> check logicalId -> check+result.
   // This lets us print a structured list of the checks.
   // Map remembers the original insertion order, so each time we print the summary will be consistent.
-  checkFilesMap: Map<string, Map<string, { check?: any, result?: any, titleString: string }>>
+  checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
   numChecks: number
   verbose: boolean
+  testSessionId?: string
+  testResultIds?: { [key: string]: string }
 
-  constructor (runLocation: RunLocation, checks: Array<any>, verbose: boolean) {
+  constructor (
+    runLocation: RunLocation,
+    checks: Array<Check>,
+    verbose: boolean,
+  ) {
     this.numChecks = checks.length
     this.runLocation = runLocation
     this.verbose = verbose
 
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
-    const sortedCheckFiles = [...new Set(checks.map(({ sourceFile }) => sourceFile))].sort()
+    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()!))].sort()
     const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
     this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
     sortedChecks.forEach(check => {
-      const fileMap = this.checkFilesMap.get(check.sourceFile)!
+      const fileMap = this.checkFilesMap.get(check.getSourceFile()!)!
       fileMap.set(check.logicalId, {
         check,
         titleString: formatCheckTitle(CheckStatus.PENDING, check),
@@ -33,7 +41,9 @@ export default abstract class AbstractListReporter implements Reporter {
     })
   }
 
-  abstract onBegin(): void
+  abstract onBeginStatic(): void
+
+  abstract onBegin(testSessionId: string, testResultIds?: { [key: string]: string }): void
 
   abstract onEnd(): void
 
@@ -46,11 +56,23 @@ export default abstract class AbstractListReporter implements Reporter {
     })
   }
 
+  onError (err: Error) {
+    printLn(chalk.red('Unable to run checks: ') + err.message)
+  }
+
+  _setTestSessionId (testSessionId?: string) {
+    this.testSessionId = testSessionId
+  }
+
+  _setTestResultIds (testResultIds?: { [key: string]: string }) {
+    this.testResultIds = testResultIds
+  }
+
   // Clear the summary which was printed by _printStatus from stdout
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
-    console.log(this._clearString)
+    printLn(this._clearString)
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
@@ -80,9 +102,45 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     status.push('')
     const statusString = status.join('\n')
-    console.log(statusString)
+    printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _printBriefSummary () {
+    const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
+    const status = []
+    for (const [, checkMap] of this.checkFilesMap.entries()) {
+      for (const [_, { result }] of checkMap.entries()) {
+        if (!result) {
+          counts.numPending++
+        } else if (result.hasFailures) {
+          counts.numFailed++
+        } else {
+          counts.numPassed++
+        }
+      }
+    }
+    status.push('')
+    status.push([
+      counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+      counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+      counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
+      `${this.numChecks} total`,
+    ].filter(Boolean).join(', '))
+    status.push('')
+    const statusString = status.join('\n')
+    printLn(statusString)
+    // Ansi escape code for erasing the line and moving the cursor up
+    this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  _printTestSessionsUrl () {
+    if (this.testSessionId) {
+      const { baseURL } = getDefaults()
+      const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
+      printLn(`${chalk.bold.white('Detailed session summary at:')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
+    }
   }
 
   _runLocationString (): string {

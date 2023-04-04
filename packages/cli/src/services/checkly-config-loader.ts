@@ -4,10 +4,11 @@ import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
+import type { Region } from '..'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels'>
+  | 'alertChannels' | 'privateLocations'>
 
 export type ChecklyConfig = {
   /**
@@ -15,19 +16,19 @@ export type ChecklyConfig = {
    */
   projectName: string,
   /**
-   * Unique project indentifier.
+   * Unique project identifier.
    */
   logicalId: string,
   /**
    * Git repository URL.
    */
-  repoUrl: string,
+  repoUrl?: string,
   /**
    * Checks default configuration properties.
    */
   checks?: CheckConfigDefaults & {
     /**
-     * Glob pattern to where Checkly looks for checks.
+     * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
     checkMatch?: string,
     /**
@@ -39,7 +40,7 @@ export type ChecklyConfig = {
      */
     browserChecks?: CheckConfigDefaults & {
       /**
-       * Glob pattern to include multiple files, i.e. all `.spec.js` files
+       * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
       testMatch?: string,
     },
@@ -48,22 +49,58 @@ export type ChecklyConfig = {
    * CLI default configuration properties.
    */
   cli?: {
-    runLocation?: string,
+    runLocation?: keyof Region,
     privateRunLocation?: string,
+    verbose?: boolean
   }
 }
 
-export async function loadChecklyConfig (dir: string): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+// eslint-disable-next-line no-restricted-syntax
+enum Extension {
+  JS = '.js',
+  TS = '.ts',
+}
+
+function loadFile (file: string) {
+  if (!existsSync(file)) {
+    return Promise.resolve(null)
+  }
+  switch (path.extname(file)) {
+    case Extension.JS:
+      return loadJsFile(file)
+    case Extension.TS:
+      return loadTsFile(file)
+    default:
+      throw new Error(`Unsupported file extension ${file} for the config file`)
+  }
+}
+
+function isString (obj: any) {
+  return (Object.prototype.toString.call(obj) === '[object String]')
+}
+
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
-  if (existsSync(path.join(dir, 'checkly.config.js'))) {
-    config = await loadJsFile(path.join(dir, 'checkly.config.js'))
-  } else if (existsSync(path.join(dir, 'checkly.config.ts'))) {
-    config = await loadTsFile(path.join(dir, 'checkly.config.ts'))
-  } else {
-    throw new Error('Unable to find checkly.config.js or checkly.config.ts in the current directory.')
+  for (const filename of filenames) {
+    config = await loadFile(path.join(dir, filename))
+    if (config) {
+      break
+    }
   }
+
+  if (!config) {
+    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+  }
+
+  for (const field of ['logicalId', 'projectName']) {
+    const requiredField = config?.[field]
+    if (!requiredField || !(isString(requiredField))) {
+      throw new Error(`Config object missing a ${field} as type string`)
+    }
+  }
+
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
   Session.checklyConfigFileConstructs = []

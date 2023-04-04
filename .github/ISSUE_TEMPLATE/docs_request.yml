@@ -1,8 +1,7 @@
 name: 'New docs request/improvement'
 description: A request to update or improve provider documentation
 title: 'docs: '
-labels:
-  - 'type: documentation'
+labels: ['documentation']
 body:
   - type: textarea
     attributes:

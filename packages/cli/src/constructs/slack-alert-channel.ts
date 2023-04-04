@@ -21,6 +21,8 @@ export class SlackAlertChannel extends AlertChannel {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props Slack alert channel configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#slackalertchannel Read more in the docs}
    */
   constructor (logicalId: string, props: SlackAlertChannelProps) {
     super(logicalId, props)

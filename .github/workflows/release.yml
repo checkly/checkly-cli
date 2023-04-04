@@ -25,7 +25,7 @@ jobs:
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: proj-local-workflow
+          SLACK_CHANNEL: cli
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':red_circle: NPM release failed'
@@ -38,7 +38,7 @@ jobs:
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: proj-local-workflow
+          SLACK_CHANNEL: cli
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
           SLACK_TITLE: ':white_check_mark: NPM release succeeded'

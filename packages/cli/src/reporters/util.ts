@@ -5,6 +5,7 @@ import * as logSymbols from 'log-symbols'
 
 import { Assertion } from '../constructs/api-check'
 
+// eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
   PENDING,
   FAILED,
@@ -49,17 +50,42 @@ export function formatCheckResult (checkResult: any) {
   const result = []
   if (checkResult.checkType === 'API') {
     // Order should follow the check lifecycle (response, then assertions)
-    if (checkResult.checkRunData?.response) {
+    if (checkResult.checkRunData?.requestError) {
       result.push([
-        formatSectionTitle('HTTP Response'),
-        formatHttpResponse(checkResult.checkRunData.response),
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
       ])
-    }
-    if (checkResult.checkRunData?.assertions?.length) {
-      result.push([
-        formatSectionTitle('Assertions'),
-        formatAssertions(checkResult.checkRunData.assertions),
-      ])
+    } else {
+      if (checkResult.checkRunData?.request) {
+        result.push([
+          formatSectionTitle('HTTP Request'),
+          formatHttpRequest(checkResult.checkRunData.request),
+        ])
+      }
+      if (checkResult.checkRunData?.response) {
+        result.push([
+          formatSectionTitle('HTTP Response'),
+          formatHttpResponse(checkResult.checkRunData.response),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
+      if (checkResult.logs?.setup.length) {
+        result.push([
+          formatSectionTitle('Setup Script Logs'),
+          formatLogs(checkResult.logs.setup),
+        ])
+      }
+      if (checkResult.logs?.teardown.length) {
+        result.push([
+          formatSectionTitle('Teardown Script Logs'),
+          formatLogs(checkResult.logs.teardown),
+        ])
+      }
     }
   }
   if (checkResult.logs?.length) {
@@ -72,6 +98,12 @@ export function formatCheckResult (checkResult: any) {
     result.push([
       formatSectionTitle('Execution Error'),
       formatRunError(checkResult.runError),
+    ])
+  }
+  if (checkResult.scheduleError) {
+    result.push([
+      formatSectionTitle('Scheduling Error'),
+      formatRunError(checkResult.scheduleError),
     ])
   }
   return result.map(([title, body]) => title + '\n' + body).join('\n\n')
@@ -134,6 +166,22 @@ function formatAssertions (assertions: Array<Assertion&{ error: string, actual: 
   }).join('\n')
 }
 
+function formatHttpRequest (request: any) {
+  const { truncated, result: stringBody } = truncate(request.data, {
+    chars: 20 * 100,
+    lines: 20,
+    ending: chalk.magenta('\n...truncated...'),
+  })
+  const headersString = Object.entries(request.headers ?? []).map(([key, val]) => `${key}: ${val}`).join('\n')
+  return [
+    `${request.method} ${request.url}`,
+    'Headers:',
+    indentString(headersString, 2),
+    request.data ? 'Body:' : undefined,
+    indentString(stringBody, 2),
+  ].filter(Boolean).join('\n')
+}
+
 function formatHttpResponse (response: any) {
   // TODO: Provide a user for a way to see the full response. For example, write it to a file.
   const { truncated, result: stringBody } = truncate(response.body, {
@@ -153,7 +201,7 @@ function formatHttpResponse (response: any) {
 
 function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) {
   return logs.flatMap(({ level, msg, time }) => {
-    const timestamp = DateTime.fromMillis(time).toLocaleString(DateTime.TIME_WITH_SECONDS)
+    const timestamp = DateTime.fromMillis(time).toLocaleString(DateTime.TIME_24_WITH_SECONDS)
     let format = chalk.dim
     if (level === 'WARN') {
       format = chalk.dim.yellow
@@ -162,7 +210,7 @@ function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) 
     }
     const [firstLine, ...remainingLines] = msg.split('\n')
     return [
-      `${level}, ${timestamp}, ${format(firstLine)}`,
+      `${timestamp} ${level.padEnd(5, ' ')} ${format(firstLine)}`,
       ...remainingLines.map((line) => format(line)),
     ]
   }).join('\n')
@@ -206,4 +254,12 @@ function toString (val: any): string {
   } else {
     return val.toString()
   }
+}
+
+export function print (text: string) {
+  process.stdout.write(text)
+}
+
+export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
+  process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }
