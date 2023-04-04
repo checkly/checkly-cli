@@ -86,7 +86,7 @@ export function pathToPosix (relPath: string, separator?: string): string {
   // Windows uses \ rather than / as a path separator.
   // It's important that logical ID's are consistent across platforms, though.
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
-  return path.normalize(relPath).split(separator || path.sep).join(path.posix.sep).replace(/^C:/, '')
+  return path.normalize(relPath).split(separator ?? path.sep).join(path.posix.sep).replace(/^C:/, '')
 }
 
 export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {

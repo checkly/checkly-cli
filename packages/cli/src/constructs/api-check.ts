@@ -218,7 +218,7 @@ export interface Request {
   basicAuth?: BasicAuth
 }
 
-interface ScriptDependency {
+export interface ScriptDependency {
   path: string
   content: string
 }
