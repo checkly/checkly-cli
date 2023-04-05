@@ -59,8 +59,8 @@ describe('deploy', () => {
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.status).toBe(0)
     expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
   })
 
   it('Shouldn\'t include a testOnly check', () => {
