@@ -22,7 +22,7 @@ describe('loadChecklyConfig()', () => {
     try {
       await loadChecklyConfig(configDir)
     } catch (e: any) {
-      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.js'].join(', ')}.`)
+      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs'].join(', ')}.`)
     }
   })
   it('config TS file should export an object', async () => {
