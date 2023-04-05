@@ -58,6 +58,7 @@ export type ChecklyConfig = {
 // eslint-disable-next-line no-restricted-syntax
 enum Extension {
   JS = '.js',
+  MJS = '.mjs',
   TS = '.ts',
 }
 
@@ -67,6 +68,8 @@ function loadFile (file: string) {
   }
   switch (path.extname(file)) {
     case Extension.JS:
+      return loadJsFile(file)
+    case Extension.MJS:
       return loadJsFile(file)
     case Extension.TS:
       return loadTsFile(file)
@@ -79,7 +82,7 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
