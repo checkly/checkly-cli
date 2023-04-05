@@ -90,7 +90,7 @@ export class GithubMdBuilder {
     this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
 
     if (!this.testSessionId) {
-      markdown = markdown + '> Tip: use `npx checkly test --record` to get a full test session overview with traces, videos and logs.'
+      markdown = markdown + '> Tip: use `--record` to get a full test session overview with traces, videos and logs, e.g. `npx checkly test --reporter=github --record`'
     }
 
     return markdown
