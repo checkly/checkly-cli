@@ -1,7 +1,12 @@
+import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
+import { Parser } from '../services/check-parser/parser'
+import { pathToPosix, isFileSync } from '../services/util'
+import { printDeprecationWarning } from '../reporters/util'
+import { Content, Entrypoint } from './construct'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssertionSource {
@@ -166,6 +171,13 @@ class GeneralAssertionBuilder {
   }
 }
 
+function _printWarning (path: string | undefined): void {
+  printDeprecationWarning(`API check "${path}" is probably providing a setup ` +
+  'or tearDown script using the "localSetupScript" or "localTearDownScript" property. Please update your API checks to ' +
+  'reference any setup / tearDown using the "setupScript" and "tearDownScript" properties See the docs at ' +
+  'https://checklyhq.com/docs/cli/constructs-reference#apicheck')
+}
+
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
 
 export type HttpRequestMethod =
@@ -205,6 +217,12 @@ export interface Request {
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
 }
+
+export interface ScriptDependency {
+  path: string
+  content: string
+}
+
 export interface ApiCheckProps extends CheckProps {
   /**
    *  Determines the request that the check is going to run.
@@ -212,12 +230,22 @@ export interface ApiCheckProps extends CheckProps {
   request: Request
   /**
    * A valid piece of Node.js code to run in the setup phase.
+   * @deprecated use the "setupScript" property instead
    */
   localSetupScript?: string
   /**
+   * A valid piece of Node.js code to run in the setup phase.
+   */
+  setupScript?: Content|Entrypoint
+  /**
    * A valid piece of Node.js code to run in the teardown phase.
+   * @deprecated use the "tearDownScript" property instead
    */
   localTearDownScript?: string
+  /**
+   * A valid piece of Node.js code to run in the teardown phase.
+   */
+  tearDownScript?: Content|Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
    */
@@ -241,6 +269,11 @@ export class ApiCheck extends Check {
   localTearDownScript?: string
   degradedResponseTime?: number
   maxResponseTime?: number
+  private readonly setupScriptDependencies?: Array<ScriptDependency>
+  private readonly tearDownScriptDependencies?: Array<ScriptDependency>
+  private readonly setupScriptPath?: string
+  private readonly tearDownScriptPath?: string
+
   /**
    * Constructs the API Check instance
    *
@@ -252,13 +285,80 @@ export class ApiCheck extends Check {
 
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
+
+    if (props.setupScript) {
+      if ('entrypoint' in props.setupScript && isFileSync(props.setupScript.entrypoint)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId!)
+        this.localSetupScript = script
+        this.setupScriptPath = scriptPath
+        this.setupScriptDependencies = dependencies
+      } else if ('content' in props.setupScript) {
+        this.localSetupScript = props.setupScript.content
+      } else {
+        throw new Error('Unrecognized type for setupScript property')
+      }
+    }
+
+    if (props.localSetupScript) {
+      _printWarning(Session.checkFilePath)
+      this.localSetupScript = props.localSetupScript
+    }
+
+    if (props.tearDownScript) {
+      if ('entrypoint' in props.tearDownScript && isFileSync(props.tearDownScript.entrypoint)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId!)
+        this.localTearDownScript = script
+        this.tearDownScriptPath = scriptPath
+        this.tearDownScriptDependencies = dependencies
+      } else if ('content' in props.tearDownScript) {
+        this.localTearDownScript = props.tearDownScript.content
+      }
+    }
+
+    if (props.localTearDownScript) {
+      _printWarning(Session.checkFilePath)
+      this.localTearDownScript = props.localTearDownScript
+    }
+
     this.request = props.request
-    this.localSetupScript = props.localSetupScript
-    this.localTearDownScript = props.localTearDownScript
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
+
     Session.registerConstruct(this)
     this.addSubscriptions()
+  }
+
+  static bundle (entrypoint: string, runtimeId: string) {
+    let absoluteEntrypoint = null
+    if (path.isAbsolute(entrypoint)) {
+      absoluteEntrypoint = entrypoint
+    } else {
+      if (!Session.checkFileAbsolutePath) {
+        throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
+      }
+      absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
+    }
+
+    const runtime = Session.availableRuntimes[runtimeId]
+    if (!runtime) {
+      throw new Error(`${runtimeId} is not supported`)
+    }
+    const parser = new Parser(Object.keys(runtime.dependencies))
+    const parsed = parser.parse(absoluteEntrypoint)
+    // Maybe we can get the parsed deps with the content immediately
+
+    const deps: ScriptDependency[] = []
+    for (const { filePath, content } of parsed.dependencies) {
+      deps.push({
+        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        content,
+      })
+    }
+    return {
+      script: parsed.entrypoint.content,
+      scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
+      dependencies: deps,
+    }
   }
 
   synthesize () {
@@ -267,7 +367,11 @@ export class ApiCheck extends Check {
       checkType: 'API',
       request: this.request,
       localSetupScript: this.localSetupScript,
+      setupScriptPath: this.setupScriptPath,
+      setupScriptDependencies: this.setupScriptDependencies,
       localTearDownScript: this.localTearDownScript,
+      tearDownScriptPath: this.tearDownScriptPath,
+      tearDownScriptDependencies: this.tearDownScriptDependencies,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
