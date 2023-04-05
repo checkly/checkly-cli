@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import * as logSymbols from 'log-symbols'
 
 import { Assertion } from '../constructs/api-check'
+import { getDefaults } from '../rest/api'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
@@ -12,17 +13,21 @@ export enum CheckStatus {
   SUCCESSFUL,
 }
 
+export function formatDuration (ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`
+  } else {
+    return `${Math.ceil(ms / 1000)}s`
+  }
+}
+
 export function formatCheckTitle (status: CheckStatus, check: any, opts: { includeSourceFile?: boolean } = {}) {
   let duration
   if (check.startedAt && check.stoppedAt) {
     const durationMs = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
       .toMillis()
-    if (durationMs < 1000) {
-      duration = `${durationMs}ms`
-    } else {
-      duration = `${Math.ceil(durationMs / 1000)}s`
-    }
+    duration = formatDuration(durationMs)
   }
 
   let statusString
@@ -262,6 +267,15 @@ export function print (text: string) {
 
 export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
   process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
+}
+
+export function getTestSessionUrl (testSessionId: string): string {
+  const { baseURL } = getDefaults()
+  return `${baseURL.replace(/api/, 'app')}/test-sessions/${testSessionId}`
+}
+
+export function getTraceUrl (traceUrl: string): string {
+  return `https://trace.playwright.dev/?trace=${encodeURIComponent(traceUrl)}`
 }
 
 export function printDeprecationWarning (text: string): void {

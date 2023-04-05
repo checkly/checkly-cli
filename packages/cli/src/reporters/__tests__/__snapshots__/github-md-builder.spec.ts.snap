@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`GithubMdBuilder renders basic markdown output with assets & links: github-markdown-with-assets-links 1`] = `
+"# Checkly Test Session Summary
+Ran **2** checks in **eu-west-1**.
+[View detailed test session summary](https://app-test.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328)
+|Result|Name|Check Type|Filename|Duration|Assets|Link|
+|:-|:-|:-|:-|:-|:-|:-|
+|✅ Pass|my-test.spec.ts|BROWSER|\`src/__checks__/folder/browser.check.ts\`|7s ||[Full test report](https://app-test.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/702961fd-7e2c-45f0-97be-1aa9eabd4d82)|
+|✅ Pass|Test API check|API|\`src/some-other-folder/api.check.ts\`|2s ||[Full test report](https://app-test.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/1c0be612-a5ec-432e-ac1c-837d2f70c010)|
+"
+`;
+
+exports[`GithubMdBuilder renders basic markdown output with no assets & links: github-basic-markdown 1`] = `
+"# Checkly Test Session Summary
+Ran **2** checks in **eu-west-1**.
+|Result|Name|Check Type|Filename|Duration|
+|:-|:-|:-|:-|:-|
+|✅ Pass|my-test.spec.ts|BROWSER|\`src/__checks__/folder/browser.check.ts\`|7s |
+|✅ Pass|Test API check|API|\`src/some-other-folder/api.check.ts\`|2s |
+> Tip: use \`--record\` to get a full test session overview with traces, videos and logs, e.g. \`npx checkly test --reporter=github --record\`"
+`;
