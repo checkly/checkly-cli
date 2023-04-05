@@ -41,3 +41,19 @@ jobs:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
           CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
+  publish-prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      # Ensure that the README is published with the package
+      - run: rm -f packages/cli/README.md && cp README.md packages/cli
+      - run: npm ci --workspace packages/cli
+      - run: npm version prerelease --preid=canary-${{github.event.pull_request.number}} --workspace packages/cli
+      - run: npm publish --workspace packages/cli --tag next-canary-${{github.event.pull_request.number}}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
