@@ -80,6 +80,7 @@ export default class CheckRunner extends EventEmitter {
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
       const allChecksFinished = this.allChecksFinished()
+      this.setAllTimeouts()
 
       const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
       this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
@@ -87,6 +88,7 @@ export default class CheckRunner extends EventEmitter {
       await allChecksFinished
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
+      this.disableAllTimeouts()
       this.emit(Events.ERROR, err)
     } finally {
       if (socketClient) {
@@ -118,13 +120,6 @@ export default class CheckRunner extends EventEmitter {
         repoInfo: this.project.repoInfo,
         shouldRecord: this.shouldRecord,
       })
-      Array.from(this.checks.entries()).forEach(([checkRunId, check]) =>
-        this.timeouts.set(checkRunId, setTimeout(() => {
-          this.timeouts.delete(checkRunId)
-          this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
-          this.emit(Events.CHECK_FINISHED, check)
-        }, this.timeout * 1000),
-        ))
       return data
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.message)
@@ -199,6 +194,20 @@ export default class CheckRunner extends EventEmitter {
         if (finishedCheckCount === numChecks) resolve()
       })
     })
+  }
+
+  private setAllTimeouts () {
+    Array.from(this.checks.entries()).forEach(([checkRunId, check]) =>
+      this.timeouts.set(checkRunId, setTimeout(() => {
+        this.timeouts.delete(checkRunId)
+        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+        this.emit(Events.CHECK_FINISHED, check)
+      }, this.timeout * 1000),
+      ))
+  }
+
+  private disableAllTimeouts () {
+    Array.from(this.checks.entries()).forEach(([checkRunId]) => this.disableTimeout(checkRunId))
   }
 
   private disableTimeout (checkRunId: string) {
