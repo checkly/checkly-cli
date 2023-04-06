@@ -1,6 +1,6 @@
 {
   "name": "@checkly/cli",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -70,6 +70,7 @@
     "log-symbols": "4.1.0",
     "luxon": "3.2.1",
     "open": "8.4.0",
+    "p-queue": "6.6.2",
     "uuid": "9.0.0"
   },
   "devDependencies": {
