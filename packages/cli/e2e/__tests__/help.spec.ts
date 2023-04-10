@@ -5,7 +5,7 @@ import '../command-matchers'
 describe('help', () => {
   it('should print custom help with examples', () => {
     const result = runChecklyCli({
-      args: [''],
+      args: ['--help'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
