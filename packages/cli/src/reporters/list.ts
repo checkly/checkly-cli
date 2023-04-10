@@ -1,9 +1,8 @@
 import * as indentString from 'indent-string'
 import * as chalk from 'chalk'
-import { getDefaults } from '../rest/api'
 
 import AbstractListReporter from './abstract-list'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl } from './util'
 
 export default class ListReporter extends AbstractListReporter {
   onBeginStatic () {
@@ -37,29 +36,27 @@ export default class ListReporter extends AbstractListReporter {
         printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
       }
     }
-    const { baseURL } = getDefaults()
-    const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
 
     if (checkResult.hasFailures) {
       if (checkResult.traceFilesUrls) {
         // TODO: print all video files URLs
         printLn(indentString(
-          'View trace : ' + chalk.bold.underline.blue(
-            `https://trace.playwright.dev/?trace=${encodeURIComponent(checkResult.traceFilesUrls[0])}`)
+          'View trace : ' + chalk.underline.cyan(
+            getTraceUrl(checkResult.traceFilesUrls[0]))
           , 4,
         ))
       }
       if (checkResult.videoFilesUrls) {
         // TODO: print all trace files URLs
         printLn(indentString(
-          'View video : ' + chalk.bold.underline.blue(
+          'View video : ' + chalk.underline.cyan(
             `${checkResult.videoFilesUrls[0]}`)
           , 4,
         ))
       }
-      if (this.testResultIds) {
+      if (this.testResultIds && this.testSessionId) {
         printLn(indentString(
-          'View result: ' + chalk.bold.underline.blue(`${sessionUrl}/results/${this.testResultIds[checkResult.logicalId]}`)
+          'View result: ' + chalk.underline.cyan(`${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[checkResult.logicalId]}`)
           , 4,
         ), 2)
       }

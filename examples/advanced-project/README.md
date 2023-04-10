@@ -23,6 +23,10 @@ This project mimics a typical app where you organize code with top-level default
 |-- package.json
 `-- src
     |-- __checks__
+    |   |  `-- utils
+    |   |      |-- auth-client.ts
+    |   |      `-- setup.ts
+    |   |          
     |   |-- 404.spec.ts
     |   |-- api.check.ts
     |   |-- home.check.ts 

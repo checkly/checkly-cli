@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
 
@@ -77,11 +78,15 @@ async function getTsCompiler (): Promise<Service> {
   return tsCompiler
 }
 
-export function pathToPosix (relPath: string): string {
+/**
+ * @param relPath the path to be converted
+ * @param separator this is for testing purposes only so we can reliably replace the separator on Linux / Darwin
+ */
+export function pathToPosix (relPath: string, separator?: string): string {
   // Windows uses \ rather than / as a path separator.
   // It's important that logical ID's are consistent across platforms, though.
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
-  return path.normalize(relPath).split(path.sep).join(path.posix.sep).replace(/^C:/, '')
+  return path.normalize(relPath).split(separator ?? path.sep).join(path.posix.sep).replace(/^C:/, '')
 }
 
 export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {
@@ -96,6 +101,17 @@ export function splitConfigFilePath (configFile?: string): { configDirectory: st
     configDirectory: process.cwd(),
     configFilenames: undefined,
   }
+}
+
+export function isFileSync (path: string): boolean {
+  // This helper is useful to test paths inside constructors which cannot be async.
+  let result
+  try {
+    result = fsSync.existsSync(path)
+  } catch (err: any) {
+    throw new Error(`Error parsing the file path: ${path}`)
+  }
+  return result
 }
 
 export function getGitInformation (): GitInformation|null {
