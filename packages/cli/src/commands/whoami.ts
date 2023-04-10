@@ -4,7 +4,7 @@ import { AuthCommand } from './authCommand'
 
 export default class Whoami extends AuthCommand {
   static hidden = false
-  static description = 'See your currently logged in account and user'
+  static description = 'See your currently logged in account and user.'
   async run (): Promise<void> {
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: user } = await api.user.get()

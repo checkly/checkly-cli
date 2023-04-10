@@ -28,7 +28,7 @@ async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
 
 export default class Test extends AuthCommand {
   static hidden = false
-  static description = 'Test your checks on Checkly'
+  static description = 'Test your checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
