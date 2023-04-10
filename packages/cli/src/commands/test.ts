@@ -13,6 +13,7 @@ import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import { createReporter, ReporterType } from '../reporters/reporter'
+import commonMessages from '../messages/common-messages'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -27,7 +28,7 @@ async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
 
 export default class Test extends AuthCommand {
   static hidden = false
-  static description = 'Test checks on Checkly'
+  static description = 'Test your checks on Checkly'
   static flags = {
     location: Flags.string({
       char: 'l',
@@ -50,7 +51,7 @@ export default class Test extends AuthCommand {
       default: [],
     }),
     'env-file': Flags.string({
-      description: 'dotenv file path to be passed.',
+      description: 'dotenv file path to be passed. For example --env-file="/.env"',
       exclusive: ['env'],
     }),
     list: Flags.boolean({
@@ -63,7 +64,7 @@ export default class Test extends AuthCommand {
     }),
     verbose: Flags.boolean({
       char: 'v',
-      description: 'Always show the logs of the checks.',
+      description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
     reporter: Flags.string({
@@ -74,10 +75,10 @@ export default class Test extends AuthCommand {
     }),
     config: Flags.string({
       char: 'c',
-      description: 'The Checkly CLI config filename.',
+      description: commonMessages.configFile,
     }),
     record: Flags.boolean({
-      description: 'Record test results in Checkly.',
+      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
   }
@@ -241,7 +242,7 @@ export default class Test extends AuthCommand {
     } else if (cliFlags.privateRunLocation) {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-      throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
+      throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
         ` Please only specify one run location. The configured locations were' + 
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
