@@ -1,4 +1,3 @@
-import { isCI } from 'ci-info'
 import { Check } from '../constructs/check'
 import { RunLocation } from '../services/check-runner'
 import CiReporter from './ci'
@@ -32,6 +31,6 @@ export const createReporter = (
     case 'github':
       return new GithubReporter(runLocation, checks, verbose)
     default:
-      return isCI ? new CiReporter(runLocation, checks, verbose) : new ListReporter(runLocation, checks, verbose)
+      return new ListReporter(runLocation, checks, verbose)
   }
 }
