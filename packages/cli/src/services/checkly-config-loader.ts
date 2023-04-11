@@ -53,7 +53,7 @@ export type ChecklyConfig = {
     runLocation?: keyof Region,
     privateRunLocation?: string,
     verbose?: boolean,
-    reporters: ReporterType[],
+    reporters?: ReporterType[],
   }
 }
 
