@@ -42,7 +42,8 @@
     "warn-if-update-available": {
       "timeoutInDays": 30,
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
-    }
+    },
+    "helpClass": "./dist/help/help-extension"
   },
   "bin": {
     "checkly": "./bin/run"

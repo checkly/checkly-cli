@@ -61,7 +61,7 @@ export class BrowserCheck extends Check {
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies
     } else {
-      throw new Error('Unrecognized type for the code property')
+      throw new Error('Unrecognized type for the "code" property. The "code" property should be a string of JS/TS code.')
     }
     Session.registerConstruct(this)
     this.addSubscriptions()
