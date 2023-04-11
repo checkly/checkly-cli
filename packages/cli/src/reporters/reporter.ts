@@ -15,13 +15,13 @@ export interface Reporter {
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github'
 
-export const createReporter = (
-  type: ReporterType = 'list',
+export const createReporters = (
+  types: ReporterType[],
   runLocation: RunLocation,
   checks: Array<Check>,
   verbose: boolean,
-): Reporter => {
-  switch (type) {
+): Reporter[] => types.map(t => {
+  switch (t) {
     case 'dot':
       return new DotReporter(runLocation, checks, verbose)
     case 'list':
@@ -33,4 +33,4 @@ export const createReporter = (
     default:
       return new ListReporter(runLocation, checks, verbose)
   }
-}
+})

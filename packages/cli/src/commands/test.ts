@@ -13,7 +13,7 @@ import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
-import { createReporter, ReporterType } from '../reporters/reporter'
+import { createReporters, ReporterType } from '../reporters/reporter'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -104,7 +104,7 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
-      reporter: reporterType = isCI ? 'ci' : 'list',
+      reporter: reporterFlag,
       config: configFilename,
       record: shouldRecord,
     } = flags
@@ -121,6 +121,7 @@ export default class Test extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
+    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const gitInfo = getGitInformation()
     const project = await parseProject({
@@ -173,10 +174,10 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
+    const reporters = createReporters(reporterTypes, location, checks, verbose)
 
     if (list) {
-      reporter.onBeginStatic()
+      reporters.forEach(r => r.onBeginStatic())
       return
     }
 
@@ -192,31 +193,31 @@ export default class Test extends AuthCommand {
     )
     runner.on(Events.RUN_STARTED,
       (testSessionId: string, testResultIds: { [key: string]: string }) =>
-        reporter.onBegin(testSessionId, testResultIds))
+        reporters.forEach(r => r.onBegin(testSessionId, testResultIds)))
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporter.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd({
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
-      })
+      }))
     })
     runner.on(Events.CHECK_FAILED, (check, message: string) => {
-      reporter.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd({
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
-      })
+      }))
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporter.onEnd(),
+    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
     )
     runner.on(Events.ERROR, (err) => {
-      reporter.onError(err)
+      reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
     await runner.run()
@@ -224,6 +225,13 @@ export default class Test extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
+  }
+
+  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
+    if (!reporterFlag && !cliReporters.length) {
+      return [isCI ? 'ci' : 'list']
+    }
+    return reporterFlag ? [reporterFlag] : cliReporters
   }
 
   async prepareRunLocation (
