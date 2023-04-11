@@ -5,20 +5,21 @@ import { AuthCommand } from './authCommand'
 import { prompt } from 'inquirer'
 import config from '../services/config'
 import { splitConfigFilePath } from '../services/util'
+import commonMessages from '../messages/common-messages'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
-  static description = 'Destroy your project'
+  static description = 'Destroy your project with all its related resources.'
 
   static flags = {
     force: Flags.boolean({
       char: 'f',
-      description: 'force mode',
+      description: commonMessages.forceMode,
       default: false,
     }),
     config: Flags.string({
       char: 'c',
-      description: 'The Checkly CLI config filename.',
+      description: commonMessages.configFile,
     }),
   }
 
