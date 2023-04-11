@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises'
 import { Flags, Args } from '@oclif/core'
 import { parse } from 'dotenv'
+import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
@@ -70,7 +71,6 @@ export default class Test extends AuthCommand {
       char: 'r',
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github'],
-      default: 'list',
     }),
     config: Flags.string({
       char: 'c',
@@ -104,7 +104,7 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
-      reporter: reporterType,
+      reporter: reporterType = isCI ? 'ci' : 'list',
       config: configFilename,
       record: shouldRecord,
     } = flags
