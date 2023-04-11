@@ -6,8 +6,6 @@ describe('help', () => {
   it('should print custom help with examples', () => {
     const result = runChecklyCli({
       args: ['--help'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
     })
     expect(result).toHaveStdoutContaining('EXAMPLES')
   })

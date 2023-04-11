@@ -51,7 +51,7 @@ export default class Test extends AuthCommand {
       default: [],
     }),
     'env-file': Flags.string({
-      description: 'dotenv file path to be passed. For example --env-file="/.env"',
+      description: 'dotenv file path to be passed. For example --env-file="./.env"',
       exclusive: ['env'],
     }),
     list: Flags.boolean({
