@@ -1,7 +1,7 @@
 import * as api from '../rest/api'
 import config from '../services/config'
 import { prompt } from 'inquirer'
-import { Flags } from '@oclif/core'
+import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
@@ -48,6 +48,7 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
+    ux.action.start('Parsing your project')
     const { flags } = await this.parse(Deploy)
     const { force, preview, output, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -72,7 +73,7 @@ export default class Deploy extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-
+    ux.action.stop()
     const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
@@ -93,6 +94,7 @@ export default class Deploy extends AuthCommand {
         this.log(this.formatPreview(data, project))
       }
       if (!preview) {
+        await new Promise(resolve => setTimeout(resolve, 500))
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
     } catch (err: any) {
