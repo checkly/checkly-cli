@@ -133,6 +133,7 @@ export default class Test extends AuthCommand {
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+      fileNameFilters: filePatterns,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
@@ -142,14 +143,6 @@ export default class Test extends AuthCommand {
       checklyConfigConstructs,
     })
     const checks = Object.entries(project.data.checks)
-      .filter(([, check]) => {
-        if (check instanceof BrowserCheck) {
-          return filterByFileNamePattern(filePatterns, check.scriptPath) ||
-            filterByFileNamePattern(filePatterns, check.__checkFilePath)
-        } else {
-          return filterByFileNamePattern(filePatterns, check.__checkFilePath)
-        }
-      })
       .filter(([, check]) => {
         return filterByCheckNamePattern(grep, check.name)
       })

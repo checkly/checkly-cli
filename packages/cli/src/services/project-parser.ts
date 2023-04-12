@@ -7,6 +7,7 @@ import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
+import { filterByFileNamePattern } from './test-filters'
 
 const globPromise = promisify(glob)
 
@@ -19,6 +20,7 @@ type ProjectParseOpts = {
   checkMatch?: string,
   browserCheckMatch?: string,
   ignoreDirectoriesMatch?: string[],
+  fileNameFilters?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
   availableRuntimes: Record<string, Runtime>,
@@ -39,6 +41,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     repoUrl,
     repoInfo,
     ignoreDirectoriesMatch = [],
+    fileNameFilters = ['.*'],
     checkDefaults = {},
     browserCheckDefaults = {},
     availableRuntimes,
@@ -60,8 +63,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
-  await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+  await loadAllCheckFiles(directory, checkMatch, ignoreDirectories, fileNameFilters)
+  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project, fileNameFilters)
 
   return project
 }
@@ -70,12 +73,20 @@ async function loadAllCheckFiles (
   directory: string,
   checkFilePattern: string,
   ignorePattern: string[],
+  fileNameFilters: string[],
 ): Promise<void> {
   const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
+
   for (const checkFile of checkFiles) {
-    // setting the checkFilePath is used for filtering by file name on the command line
+    const relPath = pathToPosix(path.relative(directory, checkFile))
+
+    // Skip the file if it's not in the filter pattern
+    if (!filterByFileNamePattern(fileNameFilters, relPath)) {
+      continue
+    }
+
     Session.checkFileAbsolutePath = checkFile
-    Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
+    Session.checkFilePath = relPath
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
@@ -94,6 +105,7 @@ async function loadAllBrowserChecks (
   browserCheckFilePattern: string | undefined,
   ignorePattern: string[],
   project: Project,
+  fileNameFilters: string[],
 ): Promise<void> {
   if (!browserCheckFilePattern) {
     return
@@ -108,6 +120,12 @@ async function loadAllBrowserChecks (
 
   for (const checkFile of checkFiles) {
     const relPath = pathToPosix(path.relative(directory, checkFile))
+
+    // Skip the file if it's not in the filter pattern
+    if (!filterByFileNamePattern(fileNameFilters, relPath)) {
+      continue
+    }
+
     // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
     if (preexistingCheckFiles.has(relPath)) {
       continue

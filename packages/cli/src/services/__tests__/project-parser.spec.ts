@@ -48,4 +48,28 @@ describe('parseProject()', () => {
       },
     })
   })
+
+  it('filter on file name', async () => {
+    const simpleProjectPath = path.join(__dirname, 'project-parser-fixtures', 'simple-project')
+    const project = await parseProject({
+      directory: simpleProjectPath,
+      projectLogicalId: 'project-id',
+      projectName: 'project name',
+      fileNameFilters: ['login'],
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+      availableRuntimes: runtimes,
+    })
+    const synthesizedProject = project.synthesize()
+    expect(synthesizedProject).toMatchObject({
+      project: {
+        logicalId: 'project-id',
+        name: 'project name',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      },
+      checks: {
+        'check-1': {},
+      },
+    })
+    expect(Object.keys(synthesizedProject.checks)).toHaveLength(1)
+  })
 })
