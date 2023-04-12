@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises'
-import { Flags, Args } from '@oclif/core'
+import { Flags, Args, ux } from '@oclif/core'
 import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
@@ -95,6 +95,7 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
+    ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
@@ -170,18 +171,18 @@ export default class Test extends AuthCommand {
         return check
       })
 
+    ux.action.stop()
+
     if (!checks.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
       return
     }
 
     const reporters = createReporters(reporterTypes, location, checks, verbose)
-
     if (list) {
       reporters.forEach(r => r.onBeginStatic())
       return
     }
-
     const runner = new CheckRunner(
       config.getAccountId(),
       config.getApiKey(),

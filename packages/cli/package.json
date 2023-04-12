@@ -35,9 +35,18 @@
   "oclif": {
     "bin": "checkly",
     "commands": "./dist/commands",
+    "additionalHelpFlags": [
+      "-h"
+    ],
+    "additionalVersionFlags": [
+      "-v",
+      "version"
+    ],
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-warn-if-update-available"
+      "@oclif/plugin-warn-if-update-available",
+      "@oclif/plugin-not-found",
+      "@oclif/plugin-autocomplete"
     ],
     "warn-if-update-available": {
       "timeoutInDays": 30,
@@ -51,7 +60,9 @@
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
     "@oclif/core": "2.0.7",
+    "@oclif/plugin-autocomplete": "2.1.8",
     "@oclif/plugin-help": "5.1.20",
+    "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
     "@oclif/plugin-warn-if-update-available": "2.0.24",
     "@typescript-eslint/typescript-estree": "5.46.1",
