@@ -1,4 +1,3 @@
-import { isCI } from 'ci-info'
 import { Check } from '../constructs/check'
 import { RunLocation } from '../services/check-runner'
 import CiReporter from './ci'
@@ -16,13 +15,13 @@ export interface Reporter {
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github'
 
-export const createReporter = (
-  type: ReporterType = 'list',
+export const createReporters = (
+  types: ReporterType[],
   runLocation: RunLocation,
   checks: Array<Check>,
   verbose: boolean,
-): Reporter => {
-  switch (type) {
+): Reporter[] => types.map(t => {
+  switch (t) {
     case 'dot':
       return new DotReporter(runLocation, checks, verbose)
     case 'list':
@@ -32,6 +31,6 @@ export const createReporter = (
     case 'github':
       return new GithubReporter(runLocation, checks, verbose)
     default:
-      return isCI ? new CiReporter(runLocation, checks, verbose) : new ListReporter(runLocation, checks, verbose)
+      return new ListReporter(runLocation, checks, verbose)
   }
-}
+})

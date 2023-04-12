@@ -1,6 +1,6 @@
 {
   "name": "@checkly/cli",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,14 +35,24 @@
   "oclif": {
     "bin": "checkly",
     "commands": "./dist/commands",
+    "additionalHelpFlags": [
+      "-h"
+    ],
+    "additionalVersionFlags": [
+      "-v",
+      "version"
+    ],
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-warn-if-update-available"
+      "@oclif/plugin-warn-if-update-available",
+      "@oclif/plugin-not-found",
+      "@oclif/plugin-autocomplete"
     ],
     "warn-if-update-available": {
       "timeoutInDays": 30,
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
-    }
+    },
+    "helpClass": "./dist/help/help-extension"
   },
   "bin": {
     "checkly": "./bin/run"
@@ -50,7 +60,9 @@
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
     "@oclif/core": "2.0.7",
+    "@oclif/plugin-autocomplete": "2.1.8",
     "@oclif/plugin-help": "5.1.20",
+    "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
     "@oclif/plugin-warn-if-update-available": "2.0.24",
     "@typescript-eslint/typescript-estree": "5.46.1",
@@ -70,6 +82,7 @@
     "log-symbols": "4.1.0",
     "luxon": "3.2.1",
     "open": "8.4.0",
+    "p-queue": "6.6.2",
     "uuid": "9.0.0"
   },
   "devDependencies": {

@@ -55,7 +55,8 @@ export class AuthContext {
     await this.#fetchAccessToken()
 
     if (!this.#accessToken || !this.#idToken) {
-      throw new Error('There was an error retrieving Auth0 token.')
+      throw new Error('There was an unexpected error retrieving Auth0 token. Please try again or contact ' +
+          'support@checklyhq.com if this problem persists')
     }
 
     const { name } = jwtDecode<any>(this.#idToken)

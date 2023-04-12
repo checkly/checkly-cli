@@ -295,7 +295,8 @@ export class ApiCheck extends Check {
       } else if ('content' in props.setupScript) {
         this.localSetupScript = props.setupScript.content
       } else {
-        throw new Error('Unrecognized type for setupScript property')
+        throw new Error('Unrecognized type for the "setupScript" property. A "setupScript" should have either a "content" ' +
+            'or "entrypoint" property.')
       }
     }
 
