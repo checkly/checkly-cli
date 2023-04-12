@@ -48,7 +48,7 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    ux.action.start('Parsing your project')
+    ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
     const { force, preview, output, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -94,7 +94,7 @@ export default class Deploy extends AuthCommand {
         this.log(this.formatPreview(data, project))
       }
       if (!preview) {
-        await new Promise(resolve => setTimeout(resolve, 500))
+        await ux.wait(500)
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
     } catch (err: any) {

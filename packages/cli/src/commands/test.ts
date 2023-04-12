@@ -95,7 +95,7 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
-    ux.action.start('Parsing your project')
+    ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
