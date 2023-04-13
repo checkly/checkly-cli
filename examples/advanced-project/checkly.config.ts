@@ -37,10 +37,8 @@ const config = defineConfig({
     /* The default datacenter location to use when running npx checkly test */
     runLocation: 'eu-west-1',
     /* An array of default reporters to use when a reporter is not specified with the "--reporter" flag */
-    reporters: ['list']
+    reporters: ['list'],
   },
 })
-
-
 
 export default config
