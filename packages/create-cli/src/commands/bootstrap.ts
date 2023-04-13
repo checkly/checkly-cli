@@ -2,11 +2,9 @@ import Debug from 'debug'
 import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
-import { downloadTemplate } from 'giget'
 import { execaCommand } from 'execa'
 import chalk from 'chalk'
-import { hasGitDir, isValidProjectDirectory } from '../utils/directory.js'
-import { spinner } from '../utils/terminal.js'
+import { hasGitDir, isValidProjectDirectory, copyTemporaryFiles, usePackageName } from '../utils/directory.js'
 import {
   getUserGreeting,
   getVersion,
@@ -15,9 +13,10 @@ import {
   hint,
   footer,
 } from '../utils/messages.js'
-import { createConfigFile, createInitialBrowserCheck, createChecksFolder } from '../actions/creates.js'
+import { createCustomBrowserCheck } from '../actions/creates.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 import { hasPackageJsonFile, readPackageJson } from '../utils/package.js'
+import { copyTemplate } from '../actions/template.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -79,18 +78,23 @@ export default class Bootstrap extends Command {
 
       if (projectInitResponse.useDirectory) {
         const packageJson = readPackageJson()
+        const temporaryDir = generateProjectName()
 
         debug('Add dependencies to existing package.json')
         addDevDependecies(packageJson)
 
-        debug('Add default checkly.config.ts')
-        createConfigFile(packageJson.name)
+        debug('Copy boilerplate project to temporary folder')
+        await copyTemplate({
+          template: 'boilerplate-project',
+          templatePath: `${templateBaseRepo}/boilerplate-project`,
+          targetDir: temporaryDir,
+        })
 
-        debug('Create empty ./__checks__ folder')
-        createChecksFolder()
+        copyTemporaryFiles(temporaryDir)
+        usePackageName(packageJson.name)
 
-        debug('Create initial Browser check')
-        await createInitialBrowserCheck({ onCancel })
+        debug('Create custom Browser check')
+        await createCustomBrowserCheck({ onCancel })
 
         await installDependencies()
 
@@ -138,29 +142,11 @@ export default class Bootstrap extends Command {
     )
 
     debug('Downloading template')
-
-    const downloadTemplateSpinner = spinner('Downloading example template...')
-    const templatePath = `${templateBaseRepo}/${templateResponse.template}`
-    try {
-      debug(`Attempting download of template: ${templatePath}`)
-      await downloadTemplate(templatePath, {
-        force: true,
-        provider: 'github',
-        cwd: targetDir,
-        dir: '.',
-      })
-    } catch (e: any) {
-      if (e.message.includes('404')) {
-        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${templateResponse.template}"`)
-        downloadTemplateSpinner.fail()
-      } else {
-        console.error(e.message)
-      }
-      process.exit(1)
-    }
-
-    downloadTemplateSpinner.text = chalk.green('Example template copied!')
-    downloadTemplateSpinner.succeed()
+    await copyTemplate({
+      template: templateResponse.template,
+      templatePath: `${templateBaseRepo}/${templateResponse.template}`,
+      targetDir,
+    })
 
     await installDependencies()
 
