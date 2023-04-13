@@ -10,7 +10,3 @@ export function isValidProjectDirectory (dirPath: string) {
 export function hasGitDir () {
   return fs.existsSync('./.git')
 }
-
-export function hasPackageJsonFile () {
-  return fs.existsSync('./package.json')
-}

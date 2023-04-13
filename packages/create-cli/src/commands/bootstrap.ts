@@ -5,7 +5,7 @@ import prompts from 'prompts'
 import { downloadTemplate } from 'giget'
 import { execaCommand } from 'execa'
 import chalk from 'chalk'
-import { hasGitDir, hasPackageJsonFile, isValidProjectDirectory } from '../utils/directory.js'
+import { hasGitDir, isValidProjectDirectory } from '../utils/directory.js'
 import { spinner } from '../utils/terminal.js'
 import {
   getUserGreeting,
@@ -17,6 +17,7 @@ import {
 } from '../utils/messages.js'
 import { createConfigFile, createInitialBrowserCheck, createChecksFolder } from '../actions/creates.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
+import { hasPackageJsonFile, readPackageJson } from '../utils/package.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -77,11 +78,13 @@ export default class Bootstrap extends Command {
       )
 
       if (projectInitResponse.useDirectory) {
+        const packageJson = readPackageJson()
+
         debug('Add dependencies to existing package.json')
-        addDevDependecies()
+        addDevDependecies(packageJson)
 
         debug('Add default checkly.config.ts')
-        createConfigFile()
+        createConfigFile(packageJson.name)
 
         debug('Create empty ./__checks__ folder')
         createChecksFolder()

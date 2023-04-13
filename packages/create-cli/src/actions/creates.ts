@@ -7,11 +7,11 @@ const checklyConfigTsFile = `import { defineConfig } from '@checkly/cli'
  */
 const config = defineConfig({
   /* A human friendly name for your project */
-  projectName: 'package.name should be here',
+  projectName: 'PROJECT_NAME',
   /** A logical ID that needs to be unique across your Checkly account,
   * See https://www.checklyhq.com/docs/cli/constructs/ to learn more about logical IDs.
   */
-  logicalId: 'package-name-here',
+  logicalId: 'PROJECT_NAME',
   /* An optional URL to your Git repo */
   repoUrl: 'https://github.com/checkly/checkly-cli',
   /* Sets default values for Checks */
@@ -44,8 +44,8 @@ const config = defineConfig({
 export default config
 `
 
-export function createConfigFile () {
-  fs.writeFileSync('./checkly.config.ts', checklyConfigTsFile)
+export function createConfigFile (projectName: string) {
+  fs.writeFileSync('./checkly.config.ts', checklyConfigTsFile.replace(/PROJECT_NAME/g, projectName))
 }
 
 export async function createInitialBrowserCheck (

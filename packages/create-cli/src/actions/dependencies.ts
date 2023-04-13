@@ -4,17 +4,9 @@ import detectPackageManager from 'which-pm-runs'
 import { execa } from 'execa'
 import { spinner } from '../utils/terminal.js'
 import { hint } from '../utils/messages.js'
+import { PackageJson } from '../utils/package.js'
 
-interface PackageJson {
-  name: string;
-  devDependencies: {
-    [key: string]: string;
-  };
-}
-
-export function addDevDependecies (): PackageJson {
-  const packageJson: PackageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'))
-
+export function addDevDependecies (packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {
     packageJson.devDependencies = {}
   }
@@ -26,8 +18,6 @@ export function addDevDependecies (): PackageJson {
   })
 
   fs.writeFileSync('./package.json', JSON.stringify(packageJson, null, 2))
-
-  return packageJson
 }
 
 export async function installDependencies (): Promise<void> {
