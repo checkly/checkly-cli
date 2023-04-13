@@ -6,9 +6,14 @@ import * as gitRepoInfo from 'git-repo-info'
 
 export interface GitInformation {
   commitId: string
+  repoUrl?: string | null
   branchName?: string | null
   commitOwner?: string | null
   commitMessage?: string | null
+}
+
+export interface CiInformation {
+  environment: string | null
 }
 
 // TODO: Remove this in favor of glob? It's unused.
@@ -113,18 +118,27 @@ export function isFileSync (path: string): boolean {
   }
   return result
 }
-
-export function getGitInformation (): GitInformation|null {
+/**
+ * @param repoUrl default repoURL the user can set in their project config.
+ */
+export function getGitInformation (repoUrl: string | undefined): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
-  if (!repositoryInfo.sha) {
+  if (!(process.env.CHECKLY_TEST_REPO_SHA || repositoryInfo.sha)) {
     return null
   }
 
   return {
-    commitId: repositoryInfo.sha,
-    branchName: repositoryInfo.branch,
-    commitOwner: repositoryInfo.committer,
-    commitMessage: repositoryInfo.commitMessage,
+    commitId: process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
+    repoUrl: process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
+    branchName: process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
+    commitOwner: process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? repositoryInfo.committer,
+    commitMessage: process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE ?? repositoryInfo.commitMessage,
+  }
+}
+
+export function getCiInformation (): CiInformation {
+  return {
+    environment: process.env.CHECKLY_TEST_ENVIRONMENT ?? null,
   }
 }
