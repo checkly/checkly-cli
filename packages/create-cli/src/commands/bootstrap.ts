@@ -3,10 +3,9 @@ import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
 import { downloadTemplate } from 'giget'
-import { execa, execaCommand } from 'execa'
-import detectPackageManager from 'which-pm-runs'
+import { execaCommand } from 'execa'
 import chalk from 'chalk'
-import { isValidProjectDirectory, hasGitDir } from '../utils/directory.js'
+import { hasGitDir, hasPackageJsonFile, isValidProjectDirectory } from '../utils/directory.js'
 import { spinner } from '../utils/terminal.js'
 import {
   getUserGreeting,
@@ -16,6 +15,8 @@ import {
   hint,
   footer,
 } from '../utils/messages.js'
+import { createConfigFile, createInitialBrowserCheck, createChecksFolder } from '../actions/creates.js'
+import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -62,6 +63,40 @@ export default class Bootstrap extends Command {
 
     await header(version, greeting)
 
+    // Init Checkly CLI for an existing project
+    if (hasPackageJsonFile()) {
+      debug('Existing package.json detected')
+
+      const projectInitResponse = await prompts({
+        type: 'confirm',
+        name: 'useDirectory',
+        message: 'It looks like you are already in a project, would you like to initialize?',
+        initial: true,
+      },
+      { onCancel },
+      )
+
+      if (projectInitResponse.useDirectory) {
+        debug('Add dependencies to existing package.json')
+        addDevDependecies()
+
+        debug('Add default checkly.config.ts')
+        createConfigFile()
+
+        debug('Create empty ./__checks__ folder')
+        createChecksFolder()
+
+        debug('Create initial Browser check')
+        await createInitialBrowserCheck({ onCancel })
+
+        await installDependencies()
+
+        await footer()
+
+        return
+      }
+    }
+
     debug('Ask for directory name')
 
     const projectDirResponse = await prompts({
@@ -99,7 +134,6 @@ export default class Bootstrap extends Command {
     { onCancel },
     )
 
-
     debug('Downloading template')
 
     const downloadTemplateSpinner = spinner('Downloading example template...')
@@ -125,29 +159,8 @@ export default class Bootstrap extends Command {
     downloadTemplateSpinner.text = chalk.green('Example template copied!')
     downloadTemplateSpinner.succeed()
 
-    const installDepsResponse = await prompts({
-      type: 'confirm',
-      name: 'installDeps',
-      message: 'Would you like to install NPM dependencies? (recommended)',
-      initial: true,
-    })
+    await installDependencies()
 
-    if (installDepsResponse.installDeps) {
-      const packageManager = detectPackageManager()?.name || 'npm'
-      const installExec = execa(packageManager, ['install'], { cwd: targetDir })
-      const installSpinner = spinner('installing packages')
-      await new Promise<void>((resolve, reject) => {
-        installExec.stdout?.on('data', function (data) {
-          installSpinner.text = `installing \n${packageManager} ${data}`
-        })
-        installExec.on('error', (error) => reject(error))
-        installExec.on('close', () => resolve())
-      })
-      installSpinner.text = 'Packages installed successfully'
-      installSpinner.succeed()
-    } else {
-      await hint('No worries.', 'Just remember to install the dependencies after this setup')
-    }
     const initGitResponse = await prompts({
       type: 'confirm',
       name: 'initGit',
