@@ -99,16 +99,14 @@ export default class Bootstrap extends Command {
     { onCancel },
     )
 
-
     debug('Downloading template')
 
     const downloadTemplateSpinner = spinner('Downloading example template...')
-    const templatePath = `${templateBaseRepo}/${templateResponse.template}`
+    const templatePath = `github:${templateBaseRepo}/${templateResponse.template}#v${version}`
     try {
       debug(`Attempting download of template: ${templatePath}`)
       await downloadTemplate(templatePath, {
         force: true,
-        provider: 'github',
         cwd: targetDir,
         dir: '.',
       })
