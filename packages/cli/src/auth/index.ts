@@ -136,8 +136,8 @@ export class AuthContext {
         <body>
           <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;">
             <div>
-              <img class="slide-in" src="./assets/success_raccoon.svg" style="width: 160px; height: 160px;">
-              <h3 style="font-size: 24px; font-weight: 600; margin-bottom: 2rem; margin-top: 1rem;">Successfully logged in</h3>
+              <img class="slide-in" src="./assets/success_raccoon.svg" style="width: 140px; height: 140px;">
+              <h3 style="font-size: 28px; font-weight: 600; margin-bottom: 3rem; margin-top: .5rem;">Successfully logged in</h3>
               <div style="font-weight: 500;">
                 <div style="margin-bottom: 1rem;">You can go back to your terminal.</div>
                 <div>This window should close itself in 3 seconds.</div>
