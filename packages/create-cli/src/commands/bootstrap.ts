@@ -86,7 +86,7 @@ export default class Bootstrap extends Command {
         debug('Copy boilerplate project to temporary folder')
         await copyTemplate({
           template: 'boilerplate-project',
-          templatePath: `${templateBaseRepo}/boilerplate-project`,
+          templatePath: `github:${templateBaseRepo}/boilerplate-project#v${version}`,
           targetDir: temporaryDir,
         })
 
