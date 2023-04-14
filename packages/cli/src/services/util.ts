@@ -124,7 +124,7 @@ export function isFileSync (path: string): boolean {
 export function getGitInformation (repoUrl?: string): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
-  if (!process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha)) {
+  if (!process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
     return null
   }
 
