@@ -121,7 +121,7 @@ export function isFileSync (path: string): boolean {
 /**
  * @param repoUrl default repoURL the user can set in their project config.
  */
-export function getGitInformation (repoUrl: string | undefined): GitInformation|null {
+export function getGitInformation (repoUrl?: string): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
   if (!process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha)) {
