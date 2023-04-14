@@ -44,7 +44,7 @@
     "debug": "^4.3.4",
     "execa": "^6.1.0",
     "fullname": "4.0.1",
-    "giget": "^1.0.0",
+    "giget": "^1.1.2",
     "ora": "^6.1.2",
     "prompts": "^2.4.2",
     "unique-names-generator": "^4.7.1",

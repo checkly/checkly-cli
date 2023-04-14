@@ -14,7 +14,6 @@ export async function copyTemplate ({ template, templatePath, targetDir }: CopyT
   try {
     await downloadTemplate(templatePath, {
       force: true,
-      provider: 'github',
       cwd: targetDir,
       dir: '.',
     })

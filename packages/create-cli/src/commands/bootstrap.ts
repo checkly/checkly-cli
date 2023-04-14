@@ -144,7 +144,7 @@ export default class Bootstrap extends Command {
     debug('Downloading template')
     await copyTemplate({
       template: templateResponse.template,
-      templatePath: `${templateBaseRepo}/${templateResponse.template}`,
+      templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
       targetDir,
     })
 
