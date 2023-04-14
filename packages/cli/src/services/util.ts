@@ -128,11 +128,13 @@ export function getGitInformation (repoUrl: string | undefined): GitInformation|
     return null
   }
 
+  // safe way to remove the email address
+  const committer = (repositoryInfo.committer.match(/([^<]+)/) || [])[1]?.trim()
   return {
     commitId: process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
     repoUrl: process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
     branchName: process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
-    commitOwner: process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? repositoryInfo.committer,
+    commitOwner: process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
     commitMessage: process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE ?? repositoryInfo.commitMessage,
   }
 }
