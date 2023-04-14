@@ -92,6 +92,7 @@ export class Project extends Construct {
         logicalId: key,
         type: construct.type,
         physicalId: construct.physicalId,
+        member: construct.member,
         payload: construct.synthesize(),
       }))
   }

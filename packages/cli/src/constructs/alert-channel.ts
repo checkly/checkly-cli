@@ -26,7 +26,7 @@ export interface AlertChannelProps {
 
 class AlertChannelWrapper extends Construct {
   constructor (logicalId: string, physicalId: string|number) {
-    super(AlertChannel.__checklyType, logicalId, physicalId)
+    super(AlertChannel.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
 

@@ -5,10 +5,12 @@ export abstract class Construct {
   type: string
   logicalId: string
   physicalId?: string|number
-  constructor (type: string, logicalId: string, physicalId?: string|number) {
+  member: boolean
+  constructor (type: string, logicalId: string, physicalId?: string|number, member?: boolean) {
     this.logicalId = logicalId
     this.type = type
     this.physicalId = physicalId
+    this.member = member ?? true
     Session.validateCreateConstruct(this)
   }
 
