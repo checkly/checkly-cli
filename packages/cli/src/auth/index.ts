@@ -144,6 +144,7 @@ export class AuthContext {
               </div>
             </div>
           </div>
+          <script>setTimeout(function() {window.close()}, 3000);</script>
         </body>
         </html>
       `)
