@@ -66,10 +66,7 @@ export class Project extends Construct {
 
   synthesize (addTestOnly = true): {
     project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>,
-    checks: Record<string, Check>
-    groups: Record<string, CheckGroup>
-    alertChannels: Record<string, AlertChannel>
-    alertChannelSubscriptions: Record<string, AlertChannelSubscription>
+    changes: Array<any>
   } {
     const project = {
       logicalId: this.logicalId,
@@ -78,19 +75,25 @@ export class Project extends Construct {
     }
     return {
       project,
-      checks: this.synthesizeRecord(this.data.checks, addTestOnly),
-      groups: this.synthesizeRecord(this.data.groups),
-      alertChannels: this.synthesizeRecord(this.data.alertChannels),
-      alertChannelSubscriptions: this.synthesizeRecord(this.data.alertChannelSubscriptions),
+      changes: [
+        ...this.synthesizeRecord(this.data.checks, addTestOnly),
+        ...this.synthesizeRecord(this.data.groups),
+        ...this.synthesizeRecord(this.data.alertChannels),
+        ...this.synthesizeRecord(this.data.alertChannelSubscriptions),
+      ],
     }
   }
 
   private synthesizeRecord (record: Record<string, Check|CheckGroup|AlertChannel|AlertChannelSubscription>,
     addTestOnly = true) {
-    const synthesizedConstructs = Object.entries(record)
+    return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
-      .map(([key, construct]) => [key, construct.synthesize()])
-    return Object.fromEntries(synthesizedConstructs)
+      .map(([key, construct]) => ({
+        logicalId: key,
+        type: construct.type,
+        physicalId: construct.physicalId,
+        payload: construct.synthesize(),
+      }))
   }
 }
 

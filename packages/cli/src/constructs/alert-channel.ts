@@ -1,4 +1,5 @@
 import { Construct } from './construct'
+import { Session } from './project'
 
 export interface AlertChannelProps {
   /**
@@ -23,6 +24,17 @@ export interface AlertChannelProps {
   sslExpiryThreshold?: number
 }
 
+class AlertChannelWrapper extends Construct {
+  constructor (logicalId: string, physicalId: string) {
+    super(AlertChannel.__checklyType, logicalId, physicalId)
+    Session.registerConstruct(this)
+  }
+
+  synthesize () {
+    return null
+  }
+}
+
 /**
  * Creates an Alert Channels
  *
@@ -37,7 +49,7 @@ export abstract class AlertChannel extends Construct {
   sslExpiry?: boolean
   sslExpiryThreshold?: number
 
-  static readonly __checklyType = 'alertChannels'
+  static readonly __checklyType = 'alert-channel'
 
   /**
    * Constructs the Alert Channel instance
@@ -52,6 +64,10 @@ export abstract class AlertChannel extends Construct {
     this.sendDegraded = props.sendDegraded
     this.sslExpiry = props.sslExpiry
     this.sslExpiryThreshold = props.sslExpiryThreshold
+  }
+
+  static fromId (id: string) {
+    return new AlertChannelWrapper(`alert-channel-${id}`, id)
   }
 
   allowInChecklyConfig () {

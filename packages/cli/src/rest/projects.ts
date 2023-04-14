@@ -10,10 +10,7 @@ type ProjectResponse = Project & { id: string, created_at: string }
 
 export interface ProjectSync {
   project: Project,
-  checks: Record<string, any>
-  groups: Record<string, any>
-  alertChannels: Record<string, any>
-  alertChannelSubscriptions: Record<string, any>
+  changes: Array<any>
 }
 
 class Projects {
@@ -40,7 +37,7 @@ class Projects {
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {
     return this.api.post(
-      `/next/projects/deploy?dryRun=${dryRun}`,
+      `/next-v2/projects/deploy?dryRun=${dryRun}`,
       resources,
     )
   }

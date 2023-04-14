@@ -31,7 +31,7 @@ export class AlertChannelSubscription extends Construct {
   groupId?: Ref
   activated: boolean
 
-  static readonly __checklyType = 'alertChannelSubscriptions'
+  static readonly __checklyType = 'alert-channel-subscription'
 
   /**
    * Constructs the Alert Channel Syscription instance

@@ -93,7 +93,7 @@ export abstract class Check extends Construct {
   testOnly?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
-  static readonly __checklyType = 'checks'
+  static readonly __checklyType = 'check'
 
   constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)

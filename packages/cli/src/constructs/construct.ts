@@ -4,9 +4,11 @@ import { Ref } from './ref'
 export abstract class Construct {
   type: string
   logicalId: string
-  constructor (type: string, logicalId: string) {
+  physicalId?: string|number
+  constructor (type: string, logicalId: string, physicalId?: string|number) {
     this.logicalId = logicalId
     this.type = type
+    this.physicalId = physicalId
     Session.validateCreateConstruct(this)
   }
 
