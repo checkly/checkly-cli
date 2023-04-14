@@ -20,10 +20,10 @@ export interface ProjectProps {
 }
 
 export interface ProjectData {
-  checks: Record<string, Check>,
-  groups: Record<string, CheckGroup>,
-  alertChannels: Record<string, AlertChannel>,
-  alertChannelSubscriptions: Record<string, AlertChannelSubscription>,
+  check: Record<string, Check>,
+  'check-group': Record<string, CheckGroup>,
+  'alert-channel': Record<string, AlertChannel>,
+  'alert-channel-subscription': Record<string, AlertChannelSubscription>,
 }
 
 export class Project extends Construct {
@@ -31,10 +31,10 @@ export class Project extends Construct {
   repoUrl?: string
   logicalId: string
   data: ProjectData = {
-    checks: {},
-    groups: {},
-    alertChannels: {},
-    alertChannelSubscriptions: {},
+    check: {},
+    'check-group': {},
+    'alert-channel': {},
+    'alert-channel-subscription': {},
   }
 
   static readonly __checklyType = 'project'
@@ -76,10 +76,10 @@ export class Project extends Construct {
     return {
       project,
       changes: [
-        ...this.synthesizeRecord(this.data.checks, addTestOnly),
-        ...this.synthesizeRecord(this.data.groups),
-        ...this.synthesizeRecord(this.data.alertChannels),
-        ...this.synthesizeRecord(this.data.alertChannelSubscriptions),
+        ...this.synthesizeRecord(this.data.check, addTestOnly),
+        ...this.synthesizeRecord(this.data['check-group']),
+        ...this.synthesizeRecord(this.data['alert-channel']),
+        ...this.synthesizeRecord(this.data['alert-channel-subscription']),
       ],
     }
   }

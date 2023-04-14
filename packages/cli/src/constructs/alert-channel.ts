@@ -25,7 +25,7 @@ export interface AlertChannelProps {
 }
 
 class AlertChannelWrapper extends Construct {
-  constructor (logicalId: string, physicalId: string) {
+  constructor (logicalId: string, physicalId: string|number) {
     super(AlertChannel.__checklyType, logicalId, physicalId)
     Session.registerConstruct(this)
   }
@@ -66,7 +66,7 @@ export abstract class AlertChannel extends Construct {
     this.sslExpiryThreshold = props.sslExpiryThreshold
   }
 
-  static fromId (id: string) {
+  static fromId (id: string|number) {
     return new AlertChannelWrapper(`alert-channel-${id}`, id)
   }
 
@@ -74,7 +74,7 @@ export abstract class AlertChannel extends Construct {
     return true
   }
 
-  synthesize () {
+  synthesize (): any|null {
     return {
       sendRecovery: this.sendRecovery,
       sendFailure: this.sendFailure,

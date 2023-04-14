@@ -20,7 +20,7 @@ export abstract class Construct {
     return false
   }
 
-  abstract synthesize(): any
+  abstract synthesize(): any|null
 }
 
 export interface Entrypoint {

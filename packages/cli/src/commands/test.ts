@@ -143,7 +143,7 @@ export default class Test extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-    const checks = Object.entries(project.data.checks)
+    const checks = Object.entries(project.data.check)
       .filter(([, check]) => {
         if (check instanceof BrowserCheck) {
           return filterByFileNamePattern(filePatterns, check.scriptPath) ||
