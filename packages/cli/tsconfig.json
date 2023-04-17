@@ -2,7 +2,7 @@
   "compilerOptions": {
     "incremental": true,
     "declaration": true,
-    "importHelpers": true,
+    "importHelpers": false,
     "module": "commonjs",
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
