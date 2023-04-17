@@ -35,6 +35,7 @@
   "oclif": {
     "bin": "checkly",
     "commands": "./dist/commands",
+    "topicSeparator": " ",
     "plugins": [
       "@oclif/plugin-help",
       "@oclif/plugin-warn-if-update-available"
@@ -42,6 +43,9 @@
     "warn-if-update-available": {
       "timeoutInDays": 30,
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
+    },
+    "topics": {
+      "env": { "description": "Manage Checkly environment variables" }
     }
   },
   "bin": {

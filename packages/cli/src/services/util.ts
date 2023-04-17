@@ -128,3 +128,11 @@ export function getGitInformation (): GitInformation|null {
     commitMessage: repositoryInfo.commitMessage,
   }
 }
+
+export function escapeValue (value: string | undefined) {
+  return value
+    ? value
+      .replace(/\n/g, '\\n') // combine newlines (unix) into one line
+      .replace(/\r/g, '\\r') // combine newlines (windows) into one line
+    : ''
+}
