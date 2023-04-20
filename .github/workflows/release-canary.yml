@@ -18,7 +18,7 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci --workspace packages/cli
-      - run: npm version $(npm run version --workspace packages/cli --silent)-canary-${{github.event.pull_request.number}}.${{GITHUB_SHA::7}} --workspace packages/cli
+      - run: npm version $(npm run version --workspace packages/cli --silent)-canary-${{github.event.pull_request.number}}.$(git rev-parse --short HEAD) --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag canary-${{github.event.pull_request.number}}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
