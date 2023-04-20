@@ -21,10 +21,10 @@ export default class EnvPull extends AuthCommand {
 
   static args = {
     fileArgs: Args.string({
-      name: 'subcommands',
+      name: 'filename',
       required: false,
-      description: 'Subcommand env',
-      default: 'ls',
+      description: 'env filename',
+      default: '.env',
     }),
   }
 
@@ -33,17 +33,13 @@ export default class EnvPull extends AuthCommand {
   async run (): Promise<void> {
     const { flags, argv } = await this.parse(EnvPull)
     const { force } = flags
-    const subcommands = argv as string[]
+    const args = argv as string[]
 
-    if (subcommands.length > 4) {
-      this.error('Too many arguments. Please use "checkly env ls" or "checkly env pull filename"')
-      return
+    if (args.length > 1) {
+      throw new Error('Too many arguments. Please use "checkly env pull filename"')
     }
-    let filename = '.env'
-    // overwrite filename if subcommands[1] is defined
-    if (subcommands[1]) {
-      filename = subcommands[1]
-    }
+
+    const filename = args[0]
     const exists = fs.existsSync(filename)
     // check if filename exists and ask for confirmation to overwrite if it does
     if (exists && !force) {
@@ -64,7 +60,7 @@ export default class EnvPull extends AuthCommand {
 
     fs.writeFile(filename, env, (err) => {
       if (err) {
-        this.error(err.message)
+        throw new Error(err.message)
       }
     })
     this.log(`Success! ${filename} file ${exists ? 'updated' : 'created'}`)

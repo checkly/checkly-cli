@@ -4,14 +4,13 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvRm extends AuthCommand {
   static hidden = false
-  static description = 'Remove environment variable via checkly env rm <key> --force'
+  static description = 'Remove environment variable via checkly env rm <key>'
 
   static args = {
     fileArgs: Args.string({
-      name: 'subcommands',
-      required: false,
-      description: 'Subcommand env',
-      default: 'ls',
+      name: 'key',
+      required: true,
+      description: 'key',
     }),
   }
 
@@ -19,27 +18,24 @@ export default class EnvRm extends AuthCommand {
 
   async run (): Promise<void> {
     const { argv } = await this.parse(EnvRm)
-    const subcommands = argv as string[]
+    const args = argv as string[]
 
-    if (subcommands.length > 4) {
-      this.error('Too many arguments. Please use "checkly env ls" or "checkly env pull filename"')
-      return
+    if (args.length > 1) {
+      throw new Error('Too many arguments. Please use "checkly env rm <key>"')
     }
 
     // rm env variable
-    if (!subcommands[1]) {
-      this.error('Please provide a variable key to delete')
-      return
+    if (!args[0]) {
+      throw new Error('Please provide a variable key to delete')
     }
-    const envVariableKey = subcommands[1]
+    const envVariableKey = args[0]
     // check if env variable exists
     const { data: environmentVariables } = await api.environmentVariables.getAll()
     const envVariable = environmentVariables.find(({ key }) => key === envVariableKey)
     if (!envVariable) {
-      this.error(`Environment variable ${envVariableKey} not found.`)
-      return
+      throw new Error(`Environment variable ${envVariableKey} not found.`)
     }
-    await api.environmentVariables.delete(subcommands[1])
-    this.log(`Environment variable ${subcommands[1]} deleted.`)
+    await api.environmentVariables.delete(args[0])
+    this.log(`Environment variable ${args[0]} deleted.`)
   }
 }

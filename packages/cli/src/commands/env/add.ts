@@ -16,10 +16,9 @@ export default class EnvAdd extends AuthCommand {
 
   static args = {
     fileArgs: Args.string({
-      name: 'subcommands',
-      required: false,
-      description: 'Subcommand env',
-      default: 'ls',
+      name: 'arguments',
+      required: true,
+      description: 'arguments to add environment variable <key> <locked>',
     }),
   }
 
@@ -29,21 +28,21 @@ export default class EnvAdd extends AuthCommand {
     const { argv } = await this.parse(EnvAdd)
     const subcommands = argv as string[]
 
-    if (subcommands.length > 4) {
-      this.error('Too many arguments. Please use "checkly env add <key> <locked>.')
-      return
+    if (subcommands.length > 2) {
+      throw new Error('Too many arguments. Please use "checkly env add <key> <locked>.')
     }
 
     // add env variable
-    if (!subcommands[1]) {
-      this.error('Please provide a variable key to add')
+    if (!subcommands[0]) {
+      throw new Error('Please provide a variable key to add')
     }
+    const envVariableName = subcommands[0]
     let locked = false
-    if (subcommands[2]) {
-      locked = subcommands[2] === 'true'
+    if (subcommands[1]) {
+      locked = subcommands[1] === 'true'
     }
-    const envValue = await ux.prompt(`What is the value of ${subcommands[1]}`, { type: 'mask' })
-    await api.environmentVariables.add(subcommands[1], envValue, locked)
-    this.log(`Environment variable ${subcommands[1]} added.`)
+    const envValue = await ux.prompt(`What is the value of ${envVariableName}`, { type: 'mask' })
+    await api.environmentVariables.add(envVariableName, envValue, locked)
+    this.log(`Environment variable ${envVariableName} added.`)
   }
 }
