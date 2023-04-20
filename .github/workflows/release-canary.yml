@@ -24,3 +24,10 @@ jobs:
       - run: npm publish --workspace packages/cli --tag canary-${{github.event.pull_request.number}}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: NPM package canary
+          hide_and_recreate: true
+          hide_classify: "OUTDATED"
+          message: You can install the canary version using `npm install @checkly/cli@canary-${{github.event.pull_request.number}}`
+ 
