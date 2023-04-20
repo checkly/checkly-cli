@@ -129,7 +129,7 @@ export function getGitInformation (repoUrl?: string): GitInformation|null {
   }
 
   // safe way to remove the email address
-  const committer = (repositoryInfo.committer.match(/([^<]+)/) || [])[1]?.trim()
+  const committer = (repositoryInfo?.committer.match(/([^<]+)/) || [])[1]?.trim()
   return {
     commitId: process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
     repoUrl: process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
