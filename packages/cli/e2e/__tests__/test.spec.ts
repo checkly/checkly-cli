@@ -13,6 +13,8 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(result, null, 2))
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
     expect(result.status).toBe(0)
@@ -113,6 +115,8 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures', 'test-project'),
       env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
     })
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(result, null, 2))
     expect(result.stdout).toContain('Github summary saved in')
     expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
