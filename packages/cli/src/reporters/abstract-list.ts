@@ -2,18 +2,19 @@ import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus, printLn } from './util'
+import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
 import type { RunLocation } from '../services/check-runner'
 import { Check } from '../constructs/check'
-import { getDefaults } from '../rest/api'
+
+// Map from file -> check logicalId -> check+result.
+// This lets us print a structured list of the checks.
+// Map remembers the original insertion order, so each time we print the summary will be consistent.
+export type checkFilesMap = Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
   runLocation: RunLocation
-  // Map from file -> check logicalId -> check+result.
-  // This lets us print a structured list of the checks.
-  // Map remembers the original insertion order, so each time we print the summary will be consistent.
-  checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
+  checkFilesMap: checkFilesMap
   numChecks: number
   verbose: boolean
   testSessionId?: string
@@ -137,9 +138,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   _printTestSessionsUrl () {
     if (this.testSessionId) {
-      const { baseURL } = getDefaults()
-      const sessionUrl = `${baseURL.replace(/api/, 'app')}/test-sessions/${this.testSessionId}`
-      printLn(`${chalk.bold.white('Detailed session summary at:')} ${chalk.bold.underline.blue(sessionUrl)}`, 2)
+      printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`, 2)
     }
   }
 

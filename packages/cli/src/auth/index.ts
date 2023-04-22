@@ -4,6 +4,8 @@ import * as http from 'http'
 import * as crypto from 'crypto'
 import jwtDecode from 'jwt-decode'
 import { getDefaults as getApiDefaults } from '../rest/api'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export type AuthMode = 'signup' | 'login'
 
@@ -55,7 +57,8 @@ export class AuthContext {
     await this.#fetchAccessToken()
 
     if (!this.#accessToken || !this.#idToken) {
-      throw new Error('There was an error retrieving Auth0 token.')
+      throw new Error('There was an unexpected error retrieving Auth0 token. Please try again or contact ' +
+          'support@checklyhq.com if this problem persists')
     }
 
     const { name } = jwtDecode<any>(this.#idToken)
@@ -92,8 +95,15 @@ export class AuthContext {
     return new Promise((resolve, reject) => {
       const server = http.createServer()
       server.on('request', (req, res) => {
-      // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
-        if (!req.url?.includes('favicon.ico')) {
+        if (req.url?.endsWith('.svg')) {
+          res.writeHead(200, { 'Content-Type': 'image/svg+xml' })
+
+          fs.readFile(path.join(__dirname, `.${req.url}`), 'utf8', (err, data) => {
+            if (!err) res.end(data)
+          })
+
+        // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
+        } else if (!req.url?.includes('favicon.ico')) {
           const responseParams = new URLSearchParams(req.url?.substring(1))
           const code = responseParams.get('code')
           const state = responseParams.get('state')
@@ -104,9 +114,35 @@ export class AuthContext {
           if (code && state === this.#codeVerifier) {
             res.write(`
         <html>
+            <style>
+              html {
+                font-family: Inter, system-ui, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
+                font-size: 16px;
+              }
+              @keyframes slide-in-top {
+                0% {
+                  transform: translateY(-100px);
+                  opacity: 0;
+                }
+                100% {
+                  transform: translateY(0);
+                  opacity: 1;
+                }
+              }
+              .slide-in {
+                animation: slide-in-top 1s cubic-bezier(0.230, 1.000, 0.320, 1.000) both;
+              }
+            </style>
         <body>
-          <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
-            <h3 style="font-weight: 200;"><strong style="color:#45C8F1;">@checkly/cli</strong> login success! </br></br>You can go back to your terminal</br></br>This window should close itself in 3 seconds.</h3>
+          <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;">
+            <div>
+              <img class="slide-in" src="./assets/success_raccoon.svg" style="width: 140px; height: 140px;">
+              <h3 style="font-size: 28px; font-weight: 600; margin-bottom: 3rem; margin-top: .5rem;">Successfully logged in</h3>
+              <div style="font-weight: 500;">
+                <div style="margin-bottom: 1rem;">You can go back to your terminal.</div>
+                <div>This window should close itself in 3 seconds.</div>
+              </div>
+            </div>
           </div>
           <script>setTimeout(function() {window.close()}, 3000);</script>
         </body>

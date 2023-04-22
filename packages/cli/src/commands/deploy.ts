@@ -1,7 +1,7 @@
 import * as api from '../rest/api'
 import config from '../services/config'
 import { prompt } from 'inquirer'
-import { Flags } from '@oclif/core'
+import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
@@ -12,6 +12,7 @@ import * as chalk from 'chalk'
 import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
 import { splitConfigFilePath } from '../services/util'
+import commonMessages from '../messages/common-messages'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -22,31 +23,32 @@ enum ResourceDeployStatus {
 
 export default class Deploy extends AuthCommand {
   static hidden = false
-  static description = 'Deploy your changes'
+  static description = 'Deploy your project to your Checkly account.'
 
   static flags = {
     preview: Flags.boolean({
       char: 'p',
-      description: 'Show state preview',
+      description: 'Show a preview of the changes made by the deploy command.',
       default: false,
     }),
     output: Flags.boolean({
       char: 'o',
-      description: 'Show output',
+      description: 'Shows the changes made after the deploy command.',
       default: false,
     }),
     force: Flags.boolean({
       char: 'f',
-      description: 'force mode',
+      description: commonMessages.forceMode,
       default: false,
     }),
     config: Flags.string({
       char: 'c',
-      description: 'The Checkly CLI config filename.',
+      description: commonMessages.configFile,
     }),
   }
 
   async run (): Promise<void> {
+    ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
     const { force, preview, output, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -71,7 +73,7 @@ export default class Deploy extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-
+    ux.action.stop()
     const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
@@ -92,13 +94,14 @@ export default class Deploy extends AuthCommand {
         this.log(this.formatPreview(data, project))
       }
       if (!preview) {
+        await ux.wait(500)
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy the project due to a missing field. ${err.response.data?.message}`)
+        throw new Error(`Failed to deploy your project due to a missing field. ${err.response.data?.message}`)
       } else {
-        throw new Error(`Failed to deploy the project. ${err.message}`)
+        throw new Error(`Failed to deploy your project. ${err.message}`)
       }
     }
   }

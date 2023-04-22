@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises'
-import { Flags, Args } from '@oclif/core'
+import { Flags, Args, ux } from '@oclif/core'
 import { parse } from 'dotenv'
+import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
@@ -12,7 +13,8 @@ import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
-import { createReporter, ReporterType } from '../reporters/reporter'
+import { createReporters, ReporterType } from '../reporters/reporter'
+import commonMessages from '../messages/common-messages'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -27,7 +29,7 @@ async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
 
 export default class Test extends AuthCommand {
   static hidden = false
-  static description = 'Test checks on Checkly'
+  static description = 'Test your checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
@@ -50,7 +52,7 @@ export default class Test extends AuthCommand {
       default: [],
     }),
     'env-file': Flags.string({
-      description: 'dotenv file path to be passed.',
+      description: 'dotenv file path to be passed. For example --env-file="./.env"',
       exclusive: ['env'],
     }),
     list: Flags.boolean({
@@ -63,20 +65,20 @@ export default class Test extends AuthCommand {
     }),
     verbose: Flags.boolean({
       char: 'v',
-      description: 'Always show the logs of the checks.',
+      description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
     reporter: Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
-      options: ['list', 'dot', 'ci'],
+      options: ['list', 'dot', 'ci', 'github'],
     }),
     config: Flags.string({
       char: 'c',
-      description: 'The Checkly CLI config filename.',
+      description: commonMessages.configFile,
     }),
     record: Flags.boolean({
-      description: 'Record test results in Checkly.',
+      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
   }
@@ -93,6 +95,7 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
+    ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
@@ -103,7 +106,7 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
-      reporter: reporterType,
+      reporter: reporterFlag,
       config: configFilename,
       record: shouldRecord,
     } = flags
@@ -120,6 +123,7 @@ export default class Test extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
+    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const gitInfo = getGitInformation()
     const project = await parseProject({
@@ -167,18 +171,18 @@ export default class Test extends AuthCommand {
         return check
       })
 
+    ux.action.stop()
+
     if (!checks.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
       return
     }
 
-    const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
-
+    const reporters = createReporters(reporterTypes, location, checks, verbose)
     if (list) {
-      reporter.onBeginStatic()
+      reporters.forEach(r => r.onBeginStatic())
       return
     }
-
     const runner = new CheckRunner(
       config.getAccountId(),
       config.getApiKey(),
@@ -191,31 +195,31 @@ export default class Test extends AuthCommand {
     )
     runner.on(Events.RUN_STARTED,
       (testSessionId: string, testResultIds: { [key: string]: string }) =>
-        reporter.onBegin(testSessionId, testResultIds))
+        reporters.forEach(r => r.onBegin(testSessionId, testResultIds)))
     runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporter.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd({
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
-      })
+      }))
     })
     runner.on(Events.CHECK_FAILED, (check, message: string) => {
-      reporter.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd({
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
-      })
+      }))
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporter.onEnd(),
+    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
     )
     runner.on(Events.ERROR, (err) => {
-      reporter.onError(err)
+      reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
     await runner.run()
@@ -223,6 +227,13 @@ export default class Test extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
+  }
+
+  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
+    if (!reporterFlag && !cliReporters.length) {
+      return [isCI ? 'ci' : 'list']
+    }
+    return reporterFlag ? [reporterFlag] : cliReporters
   }
 
   async prepareRunLocation (
@@ -240,7 +251,7 @@ export default class Test extends AuthCommand {
     } else if (cliFlags.privateRunLocation) {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-      throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
+      throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
         ` Please only specify one run location. The configured locations were' + 
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {

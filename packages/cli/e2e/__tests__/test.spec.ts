@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as uuid from 'uuid'
 import * as config from 'config'
+import * as fs from 'fs'
 import { runChecklyCli } from '../run-checkly'
 
 describe('test', () => {
@@ -96,6 +97,24 @@ describe('test', () => {
     expect(result.stdout).toContain('TestOnly=false (default) Check')
     expect(result.stdout).toContain('TestOnly=false Check')
     expect(result.stdout).toContain('TestOnly=true Check')
+    expect(result.status).toBe(0)
+  })
+
+  it('Should use Github reporter', () => {
+    const reportFilename = './reports/checkly-summary.md'
+    try {
+      fs.unlinkSync(reportFilename)
+    } catch {
+    }
+    const result = runChecklyCli({
+      args: ['test', '--reporter', 'github'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+      env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
+    })
+    expect(result.stdout).toContain('Github summary saved in')
+    expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
   })
 })

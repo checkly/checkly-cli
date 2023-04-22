@@ -41,6 +41,8 @@ Run the core CLI commands with `npx checkly <command>`
 
 [Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/).
 
+> tip: you can add autocomplete to your shell using `npx checkly autocomplete`
+
 ## Adding and running `@playwright/test`
 
 You can add `@playwright/test` to this project to get full code completion and run `.spec.ts` files for local debugging.

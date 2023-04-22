@@ -51,11 +51,11 @@ export async function validateAuthentication (): Promise<void> {
     await accounts.get(accountId)
   } catch (err: any) {
     if (err.response?.status === 401) {
-      throw new Error(`Authentication failed with Account ID "${accountId}" ` +
+      throw new Error(`Authentication failed with account id "${accountId}" ` +
         `and API key "...${apiKey?.slice(-4)}"`)
     } else if (!err.response) {
       // The request was made but no response was received. This may be due to an internet connection issue.
-      throw new Error(`Encountered an error connecting to Checkly. Please check that the internet conenction is working.\nCause: ${err.message}`)
+      throw new Error(`Encountered an error connecting to Checkly. Please check that the internet connection is working. ${err.message}`)
     } else {
       throw new Error(`Encountered an unexpected error connecting to Checkly: ${err.message}`)
     }

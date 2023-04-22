@@ -23,6 +23,10 @@ This project mimics a typical app where you organize code with top-level default
 |-- package.json
 `-- src
     |-- __checks__
+    |   |  `-- utils
+    |   |      |-- auth-client.ts
+    |   |      `-- setup.ts
+    |   |          
     |   |-- 404.spec.ts
     |   |-- api.check.ts
     |   |-- home.check.ts 
@@ -60,6 +64,8 @@ Run the core CLI commands with `npx checkly <command>`
 | `npx checkly --help` | Show help for each command.                      |
 
 [Check the docs for the full CLI reference](https://www.checklyhq.com/docs/cli/command-line-reference/).
+
+> tip: you can add autocomplete to your shell using `npx checkly autocomplete`
 
 ## Adding and running `@playwright/test`
 

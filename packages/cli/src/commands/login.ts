@@ -27,20 +27,20 @@ const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
 
 export default class Login extends BaseCommand {
   static hidden = false
-  static description = 'Login with a Checkly API Key'
+  static description = 'Login to your Checkly account or create a new one.'
 
   static flags = {
     'api-key': Flags.string({
       char: 'k',
       name: 'apiKey',
       description:
-      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys',
+      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys.',
     }),
 
     'account-id': Flags.string({
       char: 'i',
       name: 'accountId',
-      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag',
+      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag.',
     }),
   }
 
@@ -67,7 +67,7 @@ export default class Login extends BaseCommand {
 
   private _isLoginSuccess = async () => {
     await api.validateAuthentication()
-    this.log('Welcome to @checkly/cli 🦝')
+    this.log('Welcome to @checkly/cli')
   }
 
   async run (): Promise<void> {
@@ -96,13 +96,13 @@ export default class Login extends BaseCommand {
       {
         name: 'openUrl',
         type: 'confirm',
-        message: `Do you allow to open the browser to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
+        message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
       },
     ])
 
     if (!openUrl) {
       this.log(
-        `Please open the following URL in your browser: \n\n${chalk.blueBright(
+        `Please open the following URL in your browser: \n\n${chalk.cyan(
           authContext.authenticationUrl,
         )}`,
       )
@@ -121,7 +121,7 @@ export default class Login extends BaseCommand {
     config.data.set('accountId', selectedAccount.id)
     config.data.set('accountName', selectedAccount.name)
 
-    this.log(`Successfully logged in as ${chalk.blue.bold(name)}`)
+    this.log(`Successfully logged in as ${chalk.cyan.bold(name)}`)
 
     await this._isLoginSuccess()
     process.exit(0)
