@@ -95,7 +95,7 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
-    // ux.action.start('Parsing your project', undefined, { stdout: true })
+    ux.action.start('Parsing your project', undefined, { stdout: true })
 
     const { flags, argv } = await this.parse(Test)
     const {
@@ -171,7 +171,7 @@ export default class Test extends AuthCommand {
         return check
       })
 
-    // ux.action.stop()
+    ux.action.stop()
 
     if (!checks.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
