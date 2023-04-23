@@ -27,6 +27,11 @@ class EnvironmentVariables {
   get (environmentVariableKey: string) {
     return this.api.get<EnvironmentVariable>(`/v1/variables/${environmentVariableKey}`)
   }
+
+  // update environment variable with default locked value false
+  update (environmentVariableKey: string, environmentVariableValue: string, locked = false) {
+    return this.api.put(`/v1/variables/${environmentVariableKey}`, { value: environmentVariableValue, locked })
+  }
 }
 
 export default EnvironmentVariables
