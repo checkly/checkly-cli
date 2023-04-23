@@ -29,13 +29,16 @@ export default class EnvRm extends AuthCommand {
       throw new Error('Please provide a variable key to delete')
     }
     const envVariableKey = args[0]
-    // check if env variable exists
-    const { data: environmentVariables } = await api.environmentVariables.getAll()
-    const envVariable = environmentVariables.find(({ key }) => key === envVariableKey)
-    if (!envVariable) {
-      throw new Error(`Environment variable ${envVariableKey} not found.`)
+    // try to delete env variable catch 404 if env variable does not exist
+    try {
+      await api.environmentVariables.delete(envVariableKey)
+      this.log(`Environment variable ${envVariableKey} deleted.`)
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        throw new Error(`Environment variable ${envVariableKey} does not exist.`)
+      } else {
+        throw new Error(`Failed to delete environment variable. ${err.message}`)
+      }
     }
-    await api.environmentVariables.delete(args[0])
-    this.log(`Environment variable ${args[0]} deleted.`)
   }
 }

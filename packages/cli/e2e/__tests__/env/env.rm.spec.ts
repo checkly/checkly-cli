@@ -36,4 +36,15 @@ describe('checkly env rm', () => {
     // expect that 'testenvvars' is in the output
     expect(result.stdout).toContain('Environment variable testenvvarsrm deleted.')
   })
+
+  it('should throw an error because testenvvarsrm env variable does not exist', () => {
+    const result = runChecklyCli({
+      args: ['env', 'rm', 'testenvvarsrm'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+    })
+    // expect that 'testenvvars' does not exist
+    expect(result.stderr).toContain('Environment variable testenvvarsrm does not exist.')
+  })
 })
