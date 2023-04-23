@@ -4,12 +4,12 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvAdd extends AuthCommand {
   static hidden = false
-  static description = 'Add environment variable via checkly env add <key> <locked>'
+  static description = 'Add environment variable via checkly env add <key> <value> --locked.'
 
   static flags = {
-    force: Flags.boolean({
-      char: 'f',
-      description: 'force mode',
+    locked: Flags.boolean({
+      char: 'l',
+      description: 'Should the environment variable be locked? Defaults to false.',
       default: false,
     }),
   }
@@ -18,30 +18,33 @@ export default class EnvAdd extends AuthCommand {
     fileArgs: Args.string({
       name: 'arguments',
       required: true,
-      description: 'arguments to add environment variable <key> <locked>',
+      description: 'Arguments to add environment variable <key> <value>.',
     }),
   }
 
   static strict = false
 
   async run (): Promise<void> {
-    const { argv } = await this.parse(EnvAdd)
+    const { flags, argv } = await this.parse(EnvAdd)
+    const { locked } = flags
     const subcommands = argv as string[]
 
     if (subcommands.length > 2) {
-      throw new Error('Too many arguments. Please use "checkly env add <key> <locked>.')
+      throw new Error('Too many arguments. Please use "checkly env add <key> <value>.')
     }
 
     // add env variable
     if (!subcommands[0]) {
-      throw new Error('Please provide a variable key to add')
+      throw new Error('Please provide a variable key to add.')
     }
     const envVariableName = subcommands[0]
-    let locked = false
+    let envValue = ''
+    // check if env variable exists
     if (subcommands[1]) {
-      locked = subcommands[1] === 'true'
+      envValue = subcommands[1]
+    } else {
+      envValue = await ux.prompt(`What is the value of ${envVariableName}?`, { type: 'mask' })
     }
-    const envValue = await ux.prompt(`What is the value of ${envVariableName}`, { type: 'mask' })
     await api.environmentVariables.add(envVariableName, envValue, locked)
     this.log(`Environment variable ${envVariableName} added.`)
   }

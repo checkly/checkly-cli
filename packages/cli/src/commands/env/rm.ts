@@ -4,13 +4,13 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvRm extends AuthCommand {
   static hidden = false
-  static description = 'Remove environment variable via checkly env rm <key>'
+  static description = 'Remove environment variable via checkly env rm <key>.'
 
   static args = {
     fileArgs: Args.string({
       name: 'key',
       required: true,
-      description: 'key',
+      description: 'Environment variable key to remove.',
     }),
   }
 
@@ -21,7 +21,7 @@ export default class EnvRm extends AuthCommand {
     const args = argv as string[]
 
     if (args.length > 1) {
-      throw new Error('Too many arguments. Please use "checkly env rm <key>"')
+      throw new Error('Too many arguments. Please use "checkly env rm <key>".')
     }
 
     // rm env variable

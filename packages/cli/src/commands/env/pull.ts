@@ -9,12 +9,12 @@ const CONTENTS_PREFIX = '# Created by Checkly CLI\n'
 
 export default class EnvPull extends AuthCommand {
   static hidden = false
-  static description = 'Pull Checkly environment variables via env pull <filename>'
+  static description = 'Pull Checkly environment variables via env pull <filename>.'
 
   static flags = {
     force: Flags.boolean({
       char: 'f',
-      description: 'force mode',
+      description: 'Force to overwrite existing file.',
       default: false,
     }),
   }
@@ -23,7 +23,7 @@ export default class EnvPull extends AuthCommand {
     fileArgs: Args.string({
       name: 'filename',
       required: false,
-      description: 'env filename',
+      description: 'Env filename. Defaults to .env.',
       default: '.env',
     }),
   }
@@ -36,7 +36,7 @@ export default class EnvPull extends AuthCommand {
     const args = argv as string[]
 
     if (args.length > 1) {
-      throw new Error('Too many arguments. Please use "checkly env pull filename"')
+      throw new Error('Too many arguments. Please use "checkly env pull filename".')
     }
 
     const filename = args[0]
