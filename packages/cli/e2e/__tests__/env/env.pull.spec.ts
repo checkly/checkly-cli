@@ -25,8 +25,8 @@ describe('checkly env pull', () => {
   // after testing remove the environment variable envPullTest from checkly
   // additionally delete .envPullTest file if it exists
   afterAll(() => {
-    const result = runChecklyCli({
-      args: ['env', 'rm', 'envPullTest'],
+    runChecklyCli({
+      args: ['env', 'rm', 'envPullTest', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory,

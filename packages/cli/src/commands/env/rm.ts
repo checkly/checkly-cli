@@ -1,10 +1,19 @@
+import { prompt } from 'inquirer'
 import * as api from '../../rest/api'
-import { Args } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 
 export default class EnvRm extends AuthCommand {
   static hidden = false
   static description = 'Remove environment variable via checkly env rm <key>.'
+
+  static flags = {
+    force: Flags.boolean({
+      char: 'f',
+      description: 'Force to skip the confirmation prompt.',
+      default: false,
+    }),
+  }
 
   static args = {
     fileArgs: Args.string({
@@ -17,7 +26,8 @@ export default class EnvRm extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
-    const { argv } = await this.parse(EnvRm)
+    const { flags, argv } = await this.parse(EnvRm)
+    const { force } = flags
     const args = argv as string[]
 
     if (args.length > 1) {
@@ -28,6 +38,19 @@ export default class EnvRm extends AuthCommand {
     if (!args[0]) {
       throw new Error('Please provide a variable key to delete')
     }
+
+    if (!force) {
+      const { confirm } = await prompt([{
+        name: 'confirm',
+        type: 'confirm',
+        message: `Are you sure you want to delete environment variable ${args[0]}?`,
+      }])
+      if (!confirm) {
+        this.log('Cancelled. No changes made.')
+        return
+      }
+    }
+
     const envVariableKey = args[0]
     // try to delete env variable catch 404 if env variable does not exist
     try {

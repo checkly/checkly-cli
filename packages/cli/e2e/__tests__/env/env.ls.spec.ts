@@ -17,7 +17,7 @@ describe('checkly env ls', () => {
   // after testing remove the environment variable vi checkly env rm test
   afterAll(() => {
     const result = runChecklyCli({
-      args: ['env', 'rm', 'testenvvarsls'],
+      args: ['env', 'rm', 'testenvvarsls', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),

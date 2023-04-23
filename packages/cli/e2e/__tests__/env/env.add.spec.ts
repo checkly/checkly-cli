@@ -5,13 +5,13 @@ import { runChecklyCli } from '../../run-checkly'
 
 function cleanupEnvVars () {
   runChecklyCli({
-    args: ['env', 'rm', 'testenvvars'],
+    args: ['env', 'rm', 'testenvvars', '--force'],
     apiKey: config.get('apiKey'),
     accountId: config.get('accountId'),
     directory: path.join(__dirname, '../fixtures/check-parse-error'),
   })
   runChecklyCli({
-    args: ['env', 'rm', 'testenvvarslocked'],
+    args: ['env', 'rm', 'testenvvarslocked', '--force'],
     apiKey: config.get('apiKey'),
     accountId: config.get('accountId'),
     directory: path.join(__dirname, '../fixtures/check-parse-error'),
@@ -19,11 +19,11 @@ function cleanupEnvVars () {
 }
 
 describe('checkly env add', () => {
-  beforeAll(() => {
+  beforeEach(() => {
     cleanupEnvVars()
   })
   // after testing remove the environment variable vi checkly env rm test
-  afterAll(() => {
+  afterEach(() => {
     cleanupEnvVars()
   })
 
