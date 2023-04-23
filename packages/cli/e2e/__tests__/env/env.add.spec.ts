@@ -48,4 +48,21 @@ describe('checkly env add', () => {
     // expect that 'testenvvars' is in the output
     expect(result.stdout).toContain('Environment variable testenvvarslocked added.')
   })
+
+  it('should add fail because env variable called testenvvars exists', () => {
+    runChecklyCli({
+      args: ['env', 'add', 'testenvvarslocked', 'testvalue', '--locked'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+    })
+    const result = runChecklyCli({
+      args: ['env', 'add', 'testenvvarslocked', 'testvalue', '--locked'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+    })
+    // expect that 'testenvvars' is in the output
+    expect(result.stderr).toContain('Environment variable testenvvarslocked already exists.')
+  })
 })
