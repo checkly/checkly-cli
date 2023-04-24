@@ -4,7 +4,7 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvUpdate extends AuthCommand {
   static hidden = false
-  static description = 'Update environment variable via checkly env update <key> <value> --locked.'
+  static description = 'Update environment variable via "checkly env update <key> <value>".'
 
   static flags = {
     locked: Flags.boolean({
