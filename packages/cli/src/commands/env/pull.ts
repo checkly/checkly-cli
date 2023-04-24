@@ -36,7 +36,7 @@ export default class EnvPull extends AuthCommand {
     const args = argv as string[]
 
     if (args.length > 1) {
-      throw new Error('Too many arguments. Please use "checkly env pull filename".')
+      throw new Error('Too many arguments. Please use "checkly env pull <filename>".')
     }
 
     const filename = args[0]
