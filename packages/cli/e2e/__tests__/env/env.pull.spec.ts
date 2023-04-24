@@ -49,7 +49,7 @@ describe('checkly env pull', () => {
     expect(fs.existsSync(filename)).toBe(true)
     expect(fs.readFileSync(filename, 'utf8')).toContain('envPullTest=testvalue')
     // result.stdout contains Success! ${filename} file
-    expect(result.stdout).toContain('Success! .envPullTest file created')
+    expect(result.stdout).toContain('Success! Environment variables written to .envPullTest.')
   })
 
   it('should ask for permission to overwrite a .envPullTest file', () => {
@@ -75,6 +75,6 @@ describe('checkly env pull', () => {
       directory,
     })
     // result.stdout contains Success! ${filename} file
-    expect(result.stdout).toContain('Success! .envPullTest file updated')
+    expect(result.stdout).toContain('Success! Environment variables written to .envPullTest.')
   })
 })
