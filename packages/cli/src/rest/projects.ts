@@ -8,9 +8,20 @@ export interface Project {
 
 type ProjectResponse = Project & { id: string, created_at: string }
 
+export interface Change {
+  logicalId: string,
+  physicalId?: string,
+  type: string,
+  action: string
+}
 export interface ProjectSync {
   project: Project,
-  changes: Array<any>
+  resources: Array<any>
+}
+
+export interface ProjectDeployResponse {
+  project: Project
+  diff: Array<Change>
 }
 
 class Projects {
@@ -36,7 +47,7 @@ class Projects {
   }
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {
-    return this.api.post(
+    return this.api.post<ProjectDeployResponse>(
       `/next-v2/projects/deploy?dryRun=${dryRun}`,
       resources,
     )

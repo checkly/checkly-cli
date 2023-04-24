@@ -66,7 +66,7 @@ export class Project extends Construct {
 
   synthesize (addTestOnly = true): {
     project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>,
-    changes: Array<any>
+    resources: Array<any>
   } {
     const project = {
       logicalId: this.logicalId,
@@ -75,7 +75,7 @@ export class Project extends Construct {
     }
     return {
       project,
-      changes: [
+      resources: [
         ...this.synthesizeRecord(this.data.check, addTestOnly),
         ...this.synthesizeRecord(this.data['check-group']),
         ...this.synthesizeRecord(this.data['alert-channel']),
