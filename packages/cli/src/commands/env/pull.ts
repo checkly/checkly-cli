@@ -39,7 +39,7 @@ export default class EnvPull extends AuthCommand {
       throw new Error('Too many arguments. Please use "checkly env pull <filename>".')
     }
 
-    const filename = args[0]
+    const filename = path.resolve(__dirname, args[0])
     const exists = fs.existsSync(filename)
     // check if filename exists and ask for confirmation to overwrite if it does
     if (exists && !force) {
