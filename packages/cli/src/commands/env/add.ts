@@ -30,7 +30,7 @@ export default class EnvAdd extends AuthCommand {
     const subcommands = argv as string[]
 
     if (subcommands.length > 2) {
-      throw new Error('Too many arguments. Please use "checkly env add <key> <value>.')
+      throw new Error('Too many arguments. Please use "checkly env add <key> <value>".')
     }
 
     // add env variable
