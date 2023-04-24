@@ -21,7 +21,7 @@ export default class EnvPull extends AuthCommand {
   }
 
   static args = {
-    fileArgs: Args.string({
+    filename: Args.string({
       name: 'filename',
       required: false,
       description: 'Filename of the generated file.',
@@ -29,18 +29,11 @@ export default class EnvPull extends AuthCommand {
     }),
   }
 
-  static strict = false
-
   async run (): Promise<void> {
-    const { flags, argv } = await this.parse(EnvPull)
+    const { flags, args } = await this.parse(EnvPull)
     const { force } = flags
-    const args = argv as string[]
 
-    if (args.length > 1) {
-      throw new Error('Too many arguments. Please use "checkly env pull <filename>".')
-    }
-
-    const filepath = path.resolve(args[0])
+    const filepath = path.resolve(args.filename)
     const filename = path.basename(filepath)
     const { data: environmentVariables } = await api.environmentVariables.getAll()
     // create an file in current directory and save the env vars there
@@ -52,7 +45,8 @@ export default class EnvPull extends AuthCommand {
     try {
       await fs.writeFile(filepath, env, { flag })
     } catch (err: any) {
-      // By catching EEXIST rather than checking fs.existsSync, we avoid a race condition when a file is created between writing and checking
+      // By catching EEXIST rather than checking fs.existsSync,
+      // we avoid a race condition when a file is created between writing and checking
       if (err.code === 'EEXIST') {
         const { confirm } = await prompt([{
           name: 'confirm',
@@ -65,7 +59,6 @@ export default class EnvPull extends AuthCommand {
         }
         await fs.writeFile(filepath, env)
       }
-      
     }
     this.log(`Success! Environment variables written to ${filename}.`)
   }

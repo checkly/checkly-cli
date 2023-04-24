@@ -15,32 +15,27 @@ export default class EnvUpdate extends AuthCommand {
   }
 
   static args = {
-    fileArgs: Args.string({
+    key: Args.string({
       name: 'arguments',
       required: true,
-      description: 'Arguments to update environment variable <key> <value>.',
+      description: 'Environment variable key.',
+    }),
+    value: Args.string({
+      name: 'arguments',
+      required: false,
+      description: 'Environment variable value.',
     }),
   }
 
-  static strict = false
-
   async run (): Promise<void> {
-    const { flags, argv } = await this.parse(EnvUpdate)
+    const { flags, args } = await this.parse(EnvUpdate)
     const { locked } = flags
-    const subcommands = argv as string[]
 
-    if (subcommands.length > 2) {
-      throw new Error('Too many arguments. Please use "checkly env update <key> <value>".')
-    }
-
-    if (!subcommands[0]) {
-      throw new Error('Please provide a variable key to update.')
-    }
-    const envVariableName = subcommands[0]
+    const envVariableName = args.key
     let envValue = ''
     // check if env variable arg exists
-    if (subcommands[1]) {
-      envValue = subcommands[1]
+    if (args.value) {
+      envValue = args.value
     } else {
       envValue = await ux.prompt(`What is the value of ${envVariableName}?`, { type: 'mask' })
     }
