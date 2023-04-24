@@ -1,4 +1,4 @@
-// create test for checkly env add
+// create test for checkly env update
 import * as path from 'path'
 import * as config from 'config'
 import { runChecklyCli } from '../../run-checkly'
