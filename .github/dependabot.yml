@@ -1,6 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
+    versioning-strategy: increase
     # Runs at 9am CET only on weekdays
     schedule:
       time: "13:00"
