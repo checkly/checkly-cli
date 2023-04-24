@@ -9,7 +9,7 @@ const CONTENTS_PREFIX = '# Created by Checkly CLI\n'
 
 export default class EnvPull extends AuthCommand {
   static hidden = false
-  static description = 'Pull Checkly environment variables via env pull <filename>.'
+  static description = 'Pull Checkly environment variables via "checkly env pull <filename>".'
 
   static flags = {
     force: Flags.boolean({
