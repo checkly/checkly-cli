@@ -30,7 +30,7 @@ export default class EnvUpdate extends AuthCommand {
     const subcommands = argv as string[]
 
     if (subcommands.length > 2) {
-      throw new Error('Too many arguments. Please use "checkly env update <key> <value>.')
+      throw new Error('Too many arguments. Please use "checkly env update <key> <value>".')
     }
 
     if (!subcommands[0]) {
