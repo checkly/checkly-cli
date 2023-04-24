@@ -9,7 +9,7 @@ export default class EnvAdd extends AuthCommand {
   static flags = {
     locked: Flags.boolean({
       char: 'l',
-      description: 'Should the environment variable be locked? Defaults to false.',
+      description: 'Indicate that the environment variable will be locked.',
       default: false,
     }),
   }
