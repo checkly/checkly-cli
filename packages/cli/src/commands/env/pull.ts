@@ -4,7 +4,7 @@ import * as api from '../../rest/api'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 import { escapeValue } from '../../services/util'
-import * as fs from 'fs'
+import * as fs from 'fs/promises'
 
 const CONTENTS_PREFIX = '# Created by Checkly CLI\n'
 
@@ -42,29 +42,31 @@ export default class EnvPull extends AuthCommand {
 
     const filepath = path.resolve(args[0])
     const filename = path.basename(filepath)
-    const exists = fs.existsSync(filepath)
-    // check if filepath exists and ask for confirmation to overwrite if it does
-    if (exists && !force) {
-      const { confirm } = await prompt([{
-        name: 'confirm',
-        type: 'confirm',
-        message: `Found existing file ${filename}. Do you want to overwrite?`,
-      }])
-      if (!confirm) {
-        this.log('Cancelled. No changes made.')
-        return
-      }
-    }
-
     const { data: environmentVariables } = await api.environmentVariables.getAll()
     // create an file in current directory and save the env vars there
     const env = CONTENTS_PREFIX + environmentVariables.map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n') + '\n'
 
-    fs.writeFile(filepath, env, (err) => {
-      if (err) {
-        throw new Error(err.message)
+    // wx will cause the write to fail if the file already exists
+    // https://nodejs.org/api/fs.html#file-system-flags
+    const flag = force ? 'w' : 'wx'
+    try {
+      await fs.writeFile(filepath, env, { flag })
+    } catch (err: any) {
+      // By catching EEXIST rather than checking fs.existsSync, we avoid a race condition when a file is created between writing and checking
+      if (err.code === 'EEXIST') {
+        const { confirm } = await prompt([{
+          name: 'confirm',
+          type: 'confirm',
+          message: `Found existing file ${filename}. Do you want to overwrite?`,
+        }])
+        if (!confirm) {
+          this.log('Cancelled. No changes made.')
+          return
+        }
+        await fs.writeFile(filepath, env)
       }
-    })
-    this.log(`Success! ${filename} file ${exists ? 'updated' : 'created'}`)
+      
+    }
+    this.log(`Success! Environment variables written to ${filename}.`)
   }
 }
