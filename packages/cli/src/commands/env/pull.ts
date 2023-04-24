@@ -23,7 +23,7 @@ export default class EnvPull extends AuthCommand {
     fileArgs: Args.string({
       name: 'filename',
       required: false,
-      description: 'Env filename. Defaults to .env.',
+      description: 'Filename of the generated file.',
       default: '.env',
     }),
   }
