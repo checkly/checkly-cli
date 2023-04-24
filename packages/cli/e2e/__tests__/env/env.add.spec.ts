@@ -34,7 +34,6 @@ describe('checkly env add', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
-    // expect that 'testenvvars' is in the output
     expect(result.stdout).toContain('Environment variable testenvvars added.')
   })
 
@@ -45,7 +44,6 @@ describe('checkly env add', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
-    // expect that 'testenvvars' is in the output
     expect(result.stdout).toContain('Environment variable testenvvarslocked added.')
   })
 
@@ -62,7 +60,6 @@ describe('checkly env add', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
-    // expect that 'testenvvars' is in the output
     expect(result.stderr).toContain('Environment variable testenvvarslocked already exists.')
   })
 })

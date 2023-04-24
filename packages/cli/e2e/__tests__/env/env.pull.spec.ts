@@ -9,7 +9,7 @@ describe('checkly env pull', () => {
   // before testing add a new environment variable call envPullTest with value testvalue
   // additionally delete .envPullTest file if it exists
   beforeAll(() => {
-    const result = runChecklyCli({
+    runChecklyCli({
       args: ['env', 'add', 'envPullTest', 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -44,9 +44,10 @@ describe('checkly env pull', () => {
       accountId: config.get('accountId'),
       directory,
     })
+    const filename = path.join(directory, '.envPullTest')
     // expect that 'testenvvars' is in the output
-    expect(fs.existsSync(path.join(directory, '.envPullTest'))).toBe(true)
-    expect(fs.readFileSync(path.join(directory, '.envPullTest'), 'utf8')).toContain('envPullTest=testvalue')
+    expect(fs.existsSync(filename)).toBe(true)
+    expect(fs.readFileSync(filename, 'utf8')).toContain('envPullTest=testvalue')
     // result.stdout contains Success! ${filename} file
     expect(result.stdout).toContain('Success! .envPullTest file created')
   })
@@ -60,8 +61,8 @@ describe('checkly env pull', () => {
       accountId: config.get('accountId'),
       directory,
     })
-    // result.stdout contains Success! ${filename} file
-    expect(result.stdout).toContain('Found existing file .envPullTest. Do you want to overwrite?')
+    // result.stdout contains 'Found existing file.'
+    expect(result.stdout).toContain('Found existing file .envPullTest.')
   })
 
   it('should overwrite a .envPullTest file w/o asking for permission', () => {

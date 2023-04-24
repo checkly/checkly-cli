@@ -6,7 +6,7 @@ import { runChecklyCli } from '../../run-checkly'
 describe('checkly env ls', () => {
   // before testing add a new environment variable vi checkly env add test true
   beforeAll(() => {
-    const result = runChecklyCli({
+    runChecklyCli({
       args: ['env', 'add', 'testenvvarsls', 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -16,7 +16,7 @@ describe('checkly env ls', () => {
 
   // after testing remove the environment variable vi checkly env rm test
   afterAll(() => {
-    const result = runChecklyCli({
+    runChecklyCli({
       args: ['env', 'rm', 'testenvvarsls', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

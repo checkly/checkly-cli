@@ -1,4 +1,5 @@
 import { prompt } from 'inquirer'
+import * as path from 'path'
 import * as api from '../../rest/api'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
@@ -39,9 +40,10 @@ export default class EnvPull extends AuthCommand {
       throw new Error('Too many arguments. Please use "checkly env pull <filename>".')
     }
 
-    const filename = path.resolve(__dirname, args[0])
-    const exists = fs.existsSync(filename)
-    // check if filename exists and ask for confirmation to overwrite if it does
+    const filepath = path.resolve(args[0])
+    const filename = path.basename(filepath)
+    const exists = fs.existsSync(filepath)
+    // check if filepath exists and ask for confirmation to overwrite if it does
     if (exists && !force) {
       const { confirm } = await prompt([{
         name: 'confirm',
@@ -58,7 +60,7 @@ export default class EnvPull extends AuthCommand {
     // create an file in current directory and save the env vars there
     const env = CONTENTS_PREFIX + environmentVariables.map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n') + '\n'
 
-    fs.writeFile(filename, env, (err) => {
+    fs.writeFile(filepath, env, (err) => {
       if (err) {
         throw new Error(err.message)
       }
