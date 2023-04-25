@@ -115,18 +115,18 @@ export default class Deploy extends AuthCommand {
     const creating = []
     const deleting = []
     for (const change of previewData?.diff ?? []) {
-      const { type, logicalId } = change
+      const { type, logicalId, action } = change
       if (type === AlertChannelSubscription.__checklyType) {
         // Don't report changes to alert channel subscriptions.
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
       const construct = project.data[type as keyof ProjectData][logicalId]
-      if (type === ResourceDeployStatus.UPDATE) {
+      if (action === ResourceDeployStatus.UPDATE) {
         updating.push({ resourceType: type, logicalId, construct })
-      } else if (type === ResourceDeployStatus.CREATE) {
+      } else if (action === ResourceDeployStatus.CREATE) {
         creating.push({ resourceType: type, logicalId, construct })
-      } else if (type === ResourceDeployStatus.DELETE) {
+      } else if (action === ResourceDeployStatus.DELETE) {
         // Since the resource is being deleted, the construct isn't in the project.
         deleting.push({ resourceType: type, logicalId })
       }
