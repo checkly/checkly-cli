@@ -24,6 +24,8 @@ jobs:
       - run: npm ci --workspace packages/cli
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag experimental
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: PR Preview Release Published
