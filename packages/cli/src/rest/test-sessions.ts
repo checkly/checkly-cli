@@ -11,6 +11,17 @@ type RunTestSessionRequest = {
   shouldRecord: boolean,
 }
 
+type TriggerTestSessionRequest = {
+  name: string,
+  runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
+  shouldRecord: boolean,
+  targetTags: string[][],
+  checkRunSuiteId: string,
+  environmentVariables: Array<{ key: string, value: string }>,
+  repoInfo: GitInformation | null,
+  environment: string | null,
+}
+
 class TestSessions {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -19,6 +30,10 @@ class TestSessions {
 
   run (payload: RunTestSessionRequest) {
     return this.api.post('/next/test-sessions/run', payload)
+  }
+
+  trigger (payload: TriggerTestSessionRequest) {
+    return this.api.post('/next/test-sessions/trigger', payload)
   }
 }
 
