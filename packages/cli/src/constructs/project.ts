@@ -7,6 +7,7 @@ import { Check } from './check'
 import { CheckGroup } from './check-group'
 import { AlertChannel } from './alert-channel'
 import { AlertChannelSubscription } from './alert-channel-subscription'
+import { ResourceSync } from '../rest/projects'
 
 export interface ProjectProps {
   /**
@@ -66,7 +67,7 @@ export class Project extends Construct {
 
   synthesize (addTestOnly = true): {
     project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>,
-    resources: Array<any>
+    resources: Array<ResourceSync>
   } {
     const project = {
       logicalId: this.logicalId,

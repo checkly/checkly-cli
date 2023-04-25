@@ -14,9 +14,17 @@ export interface Change {
   type: string,
   action: string
 }
+
+export interface ResourceSync {
+  logicalId: string,
+  physicalId?: string|number,
+  type: string,
+  member: boolean,
+  payload: any,
+}
 export interface ProjectSync {
   project: Project,
-  resources: Array<any>
+  resources: Array<ResourceSync>
 }
 
 export interface ProjectDeployResponse {
