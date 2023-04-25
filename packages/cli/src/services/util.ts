@@ -144,3 +144,11 @@ export function getCiInformation (): CiInformation {
     environment: process.env.CHECKLY_TEST_ENVIRONMENT ?? null,
   }
 }
+
+export function escapeValue (value: string | undefined) {
+  return value
+    ? value
+      .replace(/\n/g, '\\n') // combine newlines (unix) into one line
+      .replace(/\r/g, '\\r') // combine newlines (windows) into one line
+    : ''
+}
