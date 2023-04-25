@@ -140,7 +140,7 @@ export abstract class Check extends Construct {
   }
 
   addSubscriptions () {
-    if (!this.alertChannels) {
+    if (!this.alertChannels || this.testOnly) {
       return
     }
     for (const alertChannel of this.alertChannels) {
