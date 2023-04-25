@@ -22,7 +22,7 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: npm ci --workspace packages/cli
-      - run: npm version "${{ env.PR_VERSION }}" --workspace packages/cli
+      - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag experimental
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
@@ -31,8 +31,7 @@ jobs:
           hide_classify: "OUTDATED"
           message: |
             🎉 Experimental release successfully published [on npm](https://npmjs.com/package/@checkly/cli/v/${{env.PR_VERSION}})
-            
             ```
-            npm install [@checkly/cli@${{env.PR_VERSION}}](https://github.com/checkly/cli@${{env.PR_VERSION}})
+            npm install @checkly/cli@${{env.PR_VERSION}}
             ```
  
