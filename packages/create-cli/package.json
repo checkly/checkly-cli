@@ -59,7 +59,7 @@
     "@types/luxon": "3.2.0",
     "@types/node": "18.11.18",
     "@types/prompts": "^2.4.2",
-    "@types/uuid": "9.0.0",
+    "@types/uuid": "9.0.1",
     "@types/which-pm-runs": "^1.0.0",
     "@types/ws": "8.5.3",
     "@typescript-eslint/eslint-plugin": "5.46.1",
