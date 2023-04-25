@@ -8,12 +8,28 @@ export interface Project {
 
 type ProjectResponse = Project & { id: string, created_at: string }
 
+export interface Change {
+  logicalId: string,
+  physicalId?: string,
+  type: string,
+  action: string
+}
+
+export interface ResourceSync {
+  logicalId: string,
+  physicalId?: string|number,
+  type: string,
+  member: boolean,
+  payload: any,
+}
 export interface ProjectSync {
   project: Project,
-  checks: Record<string, any>
-  groups: Record<string, any>
-  alertChannels: Record<string, any>
-  alertChannelSubscriptions: Record<string, any>
+  resources: Array<ResourceSync>
+}
+
+export interface ProjectDeployResponse {
+  project: Project
+  diff: Array<Change>
 }
 
 class Projects {
@@ -39,8 +55,8 @@ class Projects {
   }
 
   deploy (resources: ProjectSync, { dryRun = false } = {}) {
-    return this.api.post(
-      `/next/projects/deploy?dryRun=${dryRun}`,
+    return this.api.post<ProjectDeployResponse>(
+      `/next-v2/projects/deploy?dryRun=${dryRun}`,
       resources,
     )
   }

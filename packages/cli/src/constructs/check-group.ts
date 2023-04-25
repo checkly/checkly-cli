@@ -107,7 +107,7 @@ export class CheckGroup extends Construct {
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
 
-  static readonly __checklyType = 'groups'
+  static readonly __checklyType = 'check-group'
 
   /**
    * Constructs the CheckGroup instance
