@@ -59,6 +59,15 @@ You can use the current branch of the code against the any examples in the `/exa
 2. Run `npm create @checkly/cli -- --template boilerplate-project`
 3. Just use `npx checkly` as normal.
 
+## Prerelease experimental version
+
+To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
+triggered and a new experimental version can be installed by executing:
+
+```
+npm install @checkly/cli@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
+```
+
 ## Releasing
 
 To release the project to NPM:
