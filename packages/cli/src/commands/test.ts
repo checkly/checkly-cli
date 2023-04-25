@@ -5,7 +5,8 @@ import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
+import { Events, RunLocation, PrivateRunLocation } from '../services/abstract-check-runner'
+import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
@@ -187,7 +188,7 @@ export default class Test extends AuthCommand {
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
 
-    const runner = CheckRunner.testRunner(
+    const runner = new TestRunner(
       config.getAccountId(),
       project,
       checks,

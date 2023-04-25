@@ -1,13 +1,10 @@
-import { testSessions, assets } from '../rest/api'
+import { assets } from '../rest/api'
 import { SocketClient } from './socket-client'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
-import { Check } from '../constructs/check'
-import { Project } from '../constructs'
 import type { Region } from '..'
-import { GitInformation } from './util'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -32,12 +29,9 @@ export type PublicRunLocation = {
 }
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
-type CheckRunId = string
+export type CheckRunId = string
 
-type CheckScheduler = (checkRunSuiteId: string) =>
-  Promise<{ testSessionId?: string, testResultIds?: Map<string, string>, checks: Map<CheckRunId, any>}>
-
-export default class CheckRunner extends EventEmitter {
+export default abstract class AbstractCheckRunner extends EventEmitter {
   checks?: Map<CheckRunId, any>
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
@@ -46,10 +40,8 @@ export default class CheckRunner extends EventEmitter {
   timeout: number
   verbose: boolean
   queue: PQueue
-  checkScheduler: CheckScheduler
 
-  private constructor (
-    checkScheduler: CheckScheduler,
+  constructor (
     accountId: string,
     timeout: number,
     verbose: boolean,
@@ -57,34 +49,13 @@ export default class CheckRunner extends EventEmitter {
     super()
     this.timeouts = new Map()
     this.queue = new PQueue({ autoStart: false, concurrency: 1 })
-    this.checkScheduler = checkScheduler
     this.timeout = timeout
     this.verbose = verbose
     this.accountId = accountId
   }
 
-  static testRunner (
-    accountId: string,
-    project: Project,
-    checks: Check[],
-    location: RunLocation,
-    timeout: number,
-    verbose: boolean,
-    shouldRecord: boolean,
-    repoInfo: GitInformation | null,
-    environment: string | null,
-  ): CheckRunner {
-    const checkScheduler = (checkRunSuiteId: string) => scheduleTest(
-      project,
-      checks,
-      location,
-      shouldRecord,
-      repoInfo,
-      environment,
-      checkRunSuiteId,
-    )
-    return new CheckRunner(checkScheduler, accountId, timeout, verbose)
-  }
+  abstract scheduleChecks (checkRunSuiteId: string):
+    Promise<{ testSessionId?: string, testResultIds?: Map<string, string>, checks: Map<CheckRunId, any> }>
 
   async run () {
     let socketClient = null
@@ -95,7 +66,7 @@ export default class CheckRunner extends EventEmitter {
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
-      const { testSessionId, testResultIds, checks } = await this.checkScheduler(checkRunSuiteId)
+      const { testSessionId, testResultIds, checks } = await this.scheduleChecks(checkRunSuiteId)
       this.checks = checks
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
@@ -218,44 +189,5 @@ export default class CheckRunner extends EventEmitter {
     const timeout = this.timeouts.get(checkRunId)
     clearTimeout(timeout)
     this.timeouts.delete(checkRunId)
-  }
-}
-
-async function scheduleTest (
-  project: Project,
-  checks: Check[],
-  location: RunLocation,
-  shouldRecord: boolean,
-  repoInfo: GitInformation | null,
-  environment: string | null,
-  checkRunSuiteId: string,
-): Promise<{ testSessionId: string, testResultIds: Map<string, string>, checks: Map<CheckRunId, any> }> {
-  const checkRunIdMap = new Map(
-    checks.map((check) => [uuid.v4(), check]),
-  )
-  const checkRunJobs = Array.from(checkRunIdMap.entries()).map(([checkRunId, check]) => ({
-    ...check.synthesize(),
-    group: check.groupId ? project.data.groups[check.groupId.ref].synthesize() : undefined,
-    groupId: undefined,
-    sourceInfo: { checkRunSuiteId, checkRunId },
-    logicalId: check.logicalId,
-  }))
-  try {
-    if (!checkRunJobs.length) {
-      throw new Error('Unable to find checks to run.')
-    }
-    const { data } = await testSessions.run({
-      name: project.name,
-      checkRunJobs,
-      project: { logicalId: project.logicalId },
-      runLocation: location,
-      repoInfo,
-      environment,
-      shouldRecord,
-    })
-    const { testSessionId, testResultIds } = data
-    return { testSessionId, testResultIds, checks: checkRunIdMap }
-  } catch (err: any) {
-    throw new Error(err.response?.data?.message ?? err.message)
   }
 }

@@ -3,7 +3,7 @@ import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
-import type { RunLocation } from '../services/check-runner'
+import type { RunLocation } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
 
 // Map from file -> check logicalId -> check+result.
