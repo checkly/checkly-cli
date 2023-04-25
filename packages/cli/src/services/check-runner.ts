@@ -5,7 +5,7 @@ import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
 import { Check } from '../constructs/check'
-import { CheckGroup, Project } from '../constructs'
+import { Project } from '../constructs'
 import type { Region } from '..'
 import { GitInformation } from './util'
 
@@ -34,26 +34,37 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 type CheckRunId = string
 
+type CheckScheduler = (checkRunSuiteId: string) =>
+  Promise<{ testSessionId?: string, testResultIds?: Map<string, string>, checks: Map<CheckRunId, any>}>
+
 export default class CheckRunner extends EventEmitter {
-  project: Project
-  checks: Map<CheckRunId, any>
-  groups: Record<string, CheckGroup>
+  checks?: Map<CheckRunId, any>
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
   timeouts: Map<CheckRunId, NodeJS.Timeout>
-  location: RunLocation
   accountId: string
-  apiKey: string
   timeout: number
   verbose: boolean
-  shouldRecord: boolean
-  repoInfo?: GitInformation | null
-  environment?: string | null
   queue: PQueue
+  checkScheduler: CheckScheduler
 
-  constructor (
+  private constructor (
+    checkScheduler: CheckScheduler,
     accountId: string,
-    apiKey: string,
+    timeout: number,
+    verbose: boolean,
+  ) {
+    super()
+    this.timeouts = new Map()
+    this.queue = new PQueue({ autoStart: false, concurrency: 1 })
+    this.checkScheduler = checkScheduler
+    this.timeout = timeout
+    this.verbose = verbose
+    this.accountId = accountId
+  }
+
+  static testRunner (
+    accountId: string,
     project: Project,
     checks: Check[],
     location: RunLocation,
@@ -62,23 +73,17 @@ export default class CheckRunner extends EventEmitter {
     shouldRecord: boolean,
     repoInfo: GitInformation | null,
     environment: string | null,
-  ) {
-    super()
-    this.project = project
-    this.checks = new Map(
-      checks.map((check) => [uuid.v4(), check]),
+  ): CheckRunner {
+    const checkScheduler = (checkRunSuiteId: string) => scheduleTest(
+      project,
+      checks,
+      location,
+      shouldRecord,
+      repoInfo,
+      environment,
+      checkRunSuiteId,
     )
-    this.groups = project.data['check-group']
-    this.timeouts = new Map()
-    this.location = location
-    this.accountId = accountId
-    this.apiKey = apiKey
-    this.timeout = timeout
-    this.verbose = verbose
-    this.shouldRecord = shouldRecord
-    this.repoInfo = repoInfo
-    this.environment = environment
-    this.queue = new PQueue({ autoStart: false, concurrency: 1 })
+    return new CheckRunner(checkScheduler, accountId, timeout, verbose)
   }
 
   async run () {
@@ -89,11 +94,18 @@ export default class CheckRunner extends EventEmitter {
       const checkRunSuiteId = uuid.v4()
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
-      const allChecksFinished = this.allChecksFinished()
+
+      const { testSessionId, testResultIds, checks } = await this.checkScheduler(checkRunSuiteId)
+      this.checks = checks
+
+      // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
+      // To ensure that this is the case, we call `setAllTimeouts()` before `queue.start()`.
+      // Otherwise, we risk a race condition where check results are received before the timeout is set.
+      // This would cause `processMessage()` to mistakenly skip check results and consider the checks timed-out.
       this.setAllTimeouts()
-
-      const { testSessionId, testResultIds } = await this.scheduleAllChecks(checkRunSuiteId)
-
+      // `allChecksFinished` should be started before processing check results in `queue.start()`.
+      // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
+      const allChecksFinished = this.allChecksFinished()
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
       this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
@@ -107,36 +119,6 @@ export default class CheckRunner extends EventEmitter {
       if (socketClient) {
         await socketClient.end()
       }
-    }
-  }
-
-  private async scheduleAllChecks (checkRunSuiteId: string): Promise<{
-    testSessionId?: string,
-    testResultIds?: { [key: string]: string },
-  }> {
-    const checkRunJobs = Array.from(this.checks.entries()).map(([checkRunId, check]) => ({
-      ...check.synthesize(),
-      group: check.groupId ? this.groups[check.groupId.ref].synthesize() : undefined,
-      groupId: undefined,
-      sourceInfo: { checkRunSuiteId, checkRunId },
-      logicalId: check.logicalId,
-    }))
-    try {
-      if (!checkRunJobs.length) {
-        throw new Error('Unable to find checks to run.')
-      }
-      const { data } = await testSessions.run({
-        name: this.project.name,
-        checkRunJobs,
-        project: { logicalId: this.project.logicalId },
-        runLocation: this.location,
-        repoInfo: this.repoInfo,
-        environment: this.environment,
-        shouldRecord: this.shouldRecord,
-      })
-      return data
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message ?? err.message)
     }
   }
 
@@ -157,7 +139,7 @@ export default class CheckRunner extends EventEmitter {
       // The check has already timed out. We return early to avoid reporting a duplicate result.
       return
     }
-    const check = this.checks.get(checkRunId)
+    const check = this.checks!.get(checkRunId)
     if (subtopic === 'run-start') {
       this.emit(Events.CHECK_INPROGRESS, check)
     } else if (subtopic === 'run-end') {
@@ -203,7 +185,7 @@ export default class CheckRunner extends EventEmitter {
 
   private allChecksFinished (): Promise<void> {
     let finishedCheckCount = 0
-    const numChecks = this.checks.size
+    const numChecks = this.checks!.size
     if (numChecks === 0) {
       return Promise.resolve()
     }
@@ -216,7 +198,7 @@ export default class CheckRunner extends EventEmitter {
   }
 
   private setAllTimeouts () {
-    Array.from(this.checks.entries()).forEach(([checkRunId, check]) =>
+    Array.from(this.checks!.entries()).forEach(([checkRunId, check]) =>
       this.timeouts.set(checkRunId, setTimeout(() => {
         this.timeouts.delete(checkRunId)
         this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
@@ -226,6 +208,9 @@ export default class CheckRunner extends EventEmitter {
   }
 
   private disableAllTimeouts () {
+    if (!this.checks) {
+      return
+    }
     Array.from(this.checks.entries()).forEach(([checkRunId]) => this.disableTimeout(checkRunId))
   }
 
@@ -233,5 +218,44 @@ export default class CheckRunner extends EventEmitter {
     const timeout = this.timeouts.get(checkRunId)
     clearTimeout(timeout)
     this.timeouts.delete(checkRunId)
+  }
+}
+
+async function scheduleTest (
+  project: Project,
+  checks: Check[],
+  location: RunLocation,
+  shouldRecord: boolean,
+  repoInfo: GitInformation | null,
+  environment: string | null,
+  checkRunSuiteId: string,
+): Promise<{ testSessionId: string, testResultIds: Map<string, string>, checks: Map<CheckRunId, any> }> {
+  const checkRunIdMap = new Map(
+    checks.map((check) => [uuid.v4(), check]),
+  )
+  const checkRunJobs = Array.from(checkRunIdMap.entries()).map(([checkRunId, check]) => ({
+    ...check.synthesize(),
+    group: check.groupId ? project.data.groups[check.groupId.ref].synthesize() : undefined,
+    groupId: undefined,
+    sourceInfo: { checkRunSuiteId, checkRunId },
+    logicalId: check.logicalId,
+  }))
+  try {
+    if (!checkRunJobs.length) {
+      throw new Error('Unable to find checks to run.')
+    }
+    const { data } = await testSessions.run({
+      name: project.name,
+      checkRunJobs,
+      project: { logicalId: project.logicalId },
+      runLocation: location,
+      repoInfo,
+      environment,
+      shouldRecord,
+    })
+    const { testSessionId, testResultIds } = data
+    return { testSessionId, testResultIds, checks: checkRunIdMap }
+  } catch (err: any) {
+    throw new Error(err.response?.data?.message ?? err.message)
   }
 }

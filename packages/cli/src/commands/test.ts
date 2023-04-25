@@ -187,9 +187,8 @@ export default class Test extends AuthCommand {
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
 
-    const runner = new CheckRunner(
+    const runner = CheckRunner.testRunner(
       config.getAccountId(),
-      config.getApiKey(),
       project,
       checks,
       location,
