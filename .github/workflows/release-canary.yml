@@ -4,8 +4,6 @@ on:
   pull_request:
     types:
       - labeled
-    paths:
-      - 'packages/cli/src/**.ts'
 
 jobs:
   publish:
