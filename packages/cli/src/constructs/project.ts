@@ -7,7 +7,6 @@ import { Check } from './check'
 import { CheckGroup } from './check-group'
 import { AlertChannel } from './alert-channel'
 import { AlertChannelSubscription } from './alert-channel-subscription'
-import { GitInformation } from '../services/util'
 
 export interface ProjectProps {
   /**
@@ -18,10 +17,6 @@ export interface ProjectProps {
    * Git repository URL.
    */
   repoUrl?: string
-  /**
-   * Git repository information.
-   */
-  repoInfo?: GitInformation
 }
 
 export interface ProjectData {
@@ -34,7 +29,6 @@ export interface ProjectData {
 export class Project extends Construct {
   name: string
   repoUrl?: string
-  repoInfo?: GitInformation
   logicalId: string
   data: ProjectData = {
     checks: {},
@@ -60,7 +54,6 @@ export class Project extends Construct {
 
     this.name = props.name
     this.repoUrl = props.repoUrl
-    this.repoInfo = props.repoInfo
     this.logicalId = logicalId
   }
 
@@ -82,7 +75,6 @@ export class Project extends Construct {
       logicalId: this.logicalId,
       name: this.name,
       repoUrl: this.repoUrl,
-      repoInfo: this.repoInfo,
     }
     return {
       project,

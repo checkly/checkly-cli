@@ -7,6 +7,7 @@ import type { AsyncMqttClient } from 'async-mqtt'
 import { Check } from '../constructs/check'
 import { CheckGroup, Project } from '../constructs'
 import type { Region } from '..'
+import { GitInformation } from './util'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -46,6 +47,8 @@ export default class CheckRunner extends EventEmitter {
   timeout: number
   verbose: boolean
   shouldRecord: boolean
+  repoInfo?: GitInformation | null
+  environment?: string | null
   queue: PQueue
 
   constructor (
@@ -57,6 +60,8 @@ export default class CheckRunner extends EventEmitter {
     timeout: number,
     verbose: boolean,
     shouldRecord: boolean,
+    repoInfo: GitInformation | null,
+    environment: string | null,
   ) {
     super()
     this.project = project
@@ -71,6 +76,8 @@ export default class CheckRunner extends EventEmitter {
     this.timeout = timeout
     this.verbose = verbose
     this.shouldRecord = shouldRecord
+    this.repoInfo = repoInfo
+    this.environment = environment
     this.queue = new PQueue({ autoStart: false, concurrency: 1 })
   }
 
@@ -123,7 +130,8 @@ export default class CheckRunner extends EventEmitter {
         checkRunJobs,
         project: { logicalId: this.project.logicalId },
         runLocation: this.location,
-        repoInfo: this.project.repoInfo,
+        repoInfo: this.repoInfo,
+        environment: this.environment,
         shouldRecord: this.shouldRecord,
       })
       return data

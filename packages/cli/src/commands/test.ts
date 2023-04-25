@@ -12,7 +12,7 @@ import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
-import { splitConfigFilePath, getGitInformation } from '../services/util'
+import { splitConfigFilePath, getGitInformation, getCiInformation } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 
@@ -96,6 +96,7 @@ export default class Test extends AuthCommand {
 
   async run (): Promise<void> {
     ux.action.start('Parsing your project', undefined, { stdout: true })
+
     const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
@@ -125,13 +126,12 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
-    const gitInfo = getGitInformation()
+
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
       projectName: checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
-      repoInfo: gitInfo ?? undefined,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
@@ -183,6 +183,10 @@ export default class Test extends AuthCommand {
       reporters.forEach(r => r.onBeginStatic())
       return
     }
+
+    const repoInfo = getGitInformation(project.repoUrl)
+    const ciInfo = getCiInformation()
+
     const runner = new CheckRunner(
       config.getAccountId(),
       config.getApiKey(),
@@ -192,6 +196,8 @@ export default class Test extends AuthCommand {
       timeout,
       verbose,
       shouldRecord,
+      repoInfo,
+      ciInfo.environment,
     )
     runner.on(Events.RUN_STARTED,
       (testSessionId: string, testResultIds: { [key: string]: string }) =>
