@@ -10,6 +10,7 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
+    "version": "node -e \"console.log(require('./package.json').version)\"",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "watch": "tsc --watch",
     "prepare": "npm run clean && tsc --build",
@@ -105,6 +106,7 @@
     "cross-env": "7.0.3",
     "eslint": "8.30.0",
     "jest": "29.3.1",
+    "oclif": "3.7.3",
     "ts-jest": "29.0.3",
     "ts-node": "10.9.1",
     "typescript": "4.9.4"
