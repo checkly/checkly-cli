@@ -68,7 +68,7 @@ export default class CheckRunner extends EventEmitter {
     this.checks = new Map(
       checks.map((check) => [uuid.v4(), check]),
     )
-    this.groups = project.data.groups
+    this.groups = project.data['check-group']
     this.timeouts = new Map()
     this.location = location
     this.accountId = accountId

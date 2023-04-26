@@ -1,0 +1,39 @@
+name: release-canary
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  publish:
+    if: ${{ github.event.label.name == 'build' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      # Ensure that the README is published with the package
+      - run: rm -f packages/cli/README.md && cp README.md packages/cli
+      - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - run: npm ci --workspace packages/cli
+      - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
+      - run: npm publish --workspace packages/cli --tag experimental
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: PR Preview Release Published
+          hide_and_recreate: true
+          hide_classify: "OUTDATED"
+          message: |
+            🎉 Experimental release successfully published [on npm](https://npmjs.com/package/@checkly/cli/v/${{env.PR_VERSION}})
+            ```
+            npm install @checkly/cli@${{env.PR_VERSION}}
+            ```
+ 

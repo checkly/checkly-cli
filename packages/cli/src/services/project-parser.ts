@@ -97,7 +97,7 @@ async function loadAllBrowserChecks (
   }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.checks).forEach((check) => {
+  Object.values(project.data.check).forEach((check) => {
     if (check instanceof BrowserCheck && check.scriptPath) {
       preexistingCheckFiles.add(check.scriptPath)
     }

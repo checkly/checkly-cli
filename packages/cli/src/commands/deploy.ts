@@ -13,6 +13,7 @@ import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
+import { ProjectDeployResponse } from '../rest/projects'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -106,30 +107,28 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: any, project: Project): string {
+  private formatPreview (previewData: ProjectDeployResponse, project: Project): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
     const updating = []
     const creating = []
     const deleting = []
-    for (const [resourceType, resourceStatuses] of Object.entries(previewData?.diff ?? {})) {
-      if (resourceType === AlertChannelSubscription.__checklyType) {
+    for (const change of previewData?.diff ?? []) {
+      const { type, logicalId, action } = change
+      if (type === AlertChannelSubscription.__checklyType) {
         // Don't report changes to alert channel subscriptions.
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
-      for (const [logicalId, resourceStatus] of Object.entries(resourceStatuses ?? {})) {
-        if (resourceStatus === ResourceDeployStatus.UPDATE) {
-          const construct = project.data[resourceType as keyof ProjectData][logicalId]
-          updating.push({ resourceType, logicalId, construct })
-        } else if (resourceStatus === ResourceDeployStatus.CREATE) {
-          const construct = project.data[resourceType as keyof ProjectData][logicalId]
-          creating.push({ resourceType, logicalId, construct })
-        } else if (resourceStatus === ResourceDeployStatus.DELETE) {
-          // Since the resource is being deleted, the construct isn't in the project.
-          deleting.push({ resourceType, logicalId })
-        }
+      const construct = project.data[type as keyof ProjectData][logicalId]
+      if (action === ResourceDeployStatus.UPDATE) {
+        updating.push({ resourceType: type, logicalId, construct })
+      } else if (action === ResourceDeployStatus.CREATE) {
+        creating.push({ resourceType: type, logicalId, construct })
+      } else if (action === ResourceDeployStatus.DELETE) {
+        // Since the resource is being deleted, the construct isn't in the project.
+        deleting.push({ resourceType: type, logicalId })
       }
     }
 
