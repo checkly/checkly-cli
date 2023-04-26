@@ -35,7 +35,10 @@ export default class TestRunner extends AbstractCheckRunner {
 
   async scheduleChecks (
     checkRunSuiteId: string,
-  ): Promise<{ testSessionId?: string, testResultIds?: Map<string, string>, checks: Map<CheckRunId, any> }> {
+  ): Promise<{
+    testSessionId?: string,
+    checks: Array<{ check: any, checkRunId: CheckRunId, testSessionId?: string }>,
+  }> {
     const checkRunIdMap = new Map(
       this.checkConstructs.map((check) => [uuid.v4(), check]),
     )
@@ -60,7 +63,9 @@ export default class TestRunner extends AbstractCheckRunner {
         shouldRecord: this.shouldRecord,
       })
       const { testSessionId, testResultIds } = data
-      return { testSessionId, testResultIds, checks: checkRunIdMap }
+      const checks = Array.from(checkRunIdMap.entries())
+        .map(([checkRunId, check]) => ({ check, checkRunId, testResultId: testResultIds?.[check.logicalId] }))
+      return { testSessionId, checks }
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.message)
     }

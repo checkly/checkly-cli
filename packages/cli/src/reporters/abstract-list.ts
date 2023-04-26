@@ -3,53 +3,58 @@ import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
-import type { RunLocation } from '../services/abstract-check-runner'
+import type { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
 
-// Map from file -> check logicalId -> check+result.
+// Map from file -> checkRunId -> check+result.
 // This lets us print a structured list of the checks.
 // Map remembers the original insertion order, so each time we print the summary will be consistent.
-export type checkFilesMap = Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
+export type checkFilesMap = Map<string, Map<CheckRunId, {
+  check?: Check,
+  result?: any,
+  titleString: string,
+  testResultId?: string
+}>>
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
   runLocation: RunLocation
-  checkFilesMap: checkFilesMap
-  numChecks: number
+  checkFilesMap?: checkFilesMap
+  numChecks?: number
   verbose: boolean
   testSessionId?: string
-  testResultIds?: { [key: string]: string }
 
   constructor (
     runLocation: RunLocation,
-    checks: Array<Check>,
     verbose: boolean,
   ) {
-    this.numChecks = checks.length
     this.runLocation = runLocation
     this.verbose = verbose
-
-    // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
-    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()!))].sort()
-    const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
-    this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
-    sortedChecks.forEach(check => {
-      const fileMap = this.checkFilesMap.get(check.getSourceFile()!)!
-      fileMap.set(check.logicalId, {
-        check,
-        titleString: formatCheckTitle(CheckStatus.PENDING, check),
-      })
-    })
   }
 
   abstract onBeginStatic(): void
 
-  abstract onBegin(testSessionId: string, testResultIds?: { [key: string]: string }): void
+  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void {
+    this.testSessionId = testSessionId
+    this.numChecks = checks.length
+    // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
+    const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile()!))].sort()
+    const sortedChecks = checks.sort(({ check: a }, { check: b }) => a.name.localeCompare(b.name))
+    this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
+    sortedChecks.forEach(({ check, testResultId, checkRunId }) => {
+      const fileMap = this.checkFilesMap!.get(check.getSourceFile()!)!
+      fileMap.set(checkRunId, {
+        check,
+        titleString: formatCheckTitle(CheckStatus.PENDING, check),
+        testResultId,
+      })
+    })
+  }
 
   abstract onEnd(): void
 
-  onCheckEnd (checkResult: any) {
-    const checkStatus = this.checkFilesMap.get(checkResult.sourceFile)!.get(checkResult.logicalId)!
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
+    const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
     checkStatus.titleString = formatCheckTitle(status, checkResult, {
@@ -59,14 +64,6 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onError (err: Error) {
     printLn(chalk.red('Unable to run checks: ') + err.message)
-  }
-
-  _setTestSessionId (testSessionId?: string) {
-    this.testSessionId = testSessionId
-  }
-
-  _setTestResultIds (testResultIds?: { [key: string]: string }) {
-    this.testResultIds = testResultIds
   }
 
   // Clear the summary which was printed by _printStatus from stdout
@@ -79,7 +76,7 @@ export default abstract class AbstractListReporter implements Reporter {
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
     const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
     const status = []
-    for (const [sourceFile, checkMap] of this.checkFilesMap.entries()) {
+    for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
       status.push(sourceFile)
       for (const [_, { titleString, result }] of checkMap.entries()) {
         if (!result) {
@@ -111,7 +108,7 @@ export default abstract class AbstractListReporter implements Reporter {
   _printBriefSummary () {
     const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
     const status = []
-    for (const [, checkMap] of this.checkFilesMap.entries()) {
+    for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [_, { result }] of checkMap.entries()) {
         if (!result) {
           counts.numPending++

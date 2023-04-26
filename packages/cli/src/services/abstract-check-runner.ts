@@ -55,7 +55,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   abstract scheduleChecks (checkRunSuiteId: string):
-    Promise<{ testSessionId?: string, testResultIds?: Map<string, string>, checks: Map<CheckRunId, any> }>
+    Promise<{
+      testSessionId?: string,
+      checks: Array<{ check: any, checkRunId: CheckRunId, testSessionId?: string }>,
+    }>
 
   async run () {
     let socketClient = null
@@ -66,8 +69,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
-      const { testSessionId, testResultIds, checks } = await this.scheduleChecks(checkRunSuiteId)
-      this.checks = checks
+      const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
+      this.checks = new Map(
+        checks.map(({ check, checkRunId }) => [checkRunId, check]),
+      )
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
       // To ensure that this is the case, we call `setAllTimeouts()` before `queue.start()`.
@@ -79,7 +84,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       const allChecksFinished = this.allChecksFinished()
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
-      this.emit(Events.RUN_STARTED, testSessionId, testResultIds)
+      /// / Need to structure the checks depending on how it went
+      this.emit(Events.RUN_STARTED, checks, testSessionId)
 
       await allChecksFinished
       this.emit(Events.RUN_FINISHED, testSessionId)
@@ -145,11 +151,11 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         // TODO: remove the try/catch after deploy endpoint to fetch assets link
       }
 
-      this.emit(Events.CHECK_SUCCESSFUL, check, result)
+      this.emit(Events.CHECK_SUCCESSFUL, checkRunId, check, result)
       this.emit(Events.CHECK_FINISHED, check)
     } else if (subtopic === 'error') {
       this.disableTimeout(checkRunId)
-      this.emit(Events.CHECK_FAILED, check, message)
+      this.emit(Events.CHECK_FAILED, checkRunId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
     }
   }
