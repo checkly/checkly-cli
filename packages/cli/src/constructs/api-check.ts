@@ -4,7 +4,7 @@ import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
 import { Parser } from '../services/check-parser/parser'
-import { pathToPosix, isFileSync } from '../services/util'
+import { pathToPosix } from '../services/util'
 import { printDeprecationWarning } from '../reporters/util'
 import { Content, Entrypoint } from './construct'
 
@@ -287,7 +287,7 @@ export class ApiCheck extends Check {
     super(logicalId, props)
 
     if (props.setupScript) {
-      if ('entrypoint' in props.setupScript && isFileSync(props.setupScript.entrypoint)) {
+      if ('entrypoint' in props.setupScript) {
         const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId!)
         this.localSetupScript = script
         this.setupScriptPath = scriptPath
@@ -306,7 +306,7 @@ export class ApiCheck extends Check {
     }
 
     if (props.tearDownScript) {
-      if ('entrypoint' in props.tearDownScript && isFileSync(props.tearDownScript.entrypoint)) {
+      if ('entrypoint' in props.tearDownScript) {
         const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId!)
         this.localTearDownScript = script
         this.tearDownScriptPath = scriptPath

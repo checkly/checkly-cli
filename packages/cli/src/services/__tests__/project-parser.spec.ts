@@ -22,12 +22,18 @@ describe('parseProject()', () => {
         name: 'project name',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       },
-      checks: {
-        'check-1': {},
-        'check-2': {},
-      },
+      resources: [
+        {
+          type: 'check',
+          logicalId: 'check-1',
+        },
+        {
+          type: 'check',
+          logicalId: 'check-2',
+        },
+      ],
     })
-    expect(Object.keys(synthesizedProject.checks)).toHaveLength(2)
+    expect(Object.keys(synthesizedProject.resources)).toHaveLength(2)
   })
 
   it('should parse a project with TypeScript check files', async () => {
@@ -43,9 +49,9 @@ describe('parseProject()', () => {
       project: {
         logicalId: 'ts-project-id',
       },
-      checks: {
-        'ts-check': {},
-      },
+      resources: [
+        { type: 'check', logicalId: 'ts-check' },
+      ],
     })
   })
 })

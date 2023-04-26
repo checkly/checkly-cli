@@ -7,6 +7,7 @@ type RunTestSessionRequest = {
   project: { logicalId: string },
   runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
   repoInfo?: GitInformation | null,
+  environment?: string | null,
   shouldRecord: boolean,
 }
 

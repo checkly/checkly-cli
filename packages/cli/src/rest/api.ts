@@ -8,6 +8,7 @@ import Runtimes from './runtimes'
 import PrivateLocations from './private-locations'
 import Locations from './locations'
 import TestSessions from './test-sessions'
+import EnvironmentVariables from './environment-variables'
 
 export function getDefaults () {
   const environments = {
@@ -90,3 +91,4 @@ export const runtimes = new Runtimes(api)
 export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
 export const testSessions = new TestSessions(api)
+export const environmentVariables = new EnvironmentVariables(api)
