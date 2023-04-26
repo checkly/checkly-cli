@@ -1,5 +1,5 @@
 import { Check } from '../constructs/check'
-import { RunLocation } from '../services/check-runner'
+import { RunLocation } from '../services/abstract-check-runner'
 import CiReporter from './ci'
 import DotReporter from './dot'
 import GithubReporter from './github'
