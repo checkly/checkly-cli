@@ -34,7 +34,7 @@ export default class Login extends BaseCommand {
       char: 'k',
       name: 'apiKey',
       description:
-      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys.',
+      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/settings/user/api-keys.',
     }),
 
     'account-id': Flags.string({
