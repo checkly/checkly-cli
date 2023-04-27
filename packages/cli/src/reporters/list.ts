@@ -2,6 +2,7 @@ import * as indentString from 'indent-string'
 import * as chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list'
+import { CheckRunId } from '../services/abstract-check-runner'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl } from './util'
 
 export default class ListReporter extends AbstractListReporter {
@@ -10,9 +11,8 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary({ skipCheckCount: true })
   }
 
-  onBegin (testSessionId?: string, testResultIds?: { [key: string]: string }) {
-    this._setTestSessionId(testSessionId)
-    this._setTestResultIds(testResultIds)
+  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+    super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
     this._printSummary()
   }
@@ -23,8 +23,9 @@ export default class ListReporter extends AbstractListReporter {
     this._printTestSessionsUrl()
   }
 
-  onCheckEnd (checkResult: any) {
-    super.onCheckEnd(checkResult)
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
+    super.onCheckEnd(checkRunId, checkResult)
+    const { testResultId } = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     this._clearSummary()
 
     if (this.verbose) {
@@ -54,9 +55,9 @@ export default class ListReporter extends AbstractListReporter {
           , 4,
         ))
       }
-      if (this.testResultIds && this.testSessionId) {
+      if (testResultId && this.testSessionId) {
         printLn(indentString(
-          'View result: ' + chalk.underline.cyan(`${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[checkResult.logicalId]}`)
+          'View result: ' + chalk.underline.cyan(`${getTestSessionUrl(this.testSessionId)}/results/${testResultId}`)
           , 4,
         ), 2)
       }

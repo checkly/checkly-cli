@@ -5,7 +5,6 @@ import * as logSymbols from 'log-symbols'
 
 import { Assertion } from '../constructs/api-check'
 import { getDefaults } from '../rest/api'
-import { RunLocation } from '../services/check-runner'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
