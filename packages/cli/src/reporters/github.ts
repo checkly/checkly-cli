@@ -2,13 +2,13 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
+import { CheckRunId } from '../services/abstract-check-runner'
 import { formatDuration, printLn, getTestSessionUrl, getTraceUrl } from './util'
 
 const outputFile = './checkly-github-report.md'
 
 type GithubMdBuilderOptions = {
   testSessionId?: string
-  testResultIds?: { [key: string]: string }
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
@@ -16,7 +16,6 @@ type GithubMdBuilderOptions = {
 
 export class GithubMdBuilder {
   testSessionId?: string
-  testResultIds?: { [key: string]: string }
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
@@ -30,7 +29,6 @@ export class GithubMdBuilder {
   readonly tableSeparator: string = '|'
   constructor (options: GithubMdBuilderOptions) {
     this.testSessionId = options.testSessionId
-    this.testResultIds = options.testResultIds
     this.numChecks = options.numChecks
     this.runLocation = options.runLocation
     this.checkFilesMap = options.checkFilesMap
@@ -48,12 +46,12 @@ export class GithubMdBuilder {
       this.subHeader.push(`[View detailed test session summary](${getTestSessionUrl(this.testSessionId)})`)
     }
 
-    if (this.testSessionId && this.testResultIds) {
+    if (this.testSessionId) {
       this.tableHeaders = this.tableHeaders.concat(this.extraTableHeadersWithLinks)
     }
 
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
-      for (const [_, { check, result }] of checkMap.entries()) {
+      for (const [_, { result, testResultId }] of checkMap.entries()) {
         const tableRow: Array<string> = [
           `${result.hasFailures ? '❌ Fail' : '✅ Pass'}`,
           `${result.name}`,
@@ -62,7 +60,7 @@ export class GithubMdBuilder {
           `${formatDuration(result.responseTime)} `,
         ]
 
-        if (this.testSessionId && this.testResultIds) {
+        if (this.testSessionId && testResultId) {
           const assets: Array<string> = []
 
           if (result.hasFailures && result.traceFilesUrls) {
@@ -75,7 +73,7 @@ export class GithubMdBuilder {
 
           const assetsColumn: string = assets.join(' \\| ')
 
-          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
+          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
           tableRow.push(assetsColumn, linkColumn)
         }
 
@@ -102,20 +100,18 @@ export default class GithubReporter extends AbstractListReporter {
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }
 
-  onBegin (testSessionId?: string, testResultIds?: { [key: string]: string }) {
+  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+    super.onBegin(checks, testSessionId)
     this.onBeginStatic()
-    this._setTestSessionId(testSessionId)
-    this._setTestResultIds(testResultIds)
   }
 
   onEnd () {
     this._printBriefSummary()
     const githubMdBuilder = new GithubMdBuilder({
       testSessionId: this.testSessionId,
-      testResultIds: this.testResultIds,
-      numChecks: this.numChecks,
+      numChecks: this.numChecks!,
       runLocation: this._runLocationString(),
-      checkFilesMap: this.checkFilesMap,
+      checkFilesMap: this.checkFilesMap!,
     })
 
     const markDown = githubMdBuilder.render()
