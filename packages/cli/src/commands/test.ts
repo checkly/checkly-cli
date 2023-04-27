@@ -5,7 +5,8 @@ import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
+import { Events, RunLocation, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
+import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
@@ -178,7 +179,7 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const reporters = createReporters(reporterTypes, location, checks, verbose)
+    const reporters = createReporters(reporterTypes, location, verbose)
     if (list) {
       reporters.forEach(r => r.onBeginStatic())
       return
@@ -187,9 +188,8 @@ export default class Test extends AuthCommand {
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
 
-    const runner = new CheckRunner(
+    const runner = new TestRunner(
       config.getAccountId(),
-      config.getApiKey(),
       project,
       checks,
       location,
@@ -200,20 +200,20 @@ export default class Test extends AuthCommand {
       ciInfo.environment,
     )
     runner.on(Events.RUN_STARTED,
-      (testSessionId: string, testResultIds: { [key: string]: string }) =>
-        reporters.forEach(r => r.onBegin(testSessionId, testResultIds)))
-    runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
+      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+        reporters.forEach(r => r.onBegin(checks, testSessionId)))
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporters.forEach(r => r.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd(checkRunId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
       }))
     })
-    runner.on(Events.CHECK_FAILED, (check, message: string) => {
-      reporters.forEach(r => r.onCheckEnd({
+    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(checkRunId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),

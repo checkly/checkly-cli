@@ -2,22 +2,24 @@ import { checkFilesMap } from '../abstract-list'
 import { browserCheckResult } from './fixtures/browser-check-result'
 import { apiCheckResult } from './fixtures/api-check-result'
 
-export function generateMapAndTestResultIds () {
+export function generateMapAndTestResultIds ({ includeTestResultIds = true }) {
   const checkFilesMapFixture: checkFilesMap = new Map([
     ['folder/browser.check.ts', new Map([
-      [browserCheckResult.logicalId, { result: browserCheckResult as any, titleString: browserCheckResult.name }],
+      [browserCheckResult.checkRunId, {
+        result: browserCheckResult as any,
+        titleString: browserCheckResult.name,
+        // TODO: We shouldn't reuse the checkRunId as the testResultId in the test. This isn't how it actually works.
+        testResultId: includeTestResultIds ? browserCheckResult.checkRunId : undefined,
+      }],
     ])],
     ['folder/api.check.ts', new Map([
-      [apiCheckResult.logicalId, { result: apiCheckResult as any, titleString: apiCheckResult.name }],
+      [apiCheckResult.checkRunId, {
+        result: apiCheckResult as any,
+        titleString: apiCheckResult.name,
+        testResultId: includeTestResultIds ? apiCheckResult.checkRunId : undefined,
+      }],
     ])],
   ])
 
-  const testResultIdsFixture = {
-    [browserCheckResult.logicalId]: browserCheckResult.checkRunId,
-    [apiCheckResult.logicalId]: apiCheckResult.checkRunId,
-  }
-  return {
-    checkFilesMap: checkFilesMapFixture,
-    testResultIds: testResultIdsFixture,
-  }
+  return checkFilesMapFixture
 }
