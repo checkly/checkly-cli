@@ -37,7 +37,7 @@ export class GithubMdBuilder {
 
     this.subHeader = []
     this.tableHeaders = ['Result', 'Name', 'Check Type', 'Filename', 'Duration']
-    this.extraTableHeadersWithLinks = ['Assets', 'Link']
+    this.extraTableHeadersWithLinks = ['Link']
     this.tableRows = []
   }
 
@@ -63,20 +63,9 @@ export class GithubMdBuilder {
         ]
 
         if (this.testSessionId && this.testResultIds) {
-          const assets: Array<string> = []
-
-          if (result.hasFailures && result.traceFilesUrls) {
-            assets.push(`[Trace](${getTraceUrl(result.traceFilesUrls[0])})`)
-          }
-
-          if (result.hasFailures && result.videoFilesUrls) {
-            assets.push(`[Video](${result.videoFilesUrls[0]})`)
-          }
-
-          const assetsColumn: string = assets.join(' \\| ')
 
           const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
-          tableRow.push(assetsColumn, linkColumn)
+          tableRow.push(linkColumn)
         }
 
         this.tableRows.push(this.tableSeparator + tableRow.join(this.tableSeparator) + this.tableSeparator)
