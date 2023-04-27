@@ -63,7 +63,6 @@ export class GithubMdBuilder {
         ]
 
         if (this.testSessionId && this.testResultIds) {
-
           const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
           tableRow.push(linkColumn)
         }
