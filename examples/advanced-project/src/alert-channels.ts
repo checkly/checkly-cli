@@ -4,7 +4,7 @@ import {
   EmailAlertChannel,
   SlackAlertChannel,
   WebhookAlertChannel
-} from '@checkly/cli/constructs'
+} from 'checkly/constructs'
 
 const sendDefaults = {
   sendFailure: true,

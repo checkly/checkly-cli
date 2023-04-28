@@ -1,4 +1,4 @@
-import { ApiCheck, AssertionBuilder } from '@checkly/cli/constructs'
+import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 import { slackChannel, webhookChannel } from '../../alert-channels'
 
 const apiCheck = new ApiCheck('homepage-api-check-1', {

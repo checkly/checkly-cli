@@ -1,4 +1,4 @@
-import { ApiCheck, AssertionBuilder, Frequency } from '@checkly/cli/constructs'
+import { ApiCheck, AssertionBuilder, Frequency } from 'checkly/constructs'
 import { slackChannel, webhookChannel } from '../../../alert-channels'
 
 /**

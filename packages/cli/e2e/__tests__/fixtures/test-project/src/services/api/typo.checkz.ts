@@ -1,4 +1,4 @@
-import { ApiCheck } from '@checkly/cli/constructs'
+import { ApiCheck } from 'checkly/constructs'
 
 const apiCheck = new ApiCheck('not-included-typo-api-check-1', {
   name: 'File extension type example',

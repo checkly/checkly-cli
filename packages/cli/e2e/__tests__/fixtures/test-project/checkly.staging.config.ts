@@ -1,4 +1,4 @@
-import { defineConfig } from '@checkly/cli'
+import { defineConfig } from 'checkly'
 
 const config = defineConfig({
   projectName: 'Test Staging Project',
