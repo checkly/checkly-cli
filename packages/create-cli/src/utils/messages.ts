@@ -42,7 +42,7 @@ export async function hint (prefix: string, text: string) {
   }
 }
 
-export async function footer (targetDir?: string): Promise<void> {
+export async function footer (targetDir: string): Promise<void> {
   const max = process.stdout.columns
   const prefix = max < 80 ? ' ' : ' '.repeat(9)
   await sleep(200)
@@ -52,12 +52,10 @@ export async function footer (targetDir?: string): Promise<void> {
     )}`,
   )
 
-  if (targetDir) {
-    await sleep(200)
-    console.log(
-      `${prefix}> Enter your project directory using ${chalk.cyan(`cd ./${targetDir}`)}`,
-    )
-  }
+  await sleep(200)
+  console.log(
+    `${prefix}> Enter your project directory using ${chalk.cyan(`cd ./${targetDir}`)}`,
+  )
   await sleep(200)
   console.log(
     `${prefix}> Run ${chalk.cyan('npx checkly login')} to login to your Checkly account`,
