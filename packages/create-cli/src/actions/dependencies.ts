@@ -20,7 +20,7 @@ export function addDevDependecies (packageJson: PackageJson) {
   fs.writeFileSync('./package.json', JSON.stringify(packageJson, null, 2))
 }
 
-export async function installDependencies (): Promise<void> {
+export async function installDependencies (targetDir: string): Promise<void> {
   const installDepsResponse = await prompts({
     type: 'confirm',
     name: 'installDeps',
@@ -30,7 +30,7 @@ export async function installDependencies (): Promise<void> {
 
   if (installDepsResponse.installDeps) {
     const packageManager = detectPackageManager()?.name || 'npm'
-    const installExec = execa(packageManager, ['install'], { cwd: './' })
+    const installExec = execa(packageManager, ['install'], { cwd: targetDir })
     const installSpinner = spinner('installing packages')
     await new Promise<void>((resolve, reject) => {
       installExec.stdout?.on('data', function (data) {

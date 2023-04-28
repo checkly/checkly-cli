@@ -96,7 +96,7 @@ export default class Bootstrap extends Command {
         debug('Create custom Browser check')
         await createCustomBrowserCheck({ onCancel })
 
-        await installDependencies()
+        await installDependencies('./')
 
         await footer()
 
@@ -148,7 +148,7 @@ export default class Bootstrap extends Command {
       targetDir,
     })
 
-    await installDependencies()
+    await installDependencies(targetDir)
 
     const initGitResponse = await prompts({
       type: 'confirm',
