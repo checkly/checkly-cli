@@ -10,7 +10,6 @@
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "prepare": "npm run clean && tsc --build",
-    "prepack": "npx oclif manifest",
     "lint": "eslint src",
     "start": "node ./index.mjs"
   },
