@@ -25,7 +25,7 @@ type ProjectParseOpts = {
 }
 
 const BASE_CHECK_DEFAULTS = {
-  runtimeId: '2022.10',
+  runtimeId: '2023.02',
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, BrowserCheck, CheckGroup } from '@checkly/cli/constructs'
+import { ApiCheck, BrowserCheck, CheckGroup } from 'checkly/constructs'
 
 const group2 = new CheckGroup('my-check-group', {
   name: 'My Group',

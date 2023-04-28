@@ -1,4 +1,4 @@
-const { BrowserCheck } = require('@checkly/cli/constructs')
+const { BrowserCheck } = require('checkly/constructs')
 new BrowserCheck('browser-check', {
   name: 'Browser Check',
   code: {

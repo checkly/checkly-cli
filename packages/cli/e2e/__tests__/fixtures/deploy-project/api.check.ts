@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, Frequency } from '@checkly/cli/constructs'
+import { ApiCheck, Frequency } from 'checkly/constructs'
 new ApiCheck('api-check', {
   name: 'Api Check',
   activated: false,
