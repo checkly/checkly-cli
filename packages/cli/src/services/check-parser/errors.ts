@@ -19,9 +19,9 @@ export class DependencyParseError extends Error {
       }
     }
     if (unsupportedNpmDependencies.length) {
-      if (unsupportedNpmDependencies.some(d => d.unsupportedDependencies.some(ud => ud === '@checkly/cli/constructs'))) {
-        message += '\n\nIt looks like you\'re trying to use @checkly/cli/constructs in a browser check file. ' +
-          '@checkly/cli/constructs should only be used in check files: files ending in .check.ts and .check.js, ' +
+      if (unsupportedNpmDependencies.some(d => d.unsupportedDependencies.some(ud => ud === 'checkly/constructs'))) {
+        message += '\n\nIt looks like you\'re trying to use checkly/constructs in a browser check file. ' +
+          'checkly/constructs should only be used in check files: files ending in .check.ts and .check.js, ' +
           'or the checkMatch pattern set in your configuration. For more information see on the difference between ' +
           'test files and check files, see https://www.checklyhq.com/docs/cli/\n'
       } else {

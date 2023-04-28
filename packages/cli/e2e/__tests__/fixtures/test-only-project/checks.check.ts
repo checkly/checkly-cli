@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, BrowserCheck } from '@checkly/cli/constructs'
+import { ApiCheck, BrowserCheck } from 'checkly/constructs'
 
 new ApiCheck('not-testonly-default-check', {
   name: 'TestOnly=false (default) Check',
