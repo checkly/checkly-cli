@@ -3,6 +3,7 @@ import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
+import { parse } from 'dotenv'
 
 export interface GitInformation {
   commitId: string
@@ -151,4 +152,13 @@ export function escapeValue (value: string | undefined) {
       .replace(/\n/g, '\\n') // combine newlines (unix) into one line
       .replace(/\r/g, '\\r') // combine newlines (windows) into one line
     : ''
+}
+
+export async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
+  if (envFile) {
+    const envsString = await fs.readFile(envFile, { encoding: 'utf8' })
+    return parse(envsString)
+  }
+  const envsString = `${envArgs.join('\n')}`
+  return parse(envsString)
 }
