@@ -1,6 +1,6 @@
 {
   "name": "create-checkly",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Checkly Create CLI",
   "type": "module",
   "main": "dist/index.js",

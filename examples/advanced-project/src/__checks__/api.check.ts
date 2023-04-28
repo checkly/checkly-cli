@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { ApiCheck } from '@checkly/cli/dist/constructs'
+import { ApiCheck } from 'checkly/constructs'
 import { websiteGroup } from './website.check-group'
 
 new ApiCheck('check-group-api-check-1', {
