@@ -1,4 +1,4 @@
-import { BrowserCheck } from '@checkly/cli/constructs'
+import { BrowserCheck } from 'checkly/constructs'
 
 const browserCheck = new BrowserCheck('secret-browser-check', {
   name: 'Show SECRET_ENV value',
