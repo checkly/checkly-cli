@@ -21,12 +21,14 @@ enum Env {
 
 const config = {
   auth: new Conf({
+    projectName: '@checkly/cli',
     configName: 'auth',
     projectSuffix,
     // @ts-ignore
     schema: authSchema,
   }),
   data: new Conf({
+    projectName: '@checkly/cli',
     configName: 'config',
     projectSuffix,
     // @ts-ignore
