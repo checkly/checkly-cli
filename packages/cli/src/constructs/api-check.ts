@@ -280,7 +280,7 @@ export class ApiCheck extends Check {
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs/#apicheck Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/using-constructs/#creating-an-api-check Read more in the docs}
    */
 
   constructor (logicalId: string, props: ApiCheckProps) {
