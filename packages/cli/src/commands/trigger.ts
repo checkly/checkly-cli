@@ -28,7 +28,7 @@ export default class Trigger extends AuthCommand {
     tags: Flags.string({
       char: 't',
       description: 'Filter the checks to be run using a comma separated list of tags.' +
-        ' Checks will only be run if the contain all of the specified tags.' +
+        ' Checks will only be run if they contain all of the specified tags.' +
         ' Multiple --tags flags can be passed, in which case checks will be run if they match any of the --tags filters.' +
         ' F.ex. `--tags production,webapp --tags production,backend` will run checks with tags (production AND webapp) OR (production AND backend).',
       multiple: true,
