@@ -1,5 +1,5 @@
 {
-  "name": "@checkly/create-cli",
+  "name": "create-checkly",
   "version": "0.0.1",
   "description": "Checkly Create CLI",
   "type": "module",

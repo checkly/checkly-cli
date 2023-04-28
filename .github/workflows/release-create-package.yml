@@ -1,0 +1,44 @@
+name: Publish create-checkly to npmjs
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci --workspace packages/create-cli
+      - run: npm publish --workspace packages/create-cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Slack failure alert
+      - name: Slack Failure Notification
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: cli
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':red_circle: NPM release of create-cli failed'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''
+      # Slack success alert
+      - name: Slack Success Notification
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: cli
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':white_check_mark: NPM release of create-cli succeeded'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''
