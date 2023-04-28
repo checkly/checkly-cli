@@ -9,7 +9,7 @@ function sleep (ms: number): Promise<void> {
 }
 
 export async function getVersion (): Promise<string> {
-  const { data } = await axios.get('https://registry.npmjs.org/@checkly/cli/latest')
+  const { data } = await axios.get('https://registry.npmjs.org/checkly/latest')
   return data.version
 }
 

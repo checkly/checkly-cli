@@ -47,7 +47,7 @@ You can use any branch of the code and `npm link` it so you can use the latest v
 you are using the installed NPM package
 
 1. Go to the packages `./packages/cli` and `./packages/create-cli` directories and run `npm link`
-2. Go to your other project and run `npm link @checkly/cli` and `npm link @checkly/create-cli`
+2. Go to your other project and run `npm link checkly` and `npm link create-checkly`
 
 Make sure you are on the same NodeJS version if you are using `nvm` or `fnm`
 
@@ -56,7 +56,7 @@ Make sure you are on the same NodeJS version if you are using `nvm` or `fnm`
 You can use the current branch of the code against the any examples in the `/examples` directory for developing and debugging.
 
 1. Go the `~/your_local_path` directory.
-2. Run `npm create @checkly/cli -- --template boilerplate-project`
+2. Run `npm create checkly -- --template boilerplate-project`
 3. Just use `npx checkly` as normal.
 
 ## Prerelease experimental version
@@ -65,7 +65,7 @@ To publish a NPM package for testing purpose, you can tag the pull-request with 
 triggered and a new experimental version can be installed by executing:
 
 ```
-npm install @checkly/cli@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
+npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
 ```
 
 ## Releasing

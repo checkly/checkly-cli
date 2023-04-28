@@ -1,6 +1,6 @@
 {
-  "name": "@checkly/create-cli",
-  "version": "0.0.1",
+  "name": "create-checkly",
+  "version": "0.0.2",
   "description": "Checkly Create CLI",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,6 @@
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "prepare": "npm run clean && tsc --build",
-    "prepack": "npx oclif manifest",
     "lint": "eslint src",
     "start": "node ./index.mjs"
   },

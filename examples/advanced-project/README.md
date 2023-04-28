@@ -8,7 +8,7 @@ https://checklyhq.com website as a monitoring target.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
-npm create @checkly/cli -- --template advanced-project
+npm create checkly -- --template advanced-project
 ```
 
 ## Project Structure

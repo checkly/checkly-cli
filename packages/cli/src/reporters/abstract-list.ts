@@ -9,7 +9,8 @@ import { Check } from '../constructs/check'
 // Map from file -> checkRunId -> check+result.
 // This lets us print a structured list of the checks.
 // Map remembers the original insertion order, so each time we print the summary will be consistent.
-export type checkFilesMap = Map<string, Map<CheckRunId, {
+// Note that in the case of `checkly trigger`, the file will be `undefined`!
+export type checkFilesMap = Map<string|undefined, Map<CheckRunId, {
   check?: Check,
   result?: any,
   titleString: string,
@@ -38,11 +39,12 @@ export default abstract class AbstractListReporter implements Reporter {
     this.testSessionId = testSessionId
     this.numChecks = checks.length
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
-    const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile()!))].sort()
+    // For `checkly trigger`, getSourceFile() is not defined so we use optional chaining.
+    const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile?.()))].sort()
     const sortedChecks = checks.sort(({ check: a }, { check: b }) => a.name.localeCompare(b.name))
     this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
     sortedChecks.forEach(({ check, testResultId, checkRunId }) => {
-      const fileMap = this.checkFilesMap!.get(check.getSourceFile()!)!
+      const fileMap = this.checkFilesMap!.get(check.getSourceFile?.())!
       fileMap.set(checkRunId, {
         check,
         titleString: formatCheckTitle(CheckStatus.PENDING, check),
@@ -76,8 +78,11 @@ export default abstract class AbstractListReporter implements Reporter {
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
     const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
     const status = []
+    if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
+      status.push(chalk.bold('Summary:'))
+    }
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
-      status.push(sourceFile)
+      if (sourceFile) status.push(sourceFile)
       for (const [_, { titleString, result }] of checkMap.entries()) {
         if (!result) {
           counts.numPending++
@@ -86,7 +91,7 @@ export default abstract class AbstractListReporter implements Reporter {
         } else {
           counts.numPassed++
         }
-        status.push(indentString(titleString, 2))
+        status.push(sourceFile ? indentString(titleString, 2) : titleString)
       }
     }
     if (!opts.skipCheckCount) {

@@ -14,6 +14,10 @@ type GithubMdBuilderOptions = {
   checkFilesMap: checkFilesMap
 }
 
+function nonNullable<T> (value: T): value is NonNullable<T> {
+  return value !== null && value !== undefined
+}
+
 export class GithubMdBuilder {
   testSessionId?: string
   numChecks: number
@@ -23,6 +27,7 @@ export class GithubMdBuilder {
   tableHeaders: Array<string>
   extraTableHeadersWithLinks: Array<string>
   tableRows: Array<string> = []
+  hasFilenames: boolean
 
   readonly header: string = '# Checkly Test Session Summary'
   readonly tableSeparatorFiller: string = '|:-'
@@ -34,7 +39,14 @@ export class GithubMdBuilder {
     this.checkFilesMap = options.checkFilesMap
 
     this.subHeader = []
-    this.tableHeaders = ['Result', 'Name', 'Check Type', 'Filename', 'Duration']
+    this.hasFilenames = !(options.checkFilesMap.size === 1 && options.checkFilesMap.has(undefined))
+    this.tableHeaders = [
+      'Result',
+      'Name',
+      'Check Type',
+      this.hasFilenames ? 'Filename' : undefined,
+      'Duration',
+    ].filter(nonNullable)
     this.extraTableHeadersWithLinks = ['Link']
     this.tableRows = []
   }
@@ -56,12 +68,12 @@ export class GithubMdBuilder {
           `${result.hasFailures ? '❌ Fail' : '✅ Pass'}`,
           `${result.name}`,
           `${result.checkType}`,
-          `\`${result.sourceFile}\``,
+          this.hasFilenames ? `\`${result.sourceFile}\`` : undefined,
           `${formatDuration(result.responseTime)} `,
-        ]
+        ].filter(nonNullable)
 
-        if (this.testSessionId && this.testResultIds) {
-          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${this.testResultIds[result.logicalId]})`
+        if (this.testSessionId && testResultId) {
+          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
           tableRow.push(linkColumn)
         }
 

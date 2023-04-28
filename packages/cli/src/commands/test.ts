@@ -1,6 +1,4 @@
-import * as fs from 'node:fs/promises'
 import { Flags, Args, ux } from '@oclif/core'
-import { parse } from 'dotenv'
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
@@ -13,20 +11,11 @@ import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
-import { splitConfigFilePath, getGitInformation, getCiInformation } from '../services/util'
+import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 
 const DEFAULT_REGION = 'eu-central-1'
-
-async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
-  if (envFile) {
-    const envsString = await fs.readFile(envFile, { encoding: 'utf8' })
-    return parse(envsString)
-  }
-  const envsString = `${envArgs.join('\n')}`
-  return parse(envsString)
-}
 
 export default class Test extends AuthCommand {
   static hidden = false
