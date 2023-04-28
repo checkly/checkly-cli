@@ -1,4 +1,4 @@
-import { defineConfig } from '@checkly/cli'
+import { defineConfig } from 'checkly'
 
 /**
  * See https://www.checklyhq.com/docs/cli/project-structure/

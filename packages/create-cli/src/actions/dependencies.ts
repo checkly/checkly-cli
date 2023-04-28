@@ -12,7 +12,7 @@ export function addDevDependecies (packageJson: PackageJson) {
   }
 
   Object.assign(packageJson.devDependencies, {
-    '@checkly/cli': 'latest',
+    'checkly': 'latest',
     'ts-node': 'latest',
     typescript: 'latest',
   })

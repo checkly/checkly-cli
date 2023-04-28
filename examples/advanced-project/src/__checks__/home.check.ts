@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { BrowserCheck } from '@checkly/cli/constructs'
+import { BrowserCheck } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 import { websiteGroup } from './website.check-group'
 

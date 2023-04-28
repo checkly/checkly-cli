@@ -1,4 +1,4 @@
-import { ApiCheck, AssertionBuilder } from '@checkly/cli/constructs'
+import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 
 new ApiCheck('homepage-api-check-1', {
   name: 'Homepage - fetch stats',
