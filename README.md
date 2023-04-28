@@ -1,4 +1,4 @@
-The Checkly CLI (now in beta) gives you a JavaScript/TypeScript-native **workflow** for coding, testing and deploying synthetic 
+The Checkly CLI gives you a **JavaScript/TypeScript-native workflow** for coding, testing and deploying synthetic 
 monitoring at scale, from your code base. We call this workflow **monitoring as code** (MaC).
 
 - **Unite E2E testing & monitoring in one workflow.** No more silos between Dev, QA and Ops.
@@ -11,7 +11,8 @@ monitoring at scale, from your code base. We call this workflow **monitoring as 
 
 # Installation
 
-First, make sure you sign up for a [free Checkly account](https://app.checklyhq.com/signup).
+First, make sure you sign up for a [free Checkly account](https://app.checklyhq.com/signup) or signup via the terminal using
+`npx checkly login`.
 
 Then, the **easiest** way to get started is to install the CLI using the following command:
 
