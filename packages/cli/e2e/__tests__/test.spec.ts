@@ -63,6 +63,17 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
+  it('Should list checks and not execute them with `--list`', () => {
+    const result = runChecklyCli({
+      args: ['test', '--list'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.stdout).toContain('Listing all checks')
+    expect(result.status).toBe(0)
+  })
+
   it('Should terminate with error when JS/TS throws error', () => {
     const result = runChecklyCli({
       args: ['test'],
