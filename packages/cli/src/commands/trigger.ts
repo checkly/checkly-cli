@@ -10,6 +10,7 @@ import TriggerRunner from '../services/trigger-runner'
 import { RunLocation, Events, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
+import { TestResultsShortLinks } from '../rest/test-sessions'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -123,11 +124,11 @@ export default class Trigger extends AuthCommand {
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result) => {
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporters.forEach(r => r.onCheckEnd(checkRunId, result))
+      reporters.forEach(r => r.onCheckEnd(checkRunId, result, links))
     })
     runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
       reporters.forEach(r => r.onCheckEnd(checkRunId, {

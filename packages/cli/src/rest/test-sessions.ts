@@ -22,6 +22,13 @@ type TriggerTestSessionRequest = {
   environment: string | null,
 }
 
+export type TestResultsShortLinks = {
+  testResultLink: string
+  testTraceLinks: string[]
+  videoLinks: string[]
+  screenshotLinks: string[]
+}
+
 class TestSessions {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -34,6 +41,14 @@ class TestSessions {
 
   trigger (payload: TriggerTestSessionRequest) {
     return this.api.post('/next/test-sessions/trigger', payload)
+  }
+
+  getShortLink (id: string) {
+    return this.api.get<{ link: string }>(`/next/test-sessions/${id}/link`)
+  }
+
+  getResultShortLinks (testSessionId: string, testResultId: string) {
+    return this.api.get<TestResultsShortLinks>(`/next/test-sessions/${testSessionId}/results/${testResultId}/links`)
   }
 }
 
