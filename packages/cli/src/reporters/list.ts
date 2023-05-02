@@ -39,6 +39,7 @@ export default class ListReporter extends AbstractListReporter {
     }
 
     if (links) {
+      printLn(indentString('View result: ' + chalk.underline.cyan(`${links.testResultLink}`), 4))
       if (links.testTraceLinks?.length) {
         // TODO: print all video files URLs
         printLn(indentString('View trace : ' + chalk.underline.cyan(links.testTraceLinks.join(', ')), 4))
@@ -47,7 +48,7 @@ export default class ListReporter extends AbstractListReporter {
         // TODO: print all trace files URLs
         printLn(indentString('View video : ' + chalk.underline.cyan(`${links.videoLinks.join(', ')}`), 4))
       }
-      printLn(indentString('View result: ' + chalk.underline.cyan(`${links.testResultLink}`), 4), 2)
+      printLn('')
     }
 
     this._printSummary()
