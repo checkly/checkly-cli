@@ -6,7 +6,6 @@ import GithubReporter from './github'
 import ListReporter from './list'
 
 export interface Reporter {
-  onBeginStatic(): void;
   onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
   onEnd(): void;
   onCheckEnd(checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks): void;
