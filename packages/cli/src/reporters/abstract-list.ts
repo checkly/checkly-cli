@@ -5,6 +5,8 @@ import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
 import type { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
+import { TestResultsShortLinks } from '../rest/test-sessions'
+import { testSessions } from '../rest/api'
 
 // Map from file -> checkRunId -> check+result.
 // This lets us print a structured list of the checks.
@@ -55,7 +57,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   abstract onEnd(): void
 
-  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks) {
     const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
@@ -138,9 +140,14 @@ export default abstract class AbstractListReporter implements Reporter {
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
   }
 
-  _printTestSessionsUrl () {
+  async _printTestSessionsUrl () {
     if (this.testSessionId) {
-      printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`, 2)
+      try {
+        const { data: { link } } = await testSessions.getShortLink(this.testSessionId)
+        printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(link)}`, 2)
+      } catch {
+        printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`, 2)
+      }
     }
   }
 

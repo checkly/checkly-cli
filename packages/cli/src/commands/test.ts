@@ -14,6 +14,7 @@ import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
+import { TestResultsShortLinks } from '../rest/test-sessions'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -191,7 +192,7 @@ export default class Test extends AuthCommand {
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result) => {
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
@@ -199,7 +200,7 @@ export default class Test extends AuthCommand {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
-      }))
+      }, links))
     })
     runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
