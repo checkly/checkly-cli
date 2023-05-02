@@ -1,3 +1,4 @@
+import { TestResultsShortLinks } from '../rest/test-sessions'
 import { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import CiReporter from './ci'
 import DotReporter from './dot'
@@ -8,7 +9,7 @@ export interface Reporter {
   onBeginStatic(): void;
   onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
   onEnd(): void;
-  onCheckEnd(checkRunId: CheckRunId, checkResult: any): void;
+  onCheckEnd(checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks): void;
   onError(err: Error): void,
 }
 
