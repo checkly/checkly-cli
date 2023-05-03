@@ -35,8 +35,6 @@ export default abstract class AbstractListReporter implements Reporter {
     this.verbose = verbose
   }
 
-  abstract onBeginStatic(): void
-
   onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void {
     this.testSessionId = testSessionId
     this.numChecks = checks.length

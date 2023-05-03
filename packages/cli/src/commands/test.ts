@@ -1,4 +1,7 @@
 import { Flags, Args, ux } from '@oclif/core'
+import * as chalk from 'chalk'
+import * as indentString from 'indent-string'
+
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
@@ -15,6 +18,8 @@ import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } fro
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import type { Check } from '../constructs/check'
+import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -169,12 +174,12 @@ export default class Test extends AuthCommand {
       return
     }
 
-    const reporters = createReporters(reporterTypes, location, verbose)
     if (list) {
-      reporters.forEach(r => r.onBeginStatic())
+      this.listChecks(checks)
       return
     }
 
+    const reporters = createReporters(reporterTypes, location, verbose)
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
 
@@ -270,6 +275,23 @@ export default class Test extends AuthCommand {
       throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
     } catch (err: any) {
       throw new Error(`Failed to get private locations. ${err.message}.`)
+    }
+  }
+
+  private listChecks (checks: Array<Check>) {
+    // Sort and print the checks in a way that's consistent with AbstractListReporter
+    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()))].sort()
+    const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
+    const checkFilesMap: Map<string, Array<Check>> = new Map(sortedCheckFiles.map((file) => [file!, []]))
+    sortedChecks.forEach(check => {
+      checkFilesMap.get(check.getSourceFile()!)!.push(check)
+    })
+    printLn('Listing all checks:', 2, 1)
+    for (const [sourceFile, checks] of checkFilesMap) {
+      printLn(sourceFile)
+      for (const check of checks) {
+        printLn(indentString(formatCheckTitle(CheckStatus.PENDING, check), 2))
+      }
     }
   }
 }
