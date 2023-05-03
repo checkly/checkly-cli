@@ -33,7 +33,7 @@ new ApiCheck('prod-frontend-check', {
   },
   tags: ['production', 'frontend', executionId, 'another-tag'],
   // Log the secret environment variable passed to `checkly trigger`
-  localSetupScript: "console.log(process.env.SECRET_ENV)",
+  setupScript: { content: "console.log(process.env.SECRET_ENV)" },
 })
 
 new ApiCheck('staging-backend-check', {
