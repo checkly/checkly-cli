@@ -13,7 +13,7 @@ import EnvironmentVariables from './environment-variables'
 export function getDefaults () {
   const environments = {
     production: {
-      apiUrl: 'https://api.checklyhq.com',
+      apiUrl: 'https://api-dev.checklyhq.com',
     },
 
     development: {
