@@ -32,8 +32,8 @@ jobs:
           hide_and_recreate: true
           hide_classify: "OUTDATED"
           message: |
-            🎉 Experimental release successfully published [on npm](https://npmjs.com/package/@checkly/cli/v/${{env.PR_VERSION}})
+            🎉 Experimental release successfully published [on npm](https://npmjs.com/package/checkly/v/${{env.PR_VERSION}})
             ```
-            npm install @checkly/cli@${{env.PR_VERSION}}
+            npm install checkly@${{env.PR_VERSION}}
             ```
  
