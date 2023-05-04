@@ -50,4 +50,19 @@ describe('trigger', () => {
     expect(result.stdout).not.toContain('Staging Backend Check')
     expect(result.status).toBe(0)
   })
+
+  test('Should return code 0 when no checks match', () => {
+    const result = runChecklyCli({
+      args: [
+        'trigger',
+        '--tags',
+        'no-checks-match-this-tag',
+      ],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId')
+    })
+
+    expect(result.stdout).toContain('No matching checks were found.')
+    expect(result.status).toBe(0)
+  })
 })

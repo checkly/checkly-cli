@@ -2,6 +2,8 @@ import { testSessions } from '../rest/api'
 import AbstractCheckRunner, { RunLocation, CheckRunId } from './abstract-check-runner'
 import { GitInformation } from './util'
 
+export class NoMatchingChecksError extends Error {}
+
 export default class TriggerRunner extends AbstractCheckRunner {
   shouldRecord: boolean
   location: RunLocation
@@ -61,6 +63,11 @@ export default class TriggerRunner extends AbstractCheckRunner {
         testSessionId: string,
         testResultIds: Record<string, string>,
       } = data
+      if (!checks.length) {
+        // Currently the BE will never return an empty `checks` array, it returns a 403 instead.
+        // This is added to make the old CLI versions compatible if we ever change this, though.
+        throw new NoMatchingChecksError()
+      }
       const checksMap: Record<string, any> = checks.reduce((acc: Record<string, any>, check: any) => {
         acc[check.id] = check
         return acc
@@ -72,6 +79,9 @@ export default class TriggerRunner extends AbstractCheckRunner {
       }))
       return { checks: augmentedChecks, testSessionId }
     } catch (err: any) {
+      if (err.response?.data?.errorCode === 'ERR_NO_MATCHING_CHECKS') {
+        throw new NoMatchingChecksError()
+      }
       throw new Error(err.response?.data?.message ?? err.message)
     }
   }
