@@ -16,7 +16,7 @@ test.describe('Docs', () => {
     const response = await page.goto(`${defaults.pageUrl}/docs`)
 
     expect(response?.status()).toBeLessThan(400)
-    await expect(page).toHaveTitle(/Getting started/i)
+    await expect(page).toHaveTitle(/Introduction to Checkly | Checkly/)
     await page.screenshot({ path: 'docs_landing.jpg' })
   })
 
@@ -25,7 +25,7 @@ test.describe('Docs', () => {
     const response = await page.goto(`${defaults.pageUrl}/docs`)
 
     expect(response?.status()).toBeLessThan(400)
-    await expect(page).toHaveTitle(/Getting started/i)
+    await expect(page).toHaveTitle(/Introduction to Checkly | Checkly/)
 
     await page.getByPlaceholder('Press / to search').fill('browser')
     await expect(page.locator('.ds-dataset-1')).toBeVisible()

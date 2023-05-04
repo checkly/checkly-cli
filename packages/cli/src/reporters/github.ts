@@ -96,13 +96,9 @@ export class GithubMdBuilder {
 }
 
 export default class GithubReporter extends AbstractListReporter {
-  onBeginStatic () {
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
-  }
-
   onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    this.onBeginStatic()
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }
 
   onEnd () {
