@@ -75,12 +75,14 @@ export interface CheckGroupProps {
   browserChecks?: BrowserCheckConfig,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
-  * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code composition to add group specific setup routines.
+  * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
+  * composition to add group specific setup routines.
   */
   localSetupScript?: string
   /**
    * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
-  * @deprecated use the "ApiCheck.tearDownScript" property instead and use common JS/TS code composition to add group specific teardown routines.
+  * @deprecated use the "ApiCheck.tearDownScript" property instead and use common JS/TS code
+  * composition to add group specific teardown routines.
    */
   localTearDownScript?: string
   apiCheckDefaults?: ApiCheckDefaultConfig
