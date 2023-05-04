@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { ApiCheck } from 'checkly/constructs'
-import { websiteGroup } from './website.check-group'
+import { websiteGroup } from './website-group.check'
 
 new ApiCheck('check-group-api-check-1', {
   name: 'Fetch stats for homepage',
