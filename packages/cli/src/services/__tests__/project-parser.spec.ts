@@ -31,9 +31,13 @@ describe('parseProject()', () => {
           type: 'check',
           logicalId: 'check-2',
         },
+        {
+          type: 'check-group',
+          logicalId: 'check-group-test',
+        },
       ],
     })
-    expect(Object.keys(synthesizedProject.resources)).toHaveLength(2)
+    expect(Object.keys(synthesizedProject.resources)).toHaveLength(3)
   })
 
   it('should parse a project with TypeScript check files', async () => {

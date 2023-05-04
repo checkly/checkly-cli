@@ -31,7 +31,7 @@ const BASE_CHECK_DEFAULTS = {
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const {
     directory,
-    checkMatch = '**/*.check.{js,ts}',
+    checkMatch = '**/*.check?(-group).{js,ts}',
     browserCheckMatch,
     projectLogicalId,
     projectName,
