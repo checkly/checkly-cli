@@ -75,10 +75,14 @@ export interface CheckGroupProps {
   browserChecks?: BrowserCheckConfig,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
-   */
+  * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
+  * composition to add group specific setup routines.
+  */
   localSetupScript?: string
   /**
    * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
+  * @deprecated use the "ApiCheck.tearDownScript" property instead and use common JS/TS code
+  * composition to add group specific teardown routines.
    */
   localTearDownScript?: string
   apiCheckDefaults?: ApiCheckDefaultConfig
@@ -131,6 +135,8 @@ export class CheckGroup extends Construct {
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
     this.environmentVariables = props.environmentVariables ?? []
     this.alertChannels = props.alertChannels ?? []
+    this.localSetupScript = props.localSetupScript
+    this.localTearDownScript = props.localTearDownScript
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.browserChecks)
