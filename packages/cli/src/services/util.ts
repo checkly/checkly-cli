@@ -5,6 +5,9 @@ import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
+// Copied from oclif/core
+const _importDynamic = new Function('modulePath', 'return import(modulePath)')
+
 export interface GitInformation {
   commitId: string
   repoUrl?: string | null
@@ -38,7 +41,7 @@ export async function walkDirectory (
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let exported = await import(filepath)
+    let exported = await _importDynamic(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -53,7 +56,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let { default: exported } = await import(filepath)
+    let { default: exported } = await _importDynamic(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -69,7 +72,7 @@ let tsCompiler: Service
 async function getTsCompiler (): Promise<Service> {
   if (tsCompiler) return tsCompiler
   try {
-    const tsNode = await import('ts-node')
+    const tsNode = await _importDynamic('ts-node')
     tsCompiler = tsNode.register({
       compilerOptions: {
         module: 'CommonJS',
