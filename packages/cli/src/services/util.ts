@@ -6,6 +6,7 @@ import * as gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
 // Copied from oclif/core
+// eslint-disable-next-line
 const _importDynamic = new Function('modulePath', 'return import(modulePath)')
 
 export interface GitInformation {
