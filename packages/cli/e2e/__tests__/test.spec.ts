@@ -12,6 +12,7 @@ describe('test', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
+      timeout: 120000, // 2 minutes
     })
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
@@ -123,6 +124,7 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
       env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
+      timeout: 120000, // 2 minutes
     })
     expect(result.stdout).toContain('Github summary saved in')
     expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
