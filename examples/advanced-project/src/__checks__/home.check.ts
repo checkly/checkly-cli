@@ -1,7 +1,7 @@
 import * as path from 'path'
 import { BrowserCheck } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
-import { websiteGroup } from './website.check-group'
+import { websiteGroup } from './website-group.check'
 
 const alertChannels = [smsChannel, emailChannel]
 

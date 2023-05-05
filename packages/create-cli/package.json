@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "private": false,
   "scripts": {
-    "clean" : "rimraf ./dist",
+    "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "prepare": "npm run clean && tsc --build",
     "lint": "eslint src",
@@ -44,6 +44,7 @@
     "execa": "^6.1.0",
     "fullname": "4.0.1",
     "giget": "^1.1.2",
+    "normalize-url": "8.0.0",
     "ora": "^6.1.2",
     "prompts": "^2.4.2",
     "unique-names-generator": "^4.7.1",

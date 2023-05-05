@@ -6,10 +6,11 @@ import { AuthCommand } from './authCommand'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
 import type { Region } from '..'
-import TriggerRunner from '../services/trigger-runner'
+import TriggerRunner, { NoMatchingChecksError } from '../services/trigger-runner'
 import { RunLocation, Events, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
+import { TestResultsShortLinks } from '../rest/test-sessions'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -123,11 +124,11 @@ export default class Trigger extends AuthCommand {
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result) => {
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporters.forEach(r => r.onCheckEnd(checkRunId, result))
+      reporters.forEach(r => r.onCheckEnd(checkRunId, result, links))
     })
     runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
@@ -140,6 +141,11 @@ export default class Trigger extends AuthCommand {
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
     )
     runner.on(Events.ERROR, (err) => {
+      if (err instanceof NoMatchingChecksError) {
+        // For consistency with `checkly test`, we log a message and exit with code 0.
+        this.log('No matching checks were found.')
+        return
+      }
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
