@@ -4,7 +4,6 @@
     "declaration": true,
     "importHelpers": false,
     "module": "commonjs",
-    "moduleResolution": "node16",
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
     "strict": true,
