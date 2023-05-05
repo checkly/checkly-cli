@@ -1,6 +1,6 @@
 {
   "name": "checkly",
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
