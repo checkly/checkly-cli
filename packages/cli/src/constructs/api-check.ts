@@ -148,7 +148,7 @@ class GeneralAssertionBuilder {
   }
 
   notContains (target: string): Assertion {
-    return this._toAssertion(AssertionComparison.CONTAINS, target)
+    return this._toAssertion(AssertionComparison.NOT_CONTAINS, target)
   }
 
   isNull () {
