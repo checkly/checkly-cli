@@ -1,16 +1,19 @@
 // create test for checkly env pull
 import * as path from 'path'
 import * as config from 'config'
-import { runChecklyCli } from '../../run-checkly'
+import { nanoid } from 'nanoid'
 import * as fs from 'fs'
 
+import { runChecklyCli } from '../../run-checkly'
+
 describe('checkly env pull', () => {
+  const executionId = nanoid(5)
   const directory = path.join(__dirname, '../fixtures/check-parse-error')
   // before testing add a new environment variable call envPullTest with value testvalue
   // additionally delete .envPullTest file if it exists
   beforeAll(() => {
     runChecklyCli({
-      args: ['env', 'add', 'envPullTest', 'testvalue'],
+      args: ['env', 'add', `envPullTest-${executionId}`, 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory,
@@ -26,7 +29,7 @@ describe('checkly env pull', () => {
   // additionally delete .envPullTest file if it exists
   afterAll(() => {
     runChecklyCli({
-      args: ['env', 'rm', 'envPullTest', '--force'],
+      args: ['env', 'rm', `envPullTest-${executionId}`, '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory,
@@ -47,7 +50,7 @@ describe('checkly env pull', () => {
     const filename = path.join(directory, '.envPullTest')
     // expect that 'testenvvars' is in the output
     expect(fs.existsSync(filename)).toBe(true)
-    expect(fs.readFileSync(filename, 'utf8')).toContain('envPullTest=testvalue')
+    expect(fs.readFileSync(filename, 'utf8')).toContain(`envPullTest-${executionId}=testvalue`)
     // result.stdout contains Success! ${filename} file
     expect(result.stdout).toContain('Success! Environment variables written to .envPullTest.')
   })
