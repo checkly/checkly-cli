@@ -9,7 +9,7 @@ export interface PackageJson {
 }
 
 export function hasPackageJsonFile () {
-  return fs.existsSync(path.join(process.cwd(), './package.json'))
+  return fs.existsSync(path.join(process.cwd(), 'package.json'))
 }
 
 export function readPackageJson (): PackageJson {
