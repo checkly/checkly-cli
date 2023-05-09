@@ -16,11 +16,12 @@ This project has the basic boilerplate files needed to get you started.
 
 ```
 .
-|-- __checks__
-|   |-- api.check.ts
-|   `-- homepage.spec.ts
-|-- checkly.config.ts
-`-- package.json
+├── README.md
+├── __checks__
+│   ├── api.check.ts
+│   └── homepage.spec.ts
+├── checkly.config.ts
+└── package.json
 ```
 
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.

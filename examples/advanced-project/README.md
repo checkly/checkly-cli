@@ -17,31 +17,30 @@ This project mimics a typical app where you organize code with top-level default
 
 ```
 .
-|-- .github
-|   `-- workflow.yml
-|-- checkly.config.ts
-|-- package.json
-`-- src
-    |-- __checks__
-    |   |  `-- utils
-    |   |      |-- auth-client.ts
-    |   |      `-- setup.ts
-    |   |          
-    |   |-- 404.spec.ts
-    |   |-- api.check.ts
-    |   |-- home.check.ts 
-    |   |-- homepage.spec.ts     
-    |   `-- website.check-group.ts
-    |-- alert-channels.ts
-    |-- defaults.ts
-    `-- services
-        |-- api
-        |   `-- __checks__        
-        |       `-- api.check.ts
-        `-- docs
-            `-- __checks__
-                `-- docs-search.spec.ts
-
+├── .github
+│   └── workflow.yml
+├── README.md
+├── checkly.config.ts
+├── package.json
+└── src
+    ├── __checks__
+    │   ├── api.check.ts
+    │   ├── home.check.ts
+    │   ├── homepage.spec.ts
+    │   ├── login.spec.ts
+    │   ├── utils
+    │   │   ├── auth-client.ts
+    │   │   └── setup.ts
+    │   └── website-group.check.ts
+    ├── alert-channels.ts
+    ├── defaults.ts
+    └── services
+        ├── api
+        │   └── __checks__
+        │       └── api.check.ts
+        └── top-sellers
+            └── __checks__
+                └── top-sellers.spec.ts
 ```
 
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
