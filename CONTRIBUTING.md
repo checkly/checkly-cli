@@ -23,23 +23,23 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-To run the project locally, use:
-```bash
-./packages/cli/bin/dev help
-```
-This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to skip compiling the TS.
+You can configure the stage (`production`, `staging`, `test` or `development`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=development` if you want to point the API URL to your local backend `http://localhost:3000`.
 
-To run a build with TS for type checking, run:
-```bash
-npm run prepare --workspace packages/cli
-```
+Also, you can use the `watch` mode to compile during your coding. You can use the following command to start your development environment:
 
-To lint the project:
 ```bash
-npm run lint --workspace packages/cli
+export CHECKLY_ACCOUNT_ID=<YOUR_LOCAL_BACKEND_ACCOUNTID>
+export CHECKLY_API_KEY=<YOUR_LOCAL_BACKEND_API_KEY>
+export CHECKLY_ENV=development
+npm run watch --workspace packages/cli
 ```
 
-When running commands from the `packages/cli` directory, the `--workspace packages/cli` flag isn't necessary.
+### Running E2E test locally
+
+To run the E2E tests pointing to your local backed use the `npm run test:e2e:local --workspace packages/cli`
+
+Remember that the `--workspace packages/cli` flag isn't necessary when running commands from the `packages/cli` directory.
+
 
 ## Running from source in another project
 
