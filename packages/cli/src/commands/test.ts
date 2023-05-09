@@ -56,7 +56,7 @@ export default class Test extends AuthCommand {
       description: 'list all checks but don\'t run them.',
     }),
     timeout: Flags.integer({
-      default: 240,
+      default: 300,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
     verbose: Flags.boolean({
