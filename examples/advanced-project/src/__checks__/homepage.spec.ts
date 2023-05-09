@@ -9,6 +9,6 @@ test('Checkly Homepage', async ({ page }) => {
   const response = await page.goto(defaults.pageUrl)
 
   expect(response?.status()).toBeLessThan(400)
-  await expect(page).toHaveTitle(/Build and Run Synthetics That Scale/)
+  await expect(page).toHaveTitle(/Danube WebShop/)
   await page.screenshot({ path: 'homepage.jpg' })
 })
