@@ -17,6 +17,7 @@ import { createCustomBrowserCheck } from '../actions/creates.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 import { hasPackageJsonFile, readPackageJson } from '../utils/package.js'
 import { copyTemplate } from '../actions/template.js'
+import { createGitIgnore } from '../actions/git.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -96,7 +97,11 @@ export default class Bootstrap extends Command {
         debug('Create custom Browser check')
         await createCustomBrowserCheck({ onCancel })
 
+        debug('Install npm dependencies')
         await installDependencies('./')
+
+        debug('Create .gitignore')
+        await createGitIgnore('./')
 
         await footer()
 

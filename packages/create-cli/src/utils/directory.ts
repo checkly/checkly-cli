@@ -30,3 +30,6 @@ export function usePackageName (packageName: string) {
     .replace(/boilerplate-project/, packageName),
   )
 }
+export function hasGitIgnore () {
+  return fs.existsSync('./.gitignore')
+}
