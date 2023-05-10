@@ -130,4 +130,15 @@ describe('test', () => {
     expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
   })
+
+  it('Should report timeouts correctly', () => {
+    const result = runChecklyCli({
+      args: ['test', 'homepage.test.ts','--timeout', '0'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('Reached timeout of 0 seconds waiting for check result.')
+  })
 })
