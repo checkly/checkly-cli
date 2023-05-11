@@ -230,8 +230,14 @@ function formatRunError (err: string | Error): string {
 }
 
 function formatSectionTitle (title: string): string {
-  const width = process.stdout.isTTY ? Math.min(process.stdout.columns, 80) : 80
-  return `──${chalk.bold(title)}${'─'.repeat(width - title.length)}`
+  const width = process.stdout.isTTY ? process.stdout.columns : 80
+  // For style reasons, we only extend the title with "----" to a maximum of 80 characters
+  const targetTitleWidth = Math.min(width, 80)
+  const leftPaddingLength = 6 // Account for an indent of 4 and two dashes
+  // On CI, process.stdout.columns might be 0
+  // We take Math.max(0, ...) to avoid a negative padding length from causing errors
+  const rightPaddingLength = Math.max(0, targetTitleWidth - title.length - leftPaddingLength)
+  return `──${chalk.bold(title)}${'─'.repeat(rightPaddingLength)}`
 }
 
 function truncate (val: any, opts: { chars?: number, lines?: number, ending?: string }) {
