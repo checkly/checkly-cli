@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`formatCheckResult() API Check result formats a basic API Check result : api-check-result-basic-format 1`] = `
-"──HTTP Request────────────────────────────────────────────────────────────────────
+"──HTTP Request──────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -10,7 +10,7 @@ Headers:
 Body:
   {"data":1}
 
-──HTTP Response───────────────────────────────────────────────────────────────────
+──HTTP Response─────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -43,7 +43,7 @@ Body:
 `;
 
 exports[`formatCheckResult() API Check result formats an API Check result with a scheduleError: api-check-result-schedule-error-format 1`] = `
-"──HTTP Request────────────────────────────────────────────────────────────────────
+"──HTTP Request──────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -52,7 +52,7 @@ Headers:
 Body:
   {"data":1}
 
-──HTTP Response───────────────────────────────────────────────────────────────────
+──HTTP Response─────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -83,12 +83,12 @@ Body:
   }
 
 
-──Scheduling Error────────────────────────────────────────────────────────────────
+──Scheduling Error──────────────────────────────────────────────────────────
 There was a scheduling error"
 `;
 
 exports[`formatCheckResult() API Check result formats an API Check result with assertions: api-check-result-assertions-format 1`] = `
-"──HTTP Request────────────────────────────────────────────────────────────────────
+"──HTTP Request──────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -97,7 +97,7 @@ Headers:
 Body:
   {"data":1}
 
-──HTTP Response───────────────────────────────────────────────────────────────────
+──HTTP Response─────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -130,7 +130,7 @@ Body:
 `;
 
 exports[`formatCheckResult() API Check result formats an API Check result with setup & teardown logs: api-check-result-logs-format 1`] = `
-"──HTTP Request────────────────────────────────────────────────────────────────────
+"──HTTP Request──────────────────────────────────────────────────────────────
 POST https://httpbin.org/post
 Headers:
   User-Agent: Checkly/1.0 (https://www.checklyhq.com)
@@ -139,7 +139,7 @@ Headers:
 Body:
   {"data":1}
 
-──HTTP Response───────────────────────────────────────────────────────────────────
+──HTTP Response─────────────────────────────────────────────────────────────
 Status Code: 200 OK
 Headers:
   date: Fri, 24 Mar 2023 10:45:42 GMT
@@ -172,7 +172,7 @@ Body:
 `;
 
 exports[`formatCheckResult() Browser Check result formats a Browser Check result with a scheduleError: browser-check-result-schedule-error-format 1`] = `
-"──Logs────────────────────────────────────────────────────────────────────────────
+"──Logs──────────────────────────────────────────────────────────────────────
 10:53:15 DEBUG Starting job
 10:53:15 DEBUG Compiling environment variables
 10:53:15 DEBUG Creating runtime using version 2022.10
@@ -186,12 +186,12 @@ exports[`formatCheckResult() Browser Check result formats a Browser Check result
 10:53:22 DEBUG Run finished
 10:53:22 DEBUG Uploading log file
 
-──Scheduling Error────────────────────────────────────────────────────────────────
+──Scheduling Error──────────────────────────────────────────────────────────
 There was a scheduling error"
 `;
 
 exports[`formatCheckResult() Browser Check result formats a Browser Check result with logs: browser-check-result-logs-format 1`] = `
-"──Logs────────────────────────────────────────────────────────────────────────────
+"──Logs──────────────────────────────────────────────────────────────────────
 10:53:15 DEBUG Starting job
 10:53:15 DEBUG Compiling environment variables
 10:53:15 DEBUG Creating runtime using version 2022.10

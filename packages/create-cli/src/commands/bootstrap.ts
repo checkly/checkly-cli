@@ -2,9 +2,8 @@ import Debug from 'debug'
 import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
-import { execaCommand } from 'execa'
 import chalk from 'chalk'
-import { hasGitDir, isValidProjectDirectory, copyTemporaryFiles, usePackageName } from '../utils/directory.js'
+import { isValidProjectDirectory, copyTemporaryFiles, usePackageName } from '../utils/directory.js'
 import {
   getUserGreeting,
   getVersion,
@@ -17,6 +16,7 @@ import { createCustomBrowserCheck } from '../actions/creates.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 import { hasPackageJsonFile, readPackageJson } from '../utils/package.js'
 import { copyTemplate } from '../actions/template.js'
+import { initGit } from '../actions/git.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -96,7 +96,11 @@ export default class Bootstrap extends Command {
         debug('Create custom Browser check')
         await createCustomBrowserCheck({ onCancel })
 
+        debug('Install npm dependencies')
         await installDependencies('./')
+
+        debug('Init .git & .gitignore')
+        await initGit('./')
 
         await footer()
 
@@ -148,22 +152,12 @@ export default class Bootstrap extends Command {
       targetDir,
     })
 
+    debug('Install npm dependencies')
     await installDependencies(targetDir)
 
-    const initGitResponse = await prompts({
-      type: 'confirm',
-      name: 'initGit',
-      message: 'Would you like to initialize a new git repo? (optional)',
-      initial: true,
-    })
+    debug('Init .git & .gitignore')
+    await initGit(targetDir)
 
-    if (initGitResponse.initGit) {
-      if (hasGitDir()) {
-        await hint('Oh wait!', 'A .git directory already exists. Skipping...')
-      } else {
-        await execaCommand('git init', { cwd: targetDir })
-      }
-    }
     await footer(targetDir)
   }
 }

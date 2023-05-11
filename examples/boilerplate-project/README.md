@@ -16,11 +16,12 @@ This project has the basic boilerplate files needed to get you started.
 
 ```
 .
-|-- __checks__
-|   |-- api.check.ts
-|   `-- homepage.spec.ts
-|-- checkly.config.ts
-`-- package.json
+├── README.md
+├── __checks__
+│   ├── api.check.ts
+│   └── homepage.spec.ts
+├── checkly.config.ts
+└── package.json
 ```
 
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
@@ -54,5 +55,5 @@ npm install --save-dev @playwright/test@1.28.0
 
 ## Questions?
 
-Check [our CLI docs](https://github.com/checkly/checkly-cli), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
 join our [Slack community](https://checklyhq.com/slack).

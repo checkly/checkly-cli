@@ -1,6 +1,6 @@
 {
   "name": "checkly",
-  "version": "4.0.4",
+  "version": "4.0.5",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,6 +12,7 @@
     "test": "jest --selectProjects unit",
     "version": "node -e \"console.log(require('./package.json').version)\"",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
+    "test:e2e:local": "cross-env CHECKLY_ENV=development npm run test:e2e",
     "watch": "tsc --watch",
     "prepare": "npm run clean && tsc --build",
     "prepack": "npx oclif manifest",

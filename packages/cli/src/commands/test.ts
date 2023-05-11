@@ -6,7 +6,13 @@ import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import { Events, RunLocation, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
+import {
+  Events,
+  RunLocation,
+  PrivateRunLocation,
+  CheckRunId,
+  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+} from '../services/abstract-check-runner'
 import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
@@ -56,7 +62,7 @@ export default class Test extends AuthCommand {
       description: 'list all checks but don\'t run them.',
     }),
     timeout: Flags.integer({
-      default: 240,
+      default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
     verbose: Flags.boolean({
