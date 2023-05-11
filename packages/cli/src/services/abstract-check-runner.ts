@@ -32,6 +32,8 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 export type CheckRunId = string
 
+export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
+
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<CheckRunId, { check: any, testResultId?: string }>
   testSessionId?: string
@@ -173,7 +175,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     Array.from(this.checks.entries()).forEach(([checkRunId, { check }]) =>
       this.timeouts.set(checkRunId, setTimeout(() => {
         this.timeouts.delete(checkRunId)
-        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+        let errorMessage = `Reached timeout of ${this.timeout} seconds waiting for check result.`
+        // Checkly should always report a result within 240s.
+        // If the default timeout was used, we should point the user to the status page and support email.
+        if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+          errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
+        }
+        this.emit(Events.CHECK_FAILED, checkRunId, check, errorMessage)
         this.emit(Events.CHECK_FINISHED, check)
       }, this.timeout * 1000),
       ))
