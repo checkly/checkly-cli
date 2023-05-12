@@ -121,4 +121,18 @@ describe('dependency-parser - parser()', () => {
     const parser = new Parser(defaultNpmModules)
     parser.parse(entrypoint)
   })
+
+  // Checks run on Checkly are wrapped to support top level await.
+  // For consistency with checks created via the UI, the CLI should support this as well.
+  it('should allow top-level await', () => {
+    const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.js')
+    const parser = new Parser(defaultNpmModules)
+    parser.parse(entrypoint)
+  })
+
+  it('should allow top-level await in TypeScript', () => {
+    const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.ts')
+    const parser = new Parser(defaultNpmModules)
+    parser.parse(entrypoint)
+  })
 })

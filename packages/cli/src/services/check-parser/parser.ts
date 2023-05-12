@@ -187,6 +187,7 @@ export class Parser {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
           allowImportExportEverywhere: true,
+          allowAwaitOutsideFunction: true,
         })
         walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
       } else if (extension === '.ts') {
