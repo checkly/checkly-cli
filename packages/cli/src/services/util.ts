@@ -41,8 +41,19 @@ export async function walkDirectory (
 
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let exported = await _importDynamic(filepath)
+    let exported = await require(filepath)
+    if (exported instanceof Function) {
+      exported = await exported()
+    }
+    return exported
+  } catch (err: any) {
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
+  }
+}
+
+export async function loadMjsFile (filepath: string): Promise<any> {
+  try {
+    let { default: exported } = await _importDynamic(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -56,8 +67,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
   try {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let { default: exported } = await _importDynamic(filepath)
+    let { default: exported } = await import(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -73,7 +83,7 @@ let tsCompiler: Service
 async function getTsCompiler (): Promise<Service> {
   if (tsCompiler) return tsCompiler
   try {
-    const tsNode = await _importDynamic('ts-node')
+    const tsNode = await import('ts-node')
     tsCompiler = tsNode.register({
       compilerOptions: {
         module: 'CommonJS',

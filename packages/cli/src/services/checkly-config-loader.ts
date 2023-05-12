@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { loadJsFile, loadTsFile } from './util'
+import { loadJsFile, loadMjsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
@@ -72,7 +72,7 @@ function loadFile (file: string) {
     case Extension.JS:
       return loadJsFile(file)
     case Extension.MJS:
-      return loadJsFile(file)
+      return loadMjsFile(file)
     case Extension.TS:
       return loadTsFile(file)
     default:
