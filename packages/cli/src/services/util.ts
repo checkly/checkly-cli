@@ -53,7 +53,7 @@ export async function loadJsFile (filepath: string): Promise<any> {
 
 export async function loadMjsFile (filepath: string): Promise<any> {
   try {
-    let { default: exported } = await _importDynamic(filepath)
+    let { default: exported } = await _importDynamic(pathToPosix(filepath))
     if (exported instanceof Function) {
       exported = await exported()
     }
