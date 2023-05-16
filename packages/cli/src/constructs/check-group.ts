@@ -11,6 +11,7 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
+import type { Frequency } from './frequency'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -28,9 +29,6 @@ type BrowserCheckConfig = CheckConfigDefaults & {
    */
   testMatch: string,
 }
-
-export type CheckGroupFallbackConfig = Pick<BrowserCheckConfig, 'activated' | 'muted' | 'doubleCheck'
-| 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'alertChannels' | 'privateLocations'>
 
 export interface CheckGroupProps {
   /**
@@ -73,7 +71,7 @@ export interface CheckGroupProps {
   /**
    * Optional fallback value for checks belonging to the group. How often the check should run in minutes.
    */
-  frequency?: number
+  frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
   /**
    * List of alert channels to be alerted when checks in this group fail or recover.
@@ -112,12 +110,13 @@ export class CheckGroup extends Construct {
   privateLocations?: Array<string>
   tags?: Array<string>
   concurrency?: number
-  frequency?: number
+  frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
   alertChannels?: Array<AlertChannel>
   localSetupScript?: string
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
+  browserChecks?: BrowserCheckConfig
 
   static readonly __checklyType = 'check-group'
 
@@ -147,32 +146,28 @@ export class CheckGroup extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
+    // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
+    this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
-      this.__addChecks(fileAbsolutePath, props.browserChecks)
+      this.__addChecks(fileAbsolutePath, props.browserChecks.testMatch)
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
   }
 
-  private __addChecks (fileAbsolutePath: string, browserChecks: BrowserCheckConfig) {
+  private __addChecks (fileAbsolutePath: string, testMatch: string) {
     const parent = path.dirname(fileAbsolutePath)
-    const matched = glob.sync(browserChecks.testMatch, { nodir: true, cwd: parent })
+    const matched = glob.sync(testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {
-      const defaults: CheckConfigDefaults = {}
-      let configKey: keyof CheckConfigDefaults
-      for (configKey in browserChecks as CheckConfigDefaults) {
-        const newVal: any = browserChecks[configKey]
-        defaults[configKey] = newVal
-      }
       const filepath = path.join(parent, match)
       const props = {
         group: this,
         name: match,
-        ...defaults,
         code: {
           entrypoint: filepath,
         },
+        // the browserChecks props inherited from the group are applied in BrowserCheck.constructor()
       }
       const checkLogicalId = pathToPosix(path.relative(Session.basePath!, filepath))
       const check = new BrowserCheck(checkLogicalId, props)
@@ -192,18 +187,17 @@ export class CheckGroup extends Construct {
     }
   }
 
-  public getFallbackChecksProps (): CheckGroupFallbackConfig {
-    // fallback props for children checks
+  public getCheckDefaults (): CheckConfigDefaults {
+    // TODO: investigate if make sense to add all other check's properties
     return {
-      activated: this.activated,
-      muted: this.muted,
-      doubleCheck: this.doubleCheck,
-      runtimeId: this.runtimeId,
-      locations: this.locations,
-      tags: this.tags,
       frequency: this.frequency,
-      alertChannels: this.alertChannels,
-      privateLocations: this.privateLocations,
+    }
+  }
+
+  public getBrowserCheckDefaults (): CheckConfigDefaults {
+    // TODO: investigate if make sense to add all other browser-check's properties
+    return {
+      frequency: this.browserChecks?.frequency,
     }
   }
 

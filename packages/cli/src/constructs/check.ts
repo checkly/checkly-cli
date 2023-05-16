@@ -7,7 +7,7 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
-import type { CheckGroup, CheckGroupFallbackConfig } from './check-group'
+import type { CheckGroup } from './check-group'
 
 export interface CheckProps {
   /**
@@ -99,7 +99,9 @@ export abstract class Check extends Construct {
 
   constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)
-    Check.applyDefaultCheckGroupConfig(props)
+    if (props.group) {
+      Check.applyDefaultCheckGroupConfig(props, props.group.getCheckDefaults())
+    }
     Check.applyDefaultCheckConfig(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
@@ -129,6 +131,14 @@ export abstract class Check extends Construct {
     this.__checkFilePath = Session.checkFilePath
   }
 
+  private static applyDefaultCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
+    let configKey: keyof CheckConfigDefaults
+    for (configKey in groupProps) {
+      const newVal: any = props[configKey] ?? groupProps[configKey]
+      props[configKey] = newVal
+    }
+  }
+
   private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
     if (!Session.checkDefaults) {
       return
@@ -136,17 +146,6 @@ export abstract class Check extends Construct {
     let configKey: keyof CheckConfigDefaults
     for (configKey in Session.checkDefaults) {
       const newVal: any = props[configKey] ?? Session.checkDefaults[configKey]
-      props[configKey] = newVal
-    }
-  }
-
-  private static applyDefaultCheckGroupConfig (props: CheckProps) {
-    if (!props.group) {
-      return
-    }
-    let configKey: keyof CheckGroupFallbackConfig
-    for (configKey in props.group?.getFallbackChecksProps()) {
-      const newVal: any = props[configKey] ?? props.group?.getFallbackChecksProps()[configKey]
       props[configKey] = newVal
     }
   }

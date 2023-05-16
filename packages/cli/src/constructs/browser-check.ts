@@ -39,6 +39,9 @@ export class BrowserCheck extends Check {
    * {@link https://checklyhq.com/docs/cli/constructs/#browsercheck Read more in the docs}
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
+    if (props.group) {
+      BrowserCheck.applyDefaultBrowserCheckGroupConfig(props, props.group.getBrowserCheckDefaults())
+    }
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)
     if ('content' in props.code) {
@@ -51,7 +54,7 @@ export class BrowserCheck extends Check {
         absoluteEntrypoint = entrypoint
       } else {
         if (!Session.checkFileAbsolutePath) {
-          throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
+          throw new Error('You cannot use relative paths without the checkFileAbsolutePath in session')
         }
         absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
       }
@@ -65,6 +68,14 @@ export class BrowserCheck extends Check {
     }
     Session.registerConstruct(this)
     this.addSubscriptions()
+  }
+
+  private static applyDefaultBrowserCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
+    let configKey: keyof CheckConfigDefaults
+    for (configKey in groupProps) {
+      const newVal: any = props[configKey] ?? groupProps[configKey]
+      props[configKey] = newVal
+    }
   }
 
   private static applyDefaultBrowserCheckConfig (props: CheckConfigDefaults) {
