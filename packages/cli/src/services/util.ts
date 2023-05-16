@@ -41,7 +41,7 @@ export async function walkDirectory (
 
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
-    let exported = await require(filepath)
+    let { default: exported } = await _importDynamic(pathToPosix(filepath))
     if (exported instanceof Function) {
       exported = await exported()
     }
