@@ -1,33 +1,34 @@
-import { isCI } from 'ci-info'
-import { Check } from '../constructs/check'
-import { RunLocation } from '../services/check-runner'
+import { TestResultsShortLinks } from '../rest/test-sessions'
+import { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import CiReporter from './ci'
 import DotReporter from './dot'
+import GithubReporter from './github'
 import ListReporter from './list'
 
 export interface Reporter {
-  onBeginStatic(): void;
-  onBegin(): void;
+  onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
   onEnd(): void;
-  onCheckEnd(checkResult: any): void;
+  onCheckEnd(checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks): void;
+  onError(err: Error): void,
 }
 
-export type ReporterType = 'list' | 'dot' | 'ci'
+export type ReporterType = 'list' | 'dot' | 'ci' | 'github'
 
-export const createReporter = (
-  type: ReporterType = 'list',
+export const createReporters = (
+  types: ReporterType[],
   runLocation: RunLocation,
-  checks: Array<Check>,
   verbose: boolean,
-): Reporter => {
-  switch (type) {
+): Reporter[] => types.map(t => {
+  switch (t) {
     case 'dot':
-      return new DotReporter(runLocation, checks, verbose)
+      return new DotReporter(runLocation, verbose)
     case 'list':
-      return new CiReporter(runLocation, checks, verbose)
+      return new ListReporter(runLocation, verbose)
     case 'ci':
-      return new CiReporter(runLocation, checks, verbose)
+      return new CiReporter(runLocation, verbose)
+    case 'github':
+      return new GithubReporter(runLocation, verbose)
     default:
-      return isCI ? new CiReporter(runLocation, checks, verbose) : new ListReporter(runLocation, checks, verbose)
+      return new ListReporter(runLocation, verbose)
   }
-}
+})

@@ -7,6 +7,7 @@ import { Check } from './check'
 import { CheckGroup } from './check-group'
 import { AlertChannel } from './alert-channel'
 import { AlertChannelSubscription } from './alert-channel-subscription'
+import { ResourceSync } from '../rest/projects'
 
 export interface ProjectProps {
   /**
@@ -20,10 +21,10 @@ export interface ProjectProps {
 }
 
 export interface ProjectData {
-  checks: Record<string, Check>,
-  groups: Record<string, CheckGroup>,
-  alertChannels: Record<string, AlertChannel>,
-  alertChannelSubscriptions: Record<string, AlertChannelSubscription>,
+  check: Record<string, Check>,
+  'check-group': Record<string, CheckGroup>,
+  'alert-channel': Record<string, AlertChannel>,
+  'alert-channel-subscription': Record<string, AlertChannelSubscription>,
 }
 
 export class Project extends Construct {
@@ -31,10 +32,10 @@ export class Project extends Construct {
   repoUrl?: string
   logicalId: string
   data: ProjectData = {
-    checks: {},
-    groups: {},
-    alertChannels: {},
-    alertChannelSubscriptions: {},
+    check: {},
+    'check-group': {},
+    'alert-channel': {},
+    'alert-channel-subscription': {},
   }
 
   static readonly __checklyType = 'project'
@@ -49,7 +50,7 @@ export class Project extends Construct {
     super(Project.__checklyType, logicalId)
     if (!props.name) {
       // TODO: Can we collect a list of validation errors and return them all at once? This might be better UX.
-      throw new ValidationError('The project must have a name specified')
+      throw new ValidationError('Please give your project a name in the "name" property.')
     }
 
     this.name = props.name
@@ -66,10 +67,7 @@ export class Project extends Construct {
 
   synthesize (addTestOnly = true): {
     project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>,
-    checks: Record<string, Check>
-    groups: Record<string, CheckGroup>
-    alertChannels: Record<string, AlertChannel>
-    alertChannelSubscriptions: Record<string, AlertChannelSubscription>
+    resources: Array<ResourceSync>
   } {
     const project = {
       logicalId: this.logicalId,
@@ -78,19 +76,26 @@ export class Project extends Construct {
     }
     return {
       project,
-      checks: this.synthesizeRecord(this.data.checks, addTestOnly),
-      groups: this.synthesizeRecord(this.data.groups),
-      alertChannels: this.synthesizeRecord(this.data.alertChannels),
-      alertChannelSubscriptions: this.synthesizeRecord(this.data.alertChannelSubscriptions),
+      resources: [
+        ...this.synthesizeRecord(this.data.check, addTestOnly),
+        ...this.synthesizeRecord(this.data['check-group']),
+        ...this.synthesizeRecord(this.data['alert-channel']),
+        ...this.synthesizeRecord(this.data['alert-channel-subscription']),
+      ],
     }
   }
 
   private synthesizeRecord (record: Record<string, Check|CheckGroup|AlertChannel|AlertChannelSubscription>,
     addTestOnly = true) {
-    const synthesizedConstructs = Object.entries(record)
+    return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
-      .map(([key, construct]) => [key, construct.synthesize()])
-    return Object.fromEntries(synthesizedConstructs)
+      .map(([key, construct]) => ({
+        logicalId: key,
+        type: construct.type,
+        physicalId: construct.physicalId,
+        member: construct.member,
+        payload: construct.synthesize(),
+      }))
   }
 }
 
@@ -111,13 +116,13 @@ export class Session {
     } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
       Session.checklyConfigFileConstructs!.push(construct)
     } else {
-      throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support.')
+      throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support on support@checklyhq.com')
     }
   }
 
   static validateCreateConstruct (construct: Construct) {
     if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
-      throw new ValidationError(`The 'logicalId' must includes only allowed characters [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
+      throw new ValidationError(`The "logicalId" can only include the following characters: [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
     }
 
     if (construct.type === Project.__checklyType) {

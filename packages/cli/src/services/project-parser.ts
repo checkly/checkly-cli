@@ -25,7 +25,7 @@ type ProjectParseOpts = {
 }
 
 const BASE_CHECK_DEFAULTS = {
-  runtimeId: '2022.10',
+  runtimeId: '2023.02',
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -97,7 +97,7 @@ async function loadAllBrowserChecks (
   }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.checks).forEach((check) => {
+  Object.values(project.data.check).forEach((check) => {
     if (check instanceof BrowserCheck && check.scriptPath) {
       preexistingCheckFiles.add(check.scriptPath)
     }

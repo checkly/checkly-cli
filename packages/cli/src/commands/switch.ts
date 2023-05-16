@@ -7,12 +7,12 @@ import { AuthCommand } from './authCommand'
 
 export default class Switch extends AuthCommand {
   static hidden = false
-  static description = 'Switch user account'
+  static description = 'Switch user account.'
   static flags = {
     'account-id': Flags.string({
       char: 'a',
       name: 'accountId',
-      description: 'The id of the account you want to switch to',
+      description: 'The id of the account you want to switch to.',
     }),
   }
 
@@ -24,9 +24,9 @@ export default class Switch extends AuthCommand {
       try {
         const { data: account } = await api.accounts.get(accountId)
         config.data.set('accountId', account.id)
-        this.log(`Account switched to ${chalk.bold.blue(accountId)}`)
+        this.log(`Account switched to ${chalk.bold.cyan(accountId)}`)
       } catch (e) {
-        throw new Error('Failed to find the account corresponding to the account id')
+        throw new Error(`Failed to find an account corresponding to account id ${accountId}`)
       }
       this.exit(0)
     }
@@ -37,7 +37,7 @@ export default class Switch extends AuthCommand {
       if (accounts.length === 1) {
         console.warn(
           'Your user is only a member of one account: ' +
-            chalk.bold.blue(accounts[0].name),
+            chalk.bold.cyan(accounts[0].name),
         )
         this.exit(0)
       }
@@ -56,7 +56,7 @@ export default class Switch extends AuthCommand {
       config.data.set('accountId', id)
       config.data.set('accountName', name)
 
-      this.log(`Account switched to ${chalk.bold.blue(name)}`)
+      this.log(`Account switched to ${chalk.bold.cyan(name)}`)
     } catch (err: any) {
       throw new Error(`Failed to switch account. ${err.message}`)
     }

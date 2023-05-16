@@ -1,4 +1,5 @@
 import { Ref } from './ref'
+import { Frequency } from './frequency'
 import { Construct } from './construct'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
@@ -54,7 +55,7 @@ export interface CheckProps {
   /**
    * How often the check should run in minutes.
    */
-  frequency?: number
+  frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
   /**
    * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
@@ -87,13 +88,14 @@ export abstract class Check extends Construct {
   privateLocations?: Array<string>
   tags?: Array<string>
   frequency?: number
+  frequencyOffset?: number
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
-  static readonly __checklyType = 'checks'
+  static readonly __checklyType = 'check'
 
   constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)
@@ -108,7 +110,12 @@ export abstract class Check extends Construct {
     this.locations = props.locations
     this.privateLocations = props.privateLocations
     this.tags = props.tags
-    this.frequency = props.frequency
+    if (props.frequency instanceof Frequency) {
+      this.frequency = props.frequency.frequency
+      this.frequencyOffset = props.frequency.frequencyOffset
+    } else {
+      this.frequency = props.frequency
+    }
     this.runtimeId = props.runtimeId
     this.environmentVariables = props.environmentVariables ?? []
     // Alert channel subscriptions will be synthesized separately in the Project construct.
@@ -145,7 +152,7 @@ export abstract class Check extends Construct {
   }
 
   addSubscriptions () {
-    if (!this.alertChannels) {
+    if (!this.alertChannels || this.testOnly) {
       return
     }
     for (const alertChannel of this.alertChannels) {
@@ -173,6 +180,7 @@ export abstract class Check extends Construct {
       privateLocations: this.privateLocations,
       tags: this.tags,
       frequency: this.frequency,
+      frequencyOffset: this.frequencyOffset,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
     }

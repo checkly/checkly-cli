@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as uuid from 'uuid'
 import * as config from 'config'
+import * as fs from 'fs'
 import { runChecklyCli } from '../run-checkly'
 
 describe('test', () => {
@@ -11,6 +12,7 @@ describe('test', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
+      timeout: 120000, // 2 minutes
     })
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
@@ -58,7 +60,18 @@ describe('test', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
     })
-    expect(result.stdout).toContain('0 total')
+    expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+    expect(result.status).toBe(0)
+  })
+
+  it('Should list checks and not execute them with `--list`', () => {
+    const result = runChecklyCli({
+      args: ['test', '--list'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.stdout).toContain('Listing all checks')
     expect(result.status).toBe(0)
   })
 
@@ -82,7 +95,7 @@ describe('test', () => {
       directory: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
     })
     expect(result.stderr.replace(/(\n {4})/gm, ''))
-      .toContain("Error: Resource of type 'groups' with logical id 'my-check-group' already exists.")
+      .toContain("Error: Resource of type 'check-group' with logical id 'my-check-group' already exists.")
     expect(result.status).toBe(1)
   })
 
@@ -97,5 +110,35 @@ describe('test', () => {
     expect(result.stdout).toContain('TestOnly=false Check')
     expect(result.stdout).toContain('TestOnly=true Check')
     expect(result.status).toBe(0)
+  })
+
+  it('Should use Github reporter', () => {
+    const reportFilename = './reports/checkly-summary.md'
+    try {
+      fs.unlinkSync(reportFilename)
+    } catch {
+    }
+    const result = runChecklyCli({
+      args: ['test', '--reporter', 'github'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+      env: { CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename },
+      timeout: 120000, // 2 minutes
+    })
+    expect(result.stdout).toContain('Github summary saved in')
+    expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
+    expect(result.status).toBe(0)
+  })
+
+  it('Should report timeouts correctly', () => {
+    const result = runChecklyCli({
+      args: ['test', 'homepage.test.ts','--timeout', '0'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-project'),
+    })
+    expect(result.status).toBe(1)
+    expect(result.stdout).toContain('Reached timeout of 0 seconds waiting for check result.')
   })
 })

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, BrowserCheck, CheckGroup } from '@checkly/cli/constructs'
+import { ApiCheck, BrowserCheck, CheckGroup } from 'checkly/constructs'
 
 const group1 = new CheckGroup('my-check-group', {
   name: 'My Group',
@@ -14,7 +14,7 @@ new ApiCheck('api-check', {
     url: 'https://www.google.com',
     method: 'GET',
     followRedirects: false,
-    skipSsl: false,
+    skipSSL: false,
     assertions: []
   },
   localSetupScript: "console.log('hi from setup')",

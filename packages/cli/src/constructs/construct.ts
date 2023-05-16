@@ -4,9 +4,13 @@ import { Ref } from './ref'
 export abstract class Construct {
   type: string
   logicalId: string
-  constructor (type: string, logicalId: string) {
+  physicalId?: string|number
+  member: boolean
+  constructor (type: string, logicalId: string, physicalId?: string|number, member?: boolean) {
     this.logicalId = logicalId
     this.type = type
+    this.physicalId = physicalId
+    this.member = member ?? true
     Session.validateCreateConstruct(this)
   }
 
@@ -18,5 +22,13 @@ export abstract class Construct {
     return false
   }
 
-  abstract synthesize(): any
+  abstract synthesize(): any|null
+}
+
+export interface Entrypoint {
+  entrypoint: string
+}
+
+export interface Content {
+  content: string
 }

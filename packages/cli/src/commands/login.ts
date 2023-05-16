@@ -6,7 +6,7 @@ import * as inquirer from 'inquirer'
 import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
-import { AuthContext } from '../auth'
+import { AuthContext, type AuthMode } from '../auth'
 
 const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   if (accounts.length === 1) {
@@ -27,20 +27,20 @@ const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
 
 export default class Login extends BaseCommand {
   static hidden = false
-  static description = 'Login with a Checkly API Key'
+  static description = 'Login to your Checkly account or create a new one.'
 
   static flags = {
     'api-key': Flags.string({
       char: 'k',
       name: 'apiKey',
       description:
-      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/account/api-keys',
+      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/settings/user/api-keys.',
     }),
 
     'account-id': Flags.string({
       char: 'i',
       name: 'accountId',
-      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag',
+      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag.',
     }),
   }
 
@@ -67,7 +67,7 @@ export default class Login extends BaseCommand {
 
   private _isLoginSuccess = async () => {
     await api.validateAuthentication()
-    this.log('Welcome to @checkly/cli 🦝')
+    this.log('Welcome to the Checkly CLI')
   }
 
   async run (): Promise<void> {
@@ -88,19 +88,21 @@ export default class Login extends BaseCommand {
       this.exit(0)
     }
 
-    const authContext = new AuthContext()
+    const mode = await this.#promptForLoginOrSignUp()
+
+    const authContext = new AuthContext(mode)
 
     const { openUrl } = await inquirer.prompt([
       {
         name: 'openUrl',
         type: 'confirm',
-        message: 'Do you allow to open the browser to continue with login?',
+        message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
       },
     ])
 
     if (!openUrl) {
       this.log(
-        `Please open the following URL in your browser: \n\n${chalk.blueBright(
+        `Please open the following URL in your browser: \n\n${chalk.cyan(
           authContext.authenticationUrl,
         )}`,
       )
@@ -119,9 +121,28 @@ export default class Login extends BaseCommand {
     config.data.set('accountId', selectedAccount.id)
     config.data.set('accountName', selectedAccount.name)
 
-    this.log(`Successfully logged in as ${chalk.blue.bold(name)}`)
+    this.log(`Successfully logged in as ${chalk.cyan.bold(name)}`)
 
     await this._isLoginSuccess()
     process.exit(0)
+  }
+
+  async #promptForLoginOrSignUp () {
+    const { mode } = await inquirer.prompt<Record<string, AuthMode>>([
+      {
+        name: 'mode',
+        type: 'list',
+        message: 'Do you want to log in or sign up to Checkly?',
+        choices: [{
+          name: 'I want to log in with an existing Checkly account',
+          value: 'login',
+        }, {
+          name: 'I want to sign up for a new Checkly account',
+          value: 'signup',
+        }],
+      },
+    ])
+
+    return mode
   }
 }

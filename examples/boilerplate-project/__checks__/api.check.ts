@@ -1,18 +1,18 @@
-import { ApiCheck, AssertionBuilder } from '@checkly/cli/constructs'
+import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 
 new ApiCheck('homepage-api-check-1', {
-  name: 'Homepage - fetch stats',
+  name: 'Fetch Book List',
   alertChannels: [],
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
   request: {
-    url: 'https://api.checklyhq.com/public-stats',
+    url: 'https://danube-web.shop/api/books',
     method: 'GET',
     followRedirects: true,
-    skipSsl: false,
+    skipSSL: false,
     assertions: [
       AssertionBuilder.statusCode().equals(200),
-      AssertionBuilder.jsonBody('$.apiCheckResults').greaterThan(0),
+      AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
   }
 })

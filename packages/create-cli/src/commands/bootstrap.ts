@@ -2,12 +2,8 @@ import Debug from 'debug'
 import { Command, Flags } from '@oclif/core'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import prompts from 'prompts'
-import { downloadTemplate } from 'giget'
-import { execa, execaCommand } from 'execa'
-import detectPackageManager from 'which-pm-runs'
 import chalk from 'chalk'
-import { isValidProjectDirectory, hasGitDir } from '../utils/directory.js'
-import { spinner } from '../utils/terminal.js'
+import { isValidProjectDirectory, copyTemporaryFiles, usePackageName } from '../utils/directory.js'
 import {
   getUserGreeting,
   getVersion,
@@ -16,6 +12,11 @@ import {
   hint,
   footer,
 } from '../utils/messages.js'
+import { createCustomBrowserCheck } from '../actions/creates.js'
+import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
+import { hasPackageJsonFile, readPackageJson } from '../utils/package.js'
+import { copyTemplate } from '../actions/template.js'
+import { initGit } from '../actions/git.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -62,6 +63,51 @@ export default class Bootstrap extends Command {
 
     await header(version, greeting)
 
+    // Init Checkly CLI for an existing project
+    if (hasPackageJsonFile()) {
+      debug('Existing package.json detected')
+
+      const projectInitResponse = await prompts({
+        type: 'confirm',
+        name: 'useDirectory',
+        message: 'It looks like you are already in a project, would you like to initialize?',
+        initial: true,
+      },
+      { onCancel },
+      )
+
+      if (projectInitResponse.useDirectory) {
+        const packageJson = readPackageJson()
+        const temporaryDir = generateProjectName()
+
+        debug('Add dependencies to existing package.json')
+        addDevDependecies(packageJson)
+
+        debug('Copy boilerplate project to temporary folder')
+        await copyTemplate({
+          template: 'boilerplate-project',
+          templatePath: `github:${templateBaseRepo}/boilerplate-project#v${version}`,
+          targetDir: temporaryDir,
+        })
+
+        copyTemporaryFiles(temporaryDir)
+        usePackageName(packageJson.name)
+
+        debug('Create custom Browser check')
+        await createCustomBrowserCheck({ onCancel })
+
+        debug('Install npm dependencies')
+        await installDependencies('./')
+
+        debug('Init .git & .gitignore')
+        await initGit('./')
+
+        await footer()
+
+        return
+      }
+    }
+
     debug('Ask for directory name')
 
     const projectDirResponse = await prompts({
@@ -99,69 +145,19 @@ export default class Bootstrap extends Command {
     { onCancel },
     )
 
-
     debug('Downloading template')
-
-    const downloadTemplateSpinner = spinner('Downloading example template...')
-    const templatePath = `${templateBaseRepo}/${templateResponse.template}`
-    try {
-      debug(`Attempting download of template: ${templatePath}`)
-      await downloadTemplate(templatePath, {
-        force: true,
-        provider: 'github',
-        cwd: targetDir,
-        dir: '.',
-      })
-    } catch (e: any) {
-      if (e.message.includes('404')) {
-        downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${templateResponse.template}"`)
-        downloadTemplateSpinner.fail()
-      } else {
-        console.error(e.message)
-      }
-      process.exit(1)
-    }
-
-    downloadTemplateSpinner.text = chalk.green('Example template copied!')
-    downloadTemplateSpinner.succeed()
-
-    const installDepsResponse = await prompts({
-      type: 'confirm',
-      name: 'installDeps',
-      message: 'Would you like to install NPM dependencies? (recommended)',
-      initial: true,
+    await copyTemplate({
+      template: templateResponse.template,
+      templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
+      targetDir,
     })
 
-    if (installDepsResponse.installDeps) {
-      const packageManager = detectPackageManager()?.name || 'npm'
-      const installExec = execa(packageManager, ['install'], { cwd: targetDir })
-      const installSpinner = spinner('installing packages')
-      await new Promise<void>((resolve, reject) => {
-        installExec.stdout?.on('data', function (data) {
-          installSpinner.text = `installing \n${packageManager} ${data}`
-        })
-        installExec.on('error', (error) => reject(error))
-        installExec.on('close', () => resolve())
-      })
-      installSpinner.text = 'Packages installed successfully'
-      installSpinner.succeed()
-    } else {
-      await hint('No worries.', 'Just remember to install the dependencies after this setup')
-    }
-    const initGitResponse = await prompts({
-      type: 'confirm',
-      name: 'initGit',
-      message: 'Would you like to initialize a new git repo? (optional)',
-      initial: true,
-    })
+    debug('Install npm dependencies')
+    await installDependencies(targetDir)
 
-    if (initGitResponse.initGit) {
-      if (hasGitDir()) {
-        await hint('Oh wait!', 'A .git directory already exists. Skipping...')
-      } else {
-        await execaCommand('git init', { cwd: targetDir })
-      }
-    }
+    debug('Init .git & .gitignore')
+    await initGit(targetDir)
+
     await footer(targetDir)
   }
 }

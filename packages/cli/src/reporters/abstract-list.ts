@@ -1,52 +1,71 @@
-import chalk = require('chalk')
+import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus, printLn } from './util'
-import type { RunLocation } from '../services/check-runner'
+import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
+import type { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
+import { TestResultsShortLinks } from '../rest/test-sessions'
+import { testSessions } from '../rest/api'
+
+// Map from file -> checkRunId -> check+result.
+// This lets us print a structured list of the checks.
+// Map remembers the original insertion order, so each time we print the summary will be consistent.
+// Note that in the case of `checkly trigger`, the file will be `undefined`!
+export type checkFilesMap = Map<string|undefined, Map<CheckRunId, {
+  check?: Check,
+  result?: any,
+  titleString: string,
+  testResultId?: string
+}>>
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
   runLocation: RunLocation
-  // Map from file -> check logicalId -> check+result.
-  // This lets us print a structured list of the checks.
-  // Map remembers the original insertion order, so each time we print the summary will be consistent.
-  checkFilesMap: Map<string, Map<string, { check?: Check, result?: any, titleString: string }>>
-  numChecks: number
+  checkFilesMap?: checkFilesMap
+  numChecks?: number
   verbose: boolean
+  testSessionId?: string
 
-  constructor (runLocation: RunLocation, checks: Array<Check>, verbose: boolean) {
-    this.numChecks = checks.length
+  constructor (
+    runLocation: RunLocation,
+    verbose: boolean,
+  ) {
     this.runLocation = runLocation
     this.verbose = verbose
+  }
 
+  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void {
+    this.testSessionId = testSessionId
+    this.numChecks = checks.length
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
-    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()!))].sort()
-    const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
+    // For `checkly trigger`, getSourceFile() is not defined so we use optional chaining.
+    const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile?.()))].sort()
+    const sortedChecks = checks.sort(({ check: a }, { check: b }) => a.name.localeCompare(b.name))
     this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
-    sortedChecks.forEach(check => {
-      const fileMap = this.checkFilesMap.get(check.getSourceFile()!)!
-      fileMap.set(check.logicalId, {
+    sortedChecks.forEach(({ check, testResultId, checkRunId }) => {
+      const fileMap = this.checkFilesMap!.get(check.getSourceFile?.())!
+      fileMap.set(checkRunId, {
         check,
         titleString: formatCheckTitle(CheckStatus.PENDING, check),
+        testResultId,
       })
     })
   }
 
-  abstract onBeginStatic(): void
-
-  abstract onBegin(): void
-
   abstract onEnd(): void
 
-  onCheckEnd (checkResult: any) {
-    const checkStatus = this.checkFilesMap.get(checkResult.sourceFile)!.get(checkResult.logicalId)!
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks) {
+    const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
     checkStatus.titleString = formatCheckTitle(status, checkResult, {
       includeSourceFile: false,
     })
+  }
+
+  onError (err: Error) {
+    printLn(chalk.red('Unable to run checks: ') + err.message)
   }
 
   // Clear the summary which was printed by _printStatus from stdout
@@ -59,8 +78,11 @@ export default abstract class AbstractListReporter implements Reporter {
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
     const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
     const status = []
-    for (const [sourceFile, checkMap] of this.checkFilesMap.entries()) {
-      status.push(sourceFile)
+    if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
+      status.push(chalk.bold('Summary:'))
+    }
+    for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
+      if (sourceFile) status.push(sourceFile)
       for (const [_, { titleString, result }] of checkMap.entries()) {
         if (!result) {
           counts.numPending++
@@ -69,7 +91,7 @@ export default abstract class AbstractListReporter implements Reporter {
         } else {
           counts.numPassed++
         }
-        status.push(indentString(titleString, 2))
+        status.push(sourceFile ? indentString(titleString, 2) : titleString)
       }
     }
     if (!opts.skipCheckCount) {
@@ -91,7 +113,7 @@ export default abstract class AbstractListReporter implements Reporter {
   _printBriefSummary () {
     const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
     const status = []
-    for (const [, checkMap] of this.checkFilesMap.entries()) {
+    for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [_, { result }] of checkMap.entries()) {
         if (!result) {
           counts.numPending++
@@ -114,6 +136,17 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  async _printTestSessionsUrl () {
+    if (this.testSessionId) {
+      try {
+        const { data: { link } } = await testSessions.getShortLink(this.testSessionId)
+        printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(link)}`, 2)
+      } catch {
+        printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`, 2)
+      }
+    }
   }
 
   _runLocationString (): string {

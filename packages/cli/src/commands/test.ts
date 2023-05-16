@@ -1,33 +1,37 @@
-import * as fs from 'node:fs/promises'
-import { Flags, Args } from '@oclif/core'
-import { parse } from 'dotenv'
+import { Flags, Args, ux } from '@oclif/core'
+import * as chalk from 'chalk'
+import * as indentString from 'indent-string'
+
+import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import CheckRunner, { Events, RunLocation, PrivateRunLocation } from '../services/check-runner'
+import {
+  Events,
+  RunLocation,
+  PrivateRunLocation,
+  CheckRunId,
+  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+} from '../services/abstract-check-runner'
+import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
 import type { Region } from '..'
-import { splitConfigFilePath } from '../services/util'
-import { createReporter, ReporterType } from '../reporters/reporter'
+import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
+import { createReporters, ReporterType } from '../reporters/reporter'
+import commonMessages from '../messages/common-messages'
+import { TestResultsShortLinks } from '../rest/test-sessions'
+import type { Check } from '../constructs/check'
+import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 
 const DEFAULT_REGION = 'eu-central-1'
 
-async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
-  if (envFile) {
-    const envsString = await fs.readFile(envFile, { encoding: 'utf8' })
-    return parse(envsString)
-  }
-  const envsString = `${envArgs.join('\n')}`
-  return parse(envsString)
-}
-
 export default class Test extends AuthCommand {
   static hidden = false
-  static description = 'Test checks on Checkly'
+  static description = 'Test your checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
@@ -50,7 +54,7 @@ export default class Test extends AuthCommand {
       default: [],
     }),
     'env-file': Flags.string({
-      description: 'dotenv file path to be passed.',
+      description: 'dotenv file path to be passed. For example --env-file="./.env"',
       exclusive: ['env'],
     }),
     list: Flags.boolean({
@@ -58,23 +62,26 @@ export default class Test extends AuthCommand {
       description: 'list all checks but don\'t run them.',
     }),
     timeout: Flags.integer({
-      default: 240,
+      default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
     verbose: Flags.boolean({
       char: 'v',
-      description: 'Always show the logs of the checks.',
+      description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
     reporter: Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
-      options: ['list', 'dot', 'ci'],
-      default: 'list',
+      options: ['list', 'dot', 'ci', 'github'],
     }),
     config: Flags.string({
       char: 'c',
-      description: 'The Checkly CLI config filename.',
+      description: commonMessages.configFile,
+    }),
+    record: Flags.boolean({
+      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
+      default: false,
     }),
   }
 
@@ -90,6 +97,8 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
+    ux.action.start('Parsing your project', undefined, { stdout: true })
+
     const { flags, argv } = await this.parse(Test)
     const {
       location: runLocation,
@@ -100,8 +109,9 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
-      reporter: reporterType,
+      reporter: reporterFlag,
       config: configFilename,
+      record: shouldRecord,
     } = flags
     const filePatterns = argv as string[]
 
@@ -116,7 +126,9 @@ export default class Test extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
+    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
+
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -133,7 +145,7 @@ export default class Test extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
-    const checks = Object.entries(project.data.checks)
+    const checks = Object.entries(project.data.check)
       .filter(([, check]) => {
         if (check instanceof BrowserCheck) {
           return filterByFileNamePattern(filePatterns, check.scriptPath) ||
@@ -160,49 +172,75 @@ export default class Test extends AuthCommand {
         }
         return check
       })
-    const reporter = createReporter((reporterType as ReporterType)!, location, checks, verbose)
 
-    if (list) {
-      reporter.onBeginStatic()
+    ux.action.stop()
+
+    if (!checks.length) {
+      this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
       return
     }
 
-    const runner = new CheckRunner(
+    if (list) {
+      this.listChecks(checks)
+      return
+    }
+
+    const reporters = createReporters(reporterTypes, location, verbose)
+    const repoInfo = getGitInformation(project.repoUrl)
+    const ciInfo = getCiInformation()
+
+    const runner = new TestRunner(
       config.getAccountId(),
-      config.getApiKey(),
+      project,
       checks,
-      project.data.groups,
       location,
       timeout,
       verbose,
+      shouldRecord,
+      repoInfo,
+      ciInfo.environment,
     )
-    runner.on(Events.RUN_STARTED, () => reporter.onBegin())
-    runner.on(Events.CHECK_SUCCESSFUL, (check, result) => {
+    runner.on(Events.RUN_STARTED,
+      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+        reporters.forEach(r => r.onBegin(checks, testSessionId)))
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporter.onCheckEnd({
+      reporters.forEach(r => r.onCheckEnd(checkRunId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
-      })
+      }, links))
     })
-    runner.on(Events.CHECK_FAILED, (check, message) => {
-      reporter.onCheckEnd({
+    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(checkRunId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
-      })
+      }))
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporter.onEnd())
+    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
+    )
+    runner.on(Events.ERROR, (err) => {
+      reporters.forEach(r => r.onError(err))
+      process.exitCode = 1
+    })
     await runner.run()
   }
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
+  }
+
+  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
+    if (!reporterFlag && !cliReporters.length) {
+      return [isCI ? 'ci' : 'list']
+    }
+    return reporterFlag ? [reporterFlag] : cliReporters
   }
 
   async prepareRunLocation (
@@ -220,7 +258,7 @@ export default class Test extends AuthCommand {
     } else if (cliFlags.privateRunLocation) {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-      throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
+      throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
         ` Please only specify one run location. The configured locations were' + 
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
@@ -243,6 +281,23 @@ export default class Test extends AuthCommand {
       throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
     } catch (err: any) {
       throw new Error(`Failed to get private locations. ${err.message}.`)
+    }
+  }
+
+  private listChecks (checks: Array<Check>) {
+    // Sort and print the checks in a way that's consistent with AbstractListReporter
+    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()))].sort()
+    const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
+    const checkFilesMap: Map<string, Array<Check>> = new Map(sortedCheckFiles.map((file) => [file!, []]))
+    sortedChecks.forEach(check => {
+      checkFilesMap.get(check.getSourceFile()!)!.push(check)
+    })
+    printLn('Listing all checks:', 2, 1)
+    for (const [sourceFile, checks] of checkFilesMap) {
+      printLn(sourceFile)
+      for (const check of checks) {
+        printLn(indentString(formatCheckTitle(CheckStatus.PENDING, check), 2))
+      }
     }
   }
 }
