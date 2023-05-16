@@ -48,6 +48,7 @@ export default class TestRunner extends AbstractCheckRunner {
       groupId: undefined,
       sourceInfo: { checkRunSuiteId, checkRunId },
       logicalId: check.logicalId,
+      filePath: check.getSourceFile(),
     }))
     try {
       if (!checkRunJobs.length) {
