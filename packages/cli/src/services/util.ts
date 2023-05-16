@@ -41,7 +41,14 @@ export async function walkDirectory (
 
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
-    let { default: exported } = await _importDynamic(pathToPosix(filepath))
+    // There is a Node opened issue related with a segmentation fault using ES6 modules
+    // with jest https://github.com/nodejs/node/issues/35889
+    // As a work around, we check if Jest is running to modify the way to import the module.
+    // TODO: investigate if the issue is fixed to clean up the conditional import
+    let { default: exported } = process.env.JEST_WORKER_ID !== undefined
+      ? { default: await require(filepath) }
+      : await _importDynamic(pathToPosix(filepath))
+
     if (exported instanceof Function) {
       exported = await exported()
     }
