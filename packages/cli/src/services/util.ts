@@ -5,6 +5,10 @@ import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
+// Copied from oclif/core
+// eslint-disable-next-line
+const _importDynamic = new Function('modulePath', 'return import(modulePath)')
+
 export interface GitInformation {
   commitId: string
   repoUrl?: string | null
@@ -37,8 +41,14 @@ export async function walkDirectory (
 
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let exported = require(filepath)
+    // There is a Node opened issue related with a segmentation fault using ES6 modules
+    // with jest https://github.com/nodejs/node/issues/35889
+    // As a work around, we check if Jest is running to modify the way to import the module.
+    // TODO: investigate if the issue is fixed to clean up the conditional import
+    let { default: exported } = typeof jest !== 'undefined'
+      ? { default: await require(filepath) }
+      : await _importDynamic(pathToPosix(filepath))
+
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -52,8 +62,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
   try {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let { default: exported } = require(filepath)
+    let { default: exported } = await import(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
@@ -92,7 +101,7 @@ export function pathToPosix (relPath: string, separator?: string): string {
   // Windows uses \ rather than / as a path separator.
   // It's important that logical ID's are consistent across platforms, though.
   // Otherwise, checks will be deleted and recreated when `npx checkly deploy` is run on different machines.
-  return path.normalize(relPath).split(separator ?? path.sep).join(path.posix.sep).replace(/^C:/, '')
+  return path.normalize(relPath).split(separator ?? path.sep).join(path.posix.sep).replace(/^[C|D]:/i, '')
 }
 
 export function splitConfigFilePath (configFile?: string): { configDirectory: string, configFilenames?: string[] } {
