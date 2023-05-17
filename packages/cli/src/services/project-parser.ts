@@ -1,7 +1,7 @@
 import { BrowserCheck, Project, Session } from '../constructs'
 import { promisify } from 'util'
 import * as glob from 'glob'
-import { loadJsFile, loadMjsFile, loadTsFile, pathToPosix } from './util'
+import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import * as path from 'path'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
@@ -76,7 +76,7 @@ async function loadAllCheckFiles (
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.mjs')) {
-      await loadMjsFile(checkFile)
+      await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
       await loadTsFile(checkFile)
     } else {
