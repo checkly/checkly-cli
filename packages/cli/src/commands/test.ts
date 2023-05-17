@@ -83,6 +83,10 @@ export default class Test extends AuthCommand {
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
+    'test-session-name': Flags.string({
+      char: 'n',
+      description: 'A name to use when storing results in Checkly with --record.',
+    }),
   }
 
   static args = {
@@ -112,6 +116,7 @@ export default class Test extends AuthCommand {
       reporter: reporterFlag,
       config: configFilename,
       record: shouldRecord,
+      'test-session-name': testSessionName,
     } = flags
     const filePatterns = argv as string[]
 
@@ -132,7 +137,7 @@ export default class Test extends AuthCommand {
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
-      projectName: checklyConfig.projectName,
+      projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
