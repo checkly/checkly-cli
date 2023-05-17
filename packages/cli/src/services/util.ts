@@ -45,7 +45,7 @@ export async function loadJsFile (filepath: string): Promise<any> {
     // with jest https://github.com/nodejs/node/issues/35889
     // As a work around, we check if Jest is running to modify the way to import the module.
     // TODO: investigate if the issue is fixed to clean up the conditional import
-    let { default: exported } = process.env.JEST_WORKER_ID !== undefined
+    let { default: exported } = typeof jest !== 'undefined'
       ? { default: await require(filepath) }
       : await _importDynamic(pathToPosix(filepath))
 
