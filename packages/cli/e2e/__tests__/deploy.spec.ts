@@ -58,6 +58,17 @@ describe('deploy', () => {
     expect(result.status).toBe(0)
     expect(result.stderr).toBe('')
   })
+  it('Simple esm project should deploy successfully', () => {
+    const result = runChecklyCli({
+      args: ['deploy', '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
+  })
 
   it('Shouldn\'t include a testOnly check', () => {
     const result = runChecklyCli({
