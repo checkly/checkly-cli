@@ -15,7 +15,7 @@ import {
 } from '../services/abstract-check-runner'
 import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import {filterByFileNamePattern, filterByCheckNamePattern, filterByTags} from '../services/test-filters'
+import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
