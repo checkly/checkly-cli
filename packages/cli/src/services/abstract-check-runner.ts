@@ -1,10 +1,11 @@
-import { assets } from '../rest/api'
+import { assets, testSessions } from '../rest/api'
 import { SocketClient } from './socket-client'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { AsyncMqttClient } from 'async-mqtt'
 import type { Region } from '..'
+import { TestResultsShortLinks } from '../rest/test-sessions'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -31,8 +32,11 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 export type CheckRunId = string
 
+export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
+
 export default abstract class AbstractCheckRunner extends EventEmitter {
-  checks?: Map<CheckRunId, any>
+  checks: Map<CheckRunId, { check: any, testResultId?: string }>
+  testSessionId?: string
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
   timeouts: Map<CheckRunId, NodeJS.Timeout>
@@ -47,6 +51,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     verbose: boolean,
   ) {
     super()
+    this.checks = new Map()
     this.timeouts = new Map()
     this.queue = new PQueue({ autoStart: false, concurrency: 1 })
     this.timeout = timeout
@@ -57,7 +62,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   abstract scheduleChecks (checkRunSuiteId: string):
     Promise<{
       testSessionId?: string,
-      checks: Array<{ check: any, checkRunId: CheckRunId, testSessionId?: string }>,
+      checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>,
     }>
 
   async run () {
@@ -70,8 +75,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
       const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
+      this.testSessionId = testSessionId
       this.checks = new Map(
-        checks.map(({ check, checkRunId }) => [checkRunId, check]),
+        checks.map(({ check, checkRunId, testResultId }) => [checkRunId, { check, testResultId }]),
       )
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
@@ -116,7 +122,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // The check has already timed out. We return early to avoid reporting a duplicate result.
       return
     }
-    const check = this.checks!.get(checkRunId)
+
+    if (!this.checks.get(checkRunId)) {
+      // The check has no checkRunId associated.
+      return
+    }
+
+    const { check, testResultId } = this.checks.get(checkRunId)!
     if (subtopic === 'run-start') {
       this.emit(Events.CHECK_INPROGRESS, check)
     } else if (subtopic === 'run-end') {
@@ -126,8 +138,6 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         region,
         logPath,
         checkRunDataPath,
-        playwrightTestTraceFiles,
-        playwrightTestVideoFiles,
       } = result.assets
       if (logPath && (this.verbose || result.hasFailures)) {
         result.logs = await assets.getLogs(region, logPath)
@@ -136,22 +146,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
       }
 
-      try {
-        if (result.hasFailures) {
-          if (playwrightTestTraceFiles && playwrightTestTraceFiles.length) {
-            result.traceFilesUrls = await Promise
-              .all(playwrightTestTraceFiles.map((t: string) => assets.getAssetsLink(region, t)))
-          }
-          if (playwrightTestVideoFiles && playwrightTestVideoFiles.length) {
-            result.videoFilesUrls = await Promise
-              .all(playwrightTestVideoFiles.map((t: string) => assets.getAssetsLink(region, t)))
-          }
-        }
-      } catch {
-        // TODO: remove the try/catch after deploy endpoint to fetch assets link
-      }
+      const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
 
-      this.emit(Events.CHECK_SUCCESSFUL, checkRunId, check, result)
+      this.emit(Events.CHECK_SUCCESSFUL, checkRunId, check, result, links)
       this.emit(Events.CHECK_FINISHED, check)
     } else if (subtopic === 'error') {
       this.disableTimeout(checkRunId)
@@ -162,7 +159,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   private allChecksFinished (): Promise<void> {
     let finishedCheckCount = 0
-    const numChecks = this.checks!.size
+    const numChecks = this.checks.size
     if (numChecks === 0) {
       return Promise.resolve()
     }
@@ -175,10 +172,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private setAllTimeouts () {
-    Array.from(this.checks!.entries()).forEach(([checkRunId, check]) =>
+    Array.from(this.checks.entries()).forEach(([checkRunId, { check }]) =>
       this.timeouts.set(checkRunId, setTimeout(() => {
         this.timeouts.delete(checkRunId)
-        this.emit(Events.CHECK_FAILED, check, `Reached timeout of ${this.timeout} seconds waiting for check result.`)
+        let errorMessage = `Reached timeout of ${this.timeout} seconds waiting for check result.`
+        // Checkly should always report a result within 240s.
+        // If the default timeout was used, we should point the user to the status page and support email.
+        if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+          errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
+        }
+        this.emit(Events.CHECK_FAILED, checkRunId, check, errorMessage)
         this.emit(Events.CHECK_FINISHED, check)
       }, this.timeout * 1000),
       ))
@@ -195,5 +198,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     const timeout = this.timeouts.get(checkRunId)
     clearTimeout(timeout)
     this.timeouts.delete(checkRunId)
+  }
+
+  private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks|undefined> {
+    try {
+      if (!this.testSessionId) {
+        return
+      }
+      const { data: links } = await testSessions.getResultShortLinks(this.testSessionId, testResultId)
+      return links
+    } catch {
+    }
   }
 }

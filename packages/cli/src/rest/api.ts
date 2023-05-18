@@ -11,28 +11,9 @@ import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 
 export function getDefaults () {
-  const environments = {
-    production: {
-      apiUrl: 'https://api.checklyhq.com',
-    },
-
-    development: {
-      apiUrl: 'http://localhost:3000',
-    },
-
-    test: {
-      apiUrl: 'https://api-test.checklyhq.com',
-    },
-
-    staging: {
-      apiUrl: 'https://api-test.checklyhq.com',
-    },
-  }
-
-  const env = config.getEnv()
   const apiKey = config.getApiKey()
   const accountId = config.getAccountId()
-  const baseURL = environments[env].apiUrl
+  const baseURL = config.getApiUrl()
   const Authorization = `Bearer ${apiKey}`
 
   return { baseURL, accountId, Authorization, apiKey }

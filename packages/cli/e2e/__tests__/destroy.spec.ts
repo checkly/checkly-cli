@@ -42,8 +42,6 @@ describe('destroy', () => {
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify(result))
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('All resources associated with project "Deploy Staging Project" have been successfully deleted.')
   })

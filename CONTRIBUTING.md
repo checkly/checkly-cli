@@ -23,23 +23,23 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-To run the project locally, use:
-```bash
-./packages/cli/bin/dev help
-```
-This will use [ts-node](https://www.npmjs.com/package/ts-node) and allow you to skip compiling the TS.
+You can configure the stage (`production`, `staging`, `test` or `development`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=development` if you want to point the API URL to your local backend `http://localhost:3000`.
 
-To run a build with TS for type checking, run:
-```bash
-npm run prepare --workspace packages/cli
-```
+Also, you can use the `watch` mode to compile during your coding. You can use the following command to start your development environment:
 
-To lint the project:
 ```bash
-npm run lint --workspace packages/cli
+export CHECKLY_ACCOUNT_ID=<YOUR_LOCAL_BACKEND_ACCOUNTID>
+export CHECKLY_API_KEY=<YOUR_LOCAL_BACKEND_API_KEY>
+export CHECKLY_ENV=development
+npm run watch --workspace packages/cli
 ```
 
-When running commands from the `packages/cli` directory, the `--workspace packages/cli` flag isn't necessary.
+### Running E2E test locally
+
+To run the E2E tests pointing to your local backed use the `npm run test:e2e:local --workspace packages/cli`
+
+Remember that the `--workspace packages/cli` flag isn't necessary when running commands from the `packages/cli` directory.
+
 
 ## Running from source in another project
 
@@ -70,12 +70,23 @@ npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
 
 ## Releasing
 
+### Releasing `checkly` (CLI)
+
 To release the project to NPM:
 
-1. Update the `version` field in [package/package.json](./package/package.json)
+1. Update the `version` field in the [CLI package.json](./packages/cli/package.json)
 2. Create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new)
 
 The new version will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
+
+### Releasing `create-checkly`
+To release the [create-checkly](https://www.npmjs.com/package/create-checkly) package:
+
+1. Update the `version` field in the [create-cli package.json](./packages/create-cli/package.json)
+2. Trigger the [GitHub action](https://github.com/checkly/checkly-cli/actions/workflows/release-create-package.yml)
+    * Only release from `main`
+
+The new version will then be built and published to NPM.
 
 ## Style Guide
 

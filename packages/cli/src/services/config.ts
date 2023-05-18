@@ -9,7 +9,7 @@ const authSchema = {
   apiKey: { type: 'string' },
 }
 
-const projectSuffix = process.env.NODE_ENV === 'test' ? 'test' : ''
+const projectSuffix = process.env.CHECKLY_ENV ?? ''
 
 // eslint-disable-next-line no-restricted-syntax
 enum Env {
@@ -42,10 +42,10 @@ const config = {
 
   getEnv (): Env {
     const environments = ['production', 'staging', 'development', 'test']
-    const env = process.env.NODE_ENV as string || environments[0] as string
+    const env = process.env.CHECKLY_ENV as string || environments[0] as string
 
     if (!(env in Env)) {
-      throw new Error('Invalid NODE_ENV')
+      throw new Error('Invalid CHECKLY_ENV')
     }
 
     return env as Env
@@ -65,14 +65,24 @@ const config = {
     return apiKey !== '' || accoundId !== ''
   },
 
-  getMqttUrl (): string|null|undefined {
+  getApiUrl (): string {
+    const environments = {
+      development: 'http://localhost:3000',
+      test: 'https://api-test.checklyhq.com',
+      staging: 'https://api-test.checklyhq.com',
+      production: 'https://api.checklyhq.com',
+    }
+    return environments[this.getEnv()]!
+  },
+
+  getMqttUrl (): string {
     const environments = {
       development: 'wss://events-local.checklyhq.com',
       test: 'wss://events-test.checklyhq.com',
       staging: 'wss://events-test.checklyhq.com',
       production: 'wss://events.checklyhq.com',
     }
-    return environments[this.getEnv()]
+    return environments[this.getEnv()]!
   },
 
   hasValidCredentials (): boolean {

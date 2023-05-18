@@ -3,14 +3,10 @@ import * as chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list'
 import { CheckRunId } from '../services/abstract-check-runner'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, getTestSessionUrl, getTraceUrl } from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
+import { TestResultsShortLinks } from '../rest/test-sessions'
 
 export default class ListReporter extends AbstractListReporter {
-  onBeginStatic () {
-    printLn('Listing all checks:', 2, 1)
-    this._printSummary({ skipCheckCount: true })
-  }
-
   onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
@@ -23,9 +19,8 @@ export default class ListReporter extends AbstractListReporter {
     this._printTestSessionsUrl()
   }
 
-  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks) {
     super.onCheckEnd(checkRunId, checkResult)
-    const { testResultId } = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     this._clearSummary()
 
     if (this.verbose) {
@@ -38,29 +33,17 @@ export default class ListReporter extends AbstractListReporter {
       }
     }
 
-    if (checkResult.hasFailures) {
-      if (checkResult.traceFilesUrls) {
+    if (links) {
+      printLn(indentString('View result: ' + chalk.underline.cyan(`${links.testResultLink}`), 4))
+      if (links.testTraceLinks?.length) {
         // TODO: print all video files URLs
-        printLn(indentString(
-          'View trace : ' + chalk.underline.cyan(
-            getTraceUrl(checkResult.traceFilesUrls[0]))
-          , 4,
-        ))
+        printLn(indentString('View trace : ' + chalk.underline.cyan(links.testTraceLinks.join(', ')), 4))
       }
-      if (checkResult.videoFilesUrls) {
+      if (links.videoLinks?.length) {
         // TODO: print all trace files URLs
-        printLn(indentString(
-          'View video : ' + chalk.underline.cyan(
-            `${checkResult.videoFilesUrls[0]}`)
-          , 4,
-        ))
+        printLn(indentString('View video : ' + chalk.underline.cyan(`${links.videoLinks.join(', ')}`), 4))
       }
-      if (testResultId && this.testSessionId) {
-        printLn(indentString(
-          'View result: ' + chalk.underline.cyan(`${getTestSessionUrl(this.testSessionId)}/results/${testResultId}`)
-          , 4,
-        ), 2)
-      }
+      printLn('')
     }
 
     this._printSummary()

@@ -11,13 +11,13 @@ new ApiCheck('example-api-check-not-grouped-1', {
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
   request: {
-    url: 'https://api.checklyhq.com/public-stats',
+    url: 'https://danube-web.shop/api/books',
     method: 'GET',
     followRedirects: true,
     skipSSL: false,
     assertions: [
       AssertionBuilder.statusCode().equals(200),
-      AssertionBuilder.jsonBody('$.apiCheckResults').greaterThan(0),
+      AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
   }
 })
@@ -29,13 +29,13 @@ new ApiCheck('example-api-check-high-frequency', {
   frequency: Frequency.EVERY_30S,
   maxResponseTime: 20000,
   request: {
-    url: 'https://api.checklyhq.com/public-stats',
+    url: 'https://danube-web.shop/api/books',
     method: 'GET',
     followRedirects: true,
     skipSSL: false,
     assertions: [
       AssertionBuilder.statusCode().equals(200),
-      AssertionBuilder.jsonBody('$.apiCheckResults').greaterThan(0),
+      AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
   }
 })
