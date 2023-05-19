@@ -2,7 +2,7 @@ import { Flags } from '@oclif/core'
 import * as api from '../rest/api'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { AuthCommand } from './authCommand'
-import { prompt } from 'inquirer'
+import * as prompts from 'prompts'
 import config from '../services/config'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
@@ -30,11 +30,11 @@ export default class Destroy extends AuthCommand {
     const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
     const { data: account } = await api.accounts.get(config.getAccountId())
     if (!force) {
-      const { projectName } = await prompt([{
+      const { projectName } = await prompts({
         name: 'projectName',
-        type: 'test',
+        type: 'text',
         message: `Are you sure you want to delete all resources in project "${checklyConfig.projectName}" for account "${account.name}"?\n  Please confirm by typing the project name "${checklyConfig.projectName}":`,
-      }])
+      })
       if (projectName !== checklyConfig.projectName) {
         this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
         return

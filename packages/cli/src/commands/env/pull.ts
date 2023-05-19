@@ -1,4 +1,4 @@
-import { prompt } from 'inquirer'
+import * as prompts from 'prompts'
 import * as path from 'path'
 import * as api from '../../rest/api'
 import { Flags, Args } from '@oclif/core'
@@ -48,11 +48,11 @@ export default class EnvPull extends AuthCommand {
       // By catching EEXIST rather than checking fs.existsSync,
       // we avoid a race condition when a file is created between writing and checking
       if (err.code === 'EEXIST') {
-        const { confirm } = await prompt([{
+        const { confirm } = await prompts({
           name: 'confirm',
           type: 'confirm',
           message: `Found existing file ${filename}. Do you want to overwrite?`,
-        }])
+        })
         if (!confirm) {
           this.log('Cancelled. No changes made.')
           return
