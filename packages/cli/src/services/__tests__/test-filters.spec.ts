@@ -1,4 +1,4 @@
-import { filterByFileNamePattern, filterByCheckNamePattern } from '../test-filters'
+import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../test-filters'
 
 describe('filterByCheckNamePattern()', () => {
   type TestTuple = [string, string, boolean]
@@ -30,5 +30,23 @@ describe('filterByFileNamePattern()', () => {
   ]
   test.each(cases)('patterns %s with path "%s" should match %s', (patterns, path, expected) => {
     expect(filterByFileNamePattern(patterns, path)).toEqual(expected)
+  })
+})
+
+describe('filterByTags()', () => {
+  type TestTuple = [string[][], string[], boolean]
+
+  const cases: TestTuple[] = [
+    [[[], []], [], true],
+    [[['production']], ['production'], true],
+    [[['production']], ['production', 'api'], true],
+    [[['production', 'api']], ['api', 'production'], true],
+    [[['production'], ['api']], ['api', 'production'], true],
+    [[['production'], ['web']], ['production', 'api'], true],
+    [[['production']], ['staging'], false],
+    [[['production', 'web']], ['production', 'api'], false],
+  ]
+  test.each(cases)('patterns %s with path "%s" should match %s', (targetTags, tags, expected) => {
+    expect(filterByTags(targetTags, tags)).toEqual(expected)
   })
 })
