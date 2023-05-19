@@ -54,4 +54,41 @@ describe('parseProject()', () => {
       ],
     })
   })
+
+  it('should throw error for empty browser-check script', async () => {
+    try {
+      const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
+      await parseProject({
+        directory: projectPath,
+        projectLogicalId: 'empty-script-project-id',
+        projectName: 'empty script project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+        availableRuntimes: runtimes,
+        checkMatch: '**/*.foobar.js', // don't match .check.js files used for a different test
+        browserCheckMatch: '**/*.spec.js',
+      })
+      // shouldn't reach this point
+      expect(true).toBe(false)
+    } catch (e: any) {
+      expect(e.message).toBe('Browser check "src/empty-script.spec.js" is not allowed to be empty')
+    }
+  })
+
+  it('should throw error for empty environment variable', async () => {
+    try {
+      const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
+      await parseProject({
+        directory: projectPath,
+        projectLogicalId: 'empty-script-project-id',
+        projectName: 'empty script project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+        availableRuntimes: runtimes,
+        browserCheckMatch: '**/*.foobar.js', // don't match .spec.js files used for a different test
+      })
+      // shouldn't reach this point
+      expect(true).toBe(false)
+    } catch (e: any) {
+      expect(e.message).toContain('Environment variable "EMPTY_FOO" from check group "check-group-1" is not allowed to be empty')
+    }
+  })
 })
