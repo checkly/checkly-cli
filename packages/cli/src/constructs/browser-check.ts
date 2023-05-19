@@ -51,12 +51,15 @@ export class BrowserCheck extends Check {
         absoluteEntrypoint = entrypoint
       } else {
         if (!Session.checkFileAbsolutePath) {
-          throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
+          throw new Error('You cannot use relative paths without the checkFileAbsolutePath in session')
         }
         absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
       }
       // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)
+      if (!bundle.script) {
+        throw new Error(`Browser check "${logicalId}" is not allowed to be empty`)
+      }
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies

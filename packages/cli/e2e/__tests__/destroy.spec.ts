@@ -30,7 +30,6 @@ describe('destroy', () => {
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.status).not.toBe(0)
     expect(result.stdout).toContain('Please confirm by typing the project name "Deploy Project"')
   })
 

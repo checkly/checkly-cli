@@ -1,6 +1,6 @@
 import * as chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import * as inquirer from 'inquirer'
+import * as prompts from 'prompts'
 import config from '../services/config'
 import * as api from '../rest/api'
 import { AuthCommand } from './authCommand'
@@ -42,16 +42,14 @@ export default class Switch extends AuthCommand {
         this.exit(0)
       }
 
-      const { selectedAccountName } = await inquirer.prompt([
-        {
-          name: 'selectedAccountName',
-          type: 'list',
-          choices: accounts.map((account) => account.name),
-          message: 'Select a new Checkly account',
-        },
-      ])
+      const { selectedAccountName } = await prompts({
+        name: 'selectedAccountName',
+        type: 'select',
+        choices: accounts.map(({ name }) => ({ title: name })),
+        message: 'Select a new Checkly account',
+      })
 
-      const { id, name } = accounts.find((account) => account.name === selectedAccountName)!
+      const { id, name } = accounts.find(({ name }) => name === selectedAccountName)!
 
       config.data.set('accountId', id)
       config.data.set('accountName', name)

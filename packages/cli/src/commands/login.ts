@@ -2,25 +2,23 @@ import * as open from 'open'
 import * as chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import { BaseCommand } from './baseCommand'
-import * as inquirer from 'inquirer'
+import * as prompts from 'prompts'
 import config from '../services/config'
 import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
-import { AuthContext, type AuthMode } from '../auth'
+import { AuthContext } from '../auth'
 
 const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   if (accounts.length === 1) {
     return accounts[0]
   }
 
-  const { accountName } = await inquirer.prompt([
-    {
-      name: 'accountName',
-      type: 'list',
-      choices: accounts,
-      message: 'Which account do you want to use?',
-    },
-  ])
+  const { accountName } = await prompts({
+    name: 'accountName',
+    type: 'list',
+    choices: accounts.map(a => ({ title: a.name })),
+    message: 'Which account do you want to use?',
+  })
 
   return accounts.find(({ name }) => name === accountName)!
 }
@@ -54,13 +52,11 @@ export default class Login extends BaseCommand {
     const hasValidCredentials = config.hasValidCredentials()
 
     if (hasValidCredentials) {
-      const { setNewkey } = await inquirer.prompt([
-        {
-          name: 'setNewkey',
-          type: 'confirm',
-          message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
-        },
-      ])
+      const { setNewkey } = await prompts({
+        name: 'setNewkey',
+        type: 'confirm',
+        message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
+      })
       !setNewkey && this.exit(0)
     }
   }
@@ -92,13 +88,11 @@ export default class Login extends BaseCommand {
 
     const authContext = new AuthContext(mode)
 
-    const { openUrl } = await inquirer.prompt([
-      {
-        name: 'openUrl',
-        type: 'confirm',
-        message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
-      },
-    ])
+    const { openUrl } = await prompts({
+      name: 'openUrl',
+      type: 'confirm',
+      message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
+    })
 
     if (!openUrl) {
       this.log(
@@ -128,20 +122,18 @@ export default class Login extends BaseCommand {
   }
 
   async #promptForLoginOrSignUp () {
-    const { mode } = await inquirer.prompt<Record<string, AuthMode>>([
-      {
-        name: 'mode',
-        type: 'list',
-        message: 'Do you want to log in or sign up to Checkly?',
-        choices: [{
-          name: 'I want to log in with an existing Checkly account',
-          value: 'login',
-        }, {
-          name: 'I want to sign up for a new Checkly account',
-          value: 'signup',
-        }],
-      },
-    ])
+    const { mode } = await prompts({
+      name: 'mode',
+      type: 'select',
+      message: 'Do you want to log in or sign up to Checkly?',
+      choices: [{
+        title: 'I want to log in with an existing Checkly account',
+        value: 'login',
+      }, {
+        title: 'I want to sign up for a new Checkly account',
+        value: 'signup',
+      }],
+    })
 
     return mode
   }

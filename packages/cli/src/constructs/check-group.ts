@@ -133,7 +133,15 @@ export class CheckGroup extends Construct {
     this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
+
     this.environmentVariables = props.environmentVariables ?? []
+    this.environmentVariables.forEach(ev => {
+      // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
+      if (ev.value === '') {
+        throw new Error(`Environment variable "${ev.key}" from check group "${logicalId}" is not allowed to be empty`)
+      }
+    })
+
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
