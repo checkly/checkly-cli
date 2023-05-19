@@ -1,7 +1,6 @@
 import { BrowserCheck } from '../../../../constructs'
 
-
-export default async function createCheck () {
+export default function createCheck () {
   return new BrowserCheck('ts-check', {
     name: 'typescript-check',
     muted: false,
