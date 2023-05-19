@@ -1,9 +1,13 @@
 {
   "name": "checkly",
-  "version": "4.0.5",
+  "version": "4.0.6",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./constructs": "./dist/constructs/index.js"
+  },
   "engines": {
     "node": ">=16.0.0"
   },

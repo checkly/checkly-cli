@@ -75,11 +75,13 @@ async function loadAllCheckFiles (
     Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
     if (checkFile.endsWith('.js')) {
       await loadJsFile(checkFile)
+    } else if (checkFile.endsWith('.mjs')) {
+      await loadJsFile(checkFile)
     } else if (checkFile.endsWith('.ts')) {
       await loadTsFile(checkFile)
     } else {
       throw new Error('Unable to load check configuration file with unsupported extension. ' +
-      `Please use a .js or .ts file instead.\n${checkFile}`)
+      `Please use a .js, .msj  or .ts file instead.\n${checkFile}`)
     }
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined

@@ -16,22 +16,28 @@ type Module = {
   npmDependencies: Array<string>
 }
 
-type SupportedFileExtension = '.js' | '.ts'
+type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
 
 const JS_RESOLVE_ORDER = [
   '.js',
+  '.mjs',
   PACKAGE_EXTENSION,
   `${path.sep}index.js`,
+  // TODO: Check the module type in package.json to figure out the esm and common js file extensions
+  `${path.sep}index.mjs`,
 ]
 
 const TS_RESOLVE_ORDER = [
   '.ts',
   '.js',
+  '.mjs',
   PACKAGE_EXTENSION,
   `${path.sep}index.ts`,
   `${path.sep}index.js`,
+  // TODO: Check the module type in package.json to figure out the esm and common js file extensions
+  `${path.sep}index.mjs`,
 ]
 
 const supportedBuiltinModules = [
@@ -41,7 +47,7 @@ const supportedBuiltinModules = [
 
 function validateEntrypoint (entrypoint: string): {extension: SupportedFileExtension, content: string} {
   const extension = path.extname(entrypoint)
-  if (extension !== '.js' && extension !== '.ts') {
+  if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
     throw new Error(`Unsupported file extension for ${entrypoint}`)
   }
   try {
@@ -160,6 +166,8 @@ export class Parser {
         deps.push({ filePath: fullPath, content })
         if (extension === PACKAGE_EXTENSION) {
           const { main } = JSON.parse(content)
+          // TODO: Check the module type to figure out the esm and common js file extensions
+          // It might be different than js and mjs
           if (!main || !main.length) {
             // No main is defined. This means package.json doesn't have a specific entry
             continue
@@ -182,7 +190,7 @@ export class Parser {
 
     const extension = path.extname(filePath)
     try {
-      if (extension === '.js') {
+      if (extension === '.js' || extension === '.mjs') {
         const ast = acorn.parse(contents, {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
