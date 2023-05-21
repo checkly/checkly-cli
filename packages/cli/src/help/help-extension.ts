@@ -1,13 +1,38 @@
-import { Help } from '@oclif/core'
-import * as chalk from 'chalk'
+import { Command, Help } from '@oclif/core'
 import examples from './examples'
+import { BaseCommandClass } from '../commands/baseCommand'
 
 export default class ChecklyHelpClass extends Help {
-  public showRootHelp (): Promise<void> {
-    // start copy & paste from standard showRootHelp implementation
-    let rootTopics = this.sortedTopics
-    let rootCommands = this.sortedCommands
+  protected formatAllCommands (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>): string {
+    if (commands.length === 0) return ''
 
+    const coreCommands = commands.filter(c => c.coreCommand)
+    const additionalCommands = commands.filter(c => !c.coreCommand)
+
+    const format = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) => commands.map(c => {
+      if (this.config.topicSeparator !== ':') {
+        c.id = c.id.replace(/:/g, ' ')
+      }
+      return [
+        c.id,
+        this.summary(c),
+      ]
+    })
+
+    const reder = (commands: (string | undefined)[][]) =>
+      this.renderList(commands, {
+        spacer: '\n',
+        stripAnsi: this.opts.stripAnsi,
+        indentation: 2,
+      })
+
+    return this.section('CORE COMMANDS', reder(format(coreCommands))) +
+      '\n' + '\n' +
+      this.section('ADDITIONAL COMMANDS', reder(format(additionalCommands))) +
+      this.log('')
+  }
+
+  public showRootHelp (): Promise<void> {
     const state = this.config.pjson?.oclif?.state
     if (state) {
       this.log(
@@ -20,22 +45,10 @@ export default class ChecklyHelpClass extends Help {
     this.log(this.formatRoot())
     this.log('')
 
-    if (!this.opts.all) {
-      rootTopics = rootTopics.filter(t => !t.name.includes(':'))
-      rootCommands = rootCommands.filter(c => !c.id.includes(':'))
-    }
-
-    if (rootTopics.length > 0) {
-      this.log(this.formatTopics(rootTopics))
+    if (this.sortedCommands.length > 0) {
+      this.log(this.formatAllCommands(this.sortedCommands))
       this.log('')
     }
-
-    if (rootCommands.length > 0) {
-      rootCommands = rootCommands.filter(c => c.id)
-      this.log(this.formatCommands(rootCommands))
-      this.log('')
-    }
-    // end
 
     const examplesString = examples.reduce((accumulator, example) => {
       return accumulator + `\n- ${example.description}\n\n${this.indent('$ ' + example.command)}\n`

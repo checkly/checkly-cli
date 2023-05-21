@@ -30,6 +30,7 @@ import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 const DEFAULT_REGION = 'eu-central-1'
 
 export default class Test extends AuthCommand {
+  static coreCommand = true
   static hidden = false
   static description = 'Test your checks on Checkly.'
   static flags = {
