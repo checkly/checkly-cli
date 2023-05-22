@@ -37,7 +37,7 @@ describe('help', () => {
     expect(result).toHaveStdoutContaining(`ADDITIONAL COMMANDS
   autocomplete  display autocomplete installation instructions
   destroy       Destroy your project with all its related resources.
-  env           Manage Checkly environment variables
+  env           Manage Checkly environment variables.
   help          Display help for checkly.
   login         Login to your Checkly account or create a new one.
   logout        Log out and clear any local credentials.
