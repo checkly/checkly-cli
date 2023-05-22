@@ -1,21 +1,29 @@
 import { Command, Help } from '@oclif/core'
 import examples from './examples'
 import { BaseCommandClass } from '../commands/baseCommand'
+import { Topic } from '@oclif/core/lib/interfaces'
 
 export default class ChecklyHelpClass extends Help {
-  protected formatAllCommands (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>): string {
+  protected formatAllCommands (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>,
+    topics: Array<Topic>): string {
     if (commands.length === 0) return ''
 
     const coreCommands = commands.filter(c => c.coreCommand)
     const additionalCommands = commands.filter(c => !c.coreCommand)
 
-    const format = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) => commands.map(c => {
-      c.id = c.id.replace(/:/g, ' ')
-      return [
-        c.id,
-        this.summary(c),
-      ]
-    })
+    const formatCommandsWithoutTopics = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) =>
+      commands
+        // discard commands with ':' indicating they are under a topic
+        .filter(c => !c.id.includes(':') || c.coreCommand)
+        .map(c => [c.id.replace(/:/g, ' '), this.summary(c)])
+
+    const formatCommandsWithTopics = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) =>
+      commands
+        // discard commands with ':' indicating they are under a topic
+        .filter(c => !c.id.includes(':'))
+        .map(c => [c.id, this.summary(c)])
+        .concat(topics.map(t => [t.name, t.description]))
+        .sort(([a, x], [b, y]) => (a! < b!) ? -1 : 1)
 
     const reder = (commands: (string | undefined)[][]) =>
       this.renderList(commands, {
@@ -24,9 +32,9 @@ export default class ChecklyHelpClass extends Help {
         indentation: 2,
       })
 
-    return this.section('CORE COMMANDS', reder(format(coreCommands))) +
+    return this.section('CORE COMMANDS', reder(formatCommandsWithoutTopics(coreCommands))) +
       '\n' + '\n' +
-      this.section('ADDITIONAL COMMANDS', reder(format(additionalCommands)))
+      this.section('ADDITIONAL COMMANDS', reder(formatCommandsWithTopics(additionalCommands)))
   }
 
   public showRootHelp (): Promise<void> {
@@ -43,7 +51,7 @@ export default class ChecklyHelpClass extends Help {
     this.log('')
 
     if (this.sortedCommands.length > 0) {
-      this.log(this.formatAllCommands(this.sortedCommands))
+      this.log(this.formatAllCommands(this.sortedCommands, this.sortedTopics))
       this.log('')
     }
 
