@@ -10,6 +10,21 @@ describe('help', () => {
     expect(result).toHaveStdoutContaining('EXAMPLES')
   })
 
+  it('should print topic help', () => {
+    const result = runChecklyCli({
+      args: ['env', '--help'],
+    })
+    // use a 80 char line output
+    expect(result).toHaveStdoutContaining(`COMMANDS
+  env add     Add environment variable via "checkly env add <key> <value>".
+  env ls      List all Checkly environment variables via "checkly env ls".
+  env pull    Pull Checkly environment variables via "checkly env pull
+              <filename>".
+  env rm      Remove environment variable via "checkly env rm <key>".
+  env update  Update environment variable via "checkly env update <key>
+              <value>".`)
+  })
+
   it('should print core and additional commands and topic', () => {
     const result = runChecklyCli({
       args: ['--help'],
