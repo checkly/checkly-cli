@@ -10,9 +10,7 @@ export default class ChecklyHelpClass extends Help {
     const additionalCommands = commands.filter(c => !c.coreCommand)
 
     const format = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) => commands.map(c => {
-      if (this.config.topicSeparator) {
-        c.id = c.id.replace(new RegExp(`${this.config.topicSeparator}`, 'g'), ' ')
-      }
+      c.id = c.id.replace(/:/g, ' ')
       return [
         c.id,
         this.summary(c),
