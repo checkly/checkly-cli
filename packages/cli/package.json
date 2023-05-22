@@ -41,7 +41,6 @@
   "oclif": {
     "bin": "checkly",
     "commands": "./dist/commands",
-    "topicSeparator": " ",
     "additionalHelpFlags": [
       "-h"
     ],

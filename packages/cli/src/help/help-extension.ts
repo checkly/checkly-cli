@@ -10,8 +10,8 @@ export default class ChecklyHelpClass extends Help {
     const additionalCommands = commands.filter(c => !c.coreCommand)
 
     const format = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) => commands.map(c => {
-      if (this.config.topicSeparator !== ':') {
-        c.id = c.id.replace(/:/g, ' ')
+      if (this.config.topicSeparator) {
+        c.id = c.id.replace(new RegExp(`${this.config.topicSeparator}`, 'g'), ' ')
       }
       return [
         c.id,
@@ -28,8 +28,7 @@ export default class ChecklyHelpClass extends Help {
 
     return this.section('CORE COMMANDS', reder(format(coreCommands))) +
       '\n' + '\n' +
-      this.section('ADDITIONAL COMMANDS', reder(format(additionalCommands))) +
-      this.log('')
+      this.section('ADDITIONAL COMMANDS', reder(format(additionalCommands)))
   }
 
   public showRootHelp (): Promise<void> {
