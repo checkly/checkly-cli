@@ -60,6 +60,9 @@ export class BrowserCheck extends Check {
       }
       // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
       const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)
+      if (!bundle.script) {
+        throw new Error(`Browser check "${logicalId}" is not allowed to be empty`)
+      }
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies

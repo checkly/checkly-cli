@@ -15,7 +15,7 @@ import {
 } from '../services/abstract-check-runner'
 import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { filterByFileNamePattern, filterByCheckNamePattern } from '../services/test-filters'
+import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck } from '../constructs'
@@ -45,6 +45,15 @@ export default class Test extends AuthCommand {
       char: 'g',
       description: 'Only run checks where the check name matches a regular expression.',
       default: '.*',
+    }),
+    tags: Flags.string({
+      char: 't',
+      description: 'Filter the checks to be run using a comma separated list of tags.' +
+        ' Checks will only be run if they contain all of the specified tags.' +
+        ' Multiple --tags flags can be passed, in which case checks will be run if they match any of the --tags filters.' +
+        ' F.ex. `--tags production,webapp --tags production,backend` will run checks with tags (production AND webapp) OR (production AND backend).',
+      multiple: true,
+      required: false,
     }),
     env: Flags.string({
       char: 'e',
@@ -83,6 +92,10 @@ export default class Test extends AuthCommand {
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
+    'test-session-name': Flags.string({
+      char: 'n',
+      description: 'A name to use when storing results in Checkly with --record.',
+    }),
   }
 
   static args = {
@@ -104,6 +117,7 @@ export default class Test extends AuthCommand {
       location: runLocation,
       'private-location': privateRunLocation,
       grep,
+      tags: targetTags,
       env,
       'env-file': envFile,
       list,
@@ -112,6 +126,7 @@ export default class Test extends AuthCommand {
       reporter: reporterFlag,
       config: configFilename,
       record: shouldRecord,
+      'test-session-name': testSessionName,
     } = flags
     const filePatterns = argv as string[]
 
@@ -132,7 +147,7 @@ export default class Test extends AuthCommand {
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
-      projectName: checklyConfig.projectName,
+      projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
@@ -156,6 +171,9 @@ export default class Test extends AuthCommand {
       })
       .filter(([, check]) => {
         return filterByCheckNamePattern(grep, check.name)
+      })
+      .filter(([, check]) => {
+        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], check.tags)
       })
       .map(([key, check]) => {
         check.logicalId = key

@@ -9,3 +9,13 @@ export function filterByFileNamePattern (filePatterns: Array<string> = [], path:
     return re.test(path as any)
   })
 }
+
+export function filterByTags (targetTags: string[][], tags: string[]|undefined): boolean {
+  if (targetTags?.length > 0 && tags) {
+    return targetTags.some(targetTagSet => {
+      return targetTagSet.every(tag => tags.includes(tag))
+    })
+  } else {
+    return true
+  }
+}

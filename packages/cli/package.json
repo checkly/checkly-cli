@@ -1,9 +1,13 @@
 {
   "name": "checkly",
-  "version": "4.0.5",
+  "version": "4.0.6",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./constructs": "./dist/constructs/index.js"
+  },
   "engines": {
     "node": ">=16.0.0"
   },
@@ -85,22 +89,22 @@
     "git-repo-info": "2.1.1",
     "glob": "8.0.3",
     "indent-string": "4.0.0",
-    "inquirer": "8.2.3",
     "jwt-decode": "3.1.2",
     "log-symbols": "4.1.0",
     "luxon": "3.2.1",
     "open": "8.4.0",
     "p-queue": "6.6.2",
+    "prompts": "2.4.2",
     "uuid": "9.0.0"
   },
   "devDependencies": {
     "@checkly/eslint-config": "0.14.1",
     "@types/config": "3.3.0",
     "@types/glob": "8.0.0",
-    "@types/inquirer": "8.2.3",
     "@types/jest": "29.2.4",
     "@types/luxon": "3.2.0",
     "@types/node": "18.11.18",
+    "@types/prompts": "2.4.4",
     "@types/uuid": "9.0.1",
     "@types/ws": "8.5.3",
     "@typescript-eslint/eslint-plugin": "5.46.1",

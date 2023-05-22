@@ -1,6 +1,6 @@
 import * as api from '../rest/api'
 import config from '../services/config'
-import { prompt } from 'inquirer'
+import * as prompts from 'prompts'
 import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -78,11 +78,11 @@ export default class Deploy extends AuthCommand {
     const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
-      const { confirm } = await prompt([{
+      const { confirm } = await prompts({
         name: 'confirm',
         type: 'confirm',
         message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
-      }])
+      })
       if (!confirm) {
         return
       }

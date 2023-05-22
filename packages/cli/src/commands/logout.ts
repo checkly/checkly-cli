@@ -1,4 +1,4 @@
-import { prompt } from 'inquirer'
+import * as prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import config from '../services/config'
 import { BaseCommand } from './baseCommand'
@@ -25,11 +25,11 @@ export default class Logout extends BaseCommand {
         ? ' of "' + accountName + '"'
         : ''}, do you want to continue?`
 
-      const { confirm } = await prompt([{
+      const { confirm } = await prompts({
         name: 'confirm',
         type: 'confirm',
         message,
-      }])
+      })
 
       if (!confirm) {
         this.exit(0)

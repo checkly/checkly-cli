@@ -1,4 +1,4 @@
-import { prompt } from 'inquirer'
+import * as prompts from 'prompts'
 import * as api from '../../rest/api'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
@@ -29,11 +29,11 @@ export default class EnvRm extends AuthCommand {
     const envVariableKey = args.key
 
     if (!force) {
-      const { confirm } = await prompt([{
+      const { confirm } = await prompts({
         name: 'confirm',
         type: 'confirm',
         message: `Are you sure you want to delete environment variable ${envVariableKey}?`,
-      }])
+      })
       if (!confirm) {
         this.log('Cancelled. No changes made.')
         return
