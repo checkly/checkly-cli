@@ -1,21 +1,19 @@
 import { runChecklyCli } from '../run-checkly'
-import * as config from 'config'
-import '../command-matchers'
 
 describe('help', () => {
   it('should print custom help with examples', () => {
-    const result = runChecklyCli({
+    const { stdout } = runChecklyCli({
       args: ['--help'],
     })
-    expect(result).toHaveStdoutContaining('EXAMPLES')
+    expect(stdout).toContain('EXAMPLES')
   })
 
   it('should print topic help', () => {
-    const result = runChecklyCli({
+    const { stdout } = runChecklyCli({
       args: ['env', '--help'],
     })
     // use a 80 char line output
-    expect(result).toHaveStdoutContaining(`COMMANDS
+    expect(stdout).toContain(`COMMANDS
   env add     Add environment variable via "checkly env add <key> <value>".
   env ls      List all Checkly environment variables via "checkly env ls".
   env pull    Pull Checkly environment variables via "checkly env pull
@@ -26,15 +24,15 @@ describe('help', () => {
   })
 
   it('should print core and additional commands and topic', () => {
-    const result = runChecklyCli({
+    const { stdout } = runChecklyCli({
       args: ['--help'],
     })
-    expect(result).toHaveStdoutContaining(`CORE COMMANDS
+    expect(stdout).toContain(`CORE COMMANDS
   deploy   Deploy your project to your Checkly account.
   test     Test your checks on Checkly.
   trigger  Trigger checks on Checkly`)
 
-    expect(result).toHaveStdoutContaining(`ADDITIONAL COMMANDS
+    expect(stdout).toContain(`ADDITIONAL COMMANDS
   autocomplete  display autocomplete installation instructions
   destroy       Destroy your project with all its related resources.
   env           Manage Checkly environment variables.

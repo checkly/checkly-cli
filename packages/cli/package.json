@@ -18,9 +18,9 @@
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "test:e2e:local": "cross-env CHECKLY_ENV=development npm run test:e2e",
     "watch": "tsc --watch",
-    "prepare": "npm run clean && tsc --build",
+    "prepare": "npx simple-git-hooks && npm run clean && tsc --build",
     "prepack": "npx oclif manifest",
-    "lint": "eslint src"
+    "lint": "eslint . --ext .ts,.js"
   },
   "repository": {
     "type": "git",
@@ -98,7 +98,9 @@
     "uuid": "9.0.0"
   },
   "devDependencies": {
-    "@checkly/eslint-config": "0.14.1",
+    "@checkly/eslint-config": "0.16.0",
+    "@commitlint/cli": "17.6.3",
+    "@commitlint/config-conventional": "17.6.3",
     "@types/config": "3.3.0",
     "@types/glob": "8.0.0",
     "@types/jest": "29.2.4",
@@ -107,14 +109,16 @@
     "@types/prompts": "2.4.4",
     "@types/uuid": "9.0.1",
     "@types/ws": "8.5.3",
-    "@typescript-eslint/eslint-plugin": "5.46.1",
-    "@typescript-eslint/parser": "5.46.1",
+    "@typescript-eslint/eslint-plugin": "5.59.7",
+    "@typescript-eslint/parser": "5.59.7",
     "config": "3.3.8",
     "cross-env": "7.0.3",
-    "eslint": "8.30.0",
+    "eslint": "8.41.0",
     "jest": "29.3.1",
+    "lint-staged": "13.2.2",
     "nanoid": "3.3.4",
     "oclif": "3.7.3",
+    "simple-git-hooks": "2.8.1",
     "ts-jest": "29.0.3",
     "ts-node": "10.9.1",
     "typescript": "4.9.4"
@@ -138,6 +142,14 @@
       "plugin:@typescript-eslint/recommended"
     ],
     "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "ignorePatterns": [
+      "node_modules",
+      "**/__checks__/**/*.spec.{js,ts,mjs}"
+    ],
     "plugins": [
       "@typescript-eslint"
     ],
@@ -176,5 +188,9 @@
       "default",
       "github-actions"
     ]
+  },
+  "simple-git-hooks": {
+    "commit-msg": "npx commitlint --edit",
+    "pre-commit": "npx lint-staged"
   }
 }

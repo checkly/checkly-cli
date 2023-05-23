@@ -10,7 +10,7 @@
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
     "prepare": "npm run clean && tsc --build",
-    "lint": "eslint src",
+    "lint": "eslint . --ext .ts,.js,.mjs",
     "start": "node ./index.mjs"
   },
   "repository": {
@@ -51,7 +51,7 @@
     "which-pm-runs": "^1.1.0"
   },
   "devDependencies": {
-    "@checkly/eslint-config": "0.14.1",
+    "@checkly/eslint-config": "0.16.0",
     "@types/config": "3.3.0",
     "@types/debug": "^4.1.7",
     "@types/glob": "8.0.0",
@@ -62,10 +62,10 @@
     "@types/uuid": "9.0.1",
     "@types/which-pm-runs": "^1.0.0",
     "@types/ws": "8.5.3",
-    "@typescript-eslint/eslint-plugin": "5.46.1",
-    "@typescript-eslint/parser": "5.46.1",
+    "@typescript-eslint/eslint-plugin": "5.59.7",
+    "@typescript-eslint/parser": "5.59.7",
     "config": "3.3.8",
-    "eslint": "8.30.0",
+    "eslint": "8.41.0",
     "jest": "29.3.1",
     "ts-jest": "29.0.3",
     "ts-node": "10.9.1",
@@ -76,13 +76,28 @@
       "@typescript-eslint/type-annotation-spacing": 2,
       "@typescript-eslint/no-explicit-any": 0,
       "@typescript-eslint/ban-ts-comment": 0,
-      "no-console": 2
+      "no-console": 2,
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "TSEnumDeclaration",
+          "message": "Don't declare enums, use union types instead"
+        }
+      ]
     },
     "extends": [
       "@checkly/eslint-config",
       "plugin:@typescript-eslint/recommended"
     ],
     "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "ignorePatterns": [
+      "node_modules",
+      "**/__checks__/**/*.spec.{js,ts,mjs}"
+    ],
     "plugins": [
       "@typescript-eslint"
     ],
@@ -121,5 +136,9 @@
       "default",
       "github-actions"
     ]
+  },
+  "simple-git-hooks": {
+    "commit-msg": "npx commitlint --edit",
+    "pre-commit": "npx lint-staged"
   }
 }

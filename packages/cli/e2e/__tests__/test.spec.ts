@@ -133,7 +133,7 @@ describe('test', () => {
 
   it('Should report timeouts correctly', () => {
     const result = runChecklyCli({
-      args: ['test', 'homepage.test.ts','--timeout', '0'],
+      args: ['test', 'homepage.test.ts', '--timeout', '0'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),

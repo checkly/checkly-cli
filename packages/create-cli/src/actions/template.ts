@@ -22,7 +22,7 @@ export async function copyTemplate ({ template, templatePath, targetDir }: CopyT
       downloadTemplateSpinner.text = chalk.red(`Couldn't find template "${template}"`)
       downloadTemplateSpinner.fail()
     } else {
-      console.error(e.message)
+      process.stderr.write(e.message)
     }
     process.exit(1)
   }

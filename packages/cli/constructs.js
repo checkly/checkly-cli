@@ -1,1 +1,3 @@
-module.exports = require('./dist').constructs
+import { constructs } from './dist'
+
+export default constructs
