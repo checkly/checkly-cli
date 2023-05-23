@@ -1,7 +1,12 @@
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
 
+export type BaseCommandClass = typeof Command & {
+  coreCommand: boolean
+}
+
 export abstract class BaseCommand extends Command {
+  static coreCommand = false
   static hidden = true
 
   protected init (): Promise<void> {
