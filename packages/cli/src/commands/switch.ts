@@ -45,7 +45,7 @@ export default class Switch extends AuthCommand {
       const { selectedAccountName } = await prompts({
         name: 'selectedAccountName',
         type: 'select',
-        choices: accounts.map(({ name }) => ({ title: name })),
+        choices: accounts.map(({ name }) => ({ title: name, value: name })),
         message: 'Select a new Checkly account',
       })
 
