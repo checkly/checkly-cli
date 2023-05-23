@@ -61,7 +61,7 @@
     },
     "topics": {
       "env": {
-        "description": "Manage Checkly environment variables"
+        "description": "Manage Checkly environment variables."
       }
     },
     "helpClass": "./dist/help/help-extension"

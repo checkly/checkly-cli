@@ -15,6 +15,7 @@ import { TestResultsShortLinks } from '../rest/test-sessions'
 const DEFAULT_REGION = 'eu-central-1'
 
 export default class Trigger extends AuthCommand {
+  static coreCommand = true
   static hidden = false
   static description = 'Trigger checks on Checkly'
   static flags = {
