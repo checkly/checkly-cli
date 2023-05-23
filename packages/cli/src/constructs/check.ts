@@ -7,7 +7,7 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
-import { CheckGroup } from './check-group'
+import type { CheckGroup } from './check-group'
 
 export interface CheckProps {
   /**
@@ -99,6 +99,9 @@ export abstract class Check extends Construct {
 
   constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)
+    if (props.group) {
+      Check.applyDefaultCheckGroupConfig(props, props.group.getCheckDefaults())
+    }
     Check.applyDefaultCheckConfig(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = props.name
@@ -126,6 +129,14 @@ export abstract class Check extends Construct {
 
     this.testOnly = props.testOnly ?? false
     this.__checkFilePath = Session.checkFilePath
+  }
+
+  private static applyDefaultCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
+    let configKey: keyof CheckConfigDefaults
+    for (configKey in groupProps) {
+      const newVal: any = props[configKey] ?? groupProps[configKey]
+      props[configKey] = newVal
+    }
   }
 
   private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
