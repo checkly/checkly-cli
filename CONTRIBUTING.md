@@ -115,3 +115,7 @@ If an enum makes sense for a particular use case (internal code), you can explic
 // eslint-disable-next-line no-restricted-syntax
 ```
 
+## ESLint rules and commit messages
+
+Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.
+After running `npm run prepare` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
