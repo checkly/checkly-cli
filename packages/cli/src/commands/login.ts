@@ -16,7 +16,7 @@ const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
   const { accountName } = await prompts({
     name: 'accountName',
     type: 'list',
-    choices: accounts.map(a => ({ title: a.name })),
+    choices: accounts.map(({ name }) => ({ title: name, value: name })),
     message: 'Which account do you want to use?',
   })
 
