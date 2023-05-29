@@ -119,3 +119,5 @@ If an enum makes sense for a particular use case (internal code), you can explic
 
 Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.
 After running `npm run prepare` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
+
+If you have a work-in-progress commit, you can bypass the checks using the `--no-verify` flag, for example: `git commit -m "WIP commit" --no-verify`.
