@@ -1,4 +1,3 @@
-
 const config = {
   projectName: 'Test Project (Groups duplicated)',
   logicalId: 'test-project',

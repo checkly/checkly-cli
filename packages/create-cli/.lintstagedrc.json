@@ -1,3 +1,0 @@
-{
-  "*.{ts,js,mjs}": "eslint . --ext .ts,.js,.mjs"
-}

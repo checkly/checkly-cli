@@ -285,5 +285,5 @@ export function getTraceUrl (traceUrl: string): string {
 }
 
 export function printDeprecationWarning (text: string): void {
-  console.log(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
+  process.stdout.write(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
 }

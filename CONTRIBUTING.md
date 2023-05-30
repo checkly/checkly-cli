@@ -5,11 +5,7 @@
 You will need to install the project's npm dependencies:
 
 ```bash
-npm install --workspace packages/cli
-```
-
-```bash
-npm install --workspace packages/create-cli
+npm install # this will install dependencies for both packages (cli and create-cli)
 ```
 
 ## Creating CLI project locally

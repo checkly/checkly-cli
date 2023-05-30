@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 // left-pad and right-pad are important dependencies, but not contained in the runtimes
 const leftPad = require('left-pad')
 const rightPad = require('right-pad')
