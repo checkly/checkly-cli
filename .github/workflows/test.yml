@@ -17,7 +17,6 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm config set fund false && npm set audit false
       - run: npm ci
-      - run: npm ci --workspaces
       # Test that the packaging works as well
       - run: npm pack --workspaces
       - run: npm run lint
@@ -35,7 +34,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
       - run: npm config set fund false && npm set audit false
-      - run: npm ci --workspaces
+      - run: npm ci
       - run: npm run test
       - run: npm run test:e2e
         env:

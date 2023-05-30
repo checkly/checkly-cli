@@ -21,7 +21,7 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-      - run: npm ci --workspace packages/cli
+      - run: npm ci
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag experimental
         env:
