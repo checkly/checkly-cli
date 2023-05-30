@@ -59,7 +59,6 @@ export default class ChecklyHelpClass extends Help {
     `Running the CLI from your CI pipeline will need to export variables in the shell:\n
   CHECKLY_ACCOUNT_ID    Checkly account ID.
   CHECKLY_API_KEY       Checkly User API Key.
-  CHECKLY_ACCOUNT_NAME  (optional) Checkly account Name you want to use.
     `))
 
     const examplesString = examples.reduce((accumulator, example) => {
