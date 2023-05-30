@@ -19,7 +19,7 @@ expect.extend({
     } else {
       return {
         pass: false,
-        message: () => `Expeced command output to contain:\n ${this.utils.printExpected(expectedOutput)}\n\nReceived:\n${this.utils.printReceived(received)}`
+        message: () => `Expected command output to contain:\n ${this.utils.printExpected(expectedOutput)}\n\nReceived:\n${this.utils.printReceived(received)}`
       }
     }
   }

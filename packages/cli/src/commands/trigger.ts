@@ -170,7 +170,7 @@ export default class Trigger extends AuthCommand {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
       throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
-        ` Please only specify one run location. The configured locations were' + 
+        ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
       return { type: 'PUBLIC', region: configOptions.runLocation }

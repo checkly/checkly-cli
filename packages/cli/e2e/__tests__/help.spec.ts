@@ -35,7 +35,7 @@ describe('help', () => {
   trigger  Trigger your checks on Checkly.`)
 
     expect(result).toHaveStdoutContaining(`ADDITIONAL COMMANDS
-  autocomplete  Display autocomplete installation instructions.
+  autocomplete  display autocomplete installation instructions
   destroy       Destroy your project with all its related resources.
   env           Manage Checkly environment variables.
   help          Display help for checkly.
