@@ -1,6 +1,5 @@
 import * as open from 'open'
 import * as chalk from 'chalk'
-import { Flags } from '@oclif/core'
 import { BaseCommand } from './baseCommand'
 import * as prompts from 'prompts'
 import config from '../services/config'
@@ -8,39 +7,9 @@ import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
 import { AuthContext } from '../auth'
 
-const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
-  if (accounts.length === 1) {
-    return accounts[0]
-  }
-
-  const { accountName } = await prompts({
-    name: 'accountName',
-    type: 'select',
-    choices: accounts.map(({ name }) => ({ title: name, value: name })),
-    message: 'Which account do you want to use?',
-  })
-
-  return accounts.find(({ name }) => name === accountName)!
-}
-
 export default class Login extends BaseCommand {
   static hidden = false
   static description = 'Login to your Checkly account or create a new one.'
-
-  static flags = {
-    'api-key': Flags.string({
-      char: 'k',
-      name: 'apiKey',
-      description:
-      'Checkly User API Key. \nIf you did not have one, create it at: https://app.checklyhq.com/settings/user/api-keys.',
-    }),
-
-    'account-id': Flags.string({
-      char: 'i',
-      name: 'accountId',
-      description: 'Checkly account ID. (This flag is required if you are using -k (--api-key) flag.',
-    }),
-  }
 
   private _checkExistingCredentials = async () => {
     if (config.hasEnvVarsConfigured()) {
@@ -66,23 +35,24 @@ export default class Login extends BaseCommand {
     this.log('Welcome to the Checkly CLI')
   }
 
-  async run (): Promise<void> {
-    const { flags } = await this.parse(Login)
-    const { 'api-key': apiKey, 'account-id': accountId } = flags
-
-    await this._checkExistingCredentials()
-
-    if (apiKey) {
-      if (!accountId) {
-        throw new Error('The flag --account-id (-i) is required when using --api-key (-k)')
-      }
-
-      config.auth.set('apiKey', apiKey)
-      config.data.set('accountId', accountId)
-
-      await this._isLoginSuccess()
-      this.exit(0)
+  private selectAccount = async (accounts: Array<Account>): Promise<Account|undefined> => {
+    if (accounts.length === 1) {
+      return accounts[0]
     }
+
+    const { accountName } = await prompts({
+      name: 'accountName',
+      type: 'select',
+      choices: accounts.map(({ name }) => ({ title: name, value: name })),
+      message: 'Which account do you want to use?',
+    })
+
+    const selectedAccount = accounts.find(({ name }) => name === accountName)
+    return selectedAccount
+  }
+
+  async run (): Promise<void> {
+    await this._checkExistingCredentials()
 
     const mode = await this.#promptForLoginOrSignUp()
 
@@ -111,7 +81,13 @@ export default class Login extends BaseCommand {
 
     const { data } = await api.accounts.getAll()
 
-    const selectedAccount = await selectAccount(data)
+    const selectedAccount = await this.selectAccount(data)
+
+    if (!selectedAccount) {
+      this.warn('You must select a valid Checkly account name.')
+      this.exit(1)
+      return
+    }
 
     config.data.set('accountId', selectedAccount.id)
     config.data.set('accountName', selectedAccount.name)
@@ -119,7 +95,7 @@ export default class Login extends BaseCommand {
     this.log(`Successfully logged in as ${chalk.cyan.bold(name)}`)
 
     await this._isLoginSuccess()
-    process.exit(0)
+    this.exit(0)
   }
 
   async #promptForLoginOrSignUp () {
