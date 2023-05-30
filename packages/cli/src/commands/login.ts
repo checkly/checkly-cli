@@ -92,6 +92,7 @@ export default class Login extends BaseCommand {
       name: 'openUrl',
       type: 'confirm',
       message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
+      initial: true,
     })
 
     if (!openUrl) {
