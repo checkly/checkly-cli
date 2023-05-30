@@ -32,7 +32,7 @@ describe('help', () => {
     expect(result).toHaveStdoutContaining(`CORE COMMANDS
   deploy   Deploy your project to your Checkly account.
   test     Test your checks on Checkly.
-  trigger  Trigger checks on Checkly`)
+  trigger  Trigger your checks on Checkly.`)
 
     expect(result).toHaveStdoutContaining(`ADDITIONAL COMMANDS
   autocomplete  display autocomplete installation instructions

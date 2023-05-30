@@ -17,7 +17,7 @@ const DEFAULT_REGION = 'eu-central-1'
 export default class Trigger extends AuthCommand {
   static coreCommand = true
   static hidden = false
-  static description = 'Trigger checks on Checkly'
+  static description = 'Trigger your checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
@@ -170,7 +170,7 @@ export default class Trigger extends AuthCommand {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
       throw new Error('Both runLocation and privateRunLocation fields were set in the Checkly config file.' +
-        ` Please only specify one run location. The configured locations were' + 
+        ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
       return { type: 'PUBLIC', region: configOptions.runLocation }
