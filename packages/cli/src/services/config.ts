@@ -16,7 +16,7 @@ enum Env {
   production = 'production',
   staging = 'staging',
   development = 'development',
-  test = 'test',
+  local = 'local',
 }
 
 const config = {
@@ -41,7 +41,7 @@ const config = {
   },
 
   getEnv (): Env {
-    const environments = ['production', 'staging', 'development', 'test']
+    const environments = ['production', 'development', 'staging', 'local']
     const env = process.env.CHECKLY_ENV as string || environments[0] as string
 
     if (!(env in Env)) {
@@ -67,8 +67,8 @@ const config = {
 
   getApiUrl (): string {
     const environments = {
-      development: 'http://localhost:3000',
-      test: 'https://api-test.checklyhq.com',
+      local: 'http://localhost:3000',
+      development: 'https://api-dev.checklyhq.com',
       staging: 'https://api-test.checklyhq.com',
       production: 'https://api.checklyhq.com',
     }
@@ -77,8 +77,8 @@ const config = {
 
   getMqttUrl (): string {
     const environments = {
-      development: 'wss://events-local.checklyhq.com',
-      test: 'wss://events-test.checklyhq.com',
+      local: 'wss://events-local.checklyhq.com',
+      development: 'wss://events-dev.checklyhq.com',
       staging: 'wss://events-test.checklyhq.com',
       production: 'wss://events.checklyhq.com',
     }

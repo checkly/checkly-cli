@@ -23,14 +23,14 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-You can configure the stage (`production`, `staging`, `test` or `development`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=development` if you want to point the API URL to your local backend `http://localhost:3000`.
+You can configure the stage (`production`, `staging`, `development` or `local`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=local` if you want to point the API URL to your local backend `http://localhost:3000`.
 
-Also, you can use the `watch` mode to compile during your coding. You can use the following command to start your development environment:
+Also, you can use the `watch` mode to compile during your coding. You can use the following command to start your local environment:
 
 ```bash
 export CHECKLY_ACCOUNT_ID=<YOUR_LOCAL_BACKEND_ACCOUNTID>
 export CHECKLY_API_KEY=<YOUR_LOCAL_BACKEND_API_KEY>
-export CHECKLY_ENV=development
+export CHECKLY_ENV=local
 npm run watch --workspace packages/cli
 ```
 
