@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 import { ApiCheck, AssertionBuilder, Frequency } from 'checkly/constructs'
 import { slackChannel, webhookChannel } from '../../../alert-channels'
 
@@ -19,7 +20,7 @@ new ApiCheck('example-api-check-not-grouped-1', {
       AssertionBuilder.statusCode().equals(200),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
-  }
+  },
 })
 
 new ApiCheck('example-api-check-high-frequency', {
@@ -37,5 +38,5 @@ new ApiCheck('example-api-check-high-frequency', {
       AssertionBuilder.statusCode().equals(200),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
-  }
+  },
 })

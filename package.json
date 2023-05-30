@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "scripts": {
     "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
-    "lint": "eslint packages --ext .ts,.js,.mjs",
-    "lint:fix": "eslint packages --ext .ts,.js,.mjs --fix",
+    "lint": "eslint . --ext .ts,.js,.mjs",
+    "lint:fix": "eslint . --ext .ts,.js,.mjs --fix",
     "test": "npm run test --workspaces"
   },
   "workspaces": [
