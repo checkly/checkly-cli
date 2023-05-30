@@ -17,7 +17,7 @@ const DEFAULT_REGION = 'eu-central-1'
 export default class Trigger extends AuthCommand {
   static coreCommand = true
   static hidden = false
-  static description = 'Trigger checks on Checkly'
+  static description = 'Trigger your checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
