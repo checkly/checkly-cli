@@ -15,7 +15,7 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci --workspace packages/cli
-      - run: npm publish --workspace packages/cli
+      - run: npm publish --provenance --workspace packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # Slack failure alert
