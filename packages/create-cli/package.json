@@ -9,6 +9,7 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "test": "jest --selectProjects unit",
+    "test:e2e": "echo \"Error: no test specified\"",
     "prepare": "npm run clean && tsc --build",
     "start": "node ./index.mjs"
   },

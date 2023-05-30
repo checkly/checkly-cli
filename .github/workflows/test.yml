@@ -18,8 +18,8 @@ jobs:
       - run: npm config set fund false && npm set audit false
       - run: npm ci --workspaces
       # Test that the packaging works as well
-      - run: npm pack --workspace packages/cli
-      - run: npm run lint --workspace packages/cli
+      - run: npm pack --workspaces
+      - run: npm run lint
   test:
     strategy:
       matrix:
@@ -35,8 +35,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm config set fund false && npm set audit false
       - run: npm ci --workspaces
-      - run: npm run test --workspace packages/cli
-      - run: npm run test:e2e --workspace packages/cli
+      - run: npm run test
+      - run: npm run test:e2e
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
