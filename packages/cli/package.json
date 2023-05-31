@@ -34,8 +34,6 @@
   "files": [
     "/bin",
     "/dist",
-    "/constructs.js",
-    "/constructs.d.ts",
     "/oclif.manifest.json"
   ],
   "oclif": {
