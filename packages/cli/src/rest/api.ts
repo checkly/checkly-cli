@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import * as axios from 'axios'
 import config from '../services/config'
 import Accounts from './accounts'
 import Users from './users'
@@ -44,7 +44,7 @@ export async function validateAuthentication (): Promise<void> {
   }
 }
 
-function init (): AxiosInstance {
+function init (): axios.AxiosInstance {
   const { baseURL } = getDefaults()
   const api = axios.create({ baseURL })
 

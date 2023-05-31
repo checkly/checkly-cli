@@ -1,4 +1,4 @@
-import axios, { type AxiosError } from 'axios'
+import * as axios from 'axios'
 import * as os from 'os'
 import * as http from 'http'
 import * as crypto from 'crypto'
@@ -212,7 +212,7 @@ export class AuthContext {
     try {
       await this.#fetchUser()
     } catch (error: unknown) {
-      if ((error as AxiosError).response?.status === 401) {
+      if ((error as axios.AxiosError).response?.status === 401) {
         await this.#registerUser()
       } else {
         throw error
