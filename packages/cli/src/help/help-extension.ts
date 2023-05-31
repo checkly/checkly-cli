@@ -55,8 +55,14 @@ export default class ChecklyHelpClass extends Help {
       this.log('')
     }
 
+    this.log(this.section('ENVIRONMENT VARIABLES',
+    `Running the CLI from your CI pipeline will need to export variables in the shell:\n
+  CHECKLY_ACCOUNT_ID    Checkly account ID.
+  CHECKLY_API_KEY       Checkly User API Key.
+    `))
+
     const examplesString = examples.reduce((accumulator, example) => {
-      return accumulator + `\n- ${example.description}\n\n${this.indent('$ ' + example.command)}\n`
+      return accumulator + `${example.description}\n\n${this.indent('$ ' + example.command)}\n\n`
     }, '')
 
     this.log(this.section('EXAMPLES', examplesString))
