@@ -7,7 +7,10 @@ import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
-import { AlertChannelSubscription, CheckGroup, Project, ProjectData } from '../constructs'
+import {
+  AlertChannelSubscription, CheckGroup, PrivateLocation,
+  Project, ProjectData,
+} from '../constructs'
 import * as chalk from 'chalk'
 import { Check } from '../constructs/check'
 import { AlertChannel } from '../constructs/alert-channel'
@@ -159,6 +162,7 @@ export default class Deploy extends AuthCommand {
         [Check.__checklyType]: 'Check',
         [AlertChannel.__checklyType]: 'AlertChannel',
         [CheckGroup.__checklyType]: 'CheckGroup',
+        [PrivateLocation.__checklyType]: 'PrivateLocation',
       }
       for (const { resourceType, logicalId } of deleting) {
         output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
