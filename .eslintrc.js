@@ -24,6 +24,8 @@ module.exports = {
   ignorePatterns: [
     'node_modules',
     '**/__checks__/**/*.spec.{js,ts,mjs}',
+    '**/syntax-error*',
+    'examples',
   ],
   plugins: [
     '@typescript-eslint',
