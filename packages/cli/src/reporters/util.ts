@@ -172,7 +172,7 @@ function formatAssertions (assertions: Array<Assertion&{ error: string, actual: 
 }
 
 function formatHttpRequest (request: any) {
-  const { truncated, result: stringBody } = truncate(request.data, {
+  const { result: stringBody } = truncate(request.data, {
     chars: 20 * 100,
     lines: 20,
     ending: chalk.magenta('\n...truncated...'),
@@ -189,7 +189,7 @@ function formatHttpRequest (request: any) {
 
 function formatHttpResponse (response: any) {
   // TODO: Provide a user for a way to see the full response. For example, write it to a file.
-  const { truncated, result: stringBody } = truncate(response.body, {
+  const { result: stringBody } = truncate(response.body, {
     chars: 20 * 100,
     lines: 20,
     ending: chalk.magenta('\n...truncated...'),
@@ -285,5 +285,5 @@ export function getTraceUrl (traceUrl: string): string {
 }
 
 export function printDeprecationWarning (text: string): void {
-  console.log(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
+  process.stdout.write(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
 }

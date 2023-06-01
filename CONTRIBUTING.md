@@ -5,11 +5,7 @@
 You will need to install the project's npm dependencies:
 
 ```bash
-npm install --workspace packages/cli
-```
-
-```bash
-npm install --workspace packages/create-cli
+npm install # this will install dependencies for both packages (cli and create-cli)
 ```
 
 ## Creating CLI project locally
@@ -115,3 +111,9 @@ If an enum makes sense for a particular use case (internal code), you can explic
 // eslint-disable-next-line no-restricted-syntax
 ```
 
+## ESLint rules and commit messages
+
+Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.
+After running `npm run prepare` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
+
+If you have a work-in-progress commit, you can bypass the checks using the `--no-verify` flag, for example: `git commit -m "WIP commit" --no-verify`.

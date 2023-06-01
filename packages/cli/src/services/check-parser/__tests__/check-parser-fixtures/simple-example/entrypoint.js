@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-var-requires */
 // Require two other files
 const dep1 = require('./dep1')
 const dep2 = require('./dep2')

@@ -14,7 +14,7 @@ export default function createCheck () {
     environmentVariables: [],
     alertChannels: [],
     code: {
-      content: 'console.log(1)'
-    }
+      content: 'console.log(1)',
+    },
   })
 }

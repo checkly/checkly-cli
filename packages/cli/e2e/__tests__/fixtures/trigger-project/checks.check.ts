@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 import { ApiCheck, CheckGroup } from 'checkly/constructs'
 
 const executionId = process.env.EXECUTION_ID!
@@ -33,7 +34,7 @@ new ApiCheck('prod-frontend-check', {
   },
   tags: ['production', 'frontend', executionId, 'another-tag'],
   // Log the secret environment variable passed to `checkly trigger`
-  setupScript: { content: "console.log(process.env.SECRET_ENV)" },
+  setupScript: { content: 'console.log(process.env.SECRET_ENV)' },
 })
 
 new ApiCheck('staging-backend-check', {
@@ -48,4 +49,3 @@ new ApiCheck('staging-backend-check', {
   },
   tags: ['staging', 'backend', executionId],
 })
-
