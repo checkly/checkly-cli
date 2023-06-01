@@ -1,4 +1,3 @@
-/* eslint-disable no-new */
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 
 new ApiCheck('homepage-api-check-1', {
@@ -15,5 +14,5 @@ new ApiCheck('homepage-api-check-1', {
       AssertionBuilder.statusCode().equals(200),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
-  },
+  }
 })

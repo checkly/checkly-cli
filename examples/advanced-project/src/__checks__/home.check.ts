@@ -1,4 +1,3 @@
-/* eslint-disable no-new */
 import * as path from 'path'
 import { BrowserCheck } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
@@ -18,7 +17,7 @@ new BrowserCheck('homepage-browser-check', {
   alertChannels,
   group: websiteGroup,
   code: {
-    entrypoint: path.join(__dirname, 'homepage.spec.ts'),
+    entrypoint: path.join(__dirname, 'homepage.spec.ts')
   },
 })
 
@@ -27,6 +26,6 @@ new BrowserCheck('login-browser-check', {
   alertChannels,
   group: websiteGroup,
   code: {
-    entrypoint: path.join(__dirname, 'login.spec.ts'),
+    entrypoint: path.join(__dirname, 'login.spec.ts')
   },
 })

@@ -1,4 +1,4 @@
-/* @global request */
+/*@global request */
 
 /**
  * This setup script example shows how you can import other files, use async functions and instrument the globals
@@ -15,3 +15,4 @@ async function setup () {
 }
 
 await setup()
+

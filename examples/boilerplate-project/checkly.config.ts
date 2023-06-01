@@ -24,9 +24,7 @@ const config = defineConfig({
      * See https://www.checklyhq.com/docs/cli/npm-packages/
      */
     runtimeId: '2023.02',
-    /* A glob pattern that matches the Checks inside your repo,
-     * See https://www.checklyhq.com/docs/cli/using-check-test-match/
-     */
+    /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.ts',
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.ts files and automagically creates a Browser Check. This way, you

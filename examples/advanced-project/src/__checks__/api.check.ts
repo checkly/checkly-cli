@@ -1,4 +1,3 @@
-/* eslint-disable no-new */
 import * as path from 'path'
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 import { websiteGroup } from './website-group.check'
@@ -9,7 +8,7 @@ new ApiCheck('homepage-api-check-1', {
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
   setupScript: {
-    entrypoint: path.join(__dirname, './utils/setup.ts'),
+    entrypoint: path.join(__dirname, './utils/setup.ts')
   },
   request: {
     url: 'https://danube-web.shop/api/books',
@@ -20,5 +19,5 @@ new ApiCheck('homepage-api-check-1', {
       AssertionBuilder.statusCode().equals(200),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
-  },
+  }
 })
