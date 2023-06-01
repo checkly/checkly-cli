@@ -42,7 +42,7 @@ export function runChecklyCliForSwitch (options: {
   accountId?: string,
   env?: object,
   timeout?: number,
-}): Promise<{ stdout: string, stderr: string, exitCode: number}> {
+}): Promise<{ stdout: string, stderr: string, status: number}> {
   const {
     directory,
     args = [],
@@ -54,7 +54,7 @@ export function runChecklyCliForSwitch (options: {
   return new Promise((resolve) => {
     let stdout = ''
     let stderr = ''
-    const executionTimeout = setTimeout(() => resolve({ stdout, stderr, exitCode: 1 }), timeout)
+    const executionTimeout = setTimeout(() => resolve({ stdout, stderr, status: 1 }), timeout)
     const command = childProcess.spawn(CHECKLY_PATH, args, {
       env: {
         PATH: process.env.PATH,
@@ -81,12 +81,12 @@ export function runChecklyCliForSwitch (options: {
 
     command.on('exit', (code) => {
       clearTimeout(executionTimeout)
-      resolve({ stdout, stderr, exitCode: code ?? 1 })
+      resolve({ stdout, stderr, status: code ?? 1 })
     })
 
     command.on('close', (code) => {
       clearTimeout(executionTimeout)
-      resolve({ stdout, stderr, exitCode: code ?? 1 })
+      resolve({ stdout, stderr, status: code ?? 1 })
     })
   })
 }

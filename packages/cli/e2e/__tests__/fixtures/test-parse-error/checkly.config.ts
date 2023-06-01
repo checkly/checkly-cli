@@ -1,4 +1,3 @@
-
 const config = {
   projectName: 'Test Project (JS/TS parse error)',
   logicalId: 'test-project',

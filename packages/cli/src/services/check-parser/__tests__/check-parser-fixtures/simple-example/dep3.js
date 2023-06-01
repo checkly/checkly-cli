@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 function add (num1, num2) {
   return num1 + num2
 }

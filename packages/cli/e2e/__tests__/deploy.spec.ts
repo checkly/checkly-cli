@@ -48,40 +48,40 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully', () => {
-    const result = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.status).toBe(0)
-    expect(result.stderr).toBe('')
+    expect(status).toBe(0)
+    expect(stderr).toBe('')
   })
   it('Simple esm project should deploy successfully', () => {
-    const result = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.stderr).toBe('')
-    expect(result.status).toBe(0)
+    expect(stderr).toBe('')
+    expect(status).toBe(0)
   })
 
   it('Shouldn\'t include a testOnly check', () => {
-    const result = runChecklyCli({
+    const { status, stdout } = runChecklyCli({
       args: ['deploy', '--preview'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.stdout).toContain('not-testonly-default-check')
-    expect(result.stdout).toContain('not-testonly-false-check')
-    expect(result.stdout).not.toContain('testonly-true-check')
-    expect(result.status).toBe(0)
+    expect(stdout).toContain('not-testonly-default-check')
+    expect(stdout).toContain('not-testonly-false-check')
+    expect(stdout).not.toContain('testonly-true-check')
+    expect(status).toBe(0)
   })
 
   it('Should deploy with different config file', () => {

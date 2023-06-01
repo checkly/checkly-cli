@@ -4,7 +4,7 @@ import { runChecklyCli } from '../run-checkly'
 
 describe('check parse error', () => {
   it('"checkly test" should return a clear error when there are check dependency errors', () => {
-    const result = runChecklyCli({
+    const { stderr } = runChecklyCli({
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -12,6 +12,6 @@ describe('check parse error', () => {
     })
     const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'check-parse-error', filename)
 
-    expect(result.stderr.replace(/(\r\n|\n|\r|\s+)/gm, '')).toContain(toAbsolutePath('entrypoint.js'))
+    expect(stderr.replace(/(\r\n|\n|\r|\s+)/gm, '')).toContain(toAbsolutePath('entrypoint.js'))
   })
 })
