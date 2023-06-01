@@ -1,3 +1,2 @@
-import { constructs } from './dist'
-
-export default constructs
+// eslint-disable-next-line
+module.exports = require('./dist').constructs
