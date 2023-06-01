@@ -9,6 +9,7 @@ import { AlertChannel } from './alert-channel'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { PrivateLocation } from './private-location'
 import { ResourceSync } from '../rest/projects'
+import { MaintenanceWindow } from './maintenance-window'
 
 export interface ProjectProps {
   /**
@@ -26,6 +27,7 @@ export interface ProjectData {
   'check-group': Record<string, CheckGroup>,
   'alert-channel': Record<string, AlertChannel>,
   'alert-channel-subscription': Record<string, AlertChannelSubscription>,
+  'maintenance-window': Record<string, MaintenanceWindow>,
   'private-location': Record<string, PrivateLocation>,
 }
 
@@ -38,6 +40,7 @@ export class Project extends Construct {
     'check-group': {},
     'alert-channel': {},
     'alert-channel-subscription': {},
+    'maintenance-window': {},
     'private-location': {},
   }
 
@@ -84,13 +87,14 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['check-group']),
         ...this.synthesizeRecord(this.data['alert-channel']),
         ...this.synthesizeRecord(this.data['alert-channel-subscription']),
+        ...this.synthesizeRecord(this.data['maintenance-window']),
         ...this.synthesizeRecord(this.data['private-location']),
       ],
     }
   }
 
   private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription|PrivateLocation>, addTestOnly = true) {
+    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|PrivateLocation>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
       .map(([key, construct]) => ({

@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { CheckRunId } from '../services/abstract-check-runner'
-import { formatDuration, printLn, getTestSessionUrl, getTraceUrl } from './util'
+import { formatDuration, printLn, getTestSessionUrl } from './util'
 
 const outputFile = './checkly-github-report.md'
 

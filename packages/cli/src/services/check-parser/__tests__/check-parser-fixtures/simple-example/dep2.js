@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { add } = require('./dep3')
 
 function doesItWork () {

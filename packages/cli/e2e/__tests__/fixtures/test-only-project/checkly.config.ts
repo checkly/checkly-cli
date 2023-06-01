@@ -1,4 +1,3 @@
-
 const config = {
   projectName: 'Test Project (Check testOnly flag)',
   logicalId: 'test-project',

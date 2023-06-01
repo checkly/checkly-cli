@@ -43,7 +43,7 @@ describe('trigger', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    
+
     expect(result.stdout).toContain(secretEnv)
     expect(result.stdout).toContain('Prod Backend Check')
     expect(result.stdout).toContain('Prod Frontend Check')
@@ -59,7 +59,7 @@ describe('trigger', () => {
         'no-checks-match-this-tag',
       ],
       apiKey: config.get('apiKey'),
-      accountId: config.get('accountId')
+      accountId: config.get('accountId'),
     })
 
     expect(result.stdout).toContain('No matching checks were found.')

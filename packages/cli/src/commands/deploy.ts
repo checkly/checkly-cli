@@ -8,12 +8,11 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
-  AlertChannelSubscription, CheckGroup, PrivateLocation,
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup,
+  MaintenanceWindow, PrivateLocation,
   Project, ProjectData,
 } from '../constructs'
 import * as chalk from 'chalk'
-import { Check } from '../constructs/check'
-import { AlertChannel } from '../constructs/alert-channel'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
@@ -162,6 +161,7 @@ export default class Deploy extends AuthCommand {
         [Check.__checklyType]: 'Check',
         [AlertChannel.__checklyType]: 'AlertChannel',
         [CheckGroup.__checklyType]: 'CheckGroup',
+        [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
         [PrivateLocation.__checklyType]: 'PrivateLocation',
       }
       for (const { resourceType, logicalId } of deleting) {

@@ -35,7 +35,7 @@ export default class Switch extends AuthCommand {
       const { data: accounts } = await api.accounts.getAll()
 
       if (accounts.length === 1) {
-        console.warn(
+        this.warn(
           'Your user is only a member of one account: ' +
             chalk.bold.cyan(accounts[0].name),
         )

@@ -55,7 +55,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   abstract onEnd(): void
 
-  onCheckEnd (checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks) {
+  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
     const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
     checkStatus.result = checkResult
     const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
