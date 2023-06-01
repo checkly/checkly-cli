@@ -34,17 +34,6 @@ export interface MaintenanceWindowProps {
   repeatEndsAt?: Date
 }
 
-class MaintenanceWindowWrapper extends Construct {
-  constructor (logicalId: string, physicalId: string|number) {
-    super(MaintenanceWindow.__checklyType, logicalId, physicalId, false)
-    Session.registerConstruct(this)
-  }
-
-  synthesize () {
-    return null
-  }
-}
-
 /**
  * Creates a Maintenance Window
  *
@@ -79,10 +68,6 @@ export class MaintenanceWindow extends Construct {
     this.repeatUnit = props.repeatUnit
     this.repeatEndsAt = props.repeatEndsAt
     Session.registerConstruct(this)
-  }
-
-  static fromId (id: string|number) {
-    return new MaintenanceWindowWrapper(`maintenance-window-${id}`, id)
   }
 
   allowInChecklyConfig () {
