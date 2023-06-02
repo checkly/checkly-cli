@@ -11,6 +11,10 @@ export interface PrivateLocationProps {
    * A valid slug name.
    */
   slugName: string
+  /**
+   * Define a proxy for outgoing API check HTTP calls from your private location.
+   */
+  proxyUrl?: string
 }
 
 class PrivateLocationWrapper extends Construct {
@@ -34,6 +38,7 @@ class PrivateLocationWrapper extends Construct {
 export class PrivateLocation extends Construct {
   name: string
   slugName: string
+  proxyUrl?: string
 
   static readonly __checklyType = 'private-location'
 
@@ -47,6 +52,7 @@ export class PrivateLocation extends Construct {
     super(PrivateLocation.__checklyType, logicalId)
     this.name = props.name
     this.slugName = props.slugName
+    this.proxyUrl = props.proxyUrl
 
     if (!/^((?!((us(-gov)?|ap|ca|cn|eu|sa|af|me)-(central|(north|south)?(east|west)?)-\d+))[a-zA-Z0-9-]{1,30})$/
       .test(this.slugName)) {
@@ -68,6 +74,7 @@ export class PrivateLocation extends Construct {
     return {
       name: this.name,
       slugName: this.slugName,
+      proxyUrl: this.proxyUrl,
     }
   }
 }
