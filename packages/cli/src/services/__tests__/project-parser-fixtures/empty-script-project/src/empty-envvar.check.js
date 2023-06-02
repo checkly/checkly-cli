@@ -1,3 +1,5 @@
+/* eslint-disable no-new */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { BrowserCheck, CheckGroup } = require('../../../../../constructs')
 
 const group = new CheckGroup('check-group-1', {
@@ -12,5 +14,5 @@ new BrowserCheck('check-1', {
   group,
   code: {
     content: 'console.log("performing login")',
-  }
+  },
 })

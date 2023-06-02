@@ -1,1 +1,1 @@
-module.exports = "dependency 1"
+module.exports = 'dependency 1'

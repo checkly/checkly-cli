@@ -3,10 +3,30 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
+    "lint": "eslint . --ext .ts,.js,.mjs",
+    "lint:fix": "eslint . --ext .ts,.js,.mjs --fix",
+    "test": "npm run test --workspaces",
+    "test:e2e": "npm run test:e2e --workspaces"
   },
   "workspaces": [
-    "packages/*",
-    "examples/*"
-  ]
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@checkly/eslint-config": "0.16.1",
+    "@commitlint/cli": "17.6.5",
+    "@commitlint/config-conventional": "17.6.5",
+    "@typescript-eslint/eslint-plugin": "5.59.8",
+    "@typescript-eslint/parser": "5.59.8",
+    "eslint": "8.41.0",
+    "lint-staged": "13.2.2",
+    "simple-git-hooks": "2.8.1"
+  },
+  "simple-git-hooks": {
+    "commit-msg": "npx commitlint --edit",
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs}": "npm run lint"
+  }
 }

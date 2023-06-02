@@ -11,15 +11,15 @@ describe('destroy', () => {
   })
 
   it('Should be destroyed successfully', () => {
-    const result = runChecklyCli({
+    const { status, stdout } = runChecklyCli({
       args: ['destroy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
     })
-    expect(result.status).toBe(0)
-    expect(result.stdout).toContain('All resources associated with project "Deploy Project" have been successfully deleted.')
+    expect(status).toBe(0)
+    expect(stdout).toContain('All resources associated with project "Deploy Project" have been successfully deleted.')
   })
 
   it('Should confirm to destroy', () => {
