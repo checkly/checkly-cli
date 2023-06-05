@@ -1,10 +1,11 @@
 import * as fs from 'fs'
+import * as path from 'path'
+import shell from 'shelljs'
 import prompts from 'prompts'
 import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
-import path from 'path'
 import { execaCommand } from 'execa'
 
-export async function initGit (targetDir: string): Promise<void> {
+export async function initGit (targetDir: string = shell.pwd()): Promise<void> {
   if (hasGitDir()) {
     return
   }
@@ -21,7 +22,7 @@ export async function initGit (targetDir: string): Promise<void> {
 
     if (!hasGitIgnore()) {
       const gitIgnore = 'node_modules\n.DS_Store'
-      fs.writeFileSync(path.join(targetDir, './.gitignore'), gitIgnore)
+      fs.writeFileSync(path.join(targetDir, '.gitignore'), gitIgnore)
     }
   }
 }
