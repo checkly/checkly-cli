@@ -8,6 +8,8 @@ import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroup } from './check-group'
+import { PrivateLocation, PrivateLocationWrapper } from './private-location'
+import { PrivateLocationAssignment } from './private-location-assignment'
 
 export interface CheckProps {
   /**
@@ -46,8 +48,9 @@ export interface CheckProps {
   locations?: Array<keyof Region>
   /**
    * An array of one or more private locations where to run the check.
+   * PrivateLocation instances or slug name strings are allowed.
    */
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationWrapper>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -85,7 +88,7 @@ export abstract class Check extends Construct {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<keyof Region>
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationWrapper>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number
@@ -163,6 +166,24 @@ export abstract class Check extends Construct {
     }
   }
 
+  addPrivateLocationAssignments () {
+    if (!this.privateLocations) {
+      return
+    }
+    for (const privateLocation of this.privateLocations) {
+      // slugName are sent as part of the check
+      if (typeof privateLocation === 'string') {
+        continue
+      }
+
+      // use private location assignment for instances
+      const assignment = new PrivateLocationAssignment(`private-location-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
+        privateLocationId: Ref.from(privateLocation.logicalId),
+        checkId: Ref.from(this.logicalId),
+      })
+    }
+  }
+
   getSourceFile () {
     return this.__checkFilePath
   }
@@ -176,7 +197,10 @@ export abstract class Check extends Construct {
       shouldFail: this.shouldFail,
       runtimeId: this.runtimeId,
       locations: this.locations,
-      privateLocations: this.privateLocations,
+
+      // only keep slugName strings, private-location instances are assigned with addPrivateLocationAssignments()
+      privateLocations: this.privateLocations?.filter(p => (typeof p === 'string')),
+
       tags: this.tags,
       frequency: this.frequency,
       frequencyOffset: this.frequencyOffset,

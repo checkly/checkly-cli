@@ -16,6 +16,7 @@ import * as chalk from 'chalk'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
+import { PrivateLocationAssignment } from '../constructs/private-location-assignment'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -119,8 +120,11 @@ export default class Deploy extends AuthCommand {
     const deleting = []
     for (const change of previewData?.diff ?? []) {
       const { type, logicalId, action } = change
-      if (type === AlertChannelSubscription.__checklyType) {
-        // Don't report changes to alert channel subscriptions.
+      if ([
+        AlertChannelSubscription.__checklyType,
+        PrivateLocationAssignment.__checklyType,
+      ].some(t => t === type)) {
+        // Don't report changes to alert channel subscriptions or private location assignments.
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
