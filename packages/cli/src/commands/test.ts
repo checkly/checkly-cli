@@ -234,15 +234,19 @@ export default class Test extends AuthCommand {
       )
     })()
 
+    // We provisioned enough resources to run each check, so we can stop scheduled messages.
+    const stopSchedulingInfosTimeouts = () => {
+      schedulingInfosTimeouts.map(clearTimeout)
+      ux.action.stop()
+    }
+
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
     )
 
     runner.on(Events.CHECK_INPROGRESS, () => {
-      // We provisioned enough resources to run each check, so we can stop scheduled messages.
-      schedulingInfosTimeouts.map(clearTimeout)
-      ux.action.stop()
+      stopSchedulingInfosTimeouts()
     })
 
     runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
@@ -268,6 +272,7 @@ export default class Test extends AuthCommand {
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
     )
     runner.on(Events.ERROR, (err) => {
+      stopSchedulingInfosTimeouts()
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
