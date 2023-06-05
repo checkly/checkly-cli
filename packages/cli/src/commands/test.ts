@@ -245,9 +245,7 @@ export default class Test extends AuthCommand {
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
     )
 
-    runner.on(Events.CHECK_INPROGRESS, () => {
-      stopSchedulingInfosTimeouts()
-    })
+    runner.on(Events.CHECK_INPROGRESS, stopSchedulingInfosTimeouts)
 
     runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
@@ -269,14 +267,16 @@ export default class Test extends AuthCommand {
       }))
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
-    )
+    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
     runner.on(Events.ERROR, (err) => {
-      stopSchedulingInfosTimeouts()
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
     await runner.run()
+
+    // We stop timeouts here also because CHECK_INPROGRESS won't be fired if there is an error or if checks time out
+    // due to --timeout option.
+    stopSchedulingInfosTimeouts()
   }
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
