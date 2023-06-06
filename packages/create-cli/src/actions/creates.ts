@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import shell from 'shelljs'
 import prompts from 'prompts'
-import { isValidUrl } from '../utils/directory'
+import { isValidUrl } from '../utils/directory.js'
 
 // Default Playwright-based Browser Check
 const defaultBrowserCheck = `import { test, expect } from '@playwright/test'
@@ -38,7 +38,7 @@ export async function createCustomBrowserCheck (
     )
 
     if (isValidUrl(userWebsiteResponse.url)) {
-      fs.writeFileSync(path.join(shell.pwd(), './__checks__/custom.spec.ts'),
+      fs.writeFileSync(path.join(shell.pwd().toString(), './__checks__/custom.spec.ts'),
         defaultBrowserCheck.replace(/URL_TO_CHECK/i, new URL(userWebsiteResponse.url).toString()))
     } else {
       process.stdout.write('Custom check wasn\'t created: the specified URL isn\'t valid.\n')

@@ -19,10 +19,10 @@ export function addDevDependecies (packageJson: PackageJson) {
     typescript: 'latest',
   })
 
-  fs.writeFileSync(path.join(shell.pwd(), 'package.json'), JSON.stringify(packageJson, null, 2))
+  fs.writeFileSync(path.join(shell.pwd().toString(), 'package.json'), JSON.stringify(packageJson, null, 2))
 }
 
-export async function installDependencies (targetDir: string = shell.pwd()): Promise<void> {
+export async function installDependencies (targetDir: string = shell.pwd().toString()): Promise<void> {
   const installDepsResponse = await prompts({
     type: 'confirm',
     name: 'installDeps',

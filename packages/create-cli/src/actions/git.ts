@@ -5,7 +5,7 @@ import prompts from 'prompts'
 import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
 import { execaCommand } from 'execa'
 
-export async function initGit (targetDir: string = shell.pwd()): Promise<void> {
+export async function initGit (targetDir: string = shell.pwd().toString()): Promise<void> {
   if (hasGitDir()) {
     return
   }
