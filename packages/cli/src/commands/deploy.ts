@@ -9,14 +9,13 @@ import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, PrivateLocation,
+  MaintenanceWindow, PrivateLocation, PrivateLocationAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData,
 } from '../constructs'
 import * as chalk from 'chalk'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
-import { PrivateLocationAssignment } from '../constructs/private-location-assignment'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -123,6 +122,7 @@ export default class Deploy extends AuthCommand {
       if ([
         AlertChannelSubscription.__checklyType,
         PrivateLocationAssignment.__checklyType,
+        PrivateLocationGroupAssignment.__checklyType,
       ].some(t => t === type)) {
         // Don't report changes to alert channel subscriptions or private location assignments.
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
@@ -155,6 +155,10 @@ export default class Deploy extends AuthCommand {
     if (creating.length) {
       output.push(chalk.bold.green('Create:'))
       for (const { logicalId, construct } of creating) {
+        // continue if the resource was created by the backend, like a non member private-location
+        if (!construct) {
+          continue
+        }
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')

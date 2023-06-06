@@ -3,14 +3,12 @@ import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
-import { Check } from './check'
-import { CheckGroup } from './check-group'
-import { AlertChannel } from './alert-channel'
-import { AlertChannelSubscription } from './alert-channel-subscription'
-import { PrivateLocation } from './private-location'
+import {
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup,
+  MaintenanceWindow, PrivateLocation, PrivateLocationAssignment, PrivateLocationGroupAssignment,
+} from './'
+
 import { ResourceSync } from '../rest/projects'
-import { MaintenanceWindow } from './maintenance-window'
-import { PrivateLocationAssignment } from './private-location-assignment'
 
 export interface ProjectProps {
   /**
@@ -31,6 +29,7 @@ export interface ProjectData {
   'maintenance-window': Record<string, MaintenanceWindow>,
   'private-location': Record<string, PrivateLocation>,
   'private-location-assignment': Record<string, PrivateLocationAssignment>,
+  'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
 }
 
 export class Project extends Construct {
@@ -45,6 +44,7 @@ export class Project extends Construct {
     'maintenance-window': {},
     'private-location': {},
     'private-location-assignment': {},
+    'private-location-group-assignment': {},
   }
 
   static readonly __checklyType = 'project'
@@ -93,6 +93,7 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['maintenance-window']),
         ...this.synthesizeRecord(this.data['private-location']),
         ...this.synthesizeRecord(this.data['private-location-assignment']),
+        ...this.synthesizeRecord(this.data['private-location-group-assignment']),
       ],
     }
   }
