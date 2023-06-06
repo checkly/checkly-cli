@@ -8,6 +8,7 @@ new ApiCheck('not-testonly-default-check', {
     method: 'GET',
     assertions: []
   },
+  activated: false,
 })
 
 new ApiCheck('testonly-true-check', {
@@ -17,7 +18,8 @@ new ApiCheck('testonly-true-check', {
     method: 'GET',
     assertions: []
   },
-  testOnly: true,
+  activated: false,
+  testOnly: process.env.TEST_ONLY === 'true',
 })
 
 new ApiCheck('not-testonly-false-check', {
@@ -27,5 +29,6 @@ new ApiCheck('not-testonly-false-check', {
     method: 'GET',
     assertions: []
   },
+  activated: false,
   testOnly: false,
 })
