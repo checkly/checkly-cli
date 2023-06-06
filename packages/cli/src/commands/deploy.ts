@@ -13,7 +13,7 @@ import {
 } from '../constructs'
 import * as chalk from 'chalk'
 import { Check } from '../constructs/check'
-import { splitConfigFilePath } from '../services/util'
+import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 
@@ -92,8 +92,9 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
+      const repoInfo = getGitInformation(project.repoUrl)
       const projectPayload = project.synthesize(false)
-      const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
+      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview })
       if (preview || output) {
         this.log(this.formatPreview(data, project))
       }

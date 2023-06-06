@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios'
+import type { GitInformation } from '../services/util'
 
 export interface Project {
   name: string
@@ -24,6 +25,7 @@ export interface ResourceSync {
 }
 export interface ProjectSync {
   project: Project,
+  repoInfo: GitInformation|null,
   resources: Array<ResourceSync>
 }
 
