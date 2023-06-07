@@ -4,8 +4,8 @@ import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
 import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow,
+  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
 } from './'
 
 import { ResourceSync } from '../rest/projects'
@@ -108,8 +108,8 @@ export class Project extends Construct {
   }
 
   private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription
-      |MaintenanceWindow|PrivateLocation|PrivateLocationCheckAssignment>, addTestOnly = true) {
+    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|
+    PrivateLocation|PrivateLocationCheckAssignment|PrivateLocationGroupAssignment>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
       .map(([key, construct]) => ({
