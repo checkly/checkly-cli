@@ -44,17 +44,6 @@ export interface PrivateLocationProps {
   proxyUrl?: string
 }
 
-export class PrivateLocationWrapper extends Construct {
-  constructor (logicalId: string, physicalId: string|number) {
-    super(PrivateLocation.__checklyType, logicalId, physicalId, false)
-    Session.registerConstruct(this)
-  }
-
-  synthesize () {
-    return null
-  }
-}
-
 /**
  * Creates an Private Location
  *
@@ -89,10 +78,6 @@ export class PrivateLocation extends Construct {
     }
 
     Session.registerConstruct(this)
-  }
-
-  static fromId (id: string|number) {
-    return new PrivateLocationWrapper(`private-location-${id}`, id)
   }
 
   allowInChecklyConfig () {

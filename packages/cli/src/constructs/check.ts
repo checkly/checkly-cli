@@ -50,7 +50,7 @@ export interface CheckProps {
    * An array of one or more private locations where to run the check.
    * PrivateLocation instances or slug name strings are allowed.
    */
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationWrapper>
+  privateLocations?: Array<string|PrivateLocation>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -88,7 +88,7 @@ export abstract class Check extends Construct {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationWrapper>
+  privateLocations?: Array<string|PrivateLocation>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number

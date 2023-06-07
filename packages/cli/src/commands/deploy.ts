@@ -103,7 +103,7 @@ export default class Deploy extends AuthCommand {
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy your project due to a missing field. ${err.response.data?.message}`)
+        throw new Error(`Failed to deploy your project due to wrong configuration. ${err.response.data?.message}`)
       } else {
         throw new Error(`Failed to deploy your project. ${err.message}`)
       }
@@ -152,13 +152,12 @@ export default class Deploy extends AuthCommand {
     deleting.sort(compareEntries)
 
     const output = []
-    if (creating.length) {
+
+    // filter resources without contructs that are created dynamically
+    // on the flight (i.e. a non project member private-location)
+    if (creating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.green('Create:'))
       for (const { logicalId, construct } of creating) {
-        // continue if the resource was created by the backend, like a non member private-location
-        if (!construct) {
-          continue
-        }
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')
@@ -177,7 +176,9 @@ export default class Deploy extends AuthCommand {
       }
       output.push('')
     }
-    if (updating.length) {
+    // filter resources without contructs that are created dynamically
+    // on the flight (i.e. a non project member private-location)
+    if (updating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
       for (const { logicalId, construct } of updating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)

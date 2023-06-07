@@ -7,6 +7,8 @@ import { BrowserCheck } from './browser-check'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
+import { PrivateLocation } from './private-location'
+import { PrivateLocationGroupAssignment } from './private-location-group-assignment'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
@@ -59,7 +61,7 @@ export interface CheckGroupProps {
   /**
    * An array of one or more private locations where to run the checks.
    */
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -107,7 +109,7 @@ export class CheckGroup extends Construct {
   doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation>
   tags?: Array<string>
   concurrency?: number
   frequency?: number | Frequency
@@ -162,6 +164,7 @@ export class CheckGroup extends Construct {
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
+    this.__addPrivateLocationGroupAssignments()
   }
 
   private __addChecks (fileAbsolutePath: string, testMatch: string) {
@@ -195,6 +198,24 @@ export class CheckGroup extends Construct {
     }
   }
 
+  private __addPrivateLocationGroupAssignments () {
+    if (!this.privateLocations) {
+      return
+    }
+    for (const privateLocation of this.privateLocations) {
+      // slugName are sent as part of the check
+      if (typeof privateLocation === 'string') {
+        continue
+      }
+
+      // use private location assignment for instances
+      const assignment = new PrivateLocationGroupAssignment(`private-location-group-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
+        privateLocationId: Ref.from(privateLocation.logicalId),
+        groupId: Ref.from(this.logicalId),
+      })
+    }
+  }
+
   public getCheckDefaults (): CheckConfigDefaults {
     // TODO: investigate if make sense to add all other check's properties
     return {
@@ -217,7 +238,10 @@ export class CheckGroup extends Construct {
       doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
-      privateLocations: this.privateLocations,
+
+      // only keep slugName strings, private-location instances are assigned with __addPrivateLocationGroupAssignments()
+      privateLocations: this.privateLocations?.filter(p => (typeof p === 'string')),
+
       concurrency: this.concurrency,
       localSetupScript: this.localSetupScript,
       localTearDownScript: this.localTearDownScript,
