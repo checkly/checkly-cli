@@ -14,7 +14,7 @@ export async function initGit (targetDir: string = process.cwd()): Promise<void>
     name: 'initGit',
     message: 'Would you like to initialize a new git repo? (optional)',
     initial: true,
-  }, { onCancel: () => process.exit(1) })
+  })
 
   if (initGitResponse.initGit) {
     await execaCommand('git init', { cwd: targetDir })

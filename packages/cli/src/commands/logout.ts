@@ -29,7 +29,7 @@ export default class Logout extends BaseCommand {
         name: 'confirm',
         type: 'confirm',
         message,
-      }, { onCancel: () => this.exit(1) })
+      })
 
       if (!confirm) {
         this.exit(0)

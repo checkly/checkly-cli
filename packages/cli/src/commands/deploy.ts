@@ -85,7 +85,7 @@ export default class Deploy extends AuthCommand {
         name: 'confirm',
         type: 'confirm',
         message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
-      }, { onCancel: () => this.exit(1) })
+      })
       if (!confirm) {
         return
       }

@@ -47,7 +47,7 @@ export default class Switch extends AuthCommand {
         type: 'select',
         choices: accounts.map(({ name }) => ({ title: name, value: name })),
         message: 'Select a new Checkly account',
-      }, { onCancel: () => this.exit(1) })
+      })
 
       const { id, name } = accounts.find(({ name }) => name === selectedAccountName)!
 

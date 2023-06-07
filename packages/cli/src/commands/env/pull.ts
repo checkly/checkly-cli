@@ -52,7 +52,7 @@ export default class EnvPull extends AuthCommand {
           name: 'confirm',
           type: 'confirm',
           message: `Found existing file ${filename}. Do you want to overwrite?`,
-        }, { onCancel: () => this.exit(1) })
+        })
         if (!confirm) {
           this.log('Cancelled. No changes made.')
           return
