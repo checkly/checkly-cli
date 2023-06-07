@@ -45,7 +45,6 @@
     "giget": "^1.1.2",
     "ora": "^6.1.2",
     "prompts": "^2.4.2",
-    "shelljs": "0.8.5",
     "unique-names-generator": "^4.7.1",
     "which-pm-runs": "^1.1.0"
   },

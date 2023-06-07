@@ -1,6 +1,5 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import shell from 'shelljs'
 import prompts from 'prompts'
 import detectPackageManager from 'which-pm-runs'
 import { execa } from 'execa'
@@ -19,10 +18,10 @@ export function addDevDependecies (packageJson: PackageJson) {
     typescript: 'latest',
   })
 
-  fs.writeFileSync(path.join(shell.pwd().toString(), 'package.json'), JSON.stringify(packageJson, null, 2))
+  fs.writeFileSync(path.join(process.cwd(), 'package.json'), JSON.stringify(packageJson, null, 2))
 }
 
-export async function installDependencies (targetDir: string = shell.pwd().toString()): Promise<void> {
+export async function installDependencies (targetDir: string = process.cwd()): Promise<void> {
   const installDepsResponse = await prompts({
     type: 'confirm',
     name: 'installDeps',

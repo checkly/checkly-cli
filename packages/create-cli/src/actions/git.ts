@@ -1,11 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import shell from 'shelljs'
 import prompts from 'prompts'
 import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
 import { execaCommand } from 'execa'
 
-export async function initGit (targetDir: string = shell.pwd().toString()): Promise<void> {
+export async function initGit (targetDir: string = process.cwd()): Promise<void> {
   if (hasGitDir()) {
     return
   }

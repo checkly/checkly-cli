@@ -1,6 +1,5 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import shell from 'shelljs'
 
 export function isValidProjectDirectory (dirPath: string) {
   if (!fs.existsSync(dirPath)) {
@@ -17,7 +16,7 @@ export function copyTemporaryFiles (dirPath: string) {
   const FILE_TO_KEEP = ['__checks__', 'checkly.config.ts']
 
   if (FILE_TO_KEEP.some(file =>
-    fs.existsSync(path.join(shell.pwd().toString(), file)))) {
+    fs.existsSync(path.join(process.cwd(), file)))) {
     // eslint-disable-next-line no-console
     console.error('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
       'Please, remove them and try again.')
@@ -25,7 +24,7 @@ export function copyTemporaryFiles (dirPath: string) {
     process.exit(1)
   } else {
     for (const file of FILE_TO_KEEP) {
-      fs.renameSync(`${dirPath}/${file}`, path.join(shell.pwd().toString(), file))
+      fs.renameSync(`${dirPath}/${file}`, path.join(process.cwd(), file))
     }
   }
 
@@ -42,7 +41,7 @@ export function usePackageName (packageName: string) {
   )
 }
 export function hasGitIgnore () {
-  return fs.existsSync(path.join(shell.pwd().toString(), '.gitignore'))
+  return fs.existsSync(path.join(process.cwd(), '.gitignore'))
 }
 
 export function isValidUrl (string: string) {
