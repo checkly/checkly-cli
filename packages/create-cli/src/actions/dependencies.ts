@@ -27,7 +27,7 @@ export async function installDependencies (targetDir: string = process.cwd()): P
     name: 'installDeps',
     message: 'Would you like to install NPM dependencies? (recommended)',
     initial: true,
-  })
+  }, { onCancel: () => process.exit(1) })
 
   if (installDepsResponse.installDeps) {
     const packageManager = detectPackageManager()?.name || 'npm'

@@ -33,7 +33,7 @@ export default class EnvRm extends AuthCommand {
         name: 'confirm',
         type: 'confirm',
         message: `Are you sure you want to delete environment variable ${envVariableKey}?`,
-      })
+      }, { onCancel: () => this.exit(1) })
       if (!confirm) {
         this.log('Cancelled. No changes made.')
         return

@@ -25,7 +25,7 @@ export default class Login extends BaseCommand {
         name: 'setNewkey',
         type: 'confirm',
         message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
-      })
+      }, { onCancel: () => this.exit(1) })
       !setNewkey && this.exit(0)
     }
   }
@@ -45,7 +45,7 @@ export default class Login extends BaseCommand {
       type: 'select',
       choices: accounts.map(({ name }) => ({ title: name, value: name })),
       message: 'Which account do you want to use?',
-    })
+    }, { onCancel: () => this.exit(1) })
 
     const selectedAccount = accounts.find(({ name }) => name === accountName)
     return selectedAccount
@@ -63,7 +63,7 @@ export default class Login extends BaseCommand {
       type: 'confirm',
       message: `Do you want to open a browser window to continue with ${mode === 'login' ? 'login' : 'sign up'}?`,
       initial: true,
-    })
+    }, { onCancel: () => this.exit(1) })
 
     if (!openUrl) {
       this.log(
@@ -110,7 +110,7 @@ export default class Login extends BaseCommand {
         title: 'I want to sign up for a new Checkly account',
         value: 'signup',
       }],
-    })
+    }, { onCancel: () => this.exit(1) })
 
     return mode
   }
