@@ -51,8 +51,7 @@
     "plugins": [
       "@oclif/plugin-help",
       "@oclif/plugin-warn-if-update-available",
-      "@oclif/plugin-not-found",
-      "@oclif/plugin-autocomplete"
+      "@oclif/plugin-not-found"
     ],
     "warn-if-update-available": {
       "timeoutInDays": 30,
@@ -71,7 +70,6 @@
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
     "@oclif/core": "2.0.7",
-    "@oclif/plugin-autocomplete": "2.1.8",
     "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
     "@oclif/plugin-warn-if-update-available": "2.0.24",
