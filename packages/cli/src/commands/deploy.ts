@@ -139,30 +139,40 @@ export default class Deploy extends AuthCommand {
       }
     }
 
-    if (!creating.length && !deleting.length && !updating.length) {
-      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
-    }
-
     // Having some order will make the output easier to read.
     const compareEntries = (a: any, b: any) =>
       a.resourceType.localeCompare(b.resourceType) ||
       a.logicalId.localeCompare(b.logicalId)
-    updating.sort(compareEntries)
-    creating.sort(compareEntries)
-    deleting.sort(compareEntries)
-
-    const output = []
 
     // filter resources without contructs that are created dynamically
     // on the flight (i.e. a non project member private-location)
-    if (creating.filter(({ construct }) => Boolean(construct)).length) {
+    const sortedUpdating = updating
+      .filter(({ construct }) => Boolean(construct))
+      .sort(compareEntries)
+
+    // filter resources without contructs that are created dynamically
+    // on the flight (i.e. a non project member private-location)
+    const sortedCreating = creating
+      .filter(({ construct }) => Boolean(construct))
+      .sort(compareEntries)
+
+    const sortedDeleting = deleting
+      .sort(compareEntries)
+
+    if (!sortedCreating.length && !sortedDeleting.length && !sortedUpdating.length) {
+      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
+    }
+
+    const output = []
+
+    if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, construct } of creating) {
+      for (const { logicalId, construct } of sortedCreating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')
     }
-    if (deleting.length) {
+    if (sortedDeleting.length) {
       output.push(chalk.bold.red('Delete:'))
       const prettyResourceTypes: Record<string, string> = {
         [Check.__checklyType]: 'Check',
@@ -171,16 +181,14 @@ export default class Deploy extends AuthCommand {
         [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
         [PrivateLocation.__checklyType]: 'PrivateLocation',
       }
-      for (const { resourceType, logicalId } of deleting) {
+      for (const { resourceType, logicalId } of sortedDeleting) {
         output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
       }
       output.push('')
     }
-    // filter resources without contructs that are created dynamically
-    // on the flight (i.e. a non project member private-location)
-    if (updating.filter(({ construct }) => Boolean(construct)).length) {
+    if (sortedUpdating.length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
-      for (const { logicalId, construct } of updating) {
+      for (const { logicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')
