@@ -116,7 +116,7 @@ export default class Deploy extends AuthCommand {
     // This makes it easier to display.
     const updating = []
     const creating = []
-    const deleting = []
+    const deleting: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
       const { type, logicalId, action } = change
       if (type === AlertChannelSubscription.__checklyType) {
@@ -134,8 +134,24 @@ export default class Deploy extends AuthCommand {
         deleting.push({ resourceType: type, logicalId })
       }
     }
-
-    if (!creating.length && !deleting.length && !updating.length) {
+    // testOnly checks weren't sent to the BE and won't be in previewData.
+    // We load them from the `project` instead.
+    const skipping = project
+      .getTestOnlyConstructs().map(construct => ({
+        logicalId: construct.logicalId,
+        resourceType: construct.type,
+        construct,
+      }))
+      // There is an edge case when the check already exists in Checkly, but `testOnly: true` was just added.
+      // In this case, the check will be included in both `deleting` and `skipping`.
+      // To avoid displaying the check twice, we detect this case and only show the check in `deleting`.
+      // This implementation is O(n^2), but could be sped up with a map or set.
+      .filter((skip) =>
+        !deleting.find(
+          deletion => deletion.logicalId === skip.logicalId && deletion.resourceType === skip.resourceType,
+        ),
+      )
+    if (!creating.length && !deleting.length && !updating.length && !skipping.length) {
       return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
     }
 
@@ -146,6 +162,7 @@ export default class Deploy extends AuthCommand {
     updating.sort(compareEntries)
     creating.sort(compareEntries)
     deleting.sort(compareEntries)
+    skipping.sort(compareEntries)
 
     const output = []
     if (creating.length) {
@@ -171,6 +188,13 @@ export default class Deploy extends AuthCommand {
     if (updating.length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
       for (const { logicalId, construct } of updating) {
+        output.push(`    ${construct.constructor.name}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    if (skipping.length) {
+      output.push(chalk.bold.grey('Skip (testOnly):'))
+      for (const { logicalId, construct } of skipping) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')
