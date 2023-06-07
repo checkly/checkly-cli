@@ -78,6 +78,17 @@ export default class Deploy extends AuthCommand {
       checklyConfigConstructs,
     })
     ux.action.stop()
+
+    const projectPayload = project.synthesize(false)
+    if (!projectPayload.resources.length) {
+      if (preview) {
+        this.log('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
+        return
+      } else {
+        throw new Error('Failed to deploy your project. Unable to find constructs to deploy.\nMore information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
+      }
+    }
+
     const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
@@ -92,7 +103,6 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const projectPayload = project.synthesize(false)
       const { data } = await api.projects.deploy(projectPayload, { dryRun: preview })
       if (preview || output) {
         this.log(this.formatPreview(data, project))
