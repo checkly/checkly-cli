@@ -98,6 +98,15 @@ export class Project extends Construct {
     }
   }
 
+  getTestOnlyConstructs (): Construct[] {
+    return Object
+      .values(this.data)
+      .flatMap((record: Record<string, Construct>) =>
+        Object
+          .values(record)
+          .filter((construct: Construct) => construct instanceof Check && construct.testOnly))
+  }
+
   private synthesizeRecord (record: Record<string,
     Check|CheckGroup|AlertChannel|AlertChannelSubscription
       |MaintenanceWindow|PrivateLocation|PrivateLocationCheckAssignment>, addTestOnly = true) {
