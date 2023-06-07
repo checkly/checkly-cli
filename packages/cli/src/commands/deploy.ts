@@ -9,7 +9,7 @@ import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
   AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, Project, ProjectData,
+  MaintenanceWindow, Dashboard, Project, ProjectData,
 } from '../constructs'
 import * as chalk from 'chalk'
 import { Check } from '../constructs/check'
@@ -179,6 +179,7 @@ export default class Deploy extends AuthCommand {
         [AlertChannel.__checklyType]: 'AlertChannel',
         [CheckGroup.__checklyType]: 'CheckGroup',
         [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
+        [Dashboard.__checklyType]: 'Dashboard',
       }
       for (const { resourceType, logicalId } of deleting) {
         output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
