@@ -8,7 +8,7 @@ import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroup } from './check-group'
-import { PrivateLocation, PrivateLocationWrapper } from './private-location'
+import { PrivateLocation } from './private-location'
 import { PrivateLocationAssignment } from './private-location-assignment'
 
 export interface CheckProps {
