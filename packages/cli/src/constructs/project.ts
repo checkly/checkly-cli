@@ -5,7 +5,7 @@ import { ValidationError } from './validator-error'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, PrivateLocation, PrivateLocationAssignment, PrivateLocationGroupAssignment,
+  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
 } from './'
 
 import { ResourceSync } from '../rest/projects'
@@ -28,7 +28,7 @@ export interface ProjectData {
   'alert-channel-subscription': Record<string, AlertChannelSubscription>,
   'maintenance-window': Record<string, MaintenanceWindow>,
   'private-location': Record<string, PrivateLocation>,
-  'private-location-assignment': Record<string, PrivateLocationAssignment>,
+  'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
   'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
 }
 
@@ -43,7 +43,7 @@ export class Project extends Construct {
     'alert-channel-subscription': {},
     'maintenance-window': {},
     'private-location': {},
-    'private-location-assignment': {},
+    'private-location-check-assignment': {},
     'private-location-group-assignment': {},
   }
 
@@ -92,7 +92,7 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['alert-channel-subscription']),
         ...this.synthesizeRecord(this.data['maintenance-window']),
         ...this.synthesizeRecord(this.data['private-location']),
-        ...this.synthesizeRecord(this.data['private-location-assignment']),
+        ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
       ],
     }
@@ -100,7 +100,7 @@ export class Project extends Construct {
 
   private synthesizeRecord (record: Record<string,
     Check|CheckGroup|AlertChannel|AlertChannelSubscription
-      |MaintenanceWindow|PrivateLocation|PrivateLocationAssignment>, addTestOnly = true) {
+      |MaintenanceWindow|PrivateLocation|PrivateLocationCheckAssignment>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
       .map(([key, construct]) => ({

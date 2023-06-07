@@ -9,7 +9,7 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroup } from './check-group'
 import { PrivateLocation } from './private-location'
-import { PrivateLocationAssignment } from './private-location-assignment'
+import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 
 export interface CheckProps {
   /**
@@ -166,7 +166,7 @@ export abstract class Check extends Construct {
     }
   }
 
-  addPrivateLocationAssignments () {
+  addPrivateLocationCheckAssignments () {
     if (!this.privateLocations) {
       return
     }
@@ -177,7 +177,7 @@ export abstract class Check extends Construct {
       }
 
       // use private location assignment for instances
-      const assignment = new PrivateLocationAssignment(`private-location-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
+      const assignment = new PrivateLocationCheckAssignment(`private-location-check-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
         privateLocationId: Ref.from(privateLocation.logicalId),
         checkId: Ref.from(this.logicalId),
       })
@@ -198,7 +198,7 @@ export abstract class Check extends Construct {
       runtimeId: this.runtimeId,
       locations: this.locations,
 
-      // only keep slugName strings, private-location instances are assigned with addPrivateLocationAssignments()
+      // only keep slugName strings, private-location instances are assigned with addPrivateLocationCheckAssignments()
       privateLocations: this.privateLocations?.filter(p => (typeof p === 'string')),
 
       tags: this.tags,

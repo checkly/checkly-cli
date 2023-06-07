@@ -9,7 +9,7 @@ import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, PrivateLocation, PrivateLocationAssignment, PrivateLocationGroupAssignment,
+  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData,
 } from '../constructs'
 import * as chalk from 'chalk'
@@ -121,7 +121,7 @@ export default class Deploy extends AuthCommand {
       const { type, logicalId, action } = change
       if ([
         AlertChannelSubscription.__checklyType,
-        PrivateLocationAssignment.__checklyType,
+        PrivateLocationCheckAssignment.__checklyType,
         PrivateLocationGroupAssignment.__checklyType,
       ].some(t => t === type)) {
         // Don't report changes to alert channel subscriptions or private location assignments.

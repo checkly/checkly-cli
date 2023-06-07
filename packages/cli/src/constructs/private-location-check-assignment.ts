@@ -2,7 +2,7 @@ import { Ref } from './ref'
 import { Construct } from './construct'
 import { Session } from './project'
 
-export interface PrivateLocationAssignmentProps {
+export interface PrivateLocationCheckAssignmentProps {
   privateLocationId: Ref
   checkId?: Ref
 }
@@ -14,11 +14,11 @@ export interface PrivateLocationAssignmentProps {
  *
  * This class make use of the Private Location Assignment endpoints.
  */
-export class PrivateLocationAssignment extends Construct {
+export class PrivateLocationCheckAssignment extends Construct {
   privateLocationId: Ref
   checkId?: Ref
 
-  static readonly __checklyType = 'private-location-assignment'
+  static readonly __checklyType = 'private-location-check-assignment'
 
   /**
    * Constructs the Private Location Assignment instance
@@ -26,8 +26,8 @@ export class PrivateLocationAssignment extends Construct {
    * @param logicalId unique project-scoped resource name identification
    * @param props private location assignment configuration properties
    */
-  constructor (logicalId: string, props: PrivateLocationAssignmentProps) {
-    super(PrivateLocationAssignment.__checklyType, logicalId)
+  constructor (logicalId: string, props: PrivateLocationCheckAssignmentProps) {
+    super(PrivateLocationCheckAssignment.__checklyType, logicalId)
     this.privateLocationId = props.privateLocationId
     this.checkId = props.checkId
     Session.registerConstruct(this)

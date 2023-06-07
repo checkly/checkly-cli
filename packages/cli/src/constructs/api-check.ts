@@ -327,7 +327,7 @@ export class ApiCheck extends Check {
 
     Session.registerConstruct(this)
     this.addSubscriptions()
-    this.addPrivateLocationAssignments()
+    this.addPrivateLocationCheckAssignments()
   }
 
   static bundle (entrypoint: string, runtimeId: string) {
