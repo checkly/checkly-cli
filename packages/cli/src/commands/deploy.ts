@@ -138,6 +138,11 @@ export default class Deploy extends AuthCommand {
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
+      // Don't report changes to private locations created dinamically
+      if (type === PrivateLocation.__checklyType &&
+        logicalId.startsWith('private-location-slugname-')) {
+        continue
+      }
       const construct = project.data[type as keyof ProjectData][logicalId]
       if (action === ResourceDeployStatus.UPDATE) {
         updating.push({ resourceType: type, logicalId, construct })
