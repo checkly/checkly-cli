@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { ApiCheck, Frequency } from 'checkly/constructs'
+import { privateLocation } from './private-location.check'
 new ApiCheck('api-check', {
   name: 'Api Check',
   activated: false,
@@ -10,6 +11,7 @@ new ApiCheck('api-check', {
     skipSSL: false,
     assertions: []
   },
+  privateLocations: [privateLocation],
   localSetupScript: "console.log('hi from setup')",
   localTearDownScript: "console.log('hi from teardown')",
   degradedResponseTime: 20000,
@@ -32,3 +34,4 @@ new ApiCheck('api-check-high-freq', {
   degradedResponseTime: 20000,
   maxResponseTime: 30000
 })
+
