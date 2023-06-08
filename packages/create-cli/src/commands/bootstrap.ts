@@ -24,7 +24,6 @@ import { initGit } from '../actions/git.js'
  */
 
 const debug = Debug('checkly:create-cli')
-const templateBaseRepo = 'checkly/checkly-cli/examples'
 
 function generateProjectName (): string {
   return uniqueNamesGenerator({
@@ -86,7 +85,7 @@ export default class Bootstrap extends Command {
         debug('Copy boilerplate project to temporary folder')
         await copyTemplate({
           template: 'boilerplate-project',
-          templatePath: `github:${templateBaseRepo}/boilerplate-project#v${version}`,
+          templatePath: `github:checkly/checkly-cli/examples/boilerplate-project#v${version}`,
           targetDir: temporaryDir,
         })
 
@@ -138,17 +137,41 @@ export default class Bootstrap extends Command {
       name: 'template',
       message: 'Which template would you like to use for your new project',
       choices: [
-        { value: 'advanced-project', title: 'An advanced project with multiple examples and best practices (recommended)' },
-        { value: 'boilerplate-project', title: 'A boilerplate project with basic config' },
+        {
+          value: {
+            name: 'advanced-project',
+            path: `github:checkly/checkly-cli/examples/advanced-project#v${version}`,
+          },
+          title: 'An advanced TypeScript project with multiple examples and best practices (recommended)',
+        }, {
+          value: {
+            name: 'advanced-project-js',
+            path: 'github:checkly/checkly-basic-cli-project-js',
+          },
+          title: 'An advanced JavaScript project with multiple examples and best practices',
+        }, {
+          value: {
+            name: 'boilerplate-project',
+            path: `github:checkly/checkly-cli/examples/boilerplate-project#v${version}`,
+          },
+          title: 'A boilerplate TypeScript project with basic config',
+        }, {
+          value: {
+            name: 'boilerplate-project-js',
+            path: 'github:checkly/checkly-basic-cli-project-js',
+          },
+          title: 'A boilerplate JavaScript project with basic config',
+        },
       ],
     },
     { onCancel },
     )
 
     debug('Downloading template')
+
     await copyTemplate({
-      template: templateResponse.template,
-      templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
+      template: templateResponse.template.name,
+      templatePath: templateResponse.template.path,
       targetDir,
     })
 
