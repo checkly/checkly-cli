@@ -49,6 +49,9 @@ export interface CheckProps {
   /**
    * An array of one or more private locations where to run the check.
    * PrivateLocation instances or slug name strings are allowed.
+   *
+   * `string` slug names are **only** allowed for private locations that **not** belong to the project. Use
+   * PrivateLocation instances references for private locations created within the project.
    */
   privateLocations?: Array<string|PrivateLocation>
   /**
