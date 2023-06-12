@@ -1,4 +1,5 @@
-import { Construct } from './construct'
+import * as fs from 'fs'
+import { Construct, Content, Entrypoint } from './construct'
 import { Session } from './project'
 
 export interface DashboardProps {
@@ -81,7 +82,7 @@ export interface DashboardProps {
   /**
    * Custom CSS to be applied to the dashboard.
    */
-  customCSS?: string
+  customCSS?: Content|Entrypoint
   /**
    * Determines if the dashboard is public or private. Default: false.
    * @description only paid accounts can enable this feature.
@@ -156,13 +157,23 @@ export class Dashboard extends Construct {
     this.enableIncidents = props.enableIncidents
     this.expandChecks = props.expandChecks
     this.showHeader = props.showHeader
-    this.customCSS = props.customCSS
     this.isPrivate = props.isPrivate
     this.showP95 = props.showP95
     this.showP99 = props.showP99
 
     if (!props.customUrl && !props.customDomain) {
       throw new Error('Either a "customUrl" or "customDomain" must be specified.')
+    }
+
+    if (props.customCSS) {
+      if ('entrypoint' in props.customCSS) {
+        if (!fs.existsSync(props.customCSS.entrypoint)) {
+          throw new Error(`Unrecognized CSS code for 'customCSS' property in dashboard '${logicalId}'.`)
+        }
+        this.customCSS = String(fs.readFileSync(props.customCSS.entrypoint))
+      } else if ('content' in props.customCSS) {
+        this.customCSS = props.customCSS.content
+      }
     }
 
     Session.registerConstruct(this)
