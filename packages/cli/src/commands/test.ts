@@ -1,5 +1,4 @@
 import { Flags, Args, ux } from '@oclif/core'
-import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { isCI } from 'ci-info'

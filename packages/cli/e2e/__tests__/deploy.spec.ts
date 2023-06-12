@@ -137,4 +137,16 @@ Update and Unchanged:
     expect(resultTwo.status).toBe(0)
     expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
   })
+
+  it('Should terminate when no resources are found', () => {
+    const result = runChecklyCli({
+      args: ['deploy'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'empty-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
+    expect(result.status).toBe(1)
+  })
 })

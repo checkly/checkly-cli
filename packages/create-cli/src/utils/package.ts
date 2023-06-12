@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import path from 'path'
+import * as path from 'path'
 
 export interface PackageJson {
   name: string;
@@ -13,5 +13,5 @@ export function hasPackageJsonFile () {
 }
 
 export function readPackageJson (): PackageJson {
-  return JSON.parse(fs.readFileSync('./package.json', 'utf-8'))
+  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf-8'))
 }

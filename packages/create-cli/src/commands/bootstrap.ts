@@ -97,10 +97,10 @@ export default class Bootstrap extends Command {
         await createCustomBrowserCheck({ onCancel })
 
         debug('Install npm dependencies')
-        await installDependencies('./')
+        await installDependencies()
 
         debug('Init .git & .gitignore')
-        await initGit('./')
+        await initGit()
 
         await footer()
 
