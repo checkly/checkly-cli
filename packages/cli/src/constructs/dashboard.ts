@@ -67,6 +67,7 @@ export interface DashboardProps {
   hideTags?: boolean
   /**
    * Enable or disable incidents on the dashboard. Default: false.
+   * @description only paid accounts can enable this feature.
    */
   enableIncidents?: boolean
   /**
@@ -83,6 +84,7 @@ export interface DashboardProps {
   customCSS?: string
   /**
    * Determines if the dashboard is public or private. Default: false.
+   * @description only paid accounts can enable this feature.
    */
   isPrivate?: boolean
   /**
