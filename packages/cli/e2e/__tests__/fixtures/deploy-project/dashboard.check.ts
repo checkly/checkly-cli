@@ -1,5 +1,5 @@
 /* eslint-disable */
-import path from 'path'
+import * as path from 'path'
 import { Dashboard } from 'checkly/constructs'
 new Dashboard('dashboard-1', {
   header: 'My dashboard',
