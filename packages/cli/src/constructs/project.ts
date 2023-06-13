@@ -4,7 +4,7 @@ import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
 import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow,
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
 } from './'
 
@@ -30,6 +30,7 @@ export interface ProjectData {
   'private-location': Record<string, PrivateLocation>,
   'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
   'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
+  dashboard: Record<string, Dashboard>,
 }
 
 export class Project extends Construct {
@@ -45,6 +46,7 @@ export class Project extends Construct {
     'private-location': {},
     'private-location-check-assignment': {},
     'private-location-group-assignment': {},
+    dashboard: {},
   }
 
   static readonly __checklyType = 'project'
@@ -94,6 +96,7 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['private-location']),
         ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
+        ...this.synthesizeRecord(this.data.dashboard),
       ],
     }
   }
@@ -108,7 +111,7 @@ export class Project extends Construct {
   }
 
   private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|
+    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard|
     PrivateLocation|PrivateLocationCheckAssignment|PrivateLocationGroupAssignment>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)

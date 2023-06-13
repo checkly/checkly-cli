@@ -8,7 +8,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup,
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData,
 } from '../constructs'
@@ -213,6 +213,7 @@ export default class Deploy extends AuthCommand {
         [CheckGroup.__checklyType]: 'CheckGroup',
         [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
         [PrivateLocation.__checklyType]: 'PrivateLocation',
+        [Dashboard.__checklyType]: 'Dashboard',
       }
       for (const { resourceType, logicalId } of sortedDeleting) {
         output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)

@@ -70,10 +70,6 @@ export class MaintenanceWindow extends Construct {
     Session.registerConstruct(this)
   }
 
-  allowInChecklyConfig () {
-    return true
-  }
-
   synthesize (): any|null {
     return {
       name: this.name,

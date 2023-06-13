@@ -1,0 +1,118 @@
+.header {
+    background: #080808;
+    border-bottom-color: #313035;
+    font-family: "SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu, Cantarell,"Open Sans","Helvetica Neue",sans-serif;
+  }
+  
+  .header .logo a {
+    color: #f7f8f8;
+  }
+  
+  .header h1 {
+    color: #f7f8f8;
+  }
+  
+  .header h2 {
+    color: #8a8f98;
+  }
+  
+  .status-summary--passing {
+    color: #68b487;
+  }
+  
+  .status-summary--passing svg {
+    fill: #68b487;
+  }
+  
+  .incidents-summary {
+    color: #db615f;
+  }
+  
+  .main {
+    color: #1f3d5c;
+    background: #080808;
+    font-family: "SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu, Cantarell,"Open Sans","Helvetica Neue",sans-serif;
+  }
+  
+  .check {
+    color: #f7f8f8;
+    background-color: #222326;
+    border: 1px solid #313035;
+  }
+  
+  .check > div > div span {
+    color: #8a8f98;
+  }
+  
+  .active-incident--major article {
+    background-color: #db615f!important;
+    color: #fff5f9;
+    border-width: 0;
+  }
+  
+  .active-incident--major article > .active-incident__header div {
+    background-color: #db615f;
+    color: #fff5f9;
+  }
+  
+  .active-incident--major article p {
+    color: #fff5f9;
+  }
+  
+  .period-selector a {
+    color: #5E6AD2;
+  }
+  
+  .period-selector .period--active {
+    background-color: #5E6AD2;
+    color: #f7f8f8;
+  }
+  
+  .checks-stat.metric > div {
+    color: #8a8f98;
+  }
+  
+  .checks-stat.metric > div > div {
+    color: #f7f8f8;
+  }
+  
+  .checks-stat.metric span {
+    color: #8a8f98;
+  }
+  
+  .metric__badge {
+    color: #f7f8f8 !important;
+  }
+  
+  .check__result--passing::before {
+    background-color: #68b487;
+  }
+  
+  .check__result--failure::before {
+    background-color: #db615f;
+  }
+  
+  .incidents-list-date {
+    color: #f7f8f8;
+    border-bottom-color: #313035;
+  }
+  
+  .incident-list p {
+    color: #8a8f98;
+  }
+  
+  .footer {
+    background: #080808;
+  }
+  
+  .footer .logo a {
+    color: #f7f8f8;
+  }
+  
+  .footer h1 {
+    color: #f7f8f8;
+  }
+  
+  .footer h2 {
+    color: #f7f8f8;
+  }
