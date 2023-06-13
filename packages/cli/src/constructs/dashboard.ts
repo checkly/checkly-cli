@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import { Construct, Content, Entrypoint } from './construct'
 import { Session } from './project'
+import * as path from 'path'
 
 export interface DashboardProps {
   /**
@@ -167,10 +168,21 @@ export class Dashboard extends Construct {
 
     if (props.customCSS) {
       if ('entrypoint' in props.customCSS) {
-        if (!fs.existsSync(props.customCSS.entrypoint)) {
-          throw new Error(`Unrecognized CSS code for 'customCSS' property in dashboard '${logicalId}'.`)
+        const entrypoint = props.customCSS.entrypoint
+        let absoluteEntrypoint = null
+        if (path.isAbsolute(entrypoint)) {
+          absoluteEntrypoint = entrypoint
+        } else {
+          if (!Session.checkFileAbsolutePath) {
+            throw new Error('You cannot use relative paths without the checkFileAbsolutePath in session')
+          }
+          absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
         }
-        this.customCSS = String(fs.readFileSync(props.customCSS.entrypoint))
+
+        if (!fs.existsSync(absoluteEntrypoint)) {
+          throw new Error(`Unrecognized CSS code or file not found for 'customCSS' property in dashboard '${logicalId}'.`)
+        }
+        this.customCSS = String(fs.readFileSync(absoluteEntrypoint))
       } else if ('content' in props.customCSS) {
         this.customCSS = props.customCSS.content
       }
@@ -180,7 +192,7 @@ export class Dashboard extends Construct {
   }
 
   allowInChecklyConfig () {
-    return true
+    return false
   }
 
   synthesize (): any|null {

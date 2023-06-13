@@ -71,7 +71,7 @@ export class MaintenanceWindow extends Construct {
   }
 
   allowInChecklyConfig () {
-    return true
+    return false
   }
 
   synthesize (): any|null {
