@@ -191,10 +191,6 @@ export class Dashboard extends Construct {
     Session.registerConstruct(this)
   }
 
-  allowInChecklyConfig () {
-    return false
-  }
-
   synthesize (): any|null {
     return {
       tags: this.tags,
