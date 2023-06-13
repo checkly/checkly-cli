@@ -2,7 +2,6 @@ import { runChecklyCliForSwitch } from '../run-checkly'
 import * as config from 'config'
 
 describe('switch', () => {
-  jest.setTimeout(10000)
   it('should switch between user accounts', async () => {
     const { status, stdout } = await runChecklyCliForSwitch({
       args: ['switch'],
