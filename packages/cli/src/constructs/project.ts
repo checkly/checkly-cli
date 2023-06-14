@@ -166,7 +166,11 @@ export class Session {
     }
   }
 
-  static getPrivateLocations () {
-    return Session.privateLocations ?? (api.privateLocations.getAll())
+  static async getPrivateLocations () {
+    if (!Session.privateLocations) {
+      const { data: privateLocations } = await api.privateLocations.getAll()
+      Session.privateLocations = privateLocations
+    }
+    return Session.privateLocations
   }
 }
