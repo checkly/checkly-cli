@@ -127,32 +127,40 @@ async function loadAllBrowserChecks (
   }
 }
 
+// TODO: create a function to process slug names for check or check-group to reduce duplicated code.
 async function loadAllPrivateLocationsSlugNames (
   project: Project,
 ): Promise<void> {
   const privateLocations = await Session.getPrivateLocations()
 
-  // search for slugNames in Checks and create non-member private-location if needed
+  // search for slug names in Checks.privateLocations and create non-member private-location and assigments if needed
   const checksWithSlugNames = Object.values(project.data.check)
     .filter(c => c.privateLocations?.some(pl => typeof pl === 'string'))
 
   checksWithSlugNames.forEach(c => {
+    // only slug names strings are processed here, the instances referenced are handle by the resource class
     const checkSlugNames = c.privateLocations?.filter(pl => typeof pl === 'string') ?? []
 
     checkSlugNames.forEach(csn => {
+      // check if the slug name could be replaced by the instance within the project
+      const isSlugNameFromProjectPrivateLocation = Object.values(project.data['private-location']).find(pl => pl.slugName === csn)
+      if (isSlugNameFromProjectPrivateLocation) {
+        throw new Error(`Check '${c.logicalId}' is using a slug name '${csn}' to reference project private-location. Please, replace the slug name with the instance.`)
+      }
+
       const privateLocation = privateLocations.find(pl => pl.slugName === csn)
       if (!privateLocation) {
         throw new Error(`Check '${c.logicalId}' is using a private-location '${csn}' not found in your account. Please, review your configuration and try again.`)
       }
 
       // only create the non member private-location if it wasn't already added
-      const projectPrivateLocation = Object.values(project.data['private-location']).find(pl => pl.physicalId === privateLocation.id)
+      const privateLocationAlreadyCreated = Object.values(project.data['private-location']).find(pl => pl.physicalId === privateLocation.id)
       let privateLocationLogicalId = ''
-      if (!projectPrivateLocation) {
+      if (!privateLocationAlreadyCreated) {
         const nonMemberPrivateLocation = PrivateLocation.fromId(privateLocation.id)
         privateLocationLogicalId = nonMemberPrivateLocation.logicalId
       } else {
-        privateLocationLogicalId = projectPrivateLocation.logicalId
+        privateLocationLogicalId = privateLocationAlreadyCreated.logicalId
       }
 
       // create the private-location/check assignment
@@ -163,14 +171,21 @@ async function loadAllPrivateLocationsSlugNames (
     })
   })
 
-  // search for slugNames in Check-groups and create non-member private-location if needed
+  // search for slug names in Check-groups and create non-member private-location and assigments if needed
   const groupsWithSlugNames = Object.values(project.data['check-group'])
     .filter(g => g.privateLocations?.some(pl => typeof pl === 'string'))
 
   groupsWithSlugNames.forEach(g => {
+    // only slug names strings are processed here, the instances referenced are handle by the resource class
     const groupSlugNames = g.privateLocations?.filter(pl => typeof pl === 'string') ?? []
 
     groupSlugNames.forEach(gsn => {
+      // check if the slug name could be replaced by the instance within the project
+      const isSlugNameFromProjectPrivateLocation = Object.values(project.data['private-location']).find(pl => pl.slugName === gsn)
+      if (isSlugNameFromProjectPrivateLocation) {
+        throw new Error(`Check-group '${g.logicalId}' is using a slug name '${gsn}' to reference project private-location. Please, replace the slug name with the instance.`)
+      }
+
       const privateLocation = privateLocations.find(pl => pl.slugName === gsn)
       if (!privateLocation) {
         throw new Error(`Check-group '${g.logicalId}' is using a private-location '${gsn}' not found in your account. Please, review your configuration and try again.`)
