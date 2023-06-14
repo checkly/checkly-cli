@@ -11,6 +11,7 @@ import { RunLocation, Events, PrivateRunLocation, CheckRunId } from '../services
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import { Session } from '../constructs'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -183,7 +184,7 @@ export default class Trigger extends AuthCommand {
 
   async preparePrivateRunLocation (privateLocationSlugName: string): Promise<PrivateRunLocation> {
     try {
-      const { data: privateLocations } = await api.privateLocations.getAll()
+      const privateLocations = await Session.getPrivateLocations()
       const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
       if (privateLocation) {
         return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }

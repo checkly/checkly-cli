@@ -203,13 +203,13 @@ export class CheckGroup extends Construct {
       return
     }
     for (const privateLocation of this.privateLocations) {
-      // slugName are sent as part of the check
+      // slugName strings are processed in loadAllPrivateLocations()
       if (typeof privateLocation === 'string') {
         continue
       }
 
       // use private location assignment for instances
-      const assignment = new PrivateLocationGroupAssignment(`private-location-group-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
+      const assignment = new PrivateLocationGroupAssignment(`private-location-group-assignment#${this.logicalId}#${privateLocation.logicalId}`, {
         privateLocationId: Ref.from(privateLocation.logicalId),
         groupId: Ref.from(this.logicalId),
       })

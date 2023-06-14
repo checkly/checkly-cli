@@ -174,13 +174,13 @@ export abstract class Check extends Construct {
       return
     }
     for (const privateLocation of this.privateLocations) {
-      // slugName are sent as part of the check
+      // slugName strings are processed in loadAllPrivateLocations()
       if (typeof privateLocation === 'string') {
         continue
       }
 
       // use private location assignment for instances
-      const assignment = new PrivateLocationCheckAssignment(`private-location-check-assignment#${privateLocation.logicalId}#${this.logicalId}`, {
+      const assignment = new PrivateLocationCheckAssignment(`private-location-check-assignment#${this.logicalId}#${privateLocation.logicalId}`, {
         privateLocationId: Ref.from(privateLocation.logicalId),
         checkId: Ref.from(this.logicalId),
       })
@@ -201,8 +201,8 @@ export abstract class Check extends Construct {
       runtimeId: this.runtimeId,
       locations: this.locations,
 
-      // only keep slugName strings, private-location instances are assigned with addPrivateLocationCheckAssignments()
-      privateLocations: this.privateLocations?.filter(p => (typeof p === 'string')),
+      // private-location instances are assigned with loadAllPrivateLocations()
+      privateLocations: undefined,
 
       tags: this.tags,
       frequency: this.frequency,

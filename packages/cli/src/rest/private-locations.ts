@@ -1,8 +1,8 @@
 import type { AxiosInstance } from 'axios'
 
-interface PrivateLocation {
-  slugName: string,
+export interface PrivateLocationApi {
   id: string,
+  slugName: string,
 }
 
 export default class PrivateLocations {
@@ -12,6 +12,6 @@ export default class PrivateLocations {
   }
 
   getAll () {
-    return this.api.get<Array<PrivateLocation>>('/v1/private-locations')
+    return this.api.get<Array<PrivateLocationApi>>('/v1/private-locations')
   }
 }

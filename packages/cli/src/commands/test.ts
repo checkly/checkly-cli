@@ -1,6 +1,5 @@
 import { Flags, Args, ux } from '@oclif/core'
 import * as indentString from 'indent-string'
-
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
@@ -17,13 +16,12 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck } from '../constructs'
+import { BrowserCheck, Check, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
-import type { Check } from '../constructs/check'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 
 const DEFAULT_REGION = 'eu-central-1'
@@ -290,7 +288,7 @@ export default class Test extends AuthCommand {
 
   async preparePrivateRunLocation (privateLocationSlugName: string): Promise<PrivateRunLocation> {
     try {
-      const { data: privateLocations } = await api.privateLocations.getAll()
+      const privateLocations = await Session.getPrivateLocations()
       const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
       if (privateLocation) {
         return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }

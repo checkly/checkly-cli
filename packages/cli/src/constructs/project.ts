@@ -1,3 +1,4 @@
+import * as api from '../rest/api'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
@@ -7,8 +8,8 @@ import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
 } from './'
-
 import { ResourceSync } from '../rest/projects'
+import { PrivateLocationApi } from '../rest/private-locations'
 
 export interface ProjectProps {
   /**
@@ -135,6 +136,7 @@ export class Session {
   static availableRuntimes: Record<string, Runtime>
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
+  static privateLocations: PrivateLocationApi[] = []
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
@@ -162,5 +164,13 @@ export class Session {
     } else {
       throw new Error(`Unable to create a construct '${construct.constructor.name}' outside a Checkly CLI project.`)
     }
+  }
+
+  static async getPrivateLocations () {
+    if (!Session.privateLocations.length) {
+      const { data: privateLocations } = await api.privateLocations.getAll()
+      Session.privateLocations = privateLocations
+    }
+    return Session.privateLocations
   }
 }

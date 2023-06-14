@@ -5,7 +5,6 @@ import { Reporter } from './reporter'
 import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
 import type { RunLocation, CheckRunId } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
-import { TestResultsShortLinks } from '../rest/test-sessions'
 import { testSessions } from '../rest/api'
 
 // Map from file -> checkRunId -> check+result.
