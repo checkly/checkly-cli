@@ -239,8 +239,9 @@ export class CheckGroup extends Construct {
       tags: this.tags,
       locations: this.locations,
 
-      // only keep slugName strings, private-location instances are assigned with __addPrivateLocationGroupAssignments()
-      privateLocations: this.privateLocations?.filter(p => (typeof p === 'string')),
+      // private-location instances are assigned with loadAllPrivateLocations()
+      // it MUST be 'null' to be differenciated with 'undefined' available in previous versions
+      privateLocations: null,
 
       concurrency: this.concurrency,
       localSetupScript: this.localSetupScript,
