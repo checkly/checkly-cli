@@ -9,7 +9,7 @@ import { getDefaults } from '../rest/api'
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
   SCHEDULING,
-  PENDING,
+  RUNNING,
   FAILED,
   SUCCESSFUL,
 }

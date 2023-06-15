@@ -324,7 +324,7 @@ export default class Test extends AuthCommand {
     for (const [sourceFile, checks] of checkFilesMap) {
       printLn(sourceFile)
       for (const check of checks) {
-        printLn(indentString(formatCheckTitle(CheckStatus.PENDING, check), 2))
+        printLn(indentString(formatCheckTitle(CheckStatus.RUNNING, check), 2))
       }
     }
   }

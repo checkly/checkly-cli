@@ -57,8 +57,8 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onCheckInProgress (check: any, checkRunId: CheckRunId) {
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(checkRunId)!
-    checkFile.titleString = formatCheckTitle(CheckStatus.PENDING, check)
-    checkFile.checkStatus = CheckStatus.PENDING
+    checkFile.titleString = formatCheckTitle(CheckStatus.RUNNING, check)
+    checkFile.checkStatus = CheckStatus.RUNNING
   }
 
   abstract onEnd(): void
@@ -113,13 +113,17 @@ export default abstract class AbstractListReporter implements Reporter {
       status.push('')
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
+        counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
-        counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
         `${this.numChecks} total`,
-        this._isSchedulingDelayExceeded && counts.scheduling ? 'Still waiting to schedule some checks. This may take a minute or two.' : undefined,
       ].filter(Boolean).join(', '))
     }
+
+    if (this._isSchedulingDelayExceeded && counts.scheduling) {
+      status.push('Still waiting to schedule some checks. This may take a minute or two.')
+    }
+
     status.push('')
 
     const statusString = status.join('\n')
