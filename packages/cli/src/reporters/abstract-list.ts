@@ -118,10 +118,11 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
-    }
 
-    if (this._isSchedulingDelayExceeded && counts.scheduling) {
-      status.push('Still waiting to schedule some checks. This may take a minute or two.')
+      if (this._isSchedulingDelayExceeded && counts.scheduling) {
+        status.push('Still waiting to schedule some checks. This may take a minute or two.',
+        )
+      }
     }
 
     status.push('')
