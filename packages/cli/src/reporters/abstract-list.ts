@@ -109,11 +109,7 @@ export default abstract class AbstractListReporter implements Reporter {
       }
     }
 
-    const displaySchedulingMessage = this._isSchedulingDelayExceeded && counts.scheduling
-
-    if (opts.skipCheckCount && displaySchedulingMessage) {
-      status.push('Still waiting to schedule some checks. This may take a minute or two.')
-    } else if (!opts.skipCheckCount) {
+    if (!opts.skipCheckCount) {
       status.push('')
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
@@ -121,7 +117,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
         `${this.numChecks} total`,
-        displaySchedulingMessage ? 'Still waiting to schedule some checks. This may take a minute or two.' : undefined,
+        this._isSchedulingDelayExceeded && counts.scheduling ? 'Still waiting to schedule some checks. This may take a minute or two.' : undefined,
       ].filter(Boolean).join(', '))
     }
     status.push('')
