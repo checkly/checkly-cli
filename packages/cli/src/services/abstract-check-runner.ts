@@ -17,6 +17,7 @@ export enum Events {
   RUN_STARTED = 'RUN_STARTED',
   RUN_FINISHED = 'RUN_FINISHED',
   ERROR = 'ERROR',
+  MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED'
 }
 
 export type PrivateRunLocation = {
@@ -33,6 +34,10 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 export type CheckRunId = string
 
 export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
+
+const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
+
+const SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY = 'SCHEDULING_DELAY_EXCEEDED'
 
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<CheckRunId, { check: any, testResultId?: string }>
@@ -85,13 +90,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Otherwise, we risk a race condition where check results are received before the timeout is set.
       // This would cause `processMessage()` to mistakenly skip check results and consider the checks timed-out.
       this.setAllTimeouts()
+      // Add timeout to fire an event after DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS to let reporters know it's time
+      // to display a hint messages if some checks are still being scheduled.
+      this.startSchedulingDelayTimeout()
       // `allChecksFinished` should be started before processing check results in `queue.start()`.
       // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
       const allChecksFinished = this.allChecksFinished()
-      // Start the queue after the test session run rest call is completed to avoid race conditions
-      this.queue.start()
       /// / Need to structure the checks depending on how it went
       this.emit(Events.RUN_STARTED, checks, testSessionId)
+      // Start the queue after the test session run rest call is completed to avoid race conditions
+      this.queue.start()
 
       await allChecksFinished
       this.emit(Events.RUN_FINISHED, testSessionId)
@@ -130,7 +138,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
     const { check, testResultId } = this.checks.get(checkRunId)!
     if (subtopic === 'run-start') {
-      this.emit(Events.CHECK_INPROGRESS, check)
+      this.emit(Events.CHECK_INPROGRESS, check, checkRunId)
     } else if (subtopic === 'run-end') {
       this.disableTimeout(checkRunId)
       const { result } = message
@@ -194,10 +202,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     Array.from(this.checks.entries()).forEach(([checkRunId]) => this.disableTimeout(checkRunId))
   }
 
-  private disableTimeout (checkRunId: string) {
-    const timeout = this.timeouts.get(checkRunId)
+  private startSchedulingDelayTimeout () {
+    this.timeouts.set(SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY, setTimeout(() =>
+      this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED), DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
+    ))
+  }
+
+  private disableTimeout (timeoutKey: string) {
+    const timeout = this.timeouts.get(timeoutKey)
     clearTimeout(timeout)
-    this.timeouts.delete(checkRunId)
+    this.timeouts.delete(timeoutKey)
   }
 
   private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks|undefined> {
