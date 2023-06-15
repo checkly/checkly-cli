@@ -105,6 +105,7 @@ describe('test', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
+      env: { PROJECT_LOGICAL_ID: 'test-only-project', TEST_ONLY: 'true' },
     })
     expect(result.stdout).toContain('TestOnly=false (default) Check')
     expect(result.stdout).toContain('TestOnly=false Check')

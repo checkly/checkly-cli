@@ -9,6 +9,7 @@ import { AlertChannel } from './alert-channel'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { ResourceSync } from '../rest/projects'
 import { MaintenanceWindow } from './maintenance-window'
+import { Dashboard } from './dashboard'
 
 export interface ProjectProps {
   /**
@@ -27,6 +28,7 @@ export interface ProjectData {
   'alert-channel': Record<string, AlertChannel>,
   'alert-channel-subscription': Record<string, AlertChannelSubscription>,
   'maintenance-window': Record<string, MaintenanceWindow>,
+  dashboard: Record<string, Dashboard>,
 }
 
 export class Project extends Construct {
@@ -39,6 +41,7 @@ export class Project extends Construct {
     'alert-channel': {},
     'alert-channel-subscription': {},
     'maintenance-window': {},
+    dashboard: {},
   }
 
   static readonly __checklyType = 'project'
@@ -85,12 +88,22 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['alert-channel']),
         ...this.synthesizeRecord(this.data['alert-channel-subscription']),
         ...this.synthesizeRecord(this.data['maintenance-window']),
+        ...this.synthesizeRecord(this.data.dashboard),
       ],
     }
   }
 
+  getTestOnlyConstructs (): Construct[] {
+    return Object
+      .values(this.data)
+      .flatMap((record: Record<string, Construct>) =>
+        Object
+          .values(record)
+          .filter((construct: Construct) => construct instanceof Check && construct.testOnly))
+  }
+
   private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow>, addTestOnly = true) {
+    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
       .map(([key, construct]) => ({

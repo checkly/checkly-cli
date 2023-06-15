@@ -70,17 +70,51 @@ describe('deploy', () => {
     expect(status).toBe(0)
   })
 
-  it('Shouldn\'t include a testOnly check', () => {
+  it('Should mark testOnly check as skipped', () => {
     const { status, stdout } = runChecklyCli({
       args: ['deploy', '--preview'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, TEST_ONLY: 'true' },
     })
-    expect(stdout).toContain('not-testonly-default-check')
-    expect(stdout).toContain('not-testonly-false-check')
-    expect(stdout).not.toContain('testonly-true-check')
+    expect(stdout).toContain(
+`Create:
+    ApiCheck: not-testonly-default-check
+    ApiCheck: not-testonly-false-check
+
+Skip (testOnly):
+    ApiCheck: testonly-true-check
+`)
+    expect(status).toBe(0)
+  })
+
+  it('Should mark testOnly check as deleted if there is a deletion', () => {
+    // Deploy a check (testOnly=false)
+    runChecklyCli({
+      args: ['deploy', '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-only-project'),
+      env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    // Deploy a check (testOnly=true)
+    const { status, stdout } = runChecklyCli({
+      args: ['deploy', '--force', '--output'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-only-project'),
+      env: { TEST_ONLY: 'true', PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    // Moving the check to testOnly causes it to be deleted.
+    // The check should only be listed under "Delete" and not "Skip".
+    expect(stdout).toContain(
+`Delete:
+    Check: testonly-true-check
+
+Update and Unchanged:
+    ApiCheck: not-testonly-default-check
+    ApiCheck: not-testonly-false-check`)
     expect(status).toBe(0)
   })
 
@@ -102,5 +136,17 @@ describe('deploy', () => {
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
     expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
+  })
+
+  it('Should terminate when no resources are found', () => {
+    const result = runChecklyCli({
+      args: ['deploy'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'empty-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
+    expect(result.status).toBe(1)
   })
 })

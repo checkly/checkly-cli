@@ -97,10 +97,10 @@ export default class Bootstrap extends Command {
         await createCustomBrowserCheck({ onCancel })
 
         debug('Install npm dependencies')
-        await installDependencies('./')
+        await installDependencies()
 
         debug('Init .git & .gitignore')
-        await initGit('./')
+        await initGit()
 
         await footer()
 
@@ -138,8 +138,10 @@ export default class Bootstrap extends Command {
       name: 'template',
       message: 'Which template would you like to use for your new project',
       choices: [
-        { value: 'advanced-project', title: 'An advanced project with multiple examples and best practices (recommended)' },
-        { value: 'boilerplate-project', title: 'A boilerplate project with basic config' },
+        { value: 'advanced-project', title: 'An advanced TypeScript project with multiple examples and best practices (recommended)' },
+        { value: 'advanced-project-js', title: 'An advanced JavaScript project with multiple examples and best practices (recommended)' },
+        { value: 'boilerplate-project', title: 'A boilerplate TypeScript project with basic config' },
+        { value: 'boilerplate-project-js', title: 'A boilerplate JavaScript project with basic config' },
       ],
     },
     { onCancel },
