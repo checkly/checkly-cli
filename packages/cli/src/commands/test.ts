@@ -1,5 +1,4 @@
 import { Flags, Args, ux } from '@oclif/core'
-import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { isCI } from 'ci-info'
@@ -26,7 +25,6 @@ import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import type { Check } from '../constructs/check'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
-import schedulingMessages from '../messages/scheduling-messages'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -221,31 +219,18 @@ export default class Test extends AuthCommand {
       ciInfo.environment,
     )
 
-    // Start right away scheduling messages, first one will show up only 10s after. In 99% cases scheduling
-    // will have happened by then.
-    const schedulingInfosTimeouts = (() => {
-      return [
-        { msg: schedulingMessages.provisioningStarted, ms: 10 * 1000 },
-        { msg: schedulingMessages.provisioningInProgress, ms: 20 * 1000 },
-        { msg: schedulingMessages.provisioningInProgress2, ms: 30 * 1000 },
-        { msg: schedulingMessages.provisioningInProgress, ms: 50 * 1000 },
-      ].map(({ msg, ms }) =>
-        setTimeout(() => ux.action.start(msg, undefined, { stdout: true }), ms),
-      )
-    })()
-
-    // We provisioned enough resources to run each check, so we can stop scheduled messages.
-    const stopSchedulingInfosTimeouts = () => {
-      schedulingInfosTimeouts.map(clearTimeout)
-      ux.action.stop()
-    }
-
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
     )
 
-    runner.on(Events.CHECK_INPROGRESS, stopSchedulingInfosTimeouts)
+    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    })
+
+    runner.on(Events.MAX_SCHEDULING_DELAY_EXCEEDED, () => {
+      reporters.forEach(r => r.onSchedulingDelayExceeded())
+    })
 
     runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
@@ -273,10 +258,6 @@ export default class Test extends AuthCommand {
       process.exitCode = 1
     })
     await runner.run()
-
-    // We stop timeouts here also because CHECK_INPROGRESS won't be fired if there is an error or if checks time out
-    // due to --timeout option.
-    stopSchedulingInfosTimeouts()
   }
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {

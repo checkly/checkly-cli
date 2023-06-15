@@ -13,6 +13,18 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary()
   }
 
+  onCheckInProgress (check: any, checkRunId: CheckRunId) {
+    super.onCheckInProgress(check, checkRunId)
+    this._clearSummary()
+    this._printSummary()
+  }
+
+  onSchedulingDelayExceeded () {
+    super.onSchedulingDelayExceeded()
+    this._clearSummary()
+    this._printSummary()
+  }
+
   onEnd () {
     this._clearSummary()
     this._printSummary()
