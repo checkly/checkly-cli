@@ -27,6 +27,10 @@ describe('formatCheckTitle()', () => {
     expect(stripAnsi(formatCheckTitle(CheckStatus.PENDING, simpleCheckFixture, { includeSourceFile: true })))
       .toMatchSnapshot('pending-check-title')
   })
+  it('should print a scheduling check title', () => {
+    expect(stripAnsi(formatCheckTitle(CheckStatus.SCHEDULING, simpleCheckFixture, { includeSourceFile: true })))
+      .toMatchSnapshot('scheduling-check-title')
+  })
 })
 
 describe('formatCheckResult()', () => {
