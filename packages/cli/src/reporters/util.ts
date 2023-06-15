@@ -2,7 +2,6 @@ import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 import { DateTime } from 'luxon'
 import * as logSymbols from 'log-symbols'
-import * as figures from 'figures'
 
 import { Assertion } from '../constructs/api-check'
 import { getDefaults } from '../rest/api'
@@ -41,7 +40,7 @@ export function formatCheckTitle (status: CheckStatus, check: any, opts: { inclu
     statusString = logSymbols.error
     format = chalk.bold.red
   } else if (status === CheckStatus.SCHEDULING) {
-    statusString = figures.ellipsis
+    statusString = '~'
     format = chalk.bold.dim
   } else {
     statusString = '-'
