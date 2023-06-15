@@ -88,7 +88,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numPending: 0, scheduling: 0 }
+    const counts = { numFailed: 0, numPassed: 0, numRunning: 0, scheduling: 0 }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
@@ -99,7 +99,7 @@ export default abstract class AbstractListReporter implements Reporter {
         if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
         } else if (!result) {
-          counts.numPending++
+          counts.numRunning++
         } else if (result.hasFailures) {
           counts.numFailed++
         } else {
@@ -113,7 +113,7 @@ export default abstract class AbstractListReporter implements Reporter {
       status.push('')
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
-        counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
+        counts.numRunning ? chalk.bold.magenta(`${counts.numRunning} running`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         `${this.numChecks} total`,
