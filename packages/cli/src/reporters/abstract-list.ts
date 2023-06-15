@@ -26,7 +26,7 @@ export default abstract class AbstractListReporter implements Reporter {
   numChecks?: number
   verbose: boolean
   testSessionId?: string
-  _isSchedulingDelayHappening?: boolean
+  _isSchedulingDelayExceeded?: boolean
 
   constructor (
     runLocation: RunLocation,
@@ -64,7 +64,7 @@ export default abstract class AbstractListReporter implements Reporter {
   abstract onEnd(): void
 
   onSchedulingDelayExceeded () {
-    this._isSchedulingDelayHappening = true
+    this._isSchedulingDelayExceeded = true
   }
 
   onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
@@ -109,7 +109,7 @@ export default abstract class AbstractListReporter implements Reporter {
       }
     }
 
-    const displaySchedulingMessage = this._isSchedulingDelayHappening && counts.scheduling
+    const displaySchedulingMessage = this._isSchedulingDelayExceeded && counts.scheduling
 
     if (opts.skipCheckCount && displaySchedulingMessage) {
       status.push('Still waiting to schedule some checks. This may take a minute or two.')
@@ -125,11 +125,6 @@ export default abstract class AbstractListReporter implements Reporter {
       ].filter(Boolean).join(', '))
     }
     status.push('')
-
-    // Display a helper message if some checks are still being scheduled after 20+ seconds.
-    if (this._isSchedulingDelayHappening) {
-      counts.scheduling && status.push()
-    }
 
     const statusString = status.join('\n')
     printLn(statusString)

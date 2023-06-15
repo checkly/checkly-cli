@@ -90,7 +90,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Otherwise, we risk a race condition where check results are received before the timeout is set.
       // This would cause `processMessage()` to mistakenly skip check results and consider the checks timed-out.
       this.setAllTimeouts()
-      // Add timeout to emit an event when the checks are still being scheduled after 20s.
+      // Add timeout to fire an event after DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS to let reporters know it's time
+      // to display a hint messages if some checks are still being scheduled.
       this.startSchedulingDelayTimeout()
       // `allChecksFinished` should be started before processing check results in `queue.start()`.
       // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
@@ -202,8 +203,6 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private startSchedulingDelayTimeout () {
-    // This will let reporter know that it's time to display a hint message about scheduling delay if there's still
-    // checks being scheduled.
     this.timeouts.set(SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY, setTimeout(() =>
       this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED), DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
     ))
