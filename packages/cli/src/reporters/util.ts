@@ -41,7 +41,7 @@ export function formatCheckTitle (status: CheckStatus, check: any, opts: { inclu
     statusString = logSymbols.error
     format = chalk.bold.red
   } else if (status === CheckStatus.SCHEDULING) {
-    statusString = figures.circleCircle
+    statusString = figures.ellipsis
     format = chalk.bold.dim
   } else {
     statusString = '-'

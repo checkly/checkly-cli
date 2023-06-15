@@ -214,4 +214,4 @@ exports[`formatCheckTitle() should print a passed check title: passed-check-titl
 
 exports[`formatCheckTitle() should print a pending check title: pending-check-title 1`] = `"- /test/test-file.check.ts > Test Check (11s)"`;
 
-exports[`formatCheckTitle() should print a scheduling check title: scheduling-check-title 1`] = `"ⓞ /test/test-file.check.ts > Test Check (11s)"`;
+exports[`formatCheckTitle() should print a scheduling check title: scheduling-check-title 1`] = `"… /test/test-file.check.ts > Test Check (11s)"`;
