@@ -240,8 +240,7 @@ export class CheckGroup extends Construct {
       locations: this.locations,
 
       // private-location instances are assigned with loadAllPrivateLocations()
-      // it MUST be 'null' to be differenciated with 'undefined' available in previous versions
-      privateLocations: null,
+      privateLocations: undefined,
 
       concurrency: this.concurrency,
       localSetupScript: this.localSetupScript,
