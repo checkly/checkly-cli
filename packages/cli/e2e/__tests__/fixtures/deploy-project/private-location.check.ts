@@ -4,5 +4,5 @@ import { PrivateLocation } from 'checkly/constructs'
 export const privateLocation = new PrivateLocation('private-location-1', {
   name: 'My Private Location',
   icon: 'squirrel',
-  slugName: `private-location-cli-${uuidv4()}`
+  slugName: `private-location-cli-${uuidv4().split('-')[0]}`
 })
