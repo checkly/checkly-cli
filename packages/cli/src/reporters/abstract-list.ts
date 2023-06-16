@@ -2,8 +2,8 @@ import * as chalk from 'chalk'
 import * as indentString from 'indent-string'
 
 import { Reporter } from './reporter'
-import { formatCheckTitle, CheckStatus, printLn, getTestSessionUrl } from './util'
-import type { RunLocation, CheckRunId } from '../services/abstract-check-runner'
+import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn } from './util'
+import type { CheckRunId, RunLocation } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
 import { testSessions } from '../rest/api'
 
@@ -15,7 +15,8 @@ export type checkFilesMap = Map<string|undefined, Map<CheckRunId, {
   check?: Check,
   result?: any,
   titleString: string,
-  testResultId?: string
+  testResultId?: string,
+  checkStatus?: CheckStatus
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -25,6 +26,7 @@ export default abstract class AbstractListReporter implements Reporter {
   numChecks?: number
   verbose: boolean
   testSessionId?: string
+  _isSchedulingDelayExceeded?: boolean
 
   constructor (
     runLocation: RunLocation,
@@ -46,13 +48,24 @@ export default abstract class AbstractListReporter implements Reporter {
       const fileMap = this.checkFilesMap!.get(check.getSourceFile?.())!
       fileMap.set(checkRunId, {
         check,
-        titleString: formatCheckTitle(CheckStatus.PENDING, check),
+        titleString: formatCheckTitle(CheckStatus.SCHEDULING, check),
+        checkStatus: CheckStatus.SCHEDULING,
         testResultId,
       })
     })
   }
 
+  onCheckInProgress (check: any, checkRunId: CheckRunId) {
+    const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(checkRunId)!
+    checkFile.titleString = formatCheckTitle(CheckStatus.RUNNING, check)
+    checkFile.checkStatus = CheckStatus.RUNNING
+  }
+
   abstract onEnd(): void
+
+  onSchedulingDelayExceeded () {
+    this._isSchedulingDelayExceeded = true
+  }
 
   onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
     const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
@@ -75,16 +88,18 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
+    const counts = { numFailed: 0, numPassed: 0, numRunning: 0, scheduling: 0 }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
     }
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
       if (sourceFile) status.push(sourceFile)
-      for (const [_, { titleString, result }] of checkMap.entries()) {
-        if (!result) {
-          counts.numPending++
+      for (const [_, { titleString, result, checkStatus }] of checkMap.entries()) {
+        if (checkStatus === CheckStatus.SCHEDULING) {
+          counts.scheduling++
+        } else if (!result) {
+          counts.numRunning++
         } else if (result.hasFailures) {
           counts.numFailed++
         } else {
@@ -93,16 +108,25 @@ export default abstract class AbstractListReporter implements Reporter {
         status.push(sourceFile ? indentString(titleString, 2) : titleString)
       }
     }
+
     if (!opts.skipCheckCount) {
       status.push('')
       status.push([
+        counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
+        counts.numRunning ? chalk.bold.magenta(`${counts.numRunning} running`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
-        counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
+
+      if (this._isSchedulingDelayExceeded && counts.scheduling) {
+        status.push('Still waiting to schedule some checks. This may take a minute or two.',
+        )
+      }
     }
+
     status.push('')
+
     const statusString = status.join('\n')
     printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up

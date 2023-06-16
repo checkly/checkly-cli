@@ -7,9 +7,11 @@ import ListReporter from './list'
 
 export interface Reporter {
   onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
+  onCheckInProgress(check: any, checkRunId: CheckRunId): void;
   onEnd(): void;
   onCheckEnd(checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks): void;
   onError(err: Error): void,
+  onSchedulingDelayExceeded(): void
 }
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github'

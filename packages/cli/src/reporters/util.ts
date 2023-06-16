@@ -8,7 +8,8 @@ import { getDefaults } from '../rest/api'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
-  PENDING,
+  SCHEDULING,
+  RUNNING,
   FAILED,
   SUCCESSFUL,
 }
@@ -38,6 +39,9 @@ export function formatCheckTitle (status: CheckStatus, check: any, opts: { inclu
   } else if (status === CheckStatus.FAILED) {
     statusString = logSymbols.error
     format = chalk.bold.red
+  } else if (status === CheckStatus.SCHEDULING) {
+    statusString = '~'
+    format = chalk.bold.dim
   } else {
     statusString = '-'
     format = chalk.bold.dim

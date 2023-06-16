@@ -216,9 +216,20 @@ export default class Test extends AuthCommand {
       repoInfo,
       ciInfo.environment,
     )
+
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
-        reporters.forEach(r => r.onBegin(checks, testSessionId)))
+        reporters.forEach(r => r.onBegin(checks, testSessionId)),
+    )
+
+    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    })
+
+    runner.on(Events.MAX_SCHEDULING_DELAY_EXCEEDED, () => {
+      reporters.forEach(r => r.onSchedulingDelayExceeded())
+    })
+
     runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
@@ -239,8 +250,7 @@ export default class Test extends AuthCommand {
       }))
       process.exitCode = 1
     })
-    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()),
-    )
+    runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
     runner.on(Events.ERROR, (err) => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
@@ -312,7 +322,7 @@ export default class Test extends AuthCommand {
     for (const [sourceFile, checks] of checkFilesMap) {
       printLn(sourceFile)
       for (const check of checks) {
-        printLn(indentString(formatCheckTitle(CheckStatus.PENDING, check), 2))
+        printLn(indentString(formatCheckTitle(CheckStatus.RUNNING, check), 2))
       }
     }
   }
