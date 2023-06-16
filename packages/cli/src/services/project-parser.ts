@@ -131,8 +131,6 @@ async function loadAllBrowserChecks (
 async function loadAllPrivateLocationsSlugNames (
   project: Project,
 ): Promise<void> {
-  const privateLocations = await Session.getPrivateLocations()
-
   /**
    * Search for slug names in all Checks and CheckGroups privateLocations properties. Then, create non-member
    * private-locations and assigments if needed.
@@ -142,6 +140,12 @@ async function loadAllPrivateLocationsSlugNames (
   const resourcesWithSlugNames: Array<Check|CheckGroup> =
     [...Object.values(project.data.check), ...Object.values(project.data['check-group'])]
       .filter(g => g.privateLocations?.some(pl => typeof pl === 'string'))
+
+  if (!resourcesWithSlugNames.length) {
+    return
+  }
+
+  const privateLocations = await Session.getPrivateLocations()
 
   resourcesWithSlugNames.forEach(resource => {
     // only slug names strings are processed here, the instances referenced are handle by the resource class
