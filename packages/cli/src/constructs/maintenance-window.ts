@@ -13,15 +13,17 @@ export interface MaintenanceWindowProps {
    */
   tags: Array<string>,
   /**
-   * The start date of the maintenance window.
+   * The start date and time of the maintenance window in ISO 8601 format, "YYYY-MM-DDTHH:mm:ss.sssZ" as returned by
+   * `new Date()`
    */
   startsAt: Date
   /**
-   * The end date of the maintenance window.
+   * The end date and time of the maintenance window in ISO 8601 format, "YYYY-MM-DDTHH:mm:ss.sssZ" as returned by
+   * `new Date()`
    */
   endsAt: Date
   /**
-   * The repeat interval of the maintenance window from the first occurance.
+   * The repeat interval of the maintenance window from the first occurrence.
    */
   repeatInterval?: number
   /**
@@ -29,7 +31,7 @@ export interface MaintenanceWindowProps {
    */
   repeatUnit?: MaintenanceWindowRepeatUnit
   /**
-   * The end date where the maintenance window should stop repeating.
+   * The end date and time when the maintenance window should stop repeating.
    */
   repeatEndsAt?: Date
 }
@@ -57,6 +59,8 @@ export class MaintenanceWindow extends Construct {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props maintenance window configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#maintenancewindow Read more in the docs}
    */
   constructor (logicalId: string, props: MaintenanceWindowProps) {
     super(MaintenanceWindow.__checklyType, logicalId)

@@ -137,6 +137,8 @@ export class Dashboard extends Construct {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props dashboard configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#dashboard Read more in the docs}
    */
   constructor (logicalId: string, props: DashboardProps) {
     super(Dashboard.__checklyType, logicalId)
