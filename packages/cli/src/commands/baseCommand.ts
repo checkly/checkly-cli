@@ -10,7 +10,8 @@ export abstract class BaseCommand extends Command {
   static hidden = true
 
   protected init (): Promise<void> {
-    api.defaults.headers['x-checkly-cli-version'] = this.config.version
+    // TODO: find a better way to mock the CLI version for E2E tests.
+    api.defaults.headers['x-checkly-cli-version'] = process.env.CHECKLY_CLI_VERSION ?? this.config.version
     return super.init()
   }
 

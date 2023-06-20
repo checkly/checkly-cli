@@ -47,17 +47,32 @@ describe('deploy', () => {
   afterEach(() => cleanupProjects(projectLogicalId))
   afterAll(() => cleanupProjects())
 
-  it('Simple project should deploy successfully', () => {
+  it('Simple project should deploy successfully (version v4.0.8)', () => {
     const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      cliVersion: '4.0.8',
     })
     expect(status).toBe(0)
     expect(stderr).toBe('')
   })
+
+  it('Simple project should deploy successfully (version after v4.0.8)', () => {
+    const { status, stderr } = runChecklyCli({
+      args: ['deploy', '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      cliVersion: '4.0.9',
+    })
+    expect(status).toBe(0)
+    expect(stderr).toBe('')
+  })
+
   it('Simple esm project should deploy successfully', () => {
     const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
