@@ -134,18 +134,20 @@ export function isFileSync (path: string): boolean {
 export function getGitInformation (repoUrl?: string): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
-  if (!process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
+  if (!process.env.CHECKLY_REPO_SHA && !process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
     return null
   }
 
   // safe way to remove the email address
   const committer = (repositoryInfo.committer?.match(/([^<]+)/) || [])[1]?.trim()
   return {
-    commitId: process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
-    repoUrl: process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
-    branchName: process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
-    commitOwner: process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
-    commitMessage: process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE ?? repositoryInfo.commitMessage,
+    commitId: process.env.CHECKLY_REPO_SHA ?? process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
+    repoUrl: process.env.CHECKLY_REPO_URL ?? process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
+    branchName: process.env.CHECKLY_REPO_BRANCH ?? process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
+    commitOwner: process.env.CHECKLY_REPO_COMMIT_OWNER ?? process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
+    commitMessage: process.env.CHECKLY_REPO_COMMIT_MESSAGE ??
+      process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE ??
+      repositoryInfo.commitMessage,
   }
 }
 
