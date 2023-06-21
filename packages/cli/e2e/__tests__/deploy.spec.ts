@@ -34,6 +34,25 @@ async function cleanupProjects (projectLogicalId?: string) {
     }
   }
 }
+async function getAllResources (type: 'checks' | 'check-groups' | 'private-locations') {
+  const baseURL: string = config.get('baseURL')
+  const accountId: string = config.get('accountId')
+  const apiKey: string = config.get('apiKey')
+  const api = axios.create({
+    baseURL,
+    headers: {
+      'x-checkly-account': accountId,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  })
+
+  const { data } = await api({
+    method: 'get',
+    url: `/v1/${type}`,
+  })
+
+  return data
+}
 
 describe('deploy', () => {
   // Create a unique ID suffix to support parallel test executions
@@ -47,17 +66,56 @@ describe('deploy', () => {
   afterEach(() => cleanupProjects(projectLogicalId))
   afterAll(() => cleanupProjects())
 
-  it('Simple project should deploy successfully', () => {
+  it('Simple project should deploy successfully (version v4.0.8)', async () => {
     const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      cliVersion: '4.0.8',
     })
     expect(status).toBe(0)
     expect(stderr).toBe('')
-  })
+
+    const checks = await getAllResources('checks')
+    const checkGroups = await getAllResources('check-groups')
+    const privateLocations = await getAllResources('private-locations')
+
+    // check that all assignments were applied
+    expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
+      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+    expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
+      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+    expect(privateLocations
+      .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
+  }, 15000)
+
+  it('Simple project should deploy successfully (version after v4.0.8)', async () => {
+    const { status, stderr } = runChecklyCli({
+      args: ['deploy', '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'deploy-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      cliVersion: '4.0.9',
+    })
+    expect(status).toBe(0)
+    expect(stderr).toBe('')
+
+    const checks = await getAllResources('checks')
+    const checkGroups = await getAllResources('check-groups')
+    const privateLocations = await getAllResources('private-locations')
+
+    // check that all assignments were applied
+    expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
+      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+    expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
+      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+    expect(privateLocations
+      .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
+  }, 15000)
+
   it('Simple esm project should deploy successfully', () => {
     const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],

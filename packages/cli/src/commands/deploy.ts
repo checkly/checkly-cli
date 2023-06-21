@@ -8,11 +8,11 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
-  AlertChannelSubscription, AlertChannel, CheckGroup,
-  MaintenanceWindow, Dashboard, Project, ProjectData,
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
+  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  Project, ProjectData,
 } from '../constructs'
 import * as chalk from 'chalk'
-import { Check } from '../constructs/check'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
@@ -113,7 +113,7 @@ export default class Deploy extends AuthCommand {
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy your project due to a missing field. ${err.response.data?.message}`)
+        throw new Error(`Failed to deploy your project due to wrong configuration. ${err.response.data?.message}`)
       } else {
         throw new Error(`Failed to deploy your project. ${err.message}`)
       }
@@ -129,8 +129,12 @@ export default class Deploy extends AuthCommand {
     const deleting: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
       const { type, logicalId, action } = change
-      if (type === AlertChannelSubscription.__checklyType) {
-        // Don't report changes to alert channel subscriptions.
+      if ([
+        AlertChannelSubscription.__checklyType,
+        PrivateLocationCheckAssignment.__checklyType,
+        PrivateLocationGroupAssignment.__checklyType,
+      ].some(t => t === type)) {
+        // Don't report changes to alert channel subscriptions or private location assignments.
         // User's don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
@@ -144,6 +148,7 @@ export default class Deploy extends AuthCommand {
         deleting.push({ resourceType: type, logicalId })
       }
     }
+
     // testOnly checks weren't sent to the BE and won't be in previewData.
     // We load them from the `project` instead.
     const skipping = project
@@ -161,44 +166,58 @@ export default class Deploy extends AuthCommand {
           deletion => deletion.logicalId === skip.logicalId && deletion.resourceType === skip.resourceType,
         ),
       )
-    if (!creating.length && !deleting.length && !updating.length && !skipping.length) {
-      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
-    }
 
     // Having some order will make the output easier to read.
     const compareEntries = (a: any, b: any) =>
       a.resourceType.localeCompare(b.resourceType) ||
       a.logicalId.localeCompare(b.logicalId)
-    updating.sort(compareEntries)
-    creating.sort(compareEntries)
-    deleting.sort(compareEntries)
-    skipping.sort(compareEntries)
+
+    // filter resources without contructs that are created dynamically
+    // on the flight (i.e. a non project member private-location)
+    const sortedUpdating = updating
+      .filter(({ construct }) => Boolean(construct))
+      .sort(compareEntries)
+
+    // filter resources without contructs that are created dynamically
+    // on the flight (i.e. a non project member private-location)
+    const sortedCreating = creating
+      .filter(({ construct }) => Boolean(construct))
+      .sort(compareEntries)
+
+    const sortedDeleting = deleting
+      .sort(compareEntries)
+
+    if (!sortedCreating.length && !sortedDeleting.length && !sortedUpdating.length && !skipping.length) {
+      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
+    }
 
     const output = []
-    if (creating.length) {
+
+    if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, construct } of creating) {
+      for (const { logicalId, construct } of sortedCreating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')
     }
-    if (deleting.length) {
+    if (sortedDeleting.length) {
       output.push(chalk.bold.red('Delete:'))
       const prettyResourceTypes: Record<string, string> = {
         [Check.__checklyType]: 'Check',
         [AlertChannel.__checklyType]: 'AlertChannel',
         [CheckGroup.__checklyType]: 'CheckGroup',
         [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
+        [PrivateLocation.__checklyType]: 'PrivateLocation',
         [Dashboard.__checklyType]: 'Dashboard',
       }
-      for (const { resourceType, logicalId } of deleting) {
+      for (const { resourceType, logicalId } of sortedDeleting) {
         output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
       }
       output.push('')
     }
-    if (updating.length) {
+    if (sortedUpdating.length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
-      for (const { logicalId, construct } of updating) {
+      for (const { logicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
       output.push('')

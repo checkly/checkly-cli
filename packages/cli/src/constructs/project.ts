@@ -1,15 +1,15 @@
+import * as api from '../rest/api'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
 import type { Runtime } from '../rest/runtimes'
-import { Check } from './check'
-import { CheckGroup } from './check-group'
-import { AlertChannel } from './alert-channel'
-import { AlertChannelSubscription } from './alert-channel-subscription'
+import {
+  Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
+  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+} from './'
 import { ResourceSync } from '../rest/projects'
-import { MaintenanceWindow } from './maintenance-window'
-import { Dashboard } from './dashboard'
+import { PrivateLocationApi } from '../rest/private-locations'
 
 export interface ProjectProps {
   /**
@@ -28,6 +28,9 @@ export interface ProjectData {
   'alert-channel': Record<string, AlertChannel>,
   'alert-channel-subscription': Record<string, AlertChannelSubscription>,
   'maintenance-window': Record<string, MaintenanceWindow>,
+  'private-location': Record<string, PrivateLocation>,
+  'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
+  'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
   dashboard: Record<string, Dashboard>,
 }
 
@@ -41,6 +44,9 @@ export class Project extends Construct {
     'alert-channel': {},
     'alert-channel-subscription': {},
     'maintenance-window': {},
+    'private-location': {},
+    'private-location-check-assignment': {},
+    'private-location-group-assignment': {},
     dashboard: {},
   }
 
@@ -88,6 +94,9 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['alert-channel']),
         ...this.synthesizeRecord(this.data['alert-channel-subscription']),
         ...this.synthesizeRecord(this.data['maintenance-window']),
+        ...this.synthesizeRecord(this.data['private-location']),
+        ...this.synthesizeRecord(this.data['private-location-check-assignment']),
+        ...this.synthesizeRecord(this.data['private-location-group-assignment']),
         ...this.synthesizeRecord(this.data.dashboard),
       ],
     }
@@ -103,7 +112,8 @@ export class Project extends Construct {
   }
 
   private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard>, addTestOnly = true) {
+    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard|
+    PrivateLocation|PrivateLocationCheckAssignment|PrivateLocationGroupAssignment>, addTestOnly = true) {
     return Object.entries(record)
       .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
       .map(([key, construct]) => ({
@@ -126,6 +136,7 @@ export class Session {
   static availableRuntimes: Record<string, Runtime>
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
+  static privateLocations: PrivateLocationApi[]
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
@@ -153,5 +164,13 @@ export class Session {
     } else {
       throw new Error(`Unable to create a construct '${construct.constructor.name}' outside a Checkly CLI project.`)
     }
+  }
+
+  static async getPrivateLocations () {
+    if (!Session.privateLocations) {
+      const { data: privateLocations } = await api.privateLocations.getAll()
+      Session.privateLocations = privateLocations
+    }
+    return Session.privateLocations
   }
 }

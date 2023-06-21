@@ -1,8 +1,12 @@
-import { BrowserCheck, Project, Session } from '../constructs'
-import { promisify } from 'util'
 import * as glob from 'glob'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import * as path from 'path'
+import { promisify } from 'util'
+import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import {
+  Check, BrowserCheck, CheckGroup, Project, Session,
+  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+} from '../constructs'
+import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
@@ -59,6 +63,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
   await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
   await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+
+  // private-location must be processed after all checks and groups are loaded.
+  await loadAllPrivateLocationsSlugNames(project)
 
   return project
 }
@@ -118,6 +125,66 @@ async function loadAllBrowserChecks (
       },
     })
   }
+}
+
+// TODO: create a function to process slug names for check or check-group to reduce duplicated code.
+async function loadAllPrivateLocationsSlugNames (
+  project: Project,
+): Promise<void> {
+  /**
+   * Search for slug names in all Checks and CheckGroups privateLocations properties. Then, create non-member
+   * private-locations and assigments if needed.
+   * This logic allow as to get the private-location id searching by slug names and make use
+   * of PrivateLocation.fromId() under the hood.
+   */
+  const resourcesWithSlugNames: Array<Check|CheckGroup> =
+    [...Object.values(project.data.check), ...Object.values(project.data['check-group'])]
+      .filter(g => g.privateLocations?.some(pl => typeof pl === 'string'))
+
+  if (!resourcesWithSlugNames.length) {
+    return
+  }
+
+  const privateLocations = await Session.getPrivateLocations()
+
+  resourcesWithSlugNames.forEach(resource => {
+    // only slug names strings are processed here, the instances referenced are handle by the resource class
+    const resourceSlugNames = resource.privateLocations?.filter(pl => typeof pl === 'string') ?? []
+
+    resourceSlugNames.forEach(sn => {
+      // check if the slug name could be replaced by the instance within the project
+      const isSlugNameFromProjectPrivateLocation = Object.values(project.data['private-location']).find(pl => pl.slugName === sn)
+      if (isSlugNameFromProjectPrivateLocation) {
+        throw new Error(`${resource.constructor.name} '${resource.logicalId}' is using a slug name '${sn}' to reference project private-location. Please, replace the slug name with the instance.`)
+      }
+
+      const privateLocation = privateLocations.find(pl => pl.slugName === sn)
+      if (!privateLocation) {
+        throw new Error(`${resource.constructor.name} '${resource.logicalId}' is using a private-location '${sn}' not found in your account. Please, review your configuration and try again.`)
+      }
+
+      // only create the non member private-location if it wasn't already added
+      const privateLocationAlreadyCreated = Object.values(project.data['private-location']).find(pl => pl.physicalId === privateLocation.id)
+      let privateLocationLogicalId = ''
+      if (!privateLocationAlreadyCreated) {
+        const nonMemberPrivateLocation = PrivateLocation.fromId(privateLocation.id)
+        privateLocationLogicalId = nonMemberPrivateLocation.logicalId
+      } else {
+        privateLocationLogicalId = privateLocationAlreadyCreated.logicalId
+      }
+
+      // create the private-location/check assignment
+      const assignment = resource instanceof Check
+        ? new PrivateLocationCheckAssignment(`private-location-check-assignment#${resource.logicalId}#${privateLocationLogicalId}`, {
+          privateLocationId: Ref.from(privateLocationLogicalId),
+          checkId: Ref.from(resource.logicalId),
+        })
+        : new PrivateLocationGroupAssignment(`private-location-group-assignment#${resource.logicalId}#${privateLocationLogicalId}`, {
+          privateLocationId: Ref.from(privateLocationLogicalId),
+          groupId: Ref.from(resource.logicalId),
+        })
+    })
+  })
 }
 
 async function findFilesWithPattern (

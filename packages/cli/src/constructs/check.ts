@@ -8,6 +8,8 @@ import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroup } from './check-group'
+import { PrivateLocation } from './private-location'
+import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 
 export interface CheckProps {
   /**
@@ -46,8 +48,12 @@ export interface CheckProps {
   locations?: Array<keyof Region>
   /**
    * An array of one or more private locations where to run the check.
+   * PrivateLocation instances or slug name strings are allowed.
+   *
+   * `string` slug names are **only** allowed for private locations that **not** belong to the project. Use
+   * PrivateLocation instances references for private locations created within the project.
    */
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -85,7 +91,7 @@ export abstract class Check extends Construct {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<keyof Region>
-  privateLocations?: Array<string>
+  privateLocations?: Array<string|PrivateLocation>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number
@@ -163,6 +169,24 @@ export abstract class Check extends Construct {
     }
   }
 
+  addPrivateLocationCheckAssignments () {
+    if (!this.privateLocations) {
+      return
+    }
+    for (const privateLocation of this.privateLocations) {
+      // slugName strings are processed in loadAllPrivateLocations()
+      if (typeof privateLocation === 'string') {
+        continue
+      }
+
+      // use private location assignment for instances
+      const assignment = new PrivateLocationCheckAssignment(`private-location-check-assignment#${this.logicalId}#${privateLocation.logicalId}`, {
+        privateLocationId: Ref.from(privateLocation.logicalId),
+        checkId: Ref.from(this.logicalId),
+      })
+    }
+  }
+
   getSourceFile () {
     return this.__checkFilePath
   }
@@ -176,7 +200,10 @@ export abstract class Check extends Construct {
       shouldFail: this.shouldFail,
       runtimeId: this.runtimeId,
       locations: this.locations,
-      privateLocations: this.privateLocations,
+
+      // private-location instances are assigned with loadAllPrivateLocations()
+      privateLocations: undefined,
+
       tags: this.tags,
       frequency: this.frequency,
       frequencyOffset: this.frequencyOffset,

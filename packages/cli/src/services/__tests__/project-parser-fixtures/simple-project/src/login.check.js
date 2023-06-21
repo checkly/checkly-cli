@@ -2,7 +2,7 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { BrowserCheck } = require('../../../../../constructs')
 
-new BrowserCheck('check-1', {
+new BrowserCheck('browser-check-1', {
   name: 'login check',
   locations: ['eu-central-1'],
   frequency: 10,
