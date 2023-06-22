@@ -37,8 +37,6 @@ export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
-const SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY = 'SCHEDULING_DELAY_EXCEEDED'
-
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<CheckRunId, { check: any, testResultId?: string }>
   testSessionId?: string
@@ -203,9 +201,19 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private startSchedulingDelayTimeout () {
-    this.timeouts.set(SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY, setTimeout(() =>
-      this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED), DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
-    ))
+    let scheduledCheckCount = 0
+    const numChecks = this.checks.size
+    if (numChecks === 0) {
+      return
+    }
+    const schedulingDelayExceededTimeout = setTimeout(
+      () => this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED),
+      DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
+    )
+    this.on(Events.CHECK_INPROGRESS, () => {
+      scheduledCheckCount++
+      if (scheduledCheckCount === numChecks) clearTimeout(schedulingDelayExceededTimeout)
+    })
   }
 
   private disableTimeout (timeoutKey: string) {
