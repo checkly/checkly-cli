@@ -213,7 +213,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       return
     }
     this.schedulingDelayExceededTimeout = setTimeout(
-      () => this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED),
+      () => {
+        this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED)
+        this.schedulingDelayExceededTimeout = undefined
+      },
       DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
     )
     this.on(Events.CHECK_INPROGRESS, () => {
