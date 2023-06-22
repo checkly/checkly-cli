@@ -18,7 +18,7 @@
     "test": "jest --selectProjects unit",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "test:e2e:local": "cross-env CHECKLY_ENV=local npm run test:e2e",
-    "version": "node -e \"console.log(require('./package.json').version)\"",
+    "version": "auto-changelog -p && git add CHANGELOG.md",
     "watch": "tsc --watch"
   },
   "repository": {
@@ -103,6 +103,7 @@
     "@types/prompts": "2.4.4",
     "@types/uuid": "9.0.1",
     "@types/ws": "8.5.3",
+    "auto-changelog": "2.4.0",
     "config": "3.3.8",
     "cross-env": "7.0.3",
     "jest": "29.3.1",
