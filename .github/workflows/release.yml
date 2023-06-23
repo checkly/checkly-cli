@@ -21,7 +21,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
-      - run: npm ci --workspace packages/cli
+      - run: npm ci
       # Use release tag and update package version
       - name: Set new version from release tag
         run: |
@@ -82,7 +82,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
-      - run: npm ci --workspace packages/cli
+      - run: npm ci
       - name: Publish NPM package
         run: npm publish --provenance --workspace packages/cli
         env:
