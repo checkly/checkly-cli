@@ -3,9 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
     "lint": "eslint . --ext .ts,.js,.mjs",
     "lint:fix": "eslint . --ext .ts,.js,.mjs --fix",
+    "prepack": "npm run prepack --workspaces",
+    "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
     "test": "npm run test --workspaces",
     "test:e2e": "npm run test:e2e --workspaces"
   },
