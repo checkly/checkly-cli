@@ -6,10 +6,14 @@ jobs:
   # Build package and increase version
   build-version:
     permissions:
+      contents: write
       id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT }}
+          ref: main
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v3
         with:
@@ -18,14 +22,25 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci --workspace packages/cli
+      # Use release tag and update package version
       - name: Set new version from release tag
-        run: npm version ${{ github.event.release.tag_name }} --workspace packages/cli
+        run: |
+          git config user.name "Checkly Engineering"
+          git config user.email "engineering@checklyhq.com"
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/cli
+          git add .
+      # Update the changelog with the release changes using pull-requests tags as categories
       - name: Append changes to changelog
-        run: npx auto-changelog --latest-version ${{ github.event.release.tag_name }}
+        run: |
+          npx auto-changelog --latest-version ${{ github.event.release.tag_name }}
+          git add .
+      # Commit and push all changes to main
       - name: Git push new package version
-        run: git push origin main --follow-tags
+        run: |
+          git commit -m "feat: release CLI ${{ github.event.release.tag_name }}"
+          git push origin main --follow-tags --force
       - name: Output version change after push
-        run: npm pkg get version
+        run: npm pkg get version --workspace packages/cli
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -59,6 +74,8 @@ jobs:
     needs: build-version
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: main
       - uses: actions/setup-node@v3
         with:
           node-version: '16.x'
