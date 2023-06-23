@@ -37,14 +37,13 @@ export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
-const SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY = 'SCHEDULING_DELAY_EXCEEDED'
-
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<CheckRunId, { check: any, testResultId?: string }>
   testSessionId?: string
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
   timeouts: Map<CheckRunId, NodeJS.Timeout>
+  schedulingDelayExceededTimeout?: NodeJS.Timeout
   accountId: string
   timeout: number
   verbose: boolean
@@ -200,12 +199,30 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       return
     }
     Array.from(this.checks.entries()).forEach(([checkRunId]) => this.disableTimeout(checkRunId))
+
+    if (this.schedulingDelayExceededTimeout) {
+      clearTimeout(this.schedulingDelayExceededTimeout)
+      this.schedulingDelayExceededTimeout = undefined
+    }
   }
 
   private startSchedulingDelayTimeout () {
-    this.timeouts.set(SCHEDULING_DELAY_EXCEEDED_TIMEOUT_KEY, setTimeout(() =>
-      this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED), DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
-    ))
+    let scheduledCheckCount = 0
+    const numChecks = this.checks.size
+    if (numChecks === 0) {
+      return
+    }
+    this.schedulingDelayExceededTimeout = setTimeout(
+      () => {
+        this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED)
+        this.schedulingDelayExceededTimeout = undefined
+      },
+      DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
+    )
+    this.on(Events.CHECK_INPROGRESS, () => {
+      scheduledCheckCount++
+      if (scheduledCheckCount === numChecks) clearTimeout(this.schedulingDelayExceededTimeout)
+    })
   }
 
   private disableTimeout (timeoutKey: string) {
