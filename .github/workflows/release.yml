@@ -77,15 +77,15 @@ jobs:
               # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
-      - name: Set version and publish prerelease for 'cli' package
+      - name: Set version and publish 'cli' package
         run: |
           npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/cli
           npm publish --provenance --workspace packages/cli
-      - name: Set version and publish prerelease for 'create-cli' package
+      - name: Set version and publish 'create-cli' package
         run: |
           npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/create-cli
           npm publish --provenance --workspace packages/create-cli
-      - name: Output prerelease packages versions
+      - name: Output final packages versions
         run: |
           npm pkg get version --workspace packages/cli
           npm pkg get version --workspace packages/create-cli
