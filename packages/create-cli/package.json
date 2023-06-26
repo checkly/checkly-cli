@@ -8,9 +8,10 @@
   "private": false,
   "scripts": {
     "clean": "rimraf ./dist",
-    "test": "jest --selectProjects unit",
-    "test:e2e": "echo \"Error: no test specified\"",
+    "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
+    "test": "jest --selectProjects unit",
+    "test:e2e": "echo \"Warning: no test specified\"",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },

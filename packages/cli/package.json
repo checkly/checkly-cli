@@ -13,8 +13,8 @@
   },
   "scripts": {
     "clean": "rimraf ./dist",
-    "prepare": "npm run clean && tsc --build",
     "prepack": "npx oclif manifest",
+    "prepare": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "test:e2e:local": "cross-env CHECKLY_ENV=local npm run test:e2e",
