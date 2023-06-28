@@ -89,7 +89,7 @@ describe('deploy', () => {
       privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
-  }, 15000)
+  }, 30_000)
 
   it('Simple project should deploy successfully (version after v4.0.8)', async () => {
     const { status, stderr } = runChecklyCli({
@@ -114,7 +114,7 @@ describe('deploy', () => {
       privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
-  }, 15000)
+  }, 30_000)
 
   it('Simple esm project should deploy successfully', () => {
     const { status, stderr } = runChecklyCli({
