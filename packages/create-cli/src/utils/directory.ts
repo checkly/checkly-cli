@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 
 export function isValidProjectDirectory (dirPath: string) {
   if (!fs.existsSync(dirPath)) {
@@ -51,4 +52,13 @@ export function isValidUrl (string: string) {
   } catch {
     return false
   }
+}
+
+export function generateProjectName (): string {
+  return uniqueNamesGenerator({
+    dictionaries: [colors, animals],
+    separator: '-',
+    length: 2,
+    style: 'lowerCase',
+  })
 }

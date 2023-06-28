@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import prompts from 'prompts'
 import { isValidUrl } from '../utils/directory.js'
+import { askCreateInitialBrowserCheck, askUserWebsite } from '../utils/prompts.js'
 
 // Default Playwright-based Browser Check
 const defaultBrowserCheck = `import { test, expect } from '@playwright/test'
@@ -18,27 +18,14 @@ test('Custom Browser Check', async ({ page }) => {
 export async function createCustomBrowserCheck (
   { onCancel }: { onCancel: () => void },
 ) {
-  const createInitialBrowserCheckResponse = await prompts({
-    type: 'confirm',
-    name: 'value',
-    message: 'Would you like to create a custom Playwright-based Browser Check to check a URL?',
-    initial: true,
-  },
-  { onCancel },
-  )
+  const { createInitialBrowserCheck } = await askCreateInitialBrowserCheck(onCancel)
 
-  if (createInitialBrowserCheckResponse.value) {
-    const userWebsiteResponse = await prompts({
-      type: 'text',
-      name: 'url',
-      message: 'Please provide the URL of the site you want to check.',
-    },
-    { onCancel },
-    )
+  if (createInitialBrowserCheck) {
+    const { userWebsite } = await askUserWebsite(onCancel)
 
-    if (isValidUrl(userWebsiteResponse.url)) {
+    if (isValidUrl(userWebsite)) {
       fs.writeFileSync(path.join(process.cwd(), './__checks__/custom.spec.ts'),
-        defaultBrowserCheck.replace(/URL_TO_CHECK/i, new URL(userWebsiteResponse.url).toString()))
+        defaultBrowserCheck.replace(/URL_TO_CHECK/i, new URL(userWebsite).toString()))
     } else {
       process.stdout.write('Custom check wasn\'t created: the specified URL isn\'t valid.\n')
     }

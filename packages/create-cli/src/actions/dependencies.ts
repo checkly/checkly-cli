@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import prompts from 'prompts'
 import detectPackageManager from 'which-pm-runs'
 import { execa } from 'execa'
 import { spinner } from '../utils/terminal.js'
 import { hint } from '../utils/messages.js'
 import { PackageJson } from '../utils/package.js'
+import { askInstallDependencies } from '../utils/prompts.js'
 
 export function addDevDependecies (packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {
@@ -22,14 +22,9 @@ export function addDevDependecies (packageJson: PackageJson) {
 }
 
 export async function installDependencies (targetDir: string = process.cwd()): Promise<void> {
-  const installDepsResponse = await prompts({
-    type: 'confirm',
-    name: 'installDeps',
-    message: 'Would you like to install NPM dependencies? (recommended)',
-    initial: true,
-  })
+  const { installDependencies } = await askInstallDependencies()
 
-  if (installDepsResponse.installDeps) {
+  if (installDependencies) {
     const packageManager = detectPackageManager()?.name || 'npm'
     const installExec = execa(packageManager, ['install'], { cwd: targetDir })
     const installSpinner = spinner('installing packages')
