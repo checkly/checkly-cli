@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import * as path from 'path'
 import * as config from 'config'
 import { v4 as uuidv4 } from 'uuid'
@@ -49,7 +48,7 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
 
   const { data } = await api({
     method: 'get',
-    url: `/v1/${type}`,
+    url: `/v1/${type}?limit=100`,
   })
 
   return data
@@ -68,7 +67,7 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully (version v4.0.8)', async () => {
-    const { status, stderr } = runChecklyCli({
+    const { status } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -83,8 +82,6 @@ describe('deploy', () => {
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
 
-    console.info(JSON.stringify([checks, checkGroups, privateLocations]))
-
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
       privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
@@ -95,7 +92,7 @@ describe('deploy', () => {
   }, 30_000)
 
   it('Simple project should deploy successfully (version after v4.0.8)', async () => {
-    const { status, stderr } = runChecklyCli({
+    const { status } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -108,8 +105,6 @@ describe('deploy', () => {
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
-
-    console.info(JSON.stringify([checks, checkGroups, privateLocations]))
 
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
