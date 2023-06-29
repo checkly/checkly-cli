@@ -56,9 +56,9 @@ class Projects {
     return this.api.delete(`/next/projects/${logicalId}`)
   }
 
-  deploy (resources: ProjectSync, { dryRun = false } = {}) {
+  deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true } = {}) {
     return this.api.post<ProjectDeployResponse>(
-      `/next-v2/projects/deploy?dryRun=${dryRun}`,
+      `/next-v2/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
       resources,
     )
   }
