@@ -6,7 +6,6 @@ import chalk from 'chalk'
 import { isValidProjectDirectory, copyTemporaryFiles, usePackageName } from '../utils/directory.js'
 import {
   getUserGreeting,
-  getVersion,
   header,
   bail,
   hint,
@@ -59,7 +58,8 @@ export default class Bootstrap extends Command {
       prompts.override({ template })
     }
 
-    const [version, greeting] = await Promise.all([getVersion(), getUserGreeting()])
+    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+    const greeting = await getUserGreeting()
 
     await header(version, greeting)
 
