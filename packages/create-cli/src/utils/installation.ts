@@ -1,8 +1,6 @@
 import Debug from 'debug'
-import { copyTemporaryFiles, generateProjectName, usePackageName } from './directory.js'
+import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson } from './directory.js'
 import { askInitializeProject, askProjectDirectory, askTemplate } from './prompts.js'
-import { footer, hint } from './messages.js'
-import { readPackageJson } from './package.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 import { copyTemplate } from '../actions/template.js'
 import { createCustomBrowserCheck } from '../actions/creates.js'
@@ -11,16 +9,28 @@ import { initGit } from '../actions/git.js'
 const debug = Debug('checkly:create-cli')
 const templateBaseRepo = 'checkly/checkly-cli/examples'
 
-export async function installWithinProject ({ version, onCancel }: { version: string, onCancel: () => void }) {
+export async function getProjectDirectory ({ onCancel }: { onCancel: () => void }): Promise<string> {
+  debug('Ask for directory name')
+  const { projectDirectory } = await askProjectDirectory(onCancel)
+
+  if (!projectDirectory) {
+    process.stderr.write('You must provide a valid directory name. Please try again.')
+  }
+
+  return projectDirectory
+}
+
+export async function installWithinProject (
+  { projectDirectory, version, onCancel }: { projectDirectory: string, version: string, onCancel: () => void }) {
   debug('Existing package.json detected')
   const { initializeProject } = await askInitializeProject(onCancel)
 
   if (initializeProject) {
-    const packageJson = readPackageJson()
+    const packageJson = readPackageJson(projectDirectory)
     const temporaryDir = generateProjectName()
 
     debug('Add dependencies to existing package.json')
-    addDevDependecies(packageJson)
+    addDevDependecies(projectDirectory, packageJson)
 
     debug('Copy boilerplate project to temporary folder')
     await copyTemplate({
@@ -29,32 +39,18 @@ export async function installWithinProject ({ version, onCancel }: { version: st
       targetDir: temporaryDir,
     })
 
-    copyTemporaryFiles(temporaryDir)
+    copyTemporaryFiles(projectDirectory, temporaryDir)
     usePackageName(packageJson.name)
 
     debug('Create custom Browser check')
-    await createCustomBrowserCheck({ onCancel })
-
-    debug('Install npm dependencies')
-    await installDependencies()
-
-    debug('Init .git & .gitignore')
-    await initGit()
-
-    await footer()
+    await createCustomBrowserCheck({ projectDirectory, onCancel })
+  } else {
+    process.exit(0)
   }
 }
 
-export async function createProject ({ version, onCancel }: { version: string, onCancel: () => void }) {
-  debug('Ask for directory name')
-  const { projectDirectory } = await askProjectDirectory(onCancel)
-
-  if (!projectDirectory) {
-    process.stderr.write('You must provide a valid directory name. Please try again.')
-  }
-
-  await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
-
+export async function createProject (
+  { projectDirectory, version, onCancel }: { projectDirectory: string, version: string, onCancel: () => void }) {
   const templateResponse = await askTemplate(onCancel)
 
   debug('Downloading template')
@@ -63,12 +59,13 @@ export async function createProject ({ version, onCancel }: { version: string, o
     templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
     targetDir: projectDirectory,
   })
+}
 
+export async function installDependenciesAndInitGit (
+  { projectDirectory }: { projectDirectory: string }) {
   debug('Install npm dependencies')
   await installDependencies(projectDirectory)
 
   debug('Init .git & .gitignore')
   await initGit(projectDirectory)
-
-  await footer(projectDirectory)
 }

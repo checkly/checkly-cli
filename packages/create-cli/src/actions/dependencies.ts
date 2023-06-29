@@ -4,10 +4,10 @@ import detectPackageManager from 'which-pm-runs'
 import { execa } from 'execa'
 import { spinner } from '../utils/terminal.js'
 import { hint } from '../utils/messages.js'
-import { PackageJson } from '../utils/package.js'
+import { PackageJson } from '../utils/directory.js'
 import { askInstallDependencies } from '../utils/prompts.js'
 
-export function addDevDependecies (packageJson: PackageJson) {
+export function addDevDependecies (projectDirectory: string, packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {
     packageJson.devDependencies = {}
   }
@@ -18,10 +18,10 @@ export function addDevDependecies (packageJson: PackageJson) {
     typescript: 'latest',
   })
 
-  fs.writeFileSync(path.join(process.cwd(), 'package.json'), JSON.stringify(packageJson, null, 2))
+  fs.writeFileSync(path.join(projectDirectory, 'package.json'), JSON.stringify(packageJson, null, 2))
 }
 
-export async function installDependencies (targetDir: string = process.cwd()): Promise<void> {
+export async function installDependencies (targetDir: string): Promise<void> {
   const { installDependencies } = await askInstallDependencies()
 
   if (installDependencies) {

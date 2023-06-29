@@ -16,7 +16,7 @@ test('Custom Browser Check', async ({ page }) => {
 })`
 
 export async function createCustomBrowserCheck (
-  { onCancel }: { onCancel: () => void },
+  { projectDirectory, onCancel }: { projectDirectory: string, onCancel: () => void },
 ) {
   const { createInitialBrowserCheck } = await askCreateInitialBrowserCheck(onCancel)
 
@@ -24,7 +24,7 @@ export async function createCustomBrowserCheck (
     const { userWebsite } = await askUserWebsite(onCancel)
 
     if (isValidUrl(userWebsite)) {
-      fs.writeFileSync(path.join(process.cwd(), './__checks__/custom.spec.ts'),
+      fs.writeFileSync(path.join(projectDirectory, './__checks__/custom.spec.ts'),
         defaultBrowserCheck.replace(/URL_TO_CHECK/i, new URL(userWebsite).toString()))
     } else {
       process.stdout.write('Custom check wasn\'t created: the specified URL isn\'t valid.\n')

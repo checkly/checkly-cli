@@ -5,9 +5,16 @@ import {
   getVersion,
   header,
   bail,
+  footer,
+  hint,
 } from '../utils/messages.js'
-import { hasPackageJsonFile } from '../utils/package.js'
-import { createProject, installWithinProject } from '../utils/installation.js'
+import { hasPackageJsonFile } from '../utils/directory.js'
+import {
+  createProject,
+  getProjectDirectory,
+  installDependenciesAndInitGit,
+  installWithinProject,
+} from '../utils/installation.js'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -43,12 +50,21 @@ export default class Bootstrap extends Command {
 
     await header(version, greeting)
 
-    // Init Checkly CLI for an existing project
-    if (hasPackageJsonFile()) {
-      await installWithinProject({ version, onCancel })
-      return
+    const projectDirectory = await getProjectDirectory({ onCancel })
+
+    await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
+
+    if (hasPackageJsonFile(projectDirectory)) {
+      // Init Checkly CLI for an existing project
+      await installWithinProject({ projectDirectory, version, onCancel })
+    } else {
+      // Create a project from the scratch using a template
+      await createProject({ projectDirectory, version, onCancel })
     }
 
-    createProject({ version, onCancel })
+    // ask and install dependencies and initialize git
+    await installDependenciesAndInitGit({ projectDirectory })
+
+    await footer(projectDirectory)
   }
 }
