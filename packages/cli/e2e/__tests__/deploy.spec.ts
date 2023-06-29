@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import * as path from 'path'
 import * as config from 'config'
 import { v4 as uuidv4 } from 'uuid'
@@ -67,7 +68,7 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully (version v4.0.8)', async () => {
-    const { status } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -75,6 +76,8 @@ describe('deploy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       cliVersion: '4.0.8',
     })
+
+    console.error(stderr)
     expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
@@ -91,7 +94,7 @@ describe('deploy', () => {
   }, 30_000)
 
   it('Simple project should deploy successfully (version after v4.0.8)', async () => {
-    const { status } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -99,6 +102,7 @@ describe('deploy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       cliVersion: '4.0.9',
     })
+    console.error(stderr)
     expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
