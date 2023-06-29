@@ -40,6 +40,10 @@ export default class Deploy extends AuthCommand {
       description: 'Shows the changes made after the deploy command.',
       default: false,
     }),
+    'schedule-on-deploy': Flags.boolean({
+      description: 'Disables automatic check scheduling after a deploy.',
+      default: true,
+    }),
     force: Flags.boolean({
       char: 'f',
       description: commonMessages.forceMode,
@@ -54,7 +58,7 @@ export default class Deploy extends AuthCommand {
   async run (): Promise<void> {
     ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
-    const { force, preview, output, config: configFilename } = flags
+    const { force, preview, 'schedule-on-deploy': scheduleOnDeploy, output, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -104,7 +108,7 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview })
+      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
       if (preview || output) {
         this.log(this.formatPreview(data, project))
       }
