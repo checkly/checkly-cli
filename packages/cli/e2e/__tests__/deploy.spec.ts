@@ -38,6 +38,7 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
   const baseURL: string = config.get('baseURL')
   const accountId: string = config.get('accountId')
   const apiKey: string = config.get('apiKey')
+  const entries: any[] = []
   const api = axios.create({
     baseURL,
     headers: {
@@ -45,22 +46,39 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
       Authorization: `Bearer ${apiKey}`,
     },
   })
+  // PL endpoint doesn't have pagination
+  if (type === 'private-locations') {
+    const { data } = await api({
+      method: 'get',
+      url: `/v1/${type}`,
+    })
+    return data
+  }
+  let pageNumber = 1
+  while (true) {
+    const { data } = await api({
+      method: 'get',
+      url: `/v1/${type}?&page=${pageNumber}&limit=100`,
+    })
+    if (data.length === 0) {
+      break
+    }
+    entries.push(...data)
+    pageNumber++
+  }
 
-  const { data } = await api({
-    method: 'get',
-    url: `/v1/${type}?limit=100`,
-  })
-
-  return data
+  return entries
 }
 
 describe('deploy', () => {
   // Create a unique ID suffix to support parallel test executions
   let projectLogicalId: string
+  let privateLocationSlugname: string
   // Cleanup projects that may have not been deleted in previous runs
   beforeAll(() => cleanupProjects())
   beforeEach(() => {
     projectLogicalId = `e2e-test-deploy-project-${uuidv4()}`
+    privateLocationSlugname = `private-location-cli-${uuidv4().split('-')[0]}`
   })
   // Clean up by deleting the project
   afterEach(() => cleanupProjects(projectLogicalId))
@@ -72,7 +90,7 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
       cliVersion: '4.0.8',
     })
 
@@ -84,12 +102,12 @@ describe('deploy', () => {
 
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
-      .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
-  }, 30_000)
+      .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
+  }, 15000)
 
   it('Simple project should deploy successfully (version after v4.0.8)', async () => {
     const { status } = runChecklyCli({
@@ -97,7 +115,7 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
       cliVersion: '4.0.9',
     })
     expect(status).toBe(0)
@@ -108,12 +126,12 @@ describe('deploy', () => {
 
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith('private-location-cli-'))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
-      .filter(({ slugName }: { slugName: string }) => slugName.startsWith('private-location-cli-')).length).toEqual(1)
-  }, 30_000)
+      .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
+  }, 15000)
 
   it('Simple esm project should deploy successfully', () => {
     const { status } = runChecklyCli({
@@ -121,7 +139,7 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     expect(status).toBe(0)
   })
@@ -132,7 +150,11 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId, TEST_ONLY: 'true' },
+      env: {
+        PROJECT_LOGICAL_ID: projectLogicalId,
+        PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+        TEST_ONLY: 'true',
+      },
     })
     expect(stdout).toContain(
 `Create:
@@ -152,7 +174,7 @@ Skip (testOnly):
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
-      env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     // Deploy a check (testOnly=true)
     const { status, stdout } = runChecklyCli({
@@ -160,7 +182,7 @@ Skip (testOnly):
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
-      env: { TEST_ONLY: 'true', PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { TEST_ONLY: 'true', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     // Moving the check to testOnly causes it to be deleted.
     // The check should only be listed under "Delete" and not "Skip".
@@ -180,14 +202,14 @@ Update and Unchanged:
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     const resultTwo = runChecklyCli({
       args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
@@ -200,7 +222,7 @@ Update and Unchanged:
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'empty-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
     expect(result.status).toBe(1)
