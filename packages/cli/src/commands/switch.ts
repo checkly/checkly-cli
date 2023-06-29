@@ -4,6 +4,7 @@ import * as prompts from 'prompts'
 import config from '../services/config'
 import * as api from '../rest/api'
 import { AuthCommand } from './authCommand'
+import { selectAccount } from './login'
 
 export default class Switch extends AuthCommand {
   static hidden = false
@@ -42,14 +43,9 @@ export default class Switch extends AuthCommand {
         this.exit(0)
       }
 
-      const { selectedAccountName } = await prompts({
-        name: 'selectedAccountName',
-        type: 'select',
-        choices: accounts.map(({ name }) => ({ title: name, value: name })),
-        message: 'Select a new Checkly account',
-      })
+      const selectedAccount = await selectAccount(accounts)
 
-      const { id, name } = accounts.find(({ name }) => name === selectedAccountName)!
+      const { id, name } = selectedAccount
 
       config.data.set('accountId', id)
       config.data.set('accountName', name)
