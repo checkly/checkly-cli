@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson } from './directory.js'
+import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile } from './directory.js'
 import { askInitializeProject, askProjectDirectory, askTemplate } from './prompts.js'
 import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
 import { copyTemplate } from '../actions/template.js'
@@ -10,8 +10,13 @@ const debug = Debug('checkly:create-cli')
 const templateBaseRepo = 'checkly/checkly-cli/examples'
 
 export async function getProjectDirectory ({ onCancel }: { onCancel: () => void }): Promise<string> {
-  debug('Ask for directory name')
-  const { projectDirectory } = await askProjectDirectory(onCancel)
+  debug('Ask or detect directory name')
+  const cwd = process.cwd()
+
+  // if directory has a package.json, do not ask project directory and use CWD
+  const { projectDirectory } = hasPackageJsonFile(cwd)
+    ? { projectDirectory: cwd }
+    : await askProjectDirectory(onCancel)
 
   if (!projectDirectory) {
     process.stderr.write('You must provide a valid directory name. Please try again.')

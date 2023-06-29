@@ -15,6 +15,7 @@ import {
   installDependenciesAndInitGit,
   installWithinProject,
 } from '../utils/installation.js'
+import path from 'path'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -52,13 +53,12 @@ export default class Bootstrap extends Command {
 
     const projectDirectory = await getProjectDirectory({ onCancel })
 
-    await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
-
     if (hasPackageJsonFile(projectDirectory)) {
       // Init Checkly CLI for an existing project
       await installWithinProject({ projectDirectory, version, onCancel })
     } else {
       // Create a project from the scratch using a template
+      await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
       await createProject({ projectDirectory, version, onCancel })
     }
 
