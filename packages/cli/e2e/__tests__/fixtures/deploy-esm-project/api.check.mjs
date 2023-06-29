@@ -10,8 +10,8 @@ const api = new Checkly.constructs.ApiCheck('api-check', {
     skipSSL: false,
     assertions: [],
   },
-  localSetupScript: "console.log('hi from setup')",
-  localTearDownScript: "console.log('hi from teardown')",
+  setupScript: { content: "console.log('hi from setup')" },
+  tearDownScript: { content: "console.log('hi from teardown')" },
   degradedResponseTime: 20000,
   maxResponseTime: 30000,
 })
