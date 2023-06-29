@@ -211,7 +211,7 @@ Update and Unchanged:
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
