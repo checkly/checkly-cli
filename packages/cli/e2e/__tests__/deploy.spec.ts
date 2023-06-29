@@ -77,12 +77,13 @@ describe('deploy', () => {
       cliVersion: '4.0.8',
     })
 
-    console.error(stderr)
     expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
+
+    console.info(JSON.stringify([checks, checkGroups, privateLocations]))
 
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
@@ -102,12 +103,13 @@ describe('deploy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       cliVersion: '4.0.9',
     })
-    console.error(stderr)
     expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
+
+    console.info(JSON.stringify([checks, checkGroups, privateLocations]))
 
     // check that all assignments were applied
     expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
