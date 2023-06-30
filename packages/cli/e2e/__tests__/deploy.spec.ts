@@ -85,7 +85,7 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully (version v4.0.8)', async () => {
-    const { status } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -93,8 +93,8 @@ describe('deploy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
       cliVersion: '4.0.8',
     })
-
     expect(status).toBe(0)
+    expect(stderr).toBe('')
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
@@ -110,7 +110,7 @@ describe('deploy', () => {
   }, 15000)
 
   it('Simple project should deploy successfully (version after v4.0.8)', async () => {
-    const { status } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -119,6 +119,7 @@ describe('deploy', () => {
       cliVersion: '4.0.9',
     })
     expect(status).toBe(0)
+    expect(stderr).toBe('')
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
@@ -134,13 +135,14 @@ describe('deploy', () => {
   }, 15000)
 
   it('Simple esm project should deploy successfully', () => {
-    const { status } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
+    expect(stderr).toBe('')
     expect(status).toBe(0)
   })
 
