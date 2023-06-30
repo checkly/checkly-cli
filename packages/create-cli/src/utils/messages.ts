@@ -50,7 +50,7 @@ export async function footer (targetDir?: string): Promise<void> {
   if (targetDir) {
     await sleep(200)
     console.log(
-      `${prefix}> Enter your project directory using ${chalk.cyan(`cd ./${targetDir}`)}`,
+      `${prefix}> Enter your project directory using ${chalk.cyan(`cd ${targetDir}`)}`,
     )
   }
   await sleep(200)
