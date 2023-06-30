@@ -1,6 +1,6 @@
 import { runChecklyCliForSwitch } from '../run-checkly'
 import * as config from 'config'
-jest.setTimeout(1000000)
+
 describe('switch', () => {
   it('should switch between user accounts', async () => {
     const { status, stdout } = await runChecklyCliForSwitch({
