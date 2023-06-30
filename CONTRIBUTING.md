@@ -19,7 +19,7 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-Use the `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+Use `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
 
 You can configure the stage (`production`, `staging`, `development` or `local`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=local` if you want to point the API URL to your local backend `http://localhost:3000`.
 
