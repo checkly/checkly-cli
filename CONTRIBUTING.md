@@ -19,6 +19,8 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
+Use the `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+
 You can configure the stage (`production`, `staging`, `development` or `local`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=local` if you want to point the API URL to your local backend `http://localhost:3000`.
 
 Also, you can use the `watch` mode to compile during your coding. You can use the following command to start your local environment:
@@ -66,23 +68,15 @@ npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
 
 ## Releasing
 
-### Releasing `checkly` (CLI)
+### Releasing `checkly` packages
 
-To release the project to NPM:
+Both packages [checkly](https://www.npmjs.com/package/checkly) and [create-cli](https://www.npmjs.com/package/create-checkly) are built and published by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
 
-1. Update the `version` field in the [CLI package.json](./packages/cli/package.json)
-2. Create a new release in GitHub [here](https://github.com/checkly/checkly-cli/releases/new)
+To release packages to NPM:
 
-The new version will then automatically be released by the corresponding GitHub action [here](https://github.com/checkly/checkly-cli/actions/workflows/release.yml).
-
-### Releasing `create-checkly`
-To release the [create-checkly](https://www.npmjs.com/package/create-checkly) package:
-
-1. Update the `version` field in the [create-cli package.json](./packages/create-cli/package.json)
-2. Trigger the [GitHub action](https://github.com/checkly/checkly-cli/actions/workflows/release-create-package.yml)
-    * Only release from `main`
-
-The new version will then be built and published to NPM.
+1. Publish a Github Release with a valid tag `v#.#.#` and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml) 
+2. When release is published the Github action is triggered. It builds and publishes `v#.#.#-prerelease` prereleases (for both packages).
+3. A `production` deployment will be waiting for approval. After it's approved, the `v#.#.#` version will be published and set as `latest`
 
 ## Style Guide
 
