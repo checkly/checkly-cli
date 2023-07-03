@@ -2,7 +2,6 @@ import { Command, Flags } from '@oclif/core'
 import prompts from 'prompts'
 import {
   getUserGreeting,
-  getVersion,
   header,
   bail,
   footer,
@@ -47,7 +46,8 @@ export default class Bootstrap extends Command {
       prompts.override({ template })
     }
 
-    const [version, greeting] = await Promise.all([getVersion(), getUserGreeting()])
+    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+    const greeting = await getUserGreeting()
 
     await header(version, greeting)
 

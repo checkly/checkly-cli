@@ -8,11 +8,6 @@ function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export async function getVersion (): Promise<string> {
-  const { data } = await axios.get('https://registry.npmjs.org/checkly/latest')
-  return data.version
-}
-
 export async function getUserGreeting (): Promise<string> {
   const name = await fullName()
   return name ? `Hi ${name}!` : 'Hi there!'

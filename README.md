@@ -40,4 +40,6 @@ Official docs are over at [checklyhq.com/docs/cli](https://checklyhq.com/docs/cl
 
 # Local Development
 
+Use `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+
 To get started with local development check [CONTRIBUTING.MD](https://github.com/checkly/checkly-cli/blob/main/CONTRIBUTING.md)
