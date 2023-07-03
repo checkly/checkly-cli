@@ -1,9 +1,10 @@
 name: Publish Package to npmjs
 on:
   release:
-    types: [created]
+    types: [published]
 jobs:
-  build:
+  # Build package and publish a prerelease
+  prerelease:
     permissions:
       id-token: write
     runs-on: ubuntu-latest
@@ -14,12 +15,23 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
+        env:
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
-      - run: npm publish --provenance --workspace packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Set version and publish prerelease for 'cli' package
+        run: |
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease --workspace packages/cli
+          npm publish --provenance --workspace packages/cli --tag prerelease
+      - name: Set version and publish prerelease for 'create-cli' package
+        run: |
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease --workspace packages/create-cli
+          npm publish --provenance --workspace packages/create-cli --tag prerelease
+      - name: Output prerelease packages versions
+        run: |
+          npm pkg get version --workspace packages/cli
+          npm pkg get version --workspace packages/create-cli
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -30,7 +42,7 @@ jobs:
           SLACK_CHANNEL: cli
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: ':red_circle: NPM release failed'
+          SLACK_TITLE: ':red_circle: NPM prerelease failed'
           SLACK_MESSAGE: by ${{ github.actor }}
           SLACK_FOOTER: ''
       # Slack success alert
@@ -43,6 +55,62 @@ jobs:
           SLACK_CHANNEL: cli
           SLACK_ICON: https://github.com/checkly.png?size=48
           SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: ':white_check_mark: NPM release succeeded'
+          SLACK_TITLE: ':white_check_mark: NPM prerelease succeeded'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''
+  # Publish package to NPM
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: prerelease
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: main
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              # Ensure that the README is published with the package
+      - run: rm -f packages/cli/README.md && cp README.md packages/cli
+      - run: npm ci
+      - name: Set version and publish 'cli' package
+        run: |
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/cli
+          npm publish --provenance --workspace packages/cli
+      - name: Set version and publish 'create-cli' package
+        run: |
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/create-cli
+          npm publish --provenance --workspace packages/create-cli
+      - name: Output final packages versions
+        run: |
+          npm pkg get version --workspace packages/cli
+          npm pkg get version --workspace packages/create-cli
+      # Slack failure alert
+      - name: Slack Failure Notification
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: cli
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':red_circle: NPM publish failed'
+          SLACK_MESSAGE: by ${{ github.actor }}
+          SLACK_FOOTER: ''
+      # Slack success alert
+      - name: Slack Success Notification
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: Checkly Github Bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: cli
+          SLACK_ICON: https://github.com/checkly.png?size=48
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ':white_check_mark: NPM publish succeeded'
           SLACK_MESSAGE: by ${{ github.actor }}
           SLACK_FOOTER: ''
