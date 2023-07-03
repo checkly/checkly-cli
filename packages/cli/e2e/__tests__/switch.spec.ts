@@ -8,7 +8,7 @@ describe('switch', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(stdout).toContain('Select a new Checkly account')
+    expect(stdout).toContain('Which account do you want to use?')
     expect(stdout).toContain('Account switched to')
     expect(status).toBe(0)
   })
