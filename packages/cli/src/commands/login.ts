@@ -7,6 +7,21 @@ import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
 import { AuthContext } from '../auth'
 
+export const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
+  if (accounts.length === 1) {
+    return accounts[0]
+  }
+
+  const { selectedAccount } = await prompts({
+    name: 'selectedAccount',
+    type: 'select',
+    choices: accounts.map(account => ({ title: account.name, value: account })),
+    message: 'Which account do you want to use?',
+  })
+
+  return selectedAccount
+}
+
 export default class Login extends BaseCommand {
   static hidden = false
   static description = 'Login to your Checkly account or create a new one.'
@@ -33,22 +48,6 @@ export default class Login extends BaseCommand {
   private _isLoginSuccess = async () => {
     await api.validateAuthentication()
     this.log('Welcome to the Checkly CLI')
-  }
-
-  private selectAccount = async (accounts: Array<Account>): Promise<Account|undefined> => {
-    if (accounts.length === 1) {
-      return accounts[0]
-    }
-
-    const { accountName } = await prompts({
-      name: 'accountName',
-      type: 'select',
-      choices: accounts.map(({ name }) => ({ title: name, value: name })),
-      message: 'Which account do you want to use?',
-    })
-
-    const selectedAccount = accounts.find(({ name }) => name === accountName)
-    return selectedAccount
   }
 
   async run (): Promise<void> {
@@ -79,9 +78,9 @@ export default class Login extends BaseCommand {
 
     config.auth.set('apiKey', key)
 
-    const { data } = await api.accounts.getAll()
+    const { data: accounts } = await api.accounts.getAll()
 
-    const selectedAccount = await this.selectAccount(data)
+    const selectedAccount = await selectAccount(accounts)
 
     if (!selectedAccount) {
       this.warn('You must select a valid Checkly account name.')

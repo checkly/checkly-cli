@@ -72,7 +72,7 @@ export function runChecklyCliForSwitch (options: {
 
     command.stdout.on('data', (data) => {
       stdout += data.toString()
-      if (data.toString().includes('Select a new Checkly account')) {
+      if (data.toString().includes('Which account do you want to use?')) {
         command.stdin.write('\n')
         command.stdin.end()
       }
