@@ -1,25 +1,20 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import prompts from 'prompts'
 import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
 import { execaCommand } from 'execa'
+import { askInitializeGit } from '../utils/prompts.js'
 
-export async function initGit (targetDir: string = process.cwd()): Promise<void> {
-  if (hasGitDir()) {
+export async function initGit (targetDir: string): Promise<void> {
+  if (hasGitDir(targetDir)) {
     return
   }
 
-  const initGitResponse = await prompts({
-    type: 'confirm',
-    name: 'initGit',
-    message: 'Would you like to initialize a new git repo? (optional)',
-    initial: true,
-  })
+  const { initializeGit } = await askInitializeGit()
 
-  if (initGitResponse.initGit) {
+  if (initializeGit) {
     await execaCommand('git init', { cwd: targetDir })
 
-    if (!hasGitIgnore()) {
+    if (!hasGitIgnore(targetDir)) {
       const gitIgnore = 'node_modules\n.DS_Store'
       fs.writeFileSync(path.join(targetDir, '.gitignore'), gitIgnore)
     }
