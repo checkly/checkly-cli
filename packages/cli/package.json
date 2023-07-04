@@ -98,7 +98,7 @@
     "@types/glob": "8.0.0",
     "@types/jest": "29.2.4",
     "@types/luxon": "3.2.0",
-    "@types/node": "18.11.18",
+    "@types/node": "20.3.3",
     "@types/prompts": "2.4.4",
     "@types/uuid": "9.0.1",
     "@types/ws": "8.5.3",
