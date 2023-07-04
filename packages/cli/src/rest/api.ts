@@ -1,4 +1,7 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, CreateAxiosDefaults } from 'axios'
+// @ts-ignore
+import { getProxyForUrl } from 'proxy-from-env'
+import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent'
 import config from '../services/config'
 import Accounts from './accounts'
 import Users from './users'
@@ -44,9 +47,30 @@ export async function validateAuthentication (): Promise<void> {
   }
 }
 
+const isHttps = (protocol: string) => protocol.startsWith('https')
+
+function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
+  const proxy = getProxyForUrl(baseURL)
+  if (!proxy) {
+    return axiosConfig
+  }
+
+  const isEndpointHttps = isHttps(baseURL)
+
+  if (isEndpointHttps) {
+    axiosConfig.httpsAgent = new HttpsProxyAgent({ proxy })
+  } else {
+    axiosConfig.httpAgent = new HttpProxyAgent({ proxy })
+  }
+
+  return axiosConfig
+}
+
 function init (): AxiosInstance {
   const { baseURL } = getDefaults()
-  const api = axios.create({ baseURL })
+  const axiosConf = assignProxy(baseURL, { baseURL })
+
+  const api = axios.create(axiosConf)
 
   api.interceptors.request.use(function (config) {
     const { Authorization, accountId } = getDefaults()
