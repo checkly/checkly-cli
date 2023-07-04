@@ -68,7 +68,7 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "2.0.7",
+    "@oclif/core": "2.8.11",
     "@oclif/plugin-help": "5.1.20",
     "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
