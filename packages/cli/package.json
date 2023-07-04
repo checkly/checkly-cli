@@ -84,6 +84,7 @@
     "dotenv": "16.0.3",
     "git-repo-info": "2.1.1",
     "glob": "8.0.3",
+    "hpagent": "1.2.0",
     "indent-string": "4.0.0",
     "jwt-decode": "3.1.2",
     "log-symbols": "4.1.0",
@@ -91,6 +92,7 @@
     "open": "8.4.0",
     "p-queue": "6.6.2",
     "prompts": "2.4.2",
+    "proxy-from-env": "1.1.0",
     "uuid": "9.0.0"
   },
   "devDependencies": {
