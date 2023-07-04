@@ -51,7 +51,6 @@ const isHttps = (protocol: string) => protocol.startsWith('https')
 
 function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
   const proxy = getProxyForUrl(baseURL)
-
   if (!proxy) {
     return axiosConfig
   }
