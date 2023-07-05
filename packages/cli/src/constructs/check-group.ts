@@ -1,5 +1,5 @@
 import * as path from 'path'
-import * as glob from 'glob'
+import { glob } from 'glob'
 import { Ref } from './ref'
 import { Session } from './project'
 import { Construct } from './construct'
