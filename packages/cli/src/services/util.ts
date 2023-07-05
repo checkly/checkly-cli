@@ -1,9 +1,13 @@
+import type { CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import { Service } from 'ts-node'
 import * as gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
+// @ts-ignore
+import { getProxyForUrl } from 'proxy-from-env'
+import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -172,4 +176,23 @@ export async function getEnvs (envFile: string|undefined, envArgs: Array<string>
   }
   const envsString = `${envArgs.join('\n')}`
   return parse(envsString)
+}
+
+const isHttps = (protocol: string) => protocol.startsWith('https')
+
+export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
+  const proxy = getProxyForUrl(baseURL)
+  if (!proxy) {
+    return axiosConfig
+  }
+
+  const isEndpointHttps = isHttps(baseURL)
+
+  if (isEndpointHttps) {
+    axiosConfig.httpsAgent = new HttpsProxyAgent({ proxy })
+  } else {
+    axiosConfig.httpAgent = new HttpProxyAgent({ proxy })
+  }
+
+  return axiosConfig
 }
