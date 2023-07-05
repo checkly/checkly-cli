@@ -1,8 +1,6 @@
-import axios, { AxiosInstance, CreateAxiosDefaults } from 'axios'
-// @ts-ignore
-import { getProxyForUrl } from 'proxy-from-env'
-import { HttpProxyAgent, HttpsProxyAgent } from 'hpagent'
+import axios, { AxiosInstance } from 'axios'
 import config from '../services/config'
+import { assignProxy } from '../services/util'
 import Accounts from './accounts'
 import Users from './users'
 import Projects from './projects'
@@ -45,25 +43,6 @@ export async function validateAuthentication (): Promise<void> {
       throw new Error(`Encountered an unexpected error connecting to Checkly: ${err.message}`)
     }
   }
-}
-
-const isHttps = (protocol: string) => protocol.startsWith('https')
-
-function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
-  const proxy = getProxyForUrl(baseURL)
-  if (!proxy) {
-    return axiosConfig
-  }
-
-  const isEndpointHttps = isHttps(baseURL)
-
-  if (isEndpointHttps) {
-    axiosConfig.httpsAgent = new HttpsProxyAgent({ proxy })
-  } else {
-    axiosConfig.httpAgent = new HttpProxyAgent({ proxy })
-  }
-
-  return axiosConfig
 }
 
 function init (): AxiosInstance {
