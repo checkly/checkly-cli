@@ -6,6 +6,10 @@ export interface PhoneCallAlertChannelProps extends AlertChannelProps {
    * The phone number where to send the alert notifications.
    */
   phoneNumber: string
+  /**
+   * The name of the alert channel.
+   */
+  name?: string;
 }
 
 /**
@@ -17,6 +21,7 @@ export interface PhoneCallAlertChannelProps extends AlertChannelProps {
  */
 export class PhoneCallAlertChannel extends AlertChannel {
   phoneNumber: string
+  name?: string
   /**
    * Constructs the Phone Call Alert Channel instance
    *
@@ -30,6 +35,7 @@ export class PhoneCallAlertChannel extends AlertChannel {
   constructor (logicalId: string, props: PhoneCallAlertChannelProps) {
     super(logicalId, props)
     this.phoneNumber = props.phoneNumber
+    this.name = props.name
     Session.registerConstruct(this)
   }
 
@@ -39,6 +45,7 @@ export class PhoneCallAlertChannel extends AlertChannel {
       type: 'CALL',
       config: {
         number: this.phoneNumber,
+        name: this.name,
       },
     }
   }
