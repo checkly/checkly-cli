@@ -83,7 +83,7 @@
     "conf": "10.2.0",
     "dotenv": "16.0.3",
     "git-repo-info": "2.1.1",
-    "glob": "8.0.3",
+    "glob": "10.3.1",
     "hpagent": "1.2.0",
     "indent-string": "4.0.0",
     "jwt-decode": "3.1.2",

@@ -1,6 +1,5 @@
-import * as glob from 'glob'
+import { glob } from 'glob'
 import * as path from 'path'
-import { promisify } from 'util'
 import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
@@ -11,8 +10,6 @@ import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
-
-const globPromise = promisify(glob)
 
 type ProjectParseOpts = {
   directory: string,
@@ -193,7 +190,7 @@ async function findFilesWithPattern (
   ignorePattern: string[],
 ): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
-  const files = await globPromise(pattern, {
+  const files = await glob(pattern, {
     nodir: true,
     cwd: directory,
     ignore: ignorePattern,
