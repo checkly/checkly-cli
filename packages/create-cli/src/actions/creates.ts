@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { isValidUrl } from '../utils/directory.js'
-import { askCreateInitialBrowserCheck, askUserWebsite } from '../utils/prompts.js'
+import { isValidUrl } from '../utils/directory'
+import { askCreateInitialBrowserCheck, askUserWebsite } from '../utils/prompts'
 
 // Default Playwright-based Browser Check
 const defaultBrowserCheck = `import { test, expect } from '@playwright/test'

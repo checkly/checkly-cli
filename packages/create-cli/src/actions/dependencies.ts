@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import detectPackageManager from 'which-pm-runs'
-import { execa } from 'execa'
-import { spinner } from '../utils/terminal.js'
-import { hint } from '../utils/messages.js'
-import { PackageJson } from '../utils/directory.js'
-import { askInstallDependencies } from '../utils/prompts.js'
+import execa from 'execa'
+import { spinner } from '../utils/terminal'
+import { hint } from '../utils/messages'
+import { PackageJson } from '../utils/directory'
+import { askInstallDependencies } from '../utils/prompts'
 
 export function addDevDependecies (projectDirectory: string, packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {

@@ -7,14 +7,13 @@ import {
   footer,
   hint,
 } from '../utils/messages.js'
-import { hasPackageJsonFile } from '../utils/directory.js'
+import { hasPackageJsonFile } from '../utils/directory'
 import {
   createProject,
   getProjectDirectory,
   installDependenciesAndInitGit,
   installWithinProject,
-} from '../utils/installation.js'
-import path from 'path'
+} from '../utils/installation'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at

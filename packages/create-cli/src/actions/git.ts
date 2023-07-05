@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
-import { execaCommand } from 'execa'
-import { askInitializeGit } from '../utils/prompts.js'
+import { hasGitDir, hasGitIgnore } from '../utils/directory'
+import execa from 'execa'
+import { askInitializeGit } from '../utils/prompts'
 
 export async function initGit (targetDir: string): Promise<void> {
   if (hasGitDir(targetDir)) {
@@ -12,7 +12,7 @@ export async function initGit (targetDir: string): Promise<void> {
   const { initializeGit } = await askInitializeGit()
 
   if (initializeGit) {
-    await execaCommand('git init', { cwd: targetDir })
+    await execa.command('git init', { cwd: targetDir })
 
     if (!hasGitIgnore(targetDir)) {
       const gitIgnore = 'node_modules\n.DS_Store'

@@ -1,7 +1,7 @@
 import * as path from 'path'
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import prompts from 'prompts'
-import { generateProjectName, isValidProjectDirectory } from '../utils/directory.js'
+import { generateProjectName, isValidProjectDirectory } from '../utils/directory'
 
 export function askInitializeProject (onCancel: any): Promise<{ initializeProject: boolean }> {
   return prompts({

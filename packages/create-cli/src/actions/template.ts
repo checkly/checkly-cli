@@ -1,6 +1,6 @@
 import chalk from 'chalk'
 import { downloadTemplate } from 'giget'
-import { spinner } from '../utils/terminal.js'
+import { spinner } from '../utils/terminal'
 
 export interface CopyTemplateProps {
   template: string;
