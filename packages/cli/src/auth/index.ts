@@ -4,6 +4,7 @@ import * as http from 'http'
 import * as crypto from 'crypto'
 import jwtDecode from 'jwt-decode'
 import { getDefaults as getApiDefaults } from '../rest/api'
+import { assignProxy } from '../services/util'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -240,12 +241,15 @@ export class AuthContext {
 
   get #axiosInstance () {
     // Keep axios instance stateless
-    return axios.create({
-      baseURL: getApiDefaults().baseURL,
+    const { baseURL } = getApiDefaults()
+    const axiosConf = assignProxy(baseURL, {
+      baseURL,
       headers: {
         Accept: 'application/json, text/plain, */*',
         Authorization: `Bearer ${this.#accessToken}`,
       },
     })
+
+    return axios.create(axiosConf)
   }
 }
