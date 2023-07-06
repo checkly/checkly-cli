@@ -41,8 +41,9 @@ export default class Deploy extends AuthCommand {
       default: false,
     }),
     'schedule-on-deploy': Flags.boolean({
-      description: 'Disables automatic check scheduling after a deploy.',
+      description: 'Enables automatic check scheduling after a deploy.',
       default: true,
+      allowNo: true,
     }),
     force: Flags.boolean({
       char: 'f',
