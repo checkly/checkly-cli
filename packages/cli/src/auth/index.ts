@@ -192,7 +192,7 @@ export class AuthContext {
       redirect_uri: AUTH0_CALLBACK_URL,
     })
 
-    const tokenResponse = await axios.post(
+    const tokenResponse = await this.#axiosInstance.post(
       'https://auth.checklyhq.com/oauth/token',
       tokenParams,
       {
