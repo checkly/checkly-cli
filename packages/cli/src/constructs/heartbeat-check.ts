@@ -10,6 +10,7 @@ export interface Heartbeat {
   periodUnit: TimeUnits
   grace: number
   graceUnit: TimeUnits
+  alertAfter?: Date | null
 }
 
 export interface HeartbeatCheckProps extends CheckProps {
@@ -47,7 +48,6 @@ export class HeartbeatCheck extends Check {
     super(logicalId, props)
 
     _customPeriodGraceValidation(props.period, props.periodUnit, props.grace, props.graceUnit)
-
     this.heartbeat = {
       expression: props.expression,
       period: props.period,
@@ -55,6 +55,11 @@ export class HeartbeatCheck extends Check {
       grace: props.grace,
       graceUnit: props.graceUnit,
     }
+
+    if (props.activated === false) {
+      this.heartbeat.alertAfter = null
+    }
+
     Session.registerConstruct(this)
   }
 
