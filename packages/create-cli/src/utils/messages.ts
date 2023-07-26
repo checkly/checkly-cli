@@ -1,14 +1,13 @@
 /* eslint no-console: 'off' */
-
-import chalk from 'chalk'
-import fullName from 'fullname'
+import * as chalk from 'chalk'
+import * as os from 'os'
 
 function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export async function getUserGreeting (): Promise<string> {
-  const name = await fullName()
+export function getUserGreeting (): string {
+  const name = os.userInfo().username
   return name ? `Hi ${name}!` : 'Hi there!'
 }
 

@@ -4,7 +4,6 @@
     "declaration": true,
     "importHelpers": true,
     "module": "commonjs",
-    "esModuleInterop": true,
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
     "strict": true,

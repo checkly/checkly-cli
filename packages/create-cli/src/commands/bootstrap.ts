@@ -1,5 +1,5 @@
 import { Command, Flags } from '@oclif/core'
-import prompts from 'prompts'
+import * as prompts from 'prompts'
 import {
   getUserGreeting,
   header,
