@@ -6,6 +6,10 @@ export interface SmsAlertChannelProps extends AlertChannelProps {
    * The phone number where to send the alert notifications.
    */
   phoneNumber: string
+  /**
+   * The name of the alert channel.
+   */
+  name?: string;
 }
 
 /**
@@ -17,6 +21,7 @@ export interface SmsAlertChannelProps extends AlertChannelProps {
  */
 export class SmsAlertChannel extends AlertChannel {
   phoneNumber: string
+  name?: string
   /**
    * Constructs the SMS Alert Channel instance
    *
@@ -28,6 +33,7 @@ export class SmsAlertChannel extends AlertChannel {
   constructor (logicalId: string, props: SmsAlertChannelProps) {
     super(logicalId, props)
     this.phoneNumber = props.phoneNumber
+    this.name = props.name
     Session.registerConstruct(this)
   }
 
@@ -37,6 +43,7 @@ export class SmsAlertChannel extends AlertChannel {
       type: 'SMS',
       config: {
         number: this.phoneNumber,
+        name: this.name,
       },
     }
   }
