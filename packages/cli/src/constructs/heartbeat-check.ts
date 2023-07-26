@@ -2,25 +2,25 @@ import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { DateTime } from 'luxon'
 
-type unitType = 'seconds' | 'minutes' | 'hours' | 'days'
+type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 
 export interface Heartbeat {
   expression?: string
   period: number
-  periodUnit: unitType
+  periodUnit: TimeUnits
   grace: number
-  graceUnit: unitType
+  graceUnit: TimeUnits
 }
 
 export interface HeartbeatCheckProps extends CheckProps {
   expression?: string
   period: number
-  periodUnit: unitType
+  periodUnit: TimeUnits
   grace: number
-  graceUnit: unitType
+  graceUnit: TimeUnits
 }
 
-function _customPeriodGraceValidation (period: number, periodUnit: unitType, grace: number, graceUnit: unitType) {
+function _customPeriodGraceValidation (period: number, periodUnit: TimeUnits, grace: number, graceUnit: TimeUnits) {
   const now = DateTime.now()
   const addedTimePeriod = now.plus({ [periodUnit]: period })
   const addedGracePeriod = now.plus({ [graceUnit]: grace })
