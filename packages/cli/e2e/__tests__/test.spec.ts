@@ -142,4 +142,19 @@ describe('test', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).toContain('Reached timeout of 0 seconds waiting for check result.')
   })
+
+  it.only('ESModule project should run successfully', () => {
+    const secretEnv = uuid.v4()
+    const result = runChecklyCli({
+      args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'esm-module'),
+      timeout: 120000, // 2 minutes
+    })
+    console.log('GOT ', result)
+    expect(result.stdout).not.toContain('File extension type example')
+    expect(result.stdout).toContain(secretEnv)
+    expect(result.status).toBe(0)
+  })
 })
