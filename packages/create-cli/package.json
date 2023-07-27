@@ -55,7 +55,7 @@
     "@types/debug": "^4.1.7",
     "@types/glob": "8.0.0",
     "@types/jest": "29.2.4",
-    "@types/luxon": "3.2.0",
+    "@types/luxon": "3.3.1",
     "@types/node": "20.3.3",
     "@types/prompts": "^2.4.2",
     "@types/uuid": "9.0.1",
