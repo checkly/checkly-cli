@@ -8,7 +8,7 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
-    "prepare": "npm run clean && tsc --build",
+    "build": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
     "test:e2e": "echo \"Warning: no test specified\"",
     "start": "node ./index.mjs",
@@ -49,6 +49,7 @@
     "debug": "4.3.4",
     "giget": "1.1.2",
     "ora": "5.4.1",
+    "passwd-user": "3.0.0",
     "prompts": "2.4.2",
     "unique-names-generator": "4.7.1",
     "which-pm": "2.0.0"
