@@ -1,4 +1,4 @@
-import { execa } from '@esm2cjs/execa'
+import * as execa from 'execa'
 import * as passwdUser from 'passwd-user'
 
 const environmentVariables = [

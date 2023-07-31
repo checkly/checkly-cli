@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import * as whichpm from 'which-pm'
-import { execa } from '@esm2cjs/execa'
+import * as execa from 'execa'
 import { spinner } from '../utils/terminal'
 import { hint } from '../utils/messages'
 import { PackageJson } from '../utils/directory'
 import { askInstallDependencies } from '../utils/prompts'
+import { getPackageManager } from '../utils/which-pm'
 
 export function addDevDependecies (projectDirectory: string, packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {
@@ -25,7 +25,7 @@ export async function installDependencies (targetDir: string): Promise<void> {
   const { installDependencies } = await askInstallDependencies()
 
   if (installDependencies) {
-    const packageManager = (await whichpm(process.cwd()))?.name || 'npm'
+    const packageManager = (await getPackageManager())?.name || 'npm'
     const installExec = execa(packageManager, ['install'], { cwd: targetDir })
     const installSpinner = spinner('installing packages')
     await new Promise<void>((resolve, reject) => {

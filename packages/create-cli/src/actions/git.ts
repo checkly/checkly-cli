@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { hasGitDir, hasGitIgnore } from '../utils/directory'
-import { execa } from '@esm2cjs/execa'
+import * as execa from 'execa'
 import { askInitializeGit } from '../utils/prompts'
 
 export async function initGit (targetDir: string): Promise<void> {
