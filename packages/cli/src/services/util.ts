@@ -84,6 +84,9 @@ async function getTsCompiler (): Promise<Service> {
   try {
     const tsNode = await import('ts-node')
     tsCompiler = tsNode.register({
+      moduleTypes: {
+        '**/*': 'cjs',
+      },
       compilerOptions: {
         module: 'CommonJS',
       },
