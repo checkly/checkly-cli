@@ -60,7 +60,7 @@
     "@types/prompts": "^2.4.2",
     "@types/uuid": "9.0.1",
     "@types/which-pm-runs": "^1.0.0",
-    "@types/ws": "8.5.3",
+    "@types/ws": "8.5.5",
     "config": "3.3.8",
     "jest": "29.3.1",
     "rimraf": "5.0.1",
