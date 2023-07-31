@@ -46,6 +46,12 @@ export default class Bootstrap extends Command {
     }
 
     const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+
+    // testing purpose prompts injections
+    if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {
+      prompts.inject((process.env.CHECKLY_E2E_PROMPTS_INJECTIONS || '').split(','))
+    }
+
     const greeting = await getUserGreeting()
 
     await header(version, greeting)
