@@ -2,7 +2,7 @@ import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
 export interface SlackAlertChannelProps extends AlertChannelProps {
-  url: URL
+  url: URL|string
   channel?: string
 }
 
@@ -14,7 +14,7 @@ export interface SlackAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class SlackAlertChannel extends AlertChannel {
-  url: URL
+  url: URL|string
   channel?: string
   /**
    * Constructs the Slack Alert Channel instance

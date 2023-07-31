@@ -13,7 +13,7 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
   /**
    * The URL where to send the webhook HTTP request.
    */
-  url: URL
+  url: URL|string
   /**
    * This is commonly a JSON body. You can
    * use {@link https://www.checklyhq.com/docs/alerting/webhooks/#using-variables Handlebars-style template variables}
@@ -44,7 +44,7 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
 export class WebhookAlertChannel extends AlertChannel {
   name: string
   webhookType?: string
-  url: URL
+  url: URL|string
   template?: string
   method?: HttpRequestMethod
   headers?: Array<HttpHeader>
