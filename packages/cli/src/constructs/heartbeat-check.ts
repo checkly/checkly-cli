@@ -5,16 +5,13 @@ import { DateTime } from 'luxon'
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 
 export interface Heartbeat {
-  expression?: string
   period: number
   periodUnit: TimeUnits
   grace: number
   graceUnit: TimeUnits
-  alertAfter?: Date | null
 }
 
 export interface HeartbeatCheckProps extends CheckProps {
-  expression?: string
   period: number
   periodUnit: TimeUnits
   grace: number
@@ -49,15 +46,10 @@ export class HeartbeatCheck extends Check {
 
     _customPeriodGraceValidation(props.period, props.periodUnit, props.grace, props.graceUnit)
     this.heartbeat = {
-      expression: props.expression,
       period: props.period,
       periodUnit: props.periodUnit,
       grace: props.grace,
       graceUnit: props.graceUnit,
-    }
-
-    if (props.activated === false) {
-      this.heartbeat.alertAfter = null
     }
 
     Session.registerConstruct(this)
