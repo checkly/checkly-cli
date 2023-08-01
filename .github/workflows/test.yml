@@ -20,7 +20,7 @@ jobs:
       # Test that the packaging works as well
       - run: npm pack --workspaces
       - run: npm run lint
-  test:
+  test-cli:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -35,10 +35,28 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm config set fund false && npm set audit false
       - run: npm ci
-      - run: npm run prepack
-      - run: npm run test
-      - run: npm run test:e2e
+      - run: npm run prepack --workspace packages/cli
+      - run: npm run test --workspace packages/cli
+      - run: npm run test:e2e --workspace packages/cli
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
           CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
+  test-create-cli:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    name: test create-cli - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm config set fund false && npm set audit false
+      - run: npm ci
+      - run: npm run test --workspace packages/create-cli
+      - run: npm run test:e2e --workspace packages/create-cli
+        
