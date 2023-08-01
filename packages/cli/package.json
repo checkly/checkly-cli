@@ -14,9 +14,9 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "prepack": "npx oclif manifest",
-    "prepare": "npm run clean && tsc --build",
+    "build": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
-    "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
+    "test:e2e": "npm run build && cross-env NODE_CONFIG_DIR=./e2e/config jest --selectProjects E2E",
     "test:e2e:local": "cross-env CHECKLY_ENV=local npm run test:e2e",
     "watch": "tsc --watch"
   },

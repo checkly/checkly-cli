@@ -45,12 +45,17 @@ export default class Bootstrap extends Command {
       prompts.override({ template })
     }
 
-    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
-
-    // testing purpose prompts injections
+    // This overrides prompts answers/selections (used on E2E tests)
     if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {
-      prompts.inject((process.env.CHECKLY_E2E_PROMPTS_INJECTIONS || '').split(','))
+      try {
+        const injections = JSON.parse(process.env.CHECKLY_E2E_PROMPTS_INJECTIONS)
+        prompts.inject(injections)
+      } catch {
+        process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')
+      }
     }
+
+    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
 
     const greeting = await getUserGreeting()
 

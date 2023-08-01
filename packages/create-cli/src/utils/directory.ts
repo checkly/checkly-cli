@@ -33,22 +33,19 @@ export function hasGitDir (dirPath: string) {
   return fs.existsSync(path.join(dirPath, './.git'))
 }
 
-export function copyTemporaryFiles (dirPath: string, tempPath: string) {
-  const FILE_TO_KEEP = ['__checks__', 'checkly.config.ts']
-
-  if (FILE_TO_KEEP.some(file =>
+export function checkFilesToKeep (filesToKeep: string[], dirPath: string) {
+  if (filesToKeep.some(file =>
     fs.existsSync(path.join(dirPath, file)))) {
-    // eslint-disable-next-line no-console
     process.stderr.write('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
       'Please, remove them and try again.' + '\n')
-    fs.rmSync(tempPath, { recursive: true })
     process.exit(1)
-  } else {
-    for (const file of FILE_TO_KEEP) {
-      fs.renameSync(`${tempPath}/${file}`, path.join(dirPath, file))
-    }
   }
+}
 
+export function copyTemporaryFiles (filesToKeep: string[], dirPath: string, tempPath: string) {
+  for (const file of filesToKeep) {
+    fs.renameSync(`${tempPath}/${file}`, path.join(dirPath, file))
+  }
   fs.rmSync(tempPath, { recursive: true })
 }
 

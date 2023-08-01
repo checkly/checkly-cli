@@ -1,0 +1,1 @@
+This is an empty project to test create-cli E2E tests.

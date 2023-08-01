@@ -8,9 +8,9 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
-    "prepare": "npm run clean && tsc --build",
+    "build": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
-    "test:e2e": "echo \"Warning: no test specified\"",
+    "test:e2e": "npm run build && jest --selectProjects E2E",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },
@@ -30,8 +30,7 @@
     "create-cli": "./bin/run"
   },
   "files": [
-    "dist",
-    "create-cli.js"
+    "dist"
   ],
   "oclif": {
     "bin": "create-cli",
