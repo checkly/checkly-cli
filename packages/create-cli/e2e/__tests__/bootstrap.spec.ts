@@ -4,7 +4,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { runChecklyCli } from '../run-create-cli'
-import { getFullName } from '../../src/utils/fullname'
+import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
 import { SpawnSyncReturns } from 'child_process'
 
@@ -18,9 +18,9 @@ function cleanupProjects () {
 function expectVersionAndName (
   commandOutput: SpawnSyncReturns<string>,
   latestVersion: string,
-  fullUsername: string) {
+  greeting: string) {
   expect(commandOutput.stdout).toContain(`v${latestVersion} Build and Run Synthetics That Scale`)
-  expect(commandOutput.stdout).toContain(`Hi ${fullUsername}! ` +
+  expect(commandOutput.stdout).toContain(`Hi ${greeting}! ` +
     "Let's get you started on your monitoring as code journey!")
 }
 
@@ -41,11 +41,11 @@ function expectCompleteCreation (commandOutput: SpawnSyncReturns<string>, projec
 describe('bootstrap', () => {
   let latestVersion = ''
   let projectName = ''
-  let fullUsername = ''
+  let greeting = ''
   beforeAll(async () => {
     const packageInformation = await axios.get('https://registry.npmjs.org/checkly/latest')
     latestVersion = packageInformation.data.version
-    fullUsername = await getFullName() || ''
+    greeting = await getUserGreeting()
   })
   beforeEach(() => {
     projectName = `${E2E_PROJECT_PREFIX}${uuidv4()}`
@@ -63,7 +63,7 @@ describe('bootstrap', () => {
 
     const { status, stdout, stderr } = commandOutput
 
-    expectVersionAndName(commandOutput, latestVersion, fullUsername)
+    expectVersionAndName(commandOutput, latestVersion, greeting)
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
@@ -88,7 +88,7 @@ describe('bootstrap', () => {
       promptsInjection: [projectName, 'boilerplate-project', false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, fullUsername)
+    expectVersionAndName(commandOutput, latestVersion, greeting)
 
     const { status, stdout, stderr } = commandOutput
 
@@ -121,7 +121,7 @@ describe('bootstrap', () => {
       promptsInjection: [projectName, 'advanced-project', false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, fullUsername)
+    expectVersionAndName(commandOutput, latestVersion, greeting)
 
     const { status, stdout, stderr } = commandOutput
 
@@ -150,7 +150,7 @@ describe('bootstrap', () => {
         promptsInjection: [newProjectName, template, false, false],
       })
 
-      expectVersionAndName(commandOutput, latestVersion, fullUsername)
+      expectVersionAndName(commandOutput, latestVersion, greeting)
 
       const { status, stdout, stderr } = commandOutput
 
@@ -189,7 +189,7 @@ describe('bootstrap', () => {
       promptsInjection: [projectName, false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, fullUsername)
+    expectVersionAndName(commandOutput, latestVersion, greeting)
 
     const { status, stdout, stderr } = commandOutput
 

@@ -83,6 +83,9 @@
         "testMatch": [
           "<rootDir>/e2e/__tests__/**/*.spec.ts"
         ],
+        "testPathIgnorePatterns": [
+          "<rootDir>/e2e/__tests__/fixtures"
+        ],
         "preset": "ts-jest",
         "testEnvironment": "node"
       }
