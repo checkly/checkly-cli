@@ -20,8 +20,7 @@ function expectVersionAndName (
   latestVersion: string,
   greeting: string) {
   expect(commandOutput.stdout).toContain(`v${latestVersion} Build and Run Synthetics That Scale`)
-  expect(commandOutput.stdout).toContain(`Hi ${greeting}! ` +
-    "Let's get you started on your monitoring as code journey!")
+  expect(commandOutput.stdout).toContain(`${greeting} Let's get you started on your monitoring as code journey!`)
 }
 
 function expectCompleteCreation (commandOutput: SpawnSyncReturns<string>, projectFolder: string) {
