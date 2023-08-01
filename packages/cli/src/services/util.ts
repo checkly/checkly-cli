@@ -58,7 +58,7 @@ export async function loadJsFile (filepath: string): Promise<any> {
     }
     return exported
   } catch (err: any) {
-    throw new Error(`Error loading file ${filepath}\n${err}`)
+    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
 }
 
