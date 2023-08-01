@@ -12,7 +12,7 @@ npm install # this will install dependencies for both packages (cli and create-c
 
 To run a build with TS for type checking, run:
 ```bash
-npm run prepare --workspace packages/create-cli
+npm run build --workspace packages/create-cli
 ```
 
 When running commands from the `packages/create-cli` directory, the `--workspace packages/create-cli` flag isn't necessary.
@@ -108,6 +108,6 @@ If an enum makes sense for a particular use case (internal code), you can explic
 ## ESLint rules and commit messages
 
 Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.
-After running `npm run prepare` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
+After running `npm run build` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
 
 If you have a work-in-progress commit, you can bypass the checks using the `--no-verify` flag, for example: `git commit -m "WIP commit" --no-verify`.

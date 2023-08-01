@@ -1,4 +1,4 @@
-import chalk from 'chalk'
+import * as chalk from 'chalk'
 import { downloadTemplate } from 'giget'
 import { spinner } from '../utils/terminal'
 

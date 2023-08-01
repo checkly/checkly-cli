@@ -4,11 +4,10 @@
     "declaration": true,
     "importHelpers": true,
     "module": "commonjs",
-    "esModuleInterop": true,
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
     "strict": true,
-    "target": "ES2019",
+    "target": "ES2021",
     "sourceMap": true
   },
   "include": [

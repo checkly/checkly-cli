@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile } from './directory'
+import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile, checkFilesToKeep } from './directory'
 import { askInitializeProject, askProjectDirectory, askTemplate } from './prompts'
 import { addDevDependecies, installDependencies } from '../actions/dependencies'
 import { copyTemplate } from '../actions/template'
@@ -37,14 +37,17 @@ export async function installWithinProject (
     debug('Add dependencies to existing package.json')
     addDevDependecies(projectDirectory, packageJson)
 
+    const FILE_TO_KEEP = ['__checks__', 'checkly.config.ts']
+    checkFilesToKeep(FILE_TO_KEEP, projectDirectory)
+
     debug('Copy boilerplate project to temporary folder')
     await copyTemplate({
       template: 'boilerplate-project',
-      templatePath: `github:${templateBaseRepo}/boilerplate-project#v${version}`,
+      templatePath: `github:${templateBaseRepo}/boilerplate-project#${version}`,
       targetDir: temporaryDir,
     })
 
-    copyTemporaryFiles(projectDirectory, temporaryDir)
+    copyTemporaryFiles(FILE_TO_KEEP, projectDirectory, temporaryDir)
     usePackageName(packageJson.name)
 
     debug('Create custom Browser check')
@@ -61,7 +64,7 @@ export async function createProject (
   debug('Downloading template')
   await copyTemplate({
     template: templateResponse.template,
-    templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
+    templatePath: `github:${templateBaseRepo}/${templateResponse.template}#${version}`,
     targetDir: projectDirectory,
   })
 }
