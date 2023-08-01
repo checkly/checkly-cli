@@ -3,7 +3,7 @@ import * as rimraf from 'rimraf'
 import * as path from 'path'
 import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { runChecklyCli } from '../run-checkly'
+import { runChecklyCli } from '../run-create-cli'
 import { getFullName } from '../../src/utils/fullname'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
 import { SpawnSyncReturns } from 'child_process'
@@ -22,6 +22,20 @@ function expectVersionAndName (
   expect(commandOutput.stdout).toContain(`v${latestVersion} Build and Run Synthetics That Scale`)
   expect(commandOutput.stdout).toContain(`Hi ${fullUsername}! ` +
     "Let's get you started on your monitoring as code journey!")
+}
+
+function expectCompleteCreation (commandOutput: SpawnSyncReturns<string>, projectFolder: string) {
+  expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
+
+         > Enter your project directory using cd ${projectFolder}
+         > Run npx checkly login to login to your Checkly account
+         > Run npx checkly test to dry run your checks
+         > Run npx checkly deploy to deploy your checks to the Checkly cloud
+
+         Questions?
+
+         - Check the docs at https://checklyhq.com/docs/cli
+         - Join the Checkly Slack community at https://checklyhq.com/slack`)
 }
 
 describe('bootstrap', () => {
@@ -83,6 +97,11 @@ describe('bootstrap', () => {
     expect(stdout).not.toContain('installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
+    // no git initialization message
+    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+
+    expectCompleteCreation(commandOutput, projectFolder)
+
     expect(stderr).toContain('')
     expect(status).toBe(0)
 
@@ -106,14 +125,14 @@ describe('bootstrap', () => {
 
     const { status, stdout, stderr } = commandOutput
 
+    expect(stderr)
+      .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
+      'Please, remove them and try again.')
+
     expect(stdout).not.toContain('Downloading example template...')
     expect(stdout).not.toContain('Example template copied!')
     expect(stdout).not.toContain('installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
-
-    expect(stderr)
-      .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
-        'Please, remove them and try again.')
 
     expect(status).toBe(1)
   }, 15000)
@@ -139,6 +158,11 @@ describe('bootstrap', () => {
       expect(stdout).toContain('Example template copied!')
       expect(stdout).not.toContain('installing packages')
       expect(stdout).not.toContain('Packages installed successfully')
+
+      // no git initialization message
+      expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+
+      expectCompleteCreation(commandOutput, projectFolder)
 
       expect(stderr).toContain('')
       expect(status).toBe(0)
@@ -173,6 +197,11 @@ describe('bootstrap', () => {
     expect(stdout).toContain('Example template copied!')
     expect(stdout).not.toContain('installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
+
+    // no git initialization message
+    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+
+    expectCompleteCreation(commandOutput, projectFolder)
 
     expect(stderr).toContain('')
     expect(status).toBe(0)
