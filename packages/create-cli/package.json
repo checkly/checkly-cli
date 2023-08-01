@@ -8,9 +8,9 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
-    "build": "npm run clean && tsc --build",
+    "prepare": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
-    "test:e2e": "npm run build && jest --selectProjects E2E",
+    "test:e2e": "npm run prepare && jest --selectProjects E2E",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },
