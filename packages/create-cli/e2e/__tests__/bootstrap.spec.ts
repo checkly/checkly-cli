@@ -12,6 +12,7 @@ const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 
 function cleanupProjects () {
   rimraf.sync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
+  rimraf.windowsSync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
 }
 
 function expectVersionAndName (
@@ -50,10 +51,10 @@ describe('bootstrap', () => {
 
     expectVersionAndName(commandOutput, latestVersion, fullUsername)
 
-    expect(stdout).toContain('- Downloading example template...')
-    expect(stdout).toContain('✔ Example template copied!')
-    expect(stdout).toContain('- installing packages')
-    expect(stdout).toContain('✔ Packages installed successfully')
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
+    expect(stdout).toContain('installing packages')
+    expect(stdout).toContain('Packages installed successfully')
 
     expect(stderr).toContain('')
     expect(status).toBe(0)
@@ -77,10 +78,10 @@ describe('bootstrap', () => {
 
     const { status, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('- Downloading example template...')
-    expect(stdout).toContain('✔ Example template copied!')
-    expect(stdout).not.toContain('- installing packages')
-    expect(stdout).not.toContain('✔ Packages installed successfully')
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
+    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Packages installed successfully')
 
     expect(stderr).toContain('')
     expect(status).toBe(0)
@@ -105,10 +106,10 @@ describe('bootstrap', () => {
 
     const { status, stdout, stderr } = commandOutput
 
-    expect(stdout).not.toContain('- Downloading example template...')
-    expect(stdout).not.toContain('✔ Example template copied!')
-    expect(stdout).not.toContain('- installing packages')
-    expect(stdout).not.toContain('✔ Packages installed successfully')
+    expect(stdout).not.toContain('Downloading example template...')
+    expect(stdout).not.toContain('Example template copied!')
+    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Packages installed successfully')
 
     expect(stderr)
       .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
@@ -134,10 +135,10 @@ describe('bootstrap', () => {
 
       const { status, stdout, stderr } = commandOutput
 
-      expect(stdout).toContain('- Downloading example template...')
-      expect(stdout).toContain('✔ Example template copied!')
-      expect(stdout).not.toContain('- installing packages')
-      expect(stdout).not.toContain('✔ Packages installed successfully')
+      expect(stdout).toContain('Downloading example template...')
+      expect(stdout).toContain('Example template copied!')
+      expect(stdout).not.toContain('installing packages')
+      expect(stdout).not.toContain('Packages installed successfully')
 
       expect(stderr).toContain('')
       expect(status).toBe(0)
@@ -168,10 +169,10 @@ describe('bootstrap', () => {
 
     const { status, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('- Downloading example template...')
-    expect(stdout).toContain('✔ Example template copied!')
-    expect(stdout).not.toContain('- installing packages')
-    expect(stdout).not.toContain('✔ Packages installed successfully')
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
+    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Packages installed successfully')
 
     expect(stderr).toContain('')
     expect(status).toBe(0)
