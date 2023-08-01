@@ -38,7 +38,7 @@ export async function installWithinProject (
     addDevDependecies(projectDirectory, packageJson)
 
     const FILE_TO_KEEP = ['__checks__', 'checkly.config.ts']
-    checkFilesToKeep(FILE_TO_KEEP, projectDirectory, temporaryDir)
+    checkFilesToKeep(FILE_TO_KEEP, projectDirectory)
 
     debug('Copy boilerplate project to temporary folder')
     await copyTemplate({

@@ -153,4 +153,35 @@ describe('bootstrap', () => {
       expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
     })
   }, 30000)
+
+  it('Should create a project with --template argument', () => {
+    const directory = path.join(__dirname, 'fixtures', 'empty-project')
+    const projectFolder = path.join(directory, projectName)
+    const commandOutput = runChecklyCli({
+      directory,
+      args: ['--template', 'boilerplate-project-js'],
+      version: latestVersion,
+      promptsInjection: [projectName, false, false],
+    })
+
+    expectVersionAndName(commandOutput, latestVersion, fullUsername)
+
+    const { status, stdout, stderr } = commandOutput
+
+    expect(stdout).toContain('- Downloading example template...')
+    expect(stdout).toContain('✔ Example template copied!')
+    expect(stdout).not.toContain('- installing packages')
+    expect(stdout).not.toContain('✔ Packages installed successfully')
+
+    expect(stderr).toContain('')
+    expect(status).toBe(0)
+
+    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
+    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.js'))).toBe(true)
+    expect(fs.existsSync(path.join(projectFolder, '__checks__', 'api.check.js'))).toBe(true)
+
+    // node_modules nor .git shouldn't exist
+    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
+    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+  }, 15000)
 })
