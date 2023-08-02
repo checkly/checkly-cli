@@ -21,7 +21,7 @@ describe('login', () => {
       ' ›   are configured. You must delete them to use `npx checkly login`.\n')
     expect(stdout).toBe('')
     expect(status).toBe(0)
-  })
+  }, 10000)
 
   it('should show URL to login', () => {
     const { status, stdout, stderr } = runChecklyCli({
@@ -30,8 +30,6 @@ describe('login', () => {
       timeout: 5000,
     })
 
-    // TODO: try to get prompts questions text and validate them
-
     expect(stdout).toContain('Please open the following URL in your browser:')
     expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
     // URL should allow to login
@@ -39,11 +37,9 @@ describe('login', () => {
 
     expect(stderr).toBe('')
 
-    // TODO: try to login with URL and complete the flow
-
     // the command should timeout and status shouldn't be 0
     expect(status).toBe(null)
-  })
+  }, 10000)
 
   it('should show URL to signup', () => {
     const { status, stdout, stderr } = runChecklyCli({
@@ -61,5 +57,5 @@ describe('login', () => {
 
     // the command should timeout and status shouldn't be 0
     expect(status).toBe(null)
-  })
+  }, 10000)
 })

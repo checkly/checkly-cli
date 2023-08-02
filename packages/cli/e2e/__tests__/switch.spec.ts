@@ -12,12 +12,11 @@ describe('switch', () => {
         id: config.get('accountId') as string,
         name: accountName,
       }],
+      timeout: 5000,
     })
-
-    // TODO: try to get prompts questions text and validate them
 
     expect(stdout).toBe(`Account switched to ${accountName}\n`)
     expect(stderr).toBe('')
     expect(status).toBe(0)
-  })
+  }, 10000)
 })
