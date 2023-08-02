@@ -6,6 +6,9 @@ describe('logout', () => {
       args: ['logout'],
       promptsInjection: [true],
     })
+
+    // TODO: try to get prompts questions text and validate them
+
     expect(stdout).toContain('See you soon! 👋')
     expect(stderr).toBe('')
     expect(status).toBe(0)

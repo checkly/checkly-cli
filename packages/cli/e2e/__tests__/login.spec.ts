@@ -1,8 +1,6 @@
 import * as config from 'config'
 import { runChecklyCli } from '../run-checkly'
 
-// TODO mock browser login
-
 describe('login', () => {
   beforeEach(() => {
     runChecklyCli({
@@ -32,12 +30,16 @@ describe('login', () => {
       timeout: 5000,
     })
 
+    // TODO: try to get prompts questions text and validate them
+
     expect(stdout).toContain('Please open the following URL in your browser:')
     expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
     // URL should allow to login
     expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
 
     expect(stderr).toBe('')
+
+    // TODO: try to login with URL and complete the flow
 
     // the command should timeout and status shouldn't be 0
     expect(status).toBe(null)

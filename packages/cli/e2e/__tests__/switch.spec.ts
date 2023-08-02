@@ -13,6 +13,9 @@ describe('switch', () => {
         name: accountName,
       }],
     })
+
+    // TODO: try to get prompts questions text and validate them
+
     expect(stdout).toBe(`Account switched to ${accountName}\n`)
     expect(stderr).toBe('')
     expect(status).toBe(0)
