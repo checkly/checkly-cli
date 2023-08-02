@@ -11,10 +11,6 @@ export async function getUserGreeting (): Promise<string> {
   return name ? `Hi ${name}!` : 'Hi there!'
 }
 
-export function bail () {
-  console.log(chalk.dim('Bailing, hope to see you again soon!\n'))
-}
-
 export async function header (version: string, greeting: string): Promise<void> {
   console.log(
     `${chalk.black.bgCyan.bold(' checkly ')} v${version} ${chalk.bold(

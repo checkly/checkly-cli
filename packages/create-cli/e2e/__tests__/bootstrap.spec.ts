@@ -136,6 +136,21 @@ describe('bootstrap', () => {
     expect(status).toBe(1)
   }, 15000)
 
+  it('Should cancel command and show message', () => {
+    const directory = path.join(__dirname, 'fixtures', 'empty-project')
+    const commandOutput = runChecklyCreateCli({
+      directory,
+      version: latestVersion,
+      promptsInjection: [new Error()],
+    })
+
+    expectVersionAndName(commandOutput, latestVersion, greeting)
+    const { status, stdout, stderr } = commandOutput
+    expect(stdout).toContain('Bailing, hope to see you again soon!')
+    expect(stderr).toBe('')
+    expect(status).toBe(1)
+  }, 15000)
+
   it('Should create projects with all available templates (without installing dependencies)', () => {
     const availableTemplates = PROJECT_TEMPLATES.map(t => t.value)
 

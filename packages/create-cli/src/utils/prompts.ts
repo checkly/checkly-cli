@@ -62,20 +62,20 @@ export function askUserWebsite (onCancel: any): Promise<{ userWebsite: string }>
   }, { onCancel })
 }
 
-export function askInstallDependencies (): Promise<{ installDependencies: boolean }> {
+export function askInstallDependencies (onCancel: any = () => true): Promise<{ installDependencies: boolean }> {
   return prompts({
     type: 'confirm',
     name: 'installDependencies',
     message: 'Would you like to install NPM dependencies? (recommended)',
     initial: true,
-  }, { onCancel: () => true })
+  }, { onCancel })
 }
 
-export function askInitializeGit (): Promise<{ initializeGit: boolean }> {
+export function askInitializeGit (onCancel: any = () => true): Promise<{ initializeGit: boolean }> {
   return prompts({
     type: 'confirm',
     name: 'initializeGit',
     message: 'Would you like to initialize a new git repo? (optional)',
     initial: true,
-  }, { onCancel: () => true })
+  }, { onCancel })
 }

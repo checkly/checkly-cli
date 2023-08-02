@@ -8,7 +8,7 @@ export function runChecklyCreateCli (options: {
   args?: string[],
   env?: object,
   version?: string,
-  promptsInjection?: (string | boolean)[],
+  promptsInjection?: (string | boolean | object)[],
   timeout?: number,
 }) {
   const {

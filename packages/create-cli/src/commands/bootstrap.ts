@@ -1,12 +1,7 @@
-import { Command, Flags } from '@oclif/core'
+import * as chalk from 'chalk'
 import * as prompts from 'prompts'
-import {
-  getUserGreeting,
-  header,
-  bail,
-  footer,
-  hint,
-} from '../utils/messages.js'
+import { Command, Flags } from '@oclif/core'
+import { getUserGreeting, header, footer, hint } from '../utils/messages.js'
 import { hasPackageJsonFile } from '../utils/directory'
 import {
   createProject,
@@ -35,9 +30,7 @@ export default class Bootstrap extends Command {
     const { template } = flags
 
     const onCancel = (): void => {
-      bail()
-      // TODO: replace this with oclif error()
-      process.exit(1)
+      this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
     }
 
     // This overrides the template prompt and skips to the next prompt
