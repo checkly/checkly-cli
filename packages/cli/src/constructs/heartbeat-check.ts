@@ -1,6 +1,7 @@
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { DateTime } from 'luxon'
+import CheckTypes from '../constants'
 
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 
@@ -58,7 +59,7 @@ export class HeartbeatCheck extends Check {
   synthesize (): any | null {
     return {
       ...super.synthesize(),
-      checkType: 'HEARTBEAT',
+      checkType: CheckTypes.HEARTBEAT,
       heartbeat: this.heartbeat,
     }
   }
