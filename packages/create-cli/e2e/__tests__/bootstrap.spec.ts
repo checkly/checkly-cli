@@ -145,10 +145,9 @@ describe('bootstrap', () => {
     })
 
     expectVersionAndName(commandOutput, latestVersion, greeting)
-    const { status, stdout, stderr } = commandOutput
-    expect(stdout).toContain('Bailing, hope to see you again soon!')
-    expect(stderr).toBe('')
-    expect(status).toBe(1)
+    const { status, stderr } = commandOutput
+    expect(stderr).toContain('Bailing, hope to see you again soon!')
+    expect(status).toBe(2)
   }, 15000)
 
   it('Should create projects with all available templates (without installing dependencies)', () => {
