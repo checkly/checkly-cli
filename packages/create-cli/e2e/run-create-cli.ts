@@ -3,7 +3,7 @@ import * as childProcess from 'node:child_process'
 
 const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
-export function runChecklyCli (options: {
+export function runChecklyCreateCli (options: {
   directory?: string,
   args?: string[],
   env?: object,
@@ -23,7 +23,7 @@ export function runChecklyCli (options: {
     env: {
       PATH: process.env.PATH,
       CHECKLY_CLI_VERSION: version,
-      CHECKLY_E2E_PROMPTS_INJECTIONS: JSON.stringify(promptsInjection),
+      CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
       ...env,
     },
     cwd: directory ?? process.cwd(),

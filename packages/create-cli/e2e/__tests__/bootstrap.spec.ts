@@ -3,7 +3,7 @@ import * as rimraf from 'rimraf'
 import * as path from 'path'
 import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { runChecklyCli } from '../run-create-cli'
+import { runChecklyCreateCli } from '../run-create-cli'
 import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
 import { SpawnSyncReturns } from 'child_process'
@@ -54,7 +54,7 @@ describe('bootstrap', () => {
   it('Should create project with advanced-project template', () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCli({
+    const commandOutput = runChecklyCreateCli({
       directory,
       version: latestVersion,
       promptsInjection: [projectName, 'advanced-project', true, true],
@@ -81,7 +81,7 @@ describe('bootstrap', () => {
   it('Should create an boilerplate-project without installing dependencies', () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCli({
+    const commandOutput = runChecklyCreateCli({
       directory,
       version: latestVersion,
       promptsInjection: [projectName, 'boilerplate-project', false, false],
@@ -114,7 +114,7 @@ describe('bootstrap', () => {
 
   it('Should fail for already initiated project', () => {
     const directory = path.join(__dirname, 'fixtures', 'initiated-project')
-    const commandOutput = runChecklyCli({
+    const commandOutput = runChecklyCreateCli({
       directory,
       version: latestVersion,
       promptsInjection: [projectName, 'advanced-project', false, false],
@@ -143,7 +143,7 @@ describe('bootstrap', () => {
       const newProjectName = `${E2E_PROJECT_PREFIX}${uuidv4()}`
       const directory = path.join(__dirname, 'fixtures', 'empty-project')
       const projectFolder = path.join(directory, newProjectName)
-      const commandOutput = runChecklyCli({
+      const commandOutput = runChecklyCreateCli({
         directory,
         version: latestVersion,
         promptsInjection: [newProjectName, template, false, false],
@@ -181,7 +181,7 @@ describe('bootstrap', () => {
   it('Should create a project with --template argument', () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCli({
+    const commandOutput = runChecklyCreateCli({
       directory,
       args: ['--template', 'boilerplate-project-js'],
       version: latestVersion,
