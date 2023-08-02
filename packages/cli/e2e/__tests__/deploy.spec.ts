@@ -74,8 +74,13 @@ describe('deploy', () => {
   // Create a unique ID suffix to support parallel test executions
   let projectLogicalId: string
   let privateLocationSlugname: string
+  let latestVersion = ''
   // Cleanup projects that may have not been deleted in previous runs
-  beforeAll(() => cleanupProjects())
+  beforeAll(async () => {
+    cleanupProjects()
+    const packageInformation = await axios.get('https://registry.npmjs.org/checkly/latest')
+    latestVersion = packageInformation.data.version
+  })
   beforeEach(() => {
     projectLogicalId = `e2e-test-deploy-project-${uuidv4()}`
     privateLocationSlugname = `private-location-cli-${uuidv4().split('-')[0]}`
@@ -109,14 +114,14 @@ describe('deploy', () => {
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
   }, 15000)
 
-  it('Simple project should deploy successfully (version after v4.0.8)', async () => {
+  it('Simple project should deploy successfully', async () => {
     const { status, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: '4.0.9',
+      cliVersion: latestVersion,
     })
     expect(status).toBe(0)
     expect(stderr).toBe('')
@@ -141,6 +146,7 @@ describe('deploy', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     expect(stderr).toBe('')
     expect(status).toBe(0)
@@ -157,6 +163,7 @@ describe('deploy', () => {
         PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
         TEST_ONLY: 'true',
       },
+      cliVersion: latestVersion,
     })
     expect(stdout).toContain(
 `Create:
@@ -177,6 +184,7 @@ Skip (testOnly):
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     // Deploy a check (testOnly=true)
     const { status, stdout } = runChecklyCli({
@@ -185,6 +193,7 @@ Skip (testOnly):
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { TEST_ONLY: 'true', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     // Moving the check to testOnly causes it to be deleted.
     // The check should only be listed under "Delete" and not "Skip".
@@ -205,6 +214,7 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     const resultTwo = runChecklyCli({
       args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
@@ -212,6 +222,7 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
@@ -225,6 +236,7 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'empty-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      cliVersion: latestVersion,
     })
     expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
     expect(result.status).toBe(1)
