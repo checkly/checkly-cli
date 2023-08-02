@@ -1,15 +1,20 @@
-import { runChecklyCliForSwitch } from '../run-checkly'
+import { runChecklyCli } from '../run-checkly'
 import * as config from 'config'
 
 describe('switch', () => {
-  it('should switch between user accounts', async () => {
-    const { status, stdout } = await runChecklyCliForSwitch({
+  it('should switch between user accounts', () => {
+    const accountName = config.get('accountName') as string
+    const { status, stdout, stderr } = runChecklyCli({
       args: ['switch'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
+      promptsInjection: [{
+        id: config.get('accountId') as string,
+        name: accountName,
+      }],
     })
-    expect(stdout).toContain('Which account do you want to use?')
-    expect(stdout).toContain('Account switched to')
+    expect(stdout).toBe(`Account switched to ${accountName}\n`)
+    expect(stderr).toBe('')
     expect(status).toBe(0)
   })
 })
