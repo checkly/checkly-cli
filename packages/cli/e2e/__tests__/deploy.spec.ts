@@ -5,6 +5,7 @@ import axios from 'axios'
 import { runChecklyCli } from '../run-checkly'
 import Projects from '../../src/rest/projects'
 import { DateTime, Duration } from 'luxon'
+import CheckTypes from '../../src/constants'
 
 async function cleanupProjects (projectLogicalId?: string) {
   const baseURL: string = config.get('baseURL')
@@ -100,9 +101,11 @@ describe('deploy', () => {
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
 
-    // check that all assignments were applied
-    expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+    // Check that all assignments were applied
+    // Filter out heartbeat checks as they don't have the privateLocations property
+    expect(checks.filter(({ checkType }: { checkType: string }) => checkType !== CheckTypes.HEARTBEAT)
+      .filter(({ privateLocations }: { privateLocations: string[] }) =>
+        privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
       privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
@@ -125,9 +128,11 @@ describe('deploy', () => {
     const checkGroups = await getAllResources('check-groups')
     const privateLocations = await getAllResources('private-locations')
 
-    // check that all assignments were applied
-    expect(checks.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+    // Check that all assignments were applied
+    // Filter out heartbeat checks as they don't have the privateLocations property
+    expect(checks.filter(({ checkType }: { checkType: string }) => checkType !== CheckTypes.HEARTBEAT)
+      .filter(({ privateLocations }: { privateLocations: string[] }) =>
+        privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
       privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
