@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -160,6 +160,9 @@ export default class Test extends AuthCommand {
     })
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {
+        return !(check instanceof HeartbeatCheck)
+      })
+      .filter(([, check]) => {
         if (check instanceof BrowserCheck) {
           return filterByFileNamePattern(filePatterns, check.scriptPath) ||
             filterByFileNamePattern(filePatterns, check.__checkFilePath)
@@ -285,7 +288,7 @@ export default class Test extends AuthCommand {
       return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
     } else if (configOptions.runLocation && configOptions.privateRunLocation) {
       throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
-        ` Please only specify one run location. The configured locations were' + 
+        ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
       return { type: 'PUBLIC', region: configOptions.runLocation }
