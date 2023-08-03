@@ -6,9 +6,21 @@ import CheckTypes from '../constants'
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 
 export interface Heartbeat {
+  /**
+   * The expected period of time between each ping. Between 30 seconds and 365 days.
+   */
   period: number
+  /**
+   * The unit of time for the period.
+   */
   periodUnit: TimeUnits
+  /**
+   * The grace period to wait for before sending an alert. Between 0 seconds and 365 days.
+   */
   grace: number
+  /*
+    * The unit of time for the grace period.
+   */
   graceUnit: TimeUnits
 }
 
@@ -19,10 +31,10 @@ export interface HeartbeatCheckProps extends CheckProps {
   graceUnit: TimeUnits
 }
 
-function _customPeriodGraceValidation (period: number, periodUnit: TimeUnits, grace: number, graceUnit: TimeUnits) {
+function _customPeriodGraceValidation (heartbeat: Heartbeat) {
   const now = DateTime.now()
-  const addedTimePeriod = now.plus({ [periodUnit]: period })
-  const addedGracePeriod = now.plus({ [graceUnit]: grace })
+  const addedTimePeriod = now.plus({ [heartbeat.periodUnit]: heartbeat.period })
+  const addedGracePeriod = now.plus({ [heartbeat.graceUnit]: heartbeat.grace })
 
   const MAX_PERIOD_GRACE_DAYS = 365
   const MIN_PERIOD_SECONDS = 30
@@ -35,17 +47,31 @@ function _customPeriodGraceValidation (period: number, periodUnit: TimeUnits, gr
   }
 
   if (addedGracePeriod.diff(now, 'days').days > MAX_PERIOD_GRACE_DAYS) {
-    throw new Error('Grace must be less than 365 days.')
+    throw new Error('Grace must be less than 366 days.')
   }
 }
 
+/**
+ * Creates a Heartbeat Check
+ *
+ * @remarks
+ *
+ * This class make use of the Heartbeat Checks endpoints.
+ */
 export class HeartbeatCheck extends Check {
   heartbeat: Heartbeat
 
+  /**
+   * Constructs the Heartbeat Check instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props heartbeat check configuration properties
+   * {@link https://checklyhq.com/docs/cli/constructs/#heartbeat Read more in the docs}
+   */
   constructor (logicalId: string, props: HeartbeatCheckProps) {
     super(logicalId, props)
 
-    _customPeriodGraceValidation(props.period, props.periodUnit, props.grace, props.graceUnit)
+    _customPeriodGraceValidation(props)
     this.heartbeat = {
       period: props.period,
       periodUnit: props.periodUnit,
