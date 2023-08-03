@@ -1,3 +1,4 @@
+import axios from 'axios'
 import * as prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
@@ -10,9 +11,19 @@ export abstract class BaseCommand extends Command {
   static coreCommand = false
   static hidden = true
 
-  protected init (): Promise<void> {
-    // TODO: find a better way to mock the CLI version for E2E tests.
-    api.defaults.headers['x-checkly-cli-version'] = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+  protected async init (): Promise<void> {
+    let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+
+    // use latest version from NPM if it's running from the local environment or E2E
+    if (version === '0.0.1-dev') {
+      try {
+        const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
+        this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
+        version = packageInformation.version
+      } catch { }
+    }
+
+    api.defaults.headers['x-checkly-cli-version'] = version
 
     // This overrides prompts answers/selections (used on E2E tests)
     if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {

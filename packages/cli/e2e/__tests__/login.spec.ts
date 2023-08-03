@@ -11,15 +11,14 @@ describe('login', () => {
   })
 
   it('should show warning with environment variables are configured', () => {
-    const { status, stdout, stderr } = runChecklyCli({
+    const { status, stderr } = runChecklyCli({
       args: ['login'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       timeout: 5000,
     })
-    expect(stderr).toContain(' ›   Warning: `CHECKLY_API_KEY` or `CHECKLY_ACCOUNT_ID` environment variables \n' +
-      ' ›   are configured. You must delete them to use `npx checkly login`.\n')
-    expect(stdout).toBe('')
+    expect(stderr).toContain('Warning: `CHECKLY_API_KEY` or `CHECKLY_ACCOUNT_ID` environment variables')
+    expect(stderr).toContain('are configured. You must delete them to use `npx checkly login`.\n')
     expect(status).toBe(0)
   }, 10000)
 

@@ -6,6 +6,7 @@ import { runChecklyCli } from '../run-checkly'
 import Projects from '../../src/rest/projects'
 import { DateTime, Duration } from 'luxon'
 import CheckTypes from '../../src/constants'
+import { stdout } from 'process'
 
 async function cleanupProjects (projectLogicalId?: string) {
   const baseURL: string = config.get('baseURL')
@@ -91,7 +92,7 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully (version v4.0.8)', async () => {
-    const { status, stderr } = runChecklyCli({
+    const { status, stdout, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -99,8 +100,10 @@ describe('deploy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
       cliVersion: '4.0.8',
     })
-    expect(status).toBe(0)
     expect(stderr).toBe('')
+    // expect not to change version since the version is specified
+    expect(stdout).not.toContain('Notice: replacing version')
+    expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
@@ -118,16 +121,17 @@ describe('deploy', () => {
   }, 15000)
 
   it('Simple project should deploy successfully', async () => {
-    const { status, stderr } = runChecklyCli({
+    const { status, stdout, stderr } = runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
-    expect(status).toBe(0)
     expect(stderr).toBe('')
+    // expect the version to be overriden with latest from NPM
+    expect(stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'`)
+    expect(status).toBe(0)
 
     const checks = await getAllResources('checks')
     const checkGroups = await getAllResources('check-groups')
@@ -151,7 +155,6 @@ describe('deploy', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     expect(stderr).toBe('')
     expect(status).toBe(0)
@@ -168,7 +171,6 @@ describe('deploy', () => {
         PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
         TEST_ONLY: 'true',
       },
-      cliVersion: latestVersion,
     })
     expect(stdout).toContain(
 `Create:
@@ -189,7 +191,6 @@ Skip (testOnly):
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     // Deploy a check (testOnly=true)
     const { status, stdout } = runChecklyCli({
@@ -198,7 +199,6 @@ Skip (testOnly):
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-only-project'),
       env: { TEST_ONLY: 'true', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     // Moving the check to testOnly causes it to be deleted.
     // The check should only be listed under "Delete" and not "Skip".
@@ -219,7 +219,6 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     const resultTwo = runChecklyCli({
       args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
@@ -227,7 +226,6 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
@@ -241,7 +239,6 @@ Update and Unchanged:
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'empty-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
-      cliVersion: latestVersion,
     })
     expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
     expect(result.status).toBe(1)
