@@ -43,7 +43,7 @@ export async function installWithinProject (
     debug('Copy boilerplate project to temporary folder')
     await copyTemplate({
       template: 'boilerplate-project',
-      templatePath: `github:${templateBaseRepo}/boilerplate-project#${version}`,
+      templatePath: `github:${templateBaseRepo}/boilerplate-project#v${version}`,
       targetDir: temporaryDir,
     })
 
@@ -64,7 +64,7 @@ export async function createProject (
   debug('Downloading template')
   await copyTemplate({
     template: templateResponse.template,
-    templatePath: `github:${templateBaseRepo}/${templateResponse.template}#${version}`,
+    templatePath: `github:${templateBaseRepo}/${templateResponse.template}#v${version}`,
     targetDir: projectDirectory,
   })
 }
