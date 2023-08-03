@@ -60,7 +60,12 @@ export class AssertionBuilder {
     return new GeneralAssertionBuilder(AssertionSource.TEXT_BODY, property)
   }
 
+  /** @deprecated Use responseTime() instead */
   static responseTme () {
+    return new NumericAssertionBuilder(AssertionSource.RESPONSE_TIME)
+  }
+
+  static responseTime () {
     return new NumericAssertionBuilder(AssertionSource.RESPONSE_TIME)
   }
 }
