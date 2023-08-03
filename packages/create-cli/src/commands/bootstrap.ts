@@ -1,3 +1,4 @@
+import axios from 'axios'
 import * as chalk from 'chalk'
 import * as prompts from 'prompts'
 import { Command, Flags } from '@oclif/core'
@@ -48,7 +49,16 @@ export default class Bootstrap extends Command {
       }
     }
 
-    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+    let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+
+    // use latest version from NPM if it's running from the local environment or E2E
+    if (version === '0.0.1-dev') {
+      try {
+        const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
+        this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
+        version = packageInformation.version
+      } catch { }
+    }
 
     const greeting = await getUserGreeting()
 

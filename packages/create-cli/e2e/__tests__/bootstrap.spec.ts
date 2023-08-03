@@ -15,15 +15,31 @@ function cleanupProjects () {
   rimraf.windowsSync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
 }
 
-function expectVersionAndName (
-  commandOutput: SpawnSyncReturns<string>,
-  latestVersion: string,
-  greeting: string) {
-  expect(commandOutput.stdout).toContain(`v${latestVersion} Build and Run Synthetics That Scale`)
+function expectVersionAndName ({
+  commandOutput,
+  version,
+  latestVersion,
+  greeting,
+}: {
+  commandOutput: SpawnSyncReturns<string>
+  version?: string
+  latestVersion: string
+  greeting: string
+}) {
+  if (!version) {
+    expect(commandOutput.stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
+  }
+  expect(commandOutput.stdout).toContain(`v${version ?? latestVersion} Build and Run Synthetics That Scale`)
   expect(commandOutput.stdout).toContain(`${greeting} Let's get you started on your monitoring as code journey!`)
 }
 
-function expectCompleteCreation (commandOutput: SpawnSyncReturns<string>, projectFolder: string) {
+function expectCompleteCreation ({
+  commandOutput,
+  projectFolder,
+}: {
+  commandOutput: SpawnSyncReturns<string>
+  projectFolder: string
+}) {
   expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
 
          > Enter your project directory using cd ${projectFolder}
@@ -56,20 +72,19 @@ describe('bootstrap', () => {
     const projectFolder = path.join(directory, projectName)
     const commandOutput = runChecklyCreateCli({
       directory,
-      version: latestVersion,
       promptsInjection: [projectName, 'advanced-project', true, true],
     })
 
     const { status, stdout, stderr } = commandOutput
 
-    expectVersionAndName(commandOutput, latestVersion, greeting)
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
     expect(stdout).toContain('installing packages')
     expect(stdout).toContain('Packages installed successfully')
 
-    expect(stderr).toContain('')
+    expect(stderr).toBe('')
     expect(status).toBe(0)
 
     expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
@@ -83,11 +98,10 @@ describe('bootstrap', () => {
     const projectFolder = path.join(directory, projectName)
     const commandOutput = runChecklyCreateCli({
       directory,
-      version: latestVersion,
       promptsInjection: [projectName, 'boilerplate-project', false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, greeting)
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
 
     const { status, stdout, stderr } = commandOutput
 
@@ -99,9 +113,44 @@ describe('bootstrap', () => {
     // no git initialization message
     expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
 
-    expectCompleteCreation(commandOutput, projectFolder)
+    expectCompleteCreation({ commandOutput, projectFolder })
 
-    expect(stderr).toContain('')
+    expect(stderr).toBe('')
+    expect(status).toBe(0)
+
+    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
+    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.ts'))).toBe(true)
+
+    // node_modules nor .git shouldn't exist
+    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
+    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+  }, 15000)
+
+  it('Should create an boilerplate-project using an older version', () => {
+    const directory = path.join(__dirname, 'fixtures', 'empty-project')
+    const projectFolder = path.join(directory, projectName)
+    const version = '4.0.13'
+    const commandOutput = runChecklyCreateCli({
+      directory,
+      version,
+      promptsInjection: [projectName, 'boilerplate-project', false, false],
+    })
+
+    expectVersionAndName({ commandOutput, version, latestVersion, greeting })
+
+    const { status, stdout, stderr } = commandOutput
+
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
+    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Packages installed successfully')
+
+    // no git initialization message
+    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+
+    expectCompleteCreation({ commandOutput, projectFolder })
+
+    expect(stderr).toBe('')
     expect(status).toBe(0)
 
     expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
@@ -116,11 +165,10 @@ describe('bootstrap', () => {
     const directory = path.join(__dirname, 'fixtures', 'initiated-project')
     const commandOutput = runChecklyCreateCli({
       directory,
-      version: latestVersion,
       promptsInjection: [projectName, 'advanced-project', false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, greeting)
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
 
     const { status, stdout, stderr } = commandOutput
 
@@ -140,11 +188,10 @@ describe('bootstrap', () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const commandOutput = runChecklyCreateCli({
       directory,
-      version: latestVersion,
       promptsInjection: [new Error()],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, greeting)
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
     const { status, stderr } = commandOutput
     expect(stderr).toContain('Bailing, hope to see you again soon!')
     expect(status).toBe(2)
@@ -159,11 +206,10 @@ describe('bootstrap', () => {
       const projectFolder = path.join(directory, newProjectName)
       const commandOutput = runChecklyCreateCli({
         directory,
-        version: latestVersion,
         promptsInjection: [newProjectName, template, false, false],
       })
 
-      expectVersionAndName(commandOutput, latestVersion, greeting)
+      expectVersionAndName({ commandOutput, latestVersion, greeting })
 
       const { status, stdout, stderr } = commandOutput
 
@@ -175,9 +221,9 @@ describe('bootstrap', () => {
       // no git initialization message
       expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
 
-      expectCompleteCreation(commandOutput, projectFolder)
+      expectCompleteCreation({ commandOutput, projectFolder })
 
-      expect(stderr).toContain('')
+      expect(stderr).toBe('')
       expect(status).toBe(0)
 
       expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
@@ -198,11 +244,10 @@ describe('bootstrap', () => {
     const commandOutput = runChecklyCreateCli({
       directory,
       args: ['--template', 'boilerplate-project-js'],
-      version: latestVersion,
       promptsInjection: [projectName, false, false],
     })
 
-    expectVersionAndName(commandOutput, latestVersion, greeting)
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
 
     const { status, stdout, stderr } = commandOutput
 
@@ -214,9 +259,9 @@ describe('bootstrap', () => {
     // no git initialization message
     expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
 
-    expectCompleteCreation(commandOutput, projectFolder)
+    expectCompleteCreation({ commandOutput, projectFolder })
 
-    expect(stderr).toContain('')
+    expect(stderr).toBe('')
     expect(status).toBe(0)
 
     expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)

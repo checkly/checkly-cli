@@ -15,7 +15,7 @@ export function runChecklyCreateCli (options: {
     directory,
     args = [],
     env = {},
-    version = '4.0.13',
+    version,
     promptsInjection = [],
     timeout = 30000,
   } = options
