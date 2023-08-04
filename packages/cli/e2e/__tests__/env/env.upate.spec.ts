@@ -4,8 +4,6 @@ import * as config from 'config'
 import { nanoid } from 'nanoid'
 import { runChecklyCli } from '../../run-checkly'
 
-jest.setTimeout(30000)
-
 const executionId = nanoid(5)
 
 describe('checkly env update', () => {
