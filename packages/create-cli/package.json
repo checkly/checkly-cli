@@ -2,7 +2,6 @@
   "name": "create-checkly",
   "version": "0.0.1-dev",
   "description": "Checkly Create CLI",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "private": false,
@@ -11,7 +10,7 @@
     "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
     "test": "jest --selectProjects unit",
-    "test:e2e": "echo \"Warning: no test specified\"",
+    "test:e2e": "npm run prepare && jest --selectProjects E2E",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },
@@ -28,12 +27,16 @@
     ".": "./index.mjs"
   },
   "bin": {
-    "create-cli": "./index.mjs"
+    "create-cli": "./bin/run"
   },
   "files": [
-    "dist",
-    "create-cli.js"
+    "dist"
   ],
+  "oclif": {
+    "bin": "create-cli",
+    "commands": "./dist/commands",
+    "default": "bootstrap"
+  },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
     "@oclif/core": "2.8.11",
@@ -41,26 +44,23 @@
     "@oclif/plugin-plugins": "2.3.0",
     "axios": "1.4.0",
     "chalk": "4.1.2",
-    "debug": "^4.3.4",
-    "execa": "^6.1.0",
-    "fullname": "4.0.1",
-    "giget": "^1.1.2",
-    "ora": "^6.1.2",
-    "prompts": "^2.4.2",
-    "unique-names-generator": "^4.7.1",
-    "which-pm-runs": "^1.1.0"
+    "debug": "4.3.4",
+    "execa": "5.1.0",
+    "giget": "1.1.2",
+    "ora": "5.4.1",
+    "passwd-user": "3.0.0",
+    "prompts": "2.4.2",
+    "unique-names-generator": "4.7.1"
   },
   "devDependencies": {
     "@types/config": "3.3.0",
-    "@types/debug": "^4.1.7",
+    "@types/debug": "4.1.7",
     "@types/glob": "8.0.0",
     "@types/jest": "29.5.3",
     "@types/luxon": "3.3.1",
     "@types/node": "20.3.3",
-    "@types/prompts": "^2.4.2",
+    "@types/prompts": "2.4.2",
     "@types/uuid": "9.0.1",
-    "@types/which-pm-runs": "^1.0.0",
-    "@types/ws": "8.5.5",
     "config": "3.3.8",
     "jest": "29.6.2",
     "rimraf": "5.0.1",
@@ -82,6 +82,9 @@
         "displayName": "E2E",
         "testMatch": [
           "<rootDir>/e2e/__tests__/**/*.spec.ts"
+        ],
+        "testPathIgnorePatterns": [
+          "<rootDir>/e2e/__tests__/fixtures"
         ],
         "preset": "ts-jest",
         "testEnvironment": "node"

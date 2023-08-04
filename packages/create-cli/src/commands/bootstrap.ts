@@ -1,20 +1,15 @@
+import axios from 'axios'
+import * as chalk from 'chalk'
+import * as prompts from 'prompts'
 import { Command, Flags } from '@oclif/core'
-import prompts from 'prompts'
-import {
-  getUserGreeting,
-  header,
-  bail,
-  footer,
-  hint,
-} from '../utils/messages.js'
-import { hasPackageJsonFile } from '../utils/directory.js'
+import { getUserGreeting, header, footer, hint } from '../utils/messages.js'
+import { hasPackageJsonFile } from '../utils/directory'
 import {
   createProject,
   getProjectDirectory,
   installDependenciesAndInitGit,
   installWithinProject,
-} from '../utils/installation.js'
-import path from 'path'
+} from '../utils/installation'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -36,9 +31,7 @@ export default class Bootstrap extends Command {
     const { template } = flags
 
     const onCancel = (): void => {
-      bail()
-      // TODO: replace this with oclif error()
-      process.exit(1)
+      this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
     }
 
     // This overrides the template prompt and skips to the next prompt
@@ -46,7 +39,27 @@ export default class Bootstrap extends Command {
       prompts.override({ template })
     }
 
-    const version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+    // This overrides prompts answers/selections (used on E2E tests)
+    if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {
+      try {
+        const injections = JSON.parse(process.env.CHECKLY_E2E_PROMPTS_INJECTIONS)
+        prompts.inject(injections)
+      } catch {
+        process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')
+      }
+    }
+
+    let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+
+    // use latest version from NPM if it's running from the local environment or E2E
+    if (version === '0.0.1-dev') {
+      try {
+        const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
+        this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
+        version = packageInformation.version
+      } catch { }
+    }
+
     const greeting = await getUserGreeting()
 
     await header(version, greeting)

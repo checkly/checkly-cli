@@ -1,14 +1,13 @@
 {
   "compilerOptions": {
+    "incremental": true,
     "declaration": true,
     "importHelpers": true,
-    "module": "ES2020",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
+    "module": "commonjs",
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
     "strict": true,
-    "target": "ES2020",
+    "target": "ES2021",
     "sourceMap": true
   },
   "include": [
