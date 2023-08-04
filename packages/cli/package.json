@@ -86,7 +86,7 @@
     "glob": "10.3.1",
     "indent-string": "4.0.0",
     "jwt-decode": "3.1.2",
-    "log-symbols": "4.1.0",
+    "log-symbols": "5.1.0",
     "luxon": "3.3.0",
     "open": "8.4.0",
     "p-queue": "6.6.2",
