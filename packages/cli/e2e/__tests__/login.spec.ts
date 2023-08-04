@@ -2,16 +2,16 @@ import * as config from 'config'
 import { runChecklyCli } from '../run-checkly'
 
 describe('login', () => {
-  beforeEach(() => {
-    runChecklyCli({
+  beforeEach(async () => {
+    await runChecklyCli({
       args: ['logout'],
       promptsInjection: [true],
       timeout: 5000,
     })
   })
 
-  it('should show warning with environment variables are configured', () => {
-    const { status, stderr } = runChecklyCli({
+  it('should show warning with environment variables are configured', async () => {
+    const { status, stderr } = await runChecklyCli({
       args: ['login'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -22,8 +22,8 @@ describe('login', () => {
     expect(status).toBe(0)
   }, 10000)
 
-  it('should show URL to login', () => {
-    const { status, stdout, stderr } = runChecklyCli({
+  it('should show URL to login', async () => {
+    const { status, stdout, stderr } = await runChecklyCli({
       args: ['login'],
       promptsInjection: ['login', false],
       timeout: 5000,
@@ -37,11 +37,11 @@ describe('login', () => {
     expect(stderr).toBe('')
 
     // the command should timeout and status shouldn't be 0
-    expect(status).toBe(null)
-  }, 10000)
+    expect(status).not.toBe(0)
+  })
 
-  it('should show URL to signup', () => {
-    const { status, stdout, stderr } = runChecklyCli({
+  it('should show URL to signup', async () => {
+    const { status, stdout, stderr } = await runChecklyCli({
       args: ['login'],
       promptsInjection: ['signup', false],
       timeout: 5000,
@@ -55,6 +55,6 @@ describe('login', () => {
     expect(stderr).toBe('')
 
     // the command should timeout and status shouldn't be 0
-    expect(status).toBe(null)
-  }, 10000)
+    expect(status).not.toBe(0)
+  })
 })

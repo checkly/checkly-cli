@@ -1,15 +1,15 @@
 import { runChecklyCli } from '../run-checkly'
 
 describe('help', () => {
-  it('should print custom help with examples', () => {
-    const { stdout } = runChecklyCli({
+  it('should print custom help with examples', async () => {
+    const { stdout } = await runChecklyCli({
       args: ['--help'],
     })
     expect(stdout).toContain('EXAMPLES')
   })
 
-  it('should print topic help', () => {
-    const { stdout } = runChecklyCli({
+  it('should print topic help', async () => {
+    const { stdout } = await runChecklyCli({
       args: ['env', '--help'],
     })
     // use a 80 char line output
@@ -23,8 +23,8 @@ describe('help', () => {
               <value>".`)
   })
 
-  it('should print core and additional commands and topic', () => {
-    const { stdout } = runChecklyCli({
+  it('should print core and additional commands and topic', async () => {
+    const { stdout } = await runChecklyCli({
       args: ['--help'],
     })
     expect(stdout).toContain(`CORE COMMANDS

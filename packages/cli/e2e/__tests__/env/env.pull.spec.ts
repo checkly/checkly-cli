@@ -11,8 +11,8 @@ describe('checkly env pull', () => {
   const directory = path.join(__dirname, '../fixtures/check-parse-error')
   // before testing add a new environment variable call envPullTest with value testvalue
   // additionally delete .envPullTest file if it exists
-  beforeAll(() => {
-    runChecklyCli({
+  beforeAll(async () => {
+    await runChecklyCli({
       args: ['env', 'add', `envPullTest-${executionId}`, 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -27,8 +27,8 @@ describe('checkly env pull', () => {
 
   // after testing remove the environment variable envPullTest from checkly
   // additionally delete .envPullTest file if it exists
-  afterAll(() => {
-    runChecklyCli({
+  afterAll(async () => {
+    await runChecklyCli({
       args: ['env', 'rm', `envPullTest-${executionId}`, '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -40,8 +40,8 @@ describe('checkly env pull', () => {
     }
   })
   // test that env pull .envPullTest creates a .envPullTest file with the correct content
-  it('should create a .envPullTest file with the correct content', () => {
-    const result = runChecklyCli({
+  it('should create a .envPullTest file with the correct content', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'pull', '.envPullTest'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -55,23 +55,24 @@ describe('checkly env pull', () => {
     expect(result.stdout).toContain('Success! Environment variables written to .envPullTest.')
   })
 
-  it('should ask for permission to overwrite a .envPullTest file', () => {
+  it('should ask for permission to overwrite a .envPullTest file', async () => {
     // create .envPullTest file in directory
     fs.writeFileSync(path.join(directory, '.envPullTest'), 'test=test')
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['env', 'pull', '.envPullTest'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory,
+      timeout: 5000,
     })
     // result.stdout contains 'Found existing file.'
     expect(result.stdout).toContain('Found existing file .envPullTest.')
   })
 
-  it('should overwrite a .envPullTest file w/o asking for permission', () => {
+  it('should overwrite a .envPullTest file w/o asking for permission', async () => {
     // create .envPullTest file in directory
     fs.writeFileSync(path.join(directory, '.envPullTest'), 'test=test')
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['env', 'pull', '.envPullTest', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

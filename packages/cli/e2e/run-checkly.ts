@@ -24,19 +24,51 @@ export function runChecklyCli (options: {
     promptsInjection = [],
     timeout = 30000,
   } = options
-  return childProcess.spawnSync(CHECKLY_PATH, args, {
-    env: {
-      PATH: process.env.PATH,
-      CHECKLY_API_KEY: apiKey,
-      CHECKLY_ACCOUNT_ID: accountId,
-      CHECKLY_ENV: process.env.CHECKLY_ENV,
-      CHECKLY_CLI_VERSION: cliVersion,
-      CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
-      ...env,
-    },
-    cwd: directory ?? process.cwd(),
-    encoding: 'utf-8',
-    timeout,
-    shell: process.platform === 'win32',
+  return new Promise<{ status: number|null, stdout: string, stderr: string }>((resolve) => {
+    let stdout = ''
+    let stderr = ''
+    const child = childProcess.spawn(CHECKLY_PATH, args, {
+      env: {
+        PATH: process.env.PATH,
+        CHECKLY_API_KEY: apiKey,
+        CHECKLY_ACCOUNT_ID: accountId,
+        CHECKLY_ENV: process.env.CHECKLY_ENV,
+        CHECKLY_CLI_VERSION: cliVersion,
+        CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
+        ...env,
+      },
+      cwd: directory ?? process.cwd(),
+      shell: process.platform === 'win32',
+    })
+    const processTimeout = setTimeout(() => {
+      // workaround to kill child process on win32
+      if (process.platform === 'win32' && child.pid) {
+        childProcess.spawnSync('taskkill', ['/pid', child.pid.toString(), '/f', '/t'])
+      }
+      child.kill()
+    }, timeout)
+
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+
+    child.stdout.on('data', (data) => {
+      stdout += data
+    })
+    child.stderr.on('data', (data) => {
+      stderr += data
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(processTimeout)
+      resolve({ status: code, stdout, stderr })
+    })
+    child.on('exit', (code) => {
+      clearTimeout(processTimeout)
+      resolve({ status: code, stdout, stderr })
+    })
+    child.on('error', () => {
+      clearTimeout(processTimeout)
+      resolve({ status: null, stdout, stderr })
+    })
   })
 }

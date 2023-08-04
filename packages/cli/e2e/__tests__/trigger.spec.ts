@@ -7,8 +7,8 @@ import { runChecklyCli } from '../run-checkly'
 describe('trigger', () => {
   const executionId = uuid.v4()
 
-  beforeAll(() => {
-    runChecklyCli({
+  beforeAll(async () => {
+    await runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -17,8 +17,8 @@ describe('trigger', () => {
     })
   })
 
-  afterAll(() => {
-    runChecklyCli({
+  afterAll(async () => {
+    await runChecklyCli({
       args: ['destroy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -27,9 +27,9 @@ describe('trigger', () => {
     })
   })
 
-  test('Should run checks successfully', () => {
+  test('Should run checks successfully', async () => {
     const secretEnv = uuid.v4()
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: [
         'trigger',
         '-e',
@@ -51,8 +51,8 @@ describe('trigger', () => {
     expect(result.status).toBe(0)
   })
 
-  test('Should return code 0 when no checks match', () => {
-    const result = runChecklyCli({
+  test('Should return code 0 when no checks match', async () => {
+    const result = await runChecklyCli({
       args: [
         'trigger',
         '--tags',

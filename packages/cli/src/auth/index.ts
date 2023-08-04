@@ -169,6 +169,13 @@ export class AuthContext {
         }
       })
 
+      const signals = ['SIGTERM', 'SIGHUP', 'SIGINT']
+
+      signals.forEach(signal => process.on(signal, () => {
+        server.close()
+        process.exitCode = 1
+      }))
+
       server.listen(4242).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
           reject(new Error('Unable to start a local server on port 4242.' +

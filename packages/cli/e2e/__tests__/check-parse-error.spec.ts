@@ -3,8 +3,8 @@ import * as config from 'config'
 import { runChecklyCli } from '../run-checkly'
 
 describe('check parse error', () => {
-  it('"checkly test" should return a clear error when there are check dependency errors', () => {
-    const { stderr } = runChecklyCli({
+  it('"checkly test" should return a clear error when there are check dependency errors', async () => {
+    const { stderr } = await runChecklyCli({
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

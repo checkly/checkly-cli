@@ -6,7 +6,6 @@ import { runChecklyCli } from '../run-checkly'
 import Projects from '../../src/rest/projects'
 import { DateTime, Duration } from 'luxon'
 import CheckTypes from '../../src/constants'
-import { stdout } from 'process'
 
 async function cleanupProjects (projectLogicalId?: string) {
   const baseURL: string = config.get('baseURL')
@@ -79,7 +78,7 @@ describe('deploy', () => {
   let latestVersion = ''
   // Cleanup projects that may have not been deleted in previous runs
   beforeAll(async () => {
-    cleanupProjects()
+    await cleanupProjects()
     const packageInformation = await axios.get('https://registry.npmjs.org/checkly/latest')
     latestVersion = packageInformation.data.version
   })
@@ -92,7 +91,7 @@ describe('deploy', () => {
   afterAll(() => cleanupProjects())
 
   it('Simple project should deploy successfully (version v4.0.8)', async () => {
-    const { status, stdout, stderr } = runChecklyCli({
+    const { status, stdout, stderr } = await runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -118,10 +117,10 @@ describe('deploy', () => {
       privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
-  }, 15000)
+  })
 
   it('Simple project should deploy successfully', async () => {
-    const { status, stdout, stderr } = runChecklyCli({
+    const { status, stdout, stderr } = await runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -146,10 +145,10 @@ describe('deploy', () => {
       privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
-  }, 15000)
+  })
 
-  it('Simple esm project should deploy successfully', () => {
-    const { status, stderr } = runChecklyCli({
+  it('Simple esm project should deploy successfully', async () => {
+    const { status, stderr } = await runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -160,8 +159,8 @@ describe('deploy', () => {
     expect(status).toBe(0)
   })
 
-  it('Should mark testOnly check as skipped', () => {
-    const { status, stdout } = runChecklyCli({
+  it('Should mark testOnly check as skipped', async () => {
+    const { status, stdout } = await runChecklyCli({
       args: ['deploy', '--preview'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -183,9 +182,9 @@ Skip (testOnly):
     expect(status).toBe(0)
   })
 
-  it('Should mark testOnly check as deleted if there is a deletion', () => {
+  it('Should mark testOnly check as deleted if there is a deletion', async () => {
     // Deploy a check (testOnly=false)
-    runChecklyCli({
+    await runChecklyCli({
       args: ['deploy', '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -193,7 +192,7 @@ Skip (testOnly):
       env: { TEST_ONLY: 'false', PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
     })
     // Deploy a check (testOnly=true)
-    const { status, stdout } = runChecklyCli({
+    const { status, stdout } = await runChecklyCli({
       args: ['deploy', '--force', '--output'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -212,28 +211,30 @@ Update and Unchanged:
     expect(status).toBe(0)
   })
 
-  it('Should deploy with different config file', () => {
-    const resultOne = runChecklyCli({
+  it('Should deploy with different config file', async () => {
+    const resultOne = await runChecklyCli({
       args: ['deploy', '--preview'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      timeout: 10000,
     })
-    const resultTwo = runChecklyCli({
+    const resultTwo = await runChecklyCli({
       args: ['deploy', '--preview', '--config', 'checkly.staging.config.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      timeout: 10000,
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
     expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
   })
 
-  it('Should terminate when no resources are found', () => {
-    const result = runChecklyCli({
+  it('Should terminate when no resources are found', async () => {
+    const result = await runChecklyCli({
       args: ['deploy'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

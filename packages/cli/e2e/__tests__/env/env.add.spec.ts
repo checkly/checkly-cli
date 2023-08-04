@@ -7,31 +7,30 @@ import { runChecklyCli } from '../../run-checkly'
 const executionId = nanoid(5)
 
 function cleanupEnvVars () {
-  runChecklyCli({
-    args: ['env', 'rm', `testenvvars-${executionId}`, '--force'],
-    apiKey: config.get('apiKey'),
-    accountId: config.get('accountId'),
-    directory: path.join(__dirname, '../fixtures/check-parse-error'),
-  })
-  runChecklyCli({
-    args: ['env', 'rm', `testenvvarslocked-${executionId}`, '--force'],
-    apiKey: config.get('apiKey'),
-    accountId: config.get('accountId'),
-    directory: path.join(__dirname, '../fixtures/check-parse-error'),
-  })
+  return Promise.all([
+    runChecklyCli({
+      args: ['env', 'rm', `testenvvars-${executionId}`, '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+    }),
+    runChecklyCli({
+      args: ['env', 'rm', `testenvvarslocked-${executionId}`, '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+    }),
+  ])
 }
 
 describe('checkly env add', () => {
-  beforeEach(() => {
-    cleanupEnvVars()
-  })
   // after testing remove the environment variable vi checkly env rm test
-  afterEach(() => {
-    cleanupEnvVars()
+  afterEach(async () => {
+    await cleanupEnvVars()
   })
 
-  it('should add a new env variable called testenvvars', () => {
-    const result = runChecklyCli({
+  it('should add a new env variable called testenvvars', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'add', `testenvvars-${executionId}`, 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -40,8 +39,8 @@ describe('checkly env add', () => {
     expect(result.stdout).toContain(`Environment variable testenvvars-${executionId} added.`)
   })
 
-  it('should add a new locked env variable called testenvvars', () => {
-    const result = runChecklyCli({
+  it('should add a new locked env variable called testenvvars', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'add', `testenvvarslocked-${executionId}`, 'testvalue', '--locked'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -50,18 +49,20 @@ describe('checkly env add', () => {
     expect(result.stdout).toContain(`Environment variable testenvvarslocked-${executionId} added.`)
   })
 
-  it('should add fail because env variable called testenvvars exists', () => {
-    runChecklyCli({
+  it('should add fail because env variable called testenvvars exists', async () => {
+    await runChecklyCli({
       args: ['env', 'add', `testenvvarslocked-${executionId}`, 'testvalue', '--locked'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
+      timeout: 10000,
     })
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['env', 'add', `testenvvarslocked-${executionId}`, 'testvalue', '--locked'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
+      timeout: 10000,
     })
     expect(result.stderr).toContain(`Environment variable testenvvarslocked-${executionId} already exists.`)
   })

@@ -2,9 +2,9 @@ import { runChecklyCli } from '../run-checkly'
 import * as config from 'config'
 
 describe('switch', () => {
-  it('should switch between user accounts', () => {
+  it('should switch between user accounts', async () => {
     const accountName = config.get('accountName') as string
-    const { status, stdout, stderr } = runChecklyCli({
+    const { status, stdout, stderr } = await runChecklyCli({
       args: ['switch'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -15,8 +15,8 @@ describe('switch', () => {
       timeout: 5000,
     })
 
-    expect(stdout).toBe(`Account switched to ${accountName}\n`)
+    expect(stdout).toContain(`Account switched to ${accountName}\n`)
     expect(stderr).toBe('')
     expect(status).toBe(0)
-  }, 10000)
+  })
 })

@@ -6,8 +6,8 @@ import { runChecklyCli } from '../../run-checkly'
 
 const executionId = nanoid(5)
 
-function cleanupEnvVars () {
-  runChecklyCli({
+async function cleanupEnvVars () {
+  await runChecklyCli({
     args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
     apiKey: config.get('apiKey'),
     accountId: config.get('accountId'),
@@ -16,8 +16,8 @@ function cleanupEnvVars () {
 }
 
 describe('checkly env rm', () => {
-  beforeEach(() => {
-    runChecklyCli({
+  beforeEach(async () => {
+    await runChecklyCli({
       args: ['env', 'add', `testenvvarsrm-${executionId}`, 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -25,12 +25,12 @@ describe('checkly env rm', () => {
     })
   })
   // after testing remove the environment variable vi checkly env rm test
-  afterEach(() => {
-    cleanupEnvVars()
+  afterEach(async () => {
+    await cleanupEnvVars()
   })
 
-  it('should remove the testenvvarsrm env variable', () => {
-    const result = runChecklyCli({
+  it('should remove the testenvvarsrm env variable', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -40,20 +40,21 @@ describe('checkly env rm', () => {
     expect(result.stdout).toContain(`Environment variable testenvvarsrm-${executionId} deleted.`)
   })
 
-  it('should ask for permision to remove the testenvvarsrm env variable', () => {
-    const result = runChecklyCli({
+  it('should ask for permision to remove the testenvvarsrm env variable', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'rm', `testenvvarsrm-${executionId}`],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
+      timeout: 5000,
     })
     // expect that 'testenvvars' is in the output
     expect(result.stdout).toContain('Are you sure you want to delete environment variable')
   })
 
-  it('should throw an error because testenvvarsrm env variable does not exist', () => {
-    cleanupEnvVars()
-    const result = runChecklyCli({
+  it('should throw an error because testenvvarsrm env variable does not exist', async () => {
+    await cleanupEnvVars()
+    const result = await runChecklyCli({
       args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
