@@ -8,8 +8,8 @@ describe('checkly env ls', () => {
   const executionId = nanoid(5)
 
   // before testing add a new environment variable vi checkly env add test true
-  beforeAll(() => {
-    runChecklyCli({
+  beforeAll(async () => {
+    await runChecklyCli({
       args: ['env', 'add', `testenvvarsls-${executionId}`, 'testvalue'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -18,8 +18,8 @@ describe('checkly env ls', () => {
   })
 
   // after testing remove the environment variable vi checkly env rm test
-  afterAll(() => {
-    runChecklyCli({
+  afterAll(async () => {
+    await runChecklyCli({
       args: ['env', 'rm', `testenvvarsls-${executionId}`, '--force'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -27,8 +27,8 @@ describe('checkly env ls', () => {
     })
   })
 
-  it('should list all environment variables', () => {
-    const result = runChecklyCli({
+  it('should list all environment variables', async () => {
+    const result = await runChecklyCli({
       args: ['env', 'ls'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

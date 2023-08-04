@@ -5,9 +5,9 @@ import * as fs from 'fs'
 import { runChecklyCli } from '../run-checkly'
 
 describe('test', () => {
-  it('Test project should run successfully', () => {
+  it('Test project should run successfully', async () => {
     const secretEnv = uuid.v4()
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -17,10 +17,10 @@ describe('test', () => {
     expect(result.stdout).not.toContain('File extension type example')
     expect(result.stdout).toContain(secretEnv)
     expect(result.status).toBe(0)
-  })
+  }, 130000)
 
-  it('Should include only one check', () => {
-    const result = runChecklyCli({
+  it('Should include only one check', async () => {
+    const result = await runChecklyCli({
       args: ['test', 'secret.check.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -31,8 +31,8 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should use different config file', () => {
-    const result = runChecklyCli({
+  it('Should use different config file', async () => {
+    const result = await runChecklyCli({
       args: ['test', 'secret.check.ts', '--config', 'checkly.staging.config.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -43,8 +43,8 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should fail with config file not found', () => {
-    const result = runChecklyCli({
+  it('Should fail with config file not found', async () => {
+    const result = await runChecklyCli({
       args: ['test', 'secret.check.ts', '--config', 'checkly.notfound.config.ts'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -53,8 +53,8 @@ describe('test', () => {
     expect(result.status).toBe(1)
   })
 
-  it('Should terminate when no checks are found', () => {
-    const result = runChecklyCli({
+  it('Should terminate when no checks are found', async () => {
+    const result = await runChecklyCli({
       args: ['test', 'does-not-exist.js'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -64,8 +64,8 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should list checks and not execute them with `--list`', () => {
-    const result = runChecklyCli({
+  it('Should list checks and not execute them with `--list`', async () => {
+    const result = await runChecklyCli({
       args: ['test', '--list'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -75,8 +75,8 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should terminate with error when JS/TS throws error', () => {
-    const result = runChecklyCli({
+  it('Should terminate with error when JS/TS throws error', async () => {
+    const result = await runChecklyCli({
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -87,8 +87,8 @@ describe('test', () => {
     expect(result.status).toBe(1)
   })
 
-  it('Should terminate with error when duplicated logicalId', () => {
-    const result = runChecklyCli({
+  it('Should terminate with error when duplicated logicalId', async () => {
+    const result = await runChecklyCli({
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -99,8 +99,8 @@ describe('test', () => {
     expect(result.status).toBe(1)
   })
 
-  it('Should include a testOnly check', () => {
-    const result = runChecklyCli({
+  it('Should include a testOnly check', async () => {
+    const result = await runChecklyCli({
       args: ['test'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -113,13 +113,13 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should use Github reporter', () => {
+  it('Should use Github reporter', async () => {
     const reportFilename = './reports/checkly-summary.md'
     try {
       fs.unlinkSync(reportFilename)
     } catch {
     }
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['test', '--reporter', 'github'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -132,8 +132,8 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should report timeouts correctly', () => {
-    const result = runChecklyCli({
+  it('Should report timeouts correctly', async () => {
+    const result = await runChecklyCli({
       args: ['test', 'homepage.test.ts', '--timeout', '0'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
@@ -143,9 +143,9 @@ describe('test', () => {
     expect(result.stdout).toContain('Reached timeout of 0 seconds waiting for check result.')
   })
 
-  it('ESModule project should run successfully', () => {
+  it('ESModule project should run successfully', async () => {
     const secretEnv = uuid.v4()
-    const result = runChecklyCli({
+    const result = await runChecklyCli({
       args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),

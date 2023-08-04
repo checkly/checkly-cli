@@ -1,6 +1,5 @@
 import * as chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import * as prompts from 'prompts'
 import config from '../services/config'
 import * as api from '../rest/api'
 import { AuthCommand } from './authCommand'
@@ -20,6 +19,10 @@ export default class Switch extends AuthCommand {
   async run () {
     const { flags } = await this.parse(Switch)
     const { 'account-id': accountId } = flags
+
+    const onCancel = (): void => {
+      this.error('Command cancelled.\n')
+    }
 
     if (accountId) {
       try {
@@ -43,7 +46,7 @@ export default class Switch extends AuthCommand {
         this.exit(0)
       }
 
-      const selectedAccount = await selectAccount(accounts)
+      const selectedAccount = await selectAccount(accounts, { onCancel })
 
       const { id, name } = selectedAccount
 

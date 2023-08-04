@@ -7,7 +7,8 @@ import * as api from '../rest/api'
 import type { Account } from '../rest/accounts'
 import { AuthContext } from '../auth'
 
-export const selectAccount = async (accounts: Array<Account>): Promise<Account> => {
+export const selectAccount = async (
+  accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
   if (accounts.length === 1) {
     return accounts[0]
   }
@@ -17,7 +18,7 @@ export const selectAccount = async (accounts: Array<Account>): Promise<Account> 
     type: 'select',
     choices: accounts.map(account => ({ title: account.name, value: account })),
     message: 'Which account do you want to use?',
-  })
+  }, { onCancel })
 
   return selectedAccount
 }
@@ -55,6 +56,10 @@ export default class Login extends BaseCommand {
 
     const mode = await this.#promptForLoginOrSignUp()
 
+    const onCancel = (): void => {
+      this.error('Command cancelled.\n')
+    }
+
     const authContext = new AuthContext(mode)
 
     const { openUrl } = await prompts({
@@ -80,7 +85,7 @@ export default class Login extends BaseCommand {
 
     const { data: accounts } = await api.accounts.getAll()
 
-    const selectedAccount = await selectAccount(accounts)
+    const selectedAccount = await selectAccount(accounts, { onCancel })
 
     if (!selectedAccount) {
       this.warn('You must select a valid Checkly account name.')
