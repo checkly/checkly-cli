@@ -1,7 +1,14 @@
 import * as path from 'path'
 import * as chalk from 'chalk'
-import prompts from 'prompts'
-import { generateProjectName, isValidProjectDirectory } from '../utils/directory.js'
+import * as prompts from 'prompts'
+import { generateProjectName, isValidProjectDirectory } from '../utils/directory'
+
+export const PROJECT_TEMPLATES = [
+  { value: 'advanced-project', title: 'An advanced TypeScript project with multiple examples and best practices (recommended)' },
+  { value: 'advanced-project-js', title: 'An advanced JavaScript project with multiple examples and best practices' },
+  { value: 'boilerplate-project', title: 'A boilerplate TypeScript project with basic config' },
+  { value: 'boilerplate-project-js', title: 'A boilerplate JavaScript project with basic config' },
+]
 
 export function askInitializeProject (onCancel: any): Promise<{ initializeProject: boolean }> {
   return prompts({
@@ -34,12 +41,7 @@ export function askTemplate (onCancel: any): Promise<{ template: string }> {
     type: 'select',
     name: 'template',
     message: 'Which template would you like to use for your new project?',
-    choices: [
-      { value: 'advanced-project', title: 'An advanced TypeScript project with multiple examples and best practices (recommended)' },
-      { value: 'advanced-project-js', title: 'An advanced JavaScript project with multiple examples and best practices' },
-      { value: 'boilerplate-project', title: 'A boilerplate TypeScript project with basic config' },
-      { value: 'boilerplate-project-js', title: 'A boilerplate JavaScript project with basic config' },
-    ],
+    choices: PROJECT_TEMPLATES,
   }, { onCancel })
 }
 
@@ -60,20 +62,20 @@ export function askUserWebsite (onCancel: any): Promise<{ userWebsite: string }>
   }, { onCancel })
 }
 
-export function askInstallDependencies (): Promise<{ installDependencies: boolean }> {
+export function askInstallDependencies (onCancel: any = () => true): Promise<{ installDependencies: boolean }> {
   return prompts({
     type: 'confirm',
     name: 'installDependencies',
     message: 'Would you like to install NPM dependencies? (recommended)',
     initial: true,
-  }, { onCancel: () => true })
+  }, { onCancel })
 }
 
-export function askInitializeGit (): Promise<{ initializeGit: boolean }> {
+export function askInitializeGit (onCancel: any = () => true): Promise<{ initializeGit: boolean }> {
   return prompts({
     type: 'confirm',
     name: 'initializeGit',
     message: 'Would you like to initialize a new git repo? (optional)',
     initial: true,
-  }, { onCancel: () => true })
+  }, { onCancel })
 }

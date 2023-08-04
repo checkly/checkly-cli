@@ -1,20 +1,14 @@
 /* eslint no-console: 'off' */
-
-import axios from 'axios'
-import chalk from 'chalk'
-import fullName from 'fullname'
+import * as chalk from 'chalk'
+import { getFullName } from './fullname'
 
 function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export async function getUserGreeting (): Promise<string> {
-  const name = await fullName()
+  const name = await getFullName()
   return name ? `Hi ${name}!` : 'Hi there!'
-}
-
-export function bail () {
-  console.log(chalk.dim('Bailing, hope to see you again soon!\n'))
 }
 
 export async function header (version: string, greeting: string): Promise<void> {
