@@ -1,4 +1,4 @@
-import { HeartbeatCheck } from 'checkly/constructs'
+const { HeartbeatCheck } = require('checkly/constructs')
 
 new HeartbeatCheck('heartbeat-check-1', {
     name: 'Send weekly newsletter job',
