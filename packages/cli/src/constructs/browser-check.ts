@@ -133,7 +133,7 @@ export class BrowserCheck extends Check {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
-      sslCheckDomain: this.sslCheckDomain ?? null,
+      sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
     }
   }
 }
