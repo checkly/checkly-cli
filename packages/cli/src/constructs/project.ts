@@ -111,6 +111,13 @@ export class Project extends Construct {
           .filter((construct: Construct) => construct instanceof Check && construct.testOnly))
   }
 
+  getHeartbeatLogicalIds (): string[] {
+    return Object
+      .values(this.data.check)
+      .filter((construct: Construct) => construct instanceof Check && construct.constructor.name === 'HeartbeatCheck')
+      .map((construct: Check) => construct.logicalId)
+  }
+
   private synthesizeRecord (record: Record<string,
     Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard|
     PrivateLocation|PrivateLocationCheckAssignment|PrivateLocationGroupAssignment>, addTestOnly = true) {
