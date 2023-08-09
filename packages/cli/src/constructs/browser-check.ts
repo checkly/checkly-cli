@@ -18,7 +18,7 @@ export interface BrowserCheckProps extends CheckProps {
    */
   code: Content|Entrypoint
   /**
-   * A valid fully qualified domain name (FQDN) to check its SSL certificate.
+   * A valid fully qualified domain name (FQDN) to check for SSL certificate expiration. For example, 'app.checklyhq.com'.
    */
   sslCheckDomain?: string
 }
