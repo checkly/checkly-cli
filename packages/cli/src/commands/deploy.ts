@@ -123,7 +123,7 @@ export default class Deploy extends AuthCommand {
           .map(check => check?.physicalId)
 
         heartbeatCheckIds.forEach(async (id) => {
-          if (id) {
+          if (id && typeof id === 'string') {
             const { data: { pingUrl, name } } = await api.heartbeatCheck.get(id)
             this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
           }
