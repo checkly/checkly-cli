@@ -12,7 +12,6 @@ type ProjectResponse = Project & { id: string, created_at: string }
 export interface Change {
   logicalId: string,
   physicalId?: string|number,
-  checkId?: string,
   type: string,
   action: string
 }
