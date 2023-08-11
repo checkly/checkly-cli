@@ -9,4 +9,5 @@ new BrowserCheck('homepage-browser-check', {
   code: {
     entrypoint: path.join(__dirname, 'homepage.test.ts')
   },
+  sslCheckDomain: 'acme.com',
 })

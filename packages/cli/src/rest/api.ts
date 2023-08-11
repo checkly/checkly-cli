@@ -10,6 +10,7 @@ import PrivateLocations from './private-locations'
 import Locations from './locations'
 import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
+import HeartbeatChecks from './heartbeat-checks'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -76,3 +77,4 @@ export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
 export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
+export const heartbeatCheck = new HeartbeatChecks(api)
