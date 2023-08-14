@@ -61,7 +61,8 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
 
 export function responseErrorInterceptor (error: any) {
   if (error.response?.status === 408) {
-    throw new Error('Encountered an error connecting to Checkly. Your Internet connection is too slow.')
+    throw new Error('Encountered an error connecting to Checkly. ' +
+      'This can be triggered by a slow internet connection or a network with high packet loss.')
   }
   throw error
 }
