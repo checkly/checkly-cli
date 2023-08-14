@@ -66,8 +66,6 @@ export function responseErrorInterceptor (error: any) {
   throw error
 }
 
-let apiInstance: AxiosInstance|null = null
-
 function init (): AxiosInstance {
   const { baseURL } = getDefaults()
   const axiosConf = assignProxy(baseURL, { baseURL })
@@ -84,7 +82,7 @@ function init (): AxiosInstance {
   return api
 }
 
-export const api = apiInstance ?? (apiInstance = init())
+export const api = init()
 
 export const accounts = new Accounts(api)
 export const user = new Users(api)
