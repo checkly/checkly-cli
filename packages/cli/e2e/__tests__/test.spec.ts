@@ -113,14 +113,14 @@ describe('test', () => {
     expect(result.status).toBe(0)
   })
 
-  it('Should use Github reporter', async () => {
+  it('Should use Github reporter and show test-session link', async () => {
     const reportFilename = './reports/checkly-summary.md'
     try {
       fs.unlinkSync(reportFilename)
     } catch {
     }
     const result = await runChecklyCli({
-      args: ['test', '--reporter', 'github'],
+      args: ['test', '--record', '--reporter', 'github'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'test-project'),
@@ -128,6 +128,8 @@ describe('test', () => {
       timeout: 120000, // 2 minutes
     })
     expect(result.stdout).toContain('Github summary saved in')
+    expect(result.stdout).toContain('Detailed session summary at')
+    expect(result.stdout).toContain('https://chkly.link/l')
     expect(fs.existsSync(path.join(__dirname, 'fixtures', 'test-project', reportFilename))).toBe(true)
     expect(result.status).toBe(0)
   })
