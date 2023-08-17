@@ -101,7 +101,7 @@ export default class GithubReporter extends AbstractListReporter {
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }
 
-  onEnd () {
+  async onEnd () {
     this._printBriefSummary()
     const githubMdBuilder = new GithubMdBuilder({
       testSessionId: this.testSessionId,
@@ -117,5 +117,7 @@ export default class GithubReporter extends AbstractListReporter {
     fs.writeFileSync(summaryFilename, markDown)
 
     printLn(`Github summary saved in '${path.resolve(summaryFilename)}'.`, 2)
+
+    await this._printTestSessionsUrl()
   }
 }
