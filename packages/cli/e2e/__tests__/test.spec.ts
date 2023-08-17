@@ -53,6 +53,19 @@ describe('test', () => {
     expect(result.status).toBe(1)
   })
 
+  it('Should fail with bad dependency reference', async () => {
+    const result = await runChecklyCli({
+      args: ['test'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'test-bad-reference-project', 'e2e'),
+    })
+    expect(result.stderr).toContain('Error: You cannot reference a dependency file above the Checkly config')
+    expect(result.stderr).toContain('location folder. Please, modify')
+    expect(result.stderr).toContain('"../common/__test-utils__/playwright/index.ts" path.')
+    expect(result.status).toBe(1)
+  })
+
   it('Should terminate when no checks are found', async () => {
     const result = await runChecklyCli({
       args: ['test', 'does-not-exist.js'],

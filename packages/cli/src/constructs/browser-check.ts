@@ -111,8 +111,12 @@ export class BrowserCheck extends Check {
 
     const deps: CheckDependency[] = []
     for (const { filePath, content } of parsed.dependencies) {
+      const relativePath = pathToPosix(path.relative(Session.basePath!, filePath))
+      if (relativePath.startsWith('..')) {
+        throw new Error(`You cannot reference a dependency file above the Checkly config location folder. Please, modify "${relativePath}" path.`)
+      }
       deps.push({
-        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        path: relativePath,
         content,
       })
     }
