@@ -3,8 +3,7 @@
 import { waitForNewTab, waitForPageNavigation } from '../../common/__test-utils__/playwright'
 import { test } from '@playwright/test'
 
-test('login and and navigate to the provider shopfront', ({ page }) => {
+test('login and and navigate to the provider shopfront', () => {
   console.log('ok')
-  page.setDefaultTimeout(10000)
   console.log(waitForNewTab, waitForPageNavigation)
 })
