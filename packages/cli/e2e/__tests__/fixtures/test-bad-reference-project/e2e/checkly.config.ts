@@ -10,7 +10,7 @@ const config = defineConfig({
     runtimeId: '2022.10',
     checkMatch: '**/*.check.ts',
     browserChecks: {
-      testMatch: '**/*.spec.ts',
+      testMatch: '**/*.test.ts',
     },
   },
 })
