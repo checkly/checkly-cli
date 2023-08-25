@@ -14,6 +14,7 @@ import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 import type { Frequency } from './frequency'
+import type { RetryStrategy } from './retry-strategy'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -93,6 +94,10 @@ export interface CheckGroupProps {
    */
   localTearDownScript?: string
   apiCheckDefaults?: ApiCheckDefaultConfig
+  /**
+   * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
+   */
+  retryStrategy?: RetryStrategy
 }
 
 /**
@@ -119,6 +124,7 @@ export class CheckGroup extends Construct {
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
   browserChecks?: BrowserCheckConfig
+  retryStrategy?: RetryStrategy
 
   static readonly __checklyType = 'check-group'
 
@@ -156,6 +162,7 @@ export class CheckGroup extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
+    this.retryStrategy = props.retryStrategy
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
     this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
@@ -247,6 +254,7 @@ export class CheckGroup extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
+      retryStrategy: this.retryStrategy,
     }
   }
 }
