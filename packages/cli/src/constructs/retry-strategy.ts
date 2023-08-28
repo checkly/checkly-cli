@@ -39,7 +39,7 @@ export class RetryStrategyBuilder {
    * The delay between retries increases linearly
    *
    * The delay between retries is calculated using `baseBackoffSeconds * attempt`.
-   * For example, retries will be run with backoff 10s, 20s, 30s, and so on.
+   * For example, retries will be run with a backoff of 10s, 20s, 30s, and so on.
    */
   static linearStrategy (options: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('LINEAR', options)
@@ -49,7 +49,7 @@ export class RetryStrategyBuilder {
    * The delay between retries increases exponentially
    *
    * The delay between retries is calculated using `baseBackoffSeconds ^ attempt`.
-   * For example, retries will be run with backoff 10s, 100s, 1000s, and so on.
+   * For example, retries will be run with a backoff of 10s, 100s, 1000s, and so on.
    */
   static exponentialStrategy (options: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
