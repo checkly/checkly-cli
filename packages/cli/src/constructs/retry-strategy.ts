@@ -57,7 +57,6 @@ export class RetryStrategyBuilder {
 
   private static retryStrategy (type: RetryStrategyType, options: RetryStrategyOptions): RetryStrategy {
     return {
-      ...options,
       type,
       baseBackoffSeconds: options.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
       maxAttempts: options.maxAttempts ?? RetryStrategyBuilder.DEFAULT_MAX_ATTEMPTS,
