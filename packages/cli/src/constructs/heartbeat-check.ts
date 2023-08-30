@@ -80,6 +80,7 @@ export class HeartbeatCheck extends Check {
     }
 
     Session.registerConstruct(this)
+    this.addSubscriptions()
   }
 
   synthesize (): any | null {
