@@ -1,4 +1,4 @@
-const { CheckGroup } = require('checkly/constructs');
+const { CheckGroup, RetryStrategyBuilder } = require('checkly/constructs');
 const { smsChannel, emailChannel } = require('../alert-channels');
 const alertChannels = [smsChannel, emailChannel];
 /*
@@ -24,6 +24,11 @@ const websiteGroup = new CheckGroup('website-check-group-1', {
   apiCheckDefaults: {},
   concurrency: 100,
   alertChannels,
+  /*
+   * Failed check runs in this group will be retried before triggering alerts.
+   * The wait time between retries will increase linearly: 30 seconds, 60 seconds, and then 90 seconds between the retries.
+   */
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 30, maxAttempts: 3, sameRegion: false }),
 });
 
-module.exports = websiteGroup;
+module.exports = { websiteGroup };
