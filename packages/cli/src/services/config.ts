@@ -79,7 +79,7 @@ class ChecklyConfig {
 
   getApiUrl (): string {
     const environments = {
-      local: 'http://localhost:3000',
+      local: 'http://127.0.0.1:3000',
       development: 'https://api-dev.checklyhq.com',
       staging: 'https://api-test.checklyhq.com',
       production: 'https://api.checklyhq.com',

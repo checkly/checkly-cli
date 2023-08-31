@@ -116,6 +116,16 @@ export default class Deploy extends AuthCommand {
       if (!preview) {
         await ux.wait(500)
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+
+        // Print the ping URL for heartbeat checks.
+        const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
+        const heartbeatCheckIds = data.diff.filter((check) => heartbeatLogicalIds.includes(check.logicalId))
+          .map(check => check?.physicalId)
+
+        heartbeatCheckIds.forEach(async (id) => {
+          const { data: { pingUrl, name } } = await api.heartbeatCheck.get(id as string)
+          this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
+        })
       }
     } catch (err: any) {
       if (err?.response?.status === 400) {

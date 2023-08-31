@@ -17,6 +17,11 @@ export interface BrowserCheckProps extends CheckProps {
    * with the Puppeteer or Playwright frameworks.
    */
   code: Content|Entrypoint
+  /**
+   * A valid fully qualified domain name (FQDN) to check for SSL certificate
+   * expiration. For example, 'app.checklyhq.com'.
+   */
+  sslCheckDomain?: string
 }
 
 /**
@@ -30,6 +35,7 @@ export class BrowserCheck extends Check {
   script: string
   scriptPath?: string
   dependencies?: Array<CheckDependency>
+  sslCheckDomain?: string
 
   /**
    * Constructs the Browser Check instance
@@ -44,6 +50,7 @@ export class BrowserCheck extends Check {
     }
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)
+    this.sslCheckDomain = props.sslCheckDomain
     if ('content' in props.code) {
       const script = props.code.content
       this.script = script
@@ -127,6 +134,7 @@ export class BrowserCheck extends Check {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
+      sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
     }
   }
 }

@@ -1,4 +1,4 @@
-import { HeartbeatCheck } from 'checkly/constructs'
+const { HeartbeatCheck } = require('checkly/constructs')
 
 // Heartbeat checks allow you to monitor jobs or recurring tasks.
 // This feature is only available on paid plans.

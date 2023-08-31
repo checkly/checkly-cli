@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import config from '../services/config'
 import { assignProxy } from '../services/util'
 import Accounts from './accounts'
@@ -10,6 +10,7 @@ import PrivateLocations from './private-locations'
 import Locations from './locations'
 import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
+import HeartbeatChecks from './heartbeat-checks'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -45,26 +46,43 @@ export async function validateAuthentication (): Promise<void> {
   }
 }
 
+export function requestInterceptor (config: InternalAxiosRequestConfig) {
+  const { Authorization, accountId } = getDefaults()
+  if (Authorization && config.headers) {
+    config.headers.Authorization = Authorization
+  }
+
+  if (accountId && config.headers) {
+    config.headers['x-checkly-account'] = accountId
+  }
+
+  return config
+}
+
+export function responseErrorInterceptor (error: any) {
+  if (error.response?.status === 408) {
+    throw new Error('Encountered an error connecting to Checkly. ' +
+      'This can be triggered by a slow internet connection or a network with high packet loss.')
+  }
+  throw error
+}
+
 function init (): AxiosInstance {
   const { baseURL } = getDefaults()
   const axiosConf = assignProxy(baseURL, { baseURL })
 
   const api = axios.create(axiosConf)
 
-  api.interceptors.request.use(function (config) {
-    const { Authorization, accountId } = getDefaults()
-    if (Authorization && config.headers) {
-      config.headers.Authorization = Authorization
-    }
+  api.interceptors.request.use(requestInterceptor)
 
-    if (accountId && config.headers) {
-      config.headers['x-checkly-account'] = accountId
-    }
+  api.interceptors.response.use(
+    response => response,
+    responseErrorInterceptor,
+  )
 
-    return config
-  })
   return api
 }
+
 export const api = init()
 
 export const accounts = new Accounts(api)
@@ -76,3 +94,4 @@ export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
 export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
+export const heartbeatCheck = new HeartbeatChecks(api)

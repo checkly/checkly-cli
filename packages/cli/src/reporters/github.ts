@@ -117,5 +117,7 @@ export default class GithubReporter extends AbstractListReporter {
     fs.writeFileSync(summaryFilename, markDown)
 
     printLn(`Github summary saved in '${path.resolve(summaryFilename)}'.`, 2)
+
+    this._printTestSessionsUrl()
   }
 }
