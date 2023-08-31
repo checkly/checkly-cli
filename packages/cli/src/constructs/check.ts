@@ -28,6 +28,7 @@ export interface CheckProps {
   /**
    * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
    * randomly selected region before marking the check as failed.
+   * @deprecated Use {@link CheckProps.retryStrategy} instead.
    */
   doubleCheck?: boolean
   /**
