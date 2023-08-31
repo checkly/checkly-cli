@@ -10,8 +10,8 @@ const config = defineConfig({
    * See https://www.checklyhq.com/docs/cli/constructs/ to learn more about logical IDs.
    */
   logicalId: 'advanced-example-project',
-  /* An optional URL to your Git repo */
-  repoUrl: 'https://github.com/checkly/checkly-cli',
+  /* An optional URL to your Git repo to be shown in your test sessions and resource activity log */
+  /* repoUrl: 'https://github.com/checkly/checkly-cli', */
   /* Sets default values for Checks */
   checks: {
     /* A default for how often your Check should run in minutes */
