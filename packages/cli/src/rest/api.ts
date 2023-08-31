@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
+import { name as CIname } from 'ci-info'
 import config from '../services/config'
 import { assignProxy } from '../services/util'
 import Accounts from './accounts'
@@ -55,6 +56,8 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
   if (accountId && config.headers) {
     config.headers['x-checkly-account'] = accountId
   }
+
+  config.headers['x-checkly-ci-name'] = CIname
 
   return config
 }
