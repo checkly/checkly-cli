@@ -79,7 +79,7 @@
     "async-mqtt": "2.6.3",
     "axios": "1.4.0",
     "chalk": "4.1.2",
-    "ci-info": "3.7.1",
+    "ci-info": "3.8.0",
     "conf": "10.2.0",
     "dotenv": "16.3.1",
     "git-repo-info": "2.1.1",
