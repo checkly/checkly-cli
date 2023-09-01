@@ -26,7 +26,7 @@ export class RetryStrategyBuilder {
   private static readonly DEFAULT_BASE_BACKOFF_SECONDS = 60
   private static readonly DEFAULT_MAX_RETRIES = 2
   private static readonly DEFAULT_MAX_DURATION_SECONDS = 60 * 10
-  private static readonly DEFAULT_SAME_REGION = false
+  private static readonly DEFAULT_SAME_REGION = true
 
   /**
    * Each retry is run with the same backoff between attempts.
