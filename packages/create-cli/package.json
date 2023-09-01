@@ -61,7 +61,7 @@
     "@types/node": "20.3.3",
     "@types/prompts": "2.4.2",
     "@types/uuid": "9.0.1",
-    "config": "3.3.8",
+    "config": "3.3.9",
     "jest": "29.6.2",
     "rimraf": "5.0.1",
     "ts-jest": "29.0.3",
