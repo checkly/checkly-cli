@@ -24,7 +24,7 @@ export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'm
 
 export class RetryStrategyBuilder {
   private static readonly DEFAULT_BASE_BACKOFF_SECONDS = 60
-  private static readonly DEFAULT_MAX_ATTEMPTS = 2
+  private static readonly DEFAULT_MAX_RETRIES = 2
   private static readonly DEFAULT_MAX_DURATION_SECONDS = 60 * 10
   private static readonly DEFAULT_SAME_REGION = false
 
@@ -59,7 +59,7 @@ export class RetryStrategyBuilder {
     return {
       type,
       baseBackoffSeconds: options.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
-      maxRetries: options.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_ATTEMPTS,
+      maxRetries: options.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
       maxDurationSeconds: options.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
       sameRegion: options.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
     }
