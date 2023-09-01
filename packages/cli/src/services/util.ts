@@ -141,10 +141,6 @@ export function isFileSync (path: string): boolean {
 export function getGitInformation (repoUrl?: string): GitInformation|null {
   const repositoryInfo = gitRepoInfo()
 
-  if (!process.env.CHECKLY_REPO_SHA && !process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
-    return null
-  }
-
   // safe way to remove the email address
   const committer = (repositoryInfo.committer?.match(/([^<]+)/) || [])[1]?.trim()
   return {
