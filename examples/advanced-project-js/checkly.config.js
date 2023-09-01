@@ -26,7 +26,7 @@ const config = defineConfig({
      */
     runtimeId: '2023.02',
     /* Failed check runs will be retried before triggering alerts */
-    retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxAttempts: 4, sameRegion: true }),
+    retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.js',
     browserChecks: {

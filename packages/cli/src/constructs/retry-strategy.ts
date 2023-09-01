@@ -9,7 +9,7 @@ export interface RetryStrategy {
   /**
   * The maximum number of attempts to retry the check. Value must be between 1 and 10.
   */
-  maxAttempts?: number,
+  maxRetries?: number,
   /**
   * The total amount of time to continue retrying the check (maximum 600 seconds).
   */
@@ -20,7 +20,7 @@ export interface RetryStrategy {
   sameRegion?: boolean,
 }
 
-export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'maxAttempts' | 'maxDurationSeconds' | 'sameRegion'>
+export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds' | 'sameRegion'>
 
 export class RetryStrategyBuilder {
   private static readonly DEFAULT_BASE_BACKOFF_SECONDS = 60
@@ -59,7 +59,7 @@ export class RetryStrategyBuilder {
     return {
       type,
       baseBackoffSeconds: options.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
-      maxAttempts: options.maxAttempts ?? RetryStrategyBuilder.DEFAULT_MAX_ATTEMPTS,
+      maxRetries: options.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_ATTEMPTS,
       maxDurationSeconds: options.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
       sameRegion: options.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
     }
