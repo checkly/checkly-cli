@@ -31,7 +31,7 @@ export class RetryStrategyBuilder {
   /**
    * Each retry is run with the same backoff between attempts.
    */
-  static fixedStrategy (options: RetryStrategyOptions): RetryStrategy {
+  static fixedStrategy (options?: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('FIXED', options)
   }
 
@@ -41,7 +41,7 @@ export class RetryStrategyBuilder {
    * The delay between retries is calculated using `baseBackoffSeconds * attempt`.
    * For example, retries will be run with a backoff of 10s, 20s, 30s, and so on.
    */
-  static linearStrategy (options: RetryStrategyOptions): RetryStrategy {
+  static linearStrategy (options?: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('LINEAR', options)
   }
 
@@ -51,17 +51,17 @@ export class RetryStrategyBuilder {
    * The delay between retries is calculated using `baseBackoffSeconds ^ attempt`.
    * For example, retries will be run with a backoff of 10s, 100s, 1000s, and so on.
    */
-  static exponentialStrategy (options: RetryStrategyOptions): RetryStrategy {
+  static exponentialStrategy (options?: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
   }
 
-  private static retryStrategy (type: RetryStrategyType, options: RetryStrategyOptions): RetryStrategy {
+  private static retryStrategy (type: RetryStrategyType, options?: RetryStrategyOptions): RetryStrategy {
     return {
       type,
-      baseBackoffSeconds: options.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
-      maxRetries: options.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
-      maxDurationSeconds: options.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
-      sameRegion: options.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
+      baseBackoffSeconds: options?.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
+      maxRetries: options?.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
+      maxDurationSeconds: options?.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
+      sameRegion: options?.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
     }
   }
 }
