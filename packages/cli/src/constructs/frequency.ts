@@ -12,7 +12,7 @@ export class Frequency {
 
   static EVERY_1H = new Frequency(1 * 60)
   static EVERY_2H = new Frequency(2 * 60)
-  static EVERY_3M = new Frequency(3 * 60)
+  static EVERY_3H = new Frequency(3 * 60)
   static EVERY_6H = new Frequency(6 * 60)
   static EVERY_12H = new Frequency(12 * 60)
   static EVERY_24H = new Frequency(24 * 60)
