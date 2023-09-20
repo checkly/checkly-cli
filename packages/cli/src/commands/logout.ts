@@ -1,4 +1,4 @@
-import * as prompts from 'prompts'
+import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import config from '../services/config'
 import { BaseCommand } from './baseCommand'

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import * as prompts from 'prompts'
+import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
 

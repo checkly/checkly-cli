@@ -1,5 +1,5 @@
 import { Flags, Args, ux } from '@oclif/core'
-import * as indentString from 'indent-string'
+import indentString from 'indent-string'
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'

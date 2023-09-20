@@ -1,5 +1,5 @@
 import * as path from 'path'
-import * as config from 'config'
+import config from 'config'
 import { runChecklyCli } from '../run-checkly'
 
 describe('check parse error', () => {

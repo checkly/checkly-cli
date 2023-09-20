@@ -1,5 +1,5 @@
 import * as path from 'path'
-import * as config from 'config'
+import config from 'config'
 import { v4 as uuidv4 } from 'uuid'
 import { runChecklyCli } from '../run-checkly'
 

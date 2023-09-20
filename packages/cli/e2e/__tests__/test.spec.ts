@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as uuid from 'uuid'
-import * as config from 'config'
+import config from 'config'
 import * as fs from 'fs'
 import { runChecklyCli } from '../run-checkly'
 

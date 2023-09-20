@@ -1,5 +1,5 @@
 import { runChecklyCli } from '../run-checkly'
-import * as config from 'config'
+import config from 'config'
 
 describe('whomai', () => {
   it('should give correct user', async () => {

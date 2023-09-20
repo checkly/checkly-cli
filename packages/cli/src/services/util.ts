@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import { Service } from 'ts-node'
-import * as gitRepoInfo from 'git-repo-info'
+import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
@@ -66,7 +66,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
   try {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
-    let { default: exported } = await import(filepath)
+    let { default: exported } = await require(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }
