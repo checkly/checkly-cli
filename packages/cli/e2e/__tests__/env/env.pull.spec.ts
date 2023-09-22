@@ -1,6 +1,6 @@
 // create test for checkly env pull
 import * as path from 'path'
-import * as config from 'config'
+import config from 'config'
 import { nanoid } from 'nanoid'
 import * as fs from 'fs'
 

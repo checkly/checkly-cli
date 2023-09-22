@@ -1,5 +1,5 @@
-import * as indentString from 'indent-string'
-import * as chalk from 'chalk'
+import indentString from 'indent-string'
+import chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list'
 import { CheckRunId } from '../services/abstract-check-runner'

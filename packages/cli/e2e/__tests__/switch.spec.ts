@@ -1,5 +1,5 @@
 import { runChecklyCli } from '../run-checkly'
-import * as config from 'config'
+import config from 'config'
 
 describe('switch', () => {
   it('should switch between user accounts', async () => {

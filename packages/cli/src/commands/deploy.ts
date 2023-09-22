@@ -1,6 +1,6 @@
 import * as api from '../rest/api'
 import config from '../services/config'
-import * as prompts from 'prompts'
+import prompts from 'prompts'
 import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -12,7 +12,7 @@ import {
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData,
 } from '../constructs'
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'

@@ -1,4 +1,4 @@
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import config from '../services/config'
 import * as api from '../rest/api'

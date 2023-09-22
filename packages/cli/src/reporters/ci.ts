@@ -1,4 +1,4 @@
-import * as indentString from 'indent-string'
+import indentString from 'indent-string'
 
 import AbstractListReporter from './abstract-list'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'

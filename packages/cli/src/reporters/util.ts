@@ -1,5 +1,5 @@
-import * as chalk from 'chalk'
-import * as indentString from 'indent-string'
+import chalk from 'chalk'
+import indentString from 'indent-string'
 import { DateTime } from 'luxon'
 import * as logSymbols from 'log-symbols'
 

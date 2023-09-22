@@ -1,5 +1,5 @@
-import * as chalk from 'chalk'
-import * as indentString from 'indent-string'
+import chalk from 'chalk'
+import indentString from 'indent-string'
 
 import { Reporter } from './reporter'
 import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn } from './util'

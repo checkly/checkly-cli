@@ -1,4 +1,4 @@
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import AbstractListReporter from './abstract-list'
 import { CheckRunId } from '../services/abstract-check-runner'
 import { print, printLn } from './util'
