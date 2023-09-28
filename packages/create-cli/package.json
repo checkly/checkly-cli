@@ -41,7 +41,7 @@
   "dependencies": {
     "@oclif/core": "2.8.11",
     "@oclif/plugin-help": "5.1.20",
-    "@oclif/plugin-plugins": "2.3.0",
+    "@oclif/plugin-plugins": "3.8.3",
     "axios": "1.4.0",
     "chalk": "4.1.2",
     "debug": "4.3.4",
