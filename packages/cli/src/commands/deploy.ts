@@ -65,7 +65,7 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: avilableRuntimes } = await runtimes.getAll()
+    const { data: availableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -76,7 +76,7 @@ export default class Deploy extends AuthCommand {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
-      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+      availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
