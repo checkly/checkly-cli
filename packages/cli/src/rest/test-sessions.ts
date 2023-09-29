@@ -50,6 +50,10 @@ class TestSessions {
   getResultShortLinks (testSessionId: string, testResultId: string) {
     return this.api.get<TestResultsShortLinks>(`/next/test-sessions/${testSessionId}/results/${testResultId}/links`)
   }
+
+  getCheckRunSuiteId () {
+    return this.api.get<{checkRunSuiteId: string}>('/next/test-sessions/checkRunSuiteId')
+  }
 }
 
 export default TestSessions

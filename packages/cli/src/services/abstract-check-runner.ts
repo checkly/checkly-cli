@@ -74,7 +74,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     try {
       socketClient = await SocketClient.connect()
 
-      const checkRunSuiteId = uuid.v4()
+      const { data: { checkRunSuiteId } } = await testSessions.getCheckRunSuiteId()
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
