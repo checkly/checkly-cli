@@ -6,11 +6,7 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import CheckTypes from '../constants'
-
-export interface CheckDependency {
-  path: string
-  content: string
-}
+import { CheckDependency } from './browser-check'
 
 export interface MultiStepCheckProps extends CheckProps {
   /**
@@ -51,6 +47,10 @@ export class MultiStepCheck extends Check {
     }
     MultiStepCheck.applyDefaultMultiStepCheckConfig(props)
     super(logicalId, props)
+
+    if (!Session.availableRuntimes[this.runtimeId!]?.multiStepSupport) {
+      throw new Error('This runtime does not support multi step checks.')
+    }
     this.sslCheckDomain = props.sslCheckDomain
     if ('content' in props.code) {
       const script = props.code.content
