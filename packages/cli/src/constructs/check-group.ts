@@ -33,6 +33,13 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   testMatch: string,
 }
 
+type MultiStepCheckConfig = CheckConfigDefaults & {
+  /**
+   * Glob pattern to include multiple files, i.e. all `.spec.ts` files
+   */
+  testMatch: string,
+}
+
 export interface CheckGroupProps {
   /**
    * The name of the check group.
@@ -82,6 +89,7 @@ export interface CheckGroupProps {
    */
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,
+  multiStepChecks?: MultiStepCheckConfig,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
   * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
@@ -125,6 +133,7 @@ export class CheckGroup extends Construct {
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
   browserChecks?: BrowserCheckConfig
+  multiStepChecks?: MultiStepCheckConfig
   retryStrategy?: RetryStrategy
 
   static readonly __checklyType = 'check-group'
@@ -233,6 +242,12 @@ export class CheckGroup extends Construct {
 
   public getBrowserCheckDefaults (): CheckConfigDefaults {
     // TODO: investigate if make sense to add all other browser-check's properties
+    return {
+      frequency: this.browserChecks?.frequency,
+    }
+  }
+
+  public getMultiStepCheckDefaults (): CheckConfigDefaults {
     return {
       frequency: this.browserChecks?.frequency,
     }

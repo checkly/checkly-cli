@@ -5,6 +5,7 @@ import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
+import CheckTypes from '../constants'
 
 export interface CheckDependency {
   path: string
@@ -29,7 +30,7 @@ export interface MultiStepCheckProps extends CheckProps {
  *
  * @remarks
  *
- * This class make use of the multi-step Checks endpoints.
+ * This class make use of the multi-step checks endpoints.
  */
 export class MultiStepCheck extends Check {
   script: string
@@ -90,7 +91,7 @@ export class MultiStepCheck extends Check {
   }
 
   private static applyDefaultMultiStepCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.MultiStepCheckDefaults) {
+    if (!Session.multiStepCheckDefaults) {
       return
     }
     let configKey: keyof CheckConfigDefaults
@@ -130,7 +131,7 @@ export class MultiStepCheck extends Check {
   synthesize () {
     return {
       ...super.synthesize(),
-      checkType: 'MULTI_STEP',
+      checkType: CheckTypes.MULTI_STEP,
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,

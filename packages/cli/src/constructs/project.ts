@@ -138,6 +138,7 @@ export class Session {
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults
   static browserCheckDefaults?: CheckConfigDefaults
+  static multiStepCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
   static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>
