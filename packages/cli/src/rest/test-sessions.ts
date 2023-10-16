@@ -52,7 +52,7 @@ class TestSessions {
   }
 
   getCheckRunSuiteId () {
-    return this.api.get<{checkRunSuiteId: string}>('/next/test-sessions/checkRunSuiteId')
+    return this.api.get<{checkRunSuiteId: string}>('/next/test-sessions/check-run-suite-id')
   }
 }
 
