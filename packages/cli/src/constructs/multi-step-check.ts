@@ -14,11 +14,6 @@ export interface MultiStepCheckProps extends CheckProps {
    * with the Puppeteer or Playwright frameworks.
    */
   code: Content|Entrypoint
-  /**
-   * A valid fully qualified domain name (FQDN) to check for SSL certificate
-   * expiration. For example, 'app.checklyhq.com'.
-   */
-  sslCheckDomain?: string
 }
 
 /**
@@ -32,7 +27,6 @@ export class MultiStepCheck extends Check {
   script: string
   scriptPath?: string
   dependencies?: Array<CheckDependency>
-  sslCheckDomain?: string
 
   /**
    * Constructs the multi-step instance
@@ -51,7 +45,6 @@ export class MultiStepCheck extends Check {
     if (!Session.availableRuntimes[this.runtimeId!]?.multiStepSupport) {
       throw new Error('This runtime does not support multi step checks.')
     }
-    this.sslCheckDomain = props.sslCheckDomain
     if ('content' in props.code) {
       const script = props.code.content
       this.script = script
@@ -135,7 +128,6 @@ export class MultiStepCheck extends Check {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
-      sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
     }
   }
 }
