@@ -6,6 +6,7 @@ export interface Runtime {
   runtimeEndOfLife?: string
   description?: string
   dependencies: Record<string, string>
+  multiStepSupport?: boolean
 }
 
 class Runtimes {
