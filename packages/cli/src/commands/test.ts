@@ -163,7 +163,7 @@ export default class Test extends AuthCommand {
         return !(check instanceof HeartbeatCheck)
       })
       .filter(([, check]) => {
-        if (check instanceof BrowserCheck || check instanceof MultiStepCheck) {
+        if (check instanceof BrowserCheck) {
           return filterByFileNamePattern(filePatterns, check.scriptPath) ||
             filterByFileNamePattern(filePatterns, check.__checkFilePath)
         } else {
