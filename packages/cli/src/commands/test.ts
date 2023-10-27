@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -163,7 +163,7 @@ export default class Test extends AuthCommand {
         return !(check instanceof HeartbeatCheck)
       })
       .filter(([, check]) => {
-        if (check instanceof BrowserCheck) {
+        if (check instanceof BrowserCheck || check instanceof MultiStepCheck) {
           return filterByFileNamePattern(filePatterns, check.scriptPath) ||
             filterByFileNamePattern(filePatterns, check.__checkFilePath)
         } else {
