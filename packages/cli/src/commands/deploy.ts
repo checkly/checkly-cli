@@ -10,12 +10,13 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData,
+  Project, ProjectData, BrowserCheck,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -84,6 +85,10 @@ export default class Deploy extends AuthCommand {
     })
     const repoInfo = getGitInformation(project.repoUrl)
     ux.action.stop()
+
+    if (!preview) {
+      await uploadSnapshots(project)
+    }
 
     const projectPayload = project.synthesize(false)
     if (!projectPayload.resources.length) {

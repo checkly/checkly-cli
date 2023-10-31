@@ -5,6 +5,7 @@ import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
+import { detectSnapshots } from '../services/snapshot-service'
 
 export interface CheckDependency {
   path: string
@@ -36,6 +37,11 @@ export class BrowserCheck extends Check {
   scriptPath?: string
   dependencies?: Array<CheckDependency>
   sslCheckDomain?: string
+
+  // For snapshots, we first store `rawSnapshots` with the path to the file.
+  // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
+  rawSnapshots?: Array<{ absolutePath: string, path: string }>
+  snapshots?: Array<{ path: string, key: string }>
 
   /**
    * Constructs the Browser Check instance
@@ -73,6 +79,7 @@ export class BrowserCheck extends Check {
       this.script = bundle.script
       this.scriptPath = bundle.scriptPath
       this.dependencies = bundle.dependencies
+      this.rawSnapshots = bundle.snapshots
     } else {
       throw new Error('Unrecognized type for the "code" property. The "code" property should be a string of JS/TS code.')
     }
@@ -120,6 +127,7 @@ export class BrowserCheck extends Check {
       script: parsed.entrypoint.content,
       scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
       dependencies: deps,
+      snapshots: detectSnapshots(Session.basePath!, parsed.entrypoint.filePath),
     }
   }
 
@@ -135,6 +143,7 @@ export class BrowserCheck extends Check {
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
       sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
+      snapshots: this.snapshots,
     }
   }
 }

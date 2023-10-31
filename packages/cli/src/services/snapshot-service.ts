@@ -2,9 +2,13 @@ import * as fsAsync from 'node:fs/promises'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as stream from 'node:stream/promises'
+import * as https from 'node:https'
 import axios from 'axios'
 
 import { checklyStorage } from '../rest/api'
+import { findFilesRecursively, pathToPosix } from './util'
+import { BrowserCheck } from '../constructs'
+import type { Project } from '../constructs'
 
 export interface Snapshot {
   key: string,
@@ -18,7 +22,7 @@ export async function pullSnapshots (basePath: string, snapshots?: Snapshot[] | 
 
   let signedUrls
   try {
-    ({ data: signedUrls } = await checklyStorage.getPresignedUrls(snapshots.map(({ key }) => key)))
+    ({ data: signedUrls } = await checklyStorage.getSignedUrls(snapshots.map(({ key }) => key)))
   } catch (err: any) {
     throw new Error(`Error getting signed URLs for snapshots: ${err.message}`)
   }
@@ -64,4 +68,62 @@ export async function pullSnapshots (basePath: string, snapshots?: Snapshot[] | 
       throw new Error(`Error writing snapshots to a file: ${err.message}`)
     }
   }))
+}
+
+export function detectSnapshots (projectBasePath: string, scriptFilePath: string) {
+  // By default, PWT will store snapshots in the `script.spec.js-snapshots` directory.
+  // Other paths can be configured, though, and we should add support for those as well.
+  // https://playwright.dev/docs/api/class-testconfig#test-config-snapshot-path-template
+  const snapshotFiles = findFilesRecursively(`${scriptFilePath}-snapshots`)
+  return snapshotFiles.map(absolutePath => ({
+    absolutePath,
+    path: pathToPosix(path.relative(projectBasePath, absolutePath)),
+  }))
+}
+
+export async function uploadSnapshots (project: Project) {
+  // TODO: Processing the whole project at ocne let's us reuse an httpsAgent and make a single
+  // request to get the signed upload URL's.
+  // Having this method just process a single check would probably be much more clear, though.
+  // Are there actual performance gains, or should we rewrite it?
+  const snapshotFiles = Object.values(project.data.check).flatMap(check => {
+    if (!(check instanceof BrowserCheck)) {
+      return []
+    }
+    return check.rawSnapshots?.map(({ path }) => path) ?? []
+  })
+
+  if (!snapshotFiles.length) {
+    return []
+  }
+
+  const { data: signedUploadUrls } = await checklyStorage.getSignedUploadUrls(snapshotFiles)
+  // Reusing a single https will save from having an SSL handshake with every file upload.
+  // Should improve performance somewhat (but haven't profiled this)
+  const httpsAgent = new https.Agent({ keepAlive: true })
+
+  for (const check of Object.values(project.data.check)) {
+    if (!(check instanceof BrowserCheck) || !check.rawSnapshots?.length) {
+      continue
+    }
+
+    const checkSnapshotsAbsolutePaths = check.rawSnapshots.reduce((acc, { absolutePath, path }) => {
+      acc.set(path, absolutePath)
+      return acc
+    }, new Map())
+
+    const processedSnapshots = []
+    for (const { signedUrl, key, path } of signedUploadUrls) {
+      const absolutePath = checkSnapshotsAbsolutePaths.get(path)
+      const { size } = await fsAsync.stat(absolutePath)
+      const snapshotStream = fs.createReadStream(absolutePath)
+      try {
+        await axios.put(signedUrl, snapshotStream, { httpsAgent, headers: { 'Content-Length': size } })
+      } catch (err: any) {
+        throw new Error(`Error pushing snapshot file to storage: ${err.message}`)
+      }
+      processedSnapshots.push({ key, path })
+    }
+    check.snapshots = processedSnapshots
+  }
 }
