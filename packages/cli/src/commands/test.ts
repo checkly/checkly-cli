@@ -19,6 +19,7 @@ import { AuthCommand } from './authCommand'
 import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
+import { pullSnapshots } from '../services/snapshot-service'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
@@ -94,6 +95,10 @@ export default class Test extends AuthCommand {
       char: 'n',
       description: 'A name to use when storing results in Checkly with --record.',
     }),
+    'update-snapshots': Flags.boolean({
+      description: 'Update any snapshots using the actual result of this test run.',
+      default: false,
+    }),
   }
 
   static args = {
@@ -125,6 +130,7 @@ export default class Test extends AuthCommand {
       config: configFilename,
       record: shouldRecord,
       'test-session-name': testSessionName,
+      'update-snapshots': updateSnapshots,
     } = flags
     const filePatterns = argv as string[]
 
@@ -218,6 +224,7 @@ export default class Test extends AuthCommand {
       shouldRecord,
       repoInfo,
       ciInfo.environment,
+      updateSnapshots,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -233,10 +240,15 @@ export default class Test extends AuthCommand {
       reporters.forEach(r => r.onSchedulingDelayExceeded())
     })
 
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
+    runner.on(Events.CHECK_SUCCESSFUL, async (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
+
+      if (updateSnapshots) {
+        await pullSnapshots(configDirectory, result.assets?.snapshots)
+      }
+
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
@@ -255,6 +267,12 @@ export default class Test extends AuthCommand {
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
     runner.on(Events.ERROR, (err) => {
+      reporters.forEach(r => r.onError(err))
+      process.exitCode = 1
+    })
+    // See https://nodejs.org/api/events.html#capture-rejections-of-promises
+    // Capture any errors from async event listeners
+    runner.on('error', (err) => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })

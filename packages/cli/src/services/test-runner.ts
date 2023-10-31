@@ -13,6 +13,7 @@ export default class TestRunner extends AbstractCheckRunner {
   shouldRecord: boolean
   repoInfo: GitInformation | null
   environment: string | null
+  updateSnapshots: boolean
   constructor (
     accountId: string,
     project: Project,
@@ -23,6 +24,7 @@ export default class TestRunner extends AbstractCheckRunner {
     shouldRecord: boolean,
     repoInfo: GitInformation | null,
     environment: string | null,
+    updateSnapshots: boolean,
   ) {
     super(accountId, timeout, verbose)
     this.project = project
@@ -31,6 +33,7 @@ export default class TestRunner extends AbstractCheckRunner {
     this.shouldRecord = shouldRecord
     this.repoInfo = repoInfo
     this.environment = environment
+    this.updateSnapshots = updateSnapshots
   }
 
   async scheduleChecks (
@@ -46,7 +49,7 @@ export default class TestRunner extends AbstractCheckRunner {
       ...check.synthesize(),
       group: check.groupId ? this.project.data['check-group'][check.groupId.ref].synthesize() : undefined,
       groupId: undefined,
-      sourceInfo: { checkRunSuiteId, checkRunId },
+      sourceInfo: { checkRunSuiteId, checkRunId, updateSnapshots: this.updateSnapshots },
       logicalId: check.logicalId,
       filePath: check.getSourceFile(),
     }))
