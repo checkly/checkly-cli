@@ -3,7 +3,7 @@ import * as path from 'path'
 import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
-  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
@@ -104,7 +104,7 @@ async function loadAllBrowserChecks (
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
   const preexistingCheckFiles = new Set<string>()
   Object.values(project.data.check).forEach((check) => {
-    if (check instanceof BrowserCheck && check.scriptPath) {
+    if ((check instanceof BrowserCheck || check instanceof MultiStepCheck) && check.scriptPath) {
       preexistingCheckFiles.add(check.scriptPath)
     }
   })
