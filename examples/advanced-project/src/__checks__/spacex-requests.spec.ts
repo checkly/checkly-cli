@@ -6,26 +6,24 @@ test('space-x dragon capsules', async ({ request }) => {
   /**
    * Get all SpaceX Dragon Capsules
    */
-  const response = await test.step('get all capsules', async () => {
-    return request.get(`${baseUrl}/dragons`)
+  const [first] = await test.step('get all capsules', async () => {
+    const response = await request.get(`${baseUrl}/dragons`)
+    expect(response).toBeOK()
+
+    const data = await response.json()
+    expect(data.length).toBeGreaterThan(0)
+
+    return data
   })
-
-  expect(response).toBeOK()
-
-  const data = await response.json()
-  expect(data.length).toBeGreaterThan(0)
-
-  const [first] = data
 
   /**
    * Get a single Dragon Capsule
    */
-  const getSingleResponse = await test.step('get single dragon capsule', async () => {
-    return request.get(`${baseUrl}/dragons/${first.id}`)
+  await test.step('get single dragon capsule', async () => {
+    const response = await request.get(`${baseUrl}/dragons/${first.id}`)
+    expect(response).toBeOK()
+
+    const dragonCapsule = await response.json()
+    expect(dragonCapsule.name).toEqual(first.name)
   })
-
-  expect(getSingleResponse).toBeOK()
-
-  const dragonCapsule = await getSingleResponse.json()
-  expect(dragonCapsule.name).toEqual(first.name)
 })
