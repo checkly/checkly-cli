@@ -98,6 +98,8 @@ export default class Test extends AuthCommand {
     'update-snapshots': Flags.boolean({
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
+      // Mark --update-snapshots as hidden until we're ready for GA
+      hidden: true,
     }),
   }
 
