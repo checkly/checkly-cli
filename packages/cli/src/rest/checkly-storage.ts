@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios'
+import type { Readable } from 'node:stream'
 
 class ChecklyStorage {
   api: AxiosInstance
@@ -6,14 +7,16 @@ class ChecklyStorage {
     this.api = api
   }
 
-  getSignedUrls (keys: string[]) {
-    const data = keys.map(key => ({ key }))
-    return this.api.post<Array<{ signedUrl: string, key: string }>>('/next/checkly-storage/signed-urls', data)
+  upload (contentLength: number, stream: Readable) {
+    return this.api.post<{ key: string }>(
+      '/next/checkly-storage/upload',
+      stream,
+      { headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': contentLength } },
+    )
   }
 
-  getSignedUploadUrls (paths: string[]) {
-    const data = paths.map(path => ({ path }))
-    return this.api.post<Array<{ signedUrl: string, key: string, path: string }>>('/next/checkly-storage/signed-upload-urls', data)
+  download (key: string) {
+    return this.api.post('/next/checkly-storage/download', { key }, { responseType: 'stream' })
   }
 }
 

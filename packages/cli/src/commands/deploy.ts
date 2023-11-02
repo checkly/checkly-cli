@@ -87,7 +87,12 @@ export default class Deploy extends AuthCommand {
     ux.action.stop()
 
     if (!preview) {
-      await uploadSnapshots(project)
+      for (const check of Object.values(project.data.check)) {
+        if (!(check instanceof BrowserCheck)) {
+          continue
+        }
+        check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
     }
 
     const projectPayload = project.synthesize(false)

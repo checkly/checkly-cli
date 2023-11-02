@@ -5,7 +5,7 @@ import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
-import { detectSnapshots } from '../services/snapshot-service'
+import { detectSnapshots, Snapshot } from '../services/snapshot-service'
 
 export interface CheckDependency {
   path: string
@@ -41,7 +41,7 @@ export class BrowserCheck extends Check {
   // For snapshots, we first store `rawSnapshots` with the path to the file.
   // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
   rawSnapshots?: Array<{ absolutePath: string, path: string }>
-  snapshots?: Array<{ path: string, key: string }>
+  snapshots?: Array<Snapshot>
 
   /**
    * Constructs the Browser Check instance

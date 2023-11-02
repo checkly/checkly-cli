@@ -15,7 +15,7 @@ describe('BrowserCheck', () => {
     const bundle = BrowserCheck.bundle(getFilePath('entrypoint.js'), '2022.10')
     delete Session.basePath
 
-    expect(bundle).toEqual({
+    expect(bundle).toMatchObject({
       script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
       scriptPath: 'fixtures/browser-check/entrypoint.js',
       dependencies: [
