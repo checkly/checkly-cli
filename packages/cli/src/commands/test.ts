@@ -19,7 +19,6 @@ import { AuthCommand } from './authCommand'
 import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
-import { pullSnapshots } from '../services/snapshot-service'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
@@ -227,6 +226,7 @@ export default class Test extends AuthCommand {
       repoInfo,
       ciInfo.environment,
       updateSnapshots,
+      configDirectory,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -242,13 +242,9 @@ export default class Test extends AuthCommand {
       reporters.forEach(r => r.onSchedulingDelayExceeded())
     })
 
-    runner.on(Events.CHECK_SUCCESSFUL, async (checkRunId, check, result, links?: TestResultsShortLinks) => {
+    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
-      }
-
-      if (updateSnapshots) {
-        await pullSnapshots(configDirectory, result.assets?.snapshots)
       }
 
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
@@ -269,12 +265,6 @@ export default class Test extends AuthCommand {
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
     runner.on(Events.ERROR, (err) => {
-      reporters.forEach(r => r.onError(err))
-      process.exitCode = 1
-    })
-    // See https://nodejs.org/api/events.html#capture-rejections-of-promises
-    // Capture any errors from async event listeners
-    runner.on('error', (err) => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })

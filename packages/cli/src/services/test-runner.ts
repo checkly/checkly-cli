@@ -3,6 +3,7 @@ import AbstractCheckRunner, { RunLocation, CheckRunId } from './abstract-check-r
 import { GitInformation } from './util'
 import { Check } from '../constructs/check'
 import { Project } from '../constructs'
+import { pullSnapshots } from '../services/snapshot-service'
 
 import * as uuid from 'uuid'
 
@@ -14,6 +15,7 @@ export default class TestRunner extends AbstractCheckRunner {
   repoInfo: GitInformation | null
   environment: string | null
   updateSnapshots: boolean
+  baseDirectory: string
   constructor (
     accountId: string,
     project: Project,
@@ -25,6 +27,7 @@ export default class TestRunner extends AbstractCheckRunner {
     repoInfo: GitInformation | null,
     environment: string | null,
     updateSnapshots: boolean,
+    baseDirectory: string,
   ) {
     super(accountId, timeout, verbose)
     this.project = project
@@ -34,6 +37,7 @@ export default class TestRunner extends AbstractCheckRunner {
     this.repoInfo = repoInfo
     this.environment = environment
     this.updateSnapshots = updateSnapshots
+    this.baseDirectory = baseDirectory
   }
 
   async scheduleChecks (
@@ -72,6 +76,13 @@ export default class TestRunner extends AbstractCheckRunner {
       return { testSessionId, checks }
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.message)
+    }
+  }
+
+  async processCheckResult (result: any) {
+    await super.processCheckResult(result)
+    if (this.updateSnapshots) {
+      await pullSnapshots(this.baseDirectory, result.assets?.snapshots)
     }
   }
 }
