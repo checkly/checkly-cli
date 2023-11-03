@@ -7,11 +7,11 @@ class ChecklyStorage {
     this.api = api
   }
 
-  upload (contentLength: number, stream: Readable) {
+  upload (stream: Readable) {
     return this.api.post<{ key: string }>(
       '/next/checkly-storage/upload',
       stream,
-      { headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': contentLength } },
+      { headers: { 'Content-Type': 'application/octet-stream' } },
     )
   }
 

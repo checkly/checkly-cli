@@ -54,8 +54,7 @@ export async function uploadSnapshots (rawSnapshots?: Array<{ absolutePath: stri
     const snapshots: Array<Snapshot> = []
     for (const rawSnapshot of rawSnapshots) {
       const snapshotStream = fs.createReadStream(rawSnapshot.absolutePath)
-      const { size } = await fsAsync.stat(rawSnapshot.absolutePath)
-      const { data: { key } } = await checklyStorage.upload(size, snapshotStream)
+      const { data: { key } } = await checklyStorage.upload(snapshotStream)
       snapshots.push({ key, path: rawSnapshot.path })
     }
     return snapshots
