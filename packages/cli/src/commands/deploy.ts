@@ -56,6 +56,7 @@ export default class Deploy extends AuthCommand {
       description: commonMessages.configFile,
     }),
     'update-snapshots': Flags.boolean({
+      char: 'u',
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
       // Mark --update-snapshots as hidden until we're ready for GA

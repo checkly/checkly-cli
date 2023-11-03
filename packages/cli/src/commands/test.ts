@@ -95,6 +95,7 @@ export default class Test extends AuthCommand {
       description: 'A name to use when storing results in Checkly with --record.',
     }),
     'update-snapshots': Flags.boolean({
+      char: 'u',
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
       // Mark --update-snapshots as hidden until we're ready for GA
