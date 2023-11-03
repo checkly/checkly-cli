@@ -25,24 +25,6 @@ export interface CiInformation {
   environment: string | null
 }
 
-// TODO: Remove this in favor of glob? It's unused.
-export async function walkDirectory (
-  directory: string,
-  ignoreDirectories: Set<string>,
-  callback: (filepath: string) => Promise<void>,
-): Promise<void> {
-  const files = await fs.readdir(directory)
-  for (const file of files.sort()) {
-    const filepath = path.join(directory, file)
-    const stats = await fs.stat(filepath)
-    if (stats.isDirectory() && !ignoreDirectories.has(file)) {
-      await walkDirectory(filepath, ignoreDirectories, callback)
-    } else {
-      await callback(filepath)
-    }
-  }
-}
-
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
     // There is a Node opened issue related with a segmentation fault using ES6 modules
