@@ -12,7 +12,7 @@ const alertChannels = [smsChannel, emailChannel]
 
 // We can define multiple checks in a single *.check.ts file.
 new MultiStepCheck('spacex-multistep-check', {
-  name: 'SpaceX MS',
+  name: 'SpaceX MS Test',
   runtimeId: '2023.09',
   alertChannels,
   code: {
