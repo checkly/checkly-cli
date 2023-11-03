@@ -55,12 +55,25 @@ export default class Deploy extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
+    'update-snapshots': Flags.boolean({
+      description: 'Update any snapshots using the actual result of this test run.',
+      default: false,
+      // Mark --update-snapshots as hidden until we're ready for GA
+      hidden: true,
+    }),
   }
 
   async run (): Promise<void> {
     ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
-    const { force, preview, 'schedule-on-deploy': scheduleOnDeploy, output, config: configFilename } = flags
+    const {
+      force,
+      preview,
+      'schedule-on-deploy': scheduleOnDeploy,
+      output,
+      config: configFilename,
+      'update-snapshots': updateSnapshots,
+    } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -86,7 +99,7 @@ export default class Deploy extends AuthCommand {
     const repoInfo = getGitInformation(project.repoUrl)
     ux.action.stop()
 
-    if (!preview) {
+    if (!preview && updateSnapshots) {
       for (const check of Object.values(project.data.check)) {
         if (!(check instanceof BrowserCheck)) {
           continue
