@@ -54,7 +54,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     timeout: number,
     verbose: boolean,
   ) {
-    super({ captureRejections: true })
+    super()
     this.checks = new Map()
     this.timeouts = new Map()
     this.queue = new PQueue({ autoStart: false, concurrency: 1 })
