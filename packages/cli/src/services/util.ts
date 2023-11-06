@@ -43,6 +43,35 @@ export async function walkDirectory (
   }
 }
 
+export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
+  if (!fsSync.statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
+    return []
+  }
+
+  const files = []
+  const directoriesToVisit = [directory]
+  const ignoredPathsSet = new Set(ignoredPaths)
+  while (directoriesToVisit.length > 0) {
+    const currentDirectory = directoriesToVisit.shift()!
+    const contents = fsSync.readdirSync(currentDirectory, { withFileTypes: true })
+    for (const content of contents) {
+      if (content.isSymbolicLink()) {
+        continue
+      }
+      const fullPath = path.resolve(currentDirectory, content.name)
+      if (ignoredPathsSet.has(fullPath)) {
+        continue
+      }
+      if (content.isDirectory()) {
+        directoriesToVisit.push(fullPath)
+      } else {
+        files.push(fullPath)
+      }
+    }
+  }
+  return files
+}
+
 export async function loadJsFile (filepath: string): Promise<any> {
   try {
     // There is a Node opened issue related with a segmentation fault using ES6 modules

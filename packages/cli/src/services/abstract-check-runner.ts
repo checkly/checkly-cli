@@ -141,26 +141,28 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     } else if (subtopic === 'run-end') {
       this.disableTimeout(checkRunId)
       const { result } = message
-      const {
-        region,
-        logPath,
-        checkRunDataPath,
-      } = result.assets
-      if (logPath && (this.verbose || result.hasFailures)) {
-        result.logs = await assets.getLogs(region, logPath)
-      }
-      if (checkRunDataPath && (this.verbose || result.hasFailures)) {
-        result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
-      }
-
+      await this.processCheckResult(result)
       const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
-
       this.emit(Events.CHECK_SUCCESSFUL, checkRunId, check, result, links)
       this.emit(Events.CHECK_FINISHED, check)
     } else if (subtopic === 'error') {
       this.disableTimeout(checkRunId)
       this.emit(Events.CHECK_FAILED, checkRunId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
+    }
+  }
+
+  async processCheckResult (result: any) {
+    const {
+      region,
+      logPath,
+      checkRunDataPath,
+    } = result.assets
+    if (logPath && (this.verbose || result.hasFailures)) {
+      result.logs = await assets.getLogs(region, logPath)
+    }
+    if (checkRunDataPath && (this.verbose || result.hasFailures)) {
+      result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
     }
   }
 

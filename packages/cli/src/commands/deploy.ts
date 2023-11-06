@@ -10,12 +10,13 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData,
+  Project, ProjectData, BrowserCheck,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -54,12 +55,26 @@ export default class Deploy extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
+    'update-snapshots': Flags.boolean({
+      char: 'u',
+      description: 'Update any snapshots using the actual result of this test run.',
+      default: false,
+      // Mark --update-snapshots as hidden until we're ready for GA
+      hidden: true,
+    }),
   }
 
   async run (): Promise<void> {
     ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
-    const { force, preview, 'schedule-on-deploy': scheduleOnDeploy, output, config: configFilename } = flags
+    const {
+      force,
+      preview,
+      'schedule-on-deploy': scheduleOnDeploy,
+      output,
+      config: configFilename,
+      'update-snapshots': updateSnapshots,
+    } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -84,6 +99,15 @@ export default class Deploy extends AuthCommand {
     })
     const repoInfo = getGitInformation(project.repoUrl)
     ux.action.stop()
+
+    if (!preview && updateSnapshots) {
+      for (const check of Object.values(project.data.check)) {
+        if (!(check instanceof BrowserCheck)) {
+          continue
+        }
+        check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
+    }
 
     const projectPayload = project.synthesize(false)
     if (!projectPayload.resources.length) {

@@ -94,6 +94,13 @@ export default class Test extends AuthCommand {
       char: 'n',
       description: 'A name to use when storing results in Checkly with --record.',
     }),
+    'update-snapshots': Flags.boolean({
+      char: 'u',
+      description: 'Update any snapshots using the actual result of this test run.',
+      default: false,
+      // Mark --update-snapshots as hidden until we're ready for GA
+      hidden: true,
+    }),
   }
 
   static args = {
@@ -125,6 +132,7 @@ export default class Test extends AuthCommand {
       config: configFilename,
       record: shouldRecord,
       'test-session-name': testSessionName,
+      'update-snapshots': updateSnapshots,
     } = flags
     const filePatterns = argv as string[]
 
@@ -218,6 +226,8 @@ export default class Test extends AuthCommand {
       shouldRecord,
       repoInfo,
       ciInfo.environment,
+      updateSnapshots,
+      configDirectory,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -237,6 +247,7 @@ export default class Test extends AuthCommand {
       if (result.hasFailures) {
         process.exitCode = 1
       }
+
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
