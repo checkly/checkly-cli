@@ -23,6 +23,7 @@ import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -98,8 +99,6 @@ export default class Test extends AuthCommand {
       char: 'u',
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
-      // Mark --update-snapshots as hidden until we're ready for GA
-      hidden: true,
     }),
   }
 
@@ -199,6 +198,13 @@ export default class Test extends AuthCommand {
         }
         return check
       })
+
+    for (const check of checks) {
+      if (!(check instanceof BrowserCheck)) {
+        continue
+      }
+      check.snapshots = await uploadSnapshots(check.rawSnapshots)
+    }
 
     ux.action.stop()
 
