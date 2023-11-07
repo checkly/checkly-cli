@@ -1,9 +1,8 @@
 import { testSessions } from '../rest/api'
 import AbstractCheckRunner, { RunLocation, CheckRunId } from './abstract-check-runner'
 import { GitInformation } from './util'
-import { Check } from '../constructs/check'
-import { Project } from '../constructs'
-import { pullSnapshots } from '../services/snapshot-service'
+import { Project, Check, BrowserCheck } from '../constructs'
+import { pullSnapshots, uploadSnapshots } from '../services/snapshot-service'
 
 import * as uuid from 'uuid'
 
@@ -49,6 +48,17 @@ export default class TestRunner extends AbstractCheckRunner {
     const checkRunIdMap = new Map(
       this.checkConstructs.map((check) => [uuid.v4(), check]),
     )
+
+    if (!this.updateSnapshots) {
+      // Upload the check snapshots to R2
+      for (const check of this.checkConstructs) {
+        if (!(check instanceof BrowserCheck)) {
+          continue
+        }
+        check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
+    }
+
     const checkRunJobs = Array.from(checkRunIdMap.entries()).map(([checkRunId, check]) => ({
       ...check.synthesize(),
       group: check.groupId ? this.project.data['check-group'][check.groupId.ref].synthesize() : undefined,
