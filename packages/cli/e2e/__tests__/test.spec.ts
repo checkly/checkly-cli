@@ -158,4 +158,37 @@ describe('test', () => {
     expect(result.stdout).toContain(secretEnv)
     expect(result.status).toBe(0)
   })
+
+  it('Should run snapshot tests', async () => {
+    const secretEnv = uuid.v4()
+    const result = await runChecklyCli({
+      args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'snapshot-project'),
+      env: { PROJECT_LOGICAL_ID: `snapshot-project-${uuid.v4()}` },
+    })
+    expect(result.stdout).toContain(secretEnv)
+    expect(result.status).toBe(0)
+  })
+
+  it('Should create snapshots when using --update-snapshots', async () => {
+    const snapshotDir = path.join(__dirname, 'fixtures', 'snapshot-project-missing-snapshots', 'snapshot-test.spec.ts-snapshots')
+    try {
+      const result = await runChecklyCli({
+        args: ['test', '--update-snapshots'],
+        apiKey: config.get('apiKey'),
+        accountId: config.get('accountId'),
+        directory: path.join(__dirname, 'fixtures', 'snapshot-project-missing-snapshots'),
+        env: { PROJECT_LOGICAL_ID: `snapshot-project-${uuid.v4()}` },
+      })
+      expect(result.status).toBe(0)
+      expect(fs.readdirSync(snapshotDir)).toEqual([
+        'Danube-Snapshot-Test-1-chromium-linux.png',
+      ])
+    } finally {
+      // Clean up the snapshots for future runs
+      fs.rmSync(snapshotDir, { recursive: true })
+    }
+  })
 })

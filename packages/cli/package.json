@@ -131,6 +131,10 @@
         "testMatch": [
           "<rootDir>/e2e/__tests__/**/*.spec.ts"
         ],
+        "testPathIgnorePatterns": [
+          "/node_modules/",
+          "<rootDir>/e2e/__tests__/fixtures/"
+        ],
         "preset": "ts-jest",
         "testEnvironment": "node"
       }
