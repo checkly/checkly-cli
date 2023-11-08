@@ -244,4 +244,16 @@ Update and Unchanged:
     expect(result.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
     expect(result.status).toBe(1)
   })
+
+  it('Should deploy a project with snapshots', async () => {
+    const result = await runChecklyCli({
+      args: ['deploy', '--force'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'snapshot-project'),
+      env: { PROJECT_LOGICAL_ID: projectLogicalId },
+    })
+    expect(result.status).toBe(0)
+    // TODO: Add assertions that the snapshots are successfully uploaded.
+  })
 })
