@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, Project, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -181,7 +181,13 @@ export default class Test extends AuthCommand {
         return filterByCheckNamePattern(grep, check.name)
       })
       .filter(([, check]) => {
-        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], check.tags)
+        const tags = check.tags ?? []
+        const checkGroup = this.getCheckGroup(project, check)
+        if (checkGroup) {
+          const checkGroupTags = checkGroup.tags ?? []
+          tags.concat(checkGroupTags)
+        }
+        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
       })
       .map(([key, check]) => {
         check.logicalId = key
@@ -345,5 +351,13 @@ export default class Test extends AuthCommand {
         printLn(indentString(formatCheckTitle(CheckStatus.RUNNING, check), 2))
       }
     }
+  }
+
+  private getCheckGroup (project: Project, check: Check) {
+    if (!check.groupId) {
+      return
+    }
+    const ref = check.groupId.ref.toString()
+    return project.data['check-group'][ref]
   }
 }
