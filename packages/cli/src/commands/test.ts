@@ -1,5 +1,5 @@
 import { Flags, Args, ux } from '@oclif/core'
-import * as indentString from 'indent-string'
+import indentString from 'indent-string'
 import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
@@ -16,13 +16,14 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, Project, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -94,6 +95,11 @@ export default class Test extends AuthCommand {
       char: 'n',
       description: 'A name to use when storing results in Checkly with --record.',
     }),
+    'update-snapshots': Flags.boolean({
+      char: 'u',
+      description: 'Update any snapshots using the actual result of this test run.',
+      default: false,
+    }),
   }
 
   static args = {
@@ -125,6 +131,7 @@ export default class Test extends AuthCommand {
       config: configFilename,
       record: shouldRecord,
       'test-session-name': testSessionName,
+      'update-snapshots': updateSnapshots,
     } = flags
     const filePatterns = argv as string[]
 
@@ -174,7 +181,13 @@ export default class Test extends AuthCommand {
         return filterByCheckNamePattern(grep, check.name)
       })
       .filter(([, check]) => {
-        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], check.tags)
+        const tags = check.tags ?? []
+        const checkGroup = this.getCheckGroup(project, check)
+        if (checkGroup) {
+          const checkGroupTags = checkGroup.tags ?? []
+          tags.concat(checkGroupTags)
+        }
+        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
       })
       .map(([key, check]) => {
         check.logicalId = key
@@ -191,6 +204,13 @@ export default class Test extends AuthCommand {
         }
         return check
       })
+
+    for (const check of checks) {
+      if (!(check instanceof BrowserCheck)) {
+        continue
+      }
+      check.snapshots = await uploadSnapshots(check.rawSnapshots)
+    }
 
     ux.action.stop()
 
@@ -218,6 +238,8 @@ export default class Test extends AuthCommand {
       shouldRecord,
       repoInfo,
       ciInfo.environment,
+      updateSnapshots,
+      configDirectory,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -237,6 +259,7 @@ export default class Test extends AuthCommand {
       if (result.hasFailures) {
         process.exitCode = 1
       }
+
       reporters.forEach(r => r.onCheckEnd(checkRunId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
@@ -328,5 +351,13 @@ export default class Test extends AuthCommand {
         printLn(indentString(formatCheckTitle(CheckStatus.RUNNING, check), 2))
       }
     }
+  }
+
+  private getCheckGroup (project: Project, check: Check) {
+    if (!check.groupId) {
+      return
+    }
+    const ref = check.groupId.ref.toString()
+    return project.data['check-group'][ref]
   }
 }

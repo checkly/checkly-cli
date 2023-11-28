@@ -1,6 +1,6 @@
 import * as api from '../rest/api'
 import config from '../services/config'
-import * as prompts from 'prompts'
+import prompts from 'prompts'
 import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -10,12 +10,13 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData,
+  Project, ProjectData, BrowserCheck,
 } from '../constructs'
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -59,7 +60,13 @@ export default class Deploy extends AuthCommand {
   async run (): Promise<void> {
     ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
-    const { force, preview, 'schedule-on-deploy': scheduleOnDeploy, output, config: configFilename } = flags
+    const {
+      force,
+      preview,
+      'schedule-on-deploy': scheduleOnDeploy,
+      output,
+      config: configFilename,
+    } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -84,6 +91,15 @@ export default class Deploy extends AuthCommand {
     })
     const repoInfo = getGitInformation(project.repoUrl)
     ux.action.stop()
+
+    if (!preview) {
+      for (const check of Object.values(project.data.check)) {
+        if (!(check instanceof BrowserCheck)) {
+          continue
+        }
+        check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
+    }
 
     const projectPayload = project.synthesize(false)
     if (!projectPayload.resources.length) {

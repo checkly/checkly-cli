@@ -9,7 +9,7 @@ import { ReporterType } from '../reporters/reporter'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations'>
+  | 'alertChannels' | 'privateLocations' | 'retryStrategy'>
 
 export type ChecklyConfig = {
   /**

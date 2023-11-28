@@ -14,6 +14,7 @@ import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 import type { Frequency } from './frequency'
+import type { RetryStrategy } from './retry-strategy'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -26,6 +27,13 @@ const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
 }
 
 type BrowserCheckConfig = CheckConfigDefaults & {
+  /**
+   * Glob pattern to include multiple files, i.e. all `.spec.ts` files
+   */
+  testMatch: string,
+}
+
+type MultiStepCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
@@ -48,6 +56,7 @@ export interface CheckGroupProps {
   /**
    * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
    * randomly selected region before marking the check as failed.
+   * @deprecated Use {@link CheckGroupProps.retryStrategy} instead.
    */
   doubleCheck?: boolean
   /**
@@ -80,6 +89,7 @@ export interface CheckGroupProps {
    */
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,
+  multiStepChecks?: MultiStepCheckConfig,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
   * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
@@ -93,6 +103,10 @@ export interface CheckGroupProps {
    */
   localTearDownScript?: string
   apiCheckDefaults?: ApiCheckDefaultConfig
+  /**
+   * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
+   */
+  retryStrategy?: RetryStrategy
 }
 
 /**
@@ -119,6 +133,8 @@ export class CheckGroup extends Construct {
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
   browserChecks?: BrowserCheckConfig
+  multiStepChecks?: MultiStepCheckConfig
+  retryStrategy?: RetryStrategy
 
   static readonly __checklyType = 'check-group'
 
@@ -156,6 +172,7 @@ export class CheckGroup extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
+    this.retryStrategy = props.retryStrategy
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
     this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
@@ -230,6 +247,12 @@ export class CheckGroup extends Construct {
     }
   }
 
+  public getMultiStepCheckDefaults (): CheckConfigDefaults {
+    return {
+      frequency: this.browserChecks?.frequency,
+    }
+  }
+
   synthesize () {
     return {
       name: this.name,
@@ -247,6 +270,7 @@ export class CheckGroup extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
+      retryStrategy: this.retryStrategy,
     }
   }
 }

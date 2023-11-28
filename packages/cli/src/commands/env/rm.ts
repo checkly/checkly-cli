@@ -1,4 +1,4 @@
-import * as prompts from 'prompts'
+import prompts from 'prompts'
 import * as api from '../../rest/api'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'

@@ -10,6 +10,7 @@ import type { Region } from '..'
 import type { CheckGroup } from './check-group'
 import { PrivateLocation } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
+import { RetryStrategy } from './retry-strategy'
 
 export interface CheckProps {
   /**
@@ -27,6 +28,7 @@ export interface CheckProps {
   /**
    * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
    * randomly selected region before marking the check as failed.
+   * @deprecated Use {@link CheckProps.retryStrategy} instead.
    */
   doubleCheck?: boolean
   /**
@@ -80,6 +82,10 @@ export interface CheckProps {
    * Determines if the check is available only when 'test' runs (not included when 'deploy' is executed).
    */
   testOnly?: boolean
+  /**
+   * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
+   */
+  retryStrategy?: RetryStrategy
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -99,6 +105,7 @@ export abstract class Check extends Construct {
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
+  retryStrategy?: RetryStrategy
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'check'
@@ -134,6 +141,7 @@ export abstract class Check extends Construct {
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
     this.testOnly = props.testOnly ?? false
+    this.retryStrategy = props.retryStrategy
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -209,6 +217,7 @@ export abstract class Check extends Construct {
       frequencyOffset: this.frequencyOffset,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
+      retryStrategy: this.retryStrategy,
     }
   }
 }

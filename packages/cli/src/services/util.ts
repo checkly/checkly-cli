@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import { Service } from 'ts-node'
-import * as gitRepoInfo from 'git-repo-info'
+import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
@@ -25,22 +25,33 @@ export interface CiInformation {
   environment: string | null
 }
 
-// TODO: Remove this in favor of glob? It's unused.
-export async function walkDirectory (
-  directory: string,
-  ignoreDirectories: Set<string>,
-  callback: (filepath: string) => Promise<void>,
-): Promise<void> {
-  const files = await fs.readdir(directory)
-  for (const file of files.sort()) {
-    const filepath = path.join(directory, file)
-    const stats = await fs.stat(filepath)
-    if (stats.isDirectory() && !ignoreDirectories.has(file)) {
-      await walkDirectory(filepath, ignoreDirectories, callback)
-    } else {
-      await callback(filepath)
+export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
+  if (!fsSync.statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
+    return []
+  }
+
+  const files = []
+  const directoriesToVisit = [directory]
+  const ignoredPathsSet = new Set(ignoredPaths)
+  while (directoriesToVisit.length > 0) {
+    const currentDirectory = directoriesToVisit.shift()!
+    const contents = fsSync.readdirSync(currentDirectory, { withFileTypes: true })
+    for (const content of contents) {
+      if (content.isSymbolicLink()) {
+        continue
+      }
+      const fullPath = path.resolve(currentDirectory, content.name)
+      if (ignoredPathsSet.has(fullPath)) {
+        continue
+      }
+      if (content.isDirectory()) {
+        directoriesToVisit.push(fullPath)
+      } else {
+        files.push(fullPath)
+      }
     }
   }
+  return files
 }
 
 export async function loadJsFile (filepath: string): Promise<any> {
@@ -66,7 +77,7 @@ export async function loadTsFile (filepath: string): Promise<any> {
   try {
     const tsCompiler = await getTsCompiler()
     tsCompiler.enabled(true)
-    let { default: exported } = await import(filepath)
+    let { default: exported } = await require(filepath)
     if (exported instanceof Function) {
       exported = await exported()
     }

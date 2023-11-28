@@ -73,13 +73,13 @@
     "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
     "@oclif/plugin-warn-if-update-available": "2.0.24",
-    "@typescript-eslint/typescript-estree": "5.46.1",
+    "@typescript-eslint/typescript-estree": "6.7.2",
     "acorn": "8.8.1",
     "acorn-walk": "8.2.0",
     "async-mqtt": "2.6.3",
     "axios": "1.4.0",
     "chalk": "4.1.2",
-    "ci-info": "3.7.1",
+    "ci-info": "3.8.0",
     "conf": "10.2.0",
     "dotenv": "16.3.1",
     "git-repo-info": "2.1.1",
@@ -130,6 +130,10 @@
         "displayName": "E2E",
         "testMatch": [
           "<rootDir>/e2e/__tests__/**/*.spec.ts"
+        ],
+        "testPathIgnorePatterns": [
+          "/node_modules/",
+          "<rootDir>/e2e/__tests__/fixtures/"
         ],
         "preset": "ts-jest",
         "testEnvironment": "node"

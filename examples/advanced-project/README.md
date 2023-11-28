@@ -15,34 +15,6 @@ npm create checkly -- --template advanced-project
 
 This project mimics a typical app where you organize code with top-level defaults and per page, service or component checks.
 
-```
-.
-├── .github
-│   └── workflow.yml
-├── README.md
-├── checkly.config.ts
-├── package.json
-└── src
-    ├── __checks__
-    │   ├── api.check.ts
-    │   ├── home.check.ts
-    │   ├── homepage.spec.ts
-    │   ├── login.spec.ts
-    │   ├── utils
-    │   │   ├── auth-client.ts
-    │   │   └── setup.ts
-    │   └── website-group.check.ts
-    ├── alert-channels.ts
-    ├── defaults.ts
-    └── services
-        ├── api
-        │   └── __checks__
-        │       └── api.check.ts
-        └── top-sellers
-            └── __checks__
-                └── top-sellers.spec.ts
-```
-
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
 
 - Running `npx check deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
