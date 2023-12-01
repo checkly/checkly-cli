@@ -16,13 +16,14 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, Project, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
+import { uploadSnapshots } from '../services/snapshot-service'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -98,8 +99,6 @@ export default class Test extends AuthCommand {
       char: 'u',
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
-      // Mark --update-snapshots as hidden until we're ready for GA
-      hidden: true,
     }),
   }
 
@@ -182,7 +181,13 @@ export default class Test extends AuthCommand {
         return filterByCheckNamePattern(grep, check.name)
       })
       .filter(([, check]) => {
-        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], check.tags)
+        const tags = check.tags ?? []
+        const checkGroup = this.getCheckGroup(project, check)
+        if (checkGroup) {
+          const checkGroupTags = checkGroup.tags ?? []
+          tags.concat(checkGroupTags)
+        }
+        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
       })
       .map(([key, check]) => {
         check.logicalId = key
@@ -199,6 +204,13 @@ export default class Test extends AuthCommand {
         }
         return check
       })
+
+    for (const check of checks) {
+      if (!(check instanceof BrowserCheck)) {
+        continue
+      }
+      check.snapshots = await uploadSnapshots(check.rawSnapshots)
+    }
 
     ux.action.stop()
 
@@ -339,5 +351,13 @@ export default class Test extends AuthCommand {
         printLn(indentString(formatCheckTitle(CheckStatus.RUNNING, check), 2))
       }
     }
+  }
+
+  private getCheckGroup (project: Project, check: Check) {
+    if (!check.groupId) {
+      return
+    }
+    const ref = check.groupId.ref.toString()
+    return project.data['check-group'][ref]
   }
 }
