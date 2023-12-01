@@ -86,6 +86,10 @@ export interface CheckProps {
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
    */
   retryStrategy?: RetryStrategy
+  /**
+   * Determines whether the check should run on all selected locations in parallel or round-robin.
+   */
+  runParallel?: boolean
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -106,6 +110,7 @@ export abstract class Check extends Construct {
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
   retryStrategy?: RetryStrategy
+  runParallel?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'check'
@@ -142,6 +147,7 @@ export abstract class Check extends Construct {
 
     this.testOnly = props.testOnly ?? false
     this.retryStrategy = props.retryStrategy
+    this.runParallel = props.runParallel ?? false
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -218,6 +224,7 @@ export abstract class Check extends Construct {
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
       retryStrategy: this.retryStrategy,
+      runParallel: this.runParallel,
     }
   }
 }

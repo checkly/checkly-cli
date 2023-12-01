@@ -107,6 +107,10 @@ export interface CheckGroupProps {
    * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
    */
   retryStrategy?: RetryStrategy
+  /**
+ * Determines whether the checks in the group should run on all selected locations in parallel or round-robin.
+ */
+  runParallel?: boolean
 }
 
 /**
@@ -135,6 +139,7 @@ export class CheckGroup extends Construct {
   browserChecks?: BrowserCheckConfig
   multiStepChecks?: MultiStepCheckConfig
   retryStrategy?: RetryStrategy
+  runParallel?: boolean
 
   static readonly __checklyType = 'check-group'
 
@@ -173,6 +178,7 @@ export class CheckGroup extends Construct {
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
     this.retryStrategy = props.retryStrategy
+    this.runParallel = props.runParallel
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
     this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
@@ -271,6 +277,7 @@ export class CheckGroup extends Construct {
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
       retryStrategy: this.retryStrategy,
+      runParallel: this.runParallel,
     }
   }
 }
