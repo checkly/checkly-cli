@@ -27,7 +27,7 @@ export async function installDependencies (targetDir: string): Promise<void> {
   if (installDependencies) {
     const packageManager = (await getPackageManager())?.name || 'npm'
     const installExec = execa(packageManager, ['install'], { cwd: targetDir })
-    const installSpinner = spinner('installing packages')
+    const installSpinner = spinner('Installing packages')
     await new Promise<void>((resolve, reject) => {
       installExec.stdout?.on('data', function (data: any) {
         installSpinner.text = `installing \n${packageManager} ${data}`
