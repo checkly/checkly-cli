@@ -88,6 +88,7 @@ export interface CheckProps {
   retryStrategy?: RetryStrategy
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
+   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
    */
   runParallel?: boolean
 }
