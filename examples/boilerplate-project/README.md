@@ -48,7 +48,7 @@ You can add `@playwright/test` to this project to get full code completion and r
 It's best to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
 
 ```bash
-npm install --save-dev @playwright/test@1.28.0
+npm install --save-dev @playwright/test@1.38.1
 ```
 
 ## Questions?

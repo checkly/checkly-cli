@@ -81,7 +81,7 @@ describe('bootstrap', () => {
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
-    expect(stdout).toContain('installing packages')
+    expect(stdout).toContain('Installing packages')
     expect(stdout).toContain('Packages installed successfully')
 
     expect(stderr).toBe('')
@@ -107,7 +107,7 @@ describe('bootstrap', () => {
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
     // no git initialization message
@@ -142,7 +142,7 @@ describe('bootstrap', () => {
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
     // no git initialization message
@@ -178,7 +178,7 @@ describe('bootstrap', () => {
 
     expect(stdout).not.toContain('Downloading example template...')
     expect(stdout).not.toContain('Example template copied!')
-    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
     expect(status).toBe(1)
@@ -215,7 +215,7 @@ describe('bootstrap', () => {
 
       expect(stdout).toContain('Downloading example template...')
       expect(stdout).toContain('Example template copied!')
-      expect(stdout).not.toContain('installing packages')
+      expect(stdout).not.toContain('Installing packages')
       expect(stdout).not.toContain('Packages installed successfully')
 
       // no git initialization message
@@ -253,7 +253,7 @@ describe('bootstrap', () => {
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('installing packages')
+    expect(stdout).not.toContain('Installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
     // no git initialization message
