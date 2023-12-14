@@ -2,8 +2,8 @@ const path = require('path');
 const { ApiCheck, AssertionBuilder } = require('checkly/constructs');
 const { websiteGroup } = require('./website-group.check');
 
-new ApiCheck('homepage-api-check-1', {
-  name: 'Fetch Book List',
+new ApiCheck('books-api-check-1', {
+  name: 'Books API',
   group: websiteGroup,
   degradedResponseTime: 10000,
   maxResponseTime: 20000,

@@ -1,7 +1,7 @@
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 
-new ApiCheck('homepage-api-check-1', {
-  name: 'Fetch Book List',
+new ApiCheck('books-api-check-1', {
+  name: 'Books API',
   alertChannels: [],
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
