@@ -31,9 +31,16 @@ export type Use = {
     bypassCSP?: boolean,
 }
 
+export type Expect = {
+    timeout?: number
+}
+
 export type PlaywrightConfig = {
     use?: Use,
+    expect?: Expect,
+    timeout?: number
 }
+
 export interface BrowserPlaywrightDefaults extends CheckProps {
     playwrightConfig?: PlaywrightConfig
 }
