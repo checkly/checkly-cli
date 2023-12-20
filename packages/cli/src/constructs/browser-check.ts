@@ -6,6 +6,7 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import { detectSnapshots, Snapshot } from '../services/snapshot-service'
+import { PlaywrightConfig } from './browser-defaults'
 
 export interface CheckDependency {
   path: string
@@ -23,6 +24,11 @@ export interface BrowserCheckProps extends CheckProps {
    * expiration. For example, 'app.checklyhq.com'.
    */
   sslCheckDomain?: string
+  /**
+   * A valid playwright config object, same format and keys as you would use on
+   * playwright.config.ts
+   */
+  playwrightConfig?: PlaywrightConfig,
 }
 
 /**
@@ -42,6 +48,7 @@ export class BrowserCheck extends Check {
   // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
   rawSnapshots?: Array<{ absolutePath: string, path: string }>
   snapshots?: Array<Snapshot>
+  playwrightConfig?: PlaywrightConfig
 
   /**
    * Constructs the Browser Check instance
@@ -57,6 +64,7 @@ export class BrowserCheck extends Check {
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
     super(logicalId, props)
     this.sslCheckDomain = props.sslCheckDomain
+    this.playwrightConfig = props.playwrightConfig
     if ('content' in props.code) {
       const script = props.code.content
       this.script = script
@@ -144,6 +152,7 @@ export class BrowserCheck extends Check {
       dependencies: this.dependencies,
       sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
       snapshots: this.snapshots,
+      playwrightConfig: this.playwrightConfig,
     }
   }
 }
