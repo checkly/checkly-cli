@@ -268,6 +268,7 @@ export class CheckGroup extends Construct {
       doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
+      runtimeId: this.runtimeId,
 
       // private-location instances are assigned with loadAllPrivateLocations()
       privateLocations: undefined,
