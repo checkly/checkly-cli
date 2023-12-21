@@ -5,7 +5,8 @@ export type Use = {
     colorScheme?: string,
     geolocation?: {
         longitude?: number,
-        latitude?: number
+        latitude?: number,
+        accuracy?: number,
     },
     locale?: string,
     permissions?: string[],
@@ -32,7 +33,9 @@ export type Use = {
 }
 
 export type Expect = {
-    timeout?: number
+    timeout?: number,
+    toHaveScreenshot?: object,
+    toMatchSnapshot?: object,
 }
 
 export type PlaywrightConfig = {
