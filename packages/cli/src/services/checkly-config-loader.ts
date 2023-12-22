@@ -36,7 +36,7 @@ export type ChecklyConfig = {
     /**
      * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
-    checkMatch?: string,
+    checkMatch?: string | string[],
     /**
      * List of glob patterns with directories to ignore.
      */
@@ -48,7 +48,7 @@ export type ChecklyConfig = {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
-      testMatch?: string,
+      testMatch?: string | string[],
     },
   },
   /**
