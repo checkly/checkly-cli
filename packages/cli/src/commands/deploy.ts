@@ -167,7 +167,7 @@ export default class Deploy extends AuthCommand {
         PrivateLocationGroupAssignment.__checklyType,
       ].some(t => t === type)) {
         // Don't report changes to alert channel subscriptions or private location assignments.
-        // User's don't create these directly, so it's more intuitive to consider it as part of the check.
+        // Users don't create these directly, so it's more intuitive to consider it as part of the check.
         continue
       }
       const construct = project.data[type as keyof ProjectData][logicalId]
