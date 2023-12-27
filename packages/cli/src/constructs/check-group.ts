@@ -30,14 +30,14 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string,
+  testMatch: string | string[],
 }
 
 type MultiStepCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string,
+  testMatch: string | string[],
 }
 
 export interface CheckGroupProps {
@@ -191,7 +191,7 @@ export class CheckGroup extends Construct {
     this.__addPrivateLocationGroupAssignments()
   }
 
-  private __addChecks (fileAbsolutePath: string, testMatch: string) {
+  private __addChecks (fileAbsolutePath: string, testMatch: string|string[]) {
     const parent = path.dirname(fileAbsolutePath)
     const matched = glob.sync(testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {

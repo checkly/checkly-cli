@@ -16,8 +16,8 @@ type ProjectParseOpts = {
   projectLogicalId: string,
   projectName: string,
   repoUrl?: string,
-  checkMatch?: string,
-  browserCheckMatch?: string,
+  checkMatch?: string | string[],
+  browserCheckMatch?: string | string[],
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
@@ -69,7 +69,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
 async function loadAllCheckFiles (
   directory: string,
-  checkFilePattern: string,
+  checkFilePattern: string | string[],
   ignorePattern: string[],
 ): Promise<void> {
   const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
@@ -94,7 +94,7 @@ async function loadAllCheckFiles (
 
 async function loadAllBrowserChecks (
   directory: string,
-  browserCheckFilePattern: string | undefined,
+  browserCheckFilePattern: string | string[] | undefined,
   ignorePattern: string[],
   project: Project,
 ): Promise<void> {
@@ -186,7 +186,7 @@ async function loadAllPrivateLocationsSlugNames (
 
 async function findFilesWithPattern (
   directory: string,
-  pattern: string,
+  pattern: string | string[],
   ignorePattern: string[],
 ): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
