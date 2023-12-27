@@ -18,7 +18,7 @@ export interface CheckProps {
    */
   name: string
   /**
-   *  Determines if the check is running or not.
+   *  Determines whether the check will run periodically or not after being deployed.
    */
   activated?: boolean
   /**
