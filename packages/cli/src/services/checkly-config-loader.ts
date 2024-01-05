@@ -7,6 +7,7 @@ import { Construct } from '../constructs/construct'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
 import { BrowserPlaywrightDefaults } from '../constructs/browser-defaults'
+import * as fs from 'fs'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
@@ -69,7 +70,7 @@ enum Extension {
   TS = '.ts',
 }
 
-function loadFile (file: string) {
+export function loadFile (file: string) {
   if (!existsSync(file)) {
     return Promise.resolve(null)
   }
@@ -87,6 +88,23 @@ function loadFile (file: string) {
 
 function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
+}
+
+export function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
+  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']
+  let config
+  for (const configFile of filenames) {
+    const dir = path.resolve(path.dirname(configFile))
+    const file = fs.readFileSync(path.resolve(dir, configFile))
+    if (file) {
+      config = {
+        checklyConfig: file.toString(),
+        fileName: configFile,
+      }
+      break
+    }
+  }
+  return config
 }
 
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
