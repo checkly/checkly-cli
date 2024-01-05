@@ -1,10 +1,11 @@
 import Debug from 'debug'
 import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile, checkFilesToKeep } from './directory'
-import { askInitializeProject, askProjectDirectory, askTemplate } from './prompts'
+import { askCopyPlaywrightProject, askInitializeProject, askProjectDirectory, askTemplate } from './prompts'
 import { addDevDependecies, installDependencies } from '../actions/dependencies'
 import { copyTemplate } from '../actions/template'
 import { createCustomBrowserCheck } from '../actions/creates'
 import { initGit } from '../actions/git'
+import * as playwright from '../actions/playwright'
 
 const debug = Debug('checkly:create-cli')
 const templateBaseRepo = 'checkly/checkly-cli/examples'
@@ -76,4 +77,13 @@ export async function installDependenciesAndInitGit (
 
   debug('Init .git & .gitignore')
   await initGit(projectDirectory)
+}
+
+export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig }:
+                                                { projectDirectory: string, playwrightConfig: string }) {
+  debug('Check if playwright config exists in project')
+  const { shouldCopyPlaywrightConfig } = await askCopyPlaywrightProject(projectDirectory)
+  if (shouldCopyPlaywrightConfig) {
+    await playwright.copyPlaywrightConfig(projectDirectory, playwrightConfig)
+  }
 }

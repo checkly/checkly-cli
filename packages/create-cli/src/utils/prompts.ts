@@ -79,3 +79,12 @@ export function askInitializeGit (onCancel: any = () => true): Promise<{ initial
     initial: true,
   }, { onCancel })
 }
+
+export function askCopyPlaywrightProject (onCancel: any): Promise<{ shouldCopyPlaywrightConfig: boolean }> {
+  return prompts({
+    type: 'confirm',
+    name: 'shouldCopyPlaywrightConfig',
+    message: 'It looks like you have a playwright config, do you want to copy it?',
+    initial: true,
+  }, { onCancel })
+}
