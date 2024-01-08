@@ -53,6 +53,9 @@ function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | un
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))
+    if (!fs.existsSync(path.resolve(dir, configFile))) {
+      continue
+    }
     const file = fs.readFileSync(path.resolve(dir, configFile))
     if (file) {
       config = {

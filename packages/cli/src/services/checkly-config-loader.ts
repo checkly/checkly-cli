@@ -95,6 +95,9 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))
+    if (!existsSync(path.resolve(dir, configFile))) {
+      continue
+    }
     const file = fs.readFileSync(path.resolve(dir, configFile))
     if (file) {
       config = {
