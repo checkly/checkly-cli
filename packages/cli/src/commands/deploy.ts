@@ -17,12 +17,21 @@ import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
+import indentString from 'indent-string'
+import { Construct } from '../constructs/construct'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
   UPDATE = 'UPDATE',
   CREATE = 'CREATE',
   DELETE = 'DELETE',
+}
+
+type PreviewData = {
+  sortedUpdating: Array<{ resourceType: string, logicalId: string, construct: Construct }>,
+  sortedCreating: Array<{ resourceType: string, logicalId: string, construct: Construct }>,
+  sortedDeleting: Array<{ resourceType: string, logicalId: string }>,
+  skipping: Array<{ resourceType: string, logicalId: string, construct: Construct }>,
 }
 
 export default class Deploy extends AuthCommand {
@@ -72,7 +81,7 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: avilableRuntimes } = await runtimes.getAll()
+    const { data: availableRuntimes } = await runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -83,13 +92,14 @@ export default class Deploy extends AuthCommand {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
-      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+      availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
     const repoInfo = getGitInformation(project.repoUrl)
+
     ux.action.stop()
 
     if (!preview) {
@@ -111,6 +121,15 @@ export default class Deploy extends AuthCommand {
       }
     }
 
+    // Always show the pre-deploy summary, except when the user passes the --preview.
+    if (!preview) {
+      const { data: deployDryRunResponse } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        { dryRun: true, scheduleOnDeploy: false },
+      )
+      this.log(this.formatMiniPreview(deployDryRunResponse, project))
+    }
+
     const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
@@ -120,14 +139,18 @@ export default class Deploy extends AuthCommand {
         message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
       })
       if (!confirm) {
+        this.log('not deploying')
         return
       }
     }
 
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
+      const { data: deployResponse } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        { dryRun: preview, scheduleOnDeploy },
+      )
       if (preview || output) {
-        this.log(this.formatPreview(data, project))
+        this.log(this.formatPreview(deployResponse, project))
       }
       if (!preview) {
         await ux.wait(500)
@@ -135,7 +158,7 @@ export default class Deploy extends AuthCommand {
 
         // Print the ping URL for heartbeat checks.
         const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
-        const heartbeatCheckIds = data.diff.filter((check) => heartbeatLogicalIds.includes(check.logicalId))
+        const heartbeatCheckIds = deployResponse.diff.filter((check) => heartbeatLogicalIds.includes(check.logicalId))
           .map(check => check?.physicalId)
 
         heartbeatCheckIds.forEach(async (id) => {
@@ -153,6 +176,54 @@ export default class Deploy extends AuthCommand {
   }
 
   private formatPreview (previewData: ProjectDeployResponse, project: Project): string {
+    const preview = this.compilePreviewData(previewData, project)
+    if (!preview.sortedCreating.length && !preview.sortedDeleting.length &&
+      !preview.sortedUpdating.length && !preview.skipping.length) {
+      return '\nNo changes were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
+    }
+
+    const output = []
+
+    if (preview.sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
+      output.push(chalk.green(`Creating (${preview.sortedCreating.length}):`))
+      for (const { logicalId, construct } of preview.sortedCreating) {
+        output.push(indentString(`${construct.constructor.name}: ${logicalId}`))
+      }
+      output.push('')
+    }
+    if (preview.sortedDeleting.length) {
+      output.push(chalk.red(`Deleting (${preview.sortedCreating.length}):`))
+      const prettyResourceTypes: Record<string, string> = {
+        [Check.__checklyType]: 'Check',
+        [AlertChannel.__checklyType]: 'AlertChannel',
+        [CheckGroup.__checklyType]: 'CheckGroup',
+        [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
+        [PrivateLocation.__checklyType]: 'PrivateLocation',
+        [Dashboard.__checklyType]: 'Dashboard',
+      }
+      for (const { resourceType, logicalId } of preview.sortedDeleting) {
+        output.push(indentString(`${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`))
+      }
+      output.push('')
+    }
+    if (preview.sortedUpdating.length) {
+      output.push(chalk.magenta(`Updating or leaving unchanged (${preview.sortedUpdating.length}):`))
+      for (const { logicalId, construct } of preview.sortedUpdating) {
+        output.push(indentString(`${construct.constructor.name}: ${logicalId}`))
+      }
+      output.push('')
+    }
+    if (preview.skipping.length) {
+      output.push(chalk.grey(`Skipping because of testOnly (${preview.skipping.length}):`))
+      for (const { logicalId, construct } of preview.skipping) {
+        output.push(indentString(`${construct.constructor.name}: ${logicalId}`))
+      }
+      output.push('')
+    }
+    return output.join('\n')
+  }
+
+  private compilePreviewData (previewData: ProjectDeployResponse, project: Project): PreviewData {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
@@ -219,48 +290,18 @@ export default class Deploy extends AuthCommand {
     const sortedDeleting = deleting
       .sort(compareEntries)
 
-    if (!sortedCreating.length && !sortedDeleting.length && !sortedUpdating.length && !skipping.length) {
-      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
-    }
+    return { sortedUpdating, sortedCreating, sortedDeleting, skipping }
+  }
 
+  private formatMiniPreview (previewData: ProjectDeployResponse, project: Project): string {
+    const preview = this.compilePreviewData(previewData, project)
     const output = []
+    output.push(chalk.bold('\nDeploy preview:\n'))
 
-    if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
-      output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, construct } of sortedCreating) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (sortedDeleting.length) {
-      output.push(chalk.bold.red('Delete:'))
-      const prettyResourceTypes: Record<string, string> = {
-        [Check.__checklyType]: 'Check',
-        [AlertChannel.__checklyType]: 'AlertChannel',
-        [CheckGroup.__checklyType]: 'CheckGroup',
-        [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
-        [PrivateLocation.__checklyType]: 'PrivateLocation',
-        [Dashboard.__checklyType]: 'Dashboard',
-      }
-      for (const { resourceType, logicalId } of sortedDeleting) {
-        output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (sortedUpdating.length) {
-      output.push(chalk.bold.magenta('Update and Unchanged:'))
-      for (const { logicalId, construct } of sortedUpdating) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (skipping.length) {
-      output.push(chalk.bold.grey('Skip (testOnly):'))
-      for (const { logicalId, construct } of skipping) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-      }
-      output.push('')
-    }
+    output.push(indentString(`- ${chalk.green(preview.sortedCreating.length + ' to create')}, ` +
+      `${chalk.red(preview.sortedDeleting.length + ' to delete')}`))
+    output.push(indentString('\nFor a full preview, run: npx checkly deploy --preview\n'))
+
     return output.join('\n')
   }
 }
