@@ -85,6 +85,7 @@
     "git-repo-info": "2.1.1",
     "glob": "10.3.1",
     "indent-string": "4.0.0",
+    "json5": "2.2.3",
     "jwt-decode": "3.1.2",
     "log-symbols": "4.1.0",
     "luxon": "3.3.0",
@@ -92,10 +93,9 @@
     "p-queue": "6.6.2",
     "prompts": "2.4.2",
     "proxy-from-env": "1.1.0",
+    "recast": "0.23.4",
     "tunnel": "0.0.6",
-    "uuid": "9.0.0",
-    "handlebars": "4.7.8",
-    "recast": "0.23.4"
+    "uuid": "9.0.0"
   },
   "devDependencies": {
     "@types/config": "3.3.3",

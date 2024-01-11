@@ -1,13 +1,11 @@
 import { BaseCommand } from './baseCommand'
 import * as recast from 'recast'
-import playwrightConfigTemplate from '../playwright/playwright-template'
 import { getChecklyConfigFile } from '../services/checkly-config-loader'
 import { loadPlaywrightConfig } from '../playwright/playwright-config-loader'
-import { parse } from '../services/handlebars-helpers'
-import * as Handlebars from 'handlebars'
 import fs from 'fs'
 import path from 'path'
 import { ux } from '@oclif/core'
+import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = true
@@ -21,14 +19,12 @@ export default class SyncPlaywright extends BaseCommand {
       return this.handleError('Could not find any playwright.config file.')
     }
 
-    Handlebars.registerHelper('parse', parse)
-    const pwtConfig = Handlebars.compile(playwrightConfigTemplate)(config)
     const configFile = getChecklyConfigFile()
     if (!configFile) {
       return this.handleError('Could not find a checkly config file')
     }
-
     const checklyAst = recast.parse(configFile.checklyConfig)
+
     const checksAst = this.findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       return this.handleError('Could not parse your checkly config file')
@@ -38,6 +34,8 @@ export default class SyncPlaywright extends BaseCommand {
     if (!browserCheckAst) {
       return this.handleError('Could not parse your checkly config file')
     }
+
+    const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
     const pwtConfigAst = this.findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
     this.addOrReplacePlaywrightConfig(browserCheckAst.value, pwtConfigAst)
 

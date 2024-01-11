@@ -3,33 +3,34 @@ import { spinner } from '../utils/terminal'
 import { loadPlaywrightConfig } from '../utils/directory'
 import * as recast from 'recast'
 import * as path from 'path'
-import playwrightConfigTemplate from '../utils/playwright-template'
-import * as Handlebars from 'handlebars'
 import * as fs from 'fs'
 import * as ora from 'ora'
-import { parse } from '../utils/handlebars-helpers'
+import PlaywrightConfigTemplate from '../utils/playwright-config-template'
 export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFileName: string) {
   const copySpinner = spinner('Copying your playwright config')
   try {
     const config = await loadPlaywrightConfig(path.join(dirPath, playwrightConfigFileName))
-    Handlebars.registerHelper('parse', parse)
-    const pwtConfig = Handlebars.compile(playwrightConfigTemplate, { compat: true })(config)
+    const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
     if (!pwtConfig) {
       return
     }
+
     const checklyConfig = getChecklyConfigFile()
     if (!checklyConfig) {
       return handleError(copySpinner, 'Could not find your checkly config file')
     }
+
     const checklyAst = recast.parse(checklyConfig.checklyConfig)
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       return handleError(copySpinner, 'Could not parse you checkly file correctly')
     }
+
     const browserCheckAst = findPropertyByName(checksAst.value, 'browserChecks')
     if (!browserCheckAst) {
       return handleError(copySpinner, 'Could not parse you checkly file correctly')
     }
+
     const pwtConfigAst = findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
     addOrReplacePlaywrightConfig(browserCheckAst.value, pwtConfigAst)
     fs.writeFileSync(path.join(dirPath, checklyConfig.fileName), recast.print(checklyAst, { tabWidth: 2 }).code)
