@@ -13,6 +13,8 @@ const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 function cleanupProjects () {
   rimraf.sync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
   rimraf.windowsSync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
+  rimraf.sync(path.join(__dirname, 'fixtures', 'playwright-project', '__checks__'), { glob: true })
+  rimraf.sync(path.join(__dirname, 'fixtures', 'playwright-project', 'checkly.config.ts'), { glob: true })
 }
 
 function expectVersionAndName ({
@@ -271,5 +273,39 @@ describe('bootstrap', () => {
     // node_modules nor .git shouldn't exist
     expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
     expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+  }, 15000)
+
+  it('Should copy the playwright config', () => {
+    const directory = path.join(__dirname, 'fixtures', 'playwright-project')
+    const commandOutput = runChecklyCreateCli({
+      directory,
+      promptsInjection: [true, false, false, true],
+    })
+
+    expectVersionAndName({ commandOutput, latestVersion, greeting })
+
+    const { status, stdout, stderr } = commandOutput
+
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
+    expect(stdout).not.toContain('Installing packages')
+    expect(stdout).not.toContain('Packages installed successfully')
+    // no git initialization message
+
+    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+    expect(stdout).toContain('Copying your playwright config')
+    expect(stdout).toContain('Playwright config copied!')
+
+    expectCompleteCreation({ commandOutput, projectFolder: directory })
+
+    expect(stderr).toBe('')
+    expect(status).toBe(0)
+
+    expect(fs.existsSync(path.join(directory, 'package.json'))).toBe(true)
+    expect(fs.existsSync(path.join(directory, 'checkly.config.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(directory, '__checks__', 'api.check.ts'))).toBe(true)
+
+    // node_modules nor .git shouldn't exist
+    expect(fs.existsSync(path.join(directory, 'node_modules'))).toBe(false)
   }, 15000)
 })
