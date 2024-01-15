@@ -16,7 +16,7 @@ describe('sync-playwright', () => {
       directory: path.join(__dirname, 'fixtures', 'test-playwright-project'),
     })
     expect(status).toBe(0)
-    expect(stdout).toContain('Successfully sync')
+    expect(stdout).toContain('Successfully updated Checkly config file')
     const checklyConfig = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'test-playwright-project'))
     expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig).toBeDefined()
     expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig?.timeout).toEqual(1234)

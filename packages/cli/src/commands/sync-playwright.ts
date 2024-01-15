@@ -9,10 +9,10 @@ import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = true
-  static description = 'Sync playwright config'
+  static description = 'Copy Playwright config into the Checkly config file'
 
   async run (): Promise<void> {
-    ux.action.start('Sync playwright config with checkly config', undefined, { stdout: true })
+    ux.action.start('Syncing Playwright config to the Checkly config file', undefined, { stdout: true })
 
     const config = await loadPlaywrightConfig()
     if (!config) {
@@ -27,12 +27,16 @@ export default class SyncPlaywright extends BaseCommand {
 
     const checksAst = this.findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
-      return this.handleError('Could not parse your checkly config file')
+      return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is ' +
+          'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
+          'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
     }
 
     const browserCheckAst = this.findPropertyByName(checksAst.value, 'browserChecks')
     if (!browserCheckAst) {
-      return this.handleError('Could not parse your checkly config file')
+      return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is ' +
+          'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
+          'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
     }
 
     const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
@@ -44,7 +48,7 @@ export default class SyncPlaywright extends BaseCommand {
     this.reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, dir)
 
     ux.action.stop('✅ ')
-    this.log('Successfully sync')
+    this.log('Successfully updated Checkly config file')
     this.exit(0)
   }
 

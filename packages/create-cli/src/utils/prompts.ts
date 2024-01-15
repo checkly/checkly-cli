@@ -84,7 +84,7 @@ export function askCopyPlaywrightProject (onCancel: any): Promise<{ shouldCopyPl
   return prompts({
     type: 'confirm',
     name: 'shouldCopyPlaywrightConfig',
-    message: 'It looks like you have a playwright config, do you want to copy it?',
+    message: 'It looks like you have a Playwright config file. Would you like to copy your settings to your Checkly config file?',
     initial: true,
   }, { onCancel })
 }
