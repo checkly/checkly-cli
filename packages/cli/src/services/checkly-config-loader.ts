@@ -11,7 +11,7 @@ import * as fs from 'fs'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy'>
+  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
 
 export type BrowserCheckDefaults = Pick<BrowserPlaywrightDefaults, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'

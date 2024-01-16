@@ -1,5 +1,5 @@
 import { defineConfig } from 'checkly'
-import { RetryStrategyBuilder } from 'checkly/constructs'
+import { AlertEscalationBuilder, RetryStrategyBuilder } from 'checkly/constructs'
 
 /**
  * See https://www.checklyhq.com/docs/cli/project-structure/
@@ -27,6 +27,8 @@ const config = defineConfig({
     runtimeId: '2023.09',
     /* Failed check runs will be retried before triggering alerts */
     retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
+    /* All checks will have this alert escalation policy defined */
+    alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.ts',
     browserChecks: {
