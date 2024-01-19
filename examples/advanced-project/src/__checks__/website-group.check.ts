@@ -1,4 +1,4 @@
-import { CheckGroup, RetryStrategyBuilder } from 'checkly/constructs'
+import { AlertEscalationBuilder, CheckGroup, RetryStrategyBuilder } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 /*
@@ -24,6 +24,8 @@ export const websiteGroup = new CheckGroup('website-check-group-1', {
   apiCheckDefaults: {},
   concurrency: 100,
   alertChannels,
+  /* All checks on this check group will have this alert escalation policy */
+  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
   /*
    * Failed check runs in this group will be retried before triggering alerts.
    * The wait time between retries will increase linearly: 30 seconds, 60 seconds, and then 90 seconds between the retries.

@@ -15,6 +15,7 @@ import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 import type { Frequency } from './frequency'
 import type { RetryStrategy } from './retry-strategy'
+import { AlertEscalation } from './alert-escalation-policy'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -90,6 +91,7 @@ export interface CheckGroupProps {
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,
   multiStepChecks?: MultiStepCheckConfig,
+  alertEscalationPolicy?: AlertEscalation,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
   * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
@@ -141,6 +143,8 @@ export class CheckGroup extends Construct {
   multiStepChecks?: MultiStepCheckConfig
   retryStrategy?: RetryStrategy
   runParallel?: boolean
+  alertSettings?: AlertEscalation
+  useGlobalAlertSettings?: boolean
 
   static readonly __checklyType = 'check-group'
 
@@ -166,7 +170,8 @@ export class CheckGroup extends Construct {
     // `frequency` is not a CheckGroup resource property. Not present in synthesize()
     this.frequency = props.frequency
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
-
+    this.alertSettings = props.alertEscalationPolicy
+    this.useGlobalAlertSettings = !this.alertSettings
     this.environmentVariables = props.environmentVariables ?? []
     this.environmentVariables.forEach(ev => {
       // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
@@ -280,6 +285,8 @@ export class CheckGroup extends Construct {
       environmentVariables: this.environmentVariables,
       retryStrategy: this.retryStrategy,
       runParallel: this.runParallel,
+      alertSettings: this.alertSettings,
+      useGlobalAlertSettings: this.useGlobalAlertSettings,
     }
   }
 }

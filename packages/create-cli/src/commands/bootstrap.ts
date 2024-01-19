@@ -3,8 +3,9 @@ import * as chalk from 'chalk'
 import * as prompts from 'prompts'
 import { Command, Flags } from '@oclif/core'
 import { getUserGreeting, header, footer, hint } from '../utils/messages.js'
-import { hasPackageJsonFile } from '../utils/directory'
+import { getPlaywrightConfig, hasPackageJsonFile } from '../utils/directory'
 import {
+  copyPlaywrightConfig,
   createProject,
   getProjectDirectory,
   installDependenciesAndInitGit,
@@ -77,6 +78,11 @@ export default class Bootstrap extends Command {
 
     // ask and install dependencies and initialize git
     await installDependenciesAndInitGit({ projectDirectory })
+
+    const playwrightConfig = getPlaywrightConfig(projectDirectory)
+    if (playwrightConfig) {
+      await copyPlaywrightConfig({ projectDirectory, playwrightConfig })
+    }
 
     await footer(projectDirectory)
   }
