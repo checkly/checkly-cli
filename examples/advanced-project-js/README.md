@@ -13,7 +13,7 @@ npm create checkly -- --template advanced-project
 
 ## Project Structure
 
-This project mimics a typical app where you organize code with top-level defaults and per page, service or component checks.
+This project has examples of all Checkly check types and showcases some advanced features. It also adds a GitHub Actions workflow.
 
 - Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
 
@@ -42,7 +42,7 @@ You can add `@playwright/test` to this project to get full code completion and r
 It's best to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
 
 ```bash
-npm install --save-dev @playwright/test@1.28.0
+npm install --save-dev @playwright/test@1.38.1
 ```
 
 ## Questions?

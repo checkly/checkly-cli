@@ -133,6 +133,31 @@ describe('parseProject()', () => {
     })
   })
 
+  it('should parse a project with multiple glob patterns and deduplicate overlapping patterns', async () => {
+    const globProjectPath = path.join(__dirname, 'project-parser-fixtures', 'multiple-glob-patterns-project')
+    const project = await parseProject({
+      directory: globProjectPath,
+      projectLogicalId: 'glob-project-id',
+      projectName: 'glob project',
+      availableRuntimes: runtimes,
+      checkMatch: ['**/__checks1__/*.check.js', '**/__checks2__/*.check.js', '**/__nested-checks__/*.check.js'],
+      browserCheckMatch: ['**/__checks1__/*.spec.js', '**/__checks2__/*.spec.js', '**/__nested-checks__/*.spec.js'],
+    })
+    expect(project.synthesize()).toMatchObject({
+      project: {
+        logicalId: 'glob-project-id',
+      },
+      resources: [
+        { type: 'check', logicalId: 'nested' },
+        { type: 'check', logicalId: 'check1' },
+        { type: 'check', logicalId: 'check2' },
+        { type: 'check', logicalId: '__checks1__/__nested-checks__/nested.spec.js' },
+        { type: 'check', logicalId: '__checks1__/check1.spec.js' },
+        { type: 'check', logicalId: '__checks2__/check2.spec.js' },
+      ],
+    })
+  })
+
   it('should throw error for empty browser-check script', async () => {
     try {
       const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')

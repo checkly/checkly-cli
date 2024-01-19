@@ -162,7 +162,7 @@ describe('test', () => {
   it('Should run snapshot tests', async () => {
     const secretEnv = uuid.v4()
     const result = await runChecklyCli({
-      args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose'],
+      args: ['test', '-e', `SECRET_ENV=${secretEnv}`, '--verbose', '--record'],
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'snapshot-project'),

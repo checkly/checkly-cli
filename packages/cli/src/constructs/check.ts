@@ -11,6 +11,7 @@ import type { CheckGroup } from './check-group'
 import { PrivateLocation } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 import { RetryStrategy } from './retry-strategy'
+import { AlertEscalation } from './alert-escalation-policy'
 
 export interface CheckProps {
   /**
@@ -18,7 +19,7 @@ export interface CheckProps {
    */
   name: string
   /**
-   *  Determines if the check is running or not.
+   *  Determines whether the check will run periodically or not after being deployed.
    */
   activated?: boolean
   /**
@@ -77,7 +78,11 @@ export interface CheckProps {
   /**
    * List of alert channels to notify when the check fails or recovers.
    */
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel>,
+  /**
+   * Determines the alert escalation policy for that particular check
+   */
+  alertEscalationPolicy?: AlertEscalation
   /**
    * Determines if the check is available only when 'test' runs (not included when 'deploy' is executed).
    */
@@ -86,6 +91,11 @@ export interface CheckProps {
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
    */
   retryStrategy?: RetryStrategy
+  /**
+   * Determines whether the check should run on all selected locations in parallel or round-robin.
+   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
+   */
+  runParallel?: boolean
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -106,6 +116,9 @@ export abstract class Check extends Construct {
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
   retryStrategy?: RetryStrategy
+  alertSettings?: AlertEscalation
+  useGlobalAlertSettings?: boolean
+  runParallel?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'check'
@@ -142,6 +155,9 @@ export abstract class Check extends Construct {
 
     this.testOnly = props.testOnly ?? false
     this.retryStrategy = props.retryStrategy
+    this.alertSettings = props.alertEscalationPolicy
+    this.useGlobalAlertSettings = !this.alertSettings
+    this.runParallel = props.runParallel ?? false
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -218,6 +234,9 @@ export abstract class Check extends Construct {
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
       retryStrategy: this.retryStrategy,
+      alertSettings: this.alertSettings,
+      useGlobalAlertSettings: this.useGlobalAlertSettings,
+      runParallel: this.runParallel,
     }
   }
 }

@@ -15,6 +15,7 @@ import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 import type { Frequency } from './frequency'
 import type { RetryStrategy } from './retry-strategy'
+import { AlertEscalation } from './alert-escalation-policy'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -30,14 +31,14 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string,
+  testMatch: string | string[],
 }
 
 type MultiStepCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string,
+  testMatch: string | string[],
 }
 
 export interface CheckGroupProps {
@@ -90,6 +91,7 @@ export interface CheckGroupProps {
   alertChannels?: Array<AlertChannel>
   browserChecks?: BrowserCheckConfig,
   multiStepChecks?: MultiStepCheckConfig,
+  alertEscalationPolicy?: AlertEscalation,
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check in this group.
   * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
@@ -107,6 +109,11 @@ export interface CheckGroupProps {
    * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
    */
   retryStrategy?: RetryStrategy
+  /**
+   * Determines whether the checks in the group should run on all selected locations in parallel or round-robin.
+   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
+   */
+  runParallel?: boolean
 }
 
 /**
@@ -135,6 +142,9 @@ export class CheckGroup extends Construct {
   browserChecks?: BrowserCheckConfig
   multiStepChecks?: MultiStepCheckConfig
   retryStrategy?: RetryStrategy
+  runParallel?: boolean
+  alertSettings?: AlertEscalation
+  useGlobalAlertSettings?: boolean
 
   static readonly __checklyType = 'check-group'
 
@@ -160,7 +170,8 @@ export class CheckGroup extends Construct {
     // `frequency` is not a CheckGroup resource property. Not present in synthesize()
     this.frequency = props.frequency
     this.apiCheckDefaults = { ...defaultApiCheckDefaults, ...props.apiCheckDefaults }
-
+    this.alertSettings = props.alertEscalationPolicy
+    this.useGlobalAlertSettings = !this.alertSettings
     this.environmentVariables = props.environmentVariables ?? []
     this.environmentVariables.forEach(ev => {
       // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
@@ -173,6 +184,7 @@ export class CheckGroup extends Construct {
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
     this.retryStrategy = props.retryStrategy
+    this.runParallel = props.runParallel
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
     this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
@@ -184,7 +196,7 @@ export class CheckGroup extends Construct {
     this.__addPrivateLocationGroupAssignments()
   }
 
-  private __addChecks (fileAbsolutePath: string, testMatch: string) {
+  private __addChecks (fileAbsolutePath: string, testMatch: string|string[]) {
     const parent = path.dirname(fileAbsolutePath)
     const matched = glob.sync(testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {
@@ -261,6 +273,7 @@ export class CheckGroup extends Construct {
       doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
+      runtimeId: this.runtimeId,
 
       // private-location instances are assigned with loadAllPrivateLocations()
       privateLocations: undefined,
@@ -271,6 +284,9 @@ export class CheckGroup extends Construct {
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
       retryStrategy: this.retryStrategy,
+      runParallel: this.runParallel,
+      alertSettings: this.alertSettings,
+      useGlobalAlertSettings: this.useGlobalAlertSettings,
     }
   }
 }
