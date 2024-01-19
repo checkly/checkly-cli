@@ -8,8 +8,8 @@ import { ux } from '@oclif/core'
 import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
 
 export default class SyncPlaywright extends BaseCommand {
-  static hidden = true
-  static description = 'Copy Playwright config into the Checkly config file'
+  static hidden = false
+  static description = 'Copy Playwright config into the Checkly config file.'
 
   async run (): Promise<void> {
     ux.action.start('Syncing Playwright config to the Checkly config file', undefined, { stdout: true })
