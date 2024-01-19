@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
+import { loadFile } from './fileloader'
 
 export interface PackageJson {
   name: string;
@@ -13,8 +14,17 @@ export function hasPackageJsonFile (dirPath: string) {
   return fs.existsSync(path.join(dirPath, 'package.json'))
 }
 
+export function getPlaywrightConfig (dirPath: string) {
+  const playwrightConfigFiles = ['playwright.config.ts', 'playwright.config.js']
+  return playwrightConfigFiles.find(config => fs.existsSync(path.join(dirPath, config)))
+}
+
 export function readPackageJson (dirPath: string): PackageJson {
   return JSON.parse(fs.readFileSync(path.join(dirPath, 'package.json'), 'utf-8'))
+}
+
+export function loadPlaywrightConfig (playwrightConfigPath: string) {
+  return loadFile(playwrightConfigPath)
 }
 
 export function isValidProjectDirectory (dirPath: string) {

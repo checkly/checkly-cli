@@ -14,6 +14,7 @@ export default class CiReporter extends AbstractListReporter {
   onEnd () {
     printLn('Finished running all checks:', 2)
     this._printSummary()
+    this._printTestSessionsUrl()
   }
 
   onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
