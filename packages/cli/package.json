@@ -73,7 +73,7 @@
     "@oclif/plugin-not-found": "2.3.23",
     "@oclif/plugin-plugins": "2.3.0",
     "@oclif/plugin-warn-if-update-available": "2.0.24",
-    "@typescript-eslint/typescript-estree": "6.7.2",
+    "@typescript-eslint/typescript-estree": "6.19.0",
     "acorn": "8.8.1",
     "acorn-walk": "8.2.0",
     "async-mqtt": "2.6.3",
