@@ -26,13 +26,8 @@ export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFil
       return handleError(copySpinner, 'Could not parse you checkly file correctly')
     }
 
-    const browserCheckAst = findPropertyByName(checksAst.value, 'browserChecks')
-    if (!browserCheckAst) {
-      return handleError(copySpinner, 'Could not parse you checkly file correctly')
-    }
-
     const pwtConfigAst = findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
-    addOrReplacePlaywrightConfig(browserCheckAst.value, pwtConfigAst)
+    addOrReplacePlaywrightConfig(checksAst.value, pwtConfigAst)
     fs.writeFileSync(path.join(dirPath, checklyConfig.fileName), recast.print(checklyAst, { tabWidth: 2 }).code)
   } catch (e) {
     handleError(copySpinner, e)

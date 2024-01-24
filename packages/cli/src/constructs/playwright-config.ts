@@ -43,7 +43,3 @@ export type PlaywrightConfig = {
     expect?: Expect,
     timeout?: number
 }
-
-export interface BrowserPlaywrightDefaults extends CheckProps {
-    playwrightConfig?: PlaywrightConfig
-}

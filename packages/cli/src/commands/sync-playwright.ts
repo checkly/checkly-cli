@@ -32,16 +32,9 @@ export default class SyncPlaywright extends BaseCommand {
           'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
     }
 
-    const browserCheckAst = this.findPropertyByName(checksAst.value, 'browserChecks')
-    if (!browserCheckAst) {
-      return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is ' +
-          'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
-          'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
-    }
-
     const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
     const pwtConfigAst = this.findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
-    this.addOrReplacePlaywrightConfig(browserCheckAst.value, pwtConfigAst)
+    this.addOrReplacePlaywrightConfig(checksAst.value, pwtConfigAst)
 
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
     const dir = path.resolve(path.dirname(configFile.fileName))
