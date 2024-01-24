@@ -6,16 +6,12 @@ import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
-import { BrowserPlaywrightDefaults } from '../constructs/browser-defaults'
 import * as fs from 'fs'
+import { PlaywrightConfig } from '../constructs/playwright-config'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
-
-export type BrowserCheckDefaults = Pick<BrowserPlaywrightDefaults, 'activated' | 'muted' | 'doubleCheck'
-  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'playwrightConfig' >
 
 export type ChecklyConfig = {
   /**
@@ -42,10 +38,13 @@ export type ChecklyConfig = {
      * List of glob patterns with directories to ignore.
      */
     ignoreDirectoriesMatch?: string[],
+
+    playwrightConfig?: PlaywrightConfig,
+
     /**
      * Browser checks default configuration properties.
      */
-    browserChecks?: BrowserCheckDefaults & {
+    browserChecks?: CheckConfigDefaults & {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */

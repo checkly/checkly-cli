@@ -7,13 +7,15 @@ import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import CheckTypes from '../constants'
 import { CheckDependency } from './browser-check'
+import { PlaywrightConfig } from './playwright-config'
 
 export interface MultiStepCheckProps extends CheckProps {
   /**
    * A valid piece of Node.js javascript code describing a multi-step interaction
    * with the Puppeteer or Playwright frameworks.
    */
-  code: Content|Entrypoint
+  code: Content|Entrypoint,
+  playwrightConfig?: PlaywrightConfig
 }
 
 /**
@@ -27,6 +29,7 @@ export class MultiStepCheck extends Check {
   script: string
   scriptPath?: string
   dependencies?: Array<CheckDependency>
+  playwrightConfig?: PlaywrightConfig
 
   /**
    * Constructs the multi-step instance
@@ -41,6 +44,8 @@ export class MultiStepCheck extends Check {
     }
     MultiStepCheck.applyDefaultMultiStepCheckConfig(props)
     super(logicalId, props)
+
+    this.playwrightConfig = props.playwrightConfig
 
     if (!Session.availableRuntimes[this.runtimeId!]?.multiStepSupport) {
       throw new Error('This runtime does not support multi step checks.')
@@ -128,6 +133,7 @@ export class MultiStepCheck extends Check {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
+      playwrightConfig: this.playwrightConfig,
     }
   }
 }

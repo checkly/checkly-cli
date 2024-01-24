@@ -18,11 +18,11 @@ describe('sync-playwright', () => {
     expect(status).toBe(0)
     expect(stdout).toContain('Successfully updated Checkly config file')
     const checklyConfig = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'test-playwright-project'))
-    expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig).toBeDefined()
-    expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig?.timeout).toEqual(1234)
-    expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig?.use).toBeDefined()
-    expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig?.use?.baseURL).toEqual('http://127.0.0.1:3000')
-    expect(checklyConfig.config?.checks?.browserChecks?.playwrightConfig?.expect).toBeDefined()
+    expect(checklyConfig.config?.checks?.playwrightConfig).toBeDefined()
+    expect(checklyConfig.config?.checks?.playwrightConfig?.timeout).toEqual(1234)
+    expect(checklyConfig.config?.checks?.playwrightConfig?.use).toBeDefined()
+    expect(checklyConfig.config?.checks?.playwrightConfig?.use?.baseURL).toEqual('http://127.0.0.1:3000')
+    expect(checklyConfig.config?.checks?.playwrightConfig?.expect).toBeDefined()
   })
 
   it('should fail if no playwright config file exists', async () => {
