@@ -76,7 +76,14 @@ To release packages to NPM:
 
 1. Publish a Github Release with a valid tag `#.#.#` and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml) 
 2. When release is published the Github action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
-3. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published and set as `latest`
+3. Test the prerelease version to make sure that it's working.
+4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published and set as `latest`
+
+### Catching issues in prerelease
+
+If you notice an issue when testing the prerelease you can still roll everything back. Simply delete the GitHub release, and delete the corresponding tags from the GitHub UI (both `#.#.#` and `v#.#.#`).
+
+After resolving the issues, you can create another Github release and go through the process again.
 
 ## Style Guide
 
