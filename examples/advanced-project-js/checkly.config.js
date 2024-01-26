@@ -33,7 +33,7 @@ const config = defineConfig({
     playwrightConfig: {
       timeout: 30000,
       use: {
-        baseURL: 'https://www.danube-webshop.com',
+        baseURL: 'https://www.danube-web.shop',
         viewport: { width: 1280, height: 720 },
       }
     },
