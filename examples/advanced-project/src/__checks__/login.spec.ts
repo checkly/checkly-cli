@@ -1,9 +1,8 @@
-import { defaults } from '../defaults'
 import { test } from '@playwright/test'
 
-test('login', async ({ page }) => {
+test('login', async ({ page, baseURL }) => {
   // navigate to our target web page
-  await page.goto(defaults.pageUrl)
+  await page.goto(baseURL)
 
   // click on the login button and go through the login procedure
   await page.click('#login')

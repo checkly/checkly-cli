@@ -1,9 +1,8 @@
 const { test } = require('@playwright/test');
-const { defaults } = require('../defaults.js')
 
-test('login', async ({ page }) => {
+test('login', async ({ page, baseURL }) => {
   // navigate to our target web page
-  await page.goto(defaults.pageUrl);
+  await page.goto(baseURL);
 
   // click on the login button and go through the login procedure
   await page.click('#login');

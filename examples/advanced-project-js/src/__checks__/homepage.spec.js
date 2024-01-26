@@ -1,12 +1,7 @@
-const { defaults } = require('../defaults');
 const { test, expect } = require('@playwright/test');
 
-// You can override the default Playwright test timeout of 30s
-// test.setTimeout(60000);
-
-test('webshop homepage', async ({ page }) => {
-  await page.setViewportSize(defaults.playwright.viewportSize);
-  const response = await page.goto(defaults.pageUrl);
+test('webshop homepage', async ({ page, baseURL }) => {
+  const response = await page.goto(baseURL);
 
   expect(response?.status()).toBeLessThan(400);
   await expect(page).toHaveTitle(/Danube WebShop/);
