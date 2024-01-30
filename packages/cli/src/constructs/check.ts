@@ -77,6 +77,8 @@ export interface CheckProps {
   group?: CheckGroup
   /**
    * List of alert channels to notify when the check fails or recovers.
+   * If you don't set at least one, we won't be able to alert you in case something goes wrong with it.
+   * @link {https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/#alert-channels Alert channels}
    */
   alertChannels?: Array<AlertChannel>,
   /**
