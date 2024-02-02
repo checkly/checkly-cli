@@ -18,4 +18,5 @@ new MultiStepCheck('spacex-multistep-check', {
   code: {
     entrypoint: path.join(__dirname, 'spacex-requests.spec.js')
   },
+  runParallel: true,
 })

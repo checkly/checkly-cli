@@ -20,4 +20,5 @@ new ApiCheck('books-api-check-1', {
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
   },
+  runParallel: true,
 });

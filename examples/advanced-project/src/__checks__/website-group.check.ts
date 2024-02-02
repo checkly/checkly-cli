@@ -31,4 +31,5 @@ export const websiteGroup = new CheckGroup('website-check-group-1', {
    * The wait time between retries will increase linearly: 30 seconds, 60 seconds, and then 90 seconds between the retries.
    */
   retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 30, maxRetries: 3, sameRegion: false }),
+  runParallel: true,
 })
