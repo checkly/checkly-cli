@@ -30,6 +30,7 @@ export type Use = {
     launchOptions?: object,
     contextOptions?: object,
     bypassCSP?: boolean,
+    userAgent?: string,
 }
 
 export type Expect = {
