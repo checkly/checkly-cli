@@ -75,7 +75,7 @@ export default class TestRunner extends AbstractCheckRunner {
         .map(([checkRunId, check]) => ({ check, checkRunId, testResultId: testResultIds?.[check.logicalId] }))
       return { testSessionId, checks }
     } catch (err: any) {
-      throw new Error(err.response?.data?.message ?? err.message)
+      throw new Error(err.response?.data?.message ?? err.response?.data?.error ?? err.message)
     }
   }
 
