@@ -1,6 +1,6 @@
-import * as path from 'path'
-import { MultiStepCheck } from 'checkly/constructs'
-import { smsChannel, emailChannel } from '../alert-channels'
+const path = require('path')
+const { MultiStepCheck } = require('checkly/constructs')
+const { smsChannel, emailChannel } = require('../alert-channels')
 
 const alertChannels = [smsChannel, emailChannel]
 
@@ -18,4 +18,5 @@ new MultiStepCheck('spacex-multistep-check', {
   code: {
     entrypoint: path.join(__dirname, 'spacex-requests.spec.js')
   },
+  runParallel: true,
 })

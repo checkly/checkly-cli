@@ -6,15 +6,12 @@ import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
-import { BrowserPlaywrightDefaults } from '../constructs/browser-defaults'
+import * as fs from 'fs'
+import { PlaywrightConfig } from '../constructs/playwright-config'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy'>
-
-export type BrowserCheckDefaults = Pick<BrowserPlaywrightDefaults, 'activated' | 'muted' | 'doubleCheck'
-  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'playwrightConfig' >
+  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
 
 export type ChecklyConfig = {
   /**
@@ -36,19 +33,22 @@ export type ChecklyConfig = {
     /**
      * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
-    checkMatch?: string,
+    checkMatch?: string | string[],
     /**
      * List of glob patterns with directories to ignore.
      */
     ignoreDirectoriesMatch?: string[],
+
+    playwrightConfig?: PlaywrightConfig,
+
     /**
      * Browser checks default configuration properties.
      */
-    browserChecks?: BrowserCheckDefaults & {
+    browserChecks?: CheckConfigDefaults & {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
-      testMatch?: string,
+      testMatch?: string | string[],
     },
   },
   /**
@@ -69,7 +69,7 @@ enum Extension {
   TS = '.ts',
 }
 
-function loadFile (file: string) {
+export function loadFile (file: string) {
   if (!existsSync(file)) {
     return Promise.resolve(null)
   }
@@ -87,6 +87,26 @@ function loadFile (file: string) {
 
 function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
+}
+
+export function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
+  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']
+  let config
+  for (const configFile of filenames) {
+    const dir = path.resolve(path.dirname(configFile))
+    if (!existsSync(path.resolve(dir, configFile))) {
+      continue
+    }
+    const file = fs.readFileSync(path.resolve(dir, configFile))
+    if (file) {
+      config = {
+        checklyConfig: file.toString(),
+        fileName: configFile,
+      }
+      break
+    }
+  }
+  return config
 }
 
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {

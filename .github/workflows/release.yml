@@ -13,6 +13,18 @@ jobs:
           regex: '^\d+\.\d+\.\d+$'
       - run: echo "Please create tag for release with format like 4.0.1" && exit 1
         if: ${{ steps.tag-match.outputs.match == '' }}
+      # Old create-checkly versions still look for the tag with a `v` prefix.
+      # We can automatically push the necessary tag to keep those working.
+      - name: Create tag for old create-checkly versions
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/v${{ github.event.release.tag_name }}',
+              sha: context.sha
+            })
 
   # Build package and publish a prerelease
   prerelease:
@@ -32,13 +44,15 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Set version and publish prerelease for 'cli' package
         run: |
-          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease --workspace packages/cli
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --workspace packages/cli
           npm publish --provenance --workspace packages/cli --tag prerelease
       - name: Set version and publish prerelease for 'create-cli' package
         run: |
-          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease --workspace packages/create-cli
+          npm --no-git-tag-version version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --workspace packages/create-cli
           npm publish --provenance --workspace packages/create-cli --tag prerelease
       - name: Output prerelease packages versions
         run: |

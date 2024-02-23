@@ -33,13 +33,14 @@ describe('help', () => {
   trigger  Trigger your checks on Checkly.`)
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
-  destroy   Destroy your project with all its related resources.
-  env       Manage Checkly environment variables.
-  help      Display help for checkly.
-  login     Login to your Checkly account or create a new one.
-  logout    Log out and clear any local credentials.
-  runtimes  List all supported runtimes and dependencies.
-  switch    Switch user account.
-  whoami    See your currently logged in account and user.`)
+  destroy          Destroy your project with all its related resources.
+  env              Manage Checkly environment variables.
+  help             Display help for checkly.
+  login            Login to your Checkly account or create a new one.
+  logout           Log out and clear any local credentials.
+  runtimes         List all supported runtimes and dependencies.
+  switch           Switch user account.
+  sync-playwright  Copy Playwright config into the Checkly config file.
+  whoami           See your currently logged in account and user.`)
   })
 })

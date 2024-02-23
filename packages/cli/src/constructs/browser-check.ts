@@ -6,7 +6,7 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import { detectSnapshots, Snapshot } from '../services/snapshot-service'
-import { PlaywrightConfig } from './browser-defaults'
+import { PlaywrightConfig } from './playwright-config'
 
 export interface CheckDependency {
   path: string

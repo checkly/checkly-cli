@@ -19,5 +19,6 @@ new ApiCheck('books-api-check-1', {
       AssertionBuilder.statusCode().equals(200),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
-  }
+  },
+  runParallel: true,
 })

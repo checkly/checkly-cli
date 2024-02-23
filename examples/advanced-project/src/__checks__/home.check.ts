@@ -19,6 +19,7 @@ new BrowserCheck('homepage-browser-check', {
   code: {
     entrypoint: path.join(__dirname, 'homepage.spec.ts')
   },
+  runParallel: true,
 })
 
 new BrowserCheck('login-browser-check', {
@@ -28,4 +29,5 @@ new BrowserCheck('login-browser-check', {
   code: {
     entrypoint: path.join(__dirname, 'login.spec.ts')
   },
+  runParallel: true,
 })

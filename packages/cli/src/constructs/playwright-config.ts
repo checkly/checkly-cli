@@ -5,7 +5,8 @@ export type Use = {
     colorScheme?: string,
     geolocation?: {
         longitude?: number,
-        latitude?: number
+        latitude?: number,
+        accuracy?: number,
     },
     locale?: string,
     permissions?: string[],
@@ -29,18 +30,17 @@ export type Use = {
     launchOptions?: object,
     contextOptions?: object,
     bypassCSP?: boolean,
+    userAgent?: string,
 }
 
 export type Expect = {
-    timeout?: number
+    timeout?: number,
+    toHaveScreenshot?: object,
+    toMatchSnapshot?: object,
 }
 
 export type PlaywrightConfig = {
     use?: Use,
     expect?: Expect,
     timeout?: number
-}
-
-export interface BrowserPlaywrightDefaults extends CheckProps {
-    playwrightConfig?: PlaywrightConfig
 }
