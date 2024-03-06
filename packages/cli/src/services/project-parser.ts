@@ -18,6 +18,7 @@ type ProjectParseOpts = {
   repoUrl?: string,
   checkMatch?: string | string[],
   browserCheckMatch?: string | string[],
+  multistepCheckMatch?: string | string[],
   ignoreDirectoriesMatch?: string[],
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
@@ -34,6 +35,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     directory,
     checkMatch = '**/*.check.{js,ts}',
     browserCheckMatch,
+    multistepCheckMatch,
     projectLogicalId,
     projectName,
     repoUrl,
@@ -60,6 +62,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
   await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
   await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+  await loadAllMultistepChecks(directory, multistepCheckMatch, ignoreDirectories, project)
 
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
@@ -116,6 +119,38 @@ async function loadAllBrowserChecks (
       continue
     }
     const browserCheck = new BrowserCheck(pathToPosix(relPath), {
+      name: path.basename(checkFile),
+      code: {
+        entrypoint: checkFile,
+      },
+    })
+  }
+}
+
+async function loadAllMultistepChecks (
+  directory: string,
+  multistepCheckFilePattern: string | string[] | undefined,
+  ignorePattern: string[],
+  project: Project,
+): Promise<void> {
+  if (!multistepCheckFilePattern) {
+    return
+  }
+  const checkFiles = await findFilesWithPattern(directory, multistepCheckFilePattern, ignorePattern)
+  const preexistingCheckFiles = new Set<string>()
+  Object.values(project.data.check).forEach((check) => {
+    if ((check instanceof MultiStepCheck || check instanceof BrowserCheck) && check.scriptPath) {
+      preexistingCheckFiles.add(check.scriptPath)
+    }
+  })
+
+  for (const checkFile of checkFiles) {
+    const relPath = pathToPosix(path.relative(directory, checkFile))
+    // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
+    if (preexistingCheckFiles.has(relPath)) {
+      continue
+    }
+    const multistepCheck = new MultiStepCheck(pathToPosix(relPath), {
       name: path.basename(checkFile),
       code: {
         entrypoint: checkFile,
