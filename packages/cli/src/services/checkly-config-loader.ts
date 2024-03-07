@@ -53,7 +53,7 @@ export type ChecklyConfig = {
     /**
      * Multistep checks default configuration properties.
      */
-    multistepChecks?: CheckConfigDefaults & {
+    multiStepChecks?: CheckConfigDefaults & {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */

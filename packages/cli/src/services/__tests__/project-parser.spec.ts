@@ -204,7 +204,7 @@ describe('parseProject()', () => {
       availableRuntimes: runtimes,
       checkMatch: [],
       browserCheckMatch: ['**/__checks__/browser/*.spec.js'],
-      multistepCheckMatch: ['**/__checks__/multistep/*.spec.js'],
+      multiStepCheckMatch: ['**/__checks__/multistep/*.spec.js'],
       checkDefaults: {
         runtimeId: '2023.09',
       },

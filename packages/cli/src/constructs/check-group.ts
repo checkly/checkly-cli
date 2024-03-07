@@ -193,6 +193,7 @@ export class CheckGroup extends Construct {
     if (props.browserChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.browserChecks.testMatch, CheckTypes.BROWSER)
     }
+    this.multiStepChecks = props.multiStepChecks
     if (props.multiStepChecks?.testMatch) {
       this.__addChecks(fileAbsolutePath, props.multiStepChecks.testMatch, CheckTypes.MULTI_STEP)
     }
@@ -272,7 +273,7 @@ export class CheckGroup extends Construct {
 
   public getMultiStepCheckDefaults (): CheckConfigDefaults {
     return {
-      frequency: this.browserChecks?.frequency,
+      frequency: this.multiStepChecks?.frequency,
     }
   }
 
