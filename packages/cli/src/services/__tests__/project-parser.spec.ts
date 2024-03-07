@@ -202,7 +202,7 @@ describe('parseProject()', () => {
       projectLogicalId: 'glob-project-id',
       projectName: 'glob project',
       availableRuntimes: runtimes,
-      checkMatch: ['**/__checks__/browser/*.spec.js', '**/__checks__/multistep/*.spec.js'],
+      checkMatch: [],
       browserCheckMatch: ['**/__checks__/browser/*.spec.js'],
       multistepCheckMatch: ['**/__checks__/multistep/*.spec.js'],
       checkDefaults: {
