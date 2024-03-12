@@ -80,6 +80,7 @@ export default class Deploy extends AuthCommand {
       repoUrl: checklyConfig.repoUrl,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
+      multiStepCheckMatch: checklyConfig.checks?.multiStepChecks?.testMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,

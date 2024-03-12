@@ -16,6 +16,8 @@ import type { Region } from '..'
 import type { Frequency } from './frequency'
 import type { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
+import { MultiStepCheck } from './multi-step-check'
+import CheckTypes from '../constants'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -189,14 +191,22 @@ export class CheckGroup extends Construct {
     this.browserChecks = props.browserChecks
     const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
-      this.__addChecks(fileAbsolutePath, props.browserChecks.testMatch)
+      this.__addChecks(fileAbsolutePath, props.browserChecks.testMatch, CheckTypes.BROWSER)
+    }
+    this.multiStepChecks = props.multiStepChecks
+    if (props.multiStepChecks?.testMatch) {
+      this.__addChecks(fileAbsolutePath, props.multiStepChecks.testMatch, CheckTypes.MULTI_STEP)
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
     this.__addPrivateLocationGroupAssignments()
   }
 
-  private __addChecks (fileAbsolutePath: string, testMatch: string|string[]) {
+  private __addChecks (
+    fileAbsolutePath: string,
+    testMatch: string|string[],
+    checkType: typeof CheckTypes.BROWSER | typeof CheckTypes.MULTI_STEP,
+  ) {
     const parent = path.dirname(fileAbsolutePath)
     const matched = glob.sync(testMatch, { nodir: true, cwd: parent })
     for (const match of matched) {
@@ -210,7 +220,9 @@ export class CheckGroup extends Construct {
         // the browserChecks props inherited from the group are applied in BrowserCheck.constructor()
       }
       const checkLogicalId = pathToPosix(path.relative(Session.basePath!, filepath))
-      const check = new BrowserCheck(checkLogicalId, props)
+      checkType === CheckTypes.BROWSER
+        ? new BrowserCheck(checkLogicalId, props)
+        : new MultiStepCheck(checkLogicalId, props)
     }
   }
 
@@ -261,7 +273,7 @@ export class CheckGroup extends Construct {
 
   public getMultiStepCheckDefaults (): CheckConfigDefaults {
     return {
-      frequency: this.browserChecks?.frequency,
+      frequency: this.multiStepChecks?.frequency,
     }
   }
 
