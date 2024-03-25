@@ -55,6 +55,10 @@ export class RetryStrategyBuilder {
     return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
   }
 
+  static noRetries (): null {
+    return null
+  }
+
   private static retryStrategy (type: RetryStrategyType, options?: RetryStrategyOptions): RetryStrategy {
     return {
       type,

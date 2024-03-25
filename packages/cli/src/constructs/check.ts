@@ -92,7 +92,7 @@ export interface CheckProps {
   /**
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
    */
-  retryStrategy?: RetryStrategy
+  retryStrategy?: RetryStrategy | null
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
@@ -117,7 +117,7 @@ export abstract class Check extends Construct {
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
-  retryStrategy?: RetryStrategy
+  retryStrategy?: RetryStrategy | null
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
@@ -135,7 +135,6 @@ export abstract class Check extends Construct {
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
-    this.doubleCheck = props.doubleCheck
     this.shouldFail = props.shouldFail
     this.locations = props.locations
     this.privateLocations = props.privateLocations
@@ -156,6 +155,11 @@ export abstract class Check extends Construct {
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
     this.testOnly = props.testOnly ?? false
+    // When `retryStrategy: null` and `doubleCheck: undefined`, we want to let the user disable all retries.
+    // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
+    this.doubleCheck = props.doubleCheck === undefined && props.retryStrategy === null
+      ? false
+      : props.doubleCheck
     this.retryStrategy = props.retryStrategy
     this.alertSettings = props.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
