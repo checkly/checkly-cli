@@ -282,7 +282,6 @@ export class CheckGroup extends Construct {
       name: this.name,
       activated: this.activated,
       muted: this.muted,
-      doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
       runtimeId: this.runtimeId,
@@ -295,7 +294,15 @@ export class CheckGroup extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
-      retryStrategy: this.retryStrategy,
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
+      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
+        ? null
+        : this.retryStrategy,
+      // When `retryStrategy: NO_RETRIES` and `doubleCheck: undefined`, we want to let the user disable all retries.
+      // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
+      doubleCheck: this.doubleCheck === undefined && this.retryStrategy?.type === 'NO_RETRIES'
+        ? false
+        : this.doubleCheck,
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,

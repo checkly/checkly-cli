@@ -1,4 +1,4 @@
-export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED'
+export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES'
 
 export interface RetryStrategy {
   type: RetryStrategyType,
@@ -53,6 +53,13 @@ export class RetryStrategyBuilder {
    */
   static exponentialStrategy (options?: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
+  }
+
+  /**
+   * No retries are performed.
+   */
+  static noRetries (): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('NO_RETRIES')
   }
 
   private static retryStrategy (type: RetryStrategyType, options?: RetryStrategyOptions): RetryStrategy {
