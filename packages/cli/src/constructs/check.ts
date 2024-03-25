@@ -92,7 +92,7 @@ export interface CheckProps {
   /**
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
    */
-  retryStrategy?: RetryStrategy | null
+  retryStrategy?: RetryStrategy
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
@@ -117,7 +117,7 @@ export abstract class Check extends Construct {
   groupId?: Ref
   alertChannels?: Array<AlertChannel>
   testOnly?: boolean
-  retryStrategy?: RetryStrategy | null
+  retryStrategy?: RetryStrategy
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
@@ -135,6 +135,7 @@ export abstract class Check extends Construct {
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
+    this.doubleCheck = props.doubleCheck
     this.shouldFail = props.shouldFail
     this.locations = props.locations
     this.privateLocations = props.privateLocations
@@ -155,11 +156,6 @@ export abstract class Check extends Construct {
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
     this.testOnly = props.testOnly ?? false
-    // When `retryStrategy: null` and `doubleCheck: undefined`, we want to let the user disable all retries.
-    // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
-    this.doubleCheck = props.doubleCheck === undefined && props.retryStrategy === null
-      ? false
-      : props.doubleCheck
     this.retryStrategy = props.retryStrategy
     this.alertSettings = props.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
@@ -226,7 +222,6 @@ export abstract class Check extends Construct {
       name: this.name,
       activated: this.activated,
       muted: this.muted,
-      doubleCheck: this.doubleCheck,
       shouldFail: this.shouldFail,
       runtimeId: this.runtimeId,
       locations: this.locations,
@@ -239,7 +234,15 @@ export abstract class Check extends Construct {
       frequencyOffset: this.frequencyOffset,
       groupId: this.groupId,
       environmentVariables: this.environmentVariables,
-      retryStrategy: this.retryStrategy,
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
+      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
+        ? null
+        : this.retryStrategy,
+      // When `retryStrategy: NO_RETRIES` and `doubleCheck: undefined`, we want to let the user disable all retries.
+      // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
+      doubleCheck: this.doubleCheck === undefined && this.retryStrategy?.type === 'NO_RETRIES'
+        ? false
+        : this.doubleCheck,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,

@@ -110,7 +110,7 @@ export interface CheckGroupProps {
   /**
    * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
    */
-  retryStrategy?: RetryStrategy | null
+  retryStrategy?: RetryStrategy
   /**
    * Determines whether the checks in the group should run on all selected locations in parallel or round-robin.
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
@@ -143,7 +143,7 @@ export class CheckGroup extends Construct {
   apiCheckDefaults: ApiCheckDefaultConfig
   browserChecks?: BrowserCheckConfig
   multiStepChecks?: MultiStepCheckConfig
-  retryStrategy?: RetryStrategy | null
+  retryStrategy?: RetryStrategy
   runParallel?: boolean
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
@@ -163,6 +163,7 @@ export class CheckGroup extends Construct {
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
+    this.doubleCheck = props.doubleCheck
     this.tags = props.tags
     this.runtimeId = props.runtimeId
     this.locations = props.locations
@@ -184,11 +185,6 @@ export class CheckGroup extends Construct {
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
-    // When `retryStrategy: null` and `doubleCheck: undefined`, we want to let the user disable all retries.
-    // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
-    this.doubleCheck = props.doubleCheck === undefined && props.retryStrategy === null
-      ? false
-      : props.doubleCheck
     this.retryStrategy = props.retryStrategy
     this.runParallel = props.runParallel
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
@@ -286,7 +282,6 @@ export class CheckGroup extends Construct {
       name: this.name,
       activated: this.activated,
       muted: this.muted,
-      doubleCheck: this.doubleCheck,
       tags: this.tags,
       locations: this.locations,
       runtimeId: this.runtimeId,
@@ -299,7 +294,15 @@ export class CheckGroup extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
-      retryStrategy: this.retryStrategy,
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
+      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
+        ? null
+        : this.retryStrategy,
+      // When `retryStrategy: NO_RETRIES` and `doubleCheck: undefined`, we want to let the user disable all retries.
+      // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
+      doubleCheck: this.doubleCheck === undefined && this.retryStrategy?.type === 'NO_RETRIES'
+        ? false
+        : this.doubleCheck,
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
