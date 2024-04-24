@@ -13,7 +13,7 @@ const alertChannels = [smsChannel, emailChannel]
 // We can define multiple checks in a single *.check.js file.
 new MultiStepCheck('spacex-multistep-check', {
   name: 'SpaceX MS',
-  runtimeId: '2023.09',
+  runtimeId: '2024.02',
   alertChannels,
   code: {
     entrypoint: path.join(__dirname, 'spacex-requests.spec.js')
