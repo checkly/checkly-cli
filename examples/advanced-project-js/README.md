@@ -17,7 +17,7 @@ This project has examples of all Checkly check types and showcases some advanced
 
 - Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
 
-- Running `npx check deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
+- Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
 region `us-east-1` and `eu-west-1`
 
 - An example GitHub Actions workflow is in the `.github/workflow.yml` file. It triggers all the checks in the project and deploys
