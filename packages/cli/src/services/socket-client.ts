@@ -5,6 +5,23 @@ import { getProxyForUrl } from 'proxy-from-env'
 import { httpsOverHttp, httpsOverHttps } from 'tunnel'
 
 const isHttps = (protocol: string) => protocol.startsWith('https')
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function backOffConnect (url: string, options: mqtt.IClientOptions, retryCount = 0):
+    Promise<mqtt.AsyncMqttClient> {
+  try {
+    return mqtt.connectAsync(url, options, false)
+  } catch (error) {
+    if (retryCount > 3) {
+      throw error
+    }
+    retryCount += 1
+    await wait(100 * retryCount)
+    return backOffConnect(url, options, retryCount)
+  }
+}
+
 export class SocketClient {
   static connect (): Promise<mqtt.AsyncMqttClient> {
     const url = config.getMqttUrl()
@@ -39,6 +56,6 @@ export class SocketClient {
         }
       }
     }
-    return mqtt.connectAsync(`${url}?authenticationScheme=userApiKey`, options, false)
+    return backOffConnect(`${url}?authenticationScheme=userApiKey`, options, 0)
   }
 }
