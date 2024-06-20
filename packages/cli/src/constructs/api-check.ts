@@ -194,6 +194,7 @@ export type HttpRequestMethod =
   | 'delete' | 'DELETE'
   | 'options' | 'OPTIONS'
 
+export type IPFamily = 'IPv4' | 'IPv6'
 export interface BasicAuth {
   username: string
   password: string
@@ -209,6 +210,7 @@ export type ApiCheckDefaultConfig = {
 export interface Request {
   url: string,
   method: HttpRequestMethod,
+  ipFamily?: IPFamily,
   followRedirects?: boolean,
   skipSSL?: boolean,
   /**
