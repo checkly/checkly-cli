@@ -10,6 +10,7 @@ import { getDefaults } from '../rest/api'
 export enum CheckStatus {
   SCHEDULING,
   RUNNING,
+  RETRIED,
   FAILED,
   SUCCESSFUL,
 }
@@ -22,9 +23,9 @@ export function formatDuration (ms: number): string {
   }
 }
 
-export function formatCheckTitle (status: CheckStatus, check: any, opts: { includeSourceFile?: boolean } = {}) {
+export function formatCheckTitle (status: CheckStatus, check: any, opts: { includeSourceFile?: boolean, printRetryDuration?: boolean } = {}) {
   let duration
-  if (check.startedAt && check.stoppedAt) {
+  if ((opts.printRetryDuration || status !== CheckStatus.RETRIED) && check.startedAt && check.stoppedAt) {
     const durationMs = DateTime.fromISO(check.stoppedAt)
       .diff(DateTime.fromISO(check.startedAt))
       .toMillis()
@@ -42,6 +43,9 @@ export function formatCheckTitle (status: CheckStatus, check: any, opts: { inclu
   } else if (status === CheckStatus.SCHEDULING) {
     statusString = '~'
     format = chalk.bold.dim
+  } else if (status === CheckStatus.RETRIED) {
+    statusString = '↺'
+    format = chalk.bold
   } else {
     statusString = '-'
     format = chalk.bold.dim

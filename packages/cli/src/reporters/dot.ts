@@ -1,10 +1,10 @@
 import chalk from 'chalk'
 import AbstractListReporter from './abstract-list'
-import { CheckRunId } from '../services/abstract-check-runner'
+import { SequenceId } from '../services/abstract-check-runner'
 import { print, printLn } from './util'
 
 export default class DotReporter extends AbstractListReporter {
-  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+  onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }
@@ -14,8 +14,8 @@ export default class DotReporter extends AbstractListReporter {
     this._printTestSessionsUrl()
   }
 
-  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
-    super.onCheckEnd(checkRunId, checkResult)
+  onCheckEnd (sequenceId: SequenceId, checkResult: any) {
+    super.onCheckEnd(sequenceId, checkResult)
     if (checkResult.hasFailures) {
       print(`${chalk.red('F')}`)
     } else {

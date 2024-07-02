@@ -11,7 +11,7 @@ new ApiCheck('books-api-check-1', {
     followRedirects: true,
     skipSSL: false,
     assertions: [
-      AssertionBuilder.statusCode().equals(200),
+      AssertionBuilder.statusCode().equals(600),
       AssertionBuilder.jsonBody('$[0].id').isNotNull(),
     ],
   },

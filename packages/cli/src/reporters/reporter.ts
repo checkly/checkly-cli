@@ -1,15 +1,16 @@
 import { TestResultsShortLinks } from '../rest/test-sessions'
-import { RunLocation, CheckRunId } from '../services/abstract-check-runner'
+import { RunLocation, SequenceId } from '../services/abstract-check-runner'
 import CiReporter from './ci'
 import DotReporter from './dot'
 import GithubReporter from './github'
 import ListReporter from './list'
 
 export interface Reporter {
-  onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
-  onCheckInProgress(check: any, checkRunId: CheckRunId): void;
+  onBegin(checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void;
+  onCheckInProgress(check: any, sequenceId: SequenceId): void;
+  onCheckAttemptResult(sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks): void;
+  onCheckEnd(sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks): void;
   onEnd(): void;
-  onCheckEnd(checkRunId: CheckRunId, checkResult: any, links?: TestResultsShortLinks): void;
   onError(err: Error): void,
   onSchedulingDelayExceeded(): void
 }

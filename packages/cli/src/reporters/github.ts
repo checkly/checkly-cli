@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { CheckRunId } from '../services/abstract-check-runner'
+import { SequenceId } from '../services/abstract-check-runner'
 import { formatDuration, printLn, getTestSessionUrl } from './util'
 
 const outputFile = './checkly-github-report.md'
@@ -63,7 +63,7 @@ export class GithubMdBuilder {
     }
 
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
-      for (const [_, { result, testResultId }] of checkMap.entries()) {
+      for (const [_, { result, links }] of checkMap.entries()) {
         const tableRow: Array<string> = [
           `${result.hasFailures ? '❌ Fail' : '✅ Pass'}`,
           `${result.name}`,
@@ -72,8 +72,8 @@ export class GithubMdBuilder {
           `${formatDuration(result.responseTime)} `,
         ].filter(nonNullable)
 
-        if (this.testSessionId && testResultId) {
-          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
+        if (links?.testResultLink) {
+          const linkColumn = `[Full test report](${links?.testResultLink})`
           tableRow.push(linkColumn)
         }
 
@@ -96,7 +96,7 @@ export class GithubMdBuilder {
 }
 
 export default class GithubReporter extends AbstractListReporter {
-  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+  onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }

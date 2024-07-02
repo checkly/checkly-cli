@@ -7,7 +7,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
 import type { Region } from '..'
 import TriggerRunner, { NoMatchingChecksError } from '../services/trigger-runner'
-import { RunLocation, Events, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
+import { RunLocation, Events, PrivateRunLocation, SequenceId } from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import { TestResultsShortLinks } from '../rest/test-sessions'
@@ -124,16 +124,16 @@ export default class Trigger extends AuthCommand {
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
-      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result, links?: TestResultsShortLinks) => {
+    runner.on(Events.CHECK_SUCCESSFUL, (sequenceId: SequenceId, _, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
       }
-      reporters.forEach(r => r.onCheckEnd(checkRunId, result, links))
+      reporters.forEach(r => r.onCheckEnd(sequenceId, result, links))
     })
-    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         hasFailures: true,
         runError: message,

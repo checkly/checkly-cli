@@ -8,7 +8,7 @@ import {
   Events,
   RunLocation,
   PrivateRunLocation,
-  CheckRunId,
+  SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
 } from '../services/abstract-check-runner'
 import TestRunner from '../services/test-runner'
@@ -100,6 +100,10 @@ export default class Test extends AuthCommand {
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
     }),
+    'retries': Flags.integer({
+      default: 0,
+      description: 'How many times to retry a check run. Can help mitigate the impact of flaky tests.',
+    })
   }
 
   static args = {
@@ -132,6 +136,7 @@ export default class Test extends AuthCommand {
       record: shouldRecord,
       'test-session-name': testSessionName,
       'update-snapshots': updateSnapshots,
+      retries,
     } = flags
     const filePatterns = argv as string[]
 
@@ -241,34 +246,43 @@ export default class Test extends AuthCommand {
       ciInfo.environment,
       updateSnapshots,
       configDirectory,
+      retries,
     )
 
     runner.on(Events.RUN_STARTED,
-      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
     )
 
-    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
-      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    runner.on(Events.CHECK_INPROGRESS, (check: any, sequenceId: SequenceId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, sequenceId))
     })
 
     runner.on(Events.MAX_SCHEDULING_DELAY_EXCEEDED, () => {
       reporters.forEach(r => r.onSchedulingDelayExceeded())
     })
 
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
-      if (result.hasFailures) {
-        process.exitCode = 1
-      }
-
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+    runner.on(Events.CHECK_ATTEMPT_RESULT, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
+      reporters.forEach(r => r.onCheckAttemptResult(sequenceId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
       }, links))
     })
-    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+
+    runner.on(Events.CHECK_SUCCESSFUL, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
+      if (result.hasFailures) {
+        process.exitCode = 1
+      }
+
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
+        logicalId: check.logicalId,
+        sourceFile: check.getSourceFile(),
+        ...result,
+      }, links))
+    })
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
