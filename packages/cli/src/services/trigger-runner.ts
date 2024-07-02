@@ -1,5 +1,6 @@
+import { RetryStrategy } from '../constructs'
 import { testSessions } from '../rest/api'
-import AbstractCheckRunner, { RunLocation, CheckRunId } from './abstract-check-runner'
+import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
 import { GitInformation } from './util'
 
 export class NoMatchingChecksError extends Error {}
@@ -12,6 +13,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
   repoInfo: GitInformation | null
   environment: string | null
   testSessionName: string | undefined
+  testRetryStrategy: RetryStrategy | null
 
   constructor (
     accountId: string,
@@ -24,6 +26,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     repoInfo: GitInformation | null,
     environment: string | null,
     testSessionName: string | undefined,
+    testRetryStrategy: RetryStrategy | null,
   ) {
     super(accountId, timeout, verbose)
     this.shouldRecord = shouldRecord
@@ -33,13 +36,14 @@ export default class TriggerRunner extends AbstractCheckRunner {
     this.repoInfo = repoInfo
     this.environment = environment
     this.testSessionName = testSessionName
+    this.testRetryStrategy = testRetryStrategy
   }
 
   async scheduleChecks (
     checkRunSuiteId: string,
   ): Promise<{
     testSessionId?: string,
-    checks: Array<{ check: any, checkRunId: CheckRunId, testSessionId?: string }>,
+    checks: Array<{ check: any, sequenceId: SequenceId }>,
   }> {
     try {
       const { data } = await testSessions.trigger({
@@ -51,31 +55,26 @@ export default class TriggerRunner extends AbstractCheckRunner {
         environmentVariables: this.envVars,
         repoInfo: this.repoInfo,
         environment: this.environment,
+        testRetryStrategy: this.testRetryStrategy,
       })
       const {
         checks,
-        checkRunIds,
         testSessionId,
-        testResultIds,
+        sequenceIds,
       }: {
         checks: Array<any>,
-        checkRunIds: Record<string, CheckRunId>,
         testSessionId: string,
         testResultIds: Record<string, string>,
+        sequenceIds: Record<string, SequenceId>
       } = data
       if (!checks.length) {
         // Currently the BE will never return an empty `checks` array, it returns a 403 instead.
         // This is added to make the old CLI versions compatible if we ever change this, though.
         throw new NoMatchingChecksError()
       }
-      const checksMap: Record<string, any> = checks.reduce((acc: Record<string, any>, check: any) => {
-        acc[check.id] = check
-        return acc
-      }, {})
-      const augmentedChecks = Object.entries(checkRunIds).map(([checkId, checkRunId]) => ({
-        checkRunId,
-        check: checksMap[checkId],
-        testResultId: testResultIds?.[checkId],
+      const augmentedChecks = checks.map(check => ({
+        check,
+        sequenceId: sequenceIds?.[check.id],
       }))
       return { checks: augmentedChecks, testSessionId }
     } catch (err: any) {

@@ -1,5 +1,6 @@
 import type { AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util'
+import { RetryStrategy } from '../constructs'
 
 type RunTestSessionRequest = {
   name: string,
@@ -20,6 +21,7 @@ type TriggerTestSessionRequest = {
   environmentVariables: Array<{ key: string, value: string }>,
   repoInfo: GitInformation | null,
   environment: string | null,
+  testRetryStrategy: RetryStrategy | null,
 }
 
 export type TestResultsShortLinks = {

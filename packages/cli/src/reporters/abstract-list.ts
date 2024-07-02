@@ -1,9 +1,10 @@
 import chalk from 'chalk'
 import indentString from 'indent-string'
 
+import { TestResultsShortLinks } from '../rest/test-sessions'
 import { Reporter } from './reporter'
 import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn } from './util'
-import type { CheckRunId, RunLocation } from '../services/abstract-check-runner'
+import type { SequenceId, RunLocation } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
 import { testSessions } from '../rest/api'
 
@@ -11,12 +12,13 @@ import { testSessions } from '../rest/api'
 // This lets us print a structured list of the checks.
 // Map remembers the original insertion order, so each time we print the summary will be consistent.
 // Note that in the case of `checkly trigger`, the file will be `undefined`!
-export type checkFilesMap = Map<string|undefined, Map<CheckRunId, {
+export type checkFilesMap = Map<string|undefined, Map<SequenceId, {
   check?: Check,
   result?: any,
   titleString: string,
-  testResultId?: string,
-  checkStatus?: CheckStatus
+  checkStatus?: CheckStatus,
+  links?: TestResultsShortLinks,
+  numRetries: number,
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -36,7 +38,7 @@ export default abstract class AbstractListReporter implements Reporter {
     this.verbose = verbose
   }
 
-  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void {
+  onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void {
     this.testSessionId = testSessionId
     this.numChecks = checks.length
     // Sort the check files and checks alphabetically. This makes sure that there's a consistent order between runs.
@@ -44,19 +46,23 @@ export default abstract class AbstractListReporter implements Reporter {
     const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile?.()))].sort()
     const sortedChecks = checks.sort(({ check: a }, { check: b }) => a.name.localeCompare(b.name))
     this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
-    sortedChecks.forEach(({ check, testResultId, checkRunId }) => {
+    sortedChecks.forEach(({ check, sequenceId }) => {
       const fileMap = this.checkFilesMap!.get(check.getSourceFile?.())!
-      fileMap.set(checkRunId, {
+      fileMap.set(sequenceId, {
         check,
         titleString: formatCheckTitle(CheckStatus.SCHEDULING, check),
         checkStatus: CheckStatus.SCHEDULING,
-        testResultId,
+        numRetries: 0,
       })
     })
   }
 
-  onCheckInProgress (check: any, checkRunId: CheckRunId) {
-    const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(checkRunId)!
+  onCheckInProgress (check: any, sequenceId: SequenceId) {
+    const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
+    if (checkFile.checkStatus !== CheckStatus.SCHEDULING) {
+      // For simplicity, if a check is retrying, we leave it in that state when the next retry attempt starts.
+      return
+    }
     checkFile.titleString = formatCheckTitle(CheckStatus.RUNNING, check)
     checkFile.checkStatus = CheckStatus.RUNNING
   }
@@ -67,11 +73,19 @@ export default abstract class AbstractListReporter implements Reporter {
     this._isSchedulingDelayExceeded = true
   }
 
-  onCheckEnd (checkRunId: CheckRunId, checkResult: any) {
-    const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(checkRunId)!
+  onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks | undefined): void {
+    const checkFile = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
+    checkFile.checkStatus = CheckStatus.RETRIED
+    checkFile.titleString = formatCheckTitle(CheckStatus.RETRIED, checkResult)
+    checkFile.numRetries++
+  }
+
+  onCheckEnd (sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks) {
+    const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
     checkStatus.result = checkResult
-    const status = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
-    checkStatus.titleString = formatCheckTitle(status, checkResult, {
+    checkStatus.links = links
+    checkStatus.checkStatus = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
+    checkStatus.titleString = formatCheckTitle(checkStatus.checkStatus, checkResult, {
       includeSourceFile: false,
     })
   }
@@ -88,7 +102,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numRunning: 0, scheduling: 0 }
+    const counts = { numFailed: 0, numPassed: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
@@ -98,6 +112,8 @@ export default abstract class AbstractListReporter implements Reporter {
       for (const [_, { titleString, result, checkStatus }] of checkMap.entries()) {
         if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
+        } else if (checkStatus === CheckStatus.RETRIED) {
+          counts.numRetrying++
         } else if (!result) {
           counts.numRunning++
         } else if (result.hasFailures) {
@@ -114,6 +130,7 @@ export default abstract class AbstractListReporter implements Reporter {
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
         counts.numRunning ? chalk.bold.magenta(`${counts.numRunning} running`) : undefined,
+        counts.numRetrying ? chalk.bold(`${counts.numRetrying} retrying`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         `${this.numChecks} total`,

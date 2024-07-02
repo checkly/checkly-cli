@@ -68,6 +68,7 @@ export type ChecklyConfig = {
     privateRunLocation?: string,
     verbose?: boolean,
     reporters?: ReporterType[],
+    retries?: number,
   }
 }
 

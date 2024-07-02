@@ -8,7 +8,7 @@ import {
   Events,
   RunLocation,
   PrivateRunLocation,
-  CheckRunId,
+  SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
 } from '../services/abstract-check-runner'
 import TestRunner from '../services/test-runner'
@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, Project, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -26,6 +26,7 @@ import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 import { uploadSnapshots } from '../services/snapshot-service'
 
 const DEFAULT_REGION = 'eu-central-1'
+const MAX_RETRIES = 3
 
 export default class Test extends AuthCommand {
   static coreCommand = true
@@ -100,6 +101,9 @@ export default class Test extends AuthCommand {
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
     }),
+    retries: Flags.integer({
+      description: 'How many times to retry a failing test run.',
+    }),
   }
 
   static args = {
@@ -132,6 +136,7 @@ export default class Test extends AuthCommand {
       record: shouldRecord,
       'test-session-name': testSessionName,
       'update-snapshots': updateSnapshots,
+      retries,
     } = flags
     const filePatterns = argv as string[]
 
@@ -228,6 +233,7 @@ export default class Test extends AuthCommand {
     const reporters = createReporters(reporterTypes, location, verbose)
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
+    const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
     const runner = new TestRunner(
       config.getAccountId(),
@@ -241,34 +247,43 @@ export default class Test extends AuthCommand {
       ciInfo.environment,
       updateSnapshots,
       configDirectory,
+      testRetryStrategy,
     )
 
     runner.on(Events.RUN_STARTED,
-      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
     )
 
-    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
-      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    runner.on(Events.CHECK_INPROGRESS, (check: any, sequenceId: SequenceId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, sequenceId))
     })
 
     runner.on(Events.MAX_SCHEDULING_DELAY_EXCEEDED, () => {
       reporters.forEach(r => r.onSchedulingDelayExceeded())
     })
 
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, check, result, links?: TestResultsShortLinks) => {
-      if (result.hasFailures) {
-        process.exitCode = 1
-      }
-
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+    runner.on(Events.CHECK_ATTEMPT_RESULT, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
+      reporters.forEach(r => r.onCheckAttemptResult(sequenceId, {
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         ...result,
       }, links))
     })
-    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+
+    runner.on(Events.CHECK_SUCCESSFUL, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
+      if (result.hasFailures) {
+        process.exitCode = 1
+      }
+
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
+        logicalId: check.logicalId,
+        sourceFile: check.getSourceFile(),
+        ...result,
+      }, links))
+    })
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
@@ -335,6 +350,19 @@ export default class Test extends AuthCommand {
     } catch (err: any) {
       throw new Error(`Failed to get private locations. ${err.message}.`)
     }
+  }
+
+  prepareTestRetryStrategy (retries?: number, configRetries?: number) {
+    const numRetries = retries ?? configRetries ?? 0
+    if (numRetries > MAX_RETRIES) {
+      printLn(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
+    }
+    return numRetries
+      ? RetryStrategyBuilder.fixedStrategy({
+        maxRetries: Math.min(numRetries, MAX_RETRIES),
+        baseBackoffSeconds: 0,
+      })
+      : null
   }
 
   private listChecks (checks: Array<Check>) {

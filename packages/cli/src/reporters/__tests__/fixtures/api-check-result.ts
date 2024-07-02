@@ -5,6 +5,7 @@ export const apiCheckResult = {
   sourceInfo: {
     checkRunId: '4f20dfa7-8c66-4a15-8c43-5dc24f6206c6',
     checkRunSuiteId: '6390a87e-89c7-4295-b6f8-b23e87922ef3',
+    sequenceId: '72c5d10f-fc68-4361-a779-8543575336ae',
     ephemeral: true,
   },
   checkRunId: '1c0be612-a5ec-432e-ac1c-837d2f70c010',

@@ -2,8 +2,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { CheckRunId } from '../services/abstract-check-runner'
-import { printLn, getTestSessionUrl } from './util'
+import { CheckRunId, SequenceId } from '../services/abstract-check-runner'
+import { printLn } from './util'
 
 const outputFile = './checkly-json-report.json'
 
@@ -40,7 +40,7 @@ export class JsonBuilder {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for (const [_, { result, testResultId }] of checkMap.entries()) {
+      for (const [_, { result, links, numRetries }] of checkMap.entries()) {
         const check: any = {
           result: result.hasFailures ? 'Fail' : 'Pass',
           name: result.name,
@@ -49,14 +49,15 @@ export class JsonBuilder {
           filename: null,
           link: null,
           runError: result.runError || null,
+          retries: numRetries,
         }
 
         if (this.hasFilenames) {
           check.filename = result.sourceFile
         }
 
-        if (this.testSessionId && testResultId) {
-          check.link = `${getTestSessionUrl(this.testSessionId)}/results/${testResultId}`
+        if (links?.testResultLink) {
+          check.link = links?.testResultLink
         }
 
         testSessionSummary.checks.push(check)
@@ -68,7 +69,7 @@ export class JsonBuilder {
 }
 
 export default class JsonReporter extends AbstractListReporter {
-  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }
