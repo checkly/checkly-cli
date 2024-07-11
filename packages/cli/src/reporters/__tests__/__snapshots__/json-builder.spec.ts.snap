@@ -10,7 +10,6 @@ exports[`JsonBuilder renders JSON markdown output with assets & links: json-with
       "result": "Pass",
       "name": "my-test.spec.ts",
       "checkType": "BROWSER",
-      "duration": "7s",
       "durationMilliseconds": 6522,
       "filename": "src/__checks__/folder/browser.check.ts",
       "link": "https://app.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/702961fd-7e2c-45f0-97be-1aa9eabd4d82"
@@ -19,7 +18,6 @@ exports[`JsonBuilder renders JSON markdown output with assets & links: json-with
       "result": "Pass",
       "name": "Test API check",
       "checkType": "API",
-      "duration": "2s",
       "durationMilliseconds": 1234,
       "filename": "src/some-other-folder/api.check.ts",
       "link": "https://app.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/1c0be612-a5ec-432e-ac1c-837d2f70c010"
@@ -37,7 +35,6 @@ exports[`JsonBuilder renders basic JSON output with no assets & links: json-basi
       "result": "Pass",
       "name": "my-test.spec.ts",
       "checkType": "BROWSER",
-      "duration": "7s",
       "durationMilliseconds": 6522,
       "filename": "src/__checks__/folder/browser.check.ts",
       "link": null
@@ -46,7 +43,6 @@ exports[`JsonBuilder renders basic JSON output with no assets & links: json-basi
       "result": "Pass",
       "name": "Test API check",
       "checkType": "API",
-      "duration": "2s",
       "durationMilliseconds": 1234,
       "filename": "src/some-other-folder/api.check.ts",
       "link": null

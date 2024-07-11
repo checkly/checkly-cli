@@ -45,7 +45,6 @@ export class JsonBuilder {
           result: result.hasFailures ? 'Fail' : 'Pass',
           name: result.name,
           checkType: result.checkType,
-          duration: formatDuration(result.responseTime),
           durationMilliseconds: result.responseTime,
           filename: null,
           link: null,
