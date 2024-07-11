@@ -53,7 +53,7 @@ export default class Trigger extends AuthCommand {
     reporter: Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
-      options: ['list', 'dot', 'ci', 'github'],
+      options: ['list', 'dot', 'ci', 'github', 'json'],
     }),
     env: Flags.string({
       char: 'e',
