@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { CheckRunId } from '../services/abstract-check-runner'
-import { formatDuration, printLn, getTestSessionUrl } from './util'
+import { printLn, getTestSessionUrl } from './util'
 
 const outputFile = './checkly-json-report.json'
 
@@ -45,7 +45,7 @@ export class JsonBuilder {
           result: result.hasFailures ? 'Fail' : 'Pass',
           name: result.name,
           checkType: result.checkType,
-          durationMilliseconds: result.responseTime,
+          durationMilliseconds: result.responseTime ?? null,
           filename: null,
           link: null,
         }
