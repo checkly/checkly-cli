@@ -4,6 +4,7 @@ import CiReporter from './ci'
 import DotReporter from './dot'
 import GithubReporter from './github'
 import ListReporter from './list'
+import JsonReporter from './json'
 
 export interface Reporter {
   onBegin(checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string): void;
@@ -14,7 +15,7 @@ export interface Reporter {
   onSchedulingDelayExceeded(): void
 }
 
-export type ReporterType = 'list' | 'dot' | 'ci' | 'github'
+export type ReporterType = 'list' | 'dot' | 'ci' | 'github' | 'json'
 
 export const createReporters = (
   types: ReporterType[],
@@ -30,6 +31,8 @@ export const createReporters = (
       return new CiReporter(runLocation, verbose)
     case 'github':
       return new GithubReporter(runLocation, verbose)
+    case 'json':
+      return new JsonReporter(runLocation, verbose)
     default:
       return new ListReporter(runLocation, verbose)
   }

@@ -51,7 +51,7 @@ Make sure you are on the same NodeJS version if you are using `nvm` or `fnm`
 
 ## Running from source in a local folder
 
-You can use the current branch of the code against the any examples in the `/examples` directory for developing and debugging.
+You can use the current branch of the code against any examples in the `/examples` directory for developing and debugging.
 
 1. Go the `~/your_local_path` directory.
 2. Run `npm create checkly -- --template boilerplate-project`

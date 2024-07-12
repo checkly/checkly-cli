@@ -135,4 +135,5 @@ export const apiCheckResult = {
     requestError: null,
   },
   scheduleError: '',
+  runError: '',
 }
