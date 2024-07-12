@@ -1,5 +1,33 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`JsonBuilder renders JSON markdown output with assets & links: json-with-assets-links 1`] = `
+"{
+  "testSessionId": "0c4c64b3-79c5-44a6-ae07-b580ce73f328",
+  "numChecks": 2,
+  "runLocation": "eu-west-1",
+  "checks": [
+    {
+      "result": "Pass",
+      "name": "my-test.spec.ts",
+      "checkType": "BROWSER",
+      "durationMilliseconds": 6522,
+      "filename": "src/__checks__/folder/browser.check.ts",
+      "link": "https://app.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/702961fd-7e2c-45f0-97be-1aa9eabd4d82",
+      "runError": "Run error"
+    },
+    {
+      "result": "Pass",
+      "name": "Test API check",
+      "checkType": "API",
+      "durationMilliseconds": 1234,
+      "filename": "src/some-other-folder/api.check.ts",
+      "link": "https://app.checklyhq.com/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328/results/1c0be612-a5ec-432e-ac1c-837d2f70c010",
+      "runError": "Run error"
+    }
+  ]
+}"
+`;
+
 exports[`JsonBuilder renders basic JSON output with no assets & links: json-basic 1`] = `
 "{
   "numChecks": 2,
@@ -22,6 +50,33 @@ exports[`JsonBuilder renders basic JSON output with no assets & links: json-basi
       "filename": "src/some-other-folder/api.check.ts",
       "link": null,
       "runError": null
+    }
+  ]
+}"
+`;
+
+exports[`JsonBuilder renders basic JSON output with run errors: json-basic 1`] = `
+"{
+  "numChecks": 2,
+  "runLocation": "eu-west-1",
+  "checks": [
+    {
+      "result": "Pass",
+      "name": "my-test.spec.ts",
+      "checkType": "BROWSER",
+      "durationMilliseconds": 6522,
+      "filename": "src/__checks__/folder/browser.check.ts",
+      "link": null,
+      "runError": "Run error"
+    },
+    {
+      "result": "Pass",
+      "name": "Test API check",
+      "checkType": "API",
+      "durationMilliseconds": 1234,
+      "filename": "src/some-other-folder/api.check.ts",
+      "link": null,
+      "runError": "Run error"
     }
   ]
 }"
