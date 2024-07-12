@@ -48,6 +48,7 @@ export class JsonBuilder {
           durationMilliseconds: result.responseTime ?? null,
           filename: null,
           link: null,
+          runError: result.runError || null,
         }
 
         if (this.hasFilenames) {

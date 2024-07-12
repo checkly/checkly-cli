@@ -2,7 +2,11 @@ import { checkFilesMap } from '../abstract-list'
 import { browserCheckResult } from './fixtures/browser-check-result'
 import { apiCheckResult } from './fixtures/api-check-result'
 
-export function generateMapAndTestResultIds ({ includeTestResultIds = true }) {
+export function generateMapAndTestResultIds ({ includeTestResultIds = true, includeRunErrors = false }) {
+  if (includeRunErrors) {
+    browserCheckResult.runError = 'Run error'
+    apiCheckResult.runError = 'Run error'
+  }
   const checkFilesMapFixture: checkFilesMap = new Map([
     ['folder/browser.check.ts', new Map([
       [browserCheckResult.checkRunId, {

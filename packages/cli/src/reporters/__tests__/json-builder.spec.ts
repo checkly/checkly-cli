@@ -14,6 +14,16 @@ describe('JsonBuilder', () => {
     }).render()
     expect(json).toMatchSnapshot('json-basic')
   })
+  test('renders basic JSON output with run errors', () => {
+    const checkFilesMap = generateMapAndTestResultIds({ includeTestResultIds: false, includeRunErrors: true })
+    const json = new JsonBuilder({
+      testSessionId: undefined,
+      numChecks: checkFilesMap.size,
+      runLocation,
+      checkFilesMap,
+    }).render()
+    expect(json).toMatchSnapshot('json-basic')
+  })
   test('renders JSON markdown output with assets & links', () => {
     const checkFilesMap = generateMapAndTestResultIds({ includeTestResultIds: true })
     const json = new JsonBuilder({

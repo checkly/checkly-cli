@@ -159,4 +159,5 @@ export const browserCheckResult = {
     },
   ],
   scheduleError: '',
+  runError: '',
 }
