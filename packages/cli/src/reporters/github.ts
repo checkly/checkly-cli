@@ -63,7 +63,7 @@ export class GithubMdBuilder {
     }
 
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
-      for (const [_, { result, links }] of checkMap.entries()) {
+      for (const [_, { result, testResultId }] of checkMap.entries()) {
         const tableRow: Array<string> = [
           `${result.hasFailures ? '❌ Fail' : '✅ Pass'}`,
           `${result.name}`,
@@ -72,8 +72,8 @@ export class GithubMdBuilder {
           `${formatDuration(result.responseTime)} `,
         ].filter(nonNullable)
 
-        if (links?.testResultLink) {
-          const linkColumn = `[Full test report](${links?.testResultLink})`
+        if (this.testSessionId && testResultId) {
+          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
           tableRow.push(linkColumn)
         }
 

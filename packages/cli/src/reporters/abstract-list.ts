@@ -17,6 +17,7 @@ export type checkFilesMap = Map<string|undefined, Map<SequenceId, {
   result?: any,
   titleString: string,
   checkStatus?: CheckStatus,
+  testResultId?: string,
   links?: TestResultsShortLinks,
   numRetries: number,
 }>>
@@ -80,10 +81,11 @@ export default abstract class AbstractListReporter implements Reporter {
     checkFile.numRetries++
   }
 
-  onCheckEnd (sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks) {
+  onCheckEnd (sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks) {
     const checkStatus = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
     checkStatus.result = checkResult
     checkStatus.links = links
+    checkStatus.testResultId = testResultId
     checkStatus.checkStatus = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
     checkStatus.titleString = formatCheckTitle(checkStatus.checkStatus, checkResult, {
       includeSourceFile: false,

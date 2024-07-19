@@ -271,16 +271,17 @@ export default class Test extends AuthCommand {
       }, links))
     })
 
-    runner.on(Events.CHECK_SUCCESSFUL, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
-      if (result.hasFailures) {
-        process.exitCode = 1
-      }
+    runner.on(Events.CHECK_SUCCESSFUL,
+      (sequenceId: SequenceId, check, result, testResultId, links?: TestResultsShortLinks) => {
+        if (result.hasFailures) {
+          process.exitCode = 1
+        }
 
-      reporters.forEach(r => r.onCheckEnd(sequenceId, {
-        logicalId: check.logicalId,
-        sourceFile: check.getSourceFile(),
-        ...result,
-      }, links))
+        reporters.forEach(r => r.onCheckEnd(sequenceId, {
+          logicalId: check.logicalId,
+          sourceFile: check.getSourceFile(),
+          ...result,
+        }, testResultId, links))
     })
     runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
       reporters.forEach(r => r.onCheckEnd(sequenceId, {

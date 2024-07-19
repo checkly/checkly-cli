@@ -151,7 +151,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
       if (resultType === 'FINAL') {
         this.disableTimeout(sequenceId)
-        this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, links)
+        this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (resultType === 'ATTEMPT') {
         this.emit(Events.CHECK_ATTEMPT_RESULT, sequenceId, check, result, links)

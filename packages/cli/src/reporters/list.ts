@@ -53,8 +53,8 @@ export default class ListReporter extends AbstractListReporter {
     this._printSummary()
   }
 
-  onCheckEnd (sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks) {
-    super.onCheckEnd(sequenceId, checkResult)
+  onCheckEnd (sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks) {
+    super.onCheckEnd(sequenceId, checkResult, testResultId, links)
     this._clearSummary()
 
     if (this.verbose) {
