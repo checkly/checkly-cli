@@ -7,7 +7,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
 import type { Region } from '..'
 import TriggerRunner, { NoMatchingChecksError } from '../services/trigger-runner'
-import { RunLocation, Events, PrivateRunLocation, CheckRunId } from '../services/abstract-check-runner'
+import { RunLocation, Events, PrivateRunLocation, CheckRunId, DEFAULT_CHECK_RUN_TIMEOUT_SECONDS } from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import { TestResultsShortLinks } from '../rest/test-sessions'
@@ -42,7 +42,7 @@ export default class Trigger extends AuthCommand {
       description: 'The Checkly CLI config filename.',
     }),
     timeout: Flags.integer({
-      default: 240,
+      default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
     verbose: Flags.boolean({
