@@ -125,7 +125,11 @@ describe('deploy', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
       directory: path.join(__dirname, 'fixtures', 'deploy-project'),
-      env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
+      env: {
+        PROJECT_LOGICAL_ID: projectLogicalId,
+        PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+        CHECKLY_CLI_VERSION: undefined,
+      },
     })
     expect(stderr).toBe('')
     // expect the version to be overriden with latest from NPM
