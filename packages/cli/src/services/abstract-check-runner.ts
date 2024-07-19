@@ -35,7 +35,7 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 export type CheckRunId = string
 export type SequenceId = string
 
-export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 300
+export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 600
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 

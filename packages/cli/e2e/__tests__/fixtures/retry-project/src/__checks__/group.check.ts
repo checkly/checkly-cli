@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 import { CheckGroup, BrowserCheck } from 'checkly/constructs'
 
 const group = new CheckGroup('check-group-1', {
