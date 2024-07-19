@@ -15,7 +15,7 @@ const group = new CheckGroup('check-group-1', {
   },
 })
 
-const browserCheck = new BrowserCheck('group-browser-check-1', {
+new BrowserCheck('group-browser-check-1', {
   name: 'Check with group',
   activated: false,
   groupId: group.ref(),
