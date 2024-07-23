@@ -83,7 +83,7 @@ export default class Trigger extends AuthCommand {
       description: 'A name to use when storing results in Checkly with --record.',
     }),
     retries: Flags.integer({
-      description: 'How many times to retry a check run.',
+      description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a check run.`,
     }),
   }
 

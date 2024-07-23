@@ -102,7 +102,7 @@ export default class Test extends AuthCommand {
       default: false,
     }),
     retries: Flags.integer({
-      description: 'How many times to retry a failing test run.',
+      description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a failing test run.`,
     }),
   }
 
