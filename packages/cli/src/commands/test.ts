@@ -282,7 +282,8 @@ export default class Test extends AuthCommand {
           sourceFile: check.getSourceFile(),
           ...result,
         }, testResultId, links))
-    })
+      })
+
     runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
       reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
