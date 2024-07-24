@@ -126,6 +126,9 @@ export default class Trigger extends AuthCommand {
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
+    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    })
     runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result, links?: TestResultsShortLinks) => {
       if (result.hasFailures) {
         process.exitCode = 1
