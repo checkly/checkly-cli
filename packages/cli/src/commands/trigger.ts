@@ -140,6 +140,9 @@ export default class Trigger extends AuthCommand {
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
+    runner.on(Events.CHECK_INPROGRESS, (check: any, sequenceId: SequenceId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, sequenceId))
+    })
     runner.on(Events.CHECK_ATTEMPT_RESULT, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
       reporters.forEach(r => r.onCheckAttemptResult(sequenceId, result, links))
     })
