@@ -1,8 +1,8 @@
 import { testSessions } from '../rest/api'
-import AbstractCheckRunner, { RunLocation, CheckRunId } from './abstract-check-runner'
+import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
 import { GitInformation } from './util'
 import { Check } from '../constructs/check'
-import { Project } from '../constructs'
+import { RetryStrategy, Project } from '../constructs'
 import { pullSnapshots } from '../services/snapshot-service'
 
 import * as uuid from 'uuid'
@@ -16,6 +16,8 @@ export default class TestRunner extends AbstractCheckRunner {
   environment: string | null
   updateSnapshots: boolean
   baseDirectory: string
+  testRetryStrategy: RetryStrategy | null
+
   constructor (
     accountId: string,
     project: Project,
@@ -28,6 +30,7 @@ export default class TestRunner extends AbstractCheckRunner {
     environment: string | null,
     updateSnapshots: boolean,
     baseDirectory: string,
+    testRetryStrategy: RetryStrategy | null,
   ) {
     super(accountId, timeout, verbose)
     this.project = project
@@ -38,22 +41,25 @@ export default class TestRunner extends AbstractCheckRunner {
     this.environment = environment
     this.updateSnapshots = updateSnapshots
     this.baseDirectory = baseDirectory
+    this.testRetryStrategy = testRetryStrategy
   }
 
   async scheduleChecks (
     checkRunSuiteId: string,
   ): Promise<{
     testSessionId?: string,
-    checks: Array<{ check: any, checkRunId: CheckRunId, testSessionId?: string }>,
+    checks: Array<{ check: any, sequenceId: SequenceId }>,
   }> {
-    const checkRunIdMap = new Map(
-      this.checkConstructs.map((check) => [uuid.v4(), check]),
-    )
-    const checkRunJobs = Array.from(checkRunIdMap.entries()).map(([checkRunId, check]) => ({
+    const checkRunJobs = this.checkConstructs.map(check => ({
       ...check.synthesize(),
+      testRetryStrategy: this.testRetryStrategy,
       group: check.groupId ? this.project.data['check-group'][check.groupId.ref].synthesize() : undefined,
       groupId: undefined,
-      sourceInfo: { checkRunSuiteId, checkRunId, updateSnapshots: this.updateSnapshots },
+      sourceInfo: {
+        checkRunSuiteId,
+        checkRunId: uuid.v4(),
+        updateSnapshots: this.updateSnapshots,
+      },
       logicalId: check.logicalId,
       filePath: check.getSourceFile(),
     }))
@@ -70,9 +76,8 @@ export default class TestRunner extends AbstractCheckRunner {
         environment: this.environment,
         shouldRecord: this.shouldRecord,
       })
-      const { testSessionId, testResultIds } = data
-      const checks = Array.from(checkRunIdMap.entries())
-        .map(([checkRunId, check]) => ({ check, checkRunId, testResultId: testResultIds?.[check.logicalId] }))
+      const { testSessionId, sequenceIds } = data
+      const checks = this.checkConstructs.map(check => ({ check, sequenceId: sequenceIds?.[check.logicalId] }))
       return { testSessionId, checks }
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.response?.data?.error ?? err.message)

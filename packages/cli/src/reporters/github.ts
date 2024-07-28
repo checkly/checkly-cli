@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { CheckRunId } from '../services/abstract-check-runner'
+import { SequenceId } from '../services/abstract-check-runner'
 import { formatDuration, printLn, getTestSessionUrl } from './util'
 
 const outputFile = './checkly-github-report.md'
@@ -96,7 +96,7 @@ export class GithubMdBuilder {
 }
 
 export default class GithubReporter extends AbstractListReporter {
-  onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId?: string) {
+  onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
     printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
   }

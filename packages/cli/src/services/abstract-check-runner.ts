@@ -11,6 +11,7 @@ import { TestResultsShortLinks } from '../rest/test-sessions'
 export enum Events {
   CHECK_REGISTERED = 'CHECK_REGISTERED',
   CHECK_INPROGRESS = 'CHECK_INPROGRESS',
+  CHECK_ATTEMPT_RESULT = 'CHECK_ATTEMPT_RESULT',
   CHECK_FAILED = 'CHECK_FAILED',
   CHECK_SUCCESSFUL = 'CHECK_SUCCESSFUL',
   CHECK_FINISHED = 'CHECK_FINISHED',
@@ -32,17 +33,18 @@ export type PublicRunLocation = {
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
 export type CheckRunId = string
+export type SequenceId = string
 
 export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 600
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
 export default abstract class AbstractCheckRunner extends EventEmitter {
-  checks: Map<CheckRunId, { check: any, testResultId?: string }>
+  checks: Map<SequenceId, { check: any }>
   testSessionId?: string
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
   // To avoid this case, we set a per-check timeout.
-  timeouts: Map<CheckRunId, NodeJS.Timeout>
+  timeouts: Map<SequenceId, NodeJS.Timeout>
   schedulingDelayExceededTimeout?: NodeJS.Timeout
   accountId: string
   timeout: number
@@ -66,7 +68,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   abstract scheduleChecks (checkRunSuiteId: string):
     Promise<{
       testSessionId?: string,
-      checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>,
+      checks: Array<{ check: any, sequenceId: SequenceId }>,
     }>
 
   async run () {
@@ -81,7 +83,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
       this.testSessionId = testSessionId
       this.checks = new Map(
-        checks.map(({ check, checkRunId, testResultId }) => [checkRunId, { check, testResultId }]),
+        checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
       )
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
@@ -116,38 +118,47 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     socketClient.on('message', (topic: string, rawMessage: string|Buffer) => {
       const message = JSON.parse(rawMessage.toString('utf8'))
       const topicComponents = topic.split('/')
-      const checkRunId = topicComponents[4]
-      const subtopic = topicComponents[5]
+      const sequenceId = topicComponents[4]
+      const checkRunId = topicComponents[5]
+      const subtopic = topicComponents[6]
 
-      this.queue.add(() => this.processMessage(checkRunId, subtopic, message))
+      this.queue.add(() => this.processMessage(sequenceId, subtopic, message))
     })
-    await socketClient.subscribe(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+`)
+    await socketClient.subscribe(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+/+`)
   }
 
-  private async processMessage (checkRunId: string, subtopic: string, message: any) {
-    if (!this.timeouts.has(checkRunId)) {
+  private async processMessage (sequenceId: SequenceId, subtopic: string, message: any) {
+    if (!sequenceId) {
+      // There should always be a sequenceId, but let's have an early return to make forwards-compatibility easier.
+      return
+    }
+
+    if (!this.timeouts.has(sequenceId)) {
       // The check has already timed out. We return early to avoid reporting a duplicate result.
       return
     }
 
-    if (!this.checks.get(checkRunId)) {
-      // The check has no checkRunId associated.
+    if (!this.checks.get(sequenceId)) {
       return
     }
 
-    const { check, testResultId } = this.checks.get(checkRunId)!
+    const { check } = this.checks.get(sequenceId)!
     if (subtopic === 'run-start') {
-      this.emit(Events.CHECK_INPROGRESS, check, checkRunId)
-    } else if (subtopic === 'run-end') {
-      this.disableTimeout(checkRunId)
-      const { result } = message
+      this.emit(Events.CHECK_INPROGRESS, check, sequenceId)
+    } else if (subtopic === 'result') {
+      const { result, testResultId, resultType } = message
       await this.processCheckResult(result)
       const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
-      this.emit(Events.CHECK_SUCCESSFUL, checkRunId, check, result, links)
-      this.emit(Events.CHECK_FINISHED, check)
+      if (resultType === 'FINAL') {
+        this.disableTimeout(sequenceId)
+        this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
+        this.emit(Events.CHECK_FINISHED, check)
+      } else if (resultType === 'ATTEMPT') {
+        this.emit(Events.CHECK_ATTEMPT_RESULT, sequenceId, check, result, links)
+      }
     } else if (subtopic === 'error') {
-      this.disableTimeout(checkRunId)
-      this.emit(Events.CHECK_FAILED, checkRunId, check, message)
+      this.disableTimeout(sequenceId)
+      this.emit(Events.CHECK_FAILED, sequenceId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
     }
   }
@@ -181,16 +192,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private setAllTimeouts () {
-    Array.from(this.checks.entries()).forEach(([checkRunId, { check }]) =>
-      this.timeouts.set(checkRunId, setTimeout(() => {
-        this.timeouts.delete(checkRunId)
+    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) =>
+      this.timeouts.set(sequenceId, setTimeout(() => {
+        this.timeouts.delete(sequenceId)
         let errorMessage = `Reached timeout of ${this.timeout} seconds waiting for check result.`
         // Checkly should always report a result within 240s.
         // If the default timeout was used, we should point the user to the status page and support email.
         if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
           errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
         }
-        this.emit(Events.CHECK_FAILED, checkRunId, check, errorMessage)
+        this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
         this.emit(Events.CHECK_FINISHED, check)
       }, this.timeout * 1000),
       ))

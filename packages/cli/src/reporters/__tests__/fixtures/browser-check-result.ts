@@ -4,6 +4,7 @@ export const browserCheckResult = {
   sourceInfo: {
     checkRunId: 'ebefe140-29bf-4650-9e89-6e36a5c092ef',
     checkRunSuiteId: '2b938869-e38b-4599-b3b0-901aeea4bbef',
+    sequenceId: 'd2ec2faa-a7de-4dc1-8b56-2f4ee9248dc6',
     ephemeral: true,
   },
   checkRunId: '702961fd-7e2c-45f0-97be-1aa9eabd4d82',

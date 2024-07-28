@@ -33,7 +33,9 @@ export function runChecklyCli (options: {
         CHECKLY_API_KEY: apiKey,
         CHECKLY_ACCOUNT_ID: accountId,
         CHECKLY_ENV: process.env.CHECKLY_ENV,
-        CHECKLY_CLI_VERSION: cliVersion,
+        // We need the CLI to report 4.8.0 or greater in order for the backend to use the new MQTT topic format.
+        // Once 4.8.0 has been released, we can remove the 4.8.0 fallback here.
+        CHECKLY_CLI_VERSION: cliVersion ?? '4.8.0',
         CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
         ...env,
       },

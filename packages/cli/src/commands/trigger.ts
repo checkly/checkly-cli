@@ -7,13 +7,21 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
 import type { Region } from '..'
 import TriggerRunner, { NoMatchingChecksError } from '../services/trigger-runner'
-import { RunLocation, Events, PrivateRunLocation, CheckRunId, DEFAULT_CHECK_RUN_TIMEOUT_SECONDS } from '../services/abstract-check-runner'
+import {
+  RunLocation,
+  Events,
+  PrivateRunLocation,
+  SequenceId,
+  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+} from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
+import { printLn } from '../reporters/util'
 import { TestResultsShortLinks } from '../rest/test-sessions'
-import { Session } from '../constructs'
+import { Session, RetryStrategyBuilder } from '../constructs'
 
 const DEFAULT_REGION = 'eu-central-1'
+const MAX_RETRIES = 3
 
 export default class Trigger extends AuthCommand {
   static coreCommand = true
@@ -74,6 +82,9 @@ export default class Trigger extends AuthCommand {
       char: 'n',
       description: 'A name to use when storing results in Checkly with --record.',
     }),
+    retries: Flags.integer({
+      description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a check run.`,
+    }),
   }
 
   async run (): Promise<void> {
@@ -90,6 +101,7 @@ export default class Trigger extends AuthCommand {
       env,
       'env-file': envFile,
       'test-session-name': testSessionName,
+      retries,
     } = flags
     const envVars = await getEnvs(envFile, env)
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -106,6 +118,7 @@ export default class Trigger extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig?.cli?.reporters)
     const reporters = createReporters(reporterTypes, location, verbose)
+    const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
     const repoInfo = getGitInformation()
     const ciInfo = getCiInformation()
@@ -121,22 +134,27 @@ export default class Trigger extends AuthCommand {
       repoInfo,
       ciInfo.environment,
       testSessionName,
+      testRetryStrategy,
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
-      (checks: Array<{ check: any, checkRunId: CheckRunId, testResultId?: string }>, testSessionId: string) =>
+      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)))
-    runner.on(Events.CHECK_INPROGRESS, (check: any, checkRunId: CheckRunId) => {
-      reporters.forEach(r => r.onCheckInProgress(check, checkRunId))
+    runner.on(Events.CHECK_INPROGRESS, (check: any, sequenceId: SequenceId) => {
+      reporters.forEach(r => r.onCheckInProgress(check, sequenceId))
     })
-    runner.on(Events.CHECK_SUCCESSFUL, (checkRunId, _, result, links?: TestResultsShortLinks) => {
-      if (result.hasFailures) {
-        process.exitCode = 1
-      }
-      reporters.forEach(r => r.onCheckEnd(checkRunId, result, links))
+    runner.on(Events.CHECK_ATTEMPT_RESULT, (sequenceId: SequenceId, check, result, links?: TestResultsShortLinks) => {
+      reporters.forEach(r => r.onCheckAttemptResult(sequenceId, result, links))
     })
-    runner.on(Events.CHECK_FAILED, (checkRunId, check, message: string) => {
-      reporters.forEach(r => r.onCheckEnd(checkRunId, {
+    runner.on(Events.CHECK_SUCCESSFUL,
+      (sequenceId: SequenceId, _, result, testResultId, links?: TestResultsShortLinks) => {
+        if (result.hasFailures) {
+          process.exitCode = 1
+        }
+        reporters.forEach(r => r.onCheckEnd(sequenceId, result, testResultId, links))
+      })
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+      reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         hasFailures: true,
         runError: message,
@@ -208,5 +226,18 @@ export default class Trigger extends AuthCommand {
       return [isCI ? 'ci' : 'list']
     }
     return reporterFlag ? [reporterFlag] : cliReporters
+  }
+
+  prepareTestRetryStrategy (retries?: number, configRetries?: number) {
+    const numRetries = retries ?? configRetries ?? 0
+    if (numRetries > MAX_RETRIES) {
+      printLn(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
+    }
+    return numRetries
+      ? RetryStrategyBuilder.fixedStrategy({
+        maxRetries: Math.min(numRetries, MAX_RETRIES),
+        baseBackoffSeconds: 0,
+      })
+      : null
   }
 }

@@ -191,4 +191,17 @@ describe('test', () => {
       fs.rmSync(snapshotDir, { recursive: true })
     }
   })
+
+  it('Should execute retries', async () => {
+    const result = await runChecklyCli({
+      args: ['test', '--retries=3'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: path.join(__dirname, 'fixtures', 'retry-project'),
+      timeout: 120000, // 2 minutes
+    })
+    // The failing check result will have "Failing Check Result" in the output.
+    // We expect the check to be run 4 times.
+    expect(result.stdout.match(/Failing Check Result/g)).toHaveLength(4)
+  })
 })
