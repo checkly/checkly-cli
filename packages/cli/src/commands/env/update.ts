@@ -12,6 +12,12 @@ export default class EnvUpdate extends AuthCommand {
       description: 'Indicate if environment variable is locked.',
       default: false,
     }),
+    secret: Flags.boolean({
+      char: 's',
+      description: 'Indicate that the environment variable will be secret, the value will not be revealed anywhere.',
+      default: false,
+      exclusive: ['locked'],
+    }),
   }
 
   static args = {
@@ -29,7 +35,7 @@ export default class EnvUpdate extends AuthCommand {
 
   async run (): Promise<void> {
     const { flags, args } = await this.parse(EnvUpdate)
-    const { locked } = flags
+    const { locked, secret } = flags
 
     const envVariableName = args.key
     let envValue = ''
@@ -40,7 +46,7 @@ export default class EnvUpdate extends AuthCommand {
       envValue = await ux.prompt(`What is the value of ${envVariableName}?`, { type: 'mask' })
     }
     try {
-      await api.environmentVariables.update(envVariableName, envValue, locked)
+      await api.environmentVariables.update(envVariableName, envValue, locked, secret)
       this.log(`Environment variable ${envVariableName} updated.`)
     } catch (err: any) {
       if (err?.response?.status === 404) {

@@ -7,6 +7,8 @@ import { escapeValue } from '../../services/util'
 import * as fs from 'fs/promises'
 
 const CONTENTS_PREFIX = '# Created by Checkly CLI\n'
+const CONTENTS_ENV_VARS = '# Environment variables\n'
+const CONTENTS_SECRET_VARS = '# Secret variables\n'
 
 export default class EnvPull extends AuthCommand {
   static hidden = false
@@ -36,14 +38,23 @@ export default class EnvPull extends AuthCommand {
     const filepath = path.resolve(args.filename)
     const filename = path.basename(filepath)
     const { data: environmentVariables } = await api.environmentVariables.getAll()
+
     // create an file in current directory and save the env vars there
-    const env = CONTENTS_PREFIX + environmentVariables.map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n') + '\n'
+    let fileContent = CONTENTS_PREFIX
+    fileContent += CONTENTS_ENV_VARS
+    fileContent += environmentVariables
+      .filter(({ secret }) => !secret)
+      .map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n') + '\n'
+    fileContent += CONTENTS_SECRET_VARS
+    fileContent += environmentVariables
+      .filter(({ secret }) => secret)
+      .map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n') + '\n'
 
     // wx will cause the write to fail if the file already exists
     // https://nodejs.org/api/fs.html#file-system-flags
     const flag = force ? 'w' : 'wx'
     try {
-      await fs.writeFile(filepath, env, { flag })
+      await fs.writeFile(filepath, fileContent, { flag })
     } catch (err: any) {
       // By catching EEXIST rather than checking fs.existsSync,
       // we avoid a race condition when a file is created between writing and checking
@@ -57,7 +68,7 @@ export default class EnvPull extends AuthCommand {
           this.log('Cancelled. No changes made.')
           return
         }
-        await fs.writeFile(filepath, env)
+        await fs.writeFile(filepath, fileContent)
       }
     }
     this.log(`Success! Environment variables written to ${filename}.`)
