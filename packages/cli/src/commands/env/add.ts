@@ -14,7 +14,7 @@ export default class EnvAdd extends AuthCommand {
     }),
     secret: Flags.boolean({
       char: 's',
-      description: 'Indicate that the environment variable will be secret, the value will not be revealed anywhere.',
+      description: 'Indicate that the environment variable will be secret.',
       default: false,
       exclusive: ['locked'],
     }),
