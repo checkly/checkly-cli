@@ -47,7 +47,10 @@ export default class EnvAdd extends AuthCommand {
     }
     try {
       await api.environmentVariables.add(envVariableName, envValue, locked, secret)
-      this.log(`Environment variable ${envVariableName} added.`)
+      this.log(secret
+        ? `Secret environment variable ${envVariableName} added.`
+        : `Environment variable ${envVariableName} added.`,
+      )
     } catch (err: any) {
       if (err?.response?.status === 409) {
         throw new Error(`Environment variable ${envVariableName} already exists.`)

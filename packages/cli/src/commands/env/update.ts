@@ -47,7 +47,10 @@ export default class EnvUpdate extends AuthCommand {
     }
     try {
       await api.environmentVariables.update(envVariableName, envValue, locked, secret)
-      this.log(`Environment variable ${envVariableName} updated.`)
+      this.log(secret
+        ? `Secret environment variable ${envVariableName} updated.`
+        : `Environment variable ${envVariableName} updated.`,
+      )
     } catch (err: any) {
       if (err?.response?.status === 400 && err?.response?.data?.message) {
         throw new Error(err.response.data.message)
