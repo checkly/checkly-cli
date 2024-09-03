@@ -49,6 +49,8 @@ const config = defineConfig({
     runLocation: 'eu-west-1',
     /* An array of default reporters to use when a reporter is not specified with the "--reporter" flag */
     reporters: ['list'],
+    /* How many times to retry a failing test run when running `npx checkly test` or `npx checkly trigger` (max. 3) */
+    retries: 0,
   },
 });
 

@@ -69,7 +69,7 @@ export interface CheckGroupProps {
   /**
    * An array of one or more data center locations where to run the checks.
    */
-  locations: Array<keyof Region>
+  locations?: Array<keyof Region>
   /**
    * An array of one or more private locations where to run the checks.
    */
@@ -166,7 +166,7 @@ export class CheckGroup extends Construct {
     this.doubleCheck = props.doubleCheck
     this.tags = props.tags
     this.runtimeId = props.runtimeId
-    this.locations = props.locations
+    this.locations = props.locations ?? []
     this.privateLocations = props.privateLocations
     this.concurrency = props.concurrency
     // `frequency` is not a CheckGroup resource property. Not present in synthesize()

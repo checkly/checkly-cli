@@ -34,7 +34,7 @@ npm run watch --workspace packages/cli
 
 ### Running E2E test locally
 
-To run the E2E tests pointing to your local backed use the `npm run test:e2e:local --workspace packages/cli`
+To run the E2E tests pointing to your local backend use the `npm run test:e2e:local --workspace packages/cli`
 
 Remember that the `--workspace packages/cli` flag isn't necessary when running commands from the `packages/cli` directory.
 
