@@ -12,6 +12,12 @@ export default class EnvUpdate extends AuthCommand {
       description: 'Indicate if environment variable is locked.',
       default: false,
     }),
+    secret: Flags.boolean({
+      char: 's',
+      description: 'Indicate if environment variable is secret.',
+      default: false,
+      exclusive: ['locked'],
+    }),
   }
 
   static args = {
@@ -29,7 +35,7 @@ export default class EnvUpdate extends AuthCommand {
 
   async run (): Promise<void> {
     const { flags, args } = await this.parse(EnvUpdate)
-    const { locked } = flags
+    const { locked, secret } = flags
 
     const envVariableName = args.key
     let envValue = ''
@@ -40,12 +46,20 @@ export default class EnvUpdate extends AuthCommand {
       envValue = await ux.prompt(`What is the value of ${envVariableName}?`, { type: 'mask' })
     }
     try {
-      await api.environmentVariables.update(envVariableName, envValue, locked)
-      this.log(`Environment variable ${envVariableName} updated.`)
+      await api.environmentVariables.update(envVariableName, envValue, locked, secret)
+      this.log(secret
+        ? `Secret environment variable ${envVariableName} updated.`
+        : `Environment variable ${envVariableName} updated.`,
+      )
     } catch (err: any) {
+      if (err?.response?.status === 400 && err?.response?.data?.message) {
+        throw new Error(err.response.data.message)
+      }
+
       if (err?.response?.status === 404) {
         throw new Error(`Environment variable ${envVariableName} not found.`)
       }
+
       throw err
     }
   }
