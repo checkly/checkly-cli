@@ -87,7 +87,7 @@
     "indent-string": "4.0.0",
     "json5": "2.2.3",
     "jwt-decode": "3.1.2",
-    "log-symbols": "4.1.0",
+    "log-symbols": "7.0.0",
     "luxon": "3.3.0",
     "open": "8.4.0",
     "p-queue": "6.6.2",
