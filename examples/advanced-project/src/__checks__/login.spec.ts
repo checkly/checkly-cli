@@ -1,8 +1,8 @@
 import { test } from '@playwright/test'
 
-test('login', async ({ page, baseURL }) => {
+test('login', async ({ page }) => {
   // navigate to our target web page
-  await page.goto(baseURL)
+  await page.goto('')
 
   // click on the login button and go through the login procedure
   await page.click('#login')
