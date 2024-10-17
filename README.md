@@ -9,6 +9,8 @@ monitoring at scale, from your code base. We call this workflow **monitoring as 
 
 # A quick example
 
+test
+
 Monitoring checks are written by instantiating constructs from the `checkly/constructs` package...
 
 ```ts
