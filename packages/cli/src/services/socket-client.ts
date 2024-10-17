@@ -44,7 +44,7 @@ export class SocketClient {
         protocol: parsedProxyUrl.protocol,
       }
       if (parsedProxyUrl.username && parsedProxyUrl.password) {
-        proxy.proxyAuth = `${proxyUrlEnv.username}:${proxyUrlEnv.password}`
+        proxy.proxyAuth = `${parsedProxyUrl.username}:${parsedProxyUrl.password}`
       }
       if (isProxyHttps) {
         options.wsOptions = {
