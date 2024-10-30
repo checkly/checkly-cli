@@ -38,7 +38,7 @@ const config = defineConfig({
       }
     },
     browserChecks: {
-      /* A glob pattern matches any Playwright .spec.js files and automagically creates a Browser Check. This way, you
+      /* A glob pattern matches any Playwright .spec.js files and automatically creates a Browser Check. This way, you
        * can just write native Playwright code. See https://www.checklyhq.com/docs/cli/using-check-test-match/
        * */
       testMatch: '**/__checks__/**/*.spec.js',
