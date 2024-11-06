@@ -3,7 +3,7 @@ import { SocketClient } from './socket-client'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
-import type { AsyncMqttClient } from 'async-mqtt'
+import type { MqttClient } from 'mqtt'
 import type { Region } from '..'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 
@@ -109,12 +109,12 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.ERROR, err)
     } finally {
       if (socketClient) {
-        await socketClient.end()
+        await socketClient.endAsync()
       }
     }
   }
 
-  private async configureResultListener (checkRunSuiteId: string, socketClient: AsyncMqttClient): Promise<void> {
+  private async configureResultListener (checkRunSuiteId: string, socketClient: MqttClient): Promise<void> {
     socketClient.on('message', (topic: string, rawMessage: string|Buffer) => {
       const message = JSON.parse(rawMessage.toString('utf8'))
       const topicComponents = topic.split('/')
@@ -124,7 +124,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
       this.queue.add(() => this.processMessage(sequenceId, subtopic, message))
     })
-    await socketClient.subscribe(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+/+`)
+    await socketClient.subscribeAsync(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+/+`)
   }
 
   private async processMessage (sequenceId: SequenceId, subtopic: string, message: any) {
