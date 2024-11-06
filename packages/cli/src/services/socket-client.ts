@@ -1,4 +1,4 @@
-import * as mqtt from 'async-mqtt'
+import * as mqtt from 'mqtt'
 import config from '../services/config'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
@@ -9,7 +9,7 @@ const isHttps = (protocol: string) => protocol.startsWith('https')
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function backOffConnect (url: string, options: mqtt.IClientOptions, retryCount = 0):
-    Promise<mqtt.AsyncMqttClient> {
+    Promise<mqtt.MqttClient> {
   try {
     return mqtt.connectAsync(url, options, false)
   } catch (error) {
@@ -23,7 +23,7 @@ async function backOffConnect (url: string, options: mqtt.IClientOptions, retryC
 }
 
 export class SocketClient {
-  static connect (): Promise<mqtt.AsyncMqttClient> {
+  static connect (): Promise<mqtt.MqttClient> {
     const url = config.getMqttUrl()
     const accountId = config.getAccountId()
     const apiKey = config.getApiKey()
