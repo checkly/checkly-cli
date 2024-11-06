@@ -28,7 +28,7 @@ export class SocketClient {
     const accountId = config.getAccountId()
     const apiKey = config.getApiKey()
     const options: mqtt.IClientOptions = {
-      reconnectPeriod: 0,
+      reconnectPeriod: 100,
       username: accountId,
       password: apiKey,
     }
