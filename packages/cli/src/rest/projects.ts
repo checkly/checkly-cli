@@ -1,5 +1,6 @@
-import type { AxiosInstance } from 'axios'
+import type { AxiosInstance, AxiosProgressEvent } from 'axios'
 import type { GitInformation } from '../services/util'
+import Deploy from '../commands/deploy'
 
 export interface Project {
   name: string
@@ -34,6 +35,10 @@ export interface ProjectDeployResponse {
   diff: Array<Change>
 }
 
+export type DeployOptions = {
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+}
+
 class Projects {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -56,10 +61,11 @@ class Projects {
     return this.api.delete(`/next/projects/${logicalId}`)
   }
 
-  deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true } = {}) {
+  deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true } = {}, options?: DeployOptions) {
     return this.api.post<ProjectDeployResponse>(
       `/next-v2/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
       resources,
+      { onUploadProgress: options?.onUploadProgress },
     )
   }
 }

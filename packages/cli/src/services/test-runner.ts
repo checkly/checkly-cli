@@ -4,6 +4,7 @@ import { GitInformation } from './util'
 import { Check } from '../constructs/check'
 import { RetryStrategy, Project } from '../constructs'
 import { pullSnapshots } from '../services/snapshot-service'
+import { Logger } from './logger'
 
 import * as uuid from 'uuid'
 
@@ -19,6 +20,7 @@ export default class TestRunner extends AbstractCheckRunner {
   testRetryStrategy: RetryStrategy | null
 
   constructor (
+    logger: Logger,
     accountId: string,
     project: Project,
     checks: Check[],
@@ -32,7 +34,7 @@ export default class TestRunner extends AbstractCheckRunner {
     baseDirectory: string,
     testRetryStrategy: RetryStrategy | null,
   ) {
-    super(accountId, timeout, verbose)
+    super(logger, accountId, timeout, verbose)
     this.project = project
     this.checkConstructs = checks
     this.location = location
@@ -75,6 +77,16 @@ export default class TestRunner extends AbstractCheckRunner {
         repoInfo: this.repoInfo,
         environment: this.environment,
         shouldRecord: this.shouldRecord,
+      }, {
+        onUploadProgress: (event) => {
+          this.logger.trace({
+            progress: {
+              sent: event.loaded,
+              total: event.total,
+              lengthComputable: event.lengthComputable,
+            },
+          }, 'Test session payload upload progress')
+        },
       })
       const { testSessionId, sequenceIds } = data
       const checks = this.checkConstructs.map(check => ({ check, sequenceId: sequenceIds?.[check.logicalId] }))

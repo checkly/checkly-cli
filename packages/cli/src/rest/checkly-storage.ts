@@ -1,5 +1,13 @@
-import type { AxiosInstance } from 'axios'
+import type { AxiosInstance, AxiosProgressEvent } from 'axios'
 import type { Readable } from 'node:stream'
+
+type UploadOptions = {
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+}
+
+type DownloadOptions = {
+  onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void
+}
 
 class ChecklyStorage {
   api: AxiosInstance
@@ -7,16 +15,22 @@ class ChecklyStorage {
     this.api = api
   }
 
-  upload (stream: Readable) {
+  upload (stream: Readable, options?: UploadOptions) {
     return this.api.post<{ key: string }>(
       '/next/checkly-storage/upload',
       stream,
-      { headers: { 'Content-Type': 'application/octet-stream' } },
+      {
+        headers: { 'Content-Type': 'application/octet-stream' },
+        onUploadProgress: options?.onUploadProgress,
+      },
     )
   }
 
-  download (key: string) {
-    return this.api.post('/next/checkly-storage/download', { key }, { responseType: 'stream' })
+  download (key: string, options?: DownloadOptions) {
+    return this.api.post('/next/checkly-storage/download', { key }, {
+      responseType: 'stream',
+      onDownloadProgress: options?.onDownloadProgress,
+    })
   }
 }
 

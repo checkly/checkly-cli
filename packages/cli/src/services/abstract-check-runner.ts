@@ -6,6 +6,7 @@ import { EventEmitter } from 'node:events'
 import type { MqttClient } from 'mqtt'
 import type { Region } from '..'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import type { Logger } from './logger'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -40,6 +41,8 @@ export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 600
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
 export default abstract class AbstractCheckRunner extends EventEmitter {
+  originalLogger: Logger
+  logger: Logger
   checks: Map<SequenceId, { check: any }>
   testSessionId?: string
   // If there's an error in the backend and no check result is sent, the check run could block indefinitely.
@@ -52,11 +55,14 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   queue: PQueue
 
   constructor (
+    logger: Logger,
     accountId: string,
     timeout: number,
     verbose: boolean,
   ) {
     super()
+    this.originalLogger = logger
+    this.logger = logger
     this.checks = new Map()
     this.timeouts = new Map()
     this.queue = new PQueue({ autoStart: false, concurrency: 1 })
@@ -72,14 +78,45 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     }>
 
   async run () {
+    const checkRunSuiteId = uuid.v4()
+
+    const logger = this.logger = this.originalLogger.child({
+      checkRunSuiteId,
+    })
+
     let socketClient = null
     try {
-      socketClient = await SocketClient.connect()
+      logger.info('Starting check run')
 
-      const checkRunSuiteId = uuid.v4()
+      socketClient = await SocketClient.connect(logger)
+
+      socketClient.on('close', () => {
+        logger.debug('MQTT client connection closed')
+      })
+      socketClient.on('connect', () => {
+        // Note: does not trigger for the initial connection because by this time we're already connected.
+        logger.debug('MQTT client is connected')
+      })
+      socketClient.on('disconnect', () => {
+        logger.debug('MQTT client has disconnected')
+      })
+      socketClient.on('end', () => {
+        logger.debug('MQTT client connection has ended')
+      })
+      socketClient.on('error', (err) => {
+        logger.warn({ err }, 'MQTT client encountered an error')
+      })
+      socketClient.on('offline', () => {
+        logger.debug('MQTT client is offline')
+      })
+      socketClient.on('reconnect', () => {
+        logger.debug('MQTT client is reconnecting')
+      })
+
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
+      logger.info('Scheduling checks')
       const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
       this.testSessionId = testSessionId
       this.checks = new Map(
@@ -98,25 +135,37 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
       const allChecksFinished = this.allChecksFinished()
       /// / Need to structure the checks depending on how it went
+
+      logger.info({ checks, testSessionId }, 'Run started')
       this.emit(Events.RUN_STARTED, checks, testSessionId)
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
 
+      logger.info('Waiting for all checks to finish')
       await allChecksFinished
+
+      logger.info('All checks have finished')
       this.emit(Events.RUN_FINISHED, testSessionId)
+
+      logger.info('Check run completed successfully')
     } catch (err) {
+      logger.error({ err }, 'Check run failed')
       this.disableAllTimeouts()
       this.emit(Events.ERROR, err)
     } finally {
       if (socketClient) {
+        logger.info('Ending connection to MQTT broker')
         await socketClient.endAsync()
       }
+      logger.info('Finished processing check run')
     }
   }
 
   private async configureResultListener (checkRunSuiteId: string, socketClient: MqttClient): Promise<void> {
     socketClient.on('message', (topic: string, rawMessage: string|Buffer) => {
       const message = JSON.parse(rawMessage.toString('utf8'))
+      this.logger.trace({ message }, 'Received message from MQTT broker')
+
       const topicComponents = topic.split('/')
       const sequenceId = topicComponents[4]
       const checkRunId = topicComponents[5]
@@ -161,6 +210,20 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.CHECK_FAILED, sequenceId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
     }
+  }
+
+  emit (eventName: string | symbol, ...args: any[]): boolean {
+    this.logger.trace(
+      {
+        event: {
+          name: eventName,
+          args,
+        },
+      },
+      'Runner event',
+    )
+
+    return super.emit(eventName, ...args)
   }
 
   async processCheckResult (result: any) {

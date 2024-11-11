@@ -24,6 +24,7 @@ import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 import { uploadSnapshots } from '../services/snapshot-service'
+import { rootLogger } from '../services/logger'
 
 const DEFAULT_REGION = 'eu-central-1'
 const MAX_RETRIES = 3
@@ -118,6 +119,12 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
+    const logger = rootLogger.child({
+      cli: {
+        cmd: 'test',
+      },
+    })
+
     ux.action.start('Parsing your project', undefined, { stdout: true })
 
     const { flags, argv } = await this.parse(Test)
@@ -154,6 +161,7 @@ export default class Test extends AuthCommand {
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
 
+    logger.debug('Parsing project')
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -171,6 +179,8 @@ export default class Test extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       checklyConfigConstructs,
     })
+
+    logger.debug({ project }, 'Finished parsing project')
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {
         return !(check instanceof HeartbeatCheck)
@@ -211,11 +221,47 @@ export default class Test extends AuthCommand {
         return check
       })
 
+    // Separate browser checks for snapshot uploads.
+    const browserChecks: Array<BrowserCheck> = []
     for (const check of checks) {
       if (!(check instanceof BrowserCheck)) {
         continue
       }
-      check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      if (!check.rawSnapshots?.length) {
+        logger.trace(
+          { check: { logicalId: check.logicalId } },
+          'Check has no snapshots to upload',
+        )
+        continue
+      }
+      browserChecks.push(check)
+    }
+
+    logger.info(
+      { count: browserChecks.length },
+      'Collected all snapshots to upload',
+    )
+
+    for (const check of browserChecks) {
+      const sublogger = logger.child(
+        { check: { logicalId: check.logicalId } },
+      )
+      sublogger.info(
+        { rawSnapshots: check.rawSnapshots },
+        'Uploading check snapshots',
+      )
+      check.snapshots = await uploadSnapshots(check.rawSnapshots, {
+        onUploadProgress: (snapshot, event) => {
+          sublogger.trace({
+            snapshot,
+            progress: {
+              sent: event.loaded,
+              total: event.total,
+              lengthComputable: event.lengthComputable,
+            },
+          }, 'Snapshot upload progress')
+        },
+      })
     }
 
     ux.action.stop()
@@ -236,6 +282,7 @@ export default class Test extends AuthCommand {
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
     const runner = new TestRunner(
+      logger,
       config.getAccountId(),
       project,
       checks,
@@ -251,9 +298,9 @@ export default class Test extends AuthCommand {
     )
 
     runner.on(Events.RUN_STARTED,
-      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
-        reporters.forEach(r => r.onBegin(checks, testSessionId)),
-    )
+      (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) => {
+        reporters.forEach(r => r.onBegin(checks, testSessionId))
+      })
 
     runner.on(Events.CHECK_INPROGRESS, (check: any, sequenceId: SequenceId) => {
       reporters.forEach(r => r.onCheckInProgress(check, sequenceId))

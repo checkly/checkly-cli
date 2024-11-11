@@ -7,6 +7,7 @@ import {
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
+import { rootLogger } from './logger'
 
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
