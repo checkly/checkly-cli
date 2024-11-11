@@ -19,6 +19,7 @@ import { createReporters, ReporterType } from '../reporters/reporter'
 import { printLn } from '../reporters/util'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { Session, RetryStrategyBuilder } from '../constructs'
+import { rootLogger } from '../services/logger'
 
 const DEFAULT_REGION = 'eu-central-1'
 const MAX_RETRIES = 3
@@ -88,6 +89,12 @@ export default class Trigger extends AuthCommand {
   }
 
   async run (): Promise<void> {
+    const logger = rootLogger.child({
+      cli: {
+        cmd: 'trigger',
+      },
+    })
+
     const { flags } = await this.parse(Trigger)
     const {
       location: runLocation,
@@ -124,6 +131,7 @@ export default class Trigger extends AuthCommand {
     const ciInfo = getCiInformation()
 
     const runner = new TriggerRunner(
+      logger,
       config.getAccountId(),
       timeout,
       verbose,

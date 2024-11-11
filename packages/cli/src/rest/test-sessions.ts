@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import type { AxiosInstance, AxiosProgressEvent } from 'axios'
 import { GitInformation } from '../services/util'
 import { RetryStrategy } from '../constructs'
 
@@ -31,14 +31,20 @@ export type TestResultsShortLinks = {
   screenshotLinks: string[]
 }
 
+export type RunOptions = {
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+}
+
 class TestSessions {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
     this.api = api
   }
 
-  run (payload: RunTestSessionRequest) {
-    return this.api.post('/next/test-sessions/run', payload)
+  run (payload: RunTestSessionRequest, options?: RunOptions) {
+    return this.api.post('/next/test-sessions/run', payload, {
+      onUploadProgress: options?.onUploadProgress,
+    })
   }
 
   trigger (payload: TriggerTestSessionRequest) {

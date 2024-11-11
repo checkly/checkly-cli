@@ -2,6 +2,7 @@ import { RetryStrategy } from '../constructs'
 import { testSessions } from '../rest/api'
 import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
 import { GitInformation } from './util'
+import type { Logger } from './logger'
 
 export class NoMatchingChecksError extends Error {}
 
@@ -16,6 +17,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
   testRetryStrategy: RetryStrategy | null
 
   constructor (
+    logger: Logger,
     accountId: string,
     timeout: number,
     verbose: boolean,
@@ -28,7 +30,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     testSessionName: string | undefined,
     testRetryStrategy: RetryStrategy | null,
   ) {
-    super(accountId, timeout, verbose)
+    super(logger, accountId, timeout, verbose)
     this.shouldRecord = shouldRecord
     this.location = location
     this.targetTags = targetTags

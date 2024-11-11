@@ -3,6 +3,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as stream from 'node:stream/promises'
 
+import type { AxiosProgressEvent } from 'axios'
+
 import { checklyStorage } from '../rest/api'
 import { findFilesRecursively, pathToPosix } from './util'
 
@@ -45,7 +47,16 @@ export function detectSnapshots (projectBasePath: string, scriptFilePath: string
   }))
 }
 
-export async function uploadSnapshots (rawSnapshots?: Array<{ absolutePath: string, path: string }>) {
+type UploadSnapshot = {
+  absolutePath: string
+  path: string
+}
+
+type UploadSnapshotOptions = {
+  onUploadProgress?: (snapshot: UploadSnapshot, event: AxiosProgressEvent) => void
+}
+
+export async function uploadSnapshots (rawSnapshots?: Array<UploadSnapshot>, options?: UploadSnapshotOptions) {
   if (!rawSnapshots?.length) {
     return []
   }
@@ -54,7 +65,11 @@ export async function uploadSnapshots (rawSnapshots?: Array<{ absolutePath: stri
     const snapshots: Array<Snapshot> = []
     for (const rawSnapshot of rawSnapshots) {
       const snapshotStream = fs.createReadStream(rawSnapshot.absolutePath)
-      const { data: { key } } = await checklyStorage.upload(snapshotStream)
+      const { data: { key } } = await checklyStorage.upload(snapshotStream, {
+        onUploadProgress: (event) => {
+          options?.onUploadProgress?.(rawSnapshot, event)
+        },
+      })
       snapshots.push({ key, path: rawSnapshot.path })
     }
     return snapshots

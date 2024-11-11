@@ -17,6 +17,7 @@ import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
+import { rootLogger } from '../services/logger'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -58,6 +59,12 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
+    const logger = rootLogger.child({
+      cli: {
+        cmd: 'deploy',
+      },
+    })
+
     ux.action.start('Parsing your project', undefined, { stdout: true })
     const { flags } = await this.parse(Deploy)
     const {
@@ -126,7 +133,21 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
+      const { data } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        { dryRun: preview, scheduleOnDeploy },
+        {
+          onUploadProgress: (event) => {
+            logger.trace({
+              progress: {
+                sent: event.loaded,
+                total: event.total,
+                lengthComputable: event.lengthComputable,
+              },
+            }, 'Project payload upload progress')
+          },
+        },
+      )
       if (preview || output) {
         this.log(this.formatPreview(data, project))
       }
