@@ -1,6 +1,7 @@
 import type { AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util'
 import { RetryStrategy } from '../constructs'
+import { compressJSONPayload } from './util'
 
 type RunTestSessionRequest = {
   name: string,
@@ -38,7 +39,9 @@ class TestSessions {
   }
 
   run (payload: RunTestSessionRequest) {
-    return this.api.post('/next/test-sessions/run', payload)
+    return this.api.post('/next/test-sessions/run', payload, {
+      transformRequest: compressJSONPayload,
+    })
   }
 
   trigger (payload: TriggerTestSessionRequest) {

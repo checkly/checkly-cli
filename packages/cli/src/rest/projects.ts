@@ -1,5 +1,6 @@
 import type { AxiosInstance } from 'axios'
 import type { GitInformation } from '../services/util'
+import { compressJSONPayload } from './util'
 
 export interface Project {
   name: string
@@ -60,6 +61,7 @@ class Projects {
     return this.api.post<ProjectDeployResponse>(
       `/next-v2/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
       resources,
+      { transformRequest: compressJSONPayload },
     )
   }
 }
