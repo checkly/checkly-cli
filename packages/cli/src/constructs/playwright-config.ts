@@ -1,5 +1,14 @@
 import { CheckProps } from './check'
 
+/**
+ * Ref: https://playwright.dev/docs/network#http-proxy
+ */
+type HttpProxy = {
+    server: string,
+    username?: string,
+    password?: string,
+}
+
 export type Use = {
     baseURL?: string,
     colorScheme?: string,
@@ -31,6 +40,7 @@ export type Use = {
     contextOptions?: object,
     bypassCSP?: boolean,
     userAgent?: string,
+    proxy?: HttpProxy,
 }
 
 export type Expect = {
