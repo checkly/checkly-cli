@@ -22,6 +22,11 @@ describe('sync-playwright', () => {
     expect(checklyConfig.config?.checks?.playwrightConfig?.timeout).toEqual(1234)
     expect(checklyConfig.config?.checks?.playwrightConfig?.use).toBeDefined()
     expect(checklyConfig.config?.checks?.playwrightConfig?.use?.baseURL).toEqual('http://127.0.0.1:3000')
+    expect(checklyConfig.config?.checks?.playwrightConfig?.use?.proxy).toEqual({
+      server: "https://hello.com",
+      username: "username",
+      password: "password",
+    })
     expect(checklyConfig.config?.checks?.playwrightConfig?.expect).toBeDefined()
   })
 
