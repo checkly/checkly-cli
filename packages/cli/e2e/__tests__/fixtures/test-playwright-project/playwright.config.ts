@@ -8,6 +8,11 @@ export default defineConfig({
     extraHTTPHeaders: {
       foo: 'bar',
     },
+    proxy: {
+      server: 'https://hello.com',
+      username: 'username',
+      password: 'password',
+    },
   },
   expect: {
     toMatchSnapshot: {
