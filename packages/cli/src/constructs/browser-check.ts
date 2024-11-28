@@ -120,7 +120,10 @@ export class BrowserCheck extends Check {
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
-    const parser = new Parser(Object.keys(runtime.dependencies))
+    const parser = new Parser({
+      supportedNpmModules: Object.keys(runtime.dependencies),
+      checkUnsupportedModules: Session.verifyRuntimeDependencies,
+    })
     const parsed = parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 

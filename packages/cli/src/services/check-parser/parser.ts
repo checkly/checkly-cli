@@ -85,13 +85,20 @@ function getTsParser (): any {
   }
 }
 
+type ParserOptions = {
+  supportedNpmModules?: Array<string>
+  checkUnsupportedModules?: boolean
+}
+
 export class Parser {
   supportedModules: Set<string>
+  checkUnsupportedModules: boolean
 
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
-  constructor (supportedNpmModules: Array<string>) {
-    this.supportedModules = new Set([...supportedBuiltinModules, ...supportedNpmModules])
+  constructor (options: ParserOptions) {
+    this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
+    this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
   }
 
   parse (entrypoint: string) {
@@ -120,9 +127,11 @@ export class Parser {
         collector.addParsingError(item.filePath, error.message)
         continue
       }
-      const unsupportedDependencies = module.npmDependencies.filter((dep) => !this.supportedModules.has(dep))
-      if (unsupportedDependencies.length) {
-        collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
+      if (this.checkUnsupportedModules) {
+        const unsupportedDependencies = module.npmDependencies.filter((dep) => !this.supportedModules.has(dep))
+        if (unsupportedDependencies.length) {
+          collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
+        }
       }
       const localDependenciesResolvedPaths: Array<{filePath: string, content: string}> = []
       module.localDependencies.forEach((localDependency: string) => {
