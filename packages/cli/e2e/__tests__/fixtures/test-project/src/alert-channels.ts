@@ -46,3 +46,21 @@ export const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
   }`,
   ...sendDefaults,
 })
+
+export const webhookChannelWithSecret = new WebhookAlertChannel('webhook-channel-with-secret', {
+  name: 'Pushover webhook w/ secret',
+  method: 'POST',
+  url: new URL('https://webhook.site/ddead495-8b15-4b0d-a25d-f6cda4144dc7'),
+  template: `{
+    "token":"FILL_IN_YOUR_SECRET_TOKEN_FROM_PUSHOVER",
+    "user":"FILL_IN_YOUR_USER_FROM_PUSHOVER",
+    "title":"{{ALERT_TITLE}}",
+    "html":1,
+    "priority":2,
+    "retry":30,
+    "expire":10800,
+    "message":"{{ALERT_TYPE}} {{STARTED_AT}} ({{RESPONSE_TIME}}ms) {{RESULT_LINK}}"
+  }`,
+  webhookSecret: 'hunter2',
+  ...sendDefaults,
+})

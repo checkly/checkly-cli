@@ -32,6 +32,13 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
    * Key-value elements array with the query parameters to include in the URL for the webhook HTTP request.
    */
   queryParameters?: Array<QueryParam>
+  /**
+   * An optional value to use as the
+   * {@link https://www.checklyhq.com/docs/alerting-and-retries/webhooks/#webhook-secrets secret for the webhook}.
+   *
+   * You may specify any value that meets your security criteria.
+   */
+  webhookSecret?: string
 }
 
 /**
@@ -49,6 +56,7 @@ export class WebhookAlertChannel extends AlertChannel {
   method?: HttpRequestMethod
   headers?: Array<HttpHeader>
   queryParameters?: Array<QueryParam>
+  webhookSecret?: string
   /**
    * Constructs the Webhook Alert Channel instance
    *
@@ -66,6 +74,7 @@ export class WebhookAlertChannel extends AlertChannel {
     this.method = props.method
     this.headers = props.headers
     this.queryParameters = props.queryParameters
+    this.webhookSecret = props.webhookSecret
     Session.registerConstruct(this)
   }
 
@@ -81,6 +90,7 @@ export class WebhookAlertChannel extends AlertChannel {
         method: this.method,
         headers: this.headers,
         queryParameters: this.queryParameters,
+        webhookSecret: this.webhookSecret,
       },
     }
   }
