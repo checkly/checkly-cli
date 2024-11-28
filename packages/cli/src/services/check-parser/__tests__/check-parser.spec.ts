@@ -9,14 +9,18 @@ const defaultNpmModules = [
 
 describe('dependency-parser - parser()', () => {
   it('should handle JS file with no dependencies', () => {
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(path.join(__dirname, 'check-parser-fixtures', 'no-dependencies.js'))
     expect(dependencies.map(d => d.filePath)).toHaveLength(0)
   })
 
   it('should handle JS file with dependencies', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
@@ -31,7 +35,9 @@ describe('dependency-parser - parser()', () => {
   it('should report a missing entrypoint file', () => {
     const missingEntrypoint = path.join(__dirname, 'check-parser-fixtures', 'does-not-exist.js')
     try {
-      const parser = new Parser(defaultNpmModules)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+      })
       parser.parse(missingEntrypoint)
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [missingEntrypoint] })
@@ -41,7 +47,9 @@ describe('dependency-parser - parser()', () => {
   it('should report missing check dependencies', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', ...filepath)
     try {
-      const parser = new Parser(defaultNpmModules)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+      })
       parser.parse(toAbsolutePath('missing-dependencies.js'))
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
@@ -51,7 +59,9 @@ describe('dependency-parser - parser()', () => {
   it('should report syntax errors', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'syntax-error.js')
     try {
-      const parser = new Parser(defaultNpmModules)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+      })
       parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
@@ -61,16 +71,29 @@ describe('dependency-parser - parser()', () => {
   it('should report unsupported dependencies', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
     try {
-      const parser = new Parser(defaultNpmModules)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+      })
       parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
     }
   })
 
+  it('should allow unsupported dependencies if configured to do so', () => {
+    const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+      checkUnsupportedModules: false,
+    })
+    parser.parse(entrypoint)
+  })
+
   it('should handle circular dependencies', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', ...filepath)
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
 
     // Circular dependencies are allowed in Node.js
@@ -84,7 +107,9 @@ describe('dependency-parser - parser()', () => {
 
   it('should parse typescript dependencies', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', ...filepath)
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.ts'),
@@ -102,7 +127,9 @@ describe('dependency-parser - parser()', () => {
 
   it('should handle ES Modules', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
@@ -113,7 +140,9 @@ describe('dependency-parser - parser()', () => {
 
   it('should handle Common JS and ES Modules', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'common-esm-example', ...filepath)
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     const { dependencies } = parser.parse(toAbsolutePath('entrypoint.mjs'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
@@ -130,7 +159,9 @@ describe('dependency-parser - parser()', () => {
    */
   it.skip('should ignore cases where require is reassigned', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'reassign-require.js')
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     parser.parse(entrypoint)
   })
 
@@ -138,13 +169,17 @@ describe('dependency-parser - parser()', () => {
   // For consistency with checks created via the UI, the CLI should support this as well.
   it('should allow top-level await', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.js')
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     parser.parse(entrypoint)
   })
 
   it('should allow top-level await in TypeScript', () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.ts')
-    const parser = new Parser(defaultNpmModules)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
     parser.parse(entrypoint)
   })
 })
