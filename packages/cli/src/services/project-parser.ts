@@ -23,7 +23,7 @@ type ProjectParseOpts = {
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
   availableRuntimes: Record<string, Runtime>,
-  verifyRuntimeDependencies: boolean,
+  verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
 }
 
@@ -59,7 +59,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
-  Session.verifyRuntimeDependencies = verifyRuntimeDependencies
+  Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
