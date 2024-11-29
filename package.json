@@ -1,6 +1,5 @@
 {
   "name": "@checkly/cli-monorepo",
-  "private": true,
   "version": "0.0.1",
   "scripts": {
     "lint": "eslint . --ext .ts,.js,.mjs",
@@ -8,7 +7,10 @@
     "prepack": "npm run prepack --workspaces",
     "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
     "test": "npm run test --workspaces",
-    "test:e2e": "npm run test:e2e --workspaces"
+    "test:e2e": "npm run test:e2e --workspaces",
+    "verdaccio": "verdaccio --config ./verdaccio-config.yaml",
+    "publish-package": "npm run increase-patch && npm publish",
+    "increase-patch": "npm version patch --no-git-tag-version"
   },
   "workspaces": [
     "packages/*"
@@ -21,7 +23,8 @@
     "@typescript-eslint/parser": "5.62.0",
     "eslint": "8.48.0",
     "lint-staged": "13.2.3",
-    "simple-git-hooks": "2.8.1"
+    "simple-git-hooks": "2.8.1",
+    "verdaccio": "6.0.2"
   },
   "simple-git-hooks": {
     "commit-msg": "npx commitlint --edit",
