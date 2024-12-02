@@ -8,9 +8,7 @@
     "prepare": "npx simple-git-hooks && npm run prepare --workspaces",
     "test": "npm run test --workspaces",
     "test:e2e": "npm run test:e2e --workspaces",
-    "verdaccio": "verdaccio --config ./verdaccio-config.yaml",
-    "publish-package": "npm run increase-patch && npm publish",
-    "increase-patch": "npm version patch --no-git-tag-version"
+    "verdaccio": "verdaccio --config ./verdaccio-config.yaml"
   },
   "workspaces": [
     "packages/*"
