@@ -41,6 +41,7 @@ export type Use = {
     bypassCSP?: boolean,
     userAgent?: string,
     proxy?: HttpProxy,
+    storageState?: string
 }
 
 export type Expect = {

@@ -2,7 +2,7 @@ import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
-import { Session } from '../constructs'
+import { Session, Suites } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
@@ -59,6 +59,7 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
+    suites?: Suites,
   },
   /**
    * CLI default configuration properties.

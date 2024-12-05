@@ -2,14 +2,23 @@ import { glob } from 'glob'
 import * as path from 'path'
 import { loadJsFile, loadTsFile, pathToPosix } from './util'
 import {
-  Check, BrowserCheck, CheckGroup, Project, Session,
-  PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
+  Check,
+  BrowserCheck,
+  CheckGroup,
+  Project,
+  Session,
+  PrivateLocation,
+  PrivateLocationCheckAssignment,
+  PrivateLocationGroupAssignment,
+  MultiStepCheck,
+  Suites, Suite,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
 
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
+import { PlaywrightConfig } from '../constructs/playwright-config'
 
 type ProjectParseOpts = {
   directory: string,
@@ -25,6 +34,13 @@ type ProjectParseOpts = {
   availableRuntimes: Record<string, Runtime>,
   verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
+  suites?: Suites | undefined
+}
+
+type BrowserCheckOtions = {
+  playwrightConfig?: PlaywrightConfig,
+  groupLogicalId?: string,
+  suiteLogicalId?: string
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -46,11 +62,13 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     availableRuntimes,
     verifyRuntimeDependencies,
     checklyConfigConstructs,
+    suites = [],
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
   })
+
   checklyConfigConstructs?.forEach(
     (construct) => project.addResource(construct.type, construct.logicalId, construct),
   )
@@ -67,6 +85,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
   await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
 
+  await loadSuites(project, suites, directory, ignoreDirectories)
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
 
@@ -103,6 +122,7 @@ async function loadAllBrowserChecks (
   browserCheckFilePattern: string | string[] | undefined,
   ignorePattern: string[],
   project: Project,
+  options?: BrowserCheckOtions,
 ): Promise<void> {
   if (!browserCheckFilePattern) {
     return
@@ -126,6 +146,9 @@ async function loadAllBrowserChecks (
       code: {
         entrypoint: checkFile,
       },
+      playwrightConfig: options?.playwrightConfig,
+      groupLogicalId: options?.groupLogicalId,
+      suiteLogicalId: options?.suiteLogicalId,
     })
   }
 }
@@ -160,6 +183,26 @@ async function loadAllMultiStepChecks (
       },
     })
   }
+}
+
+async function loadSuites (project: Project, suitesObj: Suites | [], directory: string, ignorePattern: string[],
+) {
+  const suites = suitesObj.map((suite) => new Suite(suite.name, suite))
+  const obj: Record<string, Suite> = {}
+  for (const suite of suites) {
+    const steps = suite.steps
+    const playwrightConfig = suite.playwrightConfig
+    for (const step of steps) {
+      const options = {
+        playwrightConfig: step.playwrightConfig ?? playwrightConfig,
+        groupLogicalId: step.logicalId,
+        suiteLogicalId: step.suiteLogicalId,
+      }
+      const browserCheck = await loadAllBrowserChecks(directory, step.checkMatch, ignorePattern, project, options)
+    }
+    obj[suite.name] = suite
+  }
+  project.data.suites = obj
 }
 
 // TODO: create a function to process slug names for check or check-group to reduce duplicated code.

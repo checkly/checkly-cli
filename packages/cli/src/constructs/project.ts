@@ -6,7 +6,7 @@ import { ValidationError } from './validator-error'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
-  PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, Suites, Suite,
 } from './'
 import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
@@ -32,6 +32,7 @@ export interface ProjectData {
   'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
   'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
   dashboard: Record<string, Dashboard>,
+  suites: Record<string, Suite>,
 }
 
 export class Project extends Construct {
@@ -48,6 +49,7 @@ export class Project extends Construct {
     'private-location-check-assignment': {},
     'private-location-group-assignment': {},
     dashboard: {},
+    suites: {},
   }
 
   static readonly __checklyType = 'project'
@@ -64,7 +66,6 @@ export class Project extends Construct {
       // TODO: Can we collect a list of validation errors and return them all at once? This might be better UX.
       throw new ValidationError('Please give your project a name in the "name" property.')
     }
-
     this.name = props.name
     this.repoUrl = props.repoUrl
     this.logicalId = logicalId
@@ -98,6 +99,7 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
         ...this.synthesizeRecord(this.data.dashboard),
+        ...this.synthesizeRecord(this.data.suites),
       ],
     }
   }

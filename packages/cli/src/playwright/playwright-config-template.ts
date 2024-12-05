@@ -41,6 +41,7 @@ export default class PlaywrightConfigTemplate {
       bypassCSP: use.bypassCSP,
       userAgent: use.userAgent,
       proxy: use.proxy,
+      storageState: use.storageState,
     }
   }
 

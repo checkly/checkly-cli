@@ -1,6 +1,6 @@
 import type { AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util'
-import { RetryStrategy } from '../constructs'
+import { RetryStrategy, Suite } from '../constructs'
 import { compressJSONPayload } from './util'
 
 type RunTestSessionRequest = {
@@ -11,6 +11,7 @@ type RunTestSessionRequest = {
   repoInfo?: GitInformation | null,
   environment?: string | null,
   shouldRecord: boolean,
+  suites?: Record<string, Suite>
 }
 
 type TriggerTestSessionRequest = {

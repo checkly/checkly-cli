@@ -29,6 +29,9 @@ export interface BrowserCheckProps extends CheckProps {
    * playwright.config.ts
    */
   playwrightConfig?: PlaywrightConfig,
+
+  groupLogicalId?: string
+  suiteLogicalId?: string
 }
 
 /**
@@ -49,6 +52,8 @@ export class BrowserCheck extends Check {
   rawSnapshots?: Array<{ absolutePath: string, path: string }>
   snapshots?: Array<Snapshot>
   playwrightConfig?: PlaywrightConfig
+  groupLogicalId?: string
+  suiteLogicalId?: string
 
   /**
    * Constructs the Browser Check instance
@@ -65,6 +70,8 @@ export class BrowserCheck extends Check {
     super(logicalId, props)
     this.sslCheckDomain = props.sslCheckDomain
     this.playwrightConfig = props.playwrightConfig
+    this.groupLogicalId = props.groupLogicalId
+    this.suiteLogicalId = props.suiteLogicalId
     if ('content' in props.code) {
       const script = props.code.content
       this.script = script
@@ -156,6 +163,8 @@ export class BrowserCheck extends Check {
       sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
       snapshots: this.snapshots,
       playwrightConfig: this.playwrightConfig,
+      groupLogicalId: this.groupLogicalId,
+      suiteLogicalId: this.suiteLogicalId,
     }
   }
 }

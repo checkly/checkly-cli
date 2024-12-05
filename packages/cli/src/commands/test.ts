@@ -160,7 +160,6 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: availableRuntimes } = await api.runtimes.getAll()
-
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -178,6 +177,7 @@ export default class Test extends AuthCommand {
       }, <Record<string, Runtime>> {}),
       verifyRuntimeDependencies,
       checklyConfigConstructs,
+      suites: checklyConfig.checks?.suites,
     })
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {

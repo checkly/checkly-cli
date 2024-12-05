@@ -2,7 +2,7 @@ import { testSessions } from '../rest/api'
 import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
 import { GitInformation } from './util'
 import { Check } from '../constructs/check'
-import { RetryStrategy, Project } from '../constructs'
+import { RetryStrategy, Project, Suites, Suite } from '../constructs'
 import { pullSnapshots } from '../services/snapshot-service'
 
 import * as uuid from 'uuid'
@@ -75,6 +75,11 @@ export default class TestRunner extends AbstractCheckRunner {
         repoInfo: this.repoInfo,
         environment: this.environment,
         shouldRecord: this.shouldRecord,
+        suites: Object.entries(this.project.data?.suites ?? {}).reduce((acc, [k, v]) => {
+          // @ts-ignore
+          acc[k] = v.synthesize()
+          return acc
+        }, {}),
       })
       const { testSessionId, sequenceIds } = data
       const checks = this.checkConstructs.map(check => ({ check, sequenceId: sequenceIds?.[check.logicalId] }))
