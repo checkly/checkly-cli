@@ -67,6 +67,12 @@ export default class Deploy extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
+    'verify-runtime-dependencies': Flags.boolean({
+      description: '[default: true] Return an error if checks import dependencies that are not supported by the selected runtime.',
+      default: true,
+      allowNo: true,
+      env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
+    }),
   }
 
   async run (): Promise<void> {
@@ -78,6 +84,7 @@ export default class Deploy extends AuthCommand {
       'schedule-on-deploy': scheduleOnDeploy,
       output,
       config: configFilename,
+      'verify-runtime-dependencies': verifyRuntimeDependencies,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -100,6 +107,7 @@ export default class Deploy extends AuthCommand {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      verifyRuntimeDependencies,
       checklyConfigConstructs,
     })
     const repoInfo = getGitInformation(project.repoUrl)

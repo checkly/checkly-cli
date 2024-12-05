@@ -58,6 +58,9 @@ export default class Trigger extends AuthCommand {
       description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
+    'fail-on-no-matching': Flags.boolean({
+      description: 'Exit with a failing status code when there are no matching tests.',
+    }),
     reporter: Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
@@ -96,6 +99,7 @@ export default class Trigger extends AuthCommand {
       tags: targetTags,
       timeout,
       verbose: verboseFlag,
+      'fail-on-no-matching': failOnNoMatchingFlag,
       record: shouldRecord,
       reporter: reporterFlag,
       env,
@@ -116,6 +120,7 @@ export default class Trigger extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
+    const failOnNoMatching = this.prepareFailOnNoMatching(failOnNoMatchingFlag, checklyConfig?.cli?.failOnNoMatching)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig?.cli?.reporters)
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
@@ -167,6 +172,9 @@ export default class Trigger extends AuthCommand {
       if (err instanceof NoMatchingChecksError) {
         // For consistency with `checkly test`, we log a message and exit with code 0.
         this.log('No matching checks were found.')
+        if (failOnNoMatching) {
+          process.exitCode = 1
+        }
         return
       }
       reporters.forEach(r => r.onError(err))
@@ -219,6 +227,10 @@ export default class Trigger extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
+  }
+
+  prepareFailOnNoMatching (failOnNoMatchingFlag?: boolean, cliFailOnNoMatchingFlag?: boolean) {
+    return failOnNoMatchingFlag ?? cliFailOnNoMatchingFlag ?? false
   }
 
   prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {

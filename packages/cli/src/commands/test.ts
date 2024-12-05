@@ -104,6 +104,12 @@ export default class Test extends AuthCommand {
     retries: Flags.integer({
       description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a failing test run.`,
     }),
+    'verify-runtime-dependencies': Flags.boolean({
+      description: '[default: true] Return an error if checks import dependencies that are not supported by the selected runtime.',
+      default: true,
+      allowNo: true,
+      env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
+    }),
   }
 
   static args = {
@@ -137,6 +143,7 @@ export default class Test extends AuthCommand {
       'test-session-name': testSessionName,
       'update-snapshots': updateSnapshots,
       retries,
+      'verify-runtime-dependencies': verifyRuntimeDependencies,
     } = flags
     const filePatterns = argv as string[]
 
@@ -169,6 +176,7 @@ export default class Test extends AuthCommand {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      verifyRuntimeDependencies,
       checklyConfigConstructs,
     })
     const checks = Object.entries(project.data.check)
