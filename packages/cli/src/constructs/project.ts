@@ -183,3 +183,8 @@ export class Session {
     return Session.privateLocations
   }
 }
+
+export type ProjectPayload = {
+  project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>
+  resources: ResourceSync[]
+}
