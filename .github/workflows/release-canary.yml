@@ -14,9 +14,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
