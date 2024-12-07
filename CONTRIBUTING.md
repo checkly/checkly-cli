@@ -57,6 +57,11 @@ You can use the current branch of the code against any examples in the `/example
 2. Run `npm create checkly -- --template boilerplate-project`
 3. Just use `npx checkly` as normal.
 
+## Publish to local npm registry
+1. run verdaccio by `npm run verdaccio`. Modify `verdaccio-config.yaml` for advanced settings as per documentation https://verdaccio.org/docs/configuration
+2. run `npm run publish-local --registry=<verdaccio path>` to publish the package to the local registry
+3. run `npm install checkly@<version> --registry=<verdaccio path>` to install the package from the local registry
+
 ## Prerelease experimental version
 
 To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
