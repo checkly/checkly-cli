@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "private": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
