@@ -251,6 +251,11 @@ export class Parser {
         if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
       },
+      ExportAllDeclaration (node: any) {
+        if (node.source === null) return
+        if (node.source.type !== 'Literal') return
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+      },
     }
   }
 
@@ -264,7 +269,13 @@ export class Parser {
       ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
         if (node.source === null) return
-        // For now, we only support literal strings in the import statement
+        // For now, we only support literal strings in the export statement
+        if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
+        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+      },
+      ExportAllDeclaration (node: TSESTree.ExportAllDeclaration) {
+        if (node.source === null) return
+        // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
         Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
       },
