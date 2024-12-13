@@ -1,5 +1,7 @@
 import * as path from 'path'
-import { pathToPosix, isFileSync } from '../util'
+import { pathToPosix, isFileSync, uniqValFromArrByKey, compareObjectsWithExistingKeys } from '../util'
+import { uniqValFromArrByKeyCases } from './__testcases__/uniqvalromarrbykey.case'
+import { compareObjectsWithExistingKeysCases } from './__testcases__/compareobjectswithexistingkeys.case'
 
 describe('util', () => {
   describe('pathToPosix()', () => {
@@ -19,6 +21,24 @@ describe('util', () => {
     })
     it('should determine if a file is not present at a given path', () => {
       expect(isFileSync('some random string')).toBeFalsy()
+    })
+  })
+
+  describe('uniqValFromArrByKey()', () => {
+    uniqValFromArrByKeyCases.forEach(({ input, expected }, index) => {
+      it(`should return unique values from array grouped by key for test case ${index + 1}`, () => {
+        const result = uniqValFromArrByKey(input.arr, input.key)
+        expect(result).toEqual(expected)
+      })
+    })
+  })
+
+  describe('compareObjectsWithExistingKeys()', () => {
+    compareObjectsWithExistingKeysCases.forEach(({ input, expected }, index) => {
+      it(`should compare objects and return differences for test case ${index + 1}`, () => {
+        const result = compareObjectsWithExistingKeys(input.obj1, input.obj2)
+        expect(result).toEqual(expected)
+      })
     })
   })
 })
