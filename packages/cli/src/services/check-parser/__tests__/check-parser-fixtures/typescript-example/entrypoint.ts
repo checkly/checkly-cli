@@ -7,6 +7,7 @@ import * as moduleImport from './module'
 import * as modulePackage from './module-package'
 import { ExternalFirstPage } from './pages/external.first.page.js'
 import { ExternalSecondPage } from './pages/external.second.page'
+export { value } from './dep5' // named export
 
 export function doMath (num: number): number {
   return add(num, subtract(10, 7))
