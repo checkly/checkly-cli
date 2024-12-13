@@ -1,3 +1,4 @@
+import * as fs from 'fs/promises'
 import * as api from '../rest/api'
 import config from '../services/config'
 import prompts from 'prompts'
@@ -61,6 +62,16 @@ export default class Deploy extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    'debug-bundle': Flags.boolean({
+      description: 'Output the project bundle to a file without deploying any resources.',
+      default: false,
+      hidden: true,
+    }),
+    'debug-bundle-output-file': Flags.string({
+      description: 'The file to output the debug debug bundle to.',
+      default: './debug-bundle.json',
+      hidden: true,
+    }),
   }
 
   async run (): Promise<void> {
@@ -73,6 +84,8 @@ export default class Deploy extends AuthCommand {
       output,
       config: configFilename,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
+      'debug-bundle': debugBundle,
+      'debug-bundle-output-file': debugBundleOutputFile,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -118,6 +131,13 @@ export default class Deploy extends AuthCommand {
       } else {
         throw new Error('Failed to deploy your project. Unable to find constructs to deploy.\nMore information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
       }
+    }
+
+    if (debugBundle) {
+      const output = JSON.stringify(projectPayload, null, 2)
+      await fs.writeFile(debugBundleOutputFile, output, 'utf8')
+      this.log(`Successfully wrote debug bundle to "${debugBundleOutputFile}".`)
+      return
     }
 
     const { data: account } = await api.accounts.get(config.getAccountId())
