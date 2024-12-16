@@ -14,6 +14,9 @@ export interface MSTeamsAlertChannelProps extends AlertChannelProps {
    * The URL webhook to which to send updates.
    */
   url: string
+  /**
+   * Optional template for Teams Card.
+   */
   template?: string
 }
 
