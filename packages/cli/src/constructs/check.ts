@@ -98,6 +98,7 @@ export interface CheckProps {
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
    */
   runParallel?: boolean
+  orchestrated?: boolean
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -121,6 +122,7 @@ export abstract class Check extends Construct {
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
+  orchestrated?: boolean
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'check'
@@ -160,6 +162,7 @@ export abstract class Check extends Construct {
     this.alertSettings = props.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
     this.runParallel = props.runParallel ?? false
+    this.orchestrated = props.orchestrated ?? false
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -246,6 +249,7 @@ export abstract class Check extends Construct {
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,
+      orchestrated: this.orchestrated,
     }
   }
 }

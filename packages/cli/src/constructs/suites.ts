@@ -20,7 +20,7 @@ export class Step extends Construct implements StepProps {
   workers?: number
   suiteLogicalId?: string
 
-  static readonly __checklyType = 'check-step'
+  static readonly __checklyType = 'step'
   constructor (props: StepProps, suiteLogicalId: string) {
     super(Step.__checklyType, props.name)
     this.checkMatch = props.checkMatch
@@ -60,7 +60,7 @@ export class Suite extends Construct implements OrchestratedSuite {
   locations?: Array<keyof Region>
   playwrightConfig?: PlaywrightConfig
 
-  static readonly __checklyType = 'check-suite'
+  static readonly __checklyType = 'suite'
   constructor (logicalId: string, props: OrchestratedSuite) {
     super(Suite.__checklyType, logicalId)
     this.logicalId = logicalId

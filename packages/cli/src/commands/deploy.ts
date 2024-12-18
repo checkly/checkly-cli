@@ -91,6 +91,7 @@ export default class Deploy extends AuthCommand {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
+      suites: checklyConfig.checks?.suites,
       availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc

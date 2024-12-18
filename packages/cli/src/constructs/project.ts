@@ -99,7 +99,7 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
         ...this.synthesizeRecord(this.data.dashboard),
-        ...this.synthesizeRecord(this.data.suites),
+        // ...this.synthesizeRecord(this.data.suites),
       ],
     }
   }

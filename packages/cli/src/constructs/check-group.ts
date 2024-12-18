@@ -18,6 +18,7 @@ import type { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { MultiStepCheck } from './multi-step-check'
 import CheckTypes from '../constants'
+import { Suite } from './suites'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -116,6 +117,8 @@ export interface CheckGroupProps {
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
    */
   runParallel?: boolean
+  suite?: Suite
+  orchestrated?: boolean
 }
 
 /**
@@ -147,6 +150,8 @@ export class CheckGroup extends Construct {
   runParallel?: boolean
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
+  suite?: Suite
+  orchestrated?: boolean
 
   static readonly __checklyType = 'check-group'
 
@@ -181,7 +186,8 @@ export class CheckGroup extends Construct {
         throw new Error(`Environment variable "${ev.key}" from check group "${logicalId}" is not allowed to be empty`)
       }
     })
-
+    this.suite = props.suite
+    this.orchestrated = props.orchestrated ?? false
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
@@ -306,6 +312,8 @@ export class CheckGroup extends Construct {
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
+      frequency: this.frequency,
+      suite: this.suite,
     }
   }
 }

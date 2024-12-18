@@ -41,6 +41,8 @@ type BrowserCheckOtions = {
   playwrightConfig?: PlaywrightConfig,
   groupLogicalId?: string,
   suiteLogicalId?: string
+  checkGroup: CheckGroup,
+  orchestrated?: boolean
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -149,6 +151,8 @@ async function loadAllBrowserChecks (
       playwrightConfig: options?.playwrightConfig,
       groupLogicalId: options?.groupLogicalId,
       suiteLogicalId: options?.suiteLogicalId,
+      group: options?.checkGroup,
+      orchestrated: options?.orchestrated,
     })
   }
 }
@@ -192,11 +196,14 @@ async function loadSuites (project: Project, suitesObj: Suites | [], directory: 
   for (const suite of suites) {
     const steps = suite.steps
     const playwrightConfig = suite.playwrightConfig
+    const checkGroup = new CheckGroup(suite.logicalId, { ...suite, activated: true, suite })
     for (const step of steps) {
       const options = {
         playwrightConfig: step.playwrightConfig ?? playwrightConfig,
         groupLogicalId: step.logicalId,
         suiteLogicalId: step.suiteLogicalId,
+        checkGroup,
+        orchestrated: true,
       }
       const browserCheck = await loadAllBrowserChecks(directory, step.checkMatch, ignorePattern, project, options)
     }
