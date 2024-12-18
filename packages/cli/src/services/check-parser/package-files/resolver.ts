@@ -34,7 +34,7 @@ export class PackageFilesResolver {
   packageJsonCache = new FileLoader(PackageJsonFile.loadFromFilePath)
   tsconfigJsonCache = new FileLoader(TSConfigFile.loadFromFilePath)
 
-  async loadPackageFiles (filePath: string): Promise<PackageFiles> {
+  loadPackageFiles (filePath: string): PackageFiles {
     const files: PackageFiles = {}
 
     let currentPath = filePath
@@ -50,11 +50,11 @@ export class PackageFilesResolver {
       }
 
       if (files.packageJson === undefined) {
-        files.packageJson = await this.packageJsonCache.load(PackageJsonFile.filePath(currentPath))
+        files.packageJson = this.packageJsonCache.load(PackageJsonFile.filePath(currentPath))
       }
 
       if (files.tsconfigJson === undefined) {
-        files.tsconfigJson = await this.tsconfigJsonCache.load(TSConfigFile.filePath(currentPath))
+        files.tsconfigJson = this.tsconfigJsonCache.load(TSConfigFile.filePath(currentPath))
       }
 
       // Stop if we've found all files.
@@ -66,14 +66,14 @@ export class PackageFilesResolver {
     return files
   }
 
-  private async resolveSourceFile (sourceFile: SourceFile): Promise<SourceFile> {
+  private resolveSourceFile (sourceFile: SourceFile): SourceFile {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
-      const packageJson = await this.packageJsonCache.load(sourceFile.meta.filePath)
+      const packageJson = this.packageJsonCache.load(sourceFile.meta.filePath)
       if (packageJson === undefined) {
         return sourceFile
       }
 
-      const mainSourceFile = await SourceFile.loadFromFilePath(packageJson.mainPath())
+      const mainSourceFile = SourceFile.loadFromFilePath(packageJson.mainPath())
       if (mainSourceFile === undefined) {
         return sourceFile
       }
@@ -84,11 +84,11 @@ export class PackageFilesResolver {
     return sourceFile
   }
 
-  async resolveDependenciesForFilePath (
+  resolveDependenciesForFilePath (
     filePath: string,
     dependencies: string[],
     suffixes: string[],
-  ): Promise<Dependencies> {
+  ): Dependencies {
     const resolved: Dependencies = {
       external: [],
       missing: [],
@@ -97,15 +97,15 @@ export class PackageFilesResolver {
 
     const dirname = path.dirname(filePath)
 
-    const { packageJson, tsconfigJson } = await this.loadPackageFiles(filePath)
+    const { packageJson, tsconfigJson } = this.loadPackageFiles(filePath)
 
     for (const dep of dependencies) {
       if (isLocalPath(dep)) {
         const relativeDepPath = path.resolve(dirname, dep)
-        const sourceFile = await SourceFile.loadFromFilePath(relativeDepPath, suffixes)
+        const sourceFile = SourceFile.loadFromFilePath(relativeDepPath, suffixes)
         if (sourceFile !== undefined) {
           resolved.local.push({
-            sourceFile: await this.resolveSourceFile(sourceFile),
+            sourceFile: this.resolveSourceFile(sourceFile),
             origin: 'relative-path',
           })
           continue
@@ -123,10 +123,10 @@ export class PackageFilesResolver {
           let found = false
           for (const resolvedPath of resolvedPaths) {
             const relativePath = path.resolve(tsconfigJson.basePath, resolvedPath)
-            const sourceFile = await SourceFile.loadFromFilePath(relativePath, suffixes)
+            const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
             if (sourceFile !== undefined) {
               resolved.local.push({
-                sourceFile: await this.resolveSourceFile(sourceFile),
+                sourceFile: this.resolveSourceFile(sourceFile),
                 origin: 'tsconfig-resolved-path',
               })
               found = true
@@ -140,10 +140,10 @@ export class PackageFilesResolver {
 
         if (tsconfigJson.baseUrl !== undefined) {
           const relativePath = path.resolve(tsconfigJson.basePath, tsconfigJson.baseUrl, dep)
-          const sourceFile = await SourceFile.loadFromFilePath(relativePath, suffixes)
+          const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
             resolved.local.push({
-              sourceFile: await this.resolveSourceFile(sourceFile),
+              sourceFile: this.resolveSourceFile(sourceFile),
               origin: 'tsconfig-baseurl-relative-path',
             })
             continue
@@ -154,10 +154,10 @@ export class PackageFilesResolver {
       if (packageJson !== undefined) {
         if (packageJson.supportsPackageRelativePaths()) {
           const relativePath = path.resolve(packageJson.basePath, dep)
-          const sourceFile = await SourceFile.loadFromFilePath(relativePath, suffixes)
+          const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
             resolved.local.push({
-              sourceFile: await this.resolveSourceFile(sourceFile),
+              sourceFile: this.resolveSourceFile(sourceFile),
               origin: 'package-relative-path',
             })
             continue

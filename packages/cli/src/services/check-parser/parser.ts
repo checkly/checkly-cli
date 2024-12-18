@@ -101,7 +101,7 @@ export class Parser {
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
   }
 
-  async parse (entrypoint: string) {
+  parse (entrypoint: string) {
     const { extension, content } = validateEntrypoint(entrypoint)
 
     const resolver = new PackageFilesResolver()
@@ -133,7 +133,7 @@ export class Parser {
 
       const suffixes = extension === '.js' ? JS_RESOLVE_ORDER : TS_RESOLVE_ORDER
 
-      const resolved = await resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies, suffixes)
+      const resolved = resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies, suffixes)
 
       if (this.checkUnsupportedModules) {
         const unsupportedDependencies = resolved.external.filter(dep => !this.supportedModules.has(dep))
@@ -149,7 +149,7 @@ export class Parser {
       for (const dep of resolved.local) {
         const filePath = dep.sourceFile.meta.filePath
         if (collector.hasDependency(filePath)) {
-          return
+          continue
         }
         collector.addDependency(filePath, dep.sourceFile.contents)
         bfsQueue.push({ filePath, content: dep.sourceFile.contents })

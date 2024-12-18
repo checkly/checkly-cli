@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises'
+import fs from 'node:fs'
 import path from 'node:path'
 
 export class FileMeta {
@@ -30,12 +30,12 @@ export class SourceFile {
     this.contents = contents
   }
 
-  static async loadFromFilePath (filePath: string, suffixes?: string[]): Promise<SourceFile | undefined> {
+  static loadFromFilePath (filePath: string, suffixes?: string[]): SourceFile | undefined {
     for (const suffix of ['', ...suffixes ?? []]) {
       try {
         const suffixFilePath = filePath + suffix
 
-        const contents = await fs.readFile(suffixFilePath, {
+        const contents = fs.readFileSync(suffixFilePath, {
           encoding: 'utf8',
         })
 
