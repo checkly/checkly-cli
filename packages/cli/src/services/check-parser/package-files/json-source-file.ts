@@ -27,17 +27,17 @@ export class JsonSourceFile<Schema> {
     }
   }
 
-  static async loadFromFilePath<Schema> (
+  static loadFromFilePath<Schema> (
     filePath: string,
     options?: Options,
-  ): Promise<JsonSourceFile<Schema> | undefined> {
+  ): JsonSourceFile<Schema> | undefined {
     const { sourceFileLoader } = {
       sourceFileLoader: SourceFile.loadFromFilePath,
       ...options,
     }
 
     try {
-      const sourceFile = await sourceFileLoader(filePath)
+      const sourceFile = sourceFileLoader(filePath)
       if (sourceFile === undefined) {
         return
       }
