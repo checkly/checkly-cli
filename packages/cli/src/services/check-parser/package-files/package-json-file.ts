@@ -34,13 +34,13 @@ export class PackageJsonFile {
     return new PackageJsonFile(jsonFile)
   }
 
-  static async loadFromFilePath (filePath: string, options?: Options): Promise<PackageJsonFile | undefined> {
+  static loadFromFilePath (filePath: string, options?: Options): PackageJsonFile | undefined {
     const { jsonSourceFileLoader } = {
       jsonSourceFileLoader: JsonSourceFile.loadFromFilePath<Schema>,
       ...options,
     }
 
-    const jsonFile = await jsonSourceFileLoader(filePath)
+    const jsonFile = jsonSourceFileLoader(filePath)
     if (jsonFile === undefined) {
       return
     }

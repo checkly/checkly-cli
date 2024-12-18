@@ -60,13 +60,13 @@ export class TSConfigFile {
     return new TSConfigFile(jsonFile)
   }
 
-  static async loadFromFilePath (filePath: string, options?: Options): Promise<TSConfigFile | undefined> {
+  static loadFromFilePath (filePath: string, options?: Options): TSConfigFile | undefined {
     const { jsonSourceFileLoader } = {
       jsonSourceFileLoader: JsonSourceFile.loadFromFilePath<Schema>,
       ...options,
     }
 
-    const jsonFile = await jsonSourceFileLoader(filePath)
+    const jsonFile = jsonSourceFileLoader(filePath)
     if (jsonFile === undefined) {
       return
     }
