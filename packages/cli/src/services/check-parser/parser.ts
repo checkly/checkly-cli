@@ -4,6 +4,7 @@ import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
+import { PackageFilesResolver } from './package-files'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 
@@ -12,8 +13,7 @@ import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-est
 const ignore = (_node: any, _st: any, _c: any) => {}
 
 type Module = {
-  localDependencies: Array<string>,
-  npmDependencies: Array<string>
+  dependencies: Array<string>,
 }
 
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
@@ -101,8 +101,10 @@ export class Parser {
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
   }
 
-  parse (entrypoint: string) {
+  async parse (entrypoint: string) {
     const { extension, content } = validateEntrypoint(entrypoint)
+
+    const resolver = new PackageFilesResolver()
 
     /*
   * The importing of files forms a directed graph.
@@ -122,34 +124,36 @@ export class Parser {
         // Holds info about the main file and doesn't need to be parsed
         continue
       }
+
       const { module, error } = Parser.parseDependencies(item.filePath, item.content)
       if (error) {
         collector.addParsingError(item.filePath, error.message)
         continue
       }
+
+      const suffixes = extension === '.js' ? JS_RESOLVE_ORDER : TS_RESOLVE_ORDER
+
+      const resolved = await resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies, suffixes)
+
       if (this.checkUnsupportedModules) {
-        const unsupportedDependencies = module.npmDependencies.filter((dep) => !this.supportedModules.has(dep))
+        const unsupportedDependencies = resolved.external.filter(dep => !this.supportedModules.has(dep))
         if (unsupportedDependencies.length) {
           collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
         }
       }
-      const localDependenciesResolvedPaths: Array<{filePath: string, content: string}> = []
-      module.localDependencies.forEach((localDependency: string) => {
-        const filePath = path.join(path.dirname(item.filePath), localDependency)
-        try {
-          const deps = Parser.readDependency(filePath, extension)
-          localDependenciesResolvedPaths.push(...deps)
-        } catch (err: any) {
-          collector.addMissingFile(filePath)
-        }
-      })
-      localDependenciesResolvedPaths.forEach(({ filePath, content }: {filePath: string, content: string}) => {
+
+      for (const dep of resolved.missing) {
+        collector.addMissingFile(dep.filePath)
+      }
+
+      for (const dep of resolved.local) {
+        const filePath = dep.sourceFile.meta.filePath
         if (collector.hasDependency(filePath)) {
           return
         }
-        collector.addDependency(filePath, content)
-        bfsQueue.push({ filePath, content })
-      })
+        collector.addDependency(filePath, dep.sourceFile.contents)
+        bfsQueue.push({ filePath, content: dep.sourceFile.contents })
+      }
     }
 
     collector.validate()
@@ -157,45 +161,9 @@ export class Parser {
     return collector.getItems()
   }
 
-  static readDependency (filePath: string, preferedExtenstion: SupportedFileExtension) {
-    // Read the specific file if it has an extension
-    if (preferedExtenstion === '.js') {
-      return Parser.tryReadFileExt(filePath, JS_RESOLVE_ORDER)
-    } else {
-      return Parser.tryReadFileExt(filePath, TS_RESOLVE_ORDER)
-    }
-  }
-
-  static tryReadFileExt (filePath: string, exts: typeof JS_RESOLVE_ORDER | typeof TS_RESOLVE_ORDER) {
-    for (const extension of ['', ...exts]) {
-      try {
-        const deps = []
-        const fullPath = filePath + extension
-        const content = fs.readFileSync(fullPath, { encoding: 'utf-8' })
-        deps.push({ filePath: fullPath, content })
-        if (extension === PACKAGE_EXTENSION) {
-          const { main } = JSON.parse(content)
-          // TODO: Check the module type to figure out the esm and common js file extensions
-          // It might be different than js and mjs
-          if (!main || !main.length) {
-            // No main is defined. This means package.json doesn't have a specific entry
-            continue
-          }
-          const mainFile = path.join(filePath, main)
-          deps.push({
-            filePath: mainFile, content: fs.readFileSync(mainFile, { encoding: 'utf-8' }),
-          })
-        }
-        return deps
-      } catch (err) {}
-    }
-    throw new Error(`Cannot find file ${filePath}`)
-  }
-
   static parseDependencies (filePath: string, contents: string):
   { module: Module, error?: any } {
-    const localDependencies = new Set<string>()
-    const npmDependencies = new Set<string>()
+    const dependencies = new Set<string>()
 
     const extension = path.extname(filePath)
     try {
@@ -206,22 +174,21 @@ export class Parser {
           allowImportExportEverywhere: true,
           allowAwaitOutsideFunction: true,
         })
-        walk.simple(ast, Parser.jsNodeVisitor(localDependencies, npmDependencies))
+        walk.simple(ast, Parser.jsNodeVisitor(dependencies))
       } else if (extension === '.ts') {
         const tsParser = getTsParser()
         const ast = tsParser.parse(contents, {})
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
-        walk.simple(ast, Parser.tsNodeVisitor(tsParser, localDependencies, npmDependencies))
+        walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
       } else {
         throw new Error(`Unsupported file extension for ${filePath}`)
       }
     } catch (err) {
       return {
         module: {
-          localDependencies: Array.from(localDependencies),
-          npmDependencies: Array.from(npmDependencies),
+          dependencies: Array.from(dependencies),
         },
         error: err,
       }
@@ -229,55 +196,54 @@ export class Parser {
 
     return {
       module: {
-        localDependencies: Array.from(localDependencies),
-        npmDependencies: Array.from(npmDependencies),
+        dependencies: Array.from(dependencies),
       },
     }
   }
 
-  static jsNodeVisitor (localDependencies: Set<string>, npmDependencies: Set<string>): any {
+  static jsNodeVisitor (dependencies: Set<string>): any {
     return {
       CallExpression (node: Node) {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
-        Parser.registerDependency(requireStringArg, localDependencies, npmDependencies)
+        Parser.registerDependency(requireStringArg, dependencies)
       },
       ImportDeclaration (node: any) {
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
       ExportNamedDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
       ExportAllDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
     }
   }
 
-  static tsNodeVisitor (tsParser: any, localDependencies: Set<string>, npmDependencies: Set<string>): any {
+  static tsNodeVisitor (tsParser: any, dependencies: Set<string>): any {
     return {
       ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
       ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
       ExportAllDeclaration (node: TSESTree.ExportAllDeclaration) {
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, localDependencies, npmDependencies)
+        Parser.registerDependency(node.source.value, dependencies)
       },
     }
   }
@@ -319,14 +285,12 @@ export class Parser {
     }
   }
 
-  static registerDependency (importArg: string | null, localDependencies: Set<string>, npmDependencies: Set<string>) {
+  static registerDependency (importArg: string | null, dependencies: Set<string>) {
   // TODO: We currently don't support import path aliases, f.ex: `import { Something } from '@services/my-service'`
     if (!importArg) {
     // If there's no importArg, don't register a dependency
-    } else if (importArg.startsWith('/') || importArg.startsWith('./') || importArg.startsWith('../')) {
-      localDependencies.add(importArg)
     } else {
-      npmDependencies.add(importArg)
+      dependencies.add(importArg)
     }
   }
 }
