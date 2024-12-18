@@ -165,6 +165,7 @@ export class BrowserCheck extends Check {
       playwrightConfig: this.playwrightConfig,
       groupLogicalId: this.groupLogicalId,
       suiteLogicalId: this.suiteLogicalId,
+      stepName: this.groupLogicalId,
     }
   }
 }
