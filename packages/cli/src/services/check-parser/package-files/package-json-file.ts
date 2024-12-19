@@ -20,10 +20,17 @@ export class PackageJsonFile {
 
   jsonFile: JsonSourceFile<Schema>
   basePath: string
+  mainPaths: string[]
 
   private constructor (jsonFile: JsonSourceFile<Schema>) {
     this.jsonFile = jsonFile
     this.basePath = jsonFile.meta.dirname
+
+    const fallbackMainPath = path.resolve(this.basePath, 'index.js')
+
+    this.mainPaths = jsonFile.data.main !== undefined
+      ? [path.resolve(this.basePath, jsonFile.data.main), fallbackMainPath]
+      : [fallbackMainPath]
   }
 
   public get meta () {
@@ -54,9 +61,5 @@ export class PackageJsonFile {
 
   supportsPackageRelativePaths () {
     return this.jsonFile.data.exports === undefined
-  }
-
-  mainPath () {
-    return path.resolve(this.meta.dirname, this.jsonFile.data.main ?? 'index.js')
   }
 }
