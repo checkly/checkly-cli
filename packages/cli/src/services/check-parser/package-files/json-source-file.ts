@@ -36,14 +36,11 @@ export class JsonSourceFile<Schema> {
       ...options,
     }
 
-    try {
-      const sourceFile = sourceFileLoader(filePath)
-      if (sourceFile === undefined) {
-        return
-      }
-
-      return JsonSourceFile.loadFromSourceFile(sourceFile)
-    } catch (err: any) {
+    const sourceFile = sourceFileLoader(filePath)
+    if (sourceFile === undefined) {
+      return
     }
+
+    return JsonSourceFile.loadFromSourceFile(sourceFile)
   }
 }
