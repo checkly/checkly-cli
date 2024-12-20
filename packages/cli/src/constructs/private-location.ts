@@ -56,11 +56,13 @@ class PrivateLocationWrapper extends Construct {
 }
 
 /**
- * Creates an Private Location
+ * Creates a Private Location
  *
  * @remarks
  *
  * This class make use of the Private Location endpoints.
+ *
+ * {@link https://www.checklyhq.com/docs/cli/constructs-reference/#privatelocation Read more in the docs}
  */
 export class PrivateLocation extends Construct {
   name: string

@@ -66,7 +66,7 @@ export class HeartbeatCheck extends Check {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props heartbeat check configuration properties
-   * {@link https://checklyhq.com/docs/cli/constructs/#heartbeat Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#heartbeat Read more in the docs}
    */
   constructor (logicalId: string, props: HeartbeatCheckProps) {
     super(logicalId, props)

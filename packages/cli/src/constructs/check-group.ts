@@ -156,7 +156,7 @@ export class CheckGroup extends Construct {
    * @param logicalId unique project-scoped resource name identification
    * @param props CheckGroup configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs/#checkgroup Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#checkgroup Read more in the docs}
    */
   constructor (logicalId: string, props: CheckGroupProps) {
     super(CheckGroup.__checklyType, logicalId)
