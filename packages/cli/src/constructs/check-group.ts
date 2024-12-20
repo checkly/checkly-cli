@@ -314,6 +314,7 @@ export class CheckGroup extends Construct {
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       frequency: this.frequency,
       suite: this.suite,
+      orchestrated: this.orchestrated,
     }
   }
 }

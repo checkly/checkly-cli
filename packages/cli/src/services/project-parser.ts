@@ -196,7 +196,7 @@ async function loadSuites (project: Project, suitesObj: Suites | [], directory: 
   for (const suite of suites) {
     const steps = suite.steps
     const playwrightConfig = suite.playwrightConfig
-    const checkGroup = new CheckGroup(suite.logicalId, { ...suite, activated: true, suite })
+    const checkGroup = new CheckGroup(suite.logicalId, { ...suite, activated: true, suite, orchestrated: true })
     for (const step of steps) {
       const options = {
         playwrightConfig: step.playwrightConfig ?? playwrightConfig,
