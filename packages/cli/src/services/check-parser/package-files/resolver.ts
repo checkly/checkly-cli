@@ -72,11 +72,13 @@ export class PackageFilesResolver {
     return files
   }
 
-  private resolveSourceFile (sourceFile: SourceFile): SourceFile | undefined {
+  private resolveSourceFile (sourceFile: SourceFile): SourceFile[] {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
       const packageJson = this.packageJsonCache.load(sourceFile.meta.filePath)
       if (packageJson === undefined) {
-        return sourceFile
+        // This should never happen unless the package.json is invalid or
+        // something.
+        return [sourceFile]
       }
 
       // Go through each main path. A fallback path is included. If we can
@@ -93,7 +95,7 @@ export class PackageFilesResolver {
             continue
           }
 
-          return mainSourceFile
+          return [sourceFile, mainSourceFile]
         }
 
         const candidatePaths = tsconfigJson.collectLookupPaths(mainPath)
@@ -103,14 +105,15 @@ export class PackageFilesResolver {
             continue
           }
 
-          return mainSourceFile
+          return [sourceFile, mainSourceFile]
         }
       }
 
-      return undefined
+      // TODO: Is this even useful without any code files?
+      return [sourceFile]
     }
 
-    return sourceFile
+    return [sourceFile]
   }
 
   resolveDependenciesForFilePath (
@@ -133,12 +136,16 @@ export class PackageFilesResolver {
         const relativeDepPath = path.resolve(dirname, dep)
         const sourceFile = SourceFile.loadFromFilePath(relativeDepPath, suffixes)
         if (sourceFile !== undefined) {
-          const resolvedFile = this.resolveSourceFile(sourceFile)
-          if (resolvedFile !== undefined) {
+          const resolvedFiles = this.resolveSourceFile(sourceFile)
+          let found = false
+          for (const resolvedFile of resolvedFiles) {
             resolved.local.push({
               sourceFile: resolvedFile,
               origin: 'relative-path',
             })
+            found = true
+          }
+          if (found) {
             continue
           }
         }
@@ -157,14 +164,18 @@ export class PackageFilesResolver {
             const relativePath = path.resolve(tsconfigJson.basePath, resolvedPath)
             const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
             if (sourceFile !== undefined) {
-              const resolvedFile = this.resolveSourceFile(sourceFile)
-              if (resolvedFile !== undefined) {
+              const resolvedFiles = this.resolveSourceFile(sourceFile)
+              for (const resolvedFile of resolvedFiles) {
                 resolved.local.push({
                   sourceFile: resolvedFile,
                   origin: 'tsconfig-resolved-path',
                 })
                 found = true
-                break // We only need the first match that exists.
+              }
+              if (found) {
+                // We're trying to find the first match out of many possible
+                // candidates. Stop once we find a match.
+                break
               }
             }
           }
@@ -177,12 +188,16 @@ export class PackageFilesResolver {
           const relativePath = path.resolve(tsconfigJson.basePath, tsconfigJson.baseUrl, dep)
           const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
-            const resolvedFile = this.resolveSourceFile(sourceFile)
-            if (resolvedFile !== undefined) {
+            const resolvedFiles = this.resolveSourceFile(sourceFile)
+            let found = false
+            for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
                 sourceFile: resolvedFile,
                 origin: 'tsconfig-baseurl-relative-path',
               })
+              found = true
+            }
+            if (found) {
               continue
             }
           }
@@ -194,12 +209,16 @@ export class PackageFilesResolver {
           const relativePath = path.resolve(packageJson.basePath, dep)
           const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
-            const resolvedFile = this.resolveSourceFile(sourceFile)
-            if (resolvedFile !== undefined) {
+            const resolvedFiles = this.resolveSourceFile(sourceFile)
+            let found = false
+            for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
                 sourceFile: resolvedFile,
                 origin: 'package-relative-path',
               })
+              found = true
+            }
+            if (found) {
               continue
             }
           }
