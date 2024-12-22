@@ -3,7 +3,7 @@ import path from 'node:path'
 import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
-import { isLocalPath } from './paths'
+import { isLocalPath, PathResult } from './paths'
 import { FileLoader } from './loader'
 
 type PackageFiles = {
@@ -11,21 +11,48 @@ type PackageFiles = {
   tsconfigJson?: TSConfigFile
 }
 
-type Origin =
-  'tsconfig-resolved-path' | 'tsconfig-baseurl-relative-path' | 'package-relative-path' | 'relative-path'
-
-type LocalDependency = {
-  sourceFile: SourceFile,
-  origin: Origin,
+type TSConfigResolvedPathLocalDependency = {
+  kind: 'tsconfig-resolved-path'
+  importPath: string
+  sourceFile: SourceFile
+  pathResult: PathResult
 }
 
+type TSConfigBaseUrlRelativePathLocalDependency = {
+  kind: 'tsconfig-baseurl-relative-path'
+  importPath: string
+  sourceFile: SourceFile
+}
+
+type PackageRelativePathLocalDependency = {
+  kind: 'package-relative-path'
+  importPath: string
+  sourceFile: SourceFile
+}
+
+type RelativePathLocalDependency = {
+  kind: 'relative-path'
+  importPath: string
+  sourceFile: SourceFile
+}
+
+type LocalDependency =
+  TSConfigResolvedPathLocalDependency |
+  TSConfigBaseUrlRelativePathLocalDependency |
+  PackageRelativePathLocalDependency |
+  RelativePathLocalDependency
+
 type MissingDependency = {
-  spec: string,
+  importPath: string,
   filePath: string,
 }
 
+type ExternalDependency = {
+  importPath: string
+}
+
 type Dependencies = {
-  external: string[],
+  external: ExternalDependency[],
   missing: MissingDependency[],
   local: LocalDependency[],
 }
@@ -131,17 +158,18 @@ export class PackageFilesResolver {
 
     const { packageJson, tsconfigJson } = this.loadPackageFiles(filePath)
 
-    for (const dep of dependencies) {
-      if (isLocalPath(dep)) {
-        const relativeDepPath = path.resolve(dirname, dep)
+    for (const importPath of dependencies) {
+      if (isLocalPath(importPath)) {
+        const relativeDepPath = path.resolve(dirname, importPath)
         const sourceFile = SourceFile.loadFromFilePath(relativeDepPath, suffixes)
         if (sourceFile !== undefined) {
           const resolvedFiles = this.resolveSourceFile(sourceFile)
           let found = false
           for (const resolvedFile of resolvedFiles) {
             resolved.local.push({
+              kind: 'relative-path',
+              importPath,
               sourceFile: resolvedFile,
-              origin: 'relative-path',
             })
             found = true
           }
@@ -150,25 +178,30 @@ export class PackageFilesResolver {
           }
         }
         resolved.missing.push({
-          spec: dep,
+          importPath,
           filePath: relativeDepPath,
         })
         continue
       }
 
       if (tsconfigJson !== undefined) {
-        const resolvedPaths = tsconfigJson.resolvePath(dep)
+        const resolvedPaths = tsconfigJson.resolvePath(importPath)
         if (resolvedPaths.length > 0) {
           let found = false
-          for (const resolvedPath of resolvedPaths) {
-            const relativePath = path.resolve(tsconfigJson.basePath, resolvedPath)
+          for (const { source, target } of resolvedPaths) {
+            const relativePath = path.resolve(tsconfigJson.basePath, target.path)
             const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
             if (sourceFile !== undefined) {
               const resolvedFiles = this.resolveSourceFile(sourceFile)
               for (const resolvedFile of resolvedFiles) {
                 resolved.local.push({
+                  kind: 'tsconfig-resolved-path',
+                  importPath,
                   sourceFile: resolvedFile,
-                  origin: 'tsconfig-resolved-path',
+                  pathResult: {
+                    source,
+                    target,
+                  },
                 })
                 found = true
               }
@@ -185,15 +218,16 @@ export class PackageFilesResolver {
         }
 
         if (tsconfigJson.baseUrl !== undefined) {
-          const relativePath = path.resolve(tsconfigJson.basePath, tsconfigJson.baseUrl, dep)
+          const relativePath = path.resolve(tsconfigJson.basePath, tsconfigJson.baseUrl, importPath)
           const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
             let found = false
             for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
+                kind: 'tsconfig-baseurl-relative-path',
+                importPath,
                 sourceFile: resolvedFile,
-                origin: 'tsconfig-baseurl-relative-path',
               })
               found = true
             }
@@ -206,15 +240,16 @@ export class PackageFilesResolver {
 
       if (packageJson !== undefined) {
         if (packageJson.supportsPackageRelativePaths()) {
-          const relativePath = path.resolve(packageJson.basePath, dep)
+          const relativePath = path.resolve(packageJson.basePath, importPath)
           const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
             let found = false
             for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
+                kind: 'package-relative-path',
+                importPath,
                 sourceFile: resolvedFile,
-                origin: 'package-relative-path',
               })
               found = true
             }
@@ -225,7 +260,9 @@ export class PackageFilesResolver {
         }
       }
 
-      resolved.external.push(dep)
+      resolved.external.push({
+        importPath,
+      })
     }
 
     return resolved

@@ -136,7 +136,13 @@ export class Parser {
       const resolved = resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies, suffixes)
 
       if (this.checkUnsupportedModules) {
-        const unsupportedDependencies = resolved.external.filter(dep => !this.supportedModules.has(dep))
+        const unsupportedDependencies = resolved.external.flatMap(dep => {
+          if (this.supportedModules.has(dep.importPath)) {
+            return [dep.importPath]
+          } else {
+            return []
+          }
+        })
         if (unsupportedDependencies.length) {
           collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
         }

@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import { JsonSourceFile } from './json-source-file'
-import { PathResolver } from './paths'
+import { PathResolver, ResolveResult } from './paths'
 import type { LoadFile } from './loader'
 
 type Module =
@@ -142,7 +142,7 @@ export class TSConfigFile {
     return false
   }
 
-  resolvePath (importPath: string): string[] {
+  resolvePath (importPath: string): ResolveResult {
     return this.pathResolver.resolve(importPath)
   }
 

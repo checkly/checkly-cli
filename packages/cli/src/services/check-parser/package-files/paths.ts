@@ -2,57 +2,112 @@ import path from 'node:path'
 
 type Paths = Record<string, Array<string>>
 
-class PathMatch {
-  ok: boolean
-  results: string[]
+class TargetPathSpec {
+  /**
+   * Prefix is the part of the path before an asterisk (wildcard), or the
+   * whole path if there's no asterisk.
+   *
+   * Examples of possible values:
+   *   - `"./foo/*"` (from `"./foo/"`)
+   *   - `"./bar/foo-"` (from `"./bar/foo-*.js"`)
+   *   - `"./bar."` (from `"./bar.*.ts"`)
+   *   - `""` (from `"*"`)
+   */
+  prefix: string
 
-  private constructor (ok: boolean, results: string[]) {
+  /**
+   * Suffix is the part of the path after the asterisk (wildcard), if any.
+   */
+  suffix?: string
+
+  protected constructor (prefix: string, suffix?: string) {
+    this.prefix = prefix
+    this.suffix = suffix
+  }
+
+  toPath (joker?: string) {
+    if (this.suffix === undefined) {
+      return this.prefix
+    }
+
+    if (joker === undefined) {
+      return this.prefix + this.suffix
+    }
+
+    return this.prefix + joker + this.suffix
+  }
+
+  static create (spec: string) {
+    const parts = spec.split('*', 2)
+    if (parts.length === 1) {
+      return new TargetPathSpec(spec)
+    }
+    const [prefix, suffix] = parts
+    return new TargetPathSpec(prefix, suffix)
+  }
+}
+
+export type TargetPathResult = {
+  spec: TargetPathSpec,
+  path: string,
+}
+
+class PathMatchResult {
+  ok: boolean
+  results: TargetPathResult[]
+
+  private constructor (ok: boolean, results: TargetPathResult[]) {
     this.ok = ok
     this.results = results
   }
 
-  static some (results: string[]) {
-    return new PathMatch(true, results)
+  static some (results: TargetPathResult[]) {
+    return new PathMatchResult(true, results)
   }
 
   static none () {
-    return new PathMatch(false, [])
+    return new PathMatchResult(false, [])
   }
 }
 
 interface PathMatcher {
   get prefixLength (): number
-  match (importPath: string): PathMatch
+  match (importPath: string): PathMatchResult
 }
 
 class ExactPathMatcher implements PathMatcher {
-  source: string
-  target: string[]
+  prefix: string
+  target: TargetPathSpec[]
 
-  constructor (source: string, target: string[]) {
-    this.source = source
+  constructor (prefix: string, target: TargetPathSpec[]) {
+    this.prefix = prefix
     this.target = target
   }
 
   get prefixLength (): number {
-    return this.source.length
+    return this.prefix.length
   }
 
-  match (importPath: string): PathMatch {
-    if (importPath === this.source) {
-      return PathMatch.some(this.target)
+  match (importPath: string): PathMatchResult {
+    if (importPath === this.prefix) {
+      return PathMatchResult.some(this.target.map(target => {
+        return {
+          spec: target,
+          path: target.toPath(),
+        }
+      }))
     }
 
-    return PathMatch.none()
+    return PathMatchResult.none()
   }
 }
 
 class WildcardPathMatcher implements PathMatcher {
   prefix: string
   suffix: string
-  target: string[]
+  target: TargetPathSpec[]
 
-  constructor (prefix: string, suffix: string, target: string[]) {
+  constructor (prefix: string, suffix: string, target: TargetPathSpec[]) {
     this.prefix = prefix
     this.suffix = suffix
     this.target = target
@@ -62,46 +117,126 @@ class WildcardPathMatcher implements PathMatcher {
     return this.prefix.length
   }
 
-  match (importPath: string): PathMatch {
+  match (importPath: string): PathMatchResult {
     if (importPath.startsWith(this.prefix) && importPath.endsWith(this.suffix)) {
       const joker = importPath.substring(this.prefix.length, importPath.length - this.suffix.length)
-      return PathMatch.some(this.target.map(target => target.replace('*', joker)))
+      return PathMatchResult.some(this.target.map(target => {
+        return {
+          spec: target,
+          path: target.toPath(joker),
+        }
+      }))
     }
 
-    return PathMatch.none()
+    return PathMatchResult.none()
   }
 }
 
-class AnyMatcher implements PathMatcher {
-  get prefixLength (): number {
-    return 0
+class SourcePathSpec {
+  /**
+   * Prefix is the part of the path before an asterisk (wildcard), or the
+   * whole path if there's no asterisk.
+   *
+   * Examples of possible values:
+   *   - `"@/"` (from `"@/*"`)
+   *   - `"app/foo-"` (from `"app/foo-*.js"`)
+   *   - `"bar."` (from `"bar.*.ts"`)
+   *   - `""` (from `"*"`)
+   */
+  prefix: string
+
+  /**
+   * Suffix is the part of the path after the asterisk (wildcard), if any.
+   */
+  suffix?: string
+
+  protected constructor (prefix: string, suffix?: string) {
+    this.prefix = prefix
+    this.suffix = suffix
   }
 
-  match (importPath: string): PathMatch {
-    return PathMatch.some([importPath])
+  get moduleLikeName (): string | undefined {
+    if (this.suffix === undefined) {
+      return this.prefix
+    }
+
+    // If prefix is already a directory (ends with `/`), path.dirname will
+    // not return the desired result as it will strip the last component
+    // entirely. However, we can circumvent this by adding a dummy value to
+    // the prefix which ensures that we always get the whole dirname
+    // regardless of whether there is already filename or not.
+    const moduleLike = path.dirname(this.prefix + 'x')
+    if (moduleLike === '') {
+      // Reduce mistakes by returning undefined for this special case.
+      return undefined
+    }
+
+    return moduleLike
+  }
+
+  matcherForTarget (target: TargetPathSpec[]): PathMatcher {
+    if (this.suffix === undefined) {
+      return new ExactPathMatcher(this.prefix, target)
+    }
+
+    return new WildcardPathMatcher(this.prefix, this.suffix, target)
+  }
+
+  static create (spec: string) {
+    const parts = spec.split('*', 2)
+    if (parts.length === 1) {
+      return new SourcePathSpec(spec)
+    }
+    const [prefix, suffix] = parts
+    return new SourcePathSpec(prefix, suffix)
   }
 }
+
+type SourcePathSpecMatcher = {
+  spec: SourcePathSpec,
+  matcher: PathMatcher,
+}
+
+export type SourcePathResult = {
+  spec: SourcePathSpec,
+  path: string
+}
+
+export type PathResult = {
+  source: SourcePathResult
+  target: TargetPathResult
+}
+
+export type ResolveResult = PathResult[]
 
 export class PathResolver {
   baseUrl: string
-  matchers: PathMatcher[]
+  matchers: SourcePathSpecMatcher[]
 
-  constructor (baseUrl: string, matchers: PathMatcher[]) {
+  private constructor (baseUrl: string, matchers: SourcePathSpecMatcher[]) {
     this.baseUrl = baseUrl
 
     // Sort by longest prefix now, then we don't have to care about it later.
-    matchers.sort((a, b) => b.prefixLength - a.prefixLength)
+    matchers.sort((a, b) => b.matcher.prefixLength - a.matcher.prefixLength)
 
     this.matchers = matchers
   }
 
-  resolve (importPath: string): string[] {
-    for (const matcher of this.matchers) {
+  resolve (importPath: string): ResolveResult {
+    for (const { spec, matcher } of this.matchers) {
       const match = matcher.match(importPath)
       if (match.ok) {
         // We can just return the first match since matchers are already
         // sorted by longest prefix.
-        return match.results.map(resultPath => path.join(this.baseUrl, resultPath))
+        return match.results.map(result => {
+          return {
+            source: {
+              spec,
+              path: importPath,
+            },
+            target: result,
+          }
+        })
       }
     }
 
@@ -109,7 +244,7 @@ export class PathResolver {
   }
 
   static createFromPaths (baseUrl: string, paths: Paths): PathResolver {
-    const matchers: PathMatcher[] = []
+    const matchers: SourcePathSpecMatcher[] = []
 
     for (const path in paths) {
       matchers.push(PathResolver.matcherForPath(path, paths[path]))
@@ -118,13 +253,14 @@ export class PathResolver {
     return new PathResolver(baseUrl, matchers)
   }
 
-  private static matcherForPath (importPath: string, target: string[]): PathMatcher {
-    const parts = importPath.split('*', 2)
-    if (parts.length === 1) {
-      return new ExactPathMatcher(importPath, target)
+  private static matcherForPath (spec: string, target: string[]): SourcePathSpecMatcher {
+    const pathSpec = SourcePathSpec.create(spec)
+    const matcher = pathSpec.matcherForTarget(target.map(TargetPathSpec.create))
+
+    return {
+      spec: pathSpec,
+      matcher,
     }
-    const [prefix, suffix] = parts
-    return new WildcardPathMatcher(prefix, suffix, target)
   }
 }
 
