@@ -90,7 +90,7 @@ export class TSConfigFile {
   baseUrl?: string
   pathResolver: PathResolver
 
-  private constructor (jsonFile: JsonSourceFile<Schema>) {
+  protected constructor (jsonFile: JsonSourceFile<Schema>) {
     this.jsonFile = jsonFile
 
     this.basePath = jsonFile.meta.dirname

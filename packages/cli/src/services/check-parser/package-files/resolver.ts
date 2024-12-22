@@ -1,26 +1,69 @@
+/* eslint-disable no-labels */
+
 import path from 'node:path'
 
 import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
+import { JSConfigFile } from './jsconfig-json-file'
 import { isLocalPath, PathResult } from './paths'
 import { FileLoader } from './loader'
 
-type PackageFiles = {
+class PackageFilesCache {
+  packageJsonCache = new FileLoader(PackageJsonFile.loadFromFilePath)
+  tsconfigJsonCache = new FileLoader(TSConfigFile.loadFromFilePath)
+  jsconfigJsonCache = new FileLoader(JSConfigFile.loadFromFilePath)
+}
+
+class PackageFiles {
   packageJson?: PackageJsonFile
   tsconfigJson?: TSConfigFile
+  jsconfigJson?: JSConfigFile
+
+  satisfyFromDirPath (dirPath: string, cache: PackageFilesCache): boolean {
+    if (this.packageJson === undefined) {
+      this.packageJson = cache.packageJsonCache.load(PackageJsonFile.filePath(dirPath))
+    }
+
+    if (this.tsconfigJson === undefined && this.jsconfigJson === undefined) {
+      this.tsconfigJson = cache.tsconfigJsonCache.load(TSConfigFile.filePath(dirPath))
+    }
+
+    if (this.jsconfigJson === undefined && this.tsconfigJson === undefined) {
+      this.jsconfigJson = cache.jsconfigJsonCache.load(JSConfigFile.filePath(dirPath))
+    }
+
+    return this.satisfied
+  }
+
+  get satisfied (): boolean {
+    // Never satisfied until we find a package.json file.
+    if (this.packageJson === undefined) {
+      return false
+    }
+
+    // Not satisfied until either a tsconfig.json or a jsconfig.json file
+    // is found.
+    if (this.tsconfigJson === undefined && this.jsconfigJson === undefined) {
+      return false
+    }
+
+    return true
+  }
 }
 
 type TSConfigResolvedPathLocalDependency = {
   kind: 'tsconfig-resolved-path'
   importPath: string
   sourceFile: SourceFile
+  configFile: TSConfigFile
   pathResult: PathResult
 }
 
 type TSConfigBaseUrlRelativePathLocalDependency = {
   kind: 'tsconfig-baseurl-relative-path'
   importPath: string
+  configFile: TSConfigFile
   sourceFile: SourceFile
 }
 
@@ -58,11 +101,10 @@ type Dependencies = {
 }
 
 export class PackageFilesResolver {
-  packageJsonCache = new FileLoader(PackageJsonFile.loadFromFilePath)
-  tsconfigJsonCache = new FileLoader(TSConfigFile.loadFromFilePath)
+  cache = new PackageFilesCache()
 
   loadPackageFiles (filePath: string, options?: { root?: string }): PackageFiles {
-    const files: PackageFiles = {}
+    const files = new PackageFiles()
 
     let currentPath = filePath
 
@@ -76,16 +118,8 @@ export class PackageFilesResolver {
         break
       }
 
-      if (files.packageJson === undefined) {
-        files.packageJson = this.packageJsonCache.load(PackageJsonFile.filePath(currentPath))
-      }
-
-      if (files.tsconfigJson === undefined) {
-        files.tsconfigJson = this.tsconfigJsonCache.load(TSConfigFile.filePath(currentPath))
-      }
-
-      // Stop if we've found all files.
-      if (files.packageJson !== undefined && files.tsconfigJson !== undefined) {
+      // Try to find all files and stop if we do.
+      if (files.satisfyFromDirPath(currentPath, this.cache)) {
         break
       }
 
@@ -101,7 +135,7 @@ export class PackageFilesResolver {
 
   private resolveSourceFile (sourceFile: SourceFile): SourceFile[] {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
-      const packageJson = this.packageJsonCache.load(sourceFile.meta.filePath)
+      const packageJson = this.cache.packageJsonCache.load(sourceFile.meta.filePath)
       if (packageJson === undefined) {
         // This should never happen unless the package.json is invalid or
         // something.
@@ -112,28 +146,33 @@ export class PackageFilesResolver {
       // find a tsconfig for the main file, look it up and attempt to find
       // the original TypeScript sources roughly the same way tsc does it.
       for (const mainPath of packageJson.mainPaths) {
-        const { tsconfigJson } = this.loadPackageFiles(mainPath, {
+        const { tsconfigJson, jsconfigJson } = this.loadPackageFiles(mainPath, {
           root: packageJson.basePath,
         })
 
-        if (tsconfigJson === undefined) {
-          const mainSourceFile = SourceFile.loadFromFilePath(mainPath)
-          if (mainSourceFile === undefined) {
+        // TODO: Prefer jsconfig.json when dealing with a JavaScript file.
+        for (const configJson of [tsconfigJson, jsconfigJson]) {
+          if (configJson === undefined) {
             continue
           }
 
-          return [sourceFile, mainSourceFile]
-        }
+          const candidatePaths = configJson.collectLookupPaths(mainPath)
+          for (const candidatePath of candidatePaths) {
+            const mainSourceFile = SourceFile.loadFromFilePath(candidatePath)
+            if (mainSourceFile === undefined) {
+              continue
+            }
 
-        const candidatePaths = tsconfigJson.collectLookupPaths(mainPath)
-        for (const candidatePath of candidatePaths) {
-          const mainSourceFile = SourceFile.loadFromFilePath(candidatePath)
-          if (mainSourceFile === undefined) {
-            continue
+            return [sourceFile, mainSourceFile]
           }
-
-          return [sourceFile, mainSourceFile]
         }
+
+        const mainSourceFile = SourceFile.loadFromFilePath(mainPath)
+        if (mainSourceFile === undefined) {
+          continue
+        }
+
+        return [sourceFile, mainSourceFile]
       }
 
       // TODO: Is this even useful without any code files?
@@ -156,8 +195,9 @@ export class PackageFilesResolver {
 
     const dirname = path.dirname(filePath)
 
-    const { packageJson, tsconfigJson } = this.loadPackageFiles(filePath)
+    const { packageJson, tsconfigJson, jsconfigJson } = this.loadPackageFiles(filePath)
 
+    resolve:
     for (const importPath of dependencies) {
       if (isLocalPath(importPath)) {
         const relativeDepPath = path.resolve(dirname, importPath)
@@ -174,22 +214,27 @@ export class PackageFilesResolver {
             found = true
           }
           if (found) {
-            continue
+            continue resolve
           }
         }
         resolved.missing.push({
           importPath,
           filePath: relativeDepPath,
         })
-        continue
+        continue resolve
       }
 
-      if (tsconfigJson !== undefined) {
-        const resolvedPaths = tsconfigJson.resolvePath(importPath)
+      // TODO: Prefer jsconfig.json when dealing with a JavaScript file.
+      for (const configJson of [tsconfigJson, jsconfigJson]) {
+        if (configJson === undefined) {
+          continue
+        }
+
+        const resolvedPaths = configJson.resolvePath(importPath)
         if (resolvedPaths.length > 0) {
           let found = false
           for (const { source, target } of resolvedPaths) {
-            const relativePath = path.resolve(tsconfigJson.basePath, target.path)
+            const relativePath = path.resolve(configJson.basePath, target.path)
             const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
             if (sourceFile !== undefined) {
               const resolvedFiles = this.resolveSourceFile(sourceFile)
@@ -198,6 +243,7 @@ export class PackageFilesResolver {
                   kind: 'tsconfig-resolved-path',
                   importPath,
                   sourceFile: resolvedFile,
+                  configFile: configJson,
                   pathResult: {
                     source,
                     target,
@@ -213,12 +259,12 @@ export class PackageFilesResolver {
             }
           }
           if (found) {
-            continue
+            continue resolve
           }
         }
 
-        if (tsconfigJson.baseUrl !== undefined) {
-          const relativePath = path.resolve(tsconfigJson.basePath, tsconfigJson.baseUrl, importPath)
+        if (configJson.baseUrl !== undefined) {
+          const relativePath = path.resolve(configJson.basePath, configJson.baseUrl, importPath)
           const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
           if (sourceFile !== undefined) {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
@@ -228,11 +274,12 @@ export class PackageFilesResolver {
                 kind: 'tsconfig-baseurl-relative-path',
                 importPath,
                 sourceFile: resolvedFile,
+                configFile: configJson,
               })
               found = true
             }
             if (found) {
-              continue
+              continue resolve
             }
           }
         }
@@ -254,7 +301,7 @@ export class PackageFilesResolver {
               found = true
             }
             if (found) {
-              continue
+              continue resolve
             }
           }
         }
