@@ -137,7 +137,7 @@ export class Parser {
 
       if (this.checkUnsupportedModules) {
         const unsupportedDependencies = resolved.external.flatMap(dep => {
-          if (this.supportedModules.has(dep.importPath)) {
+          if (!this.supportedModules.has(dep.importPath)) {
             return [dep.importPath]
           } else {
             return []
