@@ -52,6 +52,13 @@ class PackageFiles {
   }
 }
 
+type TSConfigFileLocalDependency = {
+  kind: 'tsconfig-file'
+  importPath: string
+  sourceFile: SourceFile
+  configFile: TSConfigFile
+}
+
 type TSConfigResolvedPathLocalDependency = {
   kind: 'tsconfig-resolved-path'
   importPath: string
@@ -80,6 +87,7 @@ type RelativePathLocalDependency = {
 }
 
 type LocalDependency =
+  TSConfigFileLocalDependency |
   TSConfigResolvedPathLocalDependency |
   TSConfigBaseUrlRelativePathLocalDependency |
   PackageRelativePathLocalDependency |
@@ -163,7 +171,9 @@ export class PackageFilesResolver {
               continue
             }
 
-            return [sourceFile, mainSourceFile]
+            configJson.registerRelatedSourceFile(mainSourceFile)
+
+            return [sourceFile, mainSourceFile, configJson.jsonFile.sourceFile]
           }
         }
 
@@ -239,6 +249,7 @@ export class PackageFilesResolver {
             if (sourceFile !== undefined) {
               const resolvedFiles = this.resolveSourceFile(sourceFile)
               for (const resolvedFile of resolvedFiles) {
+                configJson.registerRelatedSourceFile(resolvedFile)
                 resolved.local.push({
                   kind: 'tsconfig-resolved-path',
                   importPath,
@@ -248,6 +259,12 @@ export class PackageFilesResolver {
                     source,
                     target,
                   },
+                })
+                resolved.local.push({
+                  kind: 'tsconfig-file',
+                  importPath,
+                  sourceFile: configJson.jsonFile.sourceFile,
+                  configFile: configJson,
                 })
                 found = true
               }
@@ -270,10 +287,17 @@ export class PackageFilesResolver {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
             let found = false
             for (const resolvedFile of resolvedFiles) {
+              configJson.registerRelatedSourceFile(resolvedFile)
               resolved.local.push({
                 kind: 'tsconfig-baseurl-relative-path',
                 importPath,
                 sourceFile: resolvedFile,
+                configFile: configJson,
+              })
+              resolved.local.push({
+                kind: 'tsconfig-file',
+                importPath,
+                sourceFile: configJson.jsonFile.sourceFile,
                 configFile: configJson,
               })
               found = true

@@ -1,5 +1,6 @@
 import path from 'node:path'
 
+import { SourceFile } from './source-file'
 import { JsonSourceFile } from './json-source-file'
 import { PathResolver, ResolveResult } from './paths'
 import type { LoadFile } from './loader'
@@ -89,6 +90,8 @@ export class TSConfigFile {
   moduleResolution: string
   baseUrl?: string
   pathResolver: PathResolver
+
+  relatedSourceFiles: SourceFile[] = []
 
   protected constructor (jsonFile: JsonSourceFile<Schema>) {
     this.jsonFile = jsonFile
@@ -214,5 +217,9 @@ export class TSConfigFile {
     }
 
     return this.extifyLookupPaths(candidates)
+  }
+
+  registerRelatedSourceFile (file: SourceFile) {
+    this.relatedSourceFiles.push(file)
   }
 }
