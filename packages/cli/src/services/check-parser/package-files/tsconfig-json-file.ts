@@ -3,7 +3,6 @@ import path from 'node:path'
 import { SourceFile } from './source-file'
 import { JsonSourceFile } from './json-source-file'
 import { PathResolver, ResolveResult } from './paths'
-import type { LoadFile } from './loader'
 
 type Module =
   'none' | 'commonjs' | 'amd' | 'system' | 'es6' | 'es2015' | 'es2020' |
@@ -61,10 +60,6 @@ export interface Schema {
   compilerOptions?: CompilerOptions
 }
 
-export type Options = {
-  jsonSourceFileLoader?: LoadFile<JsonSourceFile<Schema>>,
-}
-
 type JSExtension = '.js' | '.mjs' | '.cjs'
 
 const JSExtensions: JSExtension[] = ['.js', '.mjs', '.cjs']
@@ -84,6 +79,9 @@ const extensionMappings: JSExtensionMappings = {
 
 export class TSConfigFile {
   static FILENAME = 'tsconfig.json'
+
+  static #id = 0
+  readonly id = ++TSConfigFile.#id
 
   jsonFile: JsonSourceFile<Schema>
   basePath: string
@@ -113,20 +111,6 @@ export class TSConfigFile {
   }
 
   static loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): TSConfigFile | undefined {
-    return new TSConfigFile(jsonFile)
-  }
-
-  static loadFromFilePath (filePath: string, options?: Options): TSConfigFile | undefined {
-    const { jsonSourceFileLoader } = {
-      jsonSourceFileLoader: JsonSourceFile.loadFromFilePath<Schema>,
-      ...options,
-    }
-
-    const jsonFile = jsonSourceFileLoader(filePath)
-    if (jsonFile === undefined) {
-      return
-    }
-
     return new TSConfigFile(jsonFile)
   }
 

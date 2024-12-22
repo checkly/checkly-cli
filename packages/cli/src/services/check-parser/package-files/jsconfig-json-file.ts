@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { TSConfigFile, Options, Schema } from './tsconfig-json-file'
+import { TSConfigFile, Schema } from './tsconfig-json-file'
 import { JsonSourceFile } from './json-source-file'
 
 /**
@@ -14,25 +14,14 @@ import { JsonSourceFile } from './json-source-file'
 export class JSConfigFile extends TSConfigFile {
   static FILENAME = 'jsconfig.json'
 
+  static #id = 0
+  readonly id = ++JSConfigFile.#id
+
   static filePath (dirPath: string) {
     return path.join(dirPath, JSConfigFile.FILENAME)
   }
 
   static loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): JSConfigFile | undefined {
-    return new JSConfigFile(jsonFile)
-  }
-
-  static loadFromFilePath (filePath: string, options?: Options): JSConfigFile | undefined {
-    const { jsonSourceFileLoader } = {
-      jsonSourceFileLoader: JsonSourceFile.loadFromFilePath<Schema>,
-      ...options,
-    }
-
-    const jsonFile = jsonSourceFileLoader(filePath)
-    if (jsonFile === undefined) {
-      return
-    }
-
     return new JSConfigFile(jsonFile)
   }
 }

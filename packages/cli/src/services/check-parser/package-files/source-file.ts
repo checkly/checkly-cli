@@ -22,6 +22,9 @@ export class FileMeta {
 }
 
 export class SourceFile {
+  static #id = 0
+  readonly id = ++SourceFile.#id
+
   contents: string
   meta: FileMeta
 
@@ -30,20 +33,16 @@ export class SourceFile {
     this.contents = contents
   }
 
-  static loadFromFilePath (filePath: string, suffixes?: string[]): SourceFile | undefined {
-    for (const suffix of ['', ...suffixes ?? []]) {
-      try {
-        const suffixFilePath = filePath + suffix
+  static loadFromFilePath (filePath: string): SourceFile | undefined {
+    try {
+      const contents = fs.readFileSync(filePath, {
+        encoding: 'utf8',
+      })
 
-        const contents = fs.readFileSync(suffixFilePath, {
-          encoding: 'utf8',
-        })
+      const meta = FileMeta.fromFilePath(filePath)
 
-        const meta = FileMeta.fromFilePath(suffixFilePath)
-
-        return new SourceFile(meta, contents)
-      } catch (err: any) {
-      }
+      return new SourceFile(meta, contents)
+    } catch (err: any) {
     }
   }
 }

@@ -7,12 +7,56 @@ import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
 import { JSConfigFile } from './jsconfig-json-file'
 import { isLocalPath, PathResult } from './paths'
-import { FileLoader } from './loader'
+import { FileLoader, LoadFile } from './loader'
+import { JsonSourceFile } from './json-source-file'
 
 class PackageFilesCache {
-  packageJsonCache = new FileLoader(PackageJsonFile.loadFromFilePath)
-  tsconfigJsonCache = new FileLoader(TSConfigFile.loadFromFilePath)
-  jsconfigJsonCache = new FileLoader(JSConfigFile.loadFromFilePath)
+  #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
+
+  #jsonFileLoader<T, S> (load: (jsonFile: JsonSourceFile<S>) => T | undefined): LoadFile<T> {
+    return filePath => {
+      const sourceFile = this.#sourceFileCache.load(filePath)
+      if (sourceFile === undefined) {
+        return
+      }
+
+      const jsonFile = JsonSourceFile.loadFromSourceFile<S>(sourceFile)
+      if (jsonFile === undefined) {
+        return
+      }
+
+      return load(jsonFile)
+    }
+  }
+
+  #packageJsonCache = new FileLoader(this.#jsonFileLoader(PackageJsonFile.loadFromJsonSourceFile))
+  #tsconfigJsonCache = new FileLoader(this.#jsonFileLoader(TSConfigFile.loadFromJsonSourceFile))
+  #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(JSConfigFile.loadFromJsonSourceFile))
+
+  sourceFile (filePath: string, suffixes?: string[]) {
+    for (const suffix of ['', ...suffixes ?? []]) {
+      const suffixFilePath = filePath + suffix
+
+      const sourceFile = this.#sourceFileCache.load(suffixFilePath)
+      if (sourceFile === undefined) {
+        continue
+      }
+
+      return sourceFile
+    }
+  }
+
+  packageJson (filePath: string) {
+    return this.#packageJsonCache.load(filePath)
+  }
+
+  tsconfigJson (filePath: string) {
+    return this.#tsconfigJsonCache.load(filePath)
+  }
+
+  jsconfigJson (filePath: string) {
+    return this.#jsconfigJsonCache.load(filePath)
+  }
 }
 
 class PackageFiles {
@@ -22,15 +66,15 @@ class PackageFiles {
 
   satisfyFromDirPath (dirPath: string, cache: PackageFilesCache): boolean {
     if (this.packageJson === undefined) {
-      this.packageJson = cache.packageJsonCache.load(PackageJsonFile.filePath(dirPath))
+      this.packageJson = cache.packageJson(PackageJsonFile.filePath(dirPath))
     }
 
     if (this.tsconfigJson === undefined && this.jsconfigJson === undefined) {
-      this.tsconfigJson = cache.tsconfigJsonCache.load(TSConfigFile.filePath(dirPath))
+      this.tsconfigJson = cache.tsconfigJson(TSConfigFile.filePath(dirPath))
     }
 
     if (this.jsconfigJson === undefined && this.tsconfigJson === undefined) {
-      this.jsconfigJson = cache.jsconfigJsonCache.load(JSConfigFile.filePath(dirPath))
+      this.jsconfigJson = cache.jsconfigJson(JSConfigFile.filePath(dirPath))
     }
 
     return this.satisfied
@@ -143,7 +187,7 @@ export class PackageFilesResolver {
 
   private resolveSourceFile (sourceFile: SourceFile): SourceFile[] {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
-      const packageJson = this.cache.packageJsonCache.load(sourceFile.meta.filePath)
+      const packageJson = this.cache.packageJson(sourceFile.meta.filePath)
       if (packageJson === undefined) {
         // This should never happen unless the package.json is invalid or
         // something.
@@ -166,7 +210,7 @@ export class PackageFilesResolver {
 
           const candidatePaths = configJson.collectLookupPaths(mainPath)
           for (const candidatePath of candidatePaths) {
-            const mainSourceFile = SourceFile.loadFromFilePath(candidatePath)
+            const mainSourceFile = this.cache.sourceFile(candidatePath)
             if (mainSourceFile === undefined) {
               continue
             }
@@ -177,7 +221,7 @@ export class PackageFilesResolver {
           }
         }
 
-        const mainSourceFile = SourceFile.loadFromFilePath(mainPath)
+        const mainSourceFile = this.cache.sourceFile(mainPath)
         if (mainSourceFile === undefined) {
           continue
         }
@@ -211,7 +255,7 @@ export class PackageFilesResolver {
     for (const importPath of dependencies) {
       if (isLocalPath(importPath)) {
         const relativeDepPath = path.resolve(dirname, importPath)
-        const sourceFile = SourceFile.loadFromFilePath(relativeDepPath, suffixes)
+        const sourceFile = this.cache.sourceFile(relativeDepPath, suffixes)
         if (sourceFile !== undefined) {
           const resolvedFiles = this.resolveSourceFile(sourceFile)
           let found = false
@@ -245,7 +289,7 @@ export class PackageFilesResolver {
           let found = false
           for (const { source, target } of resolvedPaths) {
             const relativePath = path.resolve(configJson.basePath, target.path)
-            const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
+            const sourceFile = this.cache.sourceFile(relativePath, suffixes)
             if (sourceFile !== undefined) {
               const resolvedFiles = this.resolveSourceFile(sourceFile)
               for (const resolvedFile of resolvedFiles) {
@@ -282,7 +326,7 @@ export class PackageFilesResolver {
 
         if (configJson.baseUrl !== undefined) {
           const relativePath = path.resolve(configJson.basePath, configJson.baseUrl, importPath)
-          const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
+          const sourceFile = this.cache.sourceFile(relativePath, suffixes)
           if (sourceFile !== undefined) {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
             let found = false
@@ -312,7 +356,7 @@ export class PackageFilesResolver {
       if (packageJson !== undefined) {
         if (packageJson.supportsPackageRelativePaths()) {
           const relativePath = path.resolve(packageJson.basePath, importPath)
-          const sourceFile = SourceFile.loadFromFilePath(relativePath, suffixes)
+          const sourceFile = this.cache.sourceFile(relativePath, suffixes)
           if (sourceFile !== undefined) {
             const resolvedFiles = this.resolveSourceFile(sourceFile)
             let found = false

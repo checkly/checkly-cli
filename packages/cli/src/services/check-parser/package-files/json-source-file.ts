@@ -1,11 +1,9 @@
 import { SourceFile } from './source-file'
-import type { LoadFile } from './loader'
-
-export type Options = {
-  sourceFileLoader?: LoadFile<SourceFile>,
-}
 
 export class JsonSourceFile<Schema> {
+  static #id = 0
+  readonly id = ++JsonSourceFile.#id
+
   sourceFile: SourceFile
   data: Schema
 
@@ -25,22 +23,5 @@ export class JsonSourceFile<Schema> {
       return new JsonSourceFile(sourceFile, data)
     } catch (err: any) {
     }
-  }
-
-  static loadFromFilePath<Schema> (
-    filePath: string,
-    options?: Options,
-  ): JsonSourceFile<Schema> | undefined {
-    const { sourceFileLoader } = {
-      sourceFileLoader: SourceFile.loadFromFilePath,
-      ...options,
-    }
-
-    const sourceFile = sourceFileLoader(filePath)
-    if (sourceFile === undefined) {
-      return
-    }
-
-    return JsonSourceFile.loadFromSourceFile(sourceFile)
   }
 }
