@@ -31,7 +31,7 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
    * Fix following url:
    * {@link https://checklyhq.com/docs/cli/constructs/#MSTeamsalertchannel Read more in the docs}
   */
-  constructor(logicalId: string, props: MSTeamsAlertChannelProps) {
+  constructor (logicalId: string, props: MSTeamsAlertChannelProps) {
     super(logicalId, props)
     this.name = props.name
     this.url = props.url
@@ -110,7 +110,7 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
     Session.registerConstruct(this)
   }
 
-  synthesize() {
+  synthesize () {
     return {
       ...super.synthesize(),
       type: 'WEBHOOK_MSTEAMS',
