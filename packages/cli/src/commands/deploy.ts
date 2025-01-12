@@ -6,7 +6,6 @@ import { Flags, ux } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { runtimes } from '../rest/api'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
@@ -92,7 +91,8 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: avilableRuntimes } = await runtimes.getAll()
+    const { data: account } = await api.accounts.get(config.getAccountId())
+    const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -108,6 +108,7 @@ export default class Deploy extends AuthCommand {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
     })
@@ -139,8 +140,6 @@ export default class Deploy extends AuthCommand {
       this.log(`Successfully wrote debug bundle to "${debugBundleOutputFile}".`)
       return
     }
-
-    const { data: account } = await api.accounts.get(config.getAccountId())
 
     if (!force && !preview) {
       const { confirm } = await prompts({

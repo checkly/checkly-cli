@@ -295,7 +295,7 @@ export class ApiCheck extends Check {
 
     if (props.setupScript) {
       if ('entrypoint' in props.setupScript) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId!)
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId)
         this.localSetupScript = script
         this.setupScriptPath = scriptPath
         this.setupScriptDependencies = dependencies
@@ -314,7 +314,7 @@ export class ApiCheck extends Check {
 
     if (props.tearDownScript) {
       if ('entrypoint' in props.tearDownScript) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId!)
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId)
         this.localTearDownScript = script
         this.tearDownScriptPath = scriptPath
         this.tearDownScriptDependencies = dependencies
@@ -337,7 +337,7 @@ export class ApiCheck extends Check {
     this.addPrivateLocationCheckAssignments()
   }
 
-  static bundle (entrypoint: string, runtimeId: string) {
+  static bundle (entrypoint: string, runtimeId?: string) {
     let absoluteEntrypoint = null
     if (path.isAbsolute(entrypoint)) {
       absoluteEntrypoint = entrypoint
@@ -348,7 +348,7 @@ export class ApiCheck extends Check {
       absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
     }
 
-    const runtime = Session.availableRuntimes[runtimeId]
+    const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }

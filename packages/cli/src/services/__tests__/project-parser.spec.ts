@@ -33,6 +33,7 @@ describe('parseProject()', () => {
       projectName: 'project name',
       repoUrl: 'https://github.com/checkly/checkly-cli',
       availableRuntimes: runtimes,
+      defaultRuntimeId: '2024.02',
     })
     const synthesizedProject = project.synthesize()
     expect(synthesizedProject).toMatchObject({
@@ -67,6 +68,7 @@ describe('parseProject()', () => {
       projectName: 'project name',
       repoUrl: 'https://github.com/checkly/checkly-cli',
       availableRuntimes: runtimes,
+      defaultRuntimeId: '2024.02',
     })
     const synthesizedProject = project.synthesize()
     expect(synthesizedProject).toMatchObject({
@@ -123,6 +125,7 @@ describe('parseProject()', () => {
       projectName: 'ts project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
       availableRuntimes: runtimes,
+      defaultRuntimeId: '2024.02',
     })
     expect(project.synthesize()).toMatchObject({
       project: {
@@ -143,6 +146,7 @@ describe('parseProject()', () => {
       availableRuntimes: runtimes,
       checkMatch: ['**/__checks1__/*.check.js', '**/__checks2__/*.check.js', '**/__nested-checks__/*.check.js'],
       browserCheckMatch: ['**/__checks1__/*.spec.js', '**/__checks2__/*.spec.js', '**/__nested-checks__/*.spec.js'],
+      defaultRuntimeId: '2024.02',
     })
     expect(project.synthesize()).toMatchObject({
       project: {
@@ -170,6 +174,7 @@ describe('parseProject()', () => {
         availableRuntimes: runtimes,
         checkMatch: '**/*.foobar.js', // don't match .check.js files used for a different test
         browserCheckMatch: '**/*.spec.js',
+        defaultRuntimeId: '2024.02',
       })
       // shouldn't reach this point
       expect(true).toBe(false)
@@ -187,6 +192,7 @@ describe('parseProject()', () => {
         projectName: 'empty script project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
         availableRuntimes: runtimes,
+        defaultRuntimeId: '2024.02',
         browserCheckMatch: '**/*.foobar.js', // don't match .spec.js files used for a different test
       })
       // shouldn't reach this point
@@ -203,6 +209,7 @@ describe('parseProject()', () => {
       projectLogicalId: 'glob-project-id',
       projectName: 'glob project',
       availableRuntimes: runtimes,
+      defaultRuntimeId: '2024.02',
       checkMatch: [],
       browserCheckMatch: ['**/__checks__/browser/*.spec.js'],
       multiStepCheckMatch: ['**/__checks__/multistep/*.spec.js'],

@@ -79,8 +79,7 @@ export class BrowserCheck extends Check {
         }
         absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
       }
-      // runtimeId will always be set by check or browser check defaults so it is safe to use ! operator
-      const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId!)
+      const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId)
       if (!bundle.script) {
         throw new Error(`Browser check "${logicalId}" is not allowed to be empty`)
       }
@@ -115,8 +114,8 @@ export class BrowserCheck extends Check {
     }
   }
 
-  static bundle (entry: string, runtimeId: string) {
-    const runtime = Session.availableRuntimes[runtimeId]
+  static bundle (entry: string, runtimeId?: string) {
+    const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
