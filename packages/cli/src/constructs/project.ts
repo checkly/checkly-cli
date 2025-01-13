@@ -142,6 +142,7 @@ export class Session {
   static checkFilePath?: string
   static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>
+  static defaultRuntimeId?: string
   static verifyRuntimeDependencies = true
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
@@ -153,7 +154,7 @@ export class Session {
     } else if (Session.loadingChecklyConfigFile && construct.allowInChecklyConfig()) {
       Session.checklyConfigFileConstructs!.push(construct)
     } else {
-      throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support on support@checklyhq.com')
+      throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support at support@checklyhq.com.')
     }
   }
 
@@ -181,5 +182,13 @@ export class Session {
       Session.privateLocations = privateLocations
     }
     return Session.privateLocations
+  }
+
+  static getRuntime (runtimeId?: string): Runtime | undefined {
+    const effectiveRuntimeId = runtimeId ?? Session.defaultRuntimeId
+    if (effectiveRuntimeId === undefined) {
+      throw new Error('Internal Error: Account default runtime is not set. Please contact Checkly support at support@checklyhq.com.')
+    }
+    return Session.availableRuntimes[effectiveRuntimeId]
   }
 }

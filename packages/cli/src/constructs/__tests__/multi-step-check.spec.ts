@@ -19,6 +19,7 @@ describe('MultistepCheck', () => {
     })
     expect(check.synthesize()).toMatchObject({ checkType: 'MULTI_STEP' })
   })
+
   it('should throw if runtime does not support multi step check type', () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
@@ -33,7 +34,75 @@ describe('MultistepCheck', () => {
     }
     expect(() => new MultiStepCheck('main-check', {
       name: 'Main Check',
+      runtimeId: '2023.09',
       code: { content: '' },
     })).toThrowError('This runtime does not support multi step checks.')
+  })
+
+  it('should throw if runtime is not set and default runtime does not support multi step check type', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = {
+      ...runtimesWithMultiStepSupport,
+      9999.99: {
+        ...runtimesWithMultiStepSupport['2023.09'],
+        multiStepSupport: false,
+      },
+    }
+    Session.defaultRuntimeId = '9999.99'
+    expect(() => new MultiStepCheck('main-check', {
+      name: 'Main Check',
+      code: { content: '' },
+    })).toThrowError('This runtime does not support multi step checks.')
+    delete Session.defaultRuntimeId
+  })
+
+  it('should succeed if runtime is not set but default runtime supports multi step check type', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = runtimesWithMultiStepSupport
+    Session.defaultRuntimeId = '2023.09'
+    expect(() => new MultiStepCheck('main-check', {
+      name: 'Main Check',
+      code: { content: '' },
+    })).not.toThrowError()
+    delete Session.defaultRuntimeId
+  })
+
+  it('should not synthesize runtime if not specified even if default runtime is set', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = runtimesWithMultiStepSupport
+    Session.defaultRuntimeId = '2023.09'
+    const multiCheck = new MultiStepCheck('main-check', {
+      name: 'Main Check',
+      code: { content: '' },
+    })
+    const payload = multiCheck.synthesize()
+    expect(payload.runtimeId).toBeUndefined()
+    delete Session.defaultRuntimeId
+  })
+
+  it('should synthesize runtime if specified', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = runtimesWithMultiStepSupport
+    Session.defaultRuntimeId = '2023.09'
+    const multiCheck = new MultiStepCheck('main-check', {
+      name: 'Main Check',
+      runtimeId: '2023.09',
+      code: { content: '' },
+    })
+    const payload = multiCheck.synthesize()
+    expect(payload.runtimeId).toEqual('2023.09')
+    delete Session.defaultRuntimeId
   })
 })

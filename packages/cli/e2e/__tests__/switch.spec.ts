@@ -11,6 +11,7 @@ describe('switch', () => {
       promptsInjection: [{
         id: config.get('accountId') as string,
         name: accountName,
+        runtimeId: '2024.02', // Not important for this command.
       }],
       timeout: 5000,
     })

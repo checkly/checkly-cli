@@ -36,6 +36,84 @@ describe('ApiCheck', () => {
     })
   })
 
+  it('should fail to bundle if runtime is not specified and default runtime is not set', () => {
+    const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
+    const bundle = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _bundle = ApiCheck.bundle(getFilePath('entrypoint.js'), undefined)
+    }
+
+    Session.basePath = __dirname
+    Session.availableRuntimes = runtimes
+    Session.defaultRuntimeId = undefined
+    expect(bundle).toThrowError('runtime is not set')
+    delete Session.basePath
+    delete Session.defaultRuntimeId
+  })
+
+  it('should successfully bundle if runtime is not specified but default runtime is set', () => {
+    const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
+    const bundle = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _bundle = ApiCheck.bundle(getFilePath('entrypoint.js'), undefined)
+    }
+
+    Session.basePath = __dirname
+    Session.availableRuntimes = runtimes
+    Session.defaultRuntimeId = '2022.10'
+    expect(bundle).not.toThrowError('is not supported')
+    delete Session.basePath
+    delete Session.defaultRuntimeId
+  })
+
+  it('should fail to bundle if runtime is not supported even if default runtime is set', () => {
+    const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
+    const bundle = () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _bundle = ApiCheck.bundle(getFilePath('entrypoint.js'), '9999.99')
+    }
+
+    Session.basePath = __dirname
+    Session.availableRuntimes = runtimes
+    Session.defaultRuntimeId = '2022.02'
+    expect(bundle).toThrowError('9999.99 is not supported')
+    delete Session.basePath
+    delete Session.defaultRuntimeId
+  })
+
+  it('should not synthesize runtime if not specified even if default runtime is set', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = runtimes
+    Session.defaultRuntimeId = '2022.02'
+    const apiCheck = new ApiCheck('test-check', {
+      name: 'Test Check',
+      request,
+    })
+    const payload = apiCheck.synthesize()
+    expect(payload.runtimeId).toBeUndefined()
+    delete Session.defaultRuntimeId
+  })
+
+  it('should synthesize runtime if specified', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.availableRuntimes = runtimes
+    Session.defaultRuntimeId = '2022.02'
+    const apiCheck = new ApiCheck('test-check', {
+      name: 'Test Check',
+      runtimeId: '2022.02',
+      request,
+    })
+    const payload = apiCheck.synthesize()
+    expect(payload.runtimeId).toEqual('2022.02')
+    delete Session.defaultRuntimeId
+  })
+
   it('should apply default check settings', () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',

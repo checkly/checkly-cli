@@ -47,7 +47,7 @@ export class MultiStepCheck extends Check {
 
     this.playwrightConfig = props.playwrightConfig
 
-    if (!Session.availableRuntimes[this.runtimeId!]?.multiStepSupport) {
+    if (!Session.getRuntime(this.runtimeId)?.multiStepSupport) {
       throw new Error('This runtime does not support multi step checks.')
     }
     if ('content' in props.code) {
@@ -65,7 +65,7 @@ export class MultiStepCheck extends Check {
         absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
       }
       // runtimeId will always be set by check or multi-step check defaults so it is safe to use ! operator
-      const bundle = MultiStepCheck.bundle(absoluteEntrypoint, this.runtimeId!)
+      const bundle = MultiStepCheck.bundle(absoluteEntrypoint, this.runtimeId)
       if (!bundle.script) {
         throw new Error(`Multi-Step check "${logicalId}" is not allowed to be empty`)
       }
@@ -99,8 +99,8 @@ export class MultiStepCheck extends Check {
     }
   }
 
-  static bundle (entry: string, runtimeId: string) {
-    const runtime = Session.availableRuntimes[runtimeId]
+  static bundle (entry: string, runtimeId?: string) {
+    const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }

@@ -23,12 +23,12 @@ type ProjectParseOpts = {
   checkDefaults?: CheckConfigDefaults,
   browserCheckDefaults?: CheckConfigDefaults,
   availableRuntimes: Record<string, Runtime>,
+  defaultRuntimeId: string,
   verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
 }
 
 const BASE_CHECK_DEFAULTS = {
-  runtimeId: '2024.02',
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -44,6 +44,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     checkDefaults = {},
     browserCheckDefaults = {},
     availableRuntimes,
+    defaultRuntimeId,
     verifyRuntimeDependencies,
     checklyConfigConstructs,
   } = opts
@@ -59,6 +60,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
+  Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?

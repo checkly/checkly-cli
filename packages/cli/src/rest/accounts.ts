@@ -3,6 +3,7 @@ import type { AxiosInstance } from 'axios'
 export interface Account {
   id: string
   name: string
+  runtimeId: string
 }
 
 class Accounts {

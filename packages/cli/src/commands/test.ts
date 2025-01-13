@@ -159,6 +159,7 @@ export default class Test extends AuthCommand {
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
+    const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
 
     const project = await parseProject({
@@ -176,6 +177,7 @@ export default class Test extends AuthCommand {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),
+      defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
     })
