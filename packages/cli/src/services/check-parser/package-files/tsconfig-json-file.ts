@@ -54,27 +54,16 @@ interface CompilerOptions {
    * @see https://www.typescriptlang.org/tsconfig/#composite
    */
   composite?: boolean
+
+  /**
+   * If true, TypeScript-specific extensions can be imported. Requires
+   * either `noEmit: true` or `emitDeclarationOnly: true`.
+   */
+  allowImportingTsExtensions?: boolean
 }
 
 export interface Schema {
   compilerOptions?: CompilerOptions
-}
-
-type JSExtension = '.js' | '.mjs' | '.cjs'
-
-const JSExtensions: JSExtension[] = ['.js', '.mjs', '.cjs']
-
-type JSExtensionMappings = {
-  [key in JSExtension]: string[]
-}
-
-/**
- * @see https://www.typescriptlang.org/docs/handbook/modules/reference.html#file-extension-substitution
- */
-const extensionMappings: JSExtensionMappings = {
-  '.js': ['.ts', '.tsx', '.js', '.jsx'],
-  '.mjs': ['.mts', '.mjs'],
-  '.cjs': ['.cts', '.cjs'],
 }
 
 export class TSConfigFile {
@@ -88,6 +77,7 @@ export class TSConfigFile {
   moduleResolution: string
   baseUrl?: string
   pathResolver: PathResolver
+  allowImportingTsExtensions: boolean
 
   relatedSourceFiles: SourceFile[] = []
 
@@ -104,6 +94,8 @@ export class TSConfigFile {
     }
 
     this.pathResolver = PathResolver.createFromPaths(this.baseUrl ?? '.', jsonFile.data.compilerOptions?.paths ?? {})
+
+    this.allowImportingTsExtensions = jsonFile.data.compilerOptions?.allowImportingTsExtensions ?? false
   }
 
   public get meta () {
@@ -133,22 +125,6 @@ export class TSConfigFile {
     return this.pathResolver.resolve(importPath)
   }
 
-  private extifyLookupPaths (filePaths: string[]): string[] {
-    return filePaths.flatMap(filePath => {
-      let extensions = extensionMappings['.js']
-      let extlessPath = filePath
-
-      for (const ext of JSExtensions) {
-        if (filePath.endsWith(ext)) {
-          extensions = extensionMappings[ext]
-          extlessPath = filePath.substring(0, filePath.length - ext.length)
-        }
-      }
-
-      return extensions.map(ext => path.resolve(this.basePath, extlessPath + ext))
-    })
-  }
-
   collectLookupPaths (filePath: string): string[] {
     let {
       outDir,
@@ -160,8 +136,8 @@ export class TSConfigFile {
     const candidates = []
 
     if (outDir === undefined) {
-      candidates.push(filePath)
-      return this.extifyLookupPaths(candidates) // Nothing more we can do.
+      candidates.push(path.resolve(this.basePath, filePath))
+      return candidates // Nothing more we can do.
     }
 
     if (composite === undefined) {
@@ -187,8 +163,8 @@ export class TSConfigFile {
     // something that wasn't compiled using this tsconfig (or at all), and
     // stop looking.
     if (relativePath.startsWith('..')) {
-      candidates.push(filePath)
-      return this.extifyLookupPaths(candidates)
+      candidates.push(path.resolve(this.basePath, filePath))
+      return candidates
     }
 
     candidates.push(path.resolve(this.basePath, rootDir, relativePath))
@@ -200,7 +176,7 @@ export class TSConfigFile {
       candidates.push(path.resolve(this.basePath, multiRootDir, relativePath))
     }
 
-    return this.extifyLookupPaths(candidates)
+    return candidates
   }
 
   registerRelatedSourceFile (file: SourceFile) {

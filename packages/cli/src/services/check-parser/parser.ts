@@ -20,26 +20,6 @@ type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
 
-const JS_RESOLVE_ORDER = [
-  '.js',
-  '.mjs',
-  PACKAGE_EXTENSION,
-  `${path.sep}index.js`,
-  // TODO: Check the module type in package.json to figure out the esm and common js file extensions
-  `${path.sep}index.mjs`,
-]
-
-const TS_RESOLVE_ORDER = [
-  '.ts',
-  '.js',
-  '.mjs',
-  PACKAGE_EXTENSION,
-  `${path.sep}index.ts`,
-  `${path.sep}index.js`,
-  // TODO: Check the module type in package.json to figure out the esm and common js file extensions
-  `${path.sep}index.mjs`,
-]
-
 const supportedBuiltinModules = [
   'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline ', 'stream', 'string_decoder',
   'timers', 'tls', 'url', 'util', 'zlib',
@@ -131,9 +111,7 @@ export class Parser {
         continue
       }
 
-      const suffixes = extension === '.js' ? JS_RESOLVE_ORDER : TS_RESOLVE_ORDER
-
-      const resolved = resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies, suffixes)
+      const resolved = resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       if (this.checkUnsupportedModules) {
         const unsupportedDependencies = resolved.external.flatMap(dep => {

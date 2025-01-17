@@ -156,6 +156,51 @@ describe('dependency-parser - parser()', () => {
     expect(dependencies.map(d => d.filePath).sort()).toEqual([])
   })
 
+  it('should support importing ts extensions if allowed', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-allow-importing-ts-extensions', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('src', 'dep1.ts'),
+      toAbsolutePath('src', 'dep2.ts'),
+      toAbsolutePath('src', 'dep3.ts'),
+    ])
+  })
+
+  it('should not import TS files from a JS file', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'no-import-ts-from-js', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+    } catch (err) {
+      expect(err).toMatchObject({
+        missingFiles: [
+          toAbsolutePath('dep1'),
+          toAbsolutePath('dep1.ts'),
+          toAbsolutePath('dep1.js'),
+        ],
+      })
+    }
+  })
+
+  it('should import JS files from a TS file', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'import-js-from-ts', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('dep1.js'),
+      toAbsolutePath('dep2.js'),
+      toAbsolutePath('dep3.ts'),
+    ])
+  })
+
   it('should handle ES Modules', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
     const parser = new Parser({
