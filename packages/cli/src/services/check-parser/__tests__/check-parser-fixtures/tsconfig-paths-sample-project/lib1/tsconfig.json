@@ -1,0 +1,18 @@
+{
+  "exclude": [
+    "dist",
+    "node_modules"
+  ],
+  "include": [
+    "./**/*.ts"
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": true,
+    "declarationMap": true
+  }
+}
