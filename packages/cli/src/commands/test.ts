@@ -124,7 +124,9 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
-    ux.action.start('Parsing your project', undefined, { stdout: true })
+    if (this.fancy) {
+      ux.action.start('Parsing your project', undefined, { stdout: true })
+    }
 
     const { flags, argv } = await this.parse(Test)
     const {
@@ -228,7 +230,9 @@ export default class Test extends AuthCommand {
       check.snapshots = await uploadSnapshots(check.rawSnapshots)
     }
 
-    ux.action.stop()
+    if (this.fancy) {
+      ux.action.stop()
+    }
 
     if (!checks.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)

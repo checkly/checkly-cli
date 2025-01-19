@@ -10,6 +10,7 @@ export type BaseCommandClass = typeof Command & {
 export abstract class BaseCommand extends Command {
   static coreCommand = false
   static hidden = true
+  fancy = true
 
   protected async init (): Promise<void> {
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
@@ -33,6 +34,10 @@ export abstract class BaseCommand extends Command {
       } catch {
         process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')
       }
+    }
+
+    if (process.env.CHECKLY_E2E_DISABLE_FANCY_OUTPUT) {
+      this.fancy = false
     }
 
     return super.init()

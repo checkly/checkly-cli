@@ -37,6 +37,7 @@ export function runChecklyCli (options: {
         // Once 4.8.0 has been released, we can remove the 4.8.0 fallback here.
         CHECKLY_CLI_VERSION: cliVersion ?? '4.8.0',
         CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
+        CHECKLY_E2E_DISABLE_FANCY_OUTPUT: '1',
         ...env,
       },
       cwd: directory ?? process.cwd(),

@@ -74,7 +74,9 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    ux.action.start('Parsing your project', undefined, { stdout: true })
+    if (this.fancy) {
+      ux.action.start('Parsing your project', undefined, { stdout: true })
+    }
     const { flags } = await this.parse(Deploy)
     const {
       force,
@@ -113,7 +115,10 @@ export default class Deploy extends AuthCommand {
       checklyConfigConstructs,
     })
     const repoInfo = getGitInformation(project.repoUrl)
-    ux.action.stop()
+
+    if (this.fancy) {
+      ux.action.stop()
+    }
 
     if (!preview) {
       for (const check of Object.values(project.data.check)) {
