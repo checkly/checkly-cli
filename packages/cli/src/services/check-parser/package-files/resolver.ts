@@ -244,7 +244,7 @@ export class PackageFilesResolver {
 
     const dirname = path.dirname(filePath)
 
-    const { packageJson, tsconfigJson, jsconfigJson } = this.loadPackageFiles(filePath)
+    const { tsconfigJson, jsconfigJson } = this.loadPackageFiles(filePath)
     const mainConfigJson = tsconfigJson ?? jsconfigJson
 
     const context = LookupContext.forFilePath(filePath, {
