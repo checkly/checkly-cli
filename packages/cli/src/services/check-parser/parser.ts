@@ -82,7 +82,7 @@ export class Parser {
   }
 
   parse (entrypoint: string) {
-    const { extension, content } = validateEntrypoint(entrypoint)
+    const { content } = validateEntrypoint(entrypoint)
 
     const resolver = new PackageFilesResolver()
 
