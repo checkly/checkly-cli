@@ -1,3 +1,5 @@
 import {} from 'node:path'
 import {} from 'node:url'
+import {} from 'node:fs/promises'
 import {} from 'crypto'
+import {} from 'timers/promises'

@@ -100,13 +100,28 @@ export class Parser {
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
   }
 
-  supportsModule (importPath: string) {
+  supportsModule (importPath: string): boolean {
     if (this.supportedModules.has(importPath)) {
       return true
     }
 
     if (this.supportedModules.has('node:' + importPath)) {
       return true
+    }
+
+    // Check namespaced modules and module subpaths.
+    if (importPath.indexOf('/') !== -1) {
+      if (importPath.startsWith('@')) {
+        const [namespace, moduleName] = importPath.split('/', 3)
+        if (this.supportedModules.has(namespace + '/' + moduleName)) {
+          return true
+        }
+      } else {
+        // Recurse to cover values with and without node: prefix.
+        // This will not endlessly recurse because we remove the slash.
+        const [moduleName] = importPath.split('/', 2)
+        return this.supportsModule(moduleName)
+      }
     }
 
     return false
