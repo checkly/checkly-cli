@@ -6,7 +6,7 @@ import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
 import { JSConfigFile } from './jsconfig-json-file'
-import { isLocalPath, PathResult } from './paths'
+import { isBuiltinPath, isLocalPath, PathResult } from './paths'
 import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
 import { LookupContext } from './lookup'
@@ -248,6 +248,13 @@ export class PackageFilesResolver {
 
     resolve:
     for (const importPath of dependencies) {
+      if (isBuiltinPath(importPath)) {
+        resolved.external.push({
+          importPath,
+        })
+        continue resolve
+      }
+
       if (isLocalPath(importPath)) {
         const relativeDepPath = path.resolve(dirname, importPath)
         const sourceFile = this.cache.sourceFile(relativeDepPath, context)
