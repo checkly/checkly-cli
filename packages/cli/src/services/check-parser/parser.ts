@@ -4,7 +4,7 @@ import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
-import { PackageFilesResolver } from './package-files'
+import { PackageFilesResolver, Dependencies } from './package-files/resolver'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 
@@ -73,6 +73,12 @@ type ParserOptions = {
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
+  resolver = new PackageFilesResolver()
+  cache = new Map<string, {
+    module: Module
+    resolvedDependencies?: Dependencies
+    error?: any
+  }>()
 
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
@@ -83,8 +89,6 @@ export class Parser {
 
   parse (entrypoint: string) {
     const { content } = validateEntrypoint(entrypoint)
-
-    const resolver = new PackageFilesResolver()
 
     /*
   * The importing of files forms a directed graph.
@@ -105,16 +109,27 @@ export class Parser {
         continue
       }
 
-      const { module, error } = Parser.parseDependencies(item.filePath, item.content)
+      // This cache is only useful when there are multiple entrypoints with
+      // common files, as we make sure to not add the same file twice to
+      // bfsQueue.
+      const cache = this.cache.get(item.filePath)
+      const { module, error } = cache !== undefined
+        ? cache
+        : Parser.parseDependencies(item.filePath, item.content)
+
       if (error) {
+        this.cache.set(item.filePath, { module, error })
         collector.addParsingError(item.filePath, error.message)
         continue
       }
 
-      const resolved = resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+      const resolvedDependencies = cache?.resolvedDependencies ??
+        this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+
+      this.cache.set(item.filePath, { module, resolvedDependencies })
 
       if (this.checkUnsupportedModules) {
-        const unsupportedDependencies = resolved.external.flatMap(dep => {
+        const unsupportedDependencies = resolvedDependencies.external.flatMap(dep => {
           if (!this.supportedModules.has(dep.importPath)) {
             return [dep.importPath]
           } else {
@@ -126,11 +141,11 @@ export class Parser {
         }
       }
 
-      for (const dep of resolved.missing) {
+      for (const dep of resolvedDependencies.missing) {
         collector.addMissingFile(dep.filePath)
       }
 
-      for (const dep of resolved.local) {
+      for (const dep of resolvedDependencies.local) {
         const filePath = dep.sourceFile.meta.filePath
         if (collector.hasDependency(filePath)) {
           continue

@@ -138,7 +138,7 @@ type ExternalDependency = {
   importPath: string
 }
 
-type Dependencies = {
+export type Dependencies = {
   external: ExternalDependency[],
   missing: MissingDependency[],
   local: LocalDependency[],

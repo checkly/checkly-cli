@@ -1,1 +1,0 @@
-export { PackageFilesResolver } from './resolver'
