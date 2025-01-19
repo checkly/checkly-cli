@@ -155,25 +155,6 @@ class SourcePathSpec {
     this.suffix = suffix
   }
 
-  get moduleLikeName (): string | undefined {
-    if (this.suffix === undefined) {
-      return this.prefix
-    }
-
-    // If prefix is already a directory (ends with `/`), path.dirname will
-    // not return the desired result as it will strip the last component
-    // entirely. However, we can circumvent this by adding a dummy value to
-    // the prefix which ensures that we always get the whole dirname
-    // regardless of whether there is already filename or not.
-    const moduleLike = path.dirname(this.prefix + 'x')
-    if (moduleLike === '') {
-      // Reduce mistakes by returning undefined for this special case.
-      return undefined
-    }
-
-    return moduleLike
-  }
-
   matcherForTarget (target: TargetPathSpec[]): PathMatcher {
     if (this.suffix === undefined) {
       return new ExactPathMatcher(this.prefix, target)
