@@ -52,6 +52,7 @@ export class LookupContext {
       extPath.resolve('index.js'),
       extPath.resolve('index.mjs'),
       extPath.resolve('index.cjs'),
+      extPath.resolve('index.json'), // Yes, this works.
     ]
   }
 
