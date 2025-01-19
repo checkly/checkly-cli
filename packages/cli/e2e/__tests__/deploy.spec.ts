@@ -234,7 +234,29 @@ Update and Unchanged:
     })
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
-    expect(resultOne.stdout).not.toEqual(resultTwo.stdout)
+    expect(resultOne.stdout).toContain(
+`Create:
+    ApiCheck: api-check
+    ApiCheck: api-check-high-freq
+    HeartbeatCheck: heartbeat-check-1
+    BrowserCheck: homepage-browser-check
+    CheckGroup: my-group-1
+    Dashboard: dashboard-1
+    MaintenanceWindow: maintenance-window-1
+    PrivateLocation: private-location-1
+`)
+    expect(resultTwo.stdout).toContain(
+`Create:
+    ApiCheck: api-check
+    ApiCheck: api-check-high-freq
+    HeartbeatCheck: heartbeat-check-1
+    BrowserCheck: homepage-browser-check
+    BrowserCheck: snapshot-test.test.ts
+    CheckGroup: my-group-1
+    Dashboard: dashboard-1
+    MaintenanceWindow: maintenance-window-1
+    PrivateLocation: private-location-1
+`)
   })
 
   it('Should terminate when no resources are found', async () => {
