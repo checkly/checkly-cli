@@ -3,29 +3,18 @@ import { CoreExtension, FileExtPath, tsCoreExtensionLookupOrder, TSExtension, ts
 
 type Options = {
   plainJs?: boolean
-  allowImportingTsExtensions?: boolean
 }
 
 export class LookupContext {
   #plainJs: boolean
-  #allowImportingTsExtensions: boolean
 
   constructor (options: Options) {
     this.#plainJs = options.plainJs ?? false
-    this.#allowImportingTsExtensions = options.allowImportingTsExtensions ?? false
   }
 
-  static forFilePath (filePath: string, options?: Options) {
+  static forFilePath (filePath: string) {
     return new LookupContext({
       plainJs: FileExtPath.fromFilePath(filePath).hasCoreExtension(),
-      allowImportingTsExtensions: options?.allowImportingTsExtensions,
-    })
-  }
-
-  switch (options: Options) {
-    return new LookupContext({
-      plainJs: options.plainJs ?? this.#plainJs,
-      allowImportingTsExtensions: options.allowImportingTsExtensions ?? this.#allowImportingTsExtensions,
     })
   }
 
@@ -45,11 +34,9 @@ export class LookupContext {
       return extensions.map(ext => extPath.replaceExt(ext))
     }
 
-    if (this.#allowImportingTsExtensions) {
-      if (extPath.hasTypeScriptExtension()) {
-        const extensions = tsExtensionLookupOrder[extPath.ext as TSExtension]
-        return extensions.map(ext => extPath.replaceExt(ext))
-      }
+    if (extPath.hasTypeScriptExtension()) {
+      const extensions = tsExtensionLookupOrder[extPath.ext as TSExtension]
+      return extensions.map(ext => extPath.replaceExt(ext))
     }
 
     return this.extlessTSLookupPaths(extPath)

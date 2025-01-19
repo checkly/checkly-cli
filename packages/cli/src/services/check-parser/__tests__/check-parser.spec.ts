@@ -174,6 +174,7 @@ describe('dependency-parser - parser()', () => {
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
+    expect.assertions(1)
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))

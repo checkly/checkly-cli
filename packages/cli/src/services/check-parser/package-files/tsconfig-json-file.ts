@@ -54,12 +54,6 @@ interface CompilerOptions {
    * @see https://www.typescriptlang.org/tsconfig/#composite
    */
   composite?: boolean
-
-  /**
-   * If true, TypeScript-specific extensions can be imported. Requires
-   * either `noEmit: true` or `emitDeclarationOnly: true`.
-   */
-  allowImportingTsExtensions?: boolean
 }
 
 export interface Schema {
@@ -77,7 +71,6 @@ export class TSConfigFile {
   moduleResolution: string
   baseUrl?: string
   pathResolver: PathResolver
-  allowImportingTsExtensions: boolean
 
   relatedSourceFiles: SourceFile[] = []
 
@@ -94,8 +87,6 @@ export class TSConfigFile {
     }
 
     this.pathResolver = PathResolver.createFromPaths(this.baseUrl ?? '.', jsonFile.data.compilerOptions?.paths ?? {})
-
-    this.allowImportingTsExtensions = jsonFile.data.compilerOptions?.allowImportingTsExtensions ?? false
   }
 
   public get meta () {

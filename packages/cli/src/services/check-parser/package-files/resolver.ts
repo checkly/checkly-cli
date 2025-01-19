@@ -204,9 +204,7 @@ export class PackageFilesResolver {
             return context.collectLookupPaths(filePath)
           })
           for (const candidatePath of candidatePaths) {
-            const mainSourceFile = this.cache.sourceFile(candidatePath, context.switch({
-              allowImportingTsExtensions: configJson.allowImportingTsExtensions,
-            }))
+            const mainSourceFile = this.cache.sourceFile(candidatePath, context)
             if (mainSourceFile === undefined) {
               continue
             }
@@ -245,11 +243,8 @@ export class PackageFilesResolver {
     const dirname = path.dirname(filePath)
 
     const { tsconfigJson, jsconfigJson } = this.loadPackageFiles(filePath)
-    const mainConfigJson = tsconfigJson ?? jsconfigJson
 
-    const context = LookupContext.forFilePath(filePath, {
-      allowImportingTsExtensions: mainConfigJson?.allowImportingTsExtensions,
-    })
+    const context = LookupContext.forFilePath(filePath)
 
     resolve:
     for (const importPath of dependencies) {
@@ -283,18 +278,14 @@ export class PackageFilesResolver {
           continue
         }
 
-        const configContext = context.switch({
-          allowImportingTsExtensions: configJson.allowImportingTsExtensions,
-        })
-
         const resolvedPaths = configJson.resolvePath(importPath)
         if (resolvedPaths.length > 0) {
           let found = false
           for (const { source, target } of resolvedPaths) {
             const relativePath = path.resolve(configJson.basePath, target.path)
-            const sourceFile = this.cache.sourceFile(relativePath, configContext)
+            const sourceFile = this.cache.sourceFile(relativePath, context)
             if (sourceFile !== undefined) {
-              const resolvedFiles = this.resolveSourceFile(sourceFile, configContext)
+              const resolvedFiles = this.resolveSourceFile(sourceFile, context)
               for (const resolvedFile of resolvedFiles) {
                 configJson.registerRelatedSourceFile(resolvedFile)
                 resolved.local.push({
@@ -329,9 +320,9 @@ export class PackageFilesResolver {
 
         if (configJson.baseUrl !== undefined) {
           const relativePath = path.resolve(configJson.basePath, configJson.baseUrl, importPath)
-          const sourceFile = this.cache.sourceFile(relativePath, configContext)
+          const sourceFile = this.cache.sourceFile(relativePath, context)
           if (sourceFile !== undefined) {
-            const resolvedFiles = this.resolveSourceFile(sourceFile, configContext)
+            const resolvedFiles = this.resolveSourceFile(sourceFile, context)
             let found = false
             for (const resolvedFile of resolvedFiles) {
               configJson.registerRelatedSourceFile(resolvedFile)
