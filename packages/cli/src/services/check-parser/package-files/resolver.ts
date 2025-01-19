@@ -117,12 +117,6 @@ type TSConfigBaseUrlRelativePathLocalDependency = {
   sourceFile: SourceFile
 }
 
-type PackageRelativePathLocalDependency = {
-  kind: 'package-relative-path'
-  importPath: string
-  sourceFile: SourceFile
-}
-
 type RelativePathLocalDependency = {
   kind: 'relative-path'
   importPath: string
@@ -133,7 +127,6 @@ type LocalDependency =
   TSConfigFileLocalDependency |
   TSConfigResolvedPathLocalDependency |
   TSConfigBaseUrlRelativePathLocalDependency |
-  PackageRelativePathLocalDependency |
   RelativePathLocalDependency
 
 type MissingDependency = {
@@ -353,28 +346,6 @@ export class PackageFilesResolver {
                 importPath,
                 sourceFile: configJson.jsonFile.sourceFile,
                 configFile: configJson,
-              })
-              found = true
-            }
-            if (found) {
-              continue resolve
-            }
-          }
-        }
-      }
-
-      if (packageJson !== undefined) {
-        if (packageJson.supportsPackageRelativePaths()) {
-          const relativePath = path.resolve(packageJson.basePath, importPath)
-          const sourceFile = this.cache.sourceFile(relativePath, context)
-          if (sourceFile !== undefined) {
-            const resolvedFiles = this.resolveSourceFile(sourceFile, context)
-            let found = false
-            for (const resolvedFile of resolvedFiles) {
-              resolved.local.push({
-                kind: 'package-relative-path',
-                importPath,
-                sourceFile: resolvedFile,
               })
               found = true
             }

@@ -110,17 +110,6 @@ export class TSConfigFile {
     return path.join(dirPath, TSConfigFile.FILENAME)
   }
 
-  // This doesn't seem to actally be what TS does despite the docs claiming so.
-  supportsPackageRelativePaths () {
-    switch (this.moduleResolution) {
-      case 'node':
-        return true
-      case 'node10':
-        return true
-    }
-    return false
-  }
-
   resolvePath (importPath: string): ResolveResult {
     return this.pathResolver.resolve(importPath)
   }

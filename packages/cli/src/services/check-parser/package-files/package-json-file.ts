@@ -42,8 +42,4 @@ export class PackageJsonFile {
   static filePath (dirPath: string) {
     return path.join(dirPath, PackageJsonFile.FILENAME)
   }
-
-  supportsPackageRelativePaths () {
-    return this.jsonFile.data.exports === undefined
-  }
 }
