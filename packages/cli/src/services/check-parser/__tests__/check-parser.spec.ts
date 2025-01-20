@@ -233,6 +233,14 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
+  it('should handle node: prefix for built-ins', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'builtin-with-node-prefix', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    parser.parse(toAbsolutePath('entrypoint.ts'))
+  })
+
   /*
    * There is an unhandled edge-case when require() is reassigned.
    * Even though the check might execute fine, we throw an error for a missing dependency.

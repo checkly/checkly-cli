@@ -260,3 +260,11 @@ export function isLocalPath (importPath: string) {
 
   return false
 }
+
+export function isBuiltinPath (importPath: string) {
+  if (importPath.startsWith('node:')) {
+    return true
+  }
+
+  return false
+}

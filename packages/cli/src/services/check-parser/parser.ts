@@ -21,8 +21,21 @@ type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 const PACKAGE_EXTENSION = `${path.sep}package.json`
 
 const supportedBuiltinModules = [
-  'assert', 'buffer', 'crypto', 'dns', 'fs', 'path', 'querystring', 'readline ', 'stream', 'string_decoder',
-  'timers', 'tls', 'url', 'util', 'zlib',
+  'node:assert',
+  'node:buffer',
+  'node:crypto',
+  'node:dns',
+  'node:fs',
+  'node:path',
+  'node:querystring',
+  'node:readline',
+  'node:stream',
+  'node:string_decoder',
+  'node:timers',
+  'node:tls',
+  'node:url',
+  'node:util',
+  'node:zlib',
 ]
 
 function validateEntrypoint (entrypoint: string): {extension: SupportedFileExtension, content: string} {
@@ -87,6 +100,18 @@ export class Parser {
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
   }
 
+  supportsModule (importPath: string) {
+    if (this.supportedModules.has(importPath)) {
+      return true
+    }
+
+    if (this.supportedModules.has('node:' + importPath)) {
+      return true
+    }
+
+    return false
+  }
+
   parse (entrypoint: string) {
     const { content } = validateEntrypoint(entrypoint)
 
@@ -130,7 +155,7 @@ export class Parser {
 
       if (this.checkUnsupportedModules) {
         const unsupportedDependencies = resolvedDependencies.external.flatMap(dep => {
-          if (!this.supportedModules.has(dep.importPath)) {
+          if (!this.supportsModule(dep.importPath)) {
             return [dep.importPath]
           } else {
             return []
