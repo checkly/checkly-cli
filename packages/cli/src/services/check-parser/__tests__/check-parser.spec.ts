@@ -127,6 +127,81 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
+  it('should parse typescript dependencies using tsconfig', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-sample-project', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('lib1', 'file1.ts'),
+      toAbsolutePath('lib1', 'file2.ts'),
+      toAbsolutePath('lib1', 'folder', 'file1.ts'),
+      toAbsolutePath('lib1', 'folder', 'file2.ts'),
+      toAbsolutePath('lib1', 'index.ts'),
+      toAbsolutePath('lib1', 'package.json'),
+      toAbsolutePath('lib1', 'tsconfig.json'),
+      toAbsolutePath('lib2', 'index.ts'),
+      toAbsolutePath('lib3', 'foo', 'bar.ts'),
+      toAbsolutePath('tsconfig.json'),
+    ])
+  })
+
+  it('should not include tsconfig if not needed', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-unused', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([])
+  })
+
+  it('should support importing ts extensions if allowed', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-allow-importing-ts-extensions', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('src', 'dep1.ts'),
+      toAbsolutePath('src', 'dep2.ts'),
+      toAbsolutePath('src', 'dep3.ts'),
+    ])
+  })
+
+  it('should not import TS files from a JS file', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'no-import-ts-from-js', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    expect.assertions(1)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+    } catch (err) {
+      expect(err).toMatchObject({
+        missingFiles: [
+          toAbsolutePath('dep1'),
+          toAbsolutePath('dep1.ts'),
+          toAbsolutePath('dep1.js'),
+        ],
+      })
+    }
+  })
+
+  it('should import JS files from a TS file', () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'import-js-from-ts', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('dep1.js'),
+      toAbsolutePath('dep2.js'),
+      toAbsolutePath('dep3.ts'),
+    ])
+  })
+
   it('should handle ES Modules', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
     const parser = new Parser({

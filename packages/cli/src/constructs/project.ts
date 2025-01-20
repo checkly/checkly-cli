@@ -1,5 +1,6 @@
 import * as api from '../rest/api'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { Parser } from '../services/check-parser/parser'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
@@ -147,6 +148,7 @@ export class Session {
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
   static privateLocations: PrivateLocationApi[]
+  static parsers = new Map<string, Parser>()
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
@@ -190,5 +192,21 @@ export class Session {
       throw new Error('Internal Error: Account default runtime is not set. Please contact Checkly support at support@checklyhq.com.')
     }
     return Session.availableRuntimes[effectiveRuntimeId]
+  }
+
+  static getParser (runtime: Runtime): Parser {
+    const cachedParser = Session.parsers.get(runtime.name)
+    if (cachedParser !== undefined) {
+      return cachedParser
+    }
+
+    const parser = new Parser({
+      supportedNpmModules: Object.keys(runtime.dependencies),
+      checkUnsupportedModules: Session.verifyRuntimeDependencies,
+    })
+
+    Session.parsers.set(runtime.name, parser)
+
+    return parser
   }
 }

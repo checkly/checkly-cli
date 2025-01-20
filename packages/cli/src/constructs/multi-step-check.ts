@@ -1,7 +1,6 @@
 import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
-import { Parser } from '../services/check-parser/parser'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
@@ -104,10 +103,7 @@ export class MultiStepCheck extends Check {
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
-    const parser = new Parser({
-      supportedNpmModules: Object.keys(runtime.dependencies),
-      checkUnsupportedModules: Session.verifyRuntimeDependencies,
-    })
+    const parser = Session.getParser(runtime)
     const parsed = parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 

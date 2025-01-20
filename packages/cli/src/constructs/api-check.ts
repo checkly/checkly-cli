@@ -3,7 +3,6 @@ import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
-import { Parser } from '../services/check-parser/parser'
 import { pathToPosix } from '../services/util'
 import { printDeprecationWarning } from '../reporters/util'
 import { Content, Entrypoint } from './construct'
@@ -352,10 +351,7 @@ export class ApiCheck extends Check {
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
-    const parser = new Parser({
-      supportedNpmModules: Object.keys(runtime.dependencies),
-      checkUnsupportedModules: Session.verifyRuntimeDependencies,
-    })
+    const parser = Session.getParser(runtime)
     const parsed = parser.parse(absoluteEntrypoint)
     // Maybe we can get the parsed deps with the content immediately
 
