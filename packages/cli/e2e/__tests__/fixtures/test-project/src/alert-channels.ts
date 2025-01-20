@@ -4,6 +4,8 @@ import {
   EmailAlertChannel,
   SlackAlertChannel,
   WebhookAlertChannel,
+  MSTeamsAlertChannel,
+  TelegramAlertChannel,
 } from 'checkly/constructs'
 
 const sendDefaults = {
@@ -28,6 +30,18 @@ export const slackChannel = new SlackAlertChannel('slack-channel-1', {
   url: new URL('https://hooks.slack.com/services/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'),
   channel: '#ops',
   ...sendDefaults,
+})
+
+export const msTeamsChannel = new MSTeamsAlertChannel('msteams-channel-1', {
+  name: "MS Teams Channel",
+  url: "INSERT_WEBHOOK_HERE",
+})
+
+export const telegramChannel = new TelegramAlertChannel('telegram-channel-1', {
+  name: "Telegram Channel",
+  url: "URL_HERE",
+  apiToken: "API_TOKEN_HERE",
+  chatId: "CHAT_ID_HERE",
 })
 
 export const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
