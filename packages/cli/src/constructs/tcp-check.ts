@@ -2,13 +2,21 @@ import { Check, CheckProps } from './check'
 import { Session } from './project'
 
 export interface TcpRequest {
-  url: string,
+  /**
+   * The hostname the connection should be made to.
+   *
+   * Do not include a scheme or a port in the hostname.
+   */
+  hostname: string
+  /**
+   * The port the connection should be made to.
+   */
   port: number
 }
 
 export interface TcpCheckProps extends CheckProps {
   /**
-   *  Determines the request that the check is going to run.
+   * Determines the request that the check is going to run.
    */
   request: TcpRequest
   /**
@@ -58,7 +66,10 @@ export class TcpCheck extends Check {
     return {
       ...super.synthesize(),
       checkType: 'TCP',
-      request: this.request,
+      request: {
+        url: this.request.hostname, // Hide misleading naming from the user.
+        port: this.request.port,
+      },
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
