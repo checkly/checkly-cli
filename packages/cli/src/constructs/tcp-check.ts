@@ -1,5 +1,23 @@
 import { Check, CheckProps } from './check'
+import { IPFamily } from './api-check'
 import { Session } from './project'
+import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+
+type TcpAssertionSource = 'TEXT_BODY' | 'RESPONSE_TIME'
+
+export type TcpAssertion = CoreAssertion<TcpAssertionSource>
+
+export class TcpAssertionBuilder {
+  static textBody (property?: string) {
+    return new GeneralAssertionBuilder<TcpAssertionSource>('TEXT_BODY', property)
+  }
+
+  static responseTime () {
+    return new NumericAssertionBuilder<TcpAssertionSource>('RESPONSE_TIME')
+  }
+}
+
+export type TcpBodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
 
 export interface TcpRequest {
   /**
@@ -12,6 +30,25 @@ export interface TcpRequest {
    * The port the connection should be made to.
    */
   port: number
+  /**
+   * Check the main Checkly documentation on TCP assertions for specific values
+   * that you can use in the "property" field.
+   */
+  assertions?: Array<TcpAssertion>
+  /**
+   * The IP family to use for the connection.
+   *
+   * @default "IPv4"
+   */
+  ipFamily?: IPFamily
+  /**
+   * The payload to send to the target host.
+   */
+  body?: string
+  /**
+   * The type of the payload.
+   */
+  bodyType?: TcpBodyType
 }
 
 export interface TcpCheckProps extends CheckProps {
@@ -63,13 +100,17 @@ export class TcpCheck extends Check {
   }
 
   synthesize () {
+    // Do some tricks to map user-friendly 'hostname' to API-friendly 'url'.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { hostname: _hostname, ...request } = {
+      ...this.request,
+      url: this.request.hostname,
+    }
+
     return {
       ...super.synthesize(),
       checkType: 'TCP',
-      request: {
-        url: this.request.hostname, // Hide misleading naming from the user.
-        port: this.request.port,
-      },
+      request,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
