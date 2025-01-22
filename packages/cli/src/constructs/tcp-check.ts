@@ -17,8 +17,6 @@ export class TcpAssertionBuilder {
   }
 }
 
-export type TcpBodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
-
 export interface TcpRequest {
   /**
    * The hostname the connection should be made to.
@@ -45,10 +43,6 @@ export interface TcpRequest {
    * The payload to send to the target host.
    */
   body?: string
-  /**
-   * The type of the payload.
-   */
-  bodyType?: TcpBodyType
 }
 
 export interface TcpCheckProps extends CheckProps {
