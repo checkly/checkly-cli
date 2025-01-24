@@ -3,13 +3,13 @@ import { IPFamily } from './api-check'
 import { Session } from './project'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 
-type TcpAssertionSource = 'TEXT_BODY' | 'RESPONSE_TIME'
+type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 
 export type TcpAssertion = CoreAssertion<TcpAssertionSource>
 
 export class TcpAssertionBuilder {
-  static textBody (property?: string) {
-    return new GeneralAssertionBuilder<TcpAssertionSource>('TEXT_BODY', property)
+  static responseData (property?: string) {
+    return new GeneralAssertionBuilder<TcpAssertionSource>('RESPONSE_DATA', property)
   }
 
   static responseTime () {
@@ -40,9 +40,9 @@ export interface TcpRequest {
    */
   ipFamily?: IPFamily
   /**
-   * The payload to send to the target host.
+   * The data to send to the target host.
    */
-  body?: string
+  data?: string
 }
 
 export interface TcpCheckProps extends CheckProps {
@@ -94,17 +94,10 @@ export class TcpCheck extends Check {
   }
 
   synthesize () {
-    // Do some tricks to map user-friendly 'hostname' to API-friendly 'url'.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { hostname: _hostname, ...request } = {
-      ...this.request,
-      url: this.request.hostname,
-    }
-
     return {
       ...super.synthesize(),
       checkType: 'TCP',
-      request,
+      request: this.request,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
