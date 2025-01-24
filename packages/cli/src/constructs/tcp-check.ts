@@ -8,8 +8,8 @@ type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 export type TcpAssertion = CoreAssertion<TcpAssertionSource>
 
 export class TcpAssertionBuilder {
-  static responseData (property?: string) {
-    return new GeneralAssertionBuilder<TcpAssertionSource>('RESPONSE_DATA', property)
+  static responseData () {
+    return new GeneralAssertionBuilder<TcpAssertionSource>('RESPONSE_DATA')
   }
 
   static responseTime () {
