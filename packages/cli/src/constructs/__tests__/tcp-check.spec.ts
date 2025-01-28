@@ -18,11 +18,11 @@ describe('TcpCheck', () => {
     })
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.02'
-    const apiCheck = new TcpCheck('test-check', {
+    const check = new TcpCheck('test-check', {
       name: 'Test Check',
       request,
     })
-    const payload = apiCheck.synthesize()
+    const payload = check.synthesize()
     expect(payload.runtimeId).toBeUndefined()
     delete Session.defaultRuntimeId
   })
@@ -34,12 +34,12 @@ describe('TcpCheck', () => {
     })
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.02'
-    const apiCheck = new TcpCheck('test-check', {
+    const check = new TcpCheck('test-check', {
       name: 'Test Check',
       runtimeId: '2022.02',
       request,
     })
-    const payload = apiCheck.synthesize()
+    const payload = check.synthesize()
     expect(payload.runtimeId).toEqual('2022.02')
     delete Session.defaultRuntimeId
   })
@@ -50,12 +50,12 @@ describe('TcpCheck', () => {
       repoUrl: 'https://github.com/checkly/checkly-cli',
     })
     Session.checkDefaults = { tags: ['default tags'] }
-    const apiCheck = new TcpCheck('test-check', {
+    const check = new TcpCheck('test-check', {
       name: 'Test Check',
       request,
     })
     delete Session.checkDefaults
-    expect(apiCheck).toMatchObject({ tags: ['default tags'] })
+    expect(check).toMatchObject({ tags: ['default tags'] })
   })
 
   it('should overwrite default check settings with check-specific config', () => {
@@ -64,13 +64,13 @@ describe('TcpCheck', () => {
       repoUrl: 'https://github.com/checkly/checkly-cli',
     })
     Session.checkDefaults = { tags: ['default tags'] }
-    const apiCheck = new TcpCheck('test-check', {
+    const check = new TcpCheck('test-check', {
       name: 'Test Check',
       tags: ['test check'],
       request,
     })
     delete Session.checkDefaults
-    expect(apiCheck).toMatchObject({ tags: ['test check'] })
+    expect(check).toMatchObject({ tags: ['test check'] })
   })
 
   it('should support setting groups with `groupId`', () => {
