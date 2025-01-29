@@ -240,6 +240,7 @@ Update and Unchanged:
     ApiCheck: api-check-high-freq
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
+    TcpCheck: tcp-check
     CheckGroup: my-group-1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
@@ -252,6 +253,7 @@ Update and Unchanged:
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
+    TcpCheck: tcp-check
     CheckGroup: my-group-1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
