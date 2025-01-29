@@ -104,6 +104,26 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
+  } if (checkResult.checkType === 'TCP') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else {
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
+    }
   }
   if (checkResult.logs?.length) {
     result.push([
@@ -132,6 +152,7 @@ const assertionSources: any = {
   HEADERS: 'headers',
   TEXT_BODY: 'text body',
   RESPONSE_TIME: 'response time',
+  RESPONSE_DATA: 'response data',
 }
 
 const assertionComparisons: any = {
@@ -214,6 +235,146 @@ function formatHttpResponse (response: any) {
     response.body ? 'Body:' : undefined,
     indentString(stringBody, 2),
   ].filter(Boolean).join('\n')
+}
+
+// IPv4 lookup for a non-existing hostname:
+//
+//   {
+//     "code": "ENOTFOUND",
+//     "syscall": "queryA",
+//     "hostname": "does-not-exist.checklyhq.com"
+//   }
+//
+// IPv6 lookup for a non-existing hostname:
+//
+//   {
+//     "code": "ENOTFOUND",
+//     "syscall": "queryAaaa",
+//     "hostname": "does-not-exist.checklyhq.com"
+//   }
+interface DNSLookupFailureError {
+  code: 'ENOTFOUND'
+  syscall: string
+  hostname: string
+}
+
+function isDNSLookupFailureError (error: any): error is DNSLookupFailureError {
+  return error.code === 'ENOTFOUND' &&
+    typeof error.syscall === 'string' &&
+    typeof error.hostname === 'string'
+}
+
+// Connection attempt to a port that isn't open:
+//
+//   {
+//     "errno": -111,
+//     "code": "ECONNREFUSED",
+//     "syscall": "connect",
+//     "address": "127.0.0.1",
+//     "port": 22
+//   }
+//
+interface ConnectionRefusedError {
+  code: 'ECONNREFUSED'
+  errno?: number
+  syscall: string
+  address: string
+  port: number
+}
+
+function isConnectionRefusedError (error: any): error is ConnectionRefusedError {
+  return error.code === 'ECONNREFUSED' &&
+    typeof error.syscall === 'string' &&
+    typeof error.address === 'string' &&
+    typeof error.port === 'number' &&
+    typeof (error.errno ?? 0) === 'number'
+}
+
+// Connection kept open after data exchange and it timed out:
+//
+//   {
+//     "code": "SOCKET_TIMEOUT",
+//     "address": "api.checklyhq.com",
+//     "port": 9999
+//   }
+interface SocketTimeoutError {
+  code: 'SOCKET_TIMEOUT'
+  address: string
+  port: number
+}
+
+function isSocketTimeoutError (error: any): error is SocketTimeoutError {
+  return error.code === 'SOCKET_TIMEOUT' &&
+    typeof error.address === 'string' &&
+    typeof error.port === 'number'
+}
+
+// Invalid IP address (e.g. IPv4-only hostname when IPFamily is IPv6)
+//
+//   {
+//     "code": "ERR_INVALID_IP_ADDRESS",
+//   }
+interface InvalidIPAddressError {
+  code: 'ERR_INVALID_IP_ADDRESS'
+}
+
+function isInvalidIPAddressError (error: any): error is InvalidIPAddressError {
+  return error.code === 'ERR_INVALID_IP_ADDRESS'
+}
+
+function formatConnectionError (error: any) {
+  if (isDNSLookupFailureError(error)) {
+    const message = [
+      logSymbols.error,
+      `DNS lookup for "${error.hostname}" failed`,
+      `(syscall: ${error.syscall})`,
+    ].join(' ')
+    return chalk.red(message)
+  }
+
+  if (isConnectionRefusedError(error)) {
+    const message = [
+      logSymbols.error,
+      `Connection to "${error.address}:${error.port}" was refused`,
+      `(syscall: ${error.syscall}, errno: ${error.errno ?? '<None>'})`,
+    ].join(' ')
+    return chalk.red(message)
+  }
+
+  if (isSocketTimeoutError(error)) {
+    const message = [
+      logSymbols.error,
+      `Connection to "${error.address}:${error.port}" timed out (perhaps connection was never closed)`,
+    ].join(' ')
+    return chalk.red(message)
+  }
+
+  if (isInvalidIPAddressError(error)) {
+    const message = [
+      logSymbols.error,
+      'Invalid IP address (perhaps hostname and IP family do not match)',
+    ].join(' ')
+    return chalk.red(message)
+  }
+
+  // Some other error we don't have detection for.
+  if (error.code !== undefined) {
+    const { code, ...extra } = error
+    const detailsString = JSON.stringify(extra)
+    const message = [
+      logSymbols.error,
+      `${code} (details: ${detailsString})`,
+    ].join(' ')
+    return chalk.red(message)
+  }
+
+  // If we don't even have a code, give up and output the whole thing.
+  const detailsString = JSON.stringify(error)
+  const message = [
+    logSymbols.error,
+    `Error (details: ${detailsString})`,
+  ].join(' ')
+  return chalk.red(message)
 }
 
 function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) {
