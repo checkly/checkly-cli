@@ -24,6 +24,7 @@ export interface ResourceSync {
   member: boolean,
   payload: any,
 }
+
 export interface ProjectSync {
   project: Project,
   resources: Array<ResourceSync>,
