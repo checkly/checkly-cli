@@ -9,13 +9,13 @@
     "rootDirs": ["src", "e2e"],
     "strict": true,
     "target": "es2019",
-    "sourceMap": true
+    "sourceMap": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
-    "src/**/__tests__",
     "e2e"
   ]
 }
