@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { CheckRunId, SequenceId } from '../services/abstract-check-runner'
-import { printLn, getTestSessionUrl } from './util'
+import { CheckStatus, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
 
 const outputFile = './checkly-json-report.json'
 
@@ -41,8 +41,9 @@ export class JsonBuilder {
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for (const [_, { result, testResultId, numRetries }] of checkMap.entries()) {
+        const checkStatus = resultToCheckStatus(result)
         const check: any = {
-          result: result.hasFailures ? 'Fail' : 'Pass',
+          result: checkStatus === CheckStatus.FAILED ? 'Fail' : checkStatus === CheckStatus.DEGRADED ? 'Degraded' : 'Pass',
           name: result.name,
           checkType: result.checkType,
           durationMilliseconds: result.responseTime ?? null,

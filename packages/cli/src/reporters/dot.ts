@@ -18,6 +18,8 @@ export default class DotReporter extends AbstractListReporter {
     super.onCheckEnd(sequenceId, checkResult)
     if (checkResult.hasFailures) {
       print(`${chalk.red('F')}`)
+    } else if (checkResult.isDegraded) {
+      print(`${chalk.yellow('D')}`)
     } else {
       print(`${chalk.green('.')}`)
     }

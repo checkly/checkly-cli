@@ -13,6 +13,7 @@ export enum CheckStatus {
   RETRIED,
   FAILED,
   SUCCESSFUL,
+  DEGRADED,
 }
 
 export function formatDuration (ms: number): string {
@@ -44,6 +45,9 @@ export function formatCheckTitle (
   } else if (status === CheckStatus.FAILED) {
     statusString = logSymbols.error
     format = chalk.bold.red
+  } else if (status === CheckStatus.DEGRADED) {
+    statusString = logSymbols.warning
+    format = chalk.bold.yellow
   } else if (status === CheckStatus.SCHEDULING) {
     statusString = '~'
     format = chalk.bold.dim
@@ -438,6 +442,14 @@ function toString (val: any): string {
   } else {
     return val.toString()
   }
+}
+
+export function resultToCheckStatus (checkResult: any): CheckStatus {
+  return checkResult.hasFailures
+    ? CheckStatus.FAILED
+    : checkResult.isDegraded
+      ? CheckStatus.DEGRADED
+      : CheckStatus.SUCCESSFUL
 }
 
 export function print (text: string) {
