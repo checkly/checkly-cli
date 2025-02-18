@@ -26,7 +26,7 @@ const MAX_RETRIES = 3
 export default class Trigger extends AuthCommand {
   static coreCommand = true
   static hidden = false
-  static description = 'Trigger your checks on Checkly.'
+  static description = 'Trigger your existing checks on Checkly.'
   static flags = {
     location: Flags.string({
       char: 'l',
