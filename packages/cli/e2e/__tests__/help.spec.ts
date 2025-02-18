@@ -30,7 +30,7 @@ describe('help', () => {
     expect(stdout).toContain(`CORE COMMANDS
   deploy   Deploy your project to your Checkly account.
   test     Test your checks on Checkly.
-  trigger  Trigger your checks on Checkly.`)
+  trigger  Trigger your existing checks on Checkly.`)
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
   destroy          Destroy your project with all its related resources.
