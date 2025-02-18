@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { SequenceId } from '../services/abstract-check-runner'
-import { formatDuration, printLn, getTestSessionUrl } from './util'
+import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
 
 const outputFile = './checkly-github-report.md'
 
@@ -64,8 +64,9 @@ export class GithubMdBuilder {
 
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
       for (const [_, { result, testResultId }] of checkMap.entries()) {
+        const checkStatus = resultToCheckStatus(result)
         const tableRow: Array<string> = [
-          `${result.hasFailures ? '❌ Fail' : '✅ Pass'}`,
+          `${checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'}`,
           `${result.name}`,
           `${result.checkType}`,
           this.hasFilenames ? `\`${result.sourceFile}\`` : undefined,

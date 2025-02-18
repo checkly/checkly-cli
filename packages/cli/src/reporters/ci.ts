@@ -1,7 +1,7 @@
 import indentString from 'indent-string'
 
 import AbstractListReporter from './abstract-list'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
 import { SequenceId } from '../services/abstract-check-runner'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 
@@ -27,7 +27,7 @@ export default class CiReporter extends AbstractListReporter {
 
   onCheckEnd (sequenceId: SequenceId, checkResult: any) {
     super.onCheckEnd(sequenceId, checkResult)
-    printLn(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
+    printLn(formatCheckTitle(resultToCheckStatus(checkResult), checkResult))
 
     if (this.verbose || checkResult.hasFailures) {
       printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)

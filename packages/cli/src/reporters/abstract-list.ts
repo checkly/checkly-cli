@@ -3,8 +3,8 @@ import indentString from 'indent-string'
 
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { Reporter } from './reporter'
-import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn } from './util'
-import type { SequenceId, RunLocation } from '../services/abstract-check-runner'
+import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
+import type { RunLocation, SequenceId } from '../services/abstract-check-runner'
 import { Check } from '../constructs/check'
 import { testSessions } from '../rest/api'
 
@@ -86,7 +86,7 @@ export default abstract class AbstractListReporter implements Reporter {
     checkStatus.result = checkResult
     checkStatus.links = links
     checkStatus.testResultId = testResultId
-    checkStatus.checkStatus = checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL
+    checkStatus.checkStatus = resultToCheckStatus(checkResult)
     checkStatus.titleString = formatCheckTitle(checkStatus.checkStatus, checkResult, {
       includeSourceFile: false,
     })
@@ -104,7 +104,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean} = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
+    const counts = { numFailed: 0, numPassed: 0, numDegraded: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
@@ -120,6 +120,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numRunning++
         } else if (result.hasFailures) {
           counts.numFailed++
+        } else if (result.isDegraded) {
+          counts.numDegraded++
         } else {
           counts.numPassed++
         }
@@ -134,6 +136,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numRunning ? chalk.bold.magenta(`${counts.numRunning} running`) : undefined,
         counts.numRetrying ? chalk.bold(`${counts.numRetrying} retrying`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+        counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
@@ -153,7 +156,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printBriefSummary () {
-    const counts = { numFailed: 0, numPassed: 0, numPending: 0 }
+    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [_, { result }] of checkMap.entries()) {
@@ -161,6 +164,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numPending++
         } else if (result.hasFailures) {
           counts.numFailed++
+        } else if (result.isDegraded) {
+          counts.numDegraded++
         } else {
           counts.numPassed++
         }
@@ -169,6 +174,7 @@ export default abstract class AbstractListReporter implements Reporter {
     status.push('')
     status.push([
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+      counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
       counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
       counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
       `${this.numChecks} total`,

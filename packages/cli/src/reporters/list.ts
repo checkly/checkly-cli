@@ -3,7 +3,7 @@ import chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list'
 import { SequenceId } from '../services/abstract-check-runner'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn } from './util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 
 export default class ListReporter extends AbstractListReporter {
@@ -58,11 +58,15 @@ export default class ListReporter extends AbstractListReporter {
     this._clearSummary()
 
     if (this.verbose) {
-      printLn(formatCheckTitle(checkResult.hasFailures ? CheckStatus.FAILED : CheckStatus.SUCCESSFUL, checkResult))
+      printLn(formatCheckTitle(resultToCheckStatus(checkResult), checkResult))
       printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
     } else {
       if (checkResult.hasFailures) {
         printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
+        printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
+      }
+      if (checkResult.isDegraded) {
+        printLn(formatCheckTitle(CheckStatus.DEGRADED, checkResult))
         printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
       }
     }

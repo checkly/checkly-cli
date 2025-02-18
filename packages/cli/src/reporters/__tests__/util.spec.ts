@@ -1,4 +1,4 @@
-import { formatCheckTitle, formatCheckResult, CheckStatus } from '../util'
+import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus } from '../util'
 import { simpleCheckFixture } from './fixtures/simple-check'
 import { apiCheckResult } from './fixtures/api-check-result'
 import { browserCheckResult } from './fixtures/browser-check-result'
@@ -22,6 +22,10 @@ describe('formatCheckTitle()', () => {
   it('should print a passed check title', () => {
     expect(stripAnsi(formatCheckTitle(CheckStatus.SUCCESSFUL, simpleCheckFixture, { includeSourceFile: true })))
       .toMatchSnapshot('passed-check-title')
+  })
+  it('should print a degraded check title', () => {
+    expect(stripAnsi(formatCheckTitle(CheckStatus.DEGRADED, simpleCheckFixture, { includeSourceFile: true })))
+      .toMatchSnapshot('degraded-check-title')
   })
   it('should print a running check title', () => {
     expect(stripAnsi(formatCheckTitle(CheckStatus.RUNNING, simpleCheckFixture, { includeSourceFile: true })))
@@ -83,5 +87,24 @@ describe('formatCheckResult()', () => {
       expect(stripAnsi(formatCheckResult(basicBrowserCheckResult)))
         .toMatchSnapshot('browser-check-result-schedule-error-format')
     })
+  })
+})
+
+describe('resultToCheckStatus()', () => {
+  it('returns a successful status', () => {
+    expect(resultToCheckStatus({ hasFailures: false, isDegraded: false, hasErrors: false }))
+      .toBe(CheckStatus.SUCCESSFUL)
+  })
+  it('returns a failed status', () => {
+    expect(resultToCheckStatus({ hasFailures: true, isDegraded: false, hasErrors: false }))
+      .toBe(CheckStatus.FAILED)
+  })
+  it('returns a failed status when also degraded', () => {
+    expect(resultToCheckStatus({ hasFailures: true, isDegraded: true, hasErrors: false }))
+      .toBe(CheckStatus.FAILED)
+  })
+  it('returns a degraded status', () => {
+    expect(resultToCheckStatus({ hasFailures: false, isDegraded: true, hasErrors: false }))
+      .toBe(CheckStatus.DEGRADED)
   })
 })
