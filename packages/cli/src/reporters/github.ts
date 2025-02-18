@@ -4,6 +4,7 @@ import * as path from 'path'
 import AbstractListReporter, { checkFilesMap } from './abstract-list'
 import { SequenceId } from '../services/abstract-check-runner'
 import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
+import commonMessages from '../messages/common-messages'
 
 const outputFile = './checkly-github-report.md'
 
@@ -89,7 +90,7 @@ export class GithubMdBuilder {
     this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
 
     if (!this.testSessionId) {
-      markdown = markdown + '> Tip: use `--record` to get a full test session overview with traces, videos and logs, e.g. `npx checkly test --reporter=github --record`'
+      markdown = markdown + `> Tip: ${commonMessages.inlineTips.useRecordFlag}`
     }
 
     return markdown

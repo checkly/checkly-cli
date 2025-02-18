@@ -5,6 +5,7 @@ import AbstractListReporter from './abstract-list'
 import { SequenceId } from '../services/abstract-check-runner'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import commonMessages from '../messages/common-messages'
 
 export default class ListReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
@@ -29,6 +30,9 @@ export default class ListReporter extends AbstractListReporter {
     this._clearSummary()
     this._printSummary()
     this._printTestSessionsUrl()
+    if (!this.testSessionId) {
+      this._printTip(commonMessages.inlineTips.useRecordFlag)
+    }
   }
 
   onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {
