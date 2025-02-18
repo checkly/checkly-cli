@@ -54,7 +54,7 @@
     ],
     "warn-if-update-available": {
       "timeoutInDays": 30,
-      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>."
+      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. To update, run `npm install -D checkly@latest`"
     },
     "topics": {
       "env": {
