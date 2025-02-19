@@ -49,11 +49,11 @@ export async function footer (targetDir?: string): Promise<void> {
   }
   await sleep(200)
   console.log(
-    `${prefix}> Run ${chalk.cyan('npx checkly login')} to login to your Checkly account`,
+    `${prefix}> Run ${chalk.cyan('npx checkly login')} to login to your Checkly account or create a free new account`,
   )
   await sleep(200)
   console.log(
-    `${prefix}> Run ${chalk.cyan('npx checkly test')} to dry run your checks`,
+    `${prefix}> Run ${chalk.cyan('npx checkly test --record')} to dry run your checks`,
   )
   await sleep(200)
   console.log(

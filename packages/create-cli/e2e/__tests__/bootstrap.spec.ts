@@ -45,8 +45,8 @@ function expectCompleteCreation ({
   expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
 
          > Enter your project directory using cd ${projectFolder}
-         > Run npx checkly login to login to your Checkly account
-         > Run npx checkly test to dry run your checks
+         > Run npx checkly login to login to your Checkly account or create a free new account
+         > Run npx checkly test --record to dry run your checks
          > Run npx checkly deploy to deploy your checks to the Checkly cloud
 
          Questions?

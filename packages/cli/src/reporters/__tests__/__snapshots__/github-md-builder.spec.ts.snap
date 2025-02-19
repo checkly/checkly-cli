@@ -18,5 +18,5 @@ Ran **2** checks in **eu-west-1**.
 |:-|:-|:-|:-|:-|
 |✅ Pass|my-test.spec.ts|BROWSER|\`src/__checks__/folder/browser.check.ts\`|7s |
 |✅ Pass|Test API check|API|\`src/some-other-folder/api.check.ts\`|2s |
-> Tip: use \`--record\` to get a full test session overview with traces, videos and logs, e.g. \`npx checkly test --reporter=github --record\`"
+> Tip: Use \`--record\` to get test results in Checkly with full traces, videos and logs: \`npx checkly test --record\`"
 `;

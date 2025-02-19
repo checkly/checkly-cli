@@ -197,6 +197,10 @@ export default abstract class AbstractListReporter implements Reporter {
     }
   }
 
+  _printTip (tip: string): void {
+    printLn(`Tip > ${chalk.white.dim(tip)}`, 2)
+  }
+
   _runLocationString (): string {
     if (this.runLocation.type === 'PUBLIC') {
       return this.runLocation.region
