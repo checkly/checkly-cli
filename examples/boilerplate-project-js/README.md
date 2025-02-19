@@ -7,7 +7,7 @@ https://checklyhq.com website as a monitoring target.
 2. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
-npm create checkly -- --template boilerplate-project
+npm create checkly@latest -- --template boilerplate-project
 ```
 
 ## Project Structure

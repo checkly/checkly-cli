@@ -74,7 +74,7 @@ First, make sure you sign up for a [free Checkly account](https://app.checklyhq.
 Then, the **easiest** way to get started is to install the CLI using the following command:
 
 ```bash
-npm create checkly
+npm create checkly@latest
 ```
 This command will guide you through some simple steps and set up a fully working example project for you. Should take 
 ~1 minute.
