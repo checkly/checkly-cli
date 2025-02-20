@@ -101,7 +101,7 @@ function isString (obj: any) {
 }
 
 export function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
-  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']
+  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mts', 'checkly.config.mjs']
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))
@@ -120,7 +120,7 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   return config
 }
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mts', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
