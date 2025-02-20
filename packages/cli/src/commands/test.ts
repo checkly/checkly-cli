@@ -110,6 +110,11 @@ export default class Test extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    playwrightConfig: Flags.string({
+      char: 'p',
+      description: 'File path to playwright config file',
+      allowNo: true,
+    }),
   }
 
   static args = {
