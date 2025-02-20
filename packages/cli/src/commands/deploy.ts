@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
 import config from '../services/config'
@@ -163,7 +164,7 @@ export default class Deploy extends AuthCommand {
         this.log(this.formatPreview(data, project))
       }
       if (!preview) {
-        await ux.wait(500)
+        await setTimeout(500)
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
 
         // Print the ping URL for heartbeat checks.

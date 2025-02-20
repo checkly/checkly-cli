@@ -1,5 +1,6 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-const oclif = require('@oclif/core')
+const { run, handle, flush } = require('@oclif/core')
 
-oclif.run().then(require('@oclif/core/flush')).catch(require('@oclif/core/handle'))
+run().catch(handle).finally(flush)
