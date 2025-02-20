@@ -9,12 +9,20 @@ type CoreExtensionMapping = {
 }
 
 /**
+ * Unlike TypeScript's native lookup order, our lookup order prefers
+ * implementation files to declaration files.
+ *
+ * Why include declaration files at all? Some of our users use manually
+ * created declaration files as essentially shared header files without a
+ * corresponding implementation file, and the declaration is the only thing
+ * we'll be able to find. Otherwise we'd complain about a missing dependency.
+ *
  * @see https://www.typescriptlang.org/docs/handbook/modules/reference.html#file-extension-substitution
  */
 export const tsCoreExtensionLookupOrder: CoreExtensionMapping = {
-  '.js': ['.ts', '.tsx', '.js', '.jsx'],
-  '.mjs': ['.mts', '.mjs'],
-  '.cjs': ['.cts', '.cjs'],
+  '.js': ['.ts', '.tsx', '.js', '.jsx', '.d.ts'],
+  '.mjs': ['.mts', '.mjs', '.d.mts'],
+  '.cjs': ['.cts', '.cjs', '.d.cts'],
   '.json': ['.json'],
 }
 
