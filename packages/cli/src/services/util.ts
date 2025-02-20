@@ -1,4 +1,4 @@
-import type { CreateAxiosDefaults } from 'axios'
+import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
@@ -8,7 +8,11 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
+import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
+import { Parser } from './check-parser/parser'
+import { checklyStorage } from '../rest/api'
+import { loadFile } from './checkly-config-loader'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -225,6 +229,102 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
+export async function bundlePlayWrightProject (playwrightConfig: string): Promise<string> {
+  const dir = path.resolve(path.dirname(playwrightConfig))
+  const filePath = path.resolve(dir, playwrightConfig)
+  const pwtFileName = path.basename(filePath)
+  const pwtConfig = await loadFile(filePath)
+  const outputDir = path.join(dir, 'playwright-project.tar.gz')
+  const output = fsSync.createWriteStream(outputDir)
+
+  const archive = create('tar', {
+    gzip: true,
+    gzipOptions: {
+      level: 9,
+    },
+  })
+  archive.pipe(output)
+  archive.append(fsSync.createReadStream(filePath), { name: pwtFileName })
+  const { packageJson, packageLock } = getPackageJsonFiles(dir)
+  archive.append(fsSync.createReadStream(packageJson), { name: 'package.json' })
+  archive.append(fsSync.createReadStream(packageLock), { name: 'package-lock.json' })
+  const files = await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
+  loadFilesDependencies(dir, files, archive)
+  await archive.finalize()
+  return new Promise((resolve, reject) => {
+    output.on('close', () => {
+      return resolve(outputDir)
+    })
+
+    output.on('error', (err) => {
+      return reject(err)
+    })
+  })
+}
+
+export function getPackageJsonFiles (dir: string) {
+  const packageJson = path.resolve(dir, 'package.json')
+  const packageLock = path.resolve(dir, 'package-lock.json')
+  return { packageJson, packageLock }
+}
+
+export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig: any, archive: Archiver) {
+  const files: string[] = []
+  if (playWrightConfig.testDir) {
+    archive.directory(path.resolve(dir, playWrightConfig.testDir), path.basename(playWrightConfig.testDir))
+    files.push(...getFiles(playWrightConfig.testDir))
+  }
+  if (playWrightConfig.testMatch) {
+    if (Array.isArray(playWrightConfig.testMatch)) {
+      const arr = await Promise
+        .all(playWrightConfig.testMatch
+          .map((pattern: string) => loadPatternWithDependencies(pattern, dir, archive)))
+      files.push(...arr.flatMap(x => x))
+    } else {
+      const arr = await loadPatternWithDependencies(playWrightConfig.testMatch, dir, archive)
+      files.push(...arr)
+    }
+  }
+  for (const project of playWrightConfig.projects) {
+    if (project.testDir) {
+      archive.directory(path.resolve(dir, project.testDir), project.testDir)
+      files.push(...getFiles(project.testDir))
+    }
+    if (project.testMatch) {
+      if (Array.isArray(project.testMatch)) {
+        const arr = await Promise
+          .all(project.testMatch
+            .map((pattern: string) => loadPatternWithDependencies(pattern, dir, archive)))
+        files.push(...arr.flatMap(x => x))
+      } else {
+        const arr = await loadPatternWithDependencies(project.testMatch, dir, archive)
+        files.push(...arr)
+      }
+    }
+  }
+  return files
+}
+
+function loadPatternWithDependencies (pattern: string, dir: string, archive: Archiver) {
+  archive.glob(pattern, { cwd: dir })
+  return findFilesWithPattern(dir, pattern, [])
+}
+
+export function loadFilesDependencies (dir: string, files: string[], archive: Archiver) {
+  const parser = new Parser({
+    checkUnsupportedModules: false,
+  })
+  const dependencyFiles = files
+    .map(file => parser.parse(file))
+    .flatMap(({ dependencies }) => dependencies)
+    .map(({ filePath }) => filePath)
+  new Set(dependencyFiles)
+    .forEach(dep => {
+      const relPath = dep.replace(dir, '')
+      archive.append(fsSync.createReadStream(dep), { name: relPath })
+    })
+}
+
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
@@ -238,4 +338,30 @@ export async function findFilesWithPattern (
     absolute: true,
   })
   return files.sort()
+}
+
+export function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
+  const { size } = fsSync.statSync(dir)
+  const stream = fsSync.createReadStream(dir)
+  return checklyStorage.uploadCodeBundle(stream, size)
+}
+
+export function cleanup (dir: string) {
+  if (!dir.length) {
+    return
+  }
+  fsSync.rmSync(dir)
+}
+
+function getFiles (dir: string, files: string[] = []) {
+  const fileList = fsSync.readdirSync(dir)
+  for (const file of fileList) {
+    const name = `${dir}/${file}`
+    if (fsSync.statSync(name).isDirectory()) {
+      getFiles(name, files)
+    } else {
+      files.push(name)
+    }
+  }
+  return files
 }
