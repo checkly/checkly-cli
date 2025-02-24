@@ -95,9 +95,9 @@ async function loadPlaywrightProject (playwrightConfig: string | undefined) {
     const { data: { key } } = await uploadPlaywrightProject(dir)
     const playwrightCheck = new PlayWrightCheck(playwrightConfig, {
       name: path.basename(playwrightConfig),
-      codePath: key,
+      source: key,
     })
-  } catch (e) {
+  } catch (e: Error | any) {
   } finally {
     cleanup(dir)
   }
