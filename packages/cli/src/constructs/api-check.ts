@@ -73,6 +73,7 @@ export type ApiCheckDefaultConfig = {
   headers?: Array<HttpHeader>
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
+  assertions?: Array<Assertion>
 }
 
 export interface Request {
