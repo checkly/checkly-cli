@@ -67,7 +67,8 @@ function getTsParser (): any {
       if (!astType.startsWith('TS')) {
         return
       }
-      walk.base[astType] = walk.base[astType] ?? ignore
+      const base: any = walk.base
+      base[astType] = base[astType] ?? ignore
     })
     return tsParser
   } catch (err: any) {
