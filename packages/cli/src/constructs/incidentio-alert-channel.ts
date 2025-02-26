@@ -13,7 +13,7 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
   url: URL|string
   /**
    * The API key created by installing the Checkly integration in Incident.io.
-   * {@link {@link https://www.checklyhq.com/docs/integrations/incidentio/}}
+   * {@link https://www.checklyhq.com/docs/integrations/incidentio/}
    */
   apiKey: string
 }
