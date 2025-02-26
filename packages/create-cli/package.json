@@ -59,7 +59,7 @@
     "@oclif/plugin-warn-if-update-available": "3.1.35",
     "axios": "1.7.4",
     "chalk": "4.1.2",
-    "debug": "4.3.4",
+    "debug": "4.4.0",
     "execa": "5.1.0",
     "giget": "1.1.2",
     "json5": "2.2.3",
@@ -71,7 +71,7 @@
   },
   "devDependencies": {
     "@types/config": "3.3.3",
-    "@types/debug": "4.1.7",
+    "@types/debug": "4.1.12",
     "@types/glob": "8.0.0",
     "@types/jest": "29.5.3",
     "@types/luxon": "3.3.1",
