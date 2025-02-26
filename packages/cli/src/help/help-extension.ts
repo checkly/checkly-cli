@@ -1,23 +1,22 @@
 import { Command, Help } from '@oclif/core'
 import examples from './examples'
-import { BaseCommandClass } from '../commands/baseCommand'
 import { Topic } from '@oclif/core/lib/interfaces'
 
 export default class ChecklyHelpClass extends Help {
-  protected formatAllCommands (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>,
+  protected formatAllCommands (commands: Array<Command.Loadable>,
     topics: Array<Topic>): string {
     if (commands.length === 0) return ''
 
     const coreCommands = commands.filter(c => c.coreCommand)
     const additionalCommands = commands.filter(c => !c.coreCommand)
 
-    const formatCommandsWithoutTopics = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) =>
+    const formatCommandsWithoutTopics = (commands: Array<Command.Loadable>) =>
       commands
         // discard commands with ':' indicating they are under a topic
         .filter(c => !c.id.includes(':') || c.coreCommand)
         .map(c => [c.id.replace(/:/g, ' '), this.summary(c)])
 
-    const formatCommandsWithTopics = (commands: Array<BaseCommandClass | Command.Loadable | Command.Cached>) =>
+    const formatCommandsWithTopics = (commands: Array<Command.Loadable>) =>
       commands
         // discard commands with ':' indicating they are under a topic
         .filter(c => !c.id.includes(':'))

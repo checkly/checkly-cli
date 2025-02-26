@@ -1,3 +1,4 @@
+import prompts from 'prompts'
 import * as api from '../../rest/api'
 import { Flags, Args, ux } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
@@ -43,7 +44,13 @@ export default class EnvAdd extends AuthCommand {
     if (args.value) {
       envValue = args.value
     } else {
-      envValue = await ux.prompt(`What is the value of ${envVariableName}?`, { type: 'mask' })
+      const response = await prompts({
+        type: 'password',
+        name: 'value',
+        message: `What is the value of ${envVariableName}?`,
+      })
+
+      envValue = response.value
     }
     try {
       await api.environmentVariables.add(envVariableName, envValue, locked, secret)
