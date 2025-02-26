@@ -33,15 +33,14 @@ export const slackChannel = new SlackAlertChannel('slack-channel-1', {
 })
 
 export const msTeamsChannel = new MSTeamsAlertChannel('msteams-channel-1', {
-  name: "MS Teams Channel",
-  url: "INSERT_WEBHOOK_HERE",
+  name: 'MS Teams Channel',
+  url: 'INSERT_WEBHOOK_HERE',
 })
 
 export const telegramChannel = new TelegramAlertChannel('telegram-channel-1', {
-  name: "Telegram Channel",
-  url: "URL_HERE",
-  apiToken: "API_TOKEN_HERE",
-  chatId: "CHAT_ID_HERE",
+  name: 'Telegram Channel',
+  apiKey: 'API_TOKEN_HERE',
+  chatId: 'CHAT_ID_HERE',
 })
 
 export const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
