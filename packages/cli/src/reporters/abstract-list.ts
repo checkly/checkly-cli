@@ -198,7 +198,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printTip (tip: string): void {
-    printLn(`Tip > ${chalk.white.dim(tip)}`, 2)
+    printLn(`Tip > ${chalk.white(tip)}`, 2)
   }
 
   _runLocationString (): string {
