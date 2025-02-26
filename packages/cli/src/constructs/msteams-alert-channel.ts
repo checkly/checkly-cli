@@ -1,51 +1,49 @@
-import { Session } from './project'
-import { WebhookAlertChannel, WebhookAlertChannelProps } from './webhook-alert-channel'
+import { WebhookAlertChannel } from './webhook-alert-channel'
+import { AlertChannelProps } from './alert-channel'
 
-export interface MSTeamsAlertChannelProps extends WebhookAlertChannelProps {
+export interface MSTeamsAlertChannelProps extends AlertChannelProps {
   /**
-   * The name of your MSTeams alert
-   */
+   * Friendly name to recognise the integration.
+   * */
   name: string
   /**
-   * The URL webhook to which to send updates.
+   * The unique URL created by creating an integration in Microsoft Teams.
+   * {@link https://www.checklyhq.com/docs/integrations/msteams/}
    */
   url: string
 }
 
 /**
- * Creates an MSTeams Alert Channel
+ * Creates a Microsoft Teams Alert Channel
  *
  * @remarks
  *
  * This class make use of the Alert Channel endpoints.
  */
 export class MSTeamsAlertChannel extends WebhookAlertChannel {
-  name: string
-  url: string
-
   /**
-   * Constructs the MSTeams Alert Channel instance
+   * Constructs the Microsoft Teams Alert Channel instance
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props MSTeams alert channel configuration properties
-   * Fix following url:
-   * {@link https://checklyhq.com/docs/cli/constructs/#MSTeamsalertchannel Read more in the docs}
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#msteamsalertchannel Read more in the docs}
   */
   constructor (logicalId: string, props: MSTeamsAlertChannelProps) {
     super(logicalId, props)
-    this.name = props.name
-    this.url = props.url
-    this.template = props.template || `{
-  "type": "message",
-  "attachments": [
+    this.webhookType = 'WEBHOOK_MSTEAMS'
+    this.method = 'POST'
+    this.template = `{
+  "type":"message",
+  "attachments":[
     {
-      "contentType": "application/vnd.microsoft.card.adaptive",
-      "contentUrl": null,
-      "content": {
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "type": "AdaptiveCard",
-        "version": "1.2",
-        "body": [
+      "contentType":"application/vnd.microsoft.card.adaptive",
+      "contentUrl":null,
+      "content":{
+        "$schema":"http://adaptivecards.io/schemas/adaptive-card.json",
+        "type":"AdaptiveCard",
+        "version":"1.2",
+        "body":[
           {
             "type": "Container",
             "items": [
@@ -96,27 +94,33 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
             ]
           }
         ],
-        "actions": [
+        "actions":[
           {
-            "type": "Action.OpenUrl",
-            "title": "View in Checkly",
-            "url": "{{RESULT_LINK}}"
+            "type":"Action.OpenUrl",
+            "title":"View in Checkly",
+            "url":"{{RESULT_LINK}}"
           }
         ]
       }
     }
   ]
-}`
-    Session.registerConstruct(this)
+}
+`
   }
 
   synthesize () {
     return {
       ...super.synthesize(),
-      type: 'WEBHOOK_MSTEAMS',
+      type: 'WEBHOOK',
       config: {
         name: this.name,
+        webhookType: this.webhookType,
         url: this.url,
+        template: this.template,
+        method: this.method,
+        headers: this.headers,
+        queryParameters: this.queryParameters,
+        webhookSecret: this.webhookSecret,
       },
     }
   }
