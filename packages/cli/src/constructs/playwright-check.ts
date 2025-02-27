@@ -2,14 +2,14 @@ import { Check, CheckProps } from './check'
 import { Session } from './project'
 
 export interface PlaywrightCheckProps extends CheckProps {
-  source: string
+  codeBundlePath: string
 }
 
 export class PlayWrightCheck extends Check {
-  private source: string
+  private codeBundlePath: string
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
-    this.source = props.source
+    this.codeBundlePath = props.codeBundlePath
     Session.registerConstruct(this)
   }
 
@@ -21,7 +21,7 @@ export class PlayWrightCheck extends Check {
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
-      source: this.source,
+      codeBundlePath: this.codeBundlePath,
     }
   }
 }
