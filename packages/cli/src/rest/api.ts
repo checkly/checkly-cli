@@ -13,6 +13,7 @@ import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
 import ChecklyStorage from './checkly-storage'
+import AlertChannels from './alert-channels'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -100,3 +101,4 @@ export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
 export const heartbeatCheck = new HeartbeatChecks(api)
 export const checklyStorage = new ChecklyStorage(api)
+export const alertChannels = new AlertChannels(api)

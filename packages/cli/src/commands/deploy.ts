@@ -1,6 +1,7 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
+import { runtimes } from '../rest/api'
 import config from '../services/config'
 import prompts from 'prompts'
 import { Flags, ux } from '@oclif/core'
@@ -9,15 +10,27 @@ import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import type { Runtime } from '../rest/runtimes'
 import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
-  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, BrowserCheck,
+  AlertChannel,
+  AlertChannelSubscription,
+  BrowserCheck,
+  Check,
+  CheckGroup,
+  Dashboard,
+  MaintenanceWindow,
+  PrivateLocation,
+  PrivateLocationCheckAssignment,
+  PrivateLocationGroupAssignment,
+  Project,
+  ProjectData,
+  ProjectPayload,
 } from '../constructs'
 import chalk from 'chalk'
-import { splitConfigFilePath, getGitInformation } from '../services/util'
+import { getGitInformation, splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
+import { DeployPreview } from '../services/deploy-preview'
+import { TableCli } from '../services/table-cli'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -161,7 +174,8 @@ export default class Deploy extends AuthCommand {
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
       if (preview || output) {
-        this.log(this.formatPreview(data, project))
+        const preview = await this.formatPreview(data, project, projectPayload)
+        this.log(preview)
       }
       if (!preview) {
         await setTimeout(500)
@@ -186,7 +200,11 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: ProjectDeployResponse, project: Project): string {
+  private async formatPreview (
+    previewData: ProjectDeployResponse,
+    project: Project,
+    projectPayload: ProjectPayload,
+  ): Promise<string> {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
@@ -282,10 +300,34 @@ export default class Deploy extends AuthCommand {
       output.push('')
     }
     if (sortedUpdating.length) {
+      const deployPreviewInst = new DeployPreview(projectPayload)
+      const deployPreviewDiff = await deployPreviewInst.getDiff()
+      const table = new TableCli<{
+        paramName: string;
+        currentValue: string;
+        newValue: string;
+      }>()
       output.push(chalk.bold.magenta('Update and Unchanged:'))
       for (const { logicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
       }
+      deployPreviewDiff.forEach((resource) => {
+        if (resource.diffResult) {
+          output.push(`    ${resource.resourceType}: ${resource.logicalId}`)
+          const outputTable = table.drawTable(
+            Object.entries(resource.diffResult).map(([key, value]) => {
+              return {
+                paramName: key,
+                currentValue: value?.[0] !== undefined ? String(value[0]) : '',
+                newValue: value?.[1] !== undefined ? String(value[1]) : '',
+              }
+            }),
+            ['paramName', 'currentValue', 'newValue'],
+            ['Param Name', 'Current Value', 'New Value'],
+          )
+          output.push(outputTable.join('\n'))
+        }
+      })
       output.push('')
     }
     if (skipping.length) {

@@ -25,6 +25,8 @@ export interface CiInformation {
   environment: string | null
 }
 
+export type DiffResult = Record<string, [any, any]> | null;
+
 export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
   if (!fsSync.statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
     return []
@@ -223,3 +225,43 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   axiosConfig.proxy = false
   return axiosConfig
 }
+
+export function uniqValFromArrByKey<
+  T extends object,
+  K extends keyof T
+> (arr: T[], key: K): T[K][] {
+  const resourcesTypesSet = new Set<T[K]>()
+  arr.forEach((item) => {
+    if (item?.[key]) resourcesTypesSet.add(item[key])
+  })
+  return Array.from(resourcesTypesSet)
+}
+
+export function compareObjectsWithExistingKeys<
+  T extends object,
+  U extends object
+> (obj1: T, obj2: U, parentKey = ''): DiffResult {
+  const result: DiffResult = {}
+
+  Object.keys(obj1 as Record<string, any>).forEach((key) => {
+    if (key in obj2) {
+      const fullKey = parentKey ? `${parentKey}.${key}` : key
+
+      const value1 = (obj1 as Record<string, any>)[key]
+      const value2 = (obj2 as Record<string, any>)[key]
+
+      const isObject1 = value1 && typeof value1 === 'object' && !Array.isArray(value1)
+      const isObject2 = value2 && typeof value2 === 'object' && !Array.isArray(value2)
+
+      if (isObject1 && isObject2) {
+        Object.assign(result, compareObjectsWithExistingKeys(value1, value2, fullKey))
+      } else if (value1 !== value2) {
+        result[fullKey] = [value2, value1]
+      }
+    }
+  })
+
+  return Object.keys(result).length ? result : null
+}
+
+export * as utilsService from './util'
