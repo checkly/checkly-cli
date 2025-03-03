@@ -272,7 +272,7 @@ export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig:
   const files: string[] = []
   if (playWrightConfig.testDir) {
     archive.directory(path.resolve(dir, playWrightConfig.testDir), path.basename(playWrightConfig.testDir))
-    files.push(...getFiles(playWrightConfig.testDir))
+    files.push(...getFiles(path.resolve(dir, playWrightConfig.testDir)))
   }
   if (playWrightConfig.testMatch) {
     if (Array.isArray(playWrightConfig.testMatch)) {
@@ -356,7 +356,7 @@ export function cleanup (dir: string) {
 function getFiles (dir: string, files: string[] = []) {
   const fileList = fsSync.readdirSync(dir)
   for (const file of fileList) {
-    const name = `${dir}/${file}`
+    const name = path.join(dir, file)
     if (fsSync.statSync(name).isDirectory()) {
       getFiles(name, files)
     } else {
