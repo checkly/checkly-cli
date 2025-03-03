@@ -288,7 +288,7 @@ export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig:
   for (const project of playWrightConfig.projects) {
     if (project.testDir) {
       archive.directory(path.resolve(dir, project.testDir), project.testDir)
-      files.push(...getFiles(project.testDir))
+      files.push(...getFiles(path.resolve(dir, project.testDir)))
     }
     if (project.testMatch) {
       if (Array.isArray(project.testMatch)) {
