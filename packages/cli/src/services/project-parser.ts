@@ -15,7 +15,7 @@ import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
-import { PlayWrightCheck } from '../constructs/playwright-check'
+import { PlaywrightCheck } from '../constructs/playwright-check'
 
 type ProjectParseOpts = {
   directory: string,
@@ -93,7 +93,7 @@ async function loadPlaywrightProject (playwrightConfig: string | undefined) {
   try {
     dir = await bundlePlayWrightProject(playwrightConfig)
     const { data: { key } } = await uploadPlaywrightProject(dir)
-    const playwrightCheck = new PlayWrightCheck(playwrightConfig, {
+    const playwrightCheck = new PlaywrightCheck(playwrightConfig, {
       name: path.basename(playwrightConfig),
       codeBundlePath: key,
     })
