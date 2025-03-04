@@ -125,7 +125,7 @@ export default class Test extends AuthCommand {
 
   async run (): Promise<void> {
     if (this.fancy) {
-      ux.action.start('Parsing your project', undefined, { stdout: true })
+      ux.action.start('Parsing your project!', undefined, { stdout: true })
     }
 
     const { flags, argv } = await this.parse(Test)
