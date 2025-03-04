@@ -67,10 +67,10 @@ export default class Deploy extends AuthCommand {
       default: false,
       hidden: true,
     }),
-    'debug-bundle-output-file': Flags.string({
-      description: 'The file to output the debug debug bundle to.',
-      default: './debug-bundle.json',
-      hidden: true,
+    playwrightConfig: Flags.string({
+      char: 'p',
+      description: 'File path to playwright config file',
+      allowNo: true,
     }),
   }
 
@@ -88,6 +88,7 @@ export default class Deploy extends AuthCommand {
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'debug-bundle': debugBundle,
       'debug-bundle-output-file': debugBundleOutputFile,
+      playwrightConfig,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -114,6 +115,7 @@ export default class Deploy extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
+      playwrightConfig,
     })
     const repoInfo = getGitInformation(project.repoUrl)
 
