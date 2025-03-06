@@ -8,6 +8,7 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  StatusPage, StatusPagesService,
 } from './'
 import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
@@ -33,6 +34,8 @@ export interface ProjectData {
   'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
   'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
   dashboard: Record<string, Dashboard>,
+  'status-page': Record<string, StatusPage>,
+  'status-page-service': Record<string, StatusPagesService>,
 }
 
 export class Project extends Construct {
@@ -49,6 +52,8 @@ export class Project extends Construct {
     'private-location-check-assignment': {},
     'private-location-group-assignment': {},
     dashboard: {},
+    'status-page': {},
+    'status-page-service': {},
   }
 
   static readonly __checklyType = 'project'
@@ -99,6 +104,8 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
         ...this.synthesizeRecord(this.data.dashboard),
+        ...this.synthesizeRecord(this.data['status-page-service']),
+        ...this.synthesizeRecord(this.data['status-page']),
       ],
     }
   }
