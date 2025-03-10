@@ -10,7 +10,6 @@
   "license": "ISC",
   "devDependencies": {
     "checkly": "latest",
-    "ts-node": "latest",
-    "typescript": "latest"
+    "jiti": "^2"
   }
 }
