@@ -80,10 +80,19 @@
     "@types/uuid": "9.0.1",
     "config": "3.3.9",
     "jest": "29.7.0",
+    "jiti": "2.4.2",
     "rimraf": "5.0.1",
     "ts-jest": "29.2.4",
     "ts-node": "10.9.1",
     "typescript": "5.3.3"
+  },
+  "peerDependencies": {
+    "jiti": ">=2"
+  },
+  "peerDependenciesMeta": {
+    "jiti": {
+      "optional": true
+    }
   },
   "jest": {
     "projects": [
