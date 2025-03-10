@@ -11,10 +11,6 @@ import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
 import { glob } from 'glob'
 
-// Copied from oclif/core
- 
-const _importDynamic = new Function('modulePath', 'return import(modulePath)')
-
 export interface GitInformation {
   commitId: string
   repoUrl?: string | null
@@ -56,17 +52,15 @@ export function findFilesRecursively (directory: string, ignoredPaths: Array<str
   return files
 }
 
-export async function loadJsFile (filepath: string): Promise<any> {
+export async function loadFile (filepath: string): Promise<any> {
   try {
-    // There is a Node opened issue related with a segmentation fault using ES6 modules
-    // with jest https://github.com/nodejs/node/issues/35889
-    // As a work around, we check if Jest is running to modify the way to import the module.
-    // TODO: investigate if the issue is fixed to clean up the conditional import
-    let { default: exported } = typeof jest !== 'undefined'
-      ? { default: await require(filepath) }
-      : await _importDynamic(pathToPosix(filepath))
-
-    if (exported instanceof Function) {
+    let exported: any
+    if (/\.[mc]?ts$/.test(filepath)) {
+      exported = await loadTsFileDefault(filepath)
+    } else {
+      exported = (await import(pathToPosix(filepath))).default
+    }
+    if (typeof exported === 'function') {
       exported = await exported()
     }
     return exported
@@ -75,28 +69,63 @@ export async function loadJsFile (filepath: string): Promise<any> {
   }
 }
 
-export async function loadTsFile (filepath: string): Promise<any> {
-  try {
-    const tsCompiler = await getTsCompiler()
+async function loadTsFileDefault (filepath: string): Promise<any> {
+  const jiti = await getJiti()
+  if (jiti) {
+    return jiti.import<any>(filepath, {
+      default: true,
+    })
+  }
+
+  // Backward-compatibility for users who installed ts-node.
+  const tsCompiler = await getTsNodeService()
+  if (tsCompiler) {
     tsCompiler.enabled(true)
-    let { default: exported } = await require(filepath)
-    if (exported instanceof Function) {
-      exported = await exported()
+    let exported: any
+    try {
+      exported = (await require(filepath)).default
+    } catch (err: any) {
+      if (err.message && err.message.contains('Unable to compile TypeScript')) {
+        throw new Error(`You might try installing "jiti" instead of "ts-node" for improved TypeScript support\n${err.stack}`)
+      }
+      throw err
     }
     tsCompiler.enabled(false) // Re-disable the TS compiler
     return exported
-  } catch (err: any) {
-    throw new Error(`Error loading file ${filepath}\n${err.stack}`)
   }
+
+  throw new Error('Please install "jiti" to use TypeScript files')
+}
+
+// Regular type import gave issue with jest.
+type Jiti = ReturnType<(typeof import('jiti', {
+  with: {
+    'resolution-mode': 'import'
+  }
+}))['createJiti']>
+
+// To avoid a dependency on typescript for users with no TS checks, we need to dynamically import jiti
+let jiti: Jiti
+async function getJiti (): Promise<Jiti | undefined> {
+  if (jiti) return jiti
+  try {
+    jiti = (await import('jiti')).createJiti(__filename)
+  } catch (err: any) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
+      return undefined
+    }
+    throw err
+  }
+  return jiti
 }
 
 // To avoid a dependency on typescript for users with no TS checks, we need to dynamically import ts-node
-let tsCompiler: Service
-async function getTsCompiler (): Promise<Service> {
-  if (tsCompiler) return tsCompiler
+let tsNodeService: Service
+async function getTsNodeService (): Promise<Service | undefined> {
+  if (tsNodeService) return tsNodeService
   try {
     const tsNode = await import('ts-node')
-    tsCompiler = tsNode.register({
+    tsNodeService = tsNode.register({
       moduleTypes: {
         '**/*': 'cjs',
       },
@@ -106,11 +135,11 @@ async function getTsCompiler (): Promise<Service> {
     })
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Please install "ts-node" and "typescript" to use TypeScript configuration files')
+      return undefined
     }
     throw err
   }
-  return tsCompiler
+  return tsNodeService
 }
 
 /**
