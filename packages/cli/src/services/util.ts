@@ -10,7 +10,7 @@ import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
 import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
-import { Parser } from './check-parser/parser'
+import os from 'node:os'
 import { checklyStorage } from '../rest/api'
 import { loadFile } from './checkly-config-loader'
 
@@ -233,7 +233,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await loadFile(filePath)
-  const outputFolder = await fs.mkdtemp('cli-')
+  const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
   const outputDir = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputDir)
 
