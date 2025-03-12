@@ -1,15 +1,20 @@
-import { glob } from 'glob'
 import * as path from 'path'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import {
+  findFilesWithPattern,
+  loadJsFile,
+  loadTsFile,
+  pathToPosix,
+} from './util'
+
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults } from './checkly-config-loader'
-
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
+import { PlaywrightCheck } from '../constructs/playwright-check'
 
 type ProjectParseOpts = {
   directory: string,
@@ -26,6 +31,7 @@ type ProjectParseOpts = {
   defaultRuntimeId: string,
   verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
+  playwrightConfig?: string
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -47,6 +53,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     defaultRuntimeId,
     verifyRuntimeDependencies,
     checklyConfigConstructs,
+    playwrightConfig,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -65,14 +72,27 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
-  await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
-  await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
+  await Promise.all([
+    loadAllCheckFiles(directory, checkMatch, ignoreDirectories),
+    loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
+    loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
+    loadPlaywrightProject(playwrightConfig),
+  ])
 
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
 
   return project
+}
+async function loadPlaywrightProject (playwrightConfigPath: string | undefined) {
+  if (!playwrightConfigPath) {
+    return
+  }
+  const key = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+  const playwrightCheck = new PlaywrightCheck(playwrightConfigPath, {
+    name: path.basename(playwrightConfigPath),
+    codeBundlePath: key,
+  })
 }
 
 async function loadAllCheckFiles (
@@ -222,19 +242,4 @@ async function loadAllPrivateLocationsSlugNames (
         })
     })
   })
-}
-
-async function findFilesWithPattern (
-  directory: string,
-  pattern: string | string[],
-  ignorePattern: string[],
-): Promise<string[]> {
-  // The files are sorted to make sure that the processing order is deterministic.
-  const files = await glob(pattern, {
-    nodir: true,
-    cwd: directory,
-    ignore: ignorePattern,
-    absolute: true,
-  })
-  return files.sort()
 }
