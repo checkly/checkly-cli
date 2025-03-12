@@ -257,12 +257,6 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
   })
 }
 
-export function getPackageJsonFiles (dir: string) {
-  const packageJson = path.resolve(dir, 'package.json')
-  const packageLock = path.resolve(dir, 'package-lock.json')
-  return { packageJson, packageLock }
-}
-
 export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig: any, archive: Archiver) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   try {
@@ -294,21 +288,6 @@ export function gitignoreToGlob (gitignoreContent: string) {
         }
       }
       return result
-    })
-}
-
-export function loadFilesDependencies (dir: string, files: string[], archive: Archiver) {
-  const parser = new Parser({
-    checkUnsupportedModules: false,
-  })
-  const dependencyFiles = files
-    .map(file => parser.parse(file))
-    .flatMap(({ dependencies }) => dependencies)
-    .map(({ filePath }) => filePath)
-  new Set(dependencyFiles)
-    .forEach(dep => {
-      const relPath = dep.replace(dir, '')
-      archive.append(fsSync.createReadStream(dep), { name: relPath })
     })
 }
 
