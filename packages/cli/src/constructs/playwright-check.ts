@@ -29,7 +29,7 @@ export class PlaywrightCheck extends Check {
       return key
     } catch (e: Error | any) {
     } finally {
-      cleanup(dir)
+      await cleanup(dir)
     }
   }
 

@@ -1,10 +1,9 @@
 import * as path from 'path'
 import {
-  bundlePlayWrightProject, cleanup,
   findFilesWithPattern,
   loadJsFile,
   loadTsFile,
-  pathToPosix, uploadPlaywrightProject,
+  pathToPosix,
 } from './util'
 
 import {
@@ -85,22 +84,15 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   return project
 }
-async function loadPlaywrightProject (playwrightConfig: string | undefined) {
-  if (!playwrightConfig) {
+async function loadPlaywrightProject (playwrightConfigPath: string | undefined) {
+  if (!playwrightConfigPath) {
     return
   }
-  let dir = ''
-  try {
-    dir = await bundlePlayWrightProject(playwrightConfig)
-    const { data: { key } } = await uploadPlaywrightProject(dir)
-    const playwrightCheck = new PlaywrightCheck(playwrightConfig, {
-      name: path.basename(playwrightConfig),
-      codeBundlePath: key,
-    })
-  } catch (e: Error | any) {
-  } finally {
-    cleanup(dir)
-  }
+  const key = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+  const playwrightCheck = new PlaywrightCheck(playwrightConfigPath, {
+    name: path.basename(playwrightConfigPath),
+    codeBundlePath: key,
+  })
 }
 
 async function loadAllCheckFiles (

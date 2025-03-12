@@ -232,9 +232,9 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
 export async function bundlePlayWrightProject (playwrightConfig: string): Promise<string> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
-  const pwtFileName = path.basename(filePath)
   const pwtConfig = await loadFile(filePath)
-  const outputDir = path.join(dir, 'playwright-project.tar.gz')
+  const outputFolder = await fs.mkdtemp('cli-')
+  const outputDir = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputDir)
 
   const archive = create('tar', {
@@ -244,12 +244,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
     },
   })
   archive.pipe(output)
-  archive.append(fsSync.createReadStream(filePath), { name: pwtFileName })
-  const { packageJson, packageLock } = getPackageJsonFiles(dir)
-  archive.append(fsSync.createReadStream(packageJson), { name: 'package.json' })
-  archive.append(fsSync.createReadStream(packageLock), { name: 'package-lock.json' })
-  const files = await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
-  loadFilesDependencies(dir, files, archive)
+  await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
@@ -269,45 +264,37 @@ export function getPackageJsonFiles (dir: string) {
 }
 
 export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig: any, archive: Archiver) {
-  const files: string[] = []
-  if (playWrightConfig.testDir) {
-    archive.directory(path.resolve(dir, playWrightConfig.testDir), path.basename(playWrightConfig.testDir))
-    files.push(...getFiles(path.resolve(dir, playWrightConfig.testDir)))
-  }
-  if (playWrightConfig.testMatch) {
-    if (Array.isArray(playWrightConfig.testMatch)) {
-      const arr = await Promise
-        .all(playWrightConfig.testMatch
-          .map((pattern: string) => loadPatternWithDependencies(pattern, dir, archive)))
-      files.push(...arr.flatMap(x => x))
-    } else {
-      const arr = await loadPatternWithDependencies(playWrightConfig.testMatch, dir, archive)
-      files.push(...arr)
-    }
-  }
-  for (const project of playWrightConfig.projects) {
-    if (project.testDir) {
-      archive.directory(path.resolve(dir, project.testDir), project.testDir)
-      files.push(...getFiles(path.resolve(dir, project.testDir)))
-    }
-    if (project.testMatch) {
-      if (Array.isArray(project.testMatch)) {
-        const arr = await Promise
-          .all(project.testMatch
-            .map((pattern: string) => loadPatternWithDependencies(pattern, dir, archive)))
-        files.push(...arr.flatMap(x => x))
-      } else {
-        const arr = await loadPatternWithDependencies(project.testMatch, dir, archive)
-        files.push(...arr)
-      }
-    }
-  }
-  return files
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  try {
+    const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
+    ignoredFiles.push(...gitignoreToGlob(gitignore))
+  } catch (e) {}
+  archive.glob('**/*', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
 }
 
-function loadPatternWithDependencies (pattern: string, dir: string, archive: Archiver) {
-  archive.glob(pattern, { cwd: dir })
-  return findFilesWithPattern(dir, pattern, [])
+export function gitignoreToGlob (gitignoreContent: string) {
+  return gitignoreContent.split('\n')
+    .map(line => line.trim())
+    .filter(line => !line.startsWith('#') && line.length)
+    .map(line => {
+      let result = line
+      if (line.startsWith('/')) {
+        result = result.substring(1)
+      } else {
+        if (!line.startsWith('**/')) {
+          result = `**/${result}`
+        }
+      }
+
+      if (line.endsWith('/')) {
+        result = `${result}**`
+      } else {
+        if (!line.endsWith('/**')) {
+          result = `${result}/**`
+        }
+      }
+      return result
+    })
 }
 
 export function loadFilesDependencies (dir: string, files: string[], archive: Archiver) {
@@ -340,8 +327,8 @@ export async function findFilesWithPattern (
   return files.sort()
 }
 
-export function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
-  const { size } = fsSync.statSync(dir)
+export async function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
+  const { size } = await fs.stat(dir)
   const stream = fsSync.createReadStream(dir)
   return checklyStorage.uploadCodeBundle(stream, size)
 }
@@ -350,18 +337,5 @@ export function cleanup (dir: string) {
   if (!dir.length) {
     return
   }
-  fsSync.rmSync(dir)
-}
-
-function getFiles (dir: string, files: string[] = []) {
-  const fileList = fsSync.readdirSync(dir)
-  for (const file of fileList) {
-    const name = path.join(dir, file)
-    if (fsSync.statSync(name).isDirectory()) {
-      getFiles(name, files)
-    } else {
-      files.push(name)
-    }
-  }
-  return files
+  return fs.rm(dir)
 }
