@@ -129,7 +129,7 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
   source (program: Program): void {
     program.import('MSTeamsAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('MSTeamsAlertChannel'), builder => {
+    program.section(expr(ident('MSTeamsAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

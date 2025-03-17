@@ -61,7 +61,7 @@ export class AlertChannelSubscription extends Construct {
   source (program: Program): void {
     program.import('AlertChannelSubscription', 'checkly/constructs')
 
-    program.value(expr(ident('AlertChannelSubscription'), builder => {
+    program.section(expr(ident('AlertChannelSubscription'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

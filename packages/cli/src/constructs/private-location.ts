@@ -119,7 +119,7 @@ export class PrivateLocation extends Construct {
   source (program: Program): void {
     program.import('PrivateLocation', 'checkly/constructs')
 
-    program.value(expr(ident('PrivateLocation'), builder => {
+    program.section(expr(ident('PrivateLocation'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

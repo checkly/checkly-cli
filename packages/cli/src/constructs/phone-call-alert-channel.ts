@@ -54,7 +54,7 @@ export class PhoneCallAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('PhoneCallAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('PhoneCallAlertChannel'), builder => {
+    program.section(expr(ident('PhoneCallAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

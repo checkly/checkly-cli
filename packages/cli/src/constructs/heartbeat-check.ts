@@ -95,7 +95,7 @@ export class HeartbeatCheck extends Check {
   source (program: Program): void {
     program.import('HeartbeatCheck', 'checkly/constructs')
 
-    program.value(expr(ident('HeartbeatCheck'), builder => {
+    program.section(expr(ident('HeartbeatCheck'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

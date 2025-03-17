@@ -115,7 +115,7 @@ export abstract class AlertChannel extends Construct {
   source (program: Program): void {
     program.import('AlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('AlertChannel'), builder => {
+    program.section(expr(ident('AlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

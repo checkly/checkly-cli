@@ -44,7 +44,7 @@ export class PrivateLocationCheckAssignment extends Construct {
   source (program: Program): void {
     program.import('PrivateLocationCheckAssignment', 'checkly/constructs')
 
-    program.value(expr(ident('PrivateLocationCheckAssignment'), builder => {
+    program.section(expr(ident('PrivateLocationCheckAssignment'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

@@ -46,7 +46,7 @@ export class SlackAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('SlackAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('SlackAlertChannel'), builder => {
+    program.section(expr(ident('SlackAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

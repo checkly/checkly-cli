@@ -158,7 +158,7 @@ export class BrowserCheck extends Check {
   source (program: Program): void {
     program.import('BrowserCheck', 'checkly/constructs')
 
-    program.value(expr(ident('BrowserCheck'), builder => {
+    program.section(expr(ident('BrowserCheck'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

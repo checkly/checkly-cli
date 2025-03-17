@@ -3,13 +3,13 @@ import { Value } from './value'
 
 export class Program {
   #imports = new Map<string, string[]>()
-  #elements: any[] = []
+  #sections: any[] = []
 
   import (type: string, from: string) {
     this.#imports.set(from, (this.#imports.get(from) || []).concat([type]))
   }
 
-  value (value: Value) {
+  section (value: Value) {
     // TODO
   }
 

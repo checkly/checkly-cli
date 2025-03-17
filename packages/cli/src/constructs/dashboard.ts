@@ -224,7 +224,7 @@ export class Dashboard extends Construct {
   source (program: Program): void {
     program.import('Dashboard', 'checkly/constructs')
 
-    program.value(expr(ident('Dashboard'), builder => {
+    program.section(expr(ident('Dashboard'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

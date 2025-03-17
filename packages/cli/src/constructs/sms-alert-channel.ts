@@ -52,7 +52,7 @@ export class SmsAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('SmsAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('SmsAlertChannel'), builder => {
+    program.section(expr(ident('SmsAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {
