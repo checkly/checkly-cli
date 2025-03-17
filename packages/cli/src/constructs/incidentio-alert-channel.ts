@@ -1,5 +1,6 @@
 import { WebhookAlertChannel } from './webhook-alert-channel'
 import { AlertChannelProps } from './alert-channel'
+import { expr, ident, Program } from '../sourcegen'
 
 export interface IncidentioAlertChannelProps extends AlertChannelProps {
   /**
@@ -26,6 +27,8 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class IncidentioAlertChannel extends WebhookAlertChannel {
+  apiKey: string
+
   /**
    * Constructs the Incident.io Alert Channel instance
    *
@@ -38,6 +41,7 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
     super(logicalId, props)
     this.webhookType = 'WEBHOOK_INCIDENTIO'
     this.method = 'POST'
+    this.apiKey = props.apiKey
     this.headers = [
       {
         key: 'authorization',
@@ -78,5 +82,22 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
         webhookSecret: this.webhookSecret,
       },
     }
+  }
+
+  source (program: Program): void {
+    program.import('IncidentioAlertChannel', 'checkly/constructs')
+
+    program.value(expr(ident('IncidentioAlertChannel'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.string('name', this.name)
+          builder.string('url', this.url.toString())
+          builder.string('apiKey', this.apiKey)
+
+          this.buildSourceForAlertChannelProps(builder)
+        })
+      })
+    }))
   }
 }

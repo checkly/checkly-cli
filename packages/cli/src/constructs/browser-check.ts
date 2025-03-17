@@ -5,7 +5,8 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import { detectSnapshots, Snapshot } from '../services/snapshot-service'
-import { PlaywrightConfig } from './playwright-config'
+import { PlaywrightConfig, sourceForPlaywrightConfig } from './playwright-config'
+import { expr, ident, Program } from '../sourcegen'
 
 export interface CheckDependency {
   path: string
@@ -152,5 +153,36 @@ export class BrowserCheck extends Check {
       snapshots: this.snapshots,
       playwrightConfig: this.playwrightConfig,
     }
+  }
+
+  source (program: Program): void {
+    program.import('BrowserCheck', 'checkly/constructs')
+
+    program.value(expr(ident('BrowserCheck'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.object('code', builder => {
+            if (this.scriptPath) {
+              // TODO separate file
+              builder.string('entrypoint', this.scriptPath)
+              builder.string('content', this.script)
+            } else {
+              builder.string('content', this.script)
+            }
+          })
+
+          if (this.sslCheckDomain) {
+            builder.string('sslCheckDomain', this.sslCheckDomain)
+          }
+
+          if (this.playwrightConfig) {
+            builder.value('playwrightConfig', sourceForPlaywrightConfig(this.playwrightConfig))
+          }
+
+          this.buildSourceForCheckProps(program, builder)
+        })
+      })
+    }))
   }
 }

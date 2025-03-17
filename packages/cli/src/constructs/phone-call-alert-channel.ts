@@ -1,3 +1,4 @@
+import { expr, ident, Program } from '../sourcegen'
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
@@ -48,5 +49,24 @@ export class PhoneCallAlertChannel extends AlertChannel {
         name: this.name,
       },
     }
+  }
+
+  source (program: Program): void {
+    program.import('PhoneCallAlertChannel', 'checkly/constructs')
+
+    program.value(expr(ident('PhoneCallAlertChannel'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          if (this.name) {
+            builder.string('name', this.name)
+          }
+
+          builder.string('phoneNumber', this.phoneNumber)
+
+          this.buildSourceForAlertChannelProps(builder)
+        })
+      })
+    }))
   }
 }

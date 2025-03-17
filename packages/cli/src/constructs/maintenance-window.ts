@@ -1,3 +1,4 @@
+import { expr, ident, Program } from '../sourcegen'
 import { Construct } from './construct'
 import { Session } from './project'
 
@@ -84,5 +85,56 @@ export class MaintenanceWindow extends Construct {
       repeatUnit: this.repeatUnit,
       repeatEndsAt: this.repeatEndsAt,
     }
+  }
+
+  source (program: Program): void {
+    program.import('MaintenanceWindow', 'checkly/constructs')
+
+    program.value(expr(ident('MaintenanceWindow'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.string('name', this.name)
+
+          builder.array('tags', builder => {
+            for (const tag of this.tags) {
+              builder.string(tag)
+            }
+          })
+
+          builder.expr('startsAt', ident('Date'), builder => {
+            builder.member(ident('parse'))
+            builder.call(builder => {
+              builder.string(this.startsAt.toISOString())
+            })
+          })
+
+          builder.expr('endsAt', ident('Date'), builder => {
+            builder.member(ident('parse'))
+            builder.call(builder => {
+              builder.string(this.endsAt.toISOString())
+            })
+          })
+
+          if (this.repeatInterval !== undefined) {
+            builder.number('repeatInterval', this.repeatInterval)
+          }
+
+          if (this.repeatUnit) {
+            builder.string('repeatUnit', this.repeatUnit)
+          }
+
+          if (this.repeatEndsAt) {
+            const repeatEndsAt = this.repeatEndsAt
+            builder.expr('repeatEndsAt', ident('Date'), builder => {
+              builder.member(ident('parse'))
+              builder.call(builder => {
+                builder.string(repeatEndsAt.toISOString())
+              })
+            })
+          }
+        })
+      })
+    }))
   }
 }

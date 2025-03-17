@@ -1,6 +1,7 @@
-import { Ref } from './ref'
+import { Ref, sourceForRef } from './ref'
 import { Construct } from './construct'
 import { Session } from './project'
+import { expr, ident, Program } from '../sourcegen'
 
 export interface PrivateLocationGroupAssignmentProps {
   privateLocationId: Ref
@@ -38,5 +39,22 @@ export class PrivateLocationGroupAssignment extends Construct {
       privateLocationId: this.privateLocationId,
       groupId: this.groupId,
     }
+  }
+
+  source (program: Program): void {
+    program.import('PrivateLocationGroupAssignment', 'checkly/constructs')
+
+    program.value(expr(ident('PrivateLocationGroupAssignment'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.value('privateLocationId', sourceForRef(program, this.privateLocationId))
+
+          if (this.groupId) {
+            builder.value('groupId', sourceForRef(program, this.groupId))
+          }
+        })
+      })
+    }))
   }
 }

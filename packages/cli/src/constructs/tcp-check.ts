@@ -1,7 +1,8 @@
 import { Check, CheckProps } from './check'
 import { IPFamily } from './api-check'
 import { Session } from './project'
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder, sourceForNumericAssertion, sourceForGeneralAssertion } from './internal/assertion'
+import { expr, ident, Program, Value } from '../sourcegen'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 
@@ -101,5 +102,63 @@ export class TcpCheck extends Check {
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
+  }
+
+  source (program: Program): void {
+    program.import('TcpCheck', 'checkly/constructs')
+
+    program.value(expr(ident('TcpCheck'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          this.buildSourceForCheckProps(program, builder)
+
+          builder.object('request', builder => {
+            builder.string('hostname', this.request.hostname)
+            builder.number('port', this.request.port)
+
+            if (this.request.ipFamily) {
+              builder.string('ipFamily', this.request.ipFamily)
+            }
+
+            if (this.request.assertions) {
+              const assertions = this.request.assertions
+              builder.array('assertions', builder => {
+                for (const assertion of assertions) {
+                  builder.value(sourceForTcpAssertion(program, assertion))
+                }
+              })
+            }
+
+            if (this.request.data) {
+              builder.string('data', this.request.data)
+            }
+          })
+
+          if (this.degradedResponseTime !== undefined) {
+            builder.number('degradedResponseTime', this.degradedResponseTime)
+          }
+
+          if (this.maxResponseTime !== undefined) {
+            builder.number('maxResponseTime', this.maxResponseTime)
+          }
+
+          this.buildSourceForCheckProps(program, builder)
+        })
+      })
+    }))
+  }
+}
+
+function sourceForTcpAssertion (program: Program, assertion: TcpAssertion): Value {
+  program.import('TcpAssertionBuilder', 'checkly/constructs')
+
+  switch (assertion.source as TcpAssertionSource) {
+    case 'RESPONSE_DATA':
+      return sourceForGeneralAssertion('TcpAssertionBuilder', 'responseData', assertion)
+    case 'RESPONSE_TIME':
+      return sourceForNumericAssertion('TcpAssertionBuilder', 'responseTime', assertion)
+    default:
+      throw new Error(`Unsupported TCP assertion source ${assertion.source}`)
   }
 }

@@ -2,6 +2,7 @@ import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { DateTime } from 'luxon'
 import CheckTypes from '../constants'
+import { expr, ident, Program } from '../sourcegen'
 
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 
@@ -89,5 +90,23 @@ export class HeartbeatCheck extends Check {
       checkType: CheckTypes.HEARTBEAT,
       heartbeat: this.heartbeat,
     }
+  }
+
+  source (program: Program): void {
+    program.import('HeartbeatCheck', 'checkly/constructs')
+
+    program.value(expr(ident('HeartbeatCheck'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.number('period', this.heartbeat.period)
+          builder.string('periodUnit', this.heartbeat.periodUnit)
+          builder.number('grace', this.heartbeat.grace)
+          builder.string('graceUnit', this.heartbeat.graceUnit)
+
+          this.buildSourceForCheckProps(program, builder)
+        })
+      })
+    }))
   }
 }

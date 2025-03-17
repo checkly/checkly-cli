@@ -1,6 +1,7 @@
-import { Ref } from './ref'
+import { Ref, sourceForRef } from './ref'
 import { Construct } from './construct'
 import { Session } from './project'
+import { expr, ident, Program } from '../sourcegen'
 
 export interface AlertChannelSubscriptionProps {
     alertChannelId: Ref
@@ -55,5 +56,28 @@ export class AlertChannelSubscription extends Construct {
       groupId: this.groupId,
       activated: this.activated,
     }
+  }
+
+  source (program: Program): void {
+    program.import('AlertChannelSubscription', 'checkly/constructs')
+
+    program.value(expr(ident('AlertChannelSubscription'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.value('alertChannelId', sourceForRef(program, this.alertChannelId))
+
+          if (this.checkId) {
+            builder.value('checkId', sourceForRef(program, this.checkId))
+          }
+
+          if (this.groupId) {
+            builder.value('groupId', sourceForRef(program, this.groupId))
+          }
+
+          builder.boolean('activated', this.activated)
+        })
+      })
+    }))
   }
 }

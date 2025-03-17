@@ -6,7 +6,9 @@ import { QueryParam } from './query-param'
 import { pathToPosix } from '../services/util'
 import { printDeprecationWarning } from '../reporters/util'
 import { Content, Entrypoint } from './construct'
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder, sourceForNumericAssertion, sourceForGeneralAssertion } from './internal/assertion'
+import { expr, ident, Program, Value } from '../sourcegen'
+import { sourceForKeyValuePair } from './key-value-pair'
 
 type AssertionSource =
   | 'STATUS_CODE'
@@ -253,5 +255,135 @@ export class ApiCheck extends Check {
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
+  }
+
+  source (program: Program): void {
+    program.import('ApiCheck', 'checkly/constructs')
+
+    program.value(expr(ident('ApiCheck'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          builder.object('request', builder => {
+            builder.string('url', this.request.url)
+            builder.string('method', this.request.method)
+
+            if (this.request.ipFamily) {
+              builder.string('ipFamily', this.request.ipFamily)
+            }
+
+            if (this.request.followRedirects !== undefined) {
+              builder.boolean('followRedirects', this.request.followRedirects)
+            }
+
+            if (this.request.skipSSL !== undefined) {
+              builder.boolean('skipSSL', this.request.skipSSL)
+            }
+
+            if (this.request.assertions) {
+              const assertions = this.request.assertions
+              builder.array('assertions', builder => {
+                for (const assertion of assertions) {
+                  builder.value(sourceForAssertion(program, assertion))
+                }
+              })
+            }
+
+            if (this.request.body) {
+              builder.string('body', this.request.body)
+            }
+
+            if (this.request.bodyType) {
+              builder.string('bodyType', this.request.bodyType)
+            }
+
+            if (this.request.headers) {
+              const headers = this.request.headers
+              builder.array('headers', builder => {
+                for (const header of headers) {
+                  builder.value(sourceForKeyValuePair(header))
+                }
+              })
+            }
+
+            if (this.request.queryParameters) {
+              const queryParameters = this.request.queryParameters
+              builder.array('queryParameters', builder => {
+                for (const param of queryParameters) {
+                  builder.value(sourceForKeyValuePair(param))
+                }
+              })
+            }
+
+            if (this.request.basicAuth) {
+              const basicAuth = this.request.basicAuth
+              builder.object('basicAuth', builder => {
+                builder.string('username', basicAuth.username)
+                builder.string('password', basicAuth.password)
+              })
+            }
+          })
+
+          if (this.localSetupScript) {
+            const content = this.localSetupScript
+            builder.object('setupScript', builder => {
+              builder.string('content', content)
+            })
+          }
+
+          if (this.setupScriptPath) {
+            const scriptPath = this.setupScriptPath
+            builder.object('setupScript', builder => {
+              // @TODO needs work
+              builder.string('entrypoint', scriptPath)
+            })
+          }
+
+          if (this.localTearDownScript) {
+            const content = this.localTearDownScript
+            builder.object('tearDownScript', builder => {
+              builder.string('content', content)
+            })
+          }
+
+          if (this.tearDownScriptPath) {
+            const scriptPath = this.tearDownScriptPath
+            builder.object('tearDownScript', builder => {
+              // @TODO needs work
+              builder.string('entrypoint', scriptPath)
+            })
+          }
+
+          if (this.degradedResponseTime !== undefined) {
+            builder.number('degradedResponseTime', this.degradedResponseTime)
+          }
+
+          if (this.maxResponseTime !== undefined) {
+            builder.number('maxResponseTime', this.maxResponseTime)
+          }
+
+          this.buildSourceForCheckProps(program, builder)
+        })
+      })
+    }))
+  }
+}
+
+export function sourceForAssertion (program: Program, assertion: Assertion): Value {
+  program.import('AssertionBuilder', 'checkly/constructs')
+
+  switch (assertion.source as AssertionSource) {
+    case 'STATUS_CODE':
+      return sourceForNumericAssertion('AssertionBuilder', 'statusCode', assertion)
+    case 'JSON_BODY':
+      return sourceForGeneralAssertion('AssertionBuilder', 'jsonBody', assertion)
+    case 'HEADERS':
+      return sourceForGeneralAssertion('AssertionBuilder', 'headers', assertion)
+    case 'TEXT_BODY':
+      return sourceForGeneralAssertion('AssertionBuilder', 'textBody', assertion)
+    case 'RESPONSE_TIME':
+      return sourceForNumericAssertion('AssertionBuilder', 'responseTime', assertion)
+    default:
+      throw new Error(`Unsupported assertion source ${assertion.source}`)
   }
 }
