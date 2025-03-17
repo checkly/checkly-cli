@@ -476,7 +476,7 @@ export class CheckGroup extends Construct {
   source (program: Program): void {
     program.import('CheckGroup', 'checkly/constructs')
 
-    program.value(expr(ident('CheckGroup'), builder => {
+    program.section(expr(ident('CheckGroup'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

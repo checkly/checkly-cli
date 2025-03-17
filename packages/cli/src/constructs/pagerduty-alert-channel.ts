@@ -61,7 +61,7 @@ export class PagerdutyAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('PagerdutyAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('PagerdutyAlertChannel'), builder => {
+    program.section(expr(ident('PagerdutyAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

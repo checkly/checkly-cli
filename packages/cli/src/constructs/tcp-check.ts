@@ -107,7 +107,7 @@ export class TcpCheck extends Check {
   source (program: Program): void {
     program.import('TcpCheck', 'checkly/constructs')
 
-    program.value(expr(ident('TcpCheck'), builder => {
+    program.section(expr(ident('TcpCheck'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {
