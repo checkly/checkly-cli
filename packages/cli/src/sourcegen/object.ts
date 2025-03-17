@@ -24,15 +24,16 @@ export class ObjectValue extends Value {
     output.increaseIndent()
 
     for (const { name, value } of this.value) {
-      output.beginLine()
+      output.endLine()
       output.append(name)
       output.append(':')
       output.cosmeticWhitespace()
       value.render(output)
+      output.append(',')
     }
 
     output.decreaseIndent()
-    output.beginLine()
+    output.endLine()
     output.append('}')
   }
 }

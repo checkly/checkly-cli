@@ -1,4 +1,4 @@
-class File {
+class OutputBuffer {
   #chunks: string[] = []
 
   append (data: string) {
@@ -10,7 +10,7 @@ class File {
   }
 }
 
-class Line {
+class OutputLine {
   #level: number
   #chunks: string[] = []
 
@@ -30,20 +30,22 @@ class Line {
     this.#chunks.push(value)
   }
 
-  appendTo (file: File) {
-    file.append('  '.repeat(this.#level))
-    file.append(this.#chunks.join(''))
+  collect (buf: OutputBuffer) {
+    buf.append('  '.repeat(this.#level))
+    buf.append(this.#chunks.join(''))
+    buf.append('\n')
   }
 }
 
 export class Output {
   #level = 0
-  #lines: Line[] = []
-  #currentLine: Line
+  #lines: OutputLine[] = []
+  #currentLine: OutputLine
 
   constructor (level = 0) {
     this.#level = level
-    this.#currentLine = new Line(this.#level)
+    this.#currentLine = new OutputLine(this.#level)
+    this.#lines.push(this.#currentLine)
   }
 
   increaseIndent () {
@@ -54,8 +56,8 @@ export class Output {
     this.#level -= 1
   }
 
-  beginLine () {
-    this.#currentLine = new Line(this.#level)
+  endLine () {
+    this.#currentLine = new OutputLine(this.#level)
     this.#lines.push(this.#currentLine)
   }
 
@@ -69,5 +71,15 @@ export class Output {
 
   cosmeticWhitespace () {
     this.append(' ')
+  }
+
+  finalize (): string {
+    const buf = new OutputBuffer()
+
+    for (const line of this.#lines) {
+      line.collect(buf)
+    }
+
+    return buf.finalize()
   }
 }
