@@ -71,7 +71,7 @@ export class OpsgenieAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('OpsgenieAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('OpsgenieAlertChannel'), builder => {
+    program.section(expr(ident('OpsgenieAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

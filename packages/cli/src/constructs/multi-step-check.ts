@@ -140,7 +140,7 @@ export class MultiStepCheck extends Check {
   source (program: Program): void {
     program.import('MultiStepCheck', 'checkly/constructs')
 
-    program.value(expr(ident('MultiStepCheck'), builder => {
+    program.section(expr(ident('MultiStepCheck'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

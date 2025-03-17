@@ -260,7 +260,7 @@ export class ApiCheck extends Check {
   source (program: Program): void {
     program.import('ApiCheck', 'checkly/constructs')
 
-    program.value(expr(ident('ApiCheck'), builder => {
+    program.section(expr(ident('ApiCheck'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {
