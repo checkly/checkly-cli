@@ -87,7 +87,7 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
   source (program: Program): void {
     program.import('IncidentioAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('IncidentioAlertChannel'), builder => {
+    program.section(expr(ident('IncidentioAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

@@ -44,7 +44,7 @@ export class EmailAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('EmailAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('EmailAlertChannel'), builder => {
+    program.section(expr(ident('EmailAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

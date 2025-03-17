@@ -100,7 +100,7 @@ export class WebhookAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('WebhookAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('WebhookAlertChannel'), builder => {
+    program.section(expr(ident('WebhookAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {
