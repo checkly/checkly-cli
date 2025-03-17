@@ -1,3 +1,5 @@
+import { inspect } from 'node:util'
+
 import { Output } from './output'
 import { Value } from './value'
 
@@ -10,6 +12,11 @@ export class StringValue extends Value {
   }
 
   render (output: Output): void {
-    output.append(JSON.stringify(this.value))
+    output.append(quote(this.value))
   }
+}
+
+export function quote (value: string): string {
+  // Not ideal but for now inspect() works.
+  return inspect(value)
 }

@@ -14,13 +14,13 @@ export class ArrayValue extends Value {
     output.increaseIndent()
 
     for (const value of this.value) {
-      output.beginLine()
+      output.endLine()
       value.render(output)
       output.append(',')
     }
 
     output.decreaseIndent()
-    output.beginLine()
+    output.endLine()
     output.append(']')
   }
 }

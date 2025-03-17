@@ -1,16 +1,19 @@
 import { Output } from './output'
 import { Value } from './value'
+import { Declaration } from './decl'
+
+type Content = Declaration | Value
 
 export class Program {
   #imports = new Map<string, string[]>()
-  #sections: any[] = []
+  #sections: Content[] = []
 
   import (type: string, from: string) {
     this.#imports.set(from, (this.#imports.get(from) || []).concat([type]))
   }
 
-  section (value: Value) {
-    // TODO
+  section (content: Content) {
+    this.#sections.push(content)
   }
 
   render (output: Output): void {
@@ -23,16 +26,24 @@ export class Program {
         for (const type of types) {
           if (!first) {
             output.append(',')
-            output.cosmeticWhitespace()
           }
+          output.cosmeticWhitespace()
           first = false
           output.append(type)
         }
         output.cosmeticWhitespace()
         output.append('}')
         output.significantWhitespace()
-        output.append(pkg)
+        output.append('from')
+        output.significantWhitespace()
+        output.append(`'${pkg}'`)
       }
+    }
+
+    for (const section of this.#sections) {
+      output.endLine()
+      output.endLine()
+      section.render(output)
     }
   }
 }
