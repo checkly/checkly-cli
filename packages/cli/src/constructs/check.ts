@@ -1,5 +1,5 @@
-import { Ref } from './ref'
-import { Frequency } from './frequency'
+import { Ref, sourceForRef } from './ref'
+import { Frequency, sourceForFrequency } from './frequency'
 import { Construct } from './construct'
 import { AlertChannel } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
@@ -10,9 +10,11 @@ import type { Region } from '..'
 import type { CheckGroup } from './check-group'
 import { PrivateLocation } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
-import { RetryStrategy } from './retry-strategy'
-import { AlertEscalation } from './alert-escalation-policy'
+import { RetryStrategy, sourceForRetryStrategy } from './retry-strategy'
+import { AlertEscalation, sourceForAlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
+import { ObjectValueBuilder, Program } from '../sourcegen'
+import { sourceForKeyValuePair } from './key-value-pair'
 
 export interface CheckProps {
   /**
@@ -266,6 +268,90 @@ export abstract class Check extends Construct {
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,
       triggerIncident,
+    }
+  }
+
+  buildSourceForCheckProps(
+    program: Program,
+    builder: ObjectValueBuilder,
+  ): void {
+    builder.string('name', this.name)
+
+    if (this.activated !== undefined) {
+      builder.boolean('activated', this.activated)
+    }
+
+    if (this.muted !== undefined) {
+      builder.boolean('muted', this.muted)
+    }
+
+    if (this.shouldFail !== undefined) {
+      builder.boolean('shouldFail', this.shouldFail)
+    }
+
+    if (this.runtimeId) {
+      builder.string('runtimeId', this.runtimeId)
+    }
+
+    if (this.locations) {
+      const locations = this.locations
+      builder.array('locations', builder => {
+        for (const location of locations) {
+          builder.string(location)
+        }
+      })
+    }
+
+    if (this.privateLocations) {
+      // TODO: privateLocations - live variables
+    }
+
+    if (this.tags) {
+      const tags = this.tags
+      builder.array('tags', builder => {
+        for (const tag of tags) {
+          builder.string(tag)
+        }
+      })
+    }
+
+    if (this.frequency !== undefined) {
+      builder.value('frequency', sourceForFrequency(program, this.frequency))
+    }
+
+    if (this.environmentVariables) {
+      const variables = this.environmentVariables
+      builder.array('environmentVariables', builder => {
+        for (const variable of variables) {
+          builder.value(sourceForKeyValuePair(variable))
+        }
+      })
+    }
+
+    if (this.groupId) {
+      builder.value('groupId', sourceForRef(program, this.groupId))
+    }
+
+    // if (this.group) {
+    //   // TODO: group - live variables
+    // }
+
+    if (this.alertChannels) {
+      // TODO: alertChannels - live variables
+    }
+
+    if (this.alertSettings) {
+      builder.value('alertEscalationPolicy', sourceForAlertEscalation(program, this.alertSettings))
+    }
+
+    if (this.testOnly !== undefined) {
+      builder.boolean('testOnly', this.testOnly)
+    }
+
+    builder.value('retryStrategy', sourceForRetryStrategy(program, this.retryStrategy))
+
+    if (this.runParallel !== undefined) {
+      builder.boolean('runParallel', this.runParallel)
     }
   }
 }

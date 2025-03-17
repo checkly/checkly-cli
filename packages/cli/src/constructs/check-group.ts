@@ -10,14 +10,16 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { PrivateLocation } from './private-location'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { ApiCheckDefaultConfig } from './api-check'
+import { ApiCheckDefaultConfig, sourceForAssertion } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
-import type { Frequency } from './frequency'
-import type { RetryStrategy } from './retry-strategy'
-import { AlertEscalation } from './alert-escalation-policy'
+import { sourceForFrequency, type Frequency } from './frequency'
+import { sourceForRetryStrategy, type RetryStrategy } from './retry-strategy'
+import { AlertEscalation, sourceForAlertEscalation } from './alert-escalation-policy'
 import { MultiStepCheck } from './multi-step-check'
 import CheckTypes from '../constants'
+import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { sourceForKeyValuePair } from './key-value-pair'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -309,5 +311,178 @@ export class CheckGroup extends Construct {
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
     }
+  }
+
+  buildSourceForCheckGroupProps (
+    program: Program,
+    builder: ObjectValueBuilder,
+  ): void {
+    builder.string('name', this.name)
+
+    if (this.activated !== undefined) {
+      builder.boolean('activated', this.activated)
+    }
+
+    if (this.muted !== undefined) {
+      builder.boolean('muted', this.muted)
+    }
+
+    if (this.runtimeId) {
+      builder.string('runtimeId', this.runtimeId)
+    }
+
+    if (this.locations) {
+      const locations = this.locations
+      builder.array('locations', builder => {
+        for (const location of locations) {
+          builder.string(location)
+        }
+      })
+    }
+
+    if (this.privateLocations) {
+      // TODO: privateLocations - live variables
+    }
+
+    if (this.tags) {
+      const tags = this.tags
+      builder.array('tags', builder => {
+        for (const tag of tags) {
+          builder.string(tag)
+        }
+      })
+    }
+
+    if (this.frequency !== undefined) {
+      builder.value('frequency', sourceForFrequency(program, this.frequency))
+    }
+
+    if (this.environmentVariables) {
+      const variables = this.environmentVariables
+      builder.array('environmentVariables', builder => {
+        for (const variable of variables) {
+          builder.value(sourceForKeyValuePair(variable))
+        }
+      })
+    }
+
+    if (this.alertChannels) {
+      // TODO: alertChannels - live variables
+    }
+
+    if (this.alertSettings) {
+      builder.value('alertEscalationPolicy', sourceForAlertEscalation(program, this.alertSettings))
+    }
+
+    if (this.browserChecks) {
+      const config = this.browserChecks
+      builder.object('browserChecks', builder => {
+        if (Array.isArray(config.testMatch)) {
+          builder.array('testMatch', builder => {
+            for (const match of config.testMatch) {
+              builder.string(match)
+            }
+          })
+        } else {
+          builder.string('testMatch', config.testMatch)
+        }
+
+        // Only frequency is handled by the construct.
+        if (config.frequency !== undefined) {
+          builder.value('frequency', sourceForFrequency(program, config.frequency))
+        }
+      })
+    }
+
+    if (this.multiStepChecks) {
+      const config = this.multiStepChecks
+      builder.object('multiStepChecks', builder => {
+        if (Array.isArray(config.testMatch)) {
+          builder.array('testMatch', builder => {
+            for (const match of config.testMatch) {
+              builder.string(match)
+            }
+          })
+        } else {
+          builder.string('testMatch', config.testMatch)
+        }
+
+        // Only frequency is handled by the construct.
+        if (config.frequency !== undefined) {
+          builder.value('frequency', sourceForFrequency(program, config.frequency))
+        }
+      })
+    }
+
+    if (this.localSetupScript) {
+      builder.string('localSetupScript', this.localSetupScript)
+    }
+
+    if (this.localTearDownScript) {
+      builder.string('localTearDownScript', this.localTearDownScript)
+    }
+
+    if (this.apiCheckDefaults) {
+      const config = this.apiCheckDefaults
+      builder.object('apiCheckDefaults', builder => {
+        if (config.url) {
+          builder.string('url', config.url)
+        }
+
+        if (config.headers) {
+          const headers = config.headers
+          builder.array('headers', builder => {
+            for (const header of headers) {
+              builder.value(sourceForKeyValuePair(header))
+            }
+          })
+        }
+
+        if (config.queryParameters) {
+          const params = config.queryParameters
+          builder.array('queryParameters', builder => {
+            for (const param of params) {
+              builder.value(sourceForKeyValuePair(param))
+            }
+          })
+        }
+
+        if (config.basicAuth) {
+          const basicAuth = config.basicAuth
+          builder.object('basicAuth', builder => {
+            builder.string('username', basicAuth.username)
+            builder.string('password', basicAuth.password)
+          })
+        }
+
+        if (config.assertions) {
+          const assertions = config.assertions
+          builder.array('assertions', builder => {
+            for (const assertion of assertions) {
+              builder.value(sourceForAssertion(program, assertion))
+            }
+          })
+        }
+      })
+    }
+
+    builder.value('retryStrategy', sourceForRetryStrategy(program, this.retryStrategy))
+
+    if (this.runParallel !== undefined) {
+      builder.boolean('runParallel', this.runParallel)
+    }
+  }
+
+  source (program: Program): void {
+    program.import('CheckGroup', 'checkly/constructs')
+
+    program.value(expr(ident('CheckGroup'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          this.buildSourceForCheckGroupProps(program, builder)
+        })
+      })
+    }))
   }
 }
