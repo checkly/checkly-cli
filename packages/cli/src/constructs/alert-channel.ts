@@ -1,3 +1,4 @@
+import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { Construct } from './construct'
 import { Session } from './project'
 
@@ -32,6 +33,11 @@ class AlertChannelWrapper extends Construct {
 
   synthesize () {
     return null
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  source (program: Program): void {
+    throw new Error('Unimplemented')
   }
 }
 
@@ -82,5 +88,40 @@ export abstract class AlertChannel extends Construct {
       sslExpiry: this.sslExpiry,
       sslExpiryThreshold: this.sslExpiryThreshold,
     }
+  }
+
+  buildSourceForAlertChannelProps (builder: ObjectValueBuilder): void {
+    if (this.sendRecovery !== undefined) {
+      builder.boolean('sendRecovery', this.sendRecovery)
+    }
+
+    if (this.sendFailure !== undefined) {
+      builder.boolean('sendFailure', this.sendFailure)
+    }
+
+    if (this.sendDegraded !== undefined) {
+      builder.boolean('sendDegraded', this.sendDegraded)
+    }
+
+    if (this.sslExpiry !== undefined) {
+      builder.boolean('sslExpiry', this.sslExpiry)
+    }
+
+    if (this.sslExpiryThreshold !== undefined) {
+      builder.number('sslExpiryThreshold', this.sslExpiryThreshold)
+    }
+  }
+
+  source (program: Program): void {
+    program.import('AlertChannel', 'checkly/constructs')
+
+    program.value(expr(ident('AlertChannel'), builder => {
+      builder.new(builder => {
+        builder.string(this.logicalId)
+        builder.object(builder => {
+          this.buildSourceForAlertChannelProps(builder)
+        })
+      })
+    }))
   }
 }
