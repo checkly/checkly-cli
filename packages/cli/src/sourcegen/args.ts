@@ -11,16 +11,17 @@ export class ArgumentsValue extends Value {
 
   render (output: Output): void {
     output.append('(')
-    output.increaseIndent()
 
+    let first = true
     for (const value of this.value) {
-      output.beginLine()
+      if (!first) {
+        output.append(',')
+        output.cosmeticWhitespace()
+      }
+      first = false
       value.render(output)
-      output.append(',')
     }
 
-    output.decreaseIndent()
-    output.beginLine()
     output.append(')')
   }
 }
