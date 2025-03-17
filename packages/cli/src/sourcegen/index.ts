@@ -1,4 +1,5 @@
-export { args, ArgumentsValue } from './args'
+export { ArgumentsValue } from './args'
+export { args, ArgumentsValueBuilder } from './argsbuilder'
 export { ArrayValue } from './array'
 export { array, ArrayValueBuilder } from './arraybuilder'
 export { BooleanValue } from './boolean'
