@@ -90,7 +90,7 @@ export class MaintenanceWindow extends Construct {
   source (program: Program): void {
     program.import('MaintenanceWindow', 'checkly/constructs')
 
-    program.value(expr(ident('MaintenanceWindow'), builder => {
+    program.section(expr(ident('MaintenanceWindow'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {

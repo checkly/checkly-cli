@@ -72,7 +72,7 @@ Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/eac
   source (program: Program): void {
     program.import('TelegramAlertChannel', 'checkly/constructs')
 
-    program.value(expr(ident('TelegramAlertChannel'), builder => {
+    program.section(expr(ident('TelegramAlertChannel'), builder => {
       builder.new(builder => {
         builder.string(this.logicalId)
         builder.object(builder => {
