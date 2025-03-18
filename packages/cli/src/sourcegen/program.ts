@@ -1,15 +1,38 @@
 import { Output } from './output'
 import { Value } from './value'
 import { Declaration } from './decl'
+import { IdentifierValue } from './identifier'
 
 type Content = Declaration | Value
 
 export class Program {
   #imports = new Map<string, string[]>()
+  #variables = new Map<string, IdentifierValue>()
+  #counters = new Map<string, number>()
   #sections: Content[] = []
 
   import (type: string, from: string) {
     this.#imports.set(from, (this.#imports.get(from) || []).concat([type]))
+  }
+
+  #inc (key: string): number {
+    const oldValue = this.#counters.get(key) ?? 0
+    const newValue = oldValue + 1
+    this.#counters.set(key, newValue)
+    return newValue
+  }
+
+  nth (key: string): string {
+    return `${key}${this.#inc(key)}`
+  }
+
+  registerVariable (key: string, identifier: IdentifierValue): IdentifierValue {
+    this.#variables.set(key, identifier)
+    return identifier
+  }
+
+  lookupVariable (key: string): IdentifierValue | undefined {
+    return this.#variables.get(key)
   }
 
   section (content: Content) {

@@ -1,6 +1,6 @@
 import { WebhookAlertChannel } from './webhook-alert-channel'
 import { AlertChannelProps } from './alert-channel'
-import { expr, ident, Program } from '../sourcegen'
+import { decl, expr, ident, Program } from '../sourcegen'
 
 export interface MSTeamsAlertChannelProps extends AlertChannelProps {
   /**
@@ -129,16 +129,23 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
   source (program: Program): void {
     program.import('MSTeamsAlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('MSTeamsAlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.string('name', this.name)
-          builder.string('url', this.url.toString())
+    const id = program.registerVariable(
+      `MSTeamsAlertChannel::${this.logicalId}`,
+      ident(program.nth('msTeamsAlertChannel')),
+    )
 
-          this.buildSourceForAlertChannelProps(builder)
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('MSTeamsAlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            builder.string('name', this.name)
+            builder.string('url', this.url.toString())
+
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }

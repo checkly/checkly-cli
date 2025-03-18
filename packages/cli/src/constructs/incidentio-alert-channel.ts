@@ -1,6 +1,6 @@
 import { WebhookAlertChannel } from './webhook-alert-channel'
 import { AlertChannelProps } from './alert-channel'
-import { expr, ident, Program } from '../sourcegen'
+import { decl, expr, ident, Program } from '../sourcegen'
 
 export interface IncidentioAlertChannelProps extends AlertChannelProps {
   /**
@@ -87,17 +87,24 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
   source (program: Program): void {
     program.import('IncidentioAlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('IncidentioAlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.string('name', this.name)
-          builder.string('url', this.url.toString())
-          builder.string('apiKey', this.apiKey)
+    const id = program.registerVariable(
+      `IncidentioAlertChannel::${this.logicalId}`,
+      ident(program.nth('incidentioAlertChannel')),
+    )
 
-          this.buildSourceForAlertChannelProps(builder)
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('IncidentioAlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            builder.string('name', this.name)
+            builder.string('url', this.url.toString())
+            builder.string('apiKey', this.apiKey)
+
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }
