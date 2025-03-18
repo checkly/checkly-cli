@@ -1,4 +1,4 @@
-import { expr, ident, IdentifierValue, Value } from '../../sourcegen'
+import { expr, ident, Value } from '../../sourcegen'
 
 type Comparison =
   | 'EQUALS'
