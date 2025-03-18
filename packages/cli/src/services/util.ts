@@ -231,8 +231,6 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
 
 export async function bundlePlayWrightProject (playwrightConfig: string): Promise<string> {
   const dir = path.resolve(path.dirname(playwrightConfig))
-  const filePath = path.resolve(dir, playwrightConfig)
-  const pwtConfig = await loadFile(filePath)
   const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
   const outputDir = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputDir)
@@ -244,7 +242,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
     },
   })
   archive.pipe(output)
-  await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
+  await loadPlaywrightProjectFiles(dir, archive)
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
@@ -257,7 +255,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
   })
 }
 
-export async function loadPlaywrightProjectFiles (dir: string, playWrightConfig: any, archive: Archiver) {
+export async function loadPlaywrightProjectFiles (dir: string, archive: Archiver) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   try {
     const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })

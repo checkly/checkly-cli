@@ -27,7 +27,6 @@ export class PlaywrightCheck extends Check {
       dir = await bundlePlayWrightProject(playwrightConfigPath)
       const { data: { key } } = await uploadPlaywrightProject(dir)
       return key
-    } catch (e: Error | any) {
     } finally {
       await cleanup(dir)
     }
