@@ -1,4 +1,4 @@
-import { expr, ident, Program } from '../sourcegen'
+import { decl, expr, ident, Program } from '../sourcegen'
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
@@ -46,19 +46,26 @@ export class SlackAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('SlackAlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('SlackAlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.string('url', this.url.toString())
+    const id = program.registerVariable(
+      `SlackAlertChannel::${this.logicalId}`,
+      ident(program.nth('slackAlertChannel')),
+    )
 
-          if (this.channel) {
-            builder.string('channel', this.channel)
-          }
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('SlackAlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            builder.string('url', this.url.toString())
 
-          this.buildSourceForAlertChannelProps(builder)
+            if (this.channel) {
+              builder.string('channel', this.channel)
+            }
+
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }
