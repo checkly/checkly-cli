@@ -6,22 +6,41 @@ export abstract class Declaration {
   abstract render (output: Output): void
 }
 
-export class ConstVariableDeclaration extends Declaration {
+export class IdentifierDeclaration extends Declaration {
   identifier: IdentifierValue
-  value: Value
 
-  constructor (identifier: IdentifierValue, value: Value) {
+  constructor (identifier: IdentifierValue) {
     super()
     this.identifier = identifier
-    this.value = value
-  }
-
-  export (): ExportDeclaration {
-    return new ExportDeclaration(this)
   }
 
   render (output: Output): void {
-    output.append('const')
+    this.identifier.render(output)
+  }
+}
+
+export interface VariableDeclarationOptions {
+  mutable?: boolean
+}
+
+export class VariableDeclaration extends Declaration {
+  identifier: IdentifierValue
+  value: Value
+  options?: VariableDeclarationOptions
+
+  constructor (identifier: IdentifierValue, value: Value, options?: VariableDeclarationOptions) {
+    super()
+    this.identifier = identifier
+    this.value = value
+    this.options = options
+  }
+
+  render (output: Output): void {
+    if (this.options?.mutable) {
+      output.append('let')
+    } else {
+      output.append('const')
+    }
     output.significantWhitespace()
     this.identifier.render(output)
     output.cosmeticWhitespace()
@@ -30,10 +49,6 @@ export class ConstVariableDeclaration extends Declaration {
     this.value.render(output)
     output.endLine()
   }
-}
-
-export function constVariable (identifier: IdentifierValue, value: Value): ConstVariableDeclaration {
-  return new ConstVariableDeclaration(identifier, value)
 }
 
 export class ExportDeclaration {

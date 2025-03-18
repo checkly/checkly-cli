@@ -4,6 +4,14 @@ export { ArrayValue } from './array'
 export { array, ArrayValueBuilder } from './arraybuilder'
 export { BooleanValue } from './boolean'
 export {
+  VariableDeclaration,
+  ExportDeclaration,
+} from './decl'
+export {
+  decl,
+  DeclarationBuilder,
+} from './declbuilder'
+export {
   ExpressionValue,
   NewExpressionValue,
   CallExpressionValue,

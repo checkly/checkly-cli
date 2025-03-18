@@ -1,4 +1,4 @@
-import { expr, ident, Program } from '../sourcegen'
+import { decl, expr, ident, Program } from '../sourcegen'
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
@@ -61,23 +61,30 @@ export class PagerdutyAlertChannel extends AlertChannel {
   source (program: Program): void {
     program.import('PagerdutyAlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('PagerdutyAlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          if (this.account) {
-            builder.string('account', this.account)
-          }
+    const id = program.registerVariable(
+      `PagerdutyAlertChannel::${this.logicalId}`,
+      ident(program.nth('pagerdutyAlertChannel')),
+    )
 
-          if (this.serviceName) {
-            builder.string('serviceName', this.serviceName)
-          }
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('PagerdutyAlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            if (this.account) {
+              builder.string('account', this.account)
+            }
 
-          builder.string('serviceKey', this.serviceKey)
+            if (this.serviceName) {
+              builder.string('serviceName', this.serviceName)
+            }
 
-          this.buildSourceForAlertChannelProps(builder)
+            builder.string('serviceKey', this.serviceKey)
+
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }
