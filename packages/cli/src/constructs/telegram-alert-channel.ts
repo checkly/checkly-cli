@@ -1,6 +1,6 @@
 import { WebhookAlertChannel } from './webhook-alert-channel'
 import { AlertChannelProps } from './alert-channel'
-import { expr, ident, Program } from '../sourcegen'
+import { decl, expr, ident, Program } from '../sourcegen'
 
 export interface TelegramAlertChannelProps extends AlertChannelProps {
   /**
@@ -72,17 +72,24 @@ Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/eac
   source (program: Program): void {
     program.import('TelegramAlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('TelegramAlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.string('name', this.name)
-          builder.string('chatId', this.chatId)
-          builder.string('apiKey', this.apiKey)
+    const id = program.registerVariable(
+      `TelegramAlertChannel::${this.logicalId}`,
+      ident(program.nth('telegramAlertChannel')),
+    )
 
-          this.buildSourceForAlertChannelProps(builder)
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('TelegramAlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            builder.string('name', this.name)
+            builder.string('chatId', this.chatId)
+            builder.string('apiKey', this.apiKey)
+
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }

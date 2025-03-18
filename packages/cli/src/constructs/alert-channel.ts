@@ -1,4 +1,4 @@
-import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { Construct } from './construct'
 import { Session } from './project'
 
@@ -115,13 +115,20 @@ export abstract class AlertChannel extends Construct {
   source (program: Program): void {
     program.import('AlertChannel', 'checkly/constructs')
 
-    program.section(expr(ident('AlertChannel'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          this.buildSourceForAlertChannelProps(builder)
+    const id = program.registerVariable(
+      `AlertChannel::${this.logicalId}`,
+      ident(program.nth('alertChannel')),
+    )
+
+    program.section(decl(id, builder => {
+      builder.variable(expr(ident('AlertChannel'), builder => {
+        builder.new(builder => {
+          builder.string(this.logicalId)
+          builder.object(builder => {
+            this.buildSourceForAlertChannelProps(builder)
+          })
         })
-      })
+      }))
     }))
   }
 }
