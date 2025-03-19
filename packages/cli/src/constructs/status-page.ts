@@ -10,16 +10,10 @@ export interface StatusPageCardProps {
 
 export interface StatusPageProps {
   name: string
-  url?: string
+  url: string
   cards?: StatusPageCardProps[]
   /**
-   * A subdomain name under "checklyhq.com". Needs to be unique across all users.
-   * This is required if 'customDomain' is not specified.
-   */
-  customUrl?: string
-  /**
    * A custom user domain, e.g. "status.example.com". See the docs on updating your DNS and SSL usage.
-   * This is required if 'customUrl' is not specified.
    */
   customDomain?: string
   /**
@@ -43,7 +37,7 @@ export class StatusPage extends Construct {
   name: string
   cardsServices?: null | Array<{name: string, services: Array<{ref: Ref}>}>
   cards?: StatusPageCardProps[]
-  url?: string
+  url: string
   customDomain?: string
   logo?: string
   favicon?: string
@@ -67,10 +61,6 @@ export class StatusPage extends Construct {
     this.logo = props.logo
     this.favicon = props.favicon
     this.cardsServices = null
-
-    if (!props.url && !props.customDomain) {
-      throw new Error('Either a "customUrl" or "customDomain" must be specified.')
-    }
 
     Session.registerConstruct(this)
   }
