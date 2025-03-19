@@ -35,7 +35,6 @@ export interface StatusPageProps {
  */
 export class StatusPage extends Construct {
   name: string
-  cardsServices?: null | Array<{name: string, services: Array<{ref: Ref}>}>
   cards?: StatusPageCardProps[]
   url: string
   customDomain?: string
@@ -60,7 +59,6 @@ export class StatusPage extends Construct {
     this.customDomain = props.customDomain
     this.logo = props.logo
     this.favicon = props.favicon
-    this.cardsServices = null
 
     Session.registerConstruct(this)
   }
