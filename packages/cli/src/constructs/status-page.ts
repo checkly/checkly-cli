@@ -1,17 +1,17 @@
 import { Construct } from './construct'
 import { Session } from './project'
-import { StatusPagesService } from './status-pages-service'
+import { StatusPageService } from './status-page-service'
 import { Ref } from './ref'
 
-export interface StatusPagesCardProps {
+export interface StatusPageCardProps {
   name: string
-  services?: Array<StatusPagesService>
+  services?: Array<StatusPageService>
 }
 
 export interface StatusPageProps {
   name: string
   url?: string
-  cards?: StatusPagesCardProps[]
+  cards?: StatusPageCardProps[]
   /**
    * A subdomain name under "checklyhq.com". Needs to be unique across all users.
    * This is required if 'customDomain' is not specified.
@@ -42,7 +42,7 @@ export interface StatusPageProps {
 export class StatusPage extends Construct {
   name: string
   cardsServices?: null | Array<{name: string, services: Array<{ref: Ref}>}>
-  cards?: StatusPagesCardProps[]
+  cards?: StatusPageCardProps[]
   url?: string
   customDomain?: string
   logo?: string

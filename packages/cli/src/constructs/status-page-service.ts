@@ -1,7 +1,7 @@
 import { Construct } from './construct'
 import { Session } from './project'
 
-export interface StatusPagesServiceProps {
+export interface StatusPageServiceProps {
   name: string
 }
 
@@ -12,7 +12,7 @@ export interface StatusPagesServiceProps {
  *
  * This class make use of the Dashboard endpoints.
  */
-export class StatusPagesService extends Construct {
+export class StatusPageService extends Construct {
   name: string
 
   static readonly __checklyType = 'status-page-service'
@@ -25,8 +25,8 @@ export class StatusPagesService extends Construct {
    *
    * {@link https://checklyhq.com/docs/cli/constructs-reference/#dashboard Read more in the docs}
    */
-  constructor (logicalId: string, props: StatusPagesServiceProps) {
-    super(StatusPagesService.__checklyType, logicalId)
+  constructor (logicalId: string, props: StatusPageServiceProps) {
+    super(StatusPageService.__checklyType, logicalId)
     this.name = props.name
 
     Session.registerConstruct(this)

@@ -8,7 +8,7 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  StatusPage, StatusPagesService,
+  StatusPage, StatusPageService,
 } from './'
 import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
@@ -35,7 +35,7 @@ export interface ProjectData {
   'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
   dashboard: Record<string, Dashboard>,
   'status-page': Record<string, StatusPage>,
-  'status-page-service': Record<string, StatusPagesService>,
+  'status-page-service': Record<string, StatusPageService>,
 }
 
 export class Project extends Construct {
