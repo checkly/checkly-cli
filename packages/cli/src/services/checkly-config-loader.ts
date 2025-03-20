@@ -66,7 +66,13 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
+    /**
+     * Playwright config path to be used during bundling and playwright config parsing
+     */
     playwrightConfigPath?: string,
+    /**
+     * List of playwright checks that use the defined playwright config path
+     */
     playwrightChecks?: PlaywrightSlimmedProp[]
   },
   /**
