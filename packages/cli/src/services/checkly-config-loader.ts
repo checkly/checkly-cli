@@ -150,6 +150,10 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
       throw new Error(`Config object missing a ${field} as type string`)
     }
   }
+  const playwrightConfigPath = config.checks?.playwrightConfigPath
+  if (playwrightConfigPath) {
+    config.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
+  }
 
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
