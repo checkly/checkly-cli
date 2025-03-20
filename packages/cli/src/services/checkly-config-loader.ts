@@ -2,6 +2,8 @@ import * as path from 'path'
 import { existsSync } from 'fs'
 import { loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
+import { PlaywrightCheckProps } from '../constructs/playwright-check'
+
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
@@ -12,6 +14,11 @@ import { PlaywrightConfig } from '../constructs/playwright-config'
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
+
+export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
+  | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
+  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'
+  | 'pwProjects' | 'pwTags' | 'installCommand'| 'testCommand'>
 
 export type ChecklyConfig = {
   /**
@@ -59,6 +66,8 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
+    playwrightConfigPath?: string,
+    playwrightChecks?: PlaywrightSlimmedProp[]
   },
   /**
    * CLI default configuration properties.

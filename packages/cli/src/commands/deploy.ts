@@ -67,11 +67,6 @@ export default class Deploy extends AuthCommand {
       default: false,
       hidden: true,
     }),
-    playwrightConfig: Flags.string({
-      char: 'p',
-      description: 'File path to playwright config file',
-      allowNo: true,
-    }),
   }
 
   async run (): Promise<void> {
@@ -115,7 +110,8 @@ export default class Deploy extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
-      playwrightConfig,
+      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const repoInfo = getGitInformation(project.repoUrl)
 

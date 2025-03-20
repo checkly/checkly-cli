@@ -110,11 +110,6 @@ export default class Test extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
-    playwrightConfig: Flags.string({
-      char: 'p',
-      description: 'File path to playwright config file',
-      allowNo: true,
-    }),
   }
 
   static args = {
@@ -188,7 +183,8 @@ export default class Test extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
-      playwrightConfig,
+      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {

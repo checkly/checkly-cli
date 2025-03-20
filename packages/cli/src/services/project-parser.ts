@@ -11,7 +11,7 @@ import {
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
-import { CheckConfigDefaults } from './checkly-config-loader'
+import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
 import type { Runtime } from '../rest/runtimes'
 import type { Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
@@ -31,7 +31,8 @@ type ProjectParseOpts = {
   defaultRuntimeId: string,
   verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
-  playwrightConfig?: string
+  playwrightConfigPath?: string
+  playwrightChecks?: PlaywrightSlimmedProp[]
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -53,7 +54,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     defaultRuntimeId,
     verifyRuntimeDependencies,
     checklyConfigConstructs,
-    playwrightConfig,
+    playwrightConfigPath,
+    playwrightChecks,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -76,7 +78,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     loadAllCheckFiles(directory, checkMatch, ignoreDirectories),
     loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
     loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
-    loadPlaywrightProject(playwrightConfig),
+    loadPlaywrightChecks(playwrightChecks, playwrightConfigPath),
   ])
 
   // private-location must be processed after all checks and groups are loaded.
@@ -84,15 +86,21 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   return project
 }
-async function loadPlaywrightProject (playwrightConfigPath: string | undefined) {
-  if (!playwrightConfigPath) {
+
+async function loadPlaywrightChecks (playwrightChecks?: PlaywrightSlimmedProp[], playwrightConfigPath?: string) {
+  if (!playwrightChecks?.length || !playwrightConfigPath) {
     return
   }
-  const key = await PlaywrightCheck.bundleProject(playwrightConfigPath)
-  const playwrightCheck = new PlaywrightCheck(playwrightConfigPath, {
-    name: path.basename(playwrightConfigPath),
-    codeBundlePath: key,
-  })
+
+  for (const playwrightCheckProps of playwrightChecks) {
+    // TODO: Don't upload for each check
+    const { key, browsers } = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+    const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.name, {
+      ...playwrightCheckProps,
+      codeBundlePath: key,
+      browsers,
+    })
+  }
 }
 
 async function loadAllCheckFiles (
