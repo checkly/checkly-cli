@@ -88,15 +88,23 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 }
 
 async function loadPlaywrightChecks (playwrightChecks?: PlaywrightSlimmedProp[], playwrightConfigPath?: string) {
-  if (!playwrightChecks?.length || !playwrightConfigPath) {
+  if (!playwrightConfigPath) {
     return
   }
-
-  for (const playwrightCheckProps of playwrightChecks) {
-    // TODO: Don't upload for each check
+  if (playwrightChecks?.length) {
+    for (const playwrightCheckProps of playwrightChecks) {
+      // TODO: Don't upload for each check
+      const { key, browsers } = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+      const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.name, {
+        ...playwrightCheckProps,
+        codeBundlePath: key,
+        browsers,
+      })
+    }
+  } else {
     const { key, browsers } = await PlaywrightCheck.bundleProject(playwrightConfigPath)
-    const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.name, {
-      ...playwrightCheckProps,
+    const playwrightCheck = new PlaywrightCheck(path.basename(playwrightConfigPath), {
+      name: path.basename(playwrightConfigPath),
       codeBundlePath: key,
       browsers,
     })
