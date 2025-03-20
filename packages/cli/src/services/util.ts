@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
