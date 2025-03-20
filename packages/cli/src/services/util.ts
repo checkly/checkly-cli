@@ -274,13 +274,13 @@ export function findBrowsers (playwrightConfig: any): string[] {
   // TODO: Fine tune the browser detection
   const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
   for (const browserKeyword of browserKeywords) {
-    if (playwrightConfig?.use[browserKeyword]) {
+    if (playwrightConfig?.use?.[browserKeyword]) {
       browsers.add(playwrightConfig?.use[browserKeyword])
     }
   }
   for (const project of playwrightConfig.projects) {
     for (const browserKeyword of browserKeywords) {
-      if (project?.use[browserKeyword]) {
+      if (project?.use?.[browserKeyword]) {
         browsers.add(project?.use[browserKeyword])
       }
     }
