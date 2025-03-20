@@ -39,7 +39,7 @@ export class PlaywrightCheck extends Check {
   }
 
   static buildTestCommand (testCommand: string, playwrightProject?: string[], playwrightTag?: string[]) {
-    return `${testCommand}${playwrightProject?.length ? ' --project ' + playwrightProject.join(',') : ''}${playwrightTag?.length ? ' --grep ' + playwrightTag.join('|') : ''}`
+    return `${testCommand}${playwrightProject?.length ? ' --project="' + playwrightProject.join(',') + '"' : ''}${playwrightTag?.length ? ' --grep="' + playwrightTag.join('|') + '"' : ''}`
   }
 
   static async bundleProject (playwrightConfigPath: string) {
