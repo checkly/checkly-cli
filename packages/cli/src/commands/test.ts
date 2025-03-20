@@ -146,6 +146,7 @@ export default class Test extends AuthCommand {
       'update-snapshots': updateSnapshots,
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
+      playwrightConfig,
     } = flags
     const filePatterns = argv as string[]
 
@@ -182,6 +183,8 @@ export default class Test extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
+      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {

@@ -1,4 +1,4 @@
-import type { CreateAxiosDefaults } from 'axios'
+import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
@@ -8,6 +8,11 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
+import { Archiver, create } from 'archiver'
+import { glob } from 'glob'
+import os from 'node:os'
+import { checklyStorage } from '../rest/api'
+import { loadFile } from './checkly-config-loader'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -222,4 +227,116 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   }
   axiosConfig.proxy = false
   return axiosConfig
+}
+
+export async function bundlePlayWrightProject (playwrightConfig: string):
+Promise<{outputFile: string, browsers: string[]}> {
+  const dir = path.resolve(path.dirname(playwrightConfig))
+  const filePath = path.resolve(dir, playwrightConfig)
+  const pwtConfig = await loadFile(filePath)
+  const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
+  const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
+  const output = fsSync.createWriteStream(outputFile)
+
+  const browsers = findBrowsers(pwtConfig)
+
+  const archive = create('tar', {
+    gzip: true,
+    gzipOptions: {
+      level: 9,
+    },
+  })
+  archive.pipe(output)
+  await loadPlaywrightProjectFiles(dir, archive)
+  await archive.finalize()
+  return new Promise((resolve, reject) => {
+    output.on('close', () => {
+      return resolve({ outputFile, browsers })
+    })
+
+    output.on('error', (err) => {
+      return reject(err)
+    })
+  })
+}
+
+export async function loadPlaywrightProjectFiles (dir: string, archive: Archiver) {
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  try {
+    const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
+    ignoredFiles.push(...gitignoreToGlob(gitignore))
+  } catch (e) {}
+  archive.glob('**/*', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+}
+
+export function findBrowsers (playwrightConfig: any): string[] {
+  const browsers = new Set<string>()
+  // TODO: Fine tune the browser detection
+  const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
+  for (const browserKeyword of browserKeywords) {
+    if (playwrightConfig?.use?.[browserKeyword]) {
+      browsers.add(playwrightConfig?.use[browserKeyword])
+    }
+  }
+  for (const project of playwrightConfig.projects) {
+    for (const browserKeyword of browserKeywords) {
+      if (project?.use?.[browserKeyword]) {
+        browsers.add(project?.use[browserKeyword])
+      }
+    }
+  }
+  return Array.from(browsers)
+}
+
+export function gitignoreToGlob (gitignoreContent: string) {
+  return gitignoreContent.split('\n')
+    .map(line => line.trim())
+    .filter(line => !line.startsWith('#') && line.length)
+    .map(line => {
+      let result = line
+      if (line.startsWith('/')) {
+        result = result.substring(1)
+      } else {
+        if (!line.startsWith('**/')) {
+          result = `**/${result}`
+        }
+      }
+
+      if (line.endsWith('/')) {
+        result = `${result}**`
+      } else {
+        if (!line.endsWith('/**')) {
+          result = `${result}/**`
+        }
+      }
+      return result
+    })
+}
+
+export async function findFilesWithPattern (
+  directory: string,
+  pattern: string | string[],
+  ignorePattern: string[],
+): Promise<string[]> {
+  // The files are sorted to make sure that the processing order is deterministic.
+  const files = await glob(pattern, {
+    nodir: true,
+    cwd: directory,
+    ignore: ignorePattern,
+    absolute: true,
+  })
+  return files.sort()
+}
+
+export async function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
+  const { size } = await fs.stat(dir)
+  const stream = fsSync.createReadStream(dir)
+  return checklyStorage.uploadCodeBundle(stream, size)
+}
+
+export function cleanup (dir: string) {
+  if (!dir.length) {
+    return
+  }
+  return fs.rm(dir)
 }
