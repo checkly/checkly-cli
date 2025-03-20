@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -229,11 +230,16 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
-export async function bundlePlayWrightProject (playwrightConfig: string): Promise<string> {
+export async function bundlePlayWrightProject (playwrightConfig: string):
+Promise<{outputFile: string, browsers: string[]}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
+  const filePath = path.resolve(dir, playwrightConfig)
+  const pwtConfig = await loadFile(filePath)
   const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
-  const outputDir = path.join(outputFolder, 'playwright-project.tar.gz')
-  const output = fsSync.createWriteStream(outputDir)
+  const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
+  const output = fsSync.createWriteStream(outputFile)
+
+  const browsers = findBrowsers(pwtConfig)
 
   const archive = create('tar', {
     gzip: true,
@@ -246,7 +252,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string): Promis
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
-      return resolve(outputDir)
+      return resolve({ outputFile, browsers })
     })
 
     output.on('error', (err) => {
@@ -262,6 +268,25 @@ export async function loadPlaywrightProjectFiles (dir: string, archive: Archiver
     ignoredFiles.push(...gitignoreToGlob(gitignore))
   } catch (e) {}
   archive.glob('**/*', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+}
+
+export function findBrowsers (playwrightConfig: any): string[] {
+  const browsers = new Set<string>()
+  // TODO: Fine tune the browser detection
+  const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
+  for (const browserKeyword of browserKeywords) {
+    if (playwrightConfig?.use[browserKeyword]) {
+      browsers.add(playwrightConfig?.use[browserKeyword])
+    }
+  }
+  for (const project of playwrightConfig.projects) {
+    for (const browserKeyword of browserKeywords) {
+      if (project?.use[browserKeyword]) {
+        browsers.add(project?.use[browserKeyword])
+      }
+    }
+  }
+  return Array.from(browsers)
 }
 
 export function gitignoreToGlob (gitignoreContent: string) {
