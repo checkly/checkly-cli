@@ -104,7 +104,7 @@ export default class ImportPlanCommand extends AuthCommand {
       program.render(output)
 
       // TODO: file structure
-      const filename = './generated_resources.ts'
+      const filename = './generated.check.ts'
 
       writeFileSync(filename, output.finalize())
 
