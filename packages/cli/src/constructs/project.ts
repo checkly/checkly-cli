@@ -11,7 +11,6 @@ import {
 } from './'
 import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
-import { Program } from '../sourcegen'
 
 export interface ProjectProps {
   /**
@@ -102,10 +101,6 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data.dashboard),
       ],
     }
-  }
-
-  source (program: Program): void {
-    throw new Error('Unimplemented')
   }
 
   getTestOnlyConstructs (): Construct[] {

@@ -2,7 +2,6 @@ import * as fs from 'fs'
 import { Construct, Content, Entrypoint } from './construct'
 import { Session } from './project'
 import * as path from 'path'
-import { expr, ident, Program } from '../sourcegen'
 
 export interface DashboardProps {
   /**
@@ -219,114 +218,5 @@ export class Dashboard extends Construct {
       showP95: this.showP95,
       showP99: this.showP99,
     }
-  }
-
-  source (program: Program): void {
-    program.import('Dashboard', 'checkly/constructs')
-
-    program.section(expr(ident('Dashboard'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          if (this.tags) {
-            const tags = this.tags
-            builder.array('tags', builder => {
-              for (const tag of tags) {
-                builder.string(tag)
-              }
-            })
-          }
-
-          if (this.customUrl) {
-            builder.string('customUrl', this.customUrl)
-          }
-
-          if (this.customDomain) {
-            builder.string('customDomain', this.customDomain)
-          }
-
-          if (this.logo) {
-            builder.string('logo', this.logo)
-          }
-
-          if (this.favicon) {
-            builder.string('favicon', this.favicon)
-          }
-
-          if (this.link) {
-            builder.string('link', this.link)
-          }
-
-          if (this.header) {
-            builder.string('header', this.header)
-          }
-
-          if (this.description) {
-            builder.string('description', this.description)
-          }
-
-          if (this.width) {
-            builder.string('width', this.width)
-          }
-
-          if (this.refreshRate) {
-            builder.number('refreshRate', this.refreshRate)
-          }
-
-          if (this.paginate !== undefined) {
-            builder.boolean('paginate', this.paginate)
-          }
-
-          if (this.paginationRate) {
-            builder.number('paginationRate', this.paginationRate)
-          }
-
-          if (this.checksPerPage) {
-            builder.number('checksPerPage', this.checksPerPage)
-          }
-
-          if (this.useTagsAndOperator !== undefined) {
-            builder.boolean('useTagsAndOperator', this.useTagsAndOperator)
-          }
-
-          if (this.hideTags !== undefined) {
-            builder.boolean('hideTags', this.hideTags)
-          }
-
-          if (this.enableIncidents !== undefined) {
-            builder.boolean('enableIncidents', this.enableIncidents)
-          }
-
-          if (this.expandChecks !== undefined) {
-            builder.boolean('expandChecks', this.expandChecks)
-          }
-
-          if (this.showHeader !== undefined) {
-            builder.boolean('showHeader', this.showHeader)
-          }
-
-          if (this.customCSS) {
-            const content = this.customCSS
-            builder.object('customCSS', builder => {
-              // TODO: Consider creating a separate file with the content
-              // and referring to it via entrypoint instead.
-              builder.string('content', content)
-            })
-          }
-
-          if (this.isPrivate !== undefined) {
-            builder.boolean('isPrivate', this.isPrivate)
-          }
-
-          if (this.showP95 !== undefined) {
-            builder.boolean('showP95', this.showP95)
-          }
-
-          if (this.showP99 !== undefined) {
-            builder.boolean('showP99', this.showP99)
-          }
-        })
-      })
-    }))
   }
 }
