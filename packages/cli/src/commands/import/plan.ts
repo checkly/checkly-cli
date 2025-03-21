@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
@@ -10,6 +11,8 @@ import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
+import { Program, Output } from '../../sourcegen'
+import { codegen } from '../../constructs/construct.codegen'
 
 export default class ImportPlanCommand extends AuthCommand {
   static coreCommand = true
@@ -50,8 +53,11 @@ export default class ImportPlanCommand extends AuthCommand {
       ux.action.start('Creating a new plan', undefined, { stdout: true })
     }
 
+    let plan: ImportPlan
+
     try {
-      const { data: plan } = await api.projects.createImportPlan(logicalId)
+      const { data } = await api.projects.createImportPlan(logicalId)
+      plan = data
 
       if (this.fancy) {
         ux.action.stop('✅ ')
@@ -74,16 +80,35 @@ export default class ImportPlanCommand extends AuthCommand {
       throw err
     }
 
+    this.#generateCode(plan)
+  }
+
+  #generateCode (plan: ImportPlan) {
     if (this.fancy) {
       ux.action.start('Generating Checkly constructs for imported resources', undefined, { stdout: true })
     }
 
     try {
-      this.log('TODO') // TODO
+      const program = new Program()
+      if (plan.changes) {
+        for (const resource of plan.changes.resources) {
+          codegen(program, resource as any)
+        }
+      }
 
       if (this.fancy) {
         ux.action.stop('✅ ')
       }
+
+      const output = new Output()
+      program.render(output)
+
+      // TODO: file structure
+      const filename = './generated_resources.ts'
+
+      writeFileSync(filename, output.finalize())
+
+      this.log(`${logSymbols.success} Generated code can be found in ${chalk.bold(filename)}`)
     } catch (err) {
       if (this.fancy) {
         ux.action.stop('❌')
