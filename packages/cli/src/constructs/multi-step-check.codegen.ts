@@ -11,7 +11,7 @@ export interface MultiStepCheckResource extends CheckResource {
 
 const construct = 'MultiStepCheck'
 
-export function source (program: Program, logicalId: string, resource: MultiStepCheckResource): void {
+export function codegen (program: Program, logicalId: string, resource: MultiStepCheckResource): void {
   program.import(construct, 'checkly/constructs')
 
   program.section(expr(ident(construct), builder => {
