@@ -1,4 +1,3 @@
-import { decl, expr, ident, Program } from '../sourcegen'
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
@@ -47,31 +46,5 @@ export class SmsAlertChannel extends AlertChannel {
         name: this.name,
       },
     }
-  }
-
-  source (program: Program): void {
-    program.import('SmsAlertChannel', 'checkly/constructs')
-
-    const id = program.registerVariable(
-      `SmsAlertChannel::${this.logicalId}`,
-      ident(program.nth('smsAlertChannel')),
-    )
-
-    program.section(decl(id, builder => {
-      builder.variable(expr(ident('SmsAlertChannel'), builder => {
-        builder.new(builder => {
-          builder.string(this.logicalId)
-          builder.object(builder => {
-            if (this.name) {
-              builder.string('name', this.name)
-            }
-
-            builder.string('phoneNumber', this.phoneNumber)
-
-            this.buildSourceForAlertChannelProps(builder)
-          })
-        })
-      }))
-    }))
   }
 }

@@ -1,4 +1,3 @@
-import { decl, expr, ident, Program } from '../sourcegen'
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
 
@@ -66,30 +65,5 @@ export class OpsgenieAlertChannel extends AlertChannel {
         priority: this.priority,
       },
     }
-  }
-
-  source (program: Program): void {
-    program.import('OpsgenieAlertChannel', 'checkly/constructs')
-
-    const id = program.registerVariable(
-      `OpsgenieAlertChannel::${this.logicalId}`,
-      ident(program.nth('opsgenieAlertChannel')),
-    )
-
-    program.section(decl(id, builder => {
-      builder.variable(expr(ident('OpsgenieAlertChannel'), builder => {
-        builder.new(builder => {
-          builder.string(this.logicalId)
-          builder.object(builder => {
-            builder.string('name', this.name)
-            builder.string('apiKey', this.apiKey)
-            builder.string('region', this.region)
-            builder.string('priority', this.priority)
-
-            this.buildSourceForAlertChannelProps(builder)
-          })
-        })
-      }))
-    }))
   }
 }

@@ -3,8 +3,6 @@ import { HttpHeader } from './http-header'
 import { HttpRequestMethod } from './api-check'
 import { QueryParam } from './query-param'
 import { Session } from './project'
-import { decl, expr, ident, Program } from '../sourcegen'
-import { sourceForKeyValuePair } from './key-value-pair'
 
 export interface WebhookAlertChannelProps extends AlertChannelProps {
   /**
@@ -95,63 +93,5 @@ export class WebhookAlertChannel extends AlertChannel {
         webhookSecret: this.webhookSecret,
       },
     }
-  }
-
-  source (program: Program): void {
-    program.import('WebhookAlertChannel', 'checkly/constructs')
-
-    const id = program.registerVariable(
-      `WebhookAlertChannel::${this.logicalId}`,
-      ident(program.nth('webhookAlertChannel')),
-    )
-
-    program.section(decl(id, builder => {
-      builder.variable(expr(ident('WebhookAlertChannel'), builder => {
-        builder.new(builder => {
-          builder.string(this.logicalId)
-          builder.object(builder => {
-            builder.string('name', this.name)
-
-            if (this.webhookType) {
-              builder.string('webhookType', this.webhookType)
-            }
-
-            builder.string('url', this.url.toString())
-
-            if (this.template) {
-              builder.string('template', this.template)
-            }
-
-            if (this.method) {
-              builder.string('method', this.method)
-            }
-
-            if (this.headers) {
-              const headers = this.headers
-              builder.array('headers', builder => {
-                for (const header of headers) {
-                  builder.value(sourceForKeyValuePair(header))
-                }
-              })
-            }
-
-            if (this.queryParameters) {
-              const queryParameters = this.queryParameters
-              builder.array('queryParameters', builder => {
-                for (const param of queryParameters) {
-                  builder.value(sourceForKeyValuePair(param))
-                }
-              })
-            }
-
-            if (this.webhookSecret) {
-              builder.string('webhookSecret', this.webhookSecret)
-            }
-
-            this.buildSourceForAlertChannelProps(builder)
-          })
-        })
-      }))
-    }))
   }
 }

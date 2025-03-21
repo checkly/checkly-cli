@@ -1,4 +1,3 @@
-import { expr, ident, Program } from '../sourcegen'
 import { Construct } from './construct'
 import { Session } from './project'
 import { ValidationError } from './validator-error'
@@ -53,11 +52,6 @@ class PrivateLocationWrapper extends Construct {
 
   synthesize () {
     return null
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  source (program: Program): void {
-    throw new Error('Unimplemented')
   }
 }
 
@@ -114,27 +108,5 @@ export class PrivateLocation extends Construct {
       icon: this.icon,
       proxyUrl: this.proxyUrl,
     }
-  }
-
-  source (program: Program): void {
-    program.import('PrivateLocation', 'checkly/constructs')
-
-    program.section(expr(ident('PrivateLocation'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.string('name', this.name)
-          builder.string('slugName', this.slugName)
-
-          if (this.icon) {
-            builder.string('icon', this.icon)
-          }
-
-          if (this.proxyUrl) {
-            builder.string('proxyUrl', this.proxyUrl)
-          }
-        })
-      })
-    }))
   }
 }

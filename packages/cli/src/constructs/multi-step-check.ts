@@ -6,8 +6,7 @@ import { pathToPosix } from '../services/util'
 import { Content, Entrypoint } from './construct'
 import CheckTypes from '../constants'
 import { CheckDependency } from './browser-check'
-import { PlaywrightConfig, sourceForPlaywrightConfig } from './playwright-config'
-import { expr, ident, Program } from '../sourcegen'
+import { PlaywrightConfig } from './playwright-config'
 
 export interface MultiStepCheckProps extends CheckProps {
   /**
@@ -135,32 +134,5 @@ export class MultiStepCheck extends Check {
       dependencies: this.dependencies,
       playwrightConfig: this.playwrightConfig,
     }
-  }
-
-  source (program: Program): void {
-    program.import('MultiStepCheck', 'checkly/constructs')
-
-    program.section(expr(ident('MultiStepCheck'), builder => {
-      builder.new(builder => {
-        builder.string(this.logicalId)
-        builder.object(builder => {
-          builder.object('code', builder => {
-            if (this.scriptPath) {
-              // TODO separate file
-              builder.string('entrypoint', this.scriptPath)
-              builder.string('content', this.script)
-            } else {
-              builder.string('content', this.script)
-            }
-          })
-
-          if (this.playwrightConfig) {
-            builder.value('playwrightConfig', sourceForPlaywrightConfig(this.playwrightConfig))
-          }
-
-          this.buildSourceForCheckProps(program, builder)
-        })
-      })
-    }))
   }
 }
