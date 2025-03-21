@@ -1,4 +1,3 @@
-import { Program } from '../sourcegen'
 import { Session } from './project'
 import { Ref } from './ref'
 
@@ -24,8 +23,6 @@ export abstract class Construct {
   }
 
   abstract synthesize(): any|null
-
-  abstract source (program: Program): void
 }
 
 export interface Entrypoint {
