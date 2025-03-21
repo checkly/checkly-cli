@@ -2,7 +2,7 @@ import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
 import { isAxiosError } from 'axios'
-import * as logSymbols from 'log-symbols'
+import logSymbols from 'log-symbols'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
