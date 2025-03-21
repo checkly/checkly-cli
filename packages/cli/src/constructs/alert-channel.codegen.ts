@@ -1,4 +1,12 @@
-import { decl, expr, ident, Program, ObjectValueBuilder } from '../sourcegen'
+import { Program, ObjectValueBuilder } from '../sourcegen'
+
+import { codegen as emailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel.codegen'
+import { codegen as opsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel.codegen'
+import { codegen as pagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel.codegen'
+import { codegen as phoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel.codegen'
+import { codegen as slackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel.codegen'
+import { codegen as smsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel.codegen'
+import { codegen as webhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel.codegen'
 
 export interface AlertChannelResource {
   type: string
@@ -31,24 +39,37 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
   }
 }
 
-const construct = 'AlertChannel'
+type Type = 'CALL' | 'EMAIL' | 'OPSGENIE' | 'PAGERDUTY' | 'SLACK' | 'SMS' | 'WEBHOOK'
+
+const codegensByType = {
+  CALL: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return phoneCallAlertChannelCodegen(program, logicalId, resource as PhoneCallAlertChannelResource)
+  },
+  EMAIL: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return emailAlertChannelCodegen(program, logicalId, resource as EmailAlertChannelResource)
+  },
+  OPSGENIE: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return opsgenieAlertChannelCodegen(program, logicalId, resource as OpsgenieAlertChannelResource)
+  },
+  PAGERDUTY: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return pagerdutyAlertChannelCodegen(program, logicalId, resource as PagerdutyAlertChannelResource)
+  },
+  SLACK: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return slackAlertChannelCodegen(program, logicalId, resource as SlackAlertChannelResource)
+  },
+  SMS: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return smsAlertChannelCodegen(program, logicalId, resource as SmsAlertChannelResource)
+  },
+  WEBHOOK: (program: Program, logicalId: string, resource: AlertChannelResource) => {
+    return webhookAlertChannelCodegen(program, logicalId, resource as WebhookAlertChannelResource)
+  },
+}
 
 export function codegen (program: Program, logicalId: string, resource: AlertChannelResource): void {
-  program.import(construct, 'checkly/constructs')
+  const subgen = codegensByType[resource.type as Type]
+  if (!subgen) {
+    throw new Error(`Unable to generate for for unsupported alert channel type '${resource.type}'.`)
+  }
 
-  const id = program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(program.nth('alertChannel')),
-  )
-
-  program.section(decl(id, builder => {
-    builder.variable(expr(ident(construct), builder => {
-      builder.new(builder => {
-        builder.string(logicalId)
-        builder.object(builder => {
-          buildAlertChannelProps(builder, resource)
-        })
-      })
-    }))
-  }))
+  return subgen(program, logicalId, resource)
 }
