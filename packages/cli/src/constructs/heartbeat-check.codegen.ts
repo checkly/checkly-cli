@@ -7,7 +7,7 @@ export interface HeartbeatCheckResource extends CheckResource {
   heartbeat: Heartbeat,
 }
 
-export function source (program: Program, logicalId: string, resource: HeartbeatCheckResource): void {
+export function codegen (program: Program, logicalId: string, resource: HeartbeatCheckResource): void {
   program.import('HeartbeatCheck', 'checkly/constructs')
 
   program.section(expr(ident('HeartbeatCheck'), builder => {
