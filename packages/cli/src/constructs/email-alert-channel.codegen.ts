@@ -23,6 +23,8 @@ export function codegen (program: Program, logicalId: string, resource: EmailAle
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
+          builder.string('address', resource.config.address)
+
           buildAlertChannelProps(builder, resource)
         })
       })
