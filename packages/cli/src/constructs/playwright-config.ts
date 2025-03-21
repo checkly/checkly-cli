@@ -1,5 +1,3 @@
-import { unknown, Value } from '../sourcegen'
-
 /**
  * Ref: https://playwright.dev/docs/network#http-proxy
  */
@@ -53,8 +51,4 @@ export type PlaywrightConfig = {
     use?: Use,
     expect?: Expect,
     timeout?: number
-}
-
-export function sourceForPlaywrightConfig (config: PlaywrightConfig): Value {
-  return unknown(config)
 }
