@@ -6,13 +6,17 @@ import { IdentifierValue } from './identifier'
 type Content = Declaration | Value
 
 export class Program {
-  #imports = new Map<string, string[]>()
+  #imports = new Map<string, Set<string>>()
   #variables = new Map<string, IdentifierValue>()
   #counters = new Map<string, number>()
   #sections: Content[] = []
 
   import (type: string, from: string) {
-    this.#imports.set(from, (this.#imports.get(from) || []).concat([type]))
+    if (this.#imports.has(from)) {
+      this.#imports.get(from)?.add(type)
+    } else {
+      this.#imports.set(from, new Set([type]))
+    }
   }
 
   #inc (key: string): number {
@@ -46,7 +50,7 @@ export class Program {
         output.cosmeticWhitespace()
         output.append('{')
         let first = true
-        for (const type of types) {
+        for (const type of Array.from(types).sort()) {
           if (!first) {
             output.append(',')
           }
