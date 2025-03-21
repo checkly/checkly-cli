@@ -24,6 +24,7 @@ export interface ResourceSync {
   member: boolean,
   payload: any,
 }
+
 export interface ProjectSync {
   project: Project,
   resources: Array<ResourceSync>,
@@ -33,6 +34,18 @@ export interface ProjectSync {
 export interface ProjectDeployResponse {
   project: Project
   diff: Array<Change>
+}
+
+export interface ImportPlanChanges {
+  resources: ResourceSync
+}
+
+export interface ImportPlan {
+  id: string
+  createdAt: string
+  appliedAt?: string
+  committedAt?: string
+  changes?: ImportPlanChanges
 }
 
 class Projects {
@@ -63,6 +76,40 @@ class Projects {
       resources,
       { transformRequest: compressJSONPayload },
     )
+  }
+
+  createImportPlan (logicalId: string) {
+    return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`)
+  }
+
+  findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {
+    return this.api.get<ImportPlan[]>(`/next/projects/${logicalId}/imports`, {
+      params: {
+        onlyUnapplied,
+        onlyUncommitted,
+      },
+    })
+  }
+
+  listImportPlans ({ onlyUnapplied = false, onlyUncommitted = false } = {}) {
+    return this.api.get<ImportPlan[]>('/next/projects/imports', {
+      params: {
+        onlyUnapplied,
+        onlyUncommitted,
+      },
+    })
+  }
+
+  cancelImportPlan (importPlanId: string) {
+    return this.api.delete<void>(`/next/projects/imports/${importPlanId}`)
+  }
+
+  applyImportPlan (importPlanId: string) {
+    return this.api.post<void>(`/next/projects/imports/${importPlanId}/apply`)
+  }
+
+  commitImportPlan (importPlanId: string) {
+    return this.api.post<void>(`/next/projects/imports/${importPlanId}/commit`)
   }
 }
 
