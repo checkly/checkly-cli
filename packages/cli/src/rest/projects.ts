@@ -37,7 +37,7 @@ export interface ProjectDeployResponse {
 }
 
 export interface ImportPlanChanges {
-  resources: ResourceSync
+  resources: ResourceSync[]
 }
 
 export interface ImportPlan {
