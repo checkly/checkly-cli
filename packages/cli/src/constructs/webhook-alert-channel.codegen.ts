@@ -4,6 +4,10 @@ import { HttpHeader } from './http-header'
 import { valueForKeyValuePair } from './key-value-pair.codegen'
 import { QueryParam } from './query-param'
 
+import { codegen as incidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel.codegen'
+import { codegen as msteamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel.codegen'
+import { codegen as telegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel.codegen'
+
 export interface WebhookAlertChannelResourceConfig {
   name: string
   webhookType?: string
@@ -63,9 +67,30 @@ export function buildWebhookAlertChannelConfig (
   }
 }
 
+type WebhookType = 'WEBHOOK_INCIDENTIO' | 'WEBHOOK_TELEGRAM' | 'WEBHOOK_MSTEAMS'
+
+const codegensByWebhookType = {
+  WEBHOOK_INCIDENTIO: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
+    return incidentioAlertChannelCodegen(program, logicalId, resource as IncidentioAlertChannelResource)
+  },
+  WEBHOOK_MSTEAMS: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
+    return msteamsAlertChannelCodegen(program, logicalId, resource as MSTeamsAlertChannelResource)
+  },
+  WEBHOOK_TELEGRAM: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
+    return telegramAlertChannelCodegen(program, logicalId, resource as TelegramAlertChannelResource)
+  },
+}
+
 const construct = 'WebhookAlertChannel'
 
 export function codegen (program: Program, logicalId: string, resource: WebhookAlertChannelResource): void {
+  if (resource.config.webhookType) {
+    const subgen = codegensByWebhookType[resource.config.webhookType as WebhookType]
+    if (subgen) {
+      return subgen(program, logicalId, resource)
+    }
+  }
+
   program.import(construct, 'checkly/constructs')
 
   const id = program.registerVariable(
