@@ -10,6 +10,11 @@ export class ArrayValue extends Value {
   }
 
   render (output: Output): void {
+    if (this.value.length === 0) {
+      output.append('[]')
+      return
+    }
+
     output.append('[')
     output.increaseIndent()
 
