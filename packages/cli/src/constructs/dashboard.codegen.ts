@@ -1,4 +1,5 @@
-import { expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { expr, ident } from '../sourcegen'
 
 export interface DashboardResource {
   tags?: string[]
@@ -27,111 +28,113 @@ export interface DashboardResource {
 
 const construct = 'Dashboard'
 
-export function codegen (program: Program, logicalId: string, resource: DashboardResource): void {
-  program.import(construct, 'checkly/constructs')
+export class DashboardCodegen extends Codegen<DashboardResource> {
+  gencode (logicalId: string, resource: DashboardResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  program.section(expr(ident(construct), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        if (resource.tags) {
-          const tags = resource.tags
-          builder.array('tags', builder => {
-            for (const tag of tags) {
-              builder.string(tag)
-            }
-          })
-        }
+    this.program.section(expr(ident(construct), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          if (resource.tags) {
+            const tags = resource.tags
+            builder.array('tags', builder => {
+              for (const tag of tags) {
+                builder.string(tag)
+              }
+            })
+          }
 
-        if (resource.customUrl) {
-          builder.string('customUrl', resource.customUrl)
-        }
+          if (resource.customUrl) {
+            builder.string('customUrl', resource.customUrl)
+          }
 
-        if (resource.customDomain) {
-          builder.string('customDomain', resource.customDomain)
-        }
+          if (resource.customDomain) {
+            builder.string('customDomain', resource.customDomain)
+          }
 
-        if (resource.logo) {
-          builder.string('logo', resource.logo)
-        }
+          if (resource.logo) {
+            builder.string('logo', resource.logo)
+          }
 
-        if (resource.favicon) {
-          builder.string('favicon', resource.favicon)
-        }
+          if (resource.favicon) {
+            builder.string('favicon', resource.favicon)
+          }
 
-        if (resource.link) {
-          builder.string('link', resource.link)
-        }
+          if (resource.link) {
+            builder.string('link', resource.link)
+          }
 
-        if (resource.header) {
-          builder.string('header', resource.header)
-        }
+          if (resource.header) {
+            builder.string('header', resource.header)
+          }
 
-        if (resource.description) {
-          builder.string('description', resource.description)
-        }
+          if (resource.description) {
+            builder.string('description', resource.description)
+          }
 
-        if (resource.width) {
-          builder.string('width', resource.width)
-        }
+          if (resource.width) {
+            builder.string('width', resource.width)
+          }
 
-        if (resource.refreshRate) {
-          builder.number('refreshRate', resource.refreshRate)
-        }
+          if (resource.refreshRate) {
+            builder.number('refreshRate', resource.refreshRate)
+          }
 
-        if (resource.paginate !== undefined) {
-          builder.boolean('paginate', resource.paginate)
-        }
+          if (resource.paginate !== undefined) {
+            builder.boolean('paginate', resource.paginate)
+          }
 
-        if (resource.paginationRate) {
-          builder.number('paginationRate', resource.paginationRate)
-        }
+          if (resource.paginationRate) {
+            builder.number('paginationRate', resource.paginationRate)
+          }
 
-        if (resource.checksPerPage) {
-          builder.number('checksPerPage', resource.checksPerPage)
-        }
+          if (resource.checksPerPage) {
+            builder.number('checksPerPage', resource.checksPerPage)
+          }
 
-        if (resource.useTagsAndOperator !== undefined) {
-          builder.boolean('useTagsAndOperator', resource.useTagsAndOperator)
-        }
+          if (resource.useTagsAndOperator !== undefined) {
+            builder.boolean('useTagsAndOperator', resource.useTagsAndOperator)
+          }
 
-        if (resource.hideTags !== undefined) {
-          builder.boolean('hideTags', resource.hideTags)
-        }
+          if (resource.hideTags !== undefined) {
+            builder.boolean('hideTags', resource.hideTags)
+          }
 
-        if (resource.enableIncidents !== undefined) {
-          builder.boolean('enableIncidents', resource.enableIncidents)
-        }
+          if (resource.enableIncidents !== undefined) {
+            builder.boolean('enableIncidents', resource.enableIncidents)
+          }
 
-        if (resource.expandChecks !== undefined) {
-          builder.boolean('expandChecks', resource.expandChecks)
-        }
+          if (resource.expandChecks !== undefined) {
+            builder.boolean('expandChecks', resource.expandChecks)
+          }
 
-        if (resource.showHeader !== undefined) {
-          builder.boolean('showHeader', resource.showHeader)
-        }
+          if (resource.showHeader !== undefined) {
+            builder.boolean('showHeader', resource.showHeader)
+          }
 
-        if (resource.customCSS) {
-          const content = resource.customCSS
-          builder.object('customCSS', builder => {
+          if (resource.customCSS) {
+            const content = resource.customCSS
+            builder.object('customCSS', builder => {
             // TODO: Consider creating a separate file with the content
             // and referring to it via entrypoint instead.
-            builder.string('content', content)
-          })
-        }
+              builder.string('content', content)
+            })
+          }
 
-        if (resource.isPrivate !== undefined) {
-          builder.boolean('isPrivate', resource.isPrivate)
-        }
+          if (resource.isPrivate !== undefined) {
+            builder.boolean('isPrivate', resource.isPrivate)
+          }
 
-        if (resource.showP95 !== undefined) {
-          builder.boolean('showP95', resource.showP95)
-        }
+          if (resource.showP95 !== undefined) {
+            builder.boolean('showP95', resource.showP95)
+          }
 
-        if (resource.showP99 !== undefined) {
-          builder.boolean('showP99', resource.showP99)
-        }
+          if (resource.showP99 !== undefined) {
+            builder.boolean('showP99', resource.showP99)
+          }
+        })
       })
-    })
-  }))
+    }))
+  }
 }

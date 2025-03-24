@@ -1,4 +1,5 @@
-import { expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { expr, ident } from '../sourcegen'
 
 export interface MaintenanceWindowResource {
   name: string
@@ -12,50 +13,52 @@ export interface MaintenanceWindowResource {
 
 const construct = 'MaintenanceWindow'
 
-export function codegen (program: Program, logicalId: string, resource: MaintenanceWindowResource): void {
-  program.import(construct, 'checkly/constructs')
+export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
+  gencode (logicalId: string, resource: MaintenanceWindowResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  program.section(expr(ident(construct), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        builder.string('name', resource.name)
+    this.program.section(expr(ident(construct), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          builder.string('name', resource.name)
 
-        builder.array('tags', builder => {
-          for (const tag of resource.tags) {
-            builder.string(tag)
-          }
-        })
-
-        builder.expr('startsAt', ident('Date'), builder => {
-          builder.new(builder => {
-            builder.string(resource.startsAt)
+          builder.array('tags', builder => {
+            for (const tag of resource.tags) {
+              builder.string(tag)
+            }
           })
-        })
 
-        builder.expr('endsAt', ident('Date'), builder => {
-          builder.new(builder => {
-            builder.string(resource.endsAt)
-          })
-        })
-
-        if (resource.repeatInterval !== undefined) {
-          builder.number('repeatInterval', resource.repeatInterval)
-        }
-
-        if (resource.repeatUnit) {
-          builder.string('repeatUnit', resource.repeatUnit)
-        }
-
-        if (resource.repeatEndsAt) {
-          const repeatEndsAt = resource.repeatEndsAt
-          builder.expr('repeatEndsAt', ident('Date'), builder => {
+          builder.expr('startsAt', ident('Date'), builder => {
             builder.new(builder => {
-              builder.string(repeatEndsAt)
+              builder.string(resource.startsAt)
             })
           })
-        }
+
+          builder.expr('endsAt', ident('Date'), builder => {
+            builder.new(builder => {
+              builder.string(resource.endsAt)
+            })
+          })
+
+          if (resource.repeatInterval !== undefined) {
+            builder.number('repeatInterval', resource.repeatInterval)
+          }
+
+          if (resource.repeatUnit) {
+            builder.string('repeatUnit', resource.repeatUnit)
+          }
+
+          if (resource.repeatEndsAt) {
+            const repeatEndsAt = resource.repeatEndsAt
+            builder.expr('repeatEndsAt', ident('Date'), builder => {
+              builder.new(builder => {
+                builder.string(repeatEndsAt)
+              })
+            })
+          }
+        })
       })
-    })
-  }))
+    }))
+  }
 }
