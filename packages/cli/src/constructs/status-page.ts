@@ -11,7 +11,7 @@ export interface StatusPageCardProps {
   /**
    * A list of services to include in the card.
    */
-  services?: Array<StatusPageService>
+  services?: StatusPageService[]
 }
 
 export type StatusPageTheme = 'AUTO' | 'DARK' | 'LIGHT'
