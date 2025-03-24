@@ -51,9 +51,8 @@ export class ConstructCodegen extends Codegen<Resource> {
         return this.alertChannelCodegen.gencode(resource.logicalId, resource.payload)
       case 'check-group':
         return this.checkGroupCodegen.gencode(resource.logicalId, resource.payload)
-      case 'check': {
+      case 'check':
         return this.checkCodegen.gencode(resource.logicalId, resource.payload)
-      }
       case 'dashboard':
         return this.dashboardCodegen.gencode(resource.logicalId, resource.payload)
       case 'maintenance-window':
