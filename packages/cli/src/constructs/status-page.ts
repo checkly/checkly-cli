@@ -38,6 +38,10 @@ export interface StatusPageProps {
    */
   logo?: string
   /**
+   * The URL that clicking the logo should redirect the user to.
+   */
+  redirectTo?: string
+  /**
    * A URL pointing to an image file to be used as the favicon for the status page.
    */
   favicon?: string
@@ -56,6 +60,7 @@ export class StatusPage extends Construct {
   url: string
   customDomain?: string
   logo?: string
+  redirectTo?: string
   favicon?: string
   defaultTheme?: StatusPageTheme
 
@@ -76,6 +81,7 @@ export class StatusPage extends Construct {
     this.cards = props.cards
     this.customDomain = props.customDomain
     this.logo = props.logo
+    this.redirectTo = props.redirectTo
     this.favicon = props.favicon
     this.defaultTheme = props.defaultTheme
 
@@ -88,6 +94,7 @@ export class StatusPage extends Construct {
       url: this.url,
       customDomain: this.customDomain,
       logo: this.logo,
+      redirectTo: this.redirectTo,
       favicon: this.favicon,
       defaultTheme: this.defaultTheme,
       cards: this.cards?.map(card => ({
