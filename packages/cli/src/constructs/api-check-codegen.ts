@@ -1,9 +1,9 @@
 import { Codegen } from './internal/codegen'
 import { expr, ident, Program, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
-import { buildCheckProps, CheckResource } from './check.codegen'
-import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion.codegen'
-import { valueForKeyValuePair } from './key-value-pair.codegen'
+import { buildCheckProps, CheckResource } from './check-codegen'
+import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
+import { valueForKeyValuePair } from './key-value-pair-codegen'
 
 export interface ApiCheckResource extends CheckResource {
   checkType: 'API'

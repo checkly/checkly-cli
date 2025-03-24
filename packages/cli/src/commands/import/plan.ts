@@ -12,7 +12,7 @@ import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
 import { Program, Output } from '../../sourcegen'
-import { ConstructCodegen } from '../../constructs/construct.codegen'
+import { ConstructCodegen } from '../../constructs/construct-codegen'
 
 export default class ImportPlanCommand extends AuthCommand {
   static coreCommand = true

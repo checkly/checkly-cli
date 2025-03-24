@@ -1,8 +1,8 @@
 import { Codegen } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps } from './alert-channel.codegen'
+import { buildAlertChannelProps } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
-import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel.codegen'
+import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
 
 export interface IncidentioAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {

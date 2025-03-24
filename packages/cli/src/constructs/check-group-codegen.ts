@@ -1,13 +1,13 @@
 import { Codegen } from './internal/codegen'
 import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
-import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy.codegen'
+import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
-import { valueForAssertion } from './api-check.codegen'
+import { valueForAssertion } from './api-check-codegen'
 import { EnvironmentVariable } from './environment-variable'
-import { FrequencyResource, valueForFrequency } from './frequency.codegen'
-import { valueForKeyValuePair } from './key-value-pair.codegen'
+import { FrequencyResource, valueForFrequency } from './frequency-codegen'
+import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { PrivateLocation } from './private-location'
-import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy.codegen'
+import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
 
 export interface BrowserCheckConfigResource {
   testMatch: string | string[]

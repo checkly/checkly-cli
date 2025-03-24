@@ -1,6 +1,6 @@
 import { expr, ident } from '../sourcegen'
-import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config.codegen'
-import { buildCheckProps, CheckResource } from './check.codegen'
+import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
+import { buildCheckProps, CheckResource } from './check-codegen'
 import { Codegen } from './internal/codegen'
 
 export interface MultiStepCheckResource extends CheckResource {

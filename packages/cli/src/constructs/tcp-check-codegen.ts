@@ -1,7 +1,7 @@
 import { Codegen } from './internal/codegen'
 import { expr, ident, Program, Value } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check.codegen'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion.codegen'
+import { buildCheckProps, CheckResource } from './check-codegen'
+import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
 import { TcpAssertion, TcpRequest } from './tcp-check'
 
 export interface TcpCheckResource extends CheckResource {

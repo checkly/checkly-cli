@@ -1,13 +1,13 @@
 import { Codegen } from './internal/codegen'
 import { Program, ObjectValueBuilder } from '../sourcegen'
 
-import { EmailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel.codegen'
-import { OpsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel.codegen'
-import { PagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel.codegen'
-import { PhoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel.codegen'
-import { SlackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel.codegen'
-import { SmsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel.codegen'
-import { WebhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel.codegen'
+import { EmailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel-codegen'
+import { OpsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel-codegen'
+import { PagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel-codegen'
+import { PhoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel-codegen'
+import { SlackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel-codegen'
+import { SmsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel-codegen'
+import { WebhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel-codegen'
 
 export interface AlertChannelResource {
   type: string
