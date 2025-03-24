@@ -1,4 +1,4 @@
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy.codegen'
 import { ApiCheckDefaultConfig } from './api-check'

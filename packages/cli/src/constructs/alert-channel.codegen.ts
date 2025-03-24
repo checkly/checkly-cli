@@ -1,4 +1,4 @@
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 import { Program, ObjectValueBuilder } from '../sourcegen'
 
 import { EmailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel.codegen'
