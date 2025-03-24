@@ -1,4 +1,4 @@
-import { Program } from '../sourcegen'
+import { Program } from '../../../sourcegen'
 
 export abstract class Codegen<T> {
   program: Program
