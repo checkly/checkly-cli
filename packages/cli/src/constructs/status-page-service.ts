@@ -2,15 +2,14 @@ import { Construct } from './construct'
 import { Session } from './project'
 
 export interface StatusPageServiceProps {
+  /**
+   * The name of the service.
+   */
   name: string
 }
 
 /**
- * Creates a Dashboard
- *
- * @remarks
- *
- * This class make use of the Dashboard endpoints.
+ * Creates a Service for Status Pages
  */
 export class StatusPageService extends Construct {
   name: string
@@ -18,12 +17,12 @@ export class StatusPageService extends Construct {
   static readonly __checklyType = 'status-page-service'
 
   /**
-   * Constructs the Dashboard instance
+   * Constructs the Status Page Service instance
    *
    * @param logicalId unique project-scoped resource name identification
-   * @param props dashboard configuration properties
+   * @param props status page service configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#dashboard Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#statuspageservice Read more in the docs}
    */
   constructor (logicalId: string, props: StatusPageServiceProps) {
     super(StatusPageService.__checklyType, logicalId)

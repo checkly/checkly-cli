@@ -4,34 +4,45 @@ import { StatusPageService } from './status-page-service'
 import { Ref } from './ref'
 
 export interface StatusPageCardProps {
+  /**
+   * The name of the card.
+   */
   name: string
+  /**
+   * A list of services to include in the card.
+   */
   services?: Array<StatusPageService>
 }
 
 export interface StatusPageProps {
+  /**
+   * The name of the status page.
+   */
   name: string
+  /**
+   * The URL of the status page.
+   */
   url: string
+  /**
+   * A list of cards to add to your status page.
+   */
   cards?: StatusPageCardProps[]
   /**
    * A custom user domain, e.g. "status.example.com". See the docs on updating your DNS and SSL usage.
    */
   customDomain?: string
   /**
-   * A URL pointing to an image file.
+   * A URL pointing to an image file that serves as the logo for the status page.
    */
   logo?: string
   /**
-   * A URL pointing to an image file used as dashboard favicon.
+   * A URL pointing to an image file to be used as the favicon for the status page.
    */
   favicon?: string
 }
 
 /**
- * Creates a Dashboard
- *
- * @remarks
- *
- * This class make use of the Dashboard endpoints.
+ * Creates a Status Page
  */
 export class StatusPage extends Construct {
   name: string
@@ -44,12 +55,12 @@ export class StatusPage extends Construct {
   static readonly __checklyType = 'status-page'
 
   /**
-   * Constructs the Dashboard instance
+   * Constructs the Status Page instance
    *
    * @param logicalId unique project-scoped resource name identification
-   * @param props dashboard configuration properties
+   * @param props status page configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#dashboard Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#statuspage Read more in the docs}
    */
   constructor (logicalId: string, props: StatusPageProps) {
     super(StatusPage.__checklyType, logicalId)
