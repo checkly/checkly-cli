@@ -7,7 +7,7 @@ import { QueryParam } from './query-param'
 import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel.codegen'
 import { MSTeamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel.codegen'
 import { TelegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel.codegen'
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 
 export interface WebhookAlertChannelResourceConfig {
   name: string

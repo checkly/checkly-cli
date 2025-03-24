@@ -1,4 +1,4 @@
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check.codegen'
 import { Heartbeat } from './heartbeat-check'

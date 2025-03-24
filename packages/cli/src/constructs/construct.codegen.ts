@@ -1,4 +1,4 @@
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 import { Program } from '../sourcegen'
 
 import { AlertChannelCodegen } from './alert-channel.codegen'

@@ -1,4 +1,4 @@
-import { Codegen } from '../codegen'
+import { Codegen } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel.codegen'
 import { HttpHeader } from './http-header'
