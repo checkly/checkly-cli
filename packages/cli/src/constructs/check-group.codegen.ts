@@ -1,3 +1,4 @@
+import { Codegen } from '../codegen'
 import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy.codegen'
 import { ApiCheckDefaultConfig } from './api-check'
@@ -203,15 +204,17 @@ function buildCheckGroupProps (
 
 const construct = 'CheckGroup'
 
-export function codegen (program: Program, logicalId: string, resource: CheckGroupResource): void {
-  program.import(construct, 'checkly/constructs')
+export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
+  gencode (logicalId: string, resource: CheckGroupResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  program.section(expr(ident(construct), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        buildCheckGroupProps(program, builder, resource)
+    this.program.section(expr(ident(construct), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          buildCheckGroupProps(this.program, builder, resource)
+        })
       })
-    })
-  }))
+    }))
+  }
 }

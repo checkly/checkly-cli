@@ -1,4 +1,5 @@
-import { expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { expr, ident } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check.codegen'
 import { Heartbeat } from './heartbeat-check'
 
@@ -7,20 +8,22 @@ export interface HeartbeatCheckResource extends CheckResource {
   heartbeat: Heartbeat,
 }
 
-export function codegen (program: Program, logicalId: string, resource: HeartbeatCheckResource): void {
-  program.import('HeartbeatCheck', 'checkly/constructs')
+export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
+  gencode (logicalId: string, resource: HeartbeatCheckResource): void {
+    this.program.import('HeartbeatCheck', 'checkly/constructs')
 
-  program.section(expr(ident('HeartbeatCheck'), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        builder.number('period', resource.heartbeat.period)
-        builder.string('periodUnit', resource.heartbeat.periodUnit)
-        builder.number('grace', resource.heartbeat.grace)
-        builder.string('graceUnit', resource.heartbeat.graceUnit)
+    this.program.section(expr(ident('HeartbeatCheck'), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          builder.number('period', resource.heartbeat.period)
+          builder.string('periodUnit', resource.heartbeat.periodUnit)
+          builder.number('grace', resource.heartbeat.grace)
+          builder.string('graceUnit', resource.heartbeat.graceUnit)
 
-        buildCheckProps(program, builder, resource)
+          buildCheckProps(this.program, builder, resource)
+        })
       })
-    })
-  }))
+    }))
+  }
 }

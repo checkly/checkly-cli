@@ -1,3 +1,4 @@
+import { Codegen } from '../codegen'
 import { expr, ident, Program, Value } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check.codegen'
 import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion.codegen'
@@ -25,45 +26,47 @@ export function valueForTcpAssertion (program: Program, assertion: TcpAssertion)
 
 const construct = 'TcpCheck'
 
-export function codegen (program: Program, logicalId: string, resource: TcpCheckResource): void {
-  program.import(construct, 'checkly/constructs')
+export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
+  gencode (logicalId: string, resource: TcpCheckResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  program.section(expr(ident(construct), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        builder.object('request', builder => {
-          builder.string('hostname', resource.request.hostname)
-          builder.number('port', resource.request.port)
+    this.program.section(expr(ident(construct), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          builder.object('request', builder => {
+            builder.string('hostname', resource.request.hostname)
+            builder.number('port', resource.request.port)
 
-          if (resource.request.ipFamily) {
-            builder.string('ipFamily', resource.request.ipFamily)
+            if (resource.request.ipFamily) {
+              builder.string('ipFamily', resource.request.ipFamily)
+            }
+
+            if (resource.request.assertions) {
+              const assertions = resource.request.assertions
+              builder.array('assertions', builder => {
+                for (const assertion of assertions) {
+                  builder.value(valueForTcpAssertion(this.program, assertion))
+                }
+              })
+            }
+
+            if (resource.request.data) {
+              builder.string('data', resource.request.data)
+            }
+          })
+
+          if (resource.degradedResponseTime !== undefined) {
+            builder.number('degradedResponseTime', resource.degradedResponseTime)
           }
 
-          if (resource.request.assertions) {
-            const assertions = resource.request.assertions
-            builder.array('assertions', builder => {
-              for (const assertion of assertions) {
-                builder.value(valueForTcpAssertion(program, assertion))
-              }
-            })
+          if (resource.maxResponseTime !== undefined) {
+            builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          if (resource.request.data) {
-            builder.string('data', resource.request.data)
-          }
+          buildCheckProps(this.program, builder, resource)
         })
-
-        if (resource.degradedResponseTime !== undefined) {
-          builder.number('degradedResponseTime', resource.degradedResponseTime)
-        }
-
-        if (resource.maxResponseTime !== undefined) {
-          builder.number('maxResponseTime', resource.maxResponseTime)
-        }
-
-        buildCheckProps(program, builder, resource)
       })
-    })
-  }))
+    }))
+  }
 }
