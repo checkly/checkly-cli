@@ -1,6 +1,6 @@
 import { Codegen } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps, AlertChannelResource } from './alert-channel.codegen'
+import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 
 export interface EmailAlertChannelResource extends AlertChannelResource {
   type: 'EMAIL'
