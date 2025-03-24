@@ -1,4 +1,5 @@
-import { decl, expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel.codegen'
 
 export interface OpsgenieAlertChannelResource extends AlertChannelResource {
@@ -13,29 +14,31 @@ export interface OpsgenieAlertChannelResource extends AlertChannelResource {
 
 const construct = 'OpsgenieAlertChannel'
 
-export function codegen (program: Program, logicalId: string, resource: OpsgenieAlertChannelResource): void {
-  program.import(construct, 'checkly/constructs')
+export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelResource> {
+  gencode (logicalId: string, resource: OpsgenieAlertChannelResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  const id = program.registerVariable(
+    const id = this.program.registerVariable(
       `${construct}::${logicalId}`,
-      ident(program.nth('opsgenieAlert')),
-  )
+      ident(this.program.nth('opsgenieAlert')),
+    )
 
-  const { config } = resource
+    const { config } = resource
 
-  program.section(decl(id, builder => {
-    builder.variable(expr(ident(construct), builder => {
-      builder.new(builder => {
-        builder.string(logicalId)
-        builder.object(builder => {
-          builder.string('name', config.name)
-          builder.string('apiKey', config.apiKey)
-          builder.string('region', config.region)
-          builder.string('priority', config.priority)
+    this.program.section(decl(id, builder => {
+      builder.variable(expr(ident(construct), builder => {
+        builder.new(builder => {
+          builder.string(logicalId)
+          builder.object(builder => {
+            builder.string('name', config.name)
+            builder.string('apiKey', config.apiKey)
+            builder.string('region', config.region)
+            builder.string('priority', config.priority)
 
-          buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource)
+          })
         })
-      })
+      }))
     }))
-  }))
+  }
 }

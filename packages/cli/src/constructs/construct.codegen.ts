@@ -1,15 +1,12 @@
+import { Codegen } from '../codegen'
 import { Program } from '../sourcegen'
 
-import { codegen as alertChannelCodegen } from './alert-channel.codegen'
-import { codegen as apiCheckCodegen } from './api-check.codegen'
-import { codegen as browserCheckCodegen } from './browser-check.codegen'
-import { codegen as checkGroupCodegen } from './check-group.codegen'
-import { codegen as dashboardCodegen } from './dashboard.codegen'
-import { codegen as heartbeatCheckCodegen } from './heartbeat-check.codegen'
-import { codegen as maintenanceWindowCodegen } from './maintenance-window.codegen'
-import { codegen as multiStepCheckCodegen } from './multi-step-check.codegen'
-import { codegen as privateLocationCheckCodegen } from './private-location.codegen'
-import { codegen as tcpCheckCodegen } from './tcp-check.codegen'
+import { AlertChannelCodegen } from './alert-channel.codegen'
+import { CheckCodegen } from './check.codegen'
+import { CheckGroupCodegen } from './check-group.codegen'
+import { DashboardCodegen } from './dashboard.codegen'
+import { MaintenanceWindowCodegen } from './maintenance-window.codegen'
+import { PrivateLocationCodegen } from './private-location.codegen'
 
 export type ResourceType =
   'alert-channel-subscription' |
@@ -28,42 +25,47 @@ interface Resource {
   payload: any
 }
 
-export function codegen (program: Program, resource: Resource): void {
-  switch (resource.type) {
-    case 'alert-channel-subscription':
-      return // Skip temporarily
-    case 'alert-channel':
-      return alertChannelCodegen(program, resource.logicalId, resource.payload)
-    case 'check-group':
-      return checkGroupCodegen(program, resource.logicalId, resource.payload)
-    case 'check': {
-      const checkType = resource.payload.checkType
-      switch (checkType) {
-        case 'BROWSER':
-          return browserCheckCodegen(program, resource.logicalId, resource.payload)
-        case 'API':
-          return apiCheckCodegen(program, resource.logicalId, resource.payload)
-        case 'TCP':
-          return tcpCheckCodegen(program, resource.logicalId, resource.payload)
-        case 'MULTI_STEP':
-          return multiStepCheckCodegen(program, resource.logicalId, resource.payload)
-        case 'HEARTBEAT':
-          return heartbeatCheckCodegen(program, resource.logicalId, resource.payload)
-        default:
-          throw new Error(`Unable to generate for for unsupported check type '${checkType}'.`)
+export class ConstructCodegen extends Codegen<Resource> {
+  alertChannelCodegen: AlertChannelCodegen
+  checkCodegen: CheckCodegen
+  checkGroupCodegen: CheckGroupCodegen
+  dashboardCodegen: DashboardCodegen
+  maintenanceWindowCodegen: MaintenanceWindowCodegen
+  privateLocationCodegen: PrivateLocationCodegen
+
+  constructor (program: Program) {
+    super(program)
+    this.alertChannelCodegen = new AlertChannelCodegen(program)
+    this.checkCodegen = new CheckCodegen(program)
+    this.checkGroupCodegen = new CheckGroupCodegen(program)
+    this.dashboardCodegen = new DashboardCodegen(program)
+    this.maintenanceWindowCodegen = new MaintenanceWindowCodegen(program)
+    this.privateLocationCodegen = new PrivateLocationCodegen(program)
+  }
+
+  gencode (logicalId: string, resource: Resource): void {
+    switch (resource.type) {
+      case 'alert-channel-subscription':
+        return // Skip temporarily
+      case 'alert-channel':
+        return this.alertChannelCodegen.gencode(resource.logicalId, resource.payload)
+      case 'check-group':
+        return this.checkGroupCodegen.gencode(resource.logicalId, resource.payload)
+      case 'check': {
+        return this.checkCodegen.gencode(resource.logicalId, resource.payload)
       }
+      case 'dashboard':
+        return this.dashboardCodegen.gencode(resource.logicalId, resource.payload)
+      case 'maintenance-window':
+        return this.maintenanceWindowCodegen.gencode(resource.logicalId, resource.payload)
+      case 'private-location-check-assignment':
+        return // Skip temporarily
+      case 'private-location-group-assignment':
+        return // Skip temporarily
+      case 'private-location':
+        return this.privateLocationCodegen.gencode(resource.logicalId, resource.payload)
+      default:
+        throw new Error(`Unable to generate code for unsupported resource type '${resource.type}'.`)
     }
-    case 'dashboard':
-      return dashboardCodegen(program, resource.logicalId, resource.payload)
-    case 'maintenance-window':
-      return maintenanceWindowCodegen(program, resource.logicalId, resource.payload)
-    case 'private-location-check-assignment':
-      return // Skip temporarily
-    case 'private-location-group-assignment':
-      return // Skip temporarily
-    case 'private-location':
-      return privateLocationCheckCodegen(program, resource.logicalId, resource.payload)
-    default:
-      throw new Error(`Unable to generate for for unsupported resource type '${resource.type}'.`)
   }
 }
