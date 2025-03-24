@@ -1,4 +1,5 @@
-import { decl, expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel.codegen'
 
 export interface PagerdutyAlertChannelResource extends AlertChannelResource {
@@ -12,34 +13,36 @@ export interface PagerdutyAlertChannelResource extends AlertChannelResource {
 
 const construct = 'PagerdutyAlertChannel'
 
-export function codegen (program: Program, logicalId: string, resource: PagerdutyAlertChannelResource): void {
-  program.import(construct, 'checkly/constructs')
+export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelResource> {
+  gencode (logicalId: string, resource: PagerdutyAlertChannelResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  const id = program.registerVariable(
+    const id = this.program.registerVariable(
       `${construct}::${logicalId}`,
-      ident(program.nth('pagerdutyAlert')),
-  )
+      ident(this.program.nth('pagerdutyAlert')),
+    )
 
-  const { config } = resource
+    const { config } = resource
 
-  program.section(decl(id, builder => {
-    builder.variable(expr(ident(construct), builder => {
-      builder.new(builder => {
-        builder.string(logicalId)
-        builder.object(builder => {
-          if (config.account) {
-            builder.string('account', config.account)
-          }
+    this.program.section(decl(id, builder => {
+      builder.variable(expr(ident(construct), builder => {
+        builder.new(builder => {
+          builder.string(logicalId)
+          builder.object(builder => {
+            if (config.account) {
+              builder.string('account', config.account)
+            }
 
-          if (config.serviceName) {
-            builder.string('serviceName', config.serviceName)
-          }
+            if (config.serviceName) {
+              builder.string('serviceName', config.serviceName)
+            }
 
-          builder.string('serviceKey', config.serviceKey)
+            builder.string('serviceKey', config.serviceKey)
 
-          buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource)
+          })
         })
-      })
+      }))
     }))
-  }))
+  }
 }

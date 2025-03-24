@@ -4,9 +4,10 @@ import { HttpHeader } from './http-header'
 import { valueForKeyValuePair } from './key-value-pair.codegen'
 import { QueryParam } from './query-param'
 
-import { codegen as incidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel.codegen'
-import { codegen as msteamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel.codegen'
-import { codegen as telegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel.codegen'
+import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel.codegen'
+import { MSTeamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel.codegen'
+import { TelegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel.codegen'
+import { Codegen } from '../codegen'
 
 export interface WebhookAlertChannelResourceConfig {
   name: string
@@ -67,46 +68,49 @@ export function buildWebhookAlertChannelConfig (
   }
 }
 
-type WebhookType = 'WEBHOOK_INCIDENTIO' | 'WEBHOOK_TELEGRAM' | 'WEBHOOK_MSTEAMS'
-
-const codegensByWebhookType = {
-  WEBHOOK_INCIDENTIO: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
-    return incidentioAlertChannelCodegen(program, logicalId, resource as IncidentioAlertChannelResource)
-  },
-  WEBHOOK_MSTEAMS: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
-    return msteamsAlertChannelCodegen(program, logicalId, resource as MSTeamsAlertChannelResource)
-  },
-  WEBHOOK_TELEGRAM: (program: Program, logicalId: string, resource: WebhookAlertChannelResource) => {
-    return telegramAlertChannelCodegen(program, logicalId, resource as TelegramAlertChannelResource)
-  },
-}
-
 const construct = 'WebhookAlertChannel'
 
-export function codegen (program: Program, logicalId: string, resource: WebhookAlertChannelResource): void {
-  if (resource.config.webhookType) {
-    const subgen = codegensByWebhookType[resource.config.webhookType as WebhookType]
-    if (subgen) {
-      return subgen(program, logicalId, resource)
-    }
+export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResource> {
+  indicentioCodegen: IncidentioAlertChannelCodegen
+  msteamsCodegen: MSTeamsAlertChannelCodegen
+  telegramCodegen: TelegramAlertChannelCodegen
+
+  constructor (program: Program) {
+    super(program)
+    this.indicentioCodegen = new IncidentioAlertChannelCodegen(program)
+    this.msteamsCodegen = new MSTeamsAlertChannelCodegen(program)
+    this.telegramCodegen = new TelegramAlertChannelCodegen(program)
   }
 
-  program.import(construct, 'checkly/constructs')
+  gencode (logicalId: string, resource: WebhookAlertChannelResource): void {
+    const { webhookType } = resource.config
 
-  const id = program.registerVariable(
+    switch (webhookType) {
+      case 'WEBHOOK_INCIDENTIO':
+        return this.indicentioCodegen.gencode(logicalId, resource as IncidentioAlertChannelResource)
+      case 'WEBHOOK_TELEGRAM':
+        return this.telegramCodegen.gencode(logicalId, resource as TelegramAlertChannelResource)
+      case 'WEBHOOK_MSTEAMS':
+        return this.msteamsCodegen.gencode(logicalId, resource as MSTeamsAlertChannelResource)
+    }
+
+    this.program.import(construct, 'checkly/constructs')
+
+    const id = this.program.registerVariable(
       `${construct}::${logicalId}`,
-      ident(program.nth('webhookAlert')),
-  )
+      ident(this.program.nth('webhookAlert')),
+    )
 
-  program.section(decl(id, builder => {
-    builder.variable(expr(ident(construct), builder => {
-      builder.new(builder => {
-        builder.string(logicalId)
-        builder.object(builder => {
-          buildWebhookAlertChannelConfig(builder, resource.config)
-          buildAlertChannelProps(builder, resource)
+    this.program.section(decl(id, builder => {
+      builder.variable(expr(ident(construct), builder => {
+        builder.new(builder => {
+          builder.string(logicalId)
+          builder.object(builder => {
+            buildWebhookAlertChannelConfig(builder, resource.config)
+            buildAlertChannelProps(builder, resource)
+          })
         })
-      })
+      }))
     }))
-  }))
+  }
 }

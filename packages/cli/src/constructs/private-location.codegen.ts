@@ -1,4 +1,5 @@
-import { expr, ident, Program } from '../sourcegen'
+import { Codegen } from '../codegen'
+import { expr, ident } from '../sourcegen'
 
 export interface PrivateLocationResource {
   name: string
@@ -9,24 +10,26 @@ export interface PrivateLocationResource {
 
 const construct = 'PrivateLocation'
 
-export function codegen (program: Program, logicalId: string, resource: PrivateLocationResource): void {
-  program.import(construct, 'checkly/constructs')
+export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
+  gencode (logicalId: string, resource: PrivateLocationResource): void {
+    this.program.import(construct, 'checkly/constructs')
 
-  program.section(expr(ident(construct), builder => {
-    builder.new(builder => {
-      builder.string(logicalId)
-      builder.object(builder => {
-        builder.string('name', resource.name)
-        builder.string('slugName', resource.slugName)
+    this.program.section(expr(ident(construct), builder => {
+      builder.new(builder => {
+        builder.string(logicalId)
+        builder.object(builder => {
+          builder.string('name', resource.name)
+          builder.string('slugName', resource.slugName)
 
-        if (resource.icon) {
-          builder.string('icon', resource.icon)
-        }
+          if (resource.icon) {
+            builder.string('icon', resource.icon)
+          }
 
-        if (resource.proxyUrl) {
-          builder.string('proxyUrl', resource.proxyUrl)
-        }
+          if (resource.proxyUrl) {
+            builder.string('proxyUrl', resource.proxyUrl)
+          }
+        })
       })
-    })
-  }))
+    }))
+  }
 }

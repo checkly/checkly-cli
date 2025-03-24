@@ -1,12 +1,13 @@
+import { Codegen } from '../codegen'
 import { Program, ObjectValueBuilder } from '../sourcegen'
 
-import { codegen as emailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel.codegen'
-import { codegen as opsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel.codegen'
-import { codegen as pagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel.codegen'
-import { codegen as phoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel.codegen'
-import { codegen as slackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel.codegen'
-import { codegen as smsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel.codegen'
-import { codegen as webhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel.codegen'
+import { EmailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel.codegen'
+import { OpsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel.codegen'
+import { PagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel.codegen'
+import { PhoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel.codegen'
+import { SlackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel.codegen'
+import { SmsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel.codegen'
+import { WebhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel.codegen'
 
 export interface AlertChannelResource {
   type: string
@@ -39,37 +40,44 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
   }
 }
 
-type Type = 'CALL' | 'EMAIL' | 'OPSGENIE' | 'PAGERDUTY' | 'SLACK' | 'SMS' | 'WEBHOOK'
+export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
+  phoneCallCodegen: PhoneCallAlertChannelCodegen
+  emailCodegen: EmailAlertChannelCodegen
+  opsgenieCodegen: OpsgenieAlertChannelCodegen
+  pagerdutyCodegen: PagerdutyAlertChannelCodegen
+  slackCodegen: SlackAlertChannelCodegen
+  smsCodegen: SmsAlertChannelCodegen
+  webhookCodegen: WebhookAlertChannelCodegen
 
-const codegensByType = {
-  CALL: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return phoneCallAlertChannelCodegen(program, logicalId, resource as PhoneCallAlertChannelResource)
-  },
-  EMAIL: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return emailAlertChannelCodegen(program, logicalId, resource as EmailAlertChannelResource)
-  },
-  OPSGENIE: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return opsgenieAlertChannelCodegen(program, logicalId, resource as OpsgenieAlertChannelResource)
-  },
-  PAGERDUTY: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return pagerdutyAlertChannelCodegen(program, logicalId, resource as PagerdutyAlertChannelResource)
-  },
-  SLACK: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return slackAlertChannelCodegen(program, logicalId, resource as SlackAlertChannelResource)
-  },
-  SMS: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return smsAlertChannelCodegen(program, logicalId, resource as SmsAlertChannelResource)
-  },
-  WEBHOOK: (program: Program, logicalId: string, resource: AlertChannelResource) => {
-    return webhookAlertChannelCodegen(program, logicalId, resource as WebhookAlertChannelResource)
-  },
-}
-
-export function codegen (program: Program, logicalId: string, resource: AlertChannelResource): void {
-  const subgen = codegensByType[resource.type as Type]
-  if (!subgen) {
-    throw new Error(`Unable to generate for for unsupported alert channel type '${resource.type}'.`)
+  constructor (program: Program) {
+    super(program)
+    this.phoneCallCodegen = new PhoneCallAlertChannelCodegen(program)
+    this.emailCodegen = new EmailAlertChannelCodegen(program)
+    this.opsgenieCodegen = new OpsgenieAlertChannelCodegen(program)
+    this.pagerdutyCodegen = new PagerdutyAlertChannelCodegen(program)
+    this.slackCodegen = new SlackAlertChannelCodegen(program)
+    this.smsCodegen = new SmsAlertChannelCodegen(program)
+    this.webhookCodegen = new WebhookAlertChannelCodegen(program)
   }
 
-  return subgen(program, logicalId, resource)
+  gencode (logicalId: string, resource: AlertChannelResource): void {
+    switch (resource.type) {
+      case 'CALL':
+        return this.phoneCallCodegen.gencode(logicalId, resource as PhoneCallAlertChannelResource)
+      case 'EMAIL':
+        return this.emailCodegen.gencode(logicalId, resource as EmailAlertChannelResource)
+      case 'OPSGENIE':
+        return this.opsgenieCodegen.gencode(logicalId, resource as OpsgenieAlertChannelResource)
+      case 'PAGERDUTY':
+        return this.pagerdutyCodegen.gencode(logicalId, resource as PagerdutyAlertChannelResource)
+      case 'SLACK':
+        return this.slackCodegen.gencode(logicalId, resource as SlackAlertChannelResource)
+      case 'SMS':
+        return this.smsCodegen.gencode(logicalId, resource as SmsAlertChannelResource)
+      case 'WEBHOOK':
+        return this.webhookCodegen.gencode(logicalId, resource as WebhookAlertChannelResource)
+      default:
+        throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
+    }
+  }
 }
