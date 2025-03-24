@@ -28,7 +28,7 @@ export interface StatusPageProps {
   /**
    * A list of cards to add to your status page.
    */
-  cards?: StatusPageCardProps[]
+  cards: StatusPageCardProps[]
   /**
    * A custom user domain, e.g. "status.example.com". See the docs on updating your DNS and SSL usage.
    */
@@ -56,7 +56,7 @@ export interface StatusPageProps {
  */
 export class StatusPage extends Construct {
   name: string
-  cards?: StatusPageCardProps[]
+  cards: StatusPageCardProps[]
   url: string
   customDomain?: string
   logo?: string
@@ -97,7 +97,7 @@ export class StatusPage extends Construct {
       redirectTo: this.redirectTo,
       favicon: this.favicon,
       defaultTheme: this.defaultTheme,
-      cards: this.cards?.map(card => ({
+      cards: this.cards.map(card => ({
         name: card.name,
         services: card
           .services
