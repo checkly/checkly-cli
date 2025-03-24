@@ -285,6 +285,10 @@ export function findBrowsers (playwrightConfig: any): string[] {
       }
     }
   }
+  if (browsers.size === 0) {
+    // Add the default browser
+    browsers.add('chromium')
+  }
   return Array.from(browsers)
 }
 
