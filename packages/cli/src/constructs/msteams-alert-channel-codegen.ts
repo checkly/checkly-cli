@@ -1,24 +1,23 @@
 import { Codegen } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps, AlertChannelResource } from './alert-channel.codegen'
+import { buildAlertChannelProps } from './alert-channel-codegen'
+import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
 
-export interface SlackAlertChannelResource extends AlertChannelResource {
-  type: 'SLACK'
-  config: {
-    url: string
-    channel?: string
+export interface MSTeamsAlertChannelResource extends WebhookAlertChannelResource {
+  config: WebhookAlertChannelResourceConfig & {
+    webhookType: 'WEBHOOK_MSTEAMS'
   }
 }
 
-const construct = 'SlackAlertChannel'
+const construct = 'MSTeamsAlertChannel'
 
-export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource> {
-  gencode (logicalId: string, resource: SlackAlertChannelResource): void {
+export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResource> {
+  gencode (logicalId: string, resource: MSTeamsAlertChannelResource): void {
     this.program.import(construct, 'checkly/constructs')
 
     const id = this.program.registerVariable(
       `${construct}::${logicalId}`,
-      ident(this.program.nth('slackAlert')),
+      ident(this.program.nth('teamsAlert')),
     )
 
     const { config } = resource
@@ -28,11 +27,8 @@ export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource>
         builder.new(builder => {
           builder.string(logicalId)
           builder.object(builder => {
+            builder.string('name', config.name)
             builder.string('url', config.url)
-
-            if (config.channel) {
-              builder.string('channel', config.channel)
-            }
 
             buildAlertChannelProps(builder, resource)
           })

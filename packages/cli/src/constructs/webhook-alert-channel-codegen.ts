@@ -1,12 +1,12 @@
 import { decl, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
-import { buildAlertChannelProps, AlertChannelResource } from './alert-channel.codegen'
+import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
-import { valueForKeyValuePair } from './key-value-pair.codegen'
+import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { QueryParam } from './query-param'
 
-import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel.codegen'
-import { MSTeamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel.codegen'
-import { TelegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel.codegen'
+import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel-codegen'
+import { MSTeamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel-codegen'
+import { TelegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel-codegen'
 import { Codegen } from './internal/codegen'
 
 export interface WebhookAlertChannelResourceConfig {

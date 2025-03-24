@@ -1,12 +1,12 @@
 import { Codegen } from './internal/codegen'
 import { Program } from '../sourcegen'
 
-import { AlertChannelCodegen } from './alert-channel.codegen'
-import { CheckCodegen } from './check.codegen'
-import { CheckGroupCodegen } from './check-group.codegen'
-import { DashboardCodegen } from './dashboard.codegen'
-import { MaintenanceWindowCodegen } from './maintenance-window.codegen'
-import { PrivateLocationCodegen } from './private-location.codegen'
+import { AlertChannelCodegen } from './alert-channel-codegen'
+import { CheckCodegen } from './check-codegen'
+import { CheckGroupCodegen } from './check-group-codegen'
+import { DashboardCodegen } from './dashboard-codegen'
+import { MaintenanceWindowCodegen } from './maintenance-window-codegen'
+import { PrivateLocationCodegen } from './private-location-codegen'
 
 export type ResourceType =
   'alert-channel-subscription' |
