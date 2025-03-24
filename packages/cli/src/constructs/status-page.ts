@@ -14,6 +14,8 @@ export interface StatusPageCardProps {
   services?: Array<StatusPageService>
 }
 
+export type StatusPageTheme = 'AUTO' | 'DARK' | 'LIGHT'
+
 export interface StatusPageProps {
   /**
    * The name of the status page.
@@ -39,6 +41,10 @@ export interface StatusPageProps {
    * A URL pointing to an image file to be used as the favicon for the status page.
    */
   favicon?: string
+  /**
+   * The default theme of the status page.
+   */
+  defaultTheme?: StatusPageTheme
 }
 
 /**
@@ -51,6 +57,7 @@ export class StatusPage extends Construct {
   customDomain?: string
   logo?: string
   favicon?: string
+  defaultTheme?: StatusPageTheme
 
   static readonly __checklyType = 'status-page'
 
@@ -70,6 +77,7 @@ export class StatusPage extends Construct {
     this.customDomain = props.customDomain
     this.logo = props.logo
     this.favicon = props.favicon
+    this.defaultTheme = props.defaultTheme
 
     Session.registerConstruct(this)
   }
@@ -81,6 +89,7 @@ export class StatusPage extends Construct {
       customDomain: this.customDomain,
       logo: this.logo,
       favicon: this.favicon,
+      defaultTheme: this.defaultTheme,
       cards: this.cards?.map(card => ({
         name: card.name,
         services: card
