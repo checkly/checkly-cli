@@ -203,7 +203,7 @@ export default class Test extends AuthCommand {
         const checkGroup = this.getCheckGroup(project, check)
         if (checkGroup) {
           const checkGroupTags = checkGroup.tags ?? []
-          tags.concat(checkGroupTags)
+          tags.push(...checkGroupTags)
         }
         return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
       })
