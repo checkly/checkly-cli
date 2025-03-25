@@ -10,7 +10,6 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
 
 export default class ImportCancelCommand extends AuthCommand {
-  static coreCommand = true
   static hidden = false
   static description = 'Cancels an ongoing import plan that has not been committed yet.'
 
