@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { Program, ObjectValueBuilder } from '../sourcegen'
+import { Program, ObjectValueBuilder, expr, ident, Value } from '../sourcegen'
 
 import { EmailAlertChannelCodegen } from './email-alert-channel-codegen'
 import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen'
@@ -48,6 +48,17 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
   if (resource.sslExpiryThreshold !== undefined) {
     builder.number('sslExpiryThreshold', resource.sslExpiryThreshold)
   }
+}
+
+const construct = 'AlertChannel'
+
+export function valueForAlertChannelFromId (physicalId: number): Value {
+  return expr(ident(construct), builder => {
+    builder.member(ident('fromId'))
+    builder.call(builder => {
+      builder.number(physicalId)
+    })
+  })
 }
 
 export class AlertChannelCodegen extends Codegen<AlertChannelResource> {

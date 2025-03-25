@@ -7,6 +7,8 @@ import { EnvironmentVariable } from './environment-variable'
 import { FrequencyResource, valueForFrequency } from './frequency-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
+import { valueForPrivateLocationFromId } from './private-location-codegen'
+import { valueForAlertChannelFromId } from './alert-channel-codegen'
 
 export interface BrowserCheckConfigResource {
   testMatch: string | string[]
@@ -79,8 +81,12 @@ function buildCheckGroupProps (
   if (privateLocationIds !== undefined) {
     builder.array('privateLocations', builder => {
       for (const privateLocationId of privateLocationIds) {
-        const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
-        builder.value(privateLocationVariable)
+        try {
+          const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
+          builder.value(privateLocationVariable)
+        } catch (err) {
+          builder.value(valueForPrivateLocationFromId(privateLocationId))
+        }
       }
     })
   }
@@ -117,8 +123,12 @@ function buildCheckGroupProps (
   if (alertChannelIds !== undefined) {
     builder.array('alertChannels', builder => {
       for (const alertChannelId of alertChannelIds) {
-        const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
-        builder.value(alertChannelVariable)
+        try {
+          const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
+          builder.value(alertChannelVariable)
+        } catch (err) {
+          builder.value(valueForAlertChannelFromId(alertChannelId))
+        }
       }
     })
   }

@@ -11,6 +11,8 @@ import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { MultiStepCheckCodegen, MultiStepCheckResource } from './multi-step-check-codegen'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
 import { TcpCheckCodegen, TcpCheckResource } from './tcp-check-codegen'
+import { valueForPrivateLocationFromId } from './private-location-codegen'
+import { valueForAlertChannelFromId } from './alert-channel-codegen'
 
 export interface CheckResource {
   id: string
@@ -75,8 +77,12 @@ export function buildCheckProps (
   if (privateLocationIds !== undefined) {
     builder.array('privateLocations', builder => {
       for (const privateLocationId of privateLocationIds) {
-        const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
-        builder.value(privateLocationVariable)
+        try {
+          const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
+          builder.value(privateLocationVariable)
+        } catch (err) {
+          builder.value(valueForPrivateLocationFromId(privateLocationId))
+        }
       }
     })
   }
@@ -122,8 +128,12 @@ export function buildCheckProps (
   if (alertChannelIds !== undefined) {
     builder.array('alertChannels', builder => {
       for (const alertChannelId of alertChannelIds) {
-        const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
-        builder.value(alertChannelVariable)
+        try {
+          const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
+          builder.value(alertChannelVariable)
+        } catch (err) {
+          builder.value(valueForAlertChannelFromId(alertChannelId))
+        }
       }
     })
   }

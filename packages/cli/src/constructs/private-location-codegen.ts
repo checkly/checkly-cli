@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
+import { decl, expr, ident, Value } from '../sourcegen'
 
 export interface PrivateLocationResource {
   id: string
@@ -10,6 +10,15 @@ export interface PrivateLocationResource {
 }
 
 const construct = 'PrivateLocation'
+
+export function valueForPrivateLocationFromId (physicalId: string): Value {
+  return expr(ident(construct), builder => {
+    builder.member(ident('fromId'))
+    builder.call(builder => {
+      builder.string(physicalId)
+    })
+  })
+}
 
 export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
   prepare (logicalId: string, resource: PrivateLocationResource, context: Context): void {
