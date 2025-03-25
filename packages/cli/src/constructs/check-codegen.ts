@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { Program, ObjectValueBuilder } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen'
@@ -9,11 +9,11 @@ import { FrequencyResource, valueForFrequency } from './frequency-codegen'
 import { HeartbeatCheckCodegen, HeartbeatCheckResource } from './heartbeat-check-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { MultiStepCheckCodegen, MultiStepCheckResource } from './multi-step-check-codegen'
-import { valueForRef } from './ref-codegen'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
 import { TcpCheckCodegen, TcpCheckResource } from './tcp-check-codegen'
 
 export interface CheckResource {
+  id: string
   checkType: string
   name: string
   activated?: boolean
@@ -22,7 +22,6 @@ export interface CheckResource {
   shouldFail?: boolean
   runtimeId?: string
   locations?: string[]
-  // TODO: privateLocations
   tags?: string[]
   frequency?: FrequencyResource
   environmentVariables?: EnvironmentVariable[]
@@ -37,6 +36,7 @@ export function buildCheckProps (
   program: Program,
   builder: ObjectValueBuilder,
   resource: CheckResource,
+  context: Context,
 ): void {
   builder.string('name', resource.name)
 
@@ -65,9 +65,21 @@ export function buildCheckProps (
     })
   }
 
-  // if (resource.privateLocations) {
-  //   // TODO: privateLocations - live variables
-  // }
+  const privateLocationIds = (() => {
+    try {
+      return context.lookupCheckPrivateLocations(resource.id)
+    } catch (err) {
+    }
+  })()
+
+  if (privateLocationIds !== undefined) {
+    builder.array('privateLocations', builder => {
+      for (const privateLocationId of privateLocationIds) {
+        const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
+        builder.value(privateLocationVariable)
+      }
+    })
+  }
 
   if (resource.tags) {
     const tags = resource.tags
@@ -91,17 +103,30 @@ export function buildCheckProps (
     })
   }
 
-  // if (resource.groupId) {
-  //   builder.value('groupId', valueForRef(program, resource.groupId))
-  // }
+  if (resource.groupId) {
+    try {
+      const groupVariable = context.lookupCheckGroup(resource.groupId)
+      builder.value('group', groupVariable)
+    } catch (err) {
+      throw new Error('Check belongs to a group that is not being imported.')
+    }
+  }
 
-  // if (resource.group) {
-  //   // TODO: group - live variables
-  // }
+  const alertChannelIds = (() => {
+    try {
+      return context.lookupCheckAlertChannels(resource.id)
+    } catch (err) {
+    }
+  })()
 
-  // if (resource.alertChannels) {
-  //   // TODO: alertChannels - live variables
-  // }
+  if (alertChannelIds !== undefined) {
+    builder.array('alertChannels', builder => {
+      for (const alertChannelId of alertChannelIds) {
+        const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
+        builder.value(alertChannelVariable)
+      }
+    })
+  }
 
   if (resource.alertSettings) {
     builder.value('alertEscalationPolicy', valueForAlertEscalation(program, resource.alertSettings))
@@ -136,20 +161,20 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.tcpCheckCodegen = new TcpCheckCodegen(program)
   }
 
-  gencode (logicalId: string, resource: CheckResource): void {
+  gencode (logicalId: string, resource: CheckResource, context: Context): void {
     const { checkType } = resource
 
     switch (checkType) {
       case 'BROWSER':
-        return this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource)
+        return this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource, context)
       case 'API':
-        return this.apiCheckCodegen.gencode(logicalId, resource as ApiCheckResource)
+        return this.apiCheckCodegen.gencode(logicalId, resource as ApiCheckResource, context)
       case 'TCP':
-        return this.tcpCheckCodegen.gencode(logicalId, resource as TcpCheckResource)
+        return this.tcpCheckCodegen.gencode(logicalId, resource as TcpCheckResource, context)
       case 'MULTI_STEP':
-        return this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource)
+        return this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)
       case 'HEARTBEAT':
-        return this.heartbeatCheckCodegen.gencode(logicalId, resource as HeartbeatCheckResource)
+        return this.heartbeatCheckCodegen.gencode(logicalId, resource as HeartbeatCheckResource, context)
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)
     }

@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
 
 export interface MaintenanceWindowResource {
@@ -14,7 +14,7 @@ export interface MaintenanceWindowResource {
 const construct = 'MaintenanceWindow'
 
 export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
-  gencode (logicalId: string, resource: MaintenanceWindowResource): void {
+  gencode (logicalId: string, resource: MaintenanceWindowResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {

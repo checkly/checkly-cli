@@ -1,7 +1,7 @@
 import { expr, ident } from '../sourcegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 
 export interface MultiStepCheckResource extends CheckResource {
   checkType: 'MULTI_STEP'
@@ -13,7 +13,7 @@ export interface MultiStepCheckResource extends CheckResource {
 const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
-  gencode (logicalId: string, resource: MultiStepCheckResource): void {
+  gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {
@@ -34,7 +34,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, builder, resource)
+          buildCheckProps(this.program, builder, resource, context)
         })
       })
     }))

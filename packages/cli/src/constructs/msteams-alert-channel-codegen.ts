@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
@@ -12,13 +12,14 @@ export interface MSTeamsAlertChannelResource extends WebhookAlertChannelResource
 const construct = 'MSTeamsAlertChannel'
 
 export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResource> {
-  gencode (logicalId: string, resource: MSTeamsAlertChannelResource): void {
+  prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'teamsAlert')
+  }
+
+  gencode (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('teamsAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 

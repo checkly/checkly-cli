@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
@@ -27,13 +27,14 @@ function apiKeyFromHeaders (headers: HttpHeader[]): string | undefined {
 const construct = 'IncidentioAlertChannel'
 
 export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChannelResource> {
-  gencode (logicalId: string, resource: IncidentioAlertChannelResource): void {
+  prepare (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'incidentioAlert')
+  }
+
+  gencode (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('incidentioAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 

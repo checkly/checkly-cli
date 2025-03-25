@@ -1,16 +1,26 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { Program, ObjectValueBuilder } from '../sourcegen'
 
-import { EmailAlertChannelCodegen, EmailAlertChannelResource } from './email-alert-channel-codegen'
-import { OpsgenieAlertChannelCodegen, OpsgenieAlertChannelResource } from './opsgenie-alert-channel-codegen'
-import { PagerdutyAlertChannelCodegen, PagerdutyAlertChannelResource } from './pagerduty-alert-channel-codegen'
-import { PhoneCallAlertChannelCodegen, PhoneCallAlertChannelResource } from './phone-call-alert-channel-codegen'
-import { SlackAlertChannelCodegen, SlackAlertChannelResource } from './slack-alert-channel-codegen'
-import { SmsAlertChannelCodegen, SmsAlertChannelResource } from './sms-alert-channel-codegen'
-import { WebhookAlertChannelCodegen, WebhookAlertChannelResource } from './webhook-alert-channel-codegen'
+import { EmailAlertChannelCodegen } from './email-alert-channel-codegen'
+import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen'
+import { PagerdutyAlertChannelCodegen } from './pagerduty-alert-channel-codegen'
+import { PhoneCallAlertChannelCodegen } from './phone-call-alert-channel-codegen'
+import { SlackAlertChannelCodegen } from './slack-alert-channel-codegen'
+import { SmsAlertChannelCodegen } from './sms-alert-channel-codegen'
+import { WebhookAlertChannelCodegen } from './webhook-alert-channel-codegen'
+
+export type AlertChannelType =
+  'CALL' |
+  'EMAIL' |
+  'OPSGENIE' |
+  'PAGERDUTY' |
+  'SLACK' |
+  'SMS' |
+  'WEBHOOK'
 
 export interface AlertChannelResource {
-  type: string
+  id: number
+  type: AlertChannelType
   sendRecovery: boolean
   sendFailure: boolean
   sendDegraded: boolean
@@ -48,6 +58,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
   slackCodegen: SlackAlertChannelCodegen
   smsCodegen: SmsAlertChannelCodegen
   webhookCodegen: WebhookAlertChannelCodegen
+  codegensByType: Record<AlertChannelType, Codegen<any>>
 
   constructor (program: Program) {
     super(program)
@@ -58,26 +69,33 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
     this.slackCodegen = new SlackAlertChannelCodegen(program)
     this.smsCodegen = new SmsAlertChannelCodegen(program)
     this.webhookCodegen = new WebhookAlertChannelCodegen(program)
+
+    this.codegensByType = {
+      CALL: this.phoneCallCodegen,
+      EMAIL: this.emailCodegen,
+      OPSGENIE: this.opsgenieCodegen,
+      PAGERDUTY: this.pagerdutyCodegen,
+      SLACK: this.slackCodegen,
+      SMS: this.smsCodegen,
+      WEBHOOK: this.webhookCodegen,
+    }
   }
 
-  gencode (logicalId: string, resource: AlertChannelResource): void {
-    switch (resource.type) {
-      case 'CALL':
-        return this.phoneCallCodegen.gencode(logicalId, resource as PhoneCallAlertChannelResource)
-      case 'EMAIL':
-        return this.emailCodegen.gencode(logicalId, resource as EmailAlertChannelResource)
-      case 'OPSGENIE':
-        return this.opsgenieCodegen.gencode(logicalId, resource as OpsgenieAlertChannelResource)
-      case 'PAGERDUTY':
-        return this.pagerdutyCodegen.gencode(logicalId, resource as PagerdutyAlertChannelResource)
-      case 'SLACK':
-        return this.slackCodegen.gencode(logicalId, resource as SlackAlertChannelResource)
-      case 'SMS':
-        return this.smsCodegen.gencode(logicalId, resource as SmsAlertChannelResource)
-      case 'WEBHOOK':
-        return this.webhookCodegen.gencode(logicalId, resource as WebhookAlertChannelResource)
-      default:
-        throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
+  prepare (logicalId: string, resource: AlertChannelResource, context: Context): void {
+    const codegen = this.codegensByType[resource.type]
+    if (codegen === undefined) {
+      throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
     }
+
+    codegen.prepare(logicalId, resource, context)
+  }
+
+  gencode (logicalId: string, resource: AlertChannelResource, context: Context): void {
+    const codegen = this.codegensByType[resource.type]
+    if (codegen === undefined) {
+      throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
+    }
+
+    codegen.gencode(logicalId, resource, context)
   }
 }

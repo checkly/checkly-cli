@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
@@ -14,7 +14,7 @@ export interface BrowserCheckResource extends CheckResource{
 const construct = 'BrowserCheck'
 
 export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
-  gencode (logicalId: string, resource: BrowserCheckResource): void {
+  gencode (logicalId: string, resource: BrowserCheckResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {
@@ -39,7 +39,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, builder, resource)
+          buildCheckProps(this.program, builder, resource, context)
         })
       })
     }))

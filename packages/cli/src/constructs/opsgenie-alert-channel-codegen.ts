@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 
@@ -15,13 +15,14 @@ export interface OpsgenieAlertChannelResource extends AlertChannelResource {
 const construct = 'OpsgenieAlertChannel'
 
 export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelResource> {
-  gencode (logicalId: string, resource: OpsgenieAlertChannelResource): void {
+  prepare (logicalId: string, resource: OpsgenieAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'opsgenieAlert')
+  }
+
+  gencode (logicalId: string, resource: OpsgenieAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('opsgenieAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 

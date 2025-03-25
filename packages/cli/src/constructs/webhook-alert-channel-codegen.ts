@@ -4,14 +4,19 @@ import { HttpHeader } from './http-header'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { QueryParam } from './query-param'
 
-import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from './incidentio-alert-channel-codegen'
-import { MSTeamsAlertChannelCodegen, MSTeamsAlertChannelResource } from './msteams-alert-channel-codegen'
-import { TelegramAlertChannelCodegen, TelegramAlertChannelResource } from './telegram-alert-channel-codegen'
-import { Codegen } from './internal/codegen'
+import { IncidentioAlertChannelCodegen } from './incidentio-alert-channel-codegen'
+import { MSTeamsAlertChannelCodegen } from './msteams-alert-channel-codegen'
+import { TelegramAlertChannelCodegen } from './telegram-alert-channel-codegen'
+import { Codegen, Context } from './internal/codegen'
+
+export type WebhookType =
+  'WEBHOOK_INCIDENTIO' |
+  'WEBHOOK_TELEGRAM' |
+  'WEBHOOK_MSTEAMS'
 
 export interface WebhookAlertChannelResourceConfig {
   name: string
-  webhookType?: string
+  webhookType?: WebhookType
   url: string
   template?: string
   method?: string
@@ -74,32 +79,45 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
   indicentioCodegen: IncidentioAlertChannelCodegen
   msteamsCodegen: MSTeamsAlertChannelCodegen
   telegramCodegen: TelegramAlertChannelCodegen
+  codegensByWebhookType: Record<WebhookType, Codegen<any>>
 
   constructor (program: Program) {
     super(program)
     this.indicentioCodegen = new IncidentioAlertChannelCodegen(program)
     this.msteamsCodegen = new MSTeamsAlertChannelCodegen(program)
     this.telegramCodegen = new TelegramAlertChannelCodegen(program)
+
+    this.codegensByWebhookType = {
+      WEBHOOK_INCIDENTIO: this.indicentioCodegen,
+      WEBHOOK_MSTEAMS: this.msteamsCodegen,
+      WEBHOOK_TELEGRAM: this.telegramCodegen,
+    }
   }
 
-  gencode (logicalId: string, resource: WebhookAlertChannelResource): void {
+  prepare (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
     const { webhookType } = resource.config
+    if (webhookType) {
+      const codegen = this.codegensByWebhookType[webhookType]
+      if (codegen) {
+        return codegen.prepare(logicalId, resource, context)
+      }
+    }
 
-    switch (webhookType) {
-      case 'WEBHOOK_INCIDENTIO':
-        return this.indicentioCodegen.gencode(logicalId, resource as IncidentioAlertChannelResource)
-      case 'WEBHOOK_TELEGRAM':
-        return this.telegramCodegen.gencode(logicalId, resource as TelegramAlertChannelResource)
-      case 'WEBHOOK_MSTEAMS':
-        return this.msteamsCodegen.gencode(logicalId, resource as MSTeamsAlertChannelResource)
+    context.registerAlertChannel(resource.id, 'webhookAlert')
+  }
+
+  gencode (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
+    const { webhookType } = resource.config
+    if (webhookType) {
+      const codegen = this.codegensByWebhookType[webhookType]
+      if (codegen) {
+        return codegen.gencode(logicalId, resource, context)
+      }
     }
 
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('webhookAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     this.program.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

@@ -1,12 +1,11 @@
-import { Codegen } from './internal/codegen'
-import { expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { Codegen, Context } from './internal/codegen'
+import { decl, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
 import { EnvironmentVariable } from './environment-variable'
 import { FrequencyResource, valueForFrequency } from './frequency-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
-import { PrivateLocation } from './private-location'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
 
 export interface BrowserCheckConfigResource {
@@ -20,13 +19,13 @@ export interface MultiStepCheckConfigResource {
 }
 
 export interface CheckGroupResource {
+  id: number
   name: string
   activated?: boolean
   muted?: boolean
   doubleCheck?: boolean
   runtimeId?: string
   locations?: string[]
-  // TODO: privateLocations
   tags?: string[]
   concurrency?: number
   frequency?: FrequencyResource
@@ -45,6 +44,7 @@ function buildCheckGroupProps (
   program: Program,
   builder: ObjectValueBuilder,
   resource: CheckGroupResource,
+  context: Context,
 ): void {
   builder.string('name', resource.name)
 
@@ -69,9 +69,21 @@ function buildCheckGroupProps (
     })
   }
 
-  // if (resource.privateLocations) {
-  //   // TODO: privateLocations - live variables
-  // }
+  const privateLocationIds = (() => {
+    try {
+      return context.lookupCheckGroupPrivateLocations(resource.id)
+    } catch (err) {
+    }
+  })()
+
+  if (privateLocationIds !== undefined) {
+    builder.array('privateLocations', builder => {
+      for (const privateLocationId of privateLocationIds) {
+        const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
+        builder.value(privateLocationVariable)
+      }
+    })
+  }
 
   if (resource.tags) {
     const tags = resource.tags
@@ -95,9 +107,21 @@ function buildCheckGroupProps (
     })
   }
 
-  // if (resource.alertChannels) {
-  //   // TODO: alertChannels - live variables
-  // }
+  const alertChannelIds = (() => {
+    try {
+      return context.lookupCheckGroupAlertChannels(resource.id)
+    } catch (err) {
+    }
+  })()
+
+  if (alertChannelIds !== undefined) {
+    builder.array('alertChannels', builder => {
+      for (const alertChannelId of alertChannelIds) {
+        const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
+        builder.value(alertChannelVariable)
+      }
+    })
+  }
 
   if (resource.alertSettings) {
     builder.value('alertEscalationPolicy', valueForAlertEscalation(program, resource.alertSettings))
@@ -205,16 +229,24 @@ function buildCheckGroupProps (
 const construct = 'CheckGroup'
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
-  gencode (logicalId: string, resource: CheckGroupResource): void {
+  prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
+    context.registerCheckGroup(resource.id)
+  }
+
+  gencode (logicalId: string, resource: CheckGroupResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    this.program.section(expr(ident(construct), builder => {
-      builder.new(builder => {
-        builder.string(logicalId)
-        builder.object(builder => {
-          buildCheckGroupProps(this.program, builder, resource)
+    const id = context.lookupCheckGroup(resource.id)
+
+    this.program.section(decl(id, builder => {
+      builder.variable(expr(ident(construct), builder => {
+        builder.new(builder => {
+          builder.string(logicalId)
+          builder.object(builder => {
+            buildCheckGroupProps(this.program, builder, resource, context)
+          })
         })
-      })
+      }))
     }))
   }
 }

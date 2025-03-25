@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 
@@ -13,13 +13,14 @@ export interface PhoneCallAlertChannelResource extends AlertChannelResource {
 const construct = 'PhoneCallAlertChannel'
 
 export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelResource> {
-  gencode (logicalId: string, resource: PhoneCallAlertChannelResource): void {
+  prepare (logicalId: string, resource: PhoneCallAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'phoneCallAlert')
+  }
+
+  gencode (logicalId: string, resource: PhoneCallAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('phoneCallAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 

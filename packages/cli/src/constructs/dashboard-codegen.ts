@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
 
 export interface DashboardResource {
@@ -29,7 +29,7 @@ export interface DashboardResource {
 const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
-  gencode (logicalId: string, resource: DashboardResource): void {
+  gencode (logicalId: string, resource: DashboardResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {

@@ -12,7 +12,8 @@ import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
 import { Program, Output } from '../../sourcegen'
-import { ConstructCodegen } from '../../constructs/construct-codegen'
+import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
+import { Context } from '../../constructs/internal/codegen'
 
 export default class ImportPlanCommand extends AuthCommand {
   static coreCommand = true
@@ -91,10 +92,17 @@ export default class ImportPlanCommand extends AuthCommand {
     try {
       const program = new Program()
       const codegen = new ConstructCodegen(program)
+      const context = new Context()
 
       if (plan.changes) {
+        sortResources(plan.changes.resources as any)
+
         for (const resource of plan.changes.resources) {
-          codegen.gencode(resource.logicalId, resource as any)
+          codegen.prepare(resource.logicalId, resource as any, context)
+        }
+
+        for (const resource of plan.changes.resources) {
+          codegen.gencode(resource.logicalId, resource as any, context)
         }
       }
 

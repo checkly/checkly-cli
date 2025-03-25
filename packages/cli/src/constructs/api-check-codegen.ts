@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { expr, ident, Program, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
 import { buildCheckProps, CheckResource } from './check-codegen'
@@ -40,7 +40,7 @@ export function valueForAssertion (program: Program, assertion: Assertion): Valu
 const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
-  gencode (logicalId: string, resource: ApiCheckResource): void {
+  gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {
@@ -145,7 +145,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, builder, resource)
+          buildCheckProps(this.program, builder, resource, context)
         })
       })
     }))
