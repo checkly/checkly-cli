@@ -199,11 +199,11 @@ export default class Test extends AuthCommand {
         return filterByCheckNamePattern(grep, check.name)
       })
       .filter(([, check]) => {
-        const tags = check.tags ?? []
+        const tags = [...check.tags ?? []]
         const checkGroup = this.getCheckGroup(project, check)
         if (checkGroup) {
           const checkGroupTags = checkGroup.tags ?? []
-          tags.concat(checkGroupTags)
+          tags.push(...checkGroupTags)
         }
         return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
       })
