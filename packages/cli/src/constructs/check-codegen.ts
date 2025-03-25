@@ -38,7 +38,7 @@ export function buildCheckProps (
   resource: CheckResource,
   context: Context,
 ): void {
-  builder.string('name', resource.name)
+  builder.string('name', resource.name, { order: -1000 })
 
   if (resource.activated !== undefined) {
     builder.boolean('activated', resource.activated)

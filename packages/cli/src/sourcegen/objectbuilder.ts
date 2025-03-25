@@ -4,62 +4,72 @@ import { expr, ExpressionValueBuilder } from './exprbuilder'
 import { IdentifierValue } from './identifier'
 import { NullValue } from './null'
 import { NumberValue } from './number'
-import { ObjectProperty, ObjectValue } from './object'
+import { ObjectProperty, ObjectPropertyOptions, ObjectValue, ObjectValueOptions } from './object'
 import { StringValue } from './string'
 import { UndefinedValue } from './undefined'
 import { Value } from './value'
 
-export function object (build: (builder: ObjectValueBuilder) => void): Value {
-  const builder = new ObjectValueBuilder()
+export function object (build: (builder: ObjectValueBuilder) => void, options?: ObjectValueOptions): Value {
+  const builder = new ObjectValueBuilder(options)
   build(builder)
   return builder.build()
 }
 
 export class ObjectValueBuilder {
   #properties: ObjectProperty[] = []
+  #options?: ObjectValueOptions
 
-  string (name: string, value: string): this {
-    return this.value(name, new StringValue(value))
+  constructor (options?: ObjectValueOptions) {
+    this.#options = options
   }
 
-  boolean (name: string, value: boolean): this {
-    return this.value(name, new BooleanValue(value))
+  string (name: string, value: string, options?: ObjectPropertyOptions): this {
+    return this.value(name, new StringValue(value), options)
   }
 
-  number (name: string, value: number): this {
-    return this.value(name, new NumberValue(value))
+  boolean (name: string, value: boolean, options?: ObjectPropertyOptions): this {
+    return this.value(name, new BooleanValue(value), options)
   }
 
-  null (name: string): this {
-    return this.value(name, new NullValue())
+  number (name: string, value: number, options?: ObjectPropertyOptions): this {
+    return this.value(name, new NumberValue(value), options)
   }
 
-  undefined (name: string): this {
-    return this.value(name, new UndefinedValue())
+  null (name: string, options?: ObjectPropertyOptions): this {
+    return this.value(name, new NullValue(), options)
   }
 
-  ident (name: string, value: string): this {
-    return this.value(name, new IdentifierValue(value))
+  undefined (name: string, options?: ObjectPropertyOptions): this {
+    return this.value(name, new UndefinedValue(), options)
   }
 
-  array (name: string, build: (builder: ArrayValueBuilder) => void): this {
-    return this.value(name, array(build))
+  ident (name: string, value: string, options?: ObjectPropertyOptions): this {
+    return this.value(name, new IdentifierValue(value), options)
   }
 
-  object (name: string, build: (builder: ObjectValueBuilder) => void): this {
-    return this.value(name, object(build))
+  array (name: string, build: (builder: ArrayValueBuilder) => void, options?: ObjectPropertyOptions): this {
+    return this.value(name, array(build), options)
   }
 
-  expr (name: string, context: Value, build: (builder: ExpressionValueBuilder) => void): this {
-    return this.value(name, expr(context, build))
+  object (name: string, build: (builder: ObjectValueBuilder) => void, options?: ObjectPropertyOptions): this {
+    return this.value(name, object(build), options)
   }
 
-  value (name: string, value: Value): this {
-    this.#properties.push(new ObjectProperty(name, value))
+  expr (
+    name: string,
+    context: Value,
+    build: (builder: ExpressionValueBuilder) => void,
+    options?: ObjectPropertyOptions,
+  ): this {
+    return this.value(name, expr(context, build), options)
+  }
+
+  value (name: string, value: Value, options?: ObjectPropertyOptions): this {
+    this.#properties.push(new ObjectProperty(name, value, options))
     return this
   }
 
   build (): ObjectValue {
-    return new ObjectValue(this.#properties)
+    return new ObjectValue(this.#properties, this.#options)
   }
 }
