@@ -48,7 +48,7 @@ export function valueForRetryStrategy (program: Program, strategy?: RetryStrateg
       })
     case 'LINEAR':
       return expr(ident('RetryStrategyBuilder'), builder => {
-        builder.member(ident('fixedStrategy'))
+        builder.member(ident('linearStrategy'))
         builder.call(builder => {
           builder.object(builder => {
             buildCommonOptions(strategy, builder)
