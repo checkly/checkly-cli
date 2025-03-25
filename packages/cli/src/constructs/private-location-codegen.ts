@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident, Value } from '../sourcegen'
+import { decl, expr, ident, Program, Value } from '../sourcegen'
 
 export interface PrivateLocationResource {
   id: string
@@ -11,7 +11,9 @@ export interface PrivateLocationResource {
 
 const construct = 'PrivateLocation'
 
-export function valueForPrivateLocationFromId (physicalId: string): Value {
+export function valueForPrivateLocationFromId (program: Program, physicalId: string): Value {
+  program.import(construct, 'checkly/constructs')
+
   return expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {

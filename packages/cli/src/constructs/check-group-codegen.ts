@@ -85,7 +85,7 @@ function buildCheckGroupProps (
           const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
           builder.value(privateLocationVariable)
         } catch (err) {
-          builder.value(valueForPrivateLocationFromId(privateLocationId))
+          builder.value(valueForPrivateLocationFromId(program, privateLocationId))
         }
       }
     })
@@ -127,7 +127,7 @@ function buildCheckGroupProps (
           const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
           builder.value(alertChannelVariable)
         } catch (err) {
-          builder.value(valueForAlertChannelFromId(alertChannelId))
+          builder.value(valueForAlertChannelFromId(program, alertChannelId))
         }
       }
     })
