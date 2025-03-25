@@ -9,7 +9,6 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
 
 export default class ImportApplyCommand extends AuthCommand {
-  static coreCommand = true
   static hidden = false
   static description = 'Attach imported resources into your project in a pending state.'
 
