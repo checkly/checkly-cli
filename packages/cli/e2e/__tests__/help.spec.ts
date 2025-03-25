@@ -50,7 +50,8 @@ describe('help', () => {
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
   help             Display help for checkly.
-  import           Import existing resources from your Checkly account to your project.
+  import           Import existing resources from your Checkly account to your
+                   project.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
   runtimes         List all supported runtimes and dependencies.
