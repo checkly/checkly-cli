@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
@@ -26,13 +26,14 @@ function chatIdFromTemplate (template: string): string | undefined {
 const construct = 'TelegramAlertChannel'
 
 export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelResource> {
-  gencode (logicalId: string, resource: TelegramAlertChannelResource): void {
+  prepare (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'telegramAlert')
+  }
+
+  gencode (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('telegramAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 
