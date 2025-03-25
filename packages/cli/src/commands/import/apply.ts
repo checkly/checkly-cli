@@ -60,8 +60,8 @@ export default class ImportApplyCommand extends AuthCommand {
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
-    const choices: prompts.Choice[] = plans.map(plan => ({
-      title: `Plan #1 from ${new Date(plan.createdAt)}`,
+    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+      title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
     }))
