@@ -52,7 +52,9 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
 
 const construct = 'AlertChannel'
 
-export function valueForAlertChannelFromId (physicalId: number): Value {
+export function valueForAlertChannelFromId (program: Program, physicalId: number): Value {
+  program.import(construct, 'checkly/constructs')
+
   return expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {
