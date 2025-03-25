@@ -1,4 +1,5 @@
 import { Program } from '../../../sourcegen'
+import { Context } from './context'
 
 export abstract class Codegen<T> {
   program: Program
@@ -7,5 +8,9 @@ export abstract class Codegen<T> {
     this.program = program
   }
 
-  abstract gencode (logicalId: string, resource: T): void
+  prepare (logicalId: string, resource: T, context: Context): void {
+    // No-op
+  }
+
+  abstract gencode (logicalId: string, resource: T, context: Context): void
 }

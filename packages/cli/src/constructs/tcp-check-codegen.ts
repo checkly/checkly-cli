@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { expr, ident, Program, Value } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
@@ -27,7 +27,7 @@ export function valueForTcpAssertion (program: Program, assertion: TcpAssertion)
 const construct = 'TcpCheck'
 
 export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
-  gencode (logicalId: string, resource: TcpCheckResource): void {
+  gencode (logicalId: string, resource: TcpCheckResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
     this.program.section(expr(ident(construct), builder => {
@@ -64,7 +64,7 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, builder, resource)
+          buildCheckProps(this.program, builder, resource, context)
         })
       })
     }))

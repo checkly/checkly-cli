@@ -1,4 +1,4 @@
-import { Codegen } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 
@@ -13,13 +13,14 @@ export interface SlackAlertChannelResource extends AlertChannelResource {
 const construct = 'SlackAlertChannel'
 
 export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource> {
-  gencode (logicalId: string, resource: SlackAlertChannelResource): void {
+  prepare (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
+    context.registerAlertChannel(resource.id, 'slackAlert')
+  }
+
+  gencode (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
     this.program.import(construct, 'checkly/constructs')
 
-    const id = this.program.registerVariable(
-      `${construct}::${logicalId}`,
-      ident(this.program.nth('slackAlert')),
-    )
+    const id = context.lookupAlertChannel(resource.id)
 
     const { config } = resource
 
