@@ -16,7 +16,6 @@ import { ConstructCodegen, sortResources } from '../../constructs/construct-code
 import { Context } from '../../constructs/internal/codegen'
 
 export default class ImportPlanCommand extends AuthCommand {
-  static coreCommand = true
   static hidden = false
   static description = 'Begin the import process by creating a plan.'
 
