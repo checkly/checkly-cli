@@ -10,7 +10,6 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
 
 export default class ImportCommitCommand extends AuthCommand {
-  static coreCommand = true
   static hidden = false
   static description = 'Permanently commit imported resources into your project.'
 
