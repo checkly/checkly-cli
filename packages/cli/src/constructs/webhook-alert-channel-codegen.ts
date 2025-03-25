@@ -99,7 +99,8 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
     if (webhookType) {
       const codegen = this.codegensByWebhookType[webhookType]
       if (codegen) {
-        return codegen.prepare(logicalId, resource, context)
+        codegen.prepare(logicalId, resource, context)
+        return
       }
     }
 
@@ -111,7 +112,8 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
     if (webhookType) {
       const codegen = this.codegensByWebhookType[webhookType]
       if (codegen) {
-        return codegen.gencode(logicalId, resource, context)
+        codegen.gencode(logicalId, resource, context)
+        return
       }
     }
 
