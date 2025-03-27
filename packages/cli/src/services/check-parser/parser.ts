@@ -130,18 +130,20 @@ export class Parser {
   }
 
   async getFilesAndDependencies (paths: string[]): Promise<{ files: string[], errors: string[] }> {
-    const files = await this.getFilesFromPaths(paths)
-    const validFiles = await Promise.all(files.map(this.validateFileAsync))
-    const fileSet = new Set(validFiles.map(({ filePath, content }) => ({ filePath, content })))
+    const files = new Set(await this.getFilesFromPaths(paths))
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
-    for (const item of fileSet) {
-      if (item.filePath.endsWith(PACKAGE_EXTENSION)) {
-        // Holds info about the main file and doesn't need to be parsed
-        resultFileSet.add(item.filePath)
+    for (const file of files) {
+      if (resultFileSet.has(file)) {
         continue
       }
+      if (file.endsWith('.json')) {
+        // Holds info about the main file and doesn't need to be parsed
+        resultFileSet.add(file)
+        continue
+      }
+      const item = await this.validateFileAsync(file)
 
       const cache = this.cache.get(item.filePath)
       const { module, error } = cache !== undefined
@@ -161,12 +163,13 @@ export class Parser {
       }
 
       this.cache.set(item.filePath, { module, resolvedDependencies })
+
       for (const dep of resolvedDependencies.local) {
         if (resultFileSet.has(dep.sourceFile.meta.filePath)) {
           continue
         }
         const filePath = dep.sourceFile.meta.filePath
-        fileSet.add({ filePath, content: dep.sourceFile.contents })
+        files.add(filePath)
       }
       resultFileSet.add(item.filePath)
     }
