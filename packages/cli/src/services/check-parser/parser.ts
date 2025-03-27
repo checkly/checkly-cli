@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import * as fsAsync from 'fs/promises'
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { Collector } from './collector'
@@ -7,6 +8,8 @@ import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies } from './package-files/resolver'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
+import { findFilesWithPattern } from '../util'
+import { glob } from 'glob'
 
 // Our custom configuration to handle walking errors
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -111,6 +114,83 @@ export class Parser {
     }
 
     return false
+  }
+
+  private async validateFileAsync (filePath: string): Promise<{ filePath: string, content: string }> {
+    const extension = path.extname(filePath)
+    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
+      throw new Error(`Unsupported file extension for ${filePath}`)
+    }
+    try {
+      const content = await fsAsync.readFile(filePath, { encoding: 'utf-8' })
+      return { filePath, content }
+    } catch (err) {
+      throw new DependencyParseError(filePath, [filePath], [], [])
+    }
+  }
+
+  async getFilesAndDependencies (paths: string[]): Promise<{ files: string[], errors: string[] }> {
+    const files = await this.getFilesFromPaths(paths)
+    const validFiles = await Promise.all(files.map(this.validateFileAsync))
+    const fileSet = new Set(validFiles.map(({ filePath, content }) => ({ filePath, content })))
+    const errors = new Set<string>()
+    const missingFiles = new Set<string>()
+    const resultFileSet = new Set<string>()
+    for (const item of fileSet) {
+      if (item.filePath.endsWith(PACKAGE_EXTENSION)) {
+        // Holds info about the main file and doesn't need to be parsed
+        resultFileSet.add(item.filePath)
+        continue
+      }
+
+      const cache = this.cache.get(item.filePath)
+      const { module, error } = cache !== undefined
+        ? cache
+        : Parser.parseDependencies(item.filePath, item.content)
+
+      if (error) {
+        this.cache.set(item.filePath, { module, error })
+        errors.add(item.filePath)
+        continue
+      }
+      const resolvedDependencies = cache?.resolvedDependencies ??
+          this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+
+      for (const dep of resolvedDependencies.missing) {
+        missingFiles.add(dep.filePath)
+      }
+
+      this.cache.set(item.filePath, { module, resolvedDependencies })
+      for (const dep of resolvedDependencies.local) {
+        if (resultFileSet.has(dep.sourceFile.meta.filePath)) {
+          continue
+        }
+        const filePath = dep.sourceFile.meta.filePath
+        fileSet.add({ filePath, content: dep.sourceFile.contents })
+      }
+      resultFileSet.add(item.filePath)
+    }
+    if (missingFiles.size) {
+      throw new DependencyParseError(paths.join(', '), Array.from(missingFiles), [], [])
+    }
+    return { files: Array.from(resultFileSet), errors: Array.from(errors) }
+  }
+
+  private async getFilesFromPaths (paths: string[]): Promise<string[]> {
+    const files = paths.map(async (path) => {
+      try {
+        const stats = await fsAsync.lstat(path)
+        if (stats.isDirectory()) {
+          return glob(`${path}/**/*.{js,ts,mjs}`)
+        }
+        return [path]
+      } catch (err) {
+        return glob(path)
+      }
+    })
+
+    const filesArray = await Promise.all(files)
+    return filesArray.flat()
   }
 
   parse (entrypoint: string) {

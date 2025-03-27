@@ -8,6 +8,7 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
+import { glob } from 'glob'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -222,4 +223,19 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   }
   axiosConfig.proxy = false
   return axiosConfig
+}
+
+export async function findFilesWithPattern (
+  directory: string,
+  pattern: string | string[],
+  ignorePattern: string[],
+): Promise<string[]> {
+  // The files are sorted to make sure that the processing order is deterministic.
+  const files = await glob(pattern, {
+    nodir: true,
+    cwd: directory,
+    ignore: ignorePattern,
+    absolute: true,
+  })
+  return files.sort()
 }
