@@ -158,7 +158,7 @@ export class Parser {
           this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       for (const dep of resolvedDependencies.missing) {
-        missingFiles.add(dep.filePath)
+        missingFiles.add(pathToPosix(dep.filePath))
       }
 
       this.cache.set(item.filePath, { module, resolvedDependencies })
@@ -170,7 +170,7 @@ export class Parser {
         const filePath = dep.sourceFile.meta.filePath
         files.add(filePath)
       }
-      resultFileSet.add(item.filePath)
+      resultFileSet.add(pathToPosix(item.filePath))
     }
     if (missingFiles.size) {
       throw new DependencyParseError(paths.join(', '), Array.from(missingFiles), [], [])

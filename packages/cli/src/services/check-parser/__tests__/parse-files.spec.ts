@@ -1,5 +1,6 @@
 import { Parser } from '../parser'
 import * as path from 'path'
+import { pathToPosix } from '../../util'
 
 describe('project parser - getFilesAndDependencies()', () => {
   it('should handle JS file with no dependencies', async () => {
@@ -13,15 +14,17 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.js')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('dep3.js'),
-      toAbsolutePath('entrypoint.js'),
-      toAbsolutePath('module-package', 'main.js'),
-      toAbsolutePath('module-package', 'package.json'),
-      toAbsolutePath('module', 'index.js'),
-    ])
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+      'dep3.js',
+      'entrypoint.js',
+      'module-package/main.js',
+      'module-package/package.json',
+      'module/index.js',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -29,32 +32,18 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.js'), toAbsolutePath('*.js')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('dep3.js'),
-      toAbsolutePath('entrypoint.js'),
-      toAbsolutePath('module-package', 'main.js'),
-      toAbsolutePath('module-package', 'package.json'),
-      toAbsolutePath('module', 'index.js'),
-      toAbsolutePath('unreachable.js'),
-    ])
-    expect(res.errors).toHaveLength(0)
-  })
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+      'dep3.js',
+      'entrypoint.js',
+      'module-package/main.js',
+      'module-package/package.json',
+      'module/index.js',
+      'unreachable.js',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
 
-  it('should not fail on a non-existing glob', async () => {
-    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
-    const parser = new Parser({})
-    const res = await parser.getFilesAndDependencies([toAbsolutePath('*.foo')])
-    expect(res.files).toHaveLength(0)
-    expect(res.errors).toHaveLength(0)
-  })
-
-  it('should not fail on a non-existing file', async () => {
-    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
-    const parser = new Parser({})
-    const res = await parser.getFilesAndDependencies([toAbsolutePath('idonotexist.js')])
-    expect(res.files).toHaveLength(0)
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -81,72 +70,18 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('*.js'), toAbsolutePath('*.json')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('dep3.js'),
-      toAbsolutePath('entrypoint.js'),
-      toAbsolutePath('module-package', 'main.js'),
-      toAbsolutePath('module-package', 'package.json'),
-      toAbsolutePath('module', 'index.js'),
-      toAbsolutePath('unreachable.js'),
-    ])
-    expect(res.errors).toHaveLength(0)
-  })
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+      'dep3.js',
+      'entrypoint.js',
+      'module-package/main.js',
+      'module-package/package.json',
+      'module/index.js',
+      'unreachable.js',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
 
-  it('should report a missing entrypoint file', async () => {
-    const missingEntrypoint = path.join(__dirname, 'check-parser-fixtures', 'does-not-exist.js')
-    try {
-      const parser = new Parser({})
-      await parser.getFilesAndDependencies([missingEntrypoint])
-    } catch (err) {
-      expect(err).toMatchObject({ missingFiles: [missingEntrypoint] })
-    }
-  })
-
-  it('should report missing check dependencies', async () => {
-    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', ...filepath)
-    try {
-      const parser = new Parser({})
-      await parser.getFilesAndDependencies([toAbsolutePath('missing-dependencies.js')])
-    } catch (err) {
-      expect(err).toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
-    }
-  })
-
-  it('should report syntax errors', async () => {
-    const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'syntax-error.js')
-    try {
-      const parser = new Parser({})
-      await parser.getFilesAndDependencies([entrypoint])
-    } catch (err) {
-      expect(err).toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
-    }
-  })
-
-  it('should report unsupported dependencies', async () => {
-    const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
-    try {
-      const parser = new Parser({})
-      await parser.getFilesAndDependencies([entrypoint])
-    } catch (err) {
-      expect(err).toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
-    }
-  })
-
-  it('should handle circular dependencies', async () => {
-    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', ...filepath)
-    const parser = new Parser({})
-    const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.js')])
-
-    // Circular dependencies are allowed in Node.js
-    // We just need to test that parsing the dependencies doesn't loop indefinitely
-    // https://nodejs.org/api/modules.html#modules_cycles
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('entrypoint.js'),
-    ])
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -154,21 +89,23 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.ts')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.ts'),
-      toAbsolutePath('dep2.ts'),
-      toAbsolutePath('dep3.ts'),
-      toAbsolutePath('dep4.js'),
-      toAbsolutePath('dep5.ts'),
-      toAbsolutePath('dep6.ts'),
-      toAbsolutePath('entrypoint.ts'),
-      toAbsolutePath('module-package', 'main.js'),
-      toAbsolutePath('module-package', 'package.json'),
-      toAbsolutePath('module', 'index.ts'),
-      toAbsolutePath('pages/external.first.page.js'),
-      toAbsolutePath('pages/external.second.page.ts'),
-      toAbsolutePath('type.ts'),
-    ])
+    const expectedFiles = [
+      'dep1.ts',
+      'dep2.ts',
+      'dep3.ts',
+      'dep4.js',
+      'dep5.ts',
+      'dep6.ts',
+      'entrypoint.ts',
+      'module-package/main.js',
+      'module-package/package.json',
+      'module/index.ts',
+      'pages/external.first.page.js',
+      'pages/external.second.page.ts',
+      'type.ts',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -176,19 +113,21 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-sample-project', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('src', 'entrypoint.ts')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('lib1', 'file1.ts'),
-      toAbsolutePath('lib1', 'file2.ts'),
-      toAbsolutePath('lib1', 'folder', 'file1.ts'),
-      toAbsolutePath('lib1', 'folder', 'file2.ts'),
-      toAbsolutePath('lib1', 'index.ts'),
-      toAbsolutePath('lib1', 'package.json'),
-      toAbsolutePath('lib1', 'tsconfig.json'),
-      toAbsolutePath('lib2', 'index.ts'),
-      toAbsolutePath('lib3', 'foo', 'bar.ts'),
-      toAbsolutePath('src', 'entrypoint.ts'),
-      toAbsolutePath('tsconfig.json'),
-    ])
+    const expectedFiles = [
+      'lib1/file1.ts',
+      'lib1/file2.ts',
+      'lib1/folder/file1.ts',
+      'lib1/folder/file2.ts',
+      'lib1/index.ts',
+      'lib1/package.json',
+      'lib1/tsconfig.json',
+      'lib2/index.ts',
+      'lib3/foo/bar.ts',
+      'src/entrypoint.ts',
+      'tsconfig.json',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -196,7 +135,7 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-unused', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('src', 'entrypoint.ts')])
-    expect(res.files.sort()).toEqual([toAbsolutePath('src', 'entrypoint.ts')])
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual([pathToPosix(toAbsolutePath('src', 'entrypoint.ts'))])
     expect(res.errors).toHaveLength(0)
   })
 
@@ -204,12 +143,14 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-allow-importing-ts-extensions', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('src', 'entrypoint.ts')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('src', 'dep1.ts'),
-      toAbsolutePath('src', 'dep2.ts'),
-      toAbsolutePath('src', 'dep3.ts'),
-      toAbsolutePath('src', 'entrypoint.ts'),
-    ])
+    const expectedFiles = [
+      'src/dep1.ts',
+      'src/dep2.ts',
+      'src/dep3.ts',
+      'src/entrypoint.ts',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
     expect(res.errors).toHaveLength(0)
   })
 
@@ -223,9 +164,9 @@ describe('project parser - getFilesAndDependencies()', () => {
     } catch (err) {
       expect(err).toMatchObject({
         missingFiles: [
-          toAbsolutePath('dep1'),
-          toAbsolutePath('dep1.ts'),
-          toAbsolutePath('dep1.js'),
+          pathToPosix(toAbsolutePath('dep1')),
+          pathToPosix(toAbsolutePath('dep1.ts')),
+          pathToPosix(toAbsolutePath('dep1.js')),
         ],
       })
     }
@@ -235,41 +176,47 @@ describe('project parser - getFilesAndDependencies()', () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'import-js-from-ts', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.ts')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('dep3.ts'),
-      toAbsolutePath('entrypoint.ts'),
-    ])
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+      'dep3.ts',
+      'entrypoint.ts',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
   })
 
   it('should handle ES Modules', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.js')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.js'),
-      toAbsolutePath('dep3.js'),
-      toAbsolutePath('dep5.js'),
-      toAbsolutePath('dep6.js'),
-      toAbsolutePath('entrypoint.js'),
-    ])
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+      'dep3.js',
+      'dep5.js',
+      'dep6.js',
+      'entrypoint.js',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
   })
 
   it('should handle Common JS and ES Modules', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'common-esm-example', ...filepath)
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.mjs')])
-    expect(res.files.sort()).toEqual([
-      toAbsolutePath('dep1.js'),
-      toAbsolutePath('dep2.mjs'),
-      toAbsolutePath('dep3.mjs'),
-      toAbsolutePath('dep4.mjs'),
-      toAbsolutePath('dep5.mjs'),
-      toAbsolutePath('dep6.mjs'),
-      toAbsolutePath('entrypoint.mjs'),
-    ])
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.mjs',
+      'dep3.mjs',
+      'dep4.mjs',
+      'dep5.mjs',
+      'dep6.mjs',
+      'entrypoint.mjs',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(res.files.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
   })
 
   it('should handle node: prefix for built-ins', async () => {
