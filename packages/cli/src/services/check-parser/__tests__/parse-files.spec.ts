@@ -73,7 +73,8 @@ describe('project parser - getFilesAndDependencies()', () => {
     const endTimestamp = Date.now().valueOf()
     expect(res.files).not.toHaveLength(0)
     expect(res.errors).toHaveLength(0)
-    expect(endTimestamp - startTimestamp).toBeLessThan(400)
+    const isCI = process.env.CI === 'true'
+    expect(endTimestamp - startTimestamp).toBeLessThan(isCI ? 2000 : 400)
   })
 
   it('should handle JS file with dependencies glob patterns', async () => {
