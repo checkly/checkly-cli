@@ -8,8 +8,7 @@ import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies } from './package-files/resolver'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
-import { findFilesWithPattern } from '../util'
-import { glob } from 'glob'
+import { findFilesWithPattern, pathToPosix } from '../util'
 
 // Our custom configuration to handle walking errors
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -180,15 +179,20 @@ export class Parser {
   }
 
   private async getFilesFromPaths (paths: string[]): Promise<string[]> {
-    const files = paths.map(async (path) => {
+    const files = paths.map(async (currPath) => {
+      const normalizedPath = pathToPosix(currPath)
       try {
-        const stats = await fsAsync.lstat(path)
+        const stats = await fsAsync.lstat(normalizedPath)
         if (stats.isDirectory()) {
-          return glob(`${path}/**/*.{js,ts,mjs}`)
+          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', [])
         }
-        return [path]
+        return [normalizedPath]
       } catch (err) {
-        return glob(path)
+        if (normalizedPath.includes('*') || normalizedPath.includes('?') || normalizedPath.includes('{')) {
+          return findFilesWithPattern(process.cwd(), normalizedPath, [])
+        } else {
+          return []
+        }
       }
     })
 
