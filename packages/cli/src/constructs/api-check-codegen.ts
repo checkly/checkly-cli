@@ -55,11 +55,11 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               builder.string('ipFamily', resource.request.ipFamily)
             }
 
-            if (resource.request.followRedirects !== undefined) {
+            if (resource.request.followRedirects === false) {
               builder.boolean('followRedirects', resource.request.followRedirects)
             }
 
-            if (resource.request.skipSSL !== undefined) {
+            if (resource.request.skipSSL === true) {
               builder.boolean('skipSSL', resource.request.skipSSL)
             }
 
@@ -72,11 +72,11 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               })
             }
 
-            if (resource.request.body) {
+            if (resource.request.body !== undefined && resource.request.body !== '') {
               builder.string('body', resource.request.body)
             }
 
-            if (resource.request.bodyType) {
+            if (resource.request.bodyType && resource.request.bodyType !== 'NONE') {
               builder.string('bodyType', resource.request.bodyType)
             }
 
@@ -100,10 +100,12 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
 
             if (resource.request.basicAuth) {
               const basicAuth = resource.request.basicAuth
-              builder.object('basicAuth', builder => {
-                builder.string('username', basicAuth.username)
-                builder.string('password', basicAuth.password)
-              })
+              if (basicAuth.username !== '' && basicAuth.password !== '') {
+                builder.object('basicAuth', builder => {
+                  builder.string('username', basicAuth.username)
+                  builder.string('password', basicAuth.password)
+                })
+              }
             }
           })
 
