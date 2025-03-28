@@ -1,6 +1,5 @@
-import { glob } from 'glob'
 import * as path from 'path'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import { findFilesWithPattern, loadJsFile, loadTsFile, pathToPosix } from './util'
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
@@ -222,19 +221,4 @@ async function loadAllPrivateLocationsSlugNames (
         })
     })
   })
-}
-
-async function findFilesWithPattern (
-  directory: string,
-  pattern: string | string[],
-  ignorePattern: string[],
-): Promise<string[]> {
-  // The files are sorted to make sure that the processing order is deterministic.
-  const files = await glob(pattern, {
-    nodir: true,
-    cwd: directory,
-    ignore: ignorePattern,
-    absolute: true,
-  })
-  return files.sort()
 }
