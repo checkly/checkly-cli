@@ -47,7 +47,6 @@ export class VariableDeclaration extends Declaration {
     output.append('=')
     output.cosmeticWhitespace()
     this.value.render(output)
-    output.endLine()
   }
 }
 
