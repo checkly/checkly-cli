@@ -22,6 +22,7 @@ jobs:
       - run: npm run lint
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     name: test - ${{ matrix.os }}
