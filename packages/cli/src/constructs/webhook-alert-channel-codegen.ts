@@ -131,6 +131,8 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }
