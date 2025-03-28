@@ -76,19 +76,19 @@ export function buildWebhookAlertChannelConfig (
 const construct = 'WebhookAlertChannel'
 
 export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResource> {
-  indicentioCodegen: IncidentioAlertChannelCodegen
+  incidentioCodegen: IncidentioAlertChannelCodegen
   msteamsCodegen: MSTeamsAlertChannelCodegen
   telegramCodegen: TelegramAlertChannelCodegen
   codegensByWebhookType: Record<WebhookType, Codegen<any>>
 
   constructor (program: Program) {
     super(program)
-    this.indicentioCodegen = new IncidentioAlertChannelCodegen(program)
+    this.incidentioCodegen = new IncidentioAlertChannelCodegen(program)
     this.msteamsCodegen = new MSTeamsAlertChannelCodegen(program)
     this.telegramCodegen = new TelegramAlertChannelCodegen(program)
 
     this.codegensByWebhookType = {
-      WEBHOOK_INCIDENTIO: this.indicentioCodegen,
+      WEBHOOK_INCIDENTIO: this.incidentioCodegen,
       WEBHOOK_MSTEAMS: this.msteamsCodegen,
       WEBHOOK_TELEGRAM: this.telegramCodegen,
     }
