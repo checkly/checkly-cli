@@ -50,6 +50,8 @@ export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }
