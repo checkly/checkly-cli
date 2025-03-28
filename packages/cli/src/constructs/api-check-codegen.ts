@@ -5,15 +5,21 @@ import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 
+export interface SnippetResource {
+  id: number
+  name: string
+  script?: string
+}
+
 export interface ApiCheckResource extends CheckResource {
   checkType: 'API'
   request: Request
   localSetupScript?: string
   setupScriptPath?: string
-  // TODO: setupScriptDependencies
+  setupScript?: SnippetResource
   localTearDownScript?: string
   tearDownScriptPath?: string
-  // TODO: tearDownScriptDependencies
+  tearDownScript?: SnippetResource
   degradedResponseTime?: number
   maxResponseTime?: number
 }
@@ -114,14 +120,15 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.object('setupScript', builder => {
               builder.string('content', content)
             })
-          }
-
-          if (resource.setupScriptPath) {
-            const scriptPath = resource.setupScriptPath
-            builder.object('setupScript', builder => {
-            // @TODO needs work
-              builder.string('entrypoint', scriptPath)
-            })
+          } else if (resource.setupScript) {
+            const snippet = resource.setupScript
+            if (snippet.script !== undefined) {
+              const script = snippet.script
+              builder.object('setupScript', builder => {
+                // TODO: Move to a separate file and use entrypoint instead.
+                builder.string('content', script)
+              })
+            }
           }
 
           if (resource.localTearDownScript) {
@@ -129,14 +136,15 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.object('tearDownScript', builder => {
               builder.string('content', content)
             })
-          }
-
-          if (resource.tearDownScriptPath) {
-            const scriptPath = resource.tearDownScriptPath
-            builder.object('tearDownScript', builder => {
-            // @TODO needs work
-              builder.string('entrypoint', scriptPath)
-            })
+          } else if (resource.tearDownScript) {
+            const snippet = resource.tearDownScript
+            if (snippet.script !== undefined) {
+              const script = snippet.script
+              builder.object('tearDownScript', builder => {
+                // TODO: Move to a separate file and use entrypoint instead.
+                builder.string('content', script)
+              })
+            }
           }
 
           if (resource.degradedResponseTime !== undefined) {
