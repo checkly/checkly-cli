@@ -6,11 +6,11 @@ export function valueForKeyValuePair (kv: KeyValuePair): Value {
     builder.string('key', kv.key)
     builder.string('value', kv.value)
 
-    if (kv.locked !== undefined) {
+    if (kv.locked === true) {
       builder.boolean('locked', kv.locked)
     }
 
-    if (kv.secret !== undefined) {
+    if (kv.secret === true) {
       builder.boolean('secret', kv.secret)
     }
   })
