@@ -40,6 +40,8 @@ export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelRes
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

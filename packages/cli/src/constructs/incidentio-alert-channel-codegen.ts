@@ -57,6 +57,8 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

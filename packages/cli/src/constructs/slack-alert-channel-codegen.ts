@@ -39,6 +39,8 @@ export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource>
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

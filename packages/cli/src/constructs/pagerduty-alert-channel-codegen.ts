@@ -44,6 +44,8 @@ export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelR
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

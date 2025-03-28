@@ -39,6 +39,8 @@ export class SmsAlertChannelCodegen extends Codegen<SmsAlertChannelResource> {
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

@@ -32,6 +32,8 @@ export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource>
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

@@ -39,6 +39,8 @@ export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelR
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

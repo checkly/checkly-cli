@@ -62,6 +62,8 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }

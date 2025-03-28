@@ -257,6 +257,8 @@ export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }
