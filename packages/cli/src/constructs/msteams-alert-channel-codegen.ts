@@ -35,6 +35,8 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
           })
         })
       }))
+
+      builder.export()
     }))
   }
 }
