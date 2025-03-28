@@ -45,7 +45,14 @@ function handleError (copySpinner: ora.Ora, message: string | unknown) {
 }
 
 function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
-  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']
+  const filenames = [
+    'checkly.config.ts',
+    'checkly.config.mts',
+    'checkly.config.cts',
+    'checkly.config.js',
+    'checkly.config.mjs',
+    'checkly.config.cjs',
+  ]
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))

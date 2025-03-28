@@ -1,6 +1,6 @@
 import { glob } from 'glob'
 import * as path from 'path'
-import { loadJsFile, loadTsFile, pathToPosix } from './util'
+import { loadFile, pathToPosix } from './util'
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
@@ -85,15 +85,11 @@ async function loadAllCheckFiles (
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFileAbsolutePath = checkFile
     Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
-    if (checkFile.endsWith('.js')) {
-      await loadJsFile(checkFile)
-    } else if (checkFile.endsWith('.mjs')) {
-      await loadJsFile(checkFile)
-    } else if (checkFile.endsWith('.ts')) {
-      await loadTsFile(checkFile)
+    if (/\.[mc]?(js|ts)$/.test(checkFile)) {
+      await loadFile(checkFile)
     } else {
       throw new Error('Unable to load check configuration file with unsupported extension. ' +
-      `Please use a .js, .msj  or .ts file instead.\n${checkFile}`)
+      `Please use a .js, .mjs, .cjs, .ts, .mts or .cts file instead.\n${checkFile}`)
     }
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined
