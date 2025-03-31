@@ -13,6 +13,7 @@ import { glob } from 'glob'
 import os from 'node:os'
 import { checklyStorage } from '../rest/api'
 import { loadFile } from './checkly-config-loader'
+import { Parser } from './check-parser/parser'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -247,7 +248,8 @@ Promise<{outputFile: string, browsers: string[]}> {
     },
   })
   archive.pipe(output)
-  await loadPlaywrightProjectFiles(dir, archive)
+  await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
+  archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
@@ -260,13 +262,48 @@ Promise<{outputFile: string, browsers: string[]}> {
   })
 }
 
-export async function loadPlaywrightProjectFiles (dir: string, archive: Archiver) {
+export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig: any, archive: Archiver) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
+  const { testFiles, ignoredFiles: testIgnoredFiles } = getPlaywrightTestFiles(playwrightConfig)
   try {
     const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
     ignoredFiles.push(...gitignoreToGlob(gitignore))
   } catch (e) {}
-  archive.glob('**/*', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  const parser = new Parser({})
+  ignoredFiles.push(...testIgnoredFiles)
+  const { files } = await parser.getFilesAndDependencies(testFiles, ignoredFiles)
+  for (const file of files) {
+    const relativePath = path.relative(dir, file)
+    archive.file(file, { name: relativePath })
+  }
+  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+}
+
+export function getPlaywrightTestFiles (playwrightConfig: any): { testFiles: string[], ignoredFiles: string[] } {
+  const testFiles = new Set<string>()
+  const ignoredFiles = new Set<string>()
+  if (playwrightConfig.tsconfig) {
+    testFiles.add(playwrightConfig.tsconfig)
+  }
+  if (playwrightConfig.testDir) {
+    testFiles.add(playwrightConfig.testDir)
+  }
+  if (playwrightConfig.testMatch) {
+    testFiles.add(playwrightConfig.testMatch)
+  }
+  if (playwrightConfig.testIgnore) {
+    ignoredFiles.add(playwrightConfig.testIgnore)
+  }
+
+  if (playwrightConfig.projects) {
+    playwrightConfig.projects.map(getPlaywrightTestFiles)
+      .forEach((entry: { testFiles: string[], ignoredFiles: string[] }) => {
+        entry.testFiles.forEach(file => testFiles.add(file))
+        entry.ignoredFiles.forEach(file => ignoredFiles.add(file))
+      })
+  }
+
+  return { testFiles: Array.from(testFiles), ignoredFiles: Array.from(ignoredFiles) }
 }
 
 export function findBrowsers (playwrightConfig: any): string[] {
