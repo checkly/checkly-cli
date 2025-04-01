@@ -245,6 +245,9 @@ Update and Unchanged:
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
     PrivateLocation: private-location-1
+    StatusPage: test-page-1
+    StatusPageService: bar-service
+    StatusPageService: foo-service
 `)
     expect(resultTwo.stdout).toContain(
 `Create:
