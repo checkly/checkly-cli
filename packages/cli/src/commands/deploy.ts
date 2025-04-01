@@ -11,7 +11,7 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, BrowserCheck,
+  Project, ProjectData, BrowserCheck, PlaywrightCheck,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
@@ -125,6 +125,19 @@ export default class Deploy extends AuthCommand {
           continue
         }
         check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
+
+      for (const check of Object.values(project.data.check)) {
+        // TODO: Improve bundling and uploading
+        if (!(check instanceof PlaywrightCheck) || check.codeBundlePath) {
+          continue
+        }
+        const {
+          relativePlaywrightConfigPath, browsers, key,
+        } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath)
+        check.codeBundlePath = key
+        check.browsers = browsers
+        check.playwrightConfigPath = relativePlaywrightConfigPath
       }
     }
 

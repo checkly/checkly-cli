@@ -231,7 +231,7 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
 }
 
 export async function bundlePlayWrightProject (playwrightConfig: string):
-Promise<{outputFile: string, browsers: string[]}> {
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await loadFile(filePath)
@@ -253,7 +253,7 @@ Promise<{outputFile: string, browsers: string[]}> {
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
-      return resolve({ outputFile, browsers })
+      return resolve({ outputFile, browsers, relativePlaywrightConfigPath: path.relative(dir, filePath) })
     })
 
     output.on('error', (err) => {
