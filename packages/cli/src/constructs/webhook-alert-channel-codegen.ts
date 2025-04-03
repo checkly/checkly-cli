@@ -40,7 +40,7 @@ export function buildWebhookAlertChannelConfig (
     builder.string('webhookType', config.webhookType)
   }
 
-  builder.string('url', config.url.toString())
+  builder.string('url', config.url)
 
   if (config.template) {
     builder.string('template', config.template)
