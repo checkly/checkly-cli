@@ -176,15 +176,20 @@ export class CheckCodegen extends Codegen<CheckResource> {
 
     switch (checkType) {
       case 'BROWSER':
-        return this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource, context)
+        this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource, context)
+        return
       case 'API':
-        return this.apiCheckCodegen.gencode(logicalId, resource as ApiCheckResource, context)
+        this.apiCheckCodegen.gencode(logicalId, resource as ApiCheckResource, context)
+        return
       case 'TCP':
-        return this.tcpCheckCodegen.gencode(logicalId, resource as TcpCheckResource, context)
+        this.tcpCheckCodegen.gencode(logicalId, resource as TcpCheckResource, context)
+        return
       case 'MULTI_STEP':
-        return this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)
+        this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)
+        return
       case 'HEARTBEAT':
-        return this.heartbeatCheckCodegen.gencode(logicalId, resource as HeartbeatCheckResource, context)
+        this.heartbeatCheckCodegen.gencode(logicalId, resource as HeartbeatCheckResource, context)
+        return
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)
     }
