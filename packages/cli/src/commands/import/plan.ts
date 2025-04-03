@@ -152,11 +152,6 @@ export default class ImportPlanCommand extends AuthCommand {
       })
 
       switch (action) {
-        case 'exit': {
-          this.log('Exiting without making any changes.')
-          this.exit(0)
-          return
-        }
         case 'show': {
           this.log()
           for (const plan of plans) {
@@ -217,6 +212,12 @@ export default class ImportPlanCommand extends AuthCommand {
         }
         case 'new': {
           return
+        }
+        case 'exit':
+          // falls through
+        default: {
+          this.log('Exiting without making any changes.')
+          this.exit(0)
         }
       }
     }
