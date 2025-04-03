@@ -14,6 +14,8 @@ export class Context {
 
   #privateLocationVariablesByPhysicalId = new Map<string, IdentifierValue>()
 
+  #statusPageServiceVariablesByPhysicalId = new Map<string, IdentifierValue>()
+
   registerCheckGroup (physicalId: number): IdentifierValue {
     const nth = this.#checkGroupVariablesByPhysicalId.size + 1
     const variable = new IdentifierValue(`group${nth}`)
@@ -117,5 +119,20 @@ export class Context {
       throw new MissingContextVariableMappingError()
     }
     return ids
+  }
+
+  registerStatusPageService (physicalId: string): IdentifierValue {
+    const nth = this.#statusPageServiceVariablesByPhysicalId.size + 1
+    const variable = new IdentifierValue(`service${nth}`)
+    this.#statusPageServiceVariablesByPhysicalId.set(physicalId, variable)
+    return variable
+  }
+
+  lookupStatusPageService (physicalId: string): IdentifierValue {
+    const id = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
+    if (id === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return id
   }
 }

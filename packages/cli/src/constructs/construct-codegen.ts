@@ -10,6 +10,8 @@ import { MaintenanceWindowCodegen } from './maintenance-window-codegen'
 import { PrivateLocationCodegen } from './private-location-codegen'
 import { PrivateLocationCheckAssignmentCodegen } from './private-location-check-assignment-codegen'
 import { PrivateLocationGroupAssignmentCodegen } from './private-location-group-assignment-codegen'
+import { StatusPageServiceCodegen } from './status-page-service-codegen'
+import { StatusPageCodegen } from './status-page-codegen'
 
 export type ResourceType =
   'alert-channel-subscription' |
@@ -20,7 +22,9 @@ export type ResourceType =
   'maintenance-window' |
   'private-location-check-assignment' |
   'private-location-group-assignment' |
-  'private-location'
+  'private-location' |
+  'status-page' |
+  'status-page-service'
 
 interface Resource {
   type: ResourceType
@@ -38,6 +42,8 @@ const resourceOrder: Record<ResourceType, number> = {
   'private-location-check-assignment': 900,
   'private-location-group-assignment': 900,
   'private-location': 910,
+  'status-page': 500,
+  'status-page-service': 510,
 }
 
 export function sortResources (resources: Resource[]): Resource[] {
@@ -58,6 +64,8 @@ export class ConstructCodegen extends Codegen<Resource> {
   privateLocationCodegen: PrivateLocationCodegen
   privateLocationCheckAssignmentCodegen: PrivateLocationCheckAssignmentCodegen
   privateLocationGroupAssignmentCodegen: PrivateLocationGroupAssignmentCodegen
+  statusPageCodegen: StatusPageCodegen
+  statusPageServiceCodegen: StatusPageServiceCodegen
   codegensByType: Record<ResourceType, Codegen<any>>
 
   constructor (program: Program) {
@@ -71,6 +79,8 @@ export class ConstructCodegen extends Codegen<Resource> {
     this.privateLocationCodegen = new PrivateLocationCodegen(program)
     this.privateLocationCheckAssignmentCodegen = new PrivateLocationCheckAssignmentCodegen(program)
     this.privateLocationGroupAssignmentCodegen = new PrivateLocationGroupAssignmentCodegen(program)
+    this.statusPageCodegen = new StatusPageCodegen(program)
+    this.statusPageServiceCodegen = new StatusPageServiceCodegen(program)
 
     this.codegensByType = {
       'alert-channel-subscription': this.alertChannelSubscriptionCodegen,
@@ -82,6 +92,8 @@ export class ConstructCodegen extends Codegen<Resource> {
       'private-location-check-assignment': this.privateLocationCheckAssignmentCodegen,
       'private-location-group-assignment': this.privateLocationGroupAssignmentCodegen,
       'private-location': this.privateLocationCodegen,
+      'status-page': this.statusPageCodegen,
+      'status-page-service': this.statusPageServiceCodegen,
     }
   }
 
