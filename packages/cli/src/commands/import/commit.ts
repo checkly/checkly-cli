@@ -89,7 +89,7 @@ export default class ImportCommitCommand extends AuthCommand {
       choices,
     })
 
-    if (planId === 'exit') {
+    if (planId === 'exit' || planId === undefined) {
       this.log('Exiting without making any changes.')
       this.exit(0)
     }
