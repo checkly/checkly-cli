@@ -16,7 +16,7 @@ export function object (build: (builder: ObjectValueBuilder) => void, options?: 
 }
 
 export class ObjectValueBuilder {
-  #properties: ObjectProperty[] = []
+  #properties = new Map<string, ObjectProperty>()
   #options?: ObjectValueOptions
 
   constructor (options?: ObjectValueOptions) {
@@ -65,11 +65,11 @@ export class ObjectValueBuilder {
   }
 
   value (name: string, value: Value, options?: ObjectPropertyOptions): this {
-    this.#properties.push(new ObjectProperty(name, value, options))
+    this.#properties.set(name, new ObjectProperty(name, value, options))
     return this
   }
 
   build (): ObjectValue {
-    return new ObjectValue(this.#properties, this.#options)
+    return new ObjectValue([...this.#properties.values()], this.#options)
   }
 }
