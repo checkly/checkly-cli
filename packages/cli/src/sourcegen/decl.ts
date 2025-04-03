@@ -50,10 +50,11 @@ export class VariableDeclaration extends Declaration {
   }
 }
 
-export class ExportDeclaration {
+export class ExportDeclaration extends Declaration {
   decl: Declaration
 
   constructor (decl: Declaration) {
+    super()
     this.decl = decl
   }
 
