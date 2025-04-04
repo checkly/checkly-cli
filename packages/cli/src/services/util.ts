@@ -1,4 +1,4 @@
-import type { CreateAxiosDefaults } from 'axios'
+import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
@@ -8,7 +8,12 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
+import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
+import os from 'node:os'
+import { checklyStorage } from '../rest/api'
+import { ChecklyConfig, loadFile } from './checkly-config-loader'
+import { Parser } from './check-parser/parser'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -225,6 +230,130 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
+export async function bundlePlayWrightProject (playwrightConfig: string):
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string}> {
+  const dir = path.resolve(path.dirname(playwrightConfig))
+  const filePath = path.resolve(dir, playwrightConfig)
+  const pwtConfig = await loadFile(filePath)
+  const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
+  const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
+  const output = fsSync.createWriteStream(outputFile)
+
+  const browsers = findBrowsers(pwtConfig)
+
+  const archive = create('tar', {
+    gzip: true,
+    gzipOptions: {
+      level: 9,
+    },
+  })
+  archive.pipe(output)
+  await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
+  archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
+  await archive.finalize()
+  return new Promise((resolve, reject) => {
+    output.on('close', () => {
+      return resolve({ outputFile, browsers, relativePlaywrightConfigPath: path.relative(dir, filePath) })
+    })
+
+    output.on('error', (err) => {
+      return reject(err)
+    })
+  })
+}
+
+export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig: any, archive: Archiver) {
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  const { testFiles, ignoredFiles: testIgnoredFiles } = getPlaywrightTestFiles(playwrightConfig)
+  try {
+    const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
+    ignoredFiles.push(...gitignoreToGlob(gitignore))
+  } catch (e) {}
+  const parser = new Parser({})
+  ignoredFiles.push(...testIgnoredFiles)
+  const { files } = await parser.getFilesAndDependencies(testFiles, ignoredFiles)
+  for (const file of files) {
+    const relativePath = path.relative(dir, file)
+    archive.file(file, { name: relativePath })
+  }
+  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+}
+
+export function getPlaywrightTestFiles (playwrightConfig: any): { testFiles: string[], ignoredFiles: string[] } {
+  const testFiles = new Set<string>()
+  const ignoredFiles = new Set<string>()
+  if (playwrightConfig.tsconfig) {
+    testFiles.add(playwrightConfig.tsconfig)
+  }
+  if (playwrightConfig.testDir) {
+    testFiles.add(playwrightConfig.testDir)
+  }
+  if (playwrightConfig.testMatch) {
+    testFiles.add(playwrightConfig.testMatch)
+  }
+  if (playwrightConfig.testIgnore) {
+    ignoredFiles.add(playwrightConfig.testIgnore)
+  }
+
+  if (playwrightConfig.projects) {
+    playwrightConfig.projects.map(getPlaywrightTestFiles)
+      .forEach((entry: { testFiles: string[], ignoredFiles: string[] }) => {
+        entry.testFiles.forEach(file => testFiles.add(file))
+        entry.ignoredFiles.forEach(file => ignoredFiles.add(file))
+      })
+  }
+
+  return { testFiles: Array.from(testFiles), ignoredFiles: Array.from(ignoredFiles) }
+}
+
+export function findBrowsers (playwrightConfig: any): string[] {
+  const browsers = new Set<string>()
+  // TODO: Fine tune the browser detection
+  const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
+  for (const browserKeyword of browserKeywords) {
+    if (playwrightConfig?.use?.[browserKeyword]) {
+      browsers.add(playwrightConfig?.use[browserKeyword])
+    }
+  }
+  for (const project of playwrightConfig.projects) {
+    for (const browserKeyword of browserKeywords) {
+      if (project?.use?.[browserKeyword]) {
+        browsers.add(project?.use[browserKeyword])
+      }
+    }
+  }
+  if (browsers.size === 0) {
+    // Add the default browser
+    browsers.add('chromium')
+  }
+  return Array.from(browsers)
+}
+
+export function gitignoreToGlob (gitignoreContent: string) {
+  return gitignoreContent.split('\n')
+    .map(line => line.trim())
+    .filter(line => !line.startsWith('#') && line.length)
+    .map(line => {
+      let result = line
+      if (line.startsWith('/')) {
+        result = result.substring(1)
+      } else {
+        if (!line.startsWith('**/')) {
+          result = `**/${result}`
+        }
+      }
+
+      if (line.endsWith('/')) {
+        result = `${result}**`
+      } else {
+        if (!line.endsWith('/**')) {
+          result = `${result}/**`
+        }
+      }
+      return result
+    })
+}
+
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
@@ -238,4 +367,36 @@ export async function findFilesWithPattern (
     absolute: true,
   })
   return files.sort()
+}
+
+export async function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
+  const { size } = await fs.stat(dir)
+  const stream = fsSync.createReadStream(dir)
+  return checklyStorage.uploadCodeBundle(stream, size)
+}
+
+export function cleanup (dir: string) {
+  if (!dir.length) {
+    return
+  }
+  return fs.rm(dir)
+}
+
+export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
+  return {
+    logicalId: directoryName,
+    projectName: directoryName,
+    checks: {
+      playwrightConfigPath: './playwright.config.ts',
+      playwrightChecks: [],
+      frequency: 30,
+      locations: ['us-east-1'],
+      tags: [],
+      runtimeId: '2024.09',
+      playwrightConfig: {},
+    },
+    cli: {
+      runLocation: 'us-east-1',
+    },
+  }
 }

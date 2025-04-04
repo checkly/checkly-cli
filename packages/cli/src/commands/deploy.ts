@@ -11,7 +11,7 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, BrowserCheck,
+  Project, ProjectData, BrowserCheck, PlaywrightCheck,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
@@ -67,11 +67,6 @@ export default class Deploy extends AuthCommand {
       default: false,
       hidden: true,
     }),
-    'debug-bundle-output-file': Flags.string({
-      description: 'The file to output the debug debug bundle to.',
-      default: './debug-bundle.json',
-      hidden: true,
-    }),
   }
 
   async run (): Promise<void> {
@@ -88,6 +83,7 @@ export default class Deploy extends AuthCommand {
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'debug-bundle': debugBundle,
       'debug-bundle-output-file': debugBundleOutputFile,
+      playwrightConfig,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -114,6 +110,8 @@ export default class Deploy extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
+      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const repoInfo = getGitInformation(project.repoUrl)
 
@@ -127,6 +125,19 @@ export default class Deploy extends AuthCommand {
           continue
         }
         check.snapshots = await uploadSnapshots(check.rawSnapshots)
+      }
+
+      for (const check of Object.values(project.data.check)) {
+        // TODO: Improve bundling and uploading
+        if (!(check instanceof PlaywrightCheck) || check.codeBundlePath) {
+          continue
+        }
+        const {
+          relativePlaywrightConfigPath, browsers, key,
+        } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath)
+        check.codeBundlePath = key
+        check.browsers = browsers
+        check.playwrightConfigPath = relativePlaywrightConfigPath
       }
     }
 

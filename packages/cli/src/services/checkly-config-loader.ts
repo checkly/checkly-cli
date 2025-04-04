@@ -1,7 +1,9 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { loadJsFile, loadTsFile } from './util'
+import { getDefaultChecklyConfig, loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
+import { PlaywrightCheckProps } from '../constructs/playwright-check'
+
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
@@ -12,6 +14,11 @@ import { PlaywrightConfig } from '../constructs/playwright-config'
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
+
+export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
+  | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
+  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'
+  | 'pwProjects' | 'pwTags' | 'installCommand'| 'testCommand'>
 
 export type ChecklyConfig = {
   /**
@@ -59,6 +66,14 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
+    /**
+     * Playwright config path to be used during bundling and playwright config parsing
+     */
+    playwrightConfigPath?: string,
+    /**
+     * List of playwright checks that use the defined playwright config path
+     */
+    playwrightChecks?: PlaywrightSlimmedProp[]
   },
   /**
    * CLI default configuration properties.
@@ -132,6 +147,15 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   }
 
   if (!config) {
+    const baseName = path.basename(dir)
+    const checklyConfig = getDefaultChecklyConfig(baseName)
+    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
+    if (playwrightConfigPath && existsSync(path.resolve(dir, playwrightConfigPath))) {
+      // @ts-ignore
+      checklyConfig.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
+      Session.loadingChecklyConfigFile = false
+      return { config: checklyConfig, constructs: [] }
+    }
     throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
   }
 
@@ -140,6 +164,10 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
     if (!requiredField || !(isString(requiredField))) {
       throw new Error(`Config object missing a ${field} as type string`)
     }
+  }
+  const playwrightConfigPath = config.checks?.playwrightConfigPath
+  if (playwrightConfigPath) {
+    config.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
   }
 
   const constructs = Session.checklyConfigFileConstructs
