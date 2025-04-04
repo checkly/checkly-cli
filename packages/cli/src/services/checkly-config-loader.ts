@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { loadJsFile, loadTsFile } from './util'
+import { getDefaultChecklyConfig, loadJsFile, loadTsFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
 
@@ -147,6 +147,15 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   }
 
   if (!config) {
+    const baseName = path.basename(dir)
+    const checklyConfig = getDefaultChecklyConfig(baseName)
+    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
+    if (playwrightConfigPath && existsSync(path.resolve(dir, playwrightConfigPath))) {
+      // @ts-ignore
+      checklyConfig.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
+      Session.loadingChecklyConfigFile = false
+      return { config: checklyConfig, constructs: [] }
+    }
     throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
   }
 

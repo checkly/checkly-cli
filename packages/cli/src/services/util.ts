@@ -12,7 +12,7 @@ import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
 import { checklyStorage } from '../rest/api'
-import { loadFile } from './checkly-config-loader'
+import { ChecklyConfig, loadFile } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 
 // Copied from oclif/core
@@ -380,4 +380,23 @@ export function cleanup (dir: string) {
     return
   }
   return fs.rm(dir)
+}
+
+export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
+  return {
+    logicalId: directoryName,
+    projectName: directoryName,
+    checks: {
+      playwrightConfigPath: './playwright.config.ts',
+      playwrightChecks: [],
+      frequency: 30,
+      locations: ['us-east-1'],
+      tags: [],
+      runtimeId: '2024.09',
+      playwrightConfig: {},
+    },
+    cli: {
+      runLocation: 'us-east-1',
+    },
+  }
 }
