@@ -388,8 +388,14 @@ export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
     projectName: directoryName,
     checks: {
       playwrightConfigPath: './playwright.config.ts',
-      playwrightChecks: [],
-      frequency: 30,
+      playwrightChecks: [
+        {
+          name: directoryName,
+          frequency: 10,
+          locations: ['us-east-1'],
+        },
+      ],
+      frequency: 10,
       locations: ['us-east-1'],
       tags: [],
       runtimeId: '2024.09',
