@@ -14,6 +14,7 @@ import os from 'node:os'
 import { checklyStorage } from '../rest/api'
 import { ChecklyConfig, loadFile } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
+import * as JSON5 from 'json5'
 
 // Copied from oclif/core
 // eslint-disable-next-line
@@ -399,10 +400,17 @@ export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
       locations: ['us-east-1'],
       tags: [],
       runtimeId: '2024.09',
-      playwrightConfig: {},
     },
     cli: {
       runLocation: 'us-east-1',
     },
   }
+}
+
+export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig) {
+  const configFile = path.join(dir, 'checkly.config.ts')
+  const configContent =
+    `import { defineConfig } from 'checkly'\n\nconst config = defineConfig(${JSON5.stringify(config, null, 2)})\n\nexport default config`
+
+  await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
 }

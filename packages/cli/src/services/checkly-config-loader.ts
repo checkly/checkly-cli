@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { getDefaultChecklyConfig, loadJsFile, loadTsFile } from './util'
+import { getDefaultChecklyConfig, loadJsFile, loadTsFile, writeChecklyConfigFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
 
@@ -151,6 +151,7 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
     const checklyConfig = getDefaultChecklyConfig(baseName)
     const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
     if (playwrightConfigPath && existsSync(path.resolve(dir, playwrightConfigPath))) {
+      await writeChecklyConfigFile(dir, checklyConfig)
       // @ts-ignore
       checklyConfig.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
       Session.loadingChecklyConfigFile = false
