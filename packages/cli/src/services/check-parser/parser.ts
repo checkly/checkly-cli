@@ -8,7 +8,7 @@ import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies } from './package-files/resolver'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
-import { findFilesWithPattern, pathToPosix } from '../util'
+import { findFilesWithPattern, findRegexFiles, pathToPosix } from '../util'
 
 // Our custom configuration to handle walking errors
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -128,8 +128,9 @@ export class Parser {
     }
   }
 
-  async getFilesAndDependencies (paths: string[], ignored: string[]): Promise<{ files: string[], errors: string[] }> {
-    const files = new Set(await this.getFilesFromPaths(paths, ignored))
+  async getFilesAndDependencies (paths: (string| RegExp)[]):
+    Promise<{ files: string[], errors: string[] }> {
+    const files = new Set(await this.getFilesFromPaths(paths))
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
@@ -178,18 +179,21 @@ export class Parser {
     return { files: Array.from(resultFileSet), errors: Array.from(errors) }
   }
 
-  private async getFilesFromPaths (paths: string[], ignored: string[]): Promise<string[]> {
+  private async getFilesFromPaths (paths: (string|RegExp)[]): Promise<string[]> {
     const files = paths.map(async (currPath) => {
+      if (currPath instanceof RegExp) {
+        return findRegexFiles(process.cwd(), currPath)
+      }
       const normalizedPath = pathToPosix(currPath)
       try {
         const stats = await fsAsync.lstat(normalizedPath)
         if (stats.isDirectory()) {
-          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', ignored)
+          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', [])
         }
         return [normalizedPath]
       } catch (err) {
         if (normalizedPath.includes('*') || normalizedPath.includes('?') || normalizedPath.includes('{')) {
-          return findFilesWithPattern(process.cwd(), normalizedPath, ignored)
+          return findFilesWithPattern(process.cwd(), normalizedPath, [])
         } else {
           return []
         }

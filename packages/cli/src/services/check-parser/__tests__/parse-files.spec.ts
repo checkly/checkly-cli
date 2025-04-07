@@ -249,4 +249,21 @@ describe('project parser - getFilesAndDependencies()', () => {
     const parser = new Parser({})
     await parser.getFilesAndDependencies([entrypoint])
   })
+
+  it('should handle regex patterns for files', async () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
+    const parser = new Parser({})
+    const regex = /dep[1-2]\.js/
+    const res = await parser.getFilesAndDependencies(
+      [/dep[1-2]\.js/],
+    )
+    const matchedFiles = res.files.filter(file => regex.test(path.basename(file)))
+    const expectedFiles = [
+      'dep1.js',
+      'dep2.js',
+    ].map(file => pathToPosix(toAbsolutePath(file)))
+
+    expect(matchedFiles.map(file => pathToPosix(file)).sort()).toEqual(expectedFiles)
+    expect(res.errors).toHaveLength(0)
+  })
 })

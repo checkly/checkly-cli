@@ -264,15 +264,14 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
 }
 
 export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig: any, archive: Archiver) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**']
-  const { testFiles, ignoredFiles: testIgnoredFiles } = getPlaywrightTestFiles(playwrightConfig)
+  const ignoredFiles: string[] = ['**/node_modules/**', '.git/**']
+  const testFiles = getPlaywrightTestFiles(playwrightConfig)
   try {
     const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
     ignoredFiles.push(...gitignoreToGlob(gitignore))
   } catch (e) {}
   const parser = new Parser({})
-  ignoredFiles.push(...testIgnoredFiles)
-  const { files } = await parser.getFilesAndDependencies(testFiles, ignoredFiles)
+  const { files } = await parser.getFilesAndDependencies(testFiles)
   for (const file of files) {
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath })
@@ -280,9 +279,9 @@ export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig:
   archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
 }
 
-export function getPlaywrightTestFiles (playwrightConfig: any): { testFiles: string[], ignoredFiles: string[] } {
-  const testFiles = new Set<string>()
-  const ignoredFiles = new Set<string>()
+export function getPlaywrightTestFiles (playwrightConfig: any): (string | RegExp)[] {
+  const testFiles = new Set<string | RegExp>()
+
   if (playwrightConfig.tsconfig) {
     testFiles.add(playwrightConfig.tsconfig)
   }
@@ -290,21 +289,20 @@ export function getPlaywrightTestFiles (playwrightConfig: any): { testFiles: str
     testFiles.add(playwrightConfig.testDir)
   }
   if (playwrightConfig.testMatch) {
-    testFiles.add(playwrightConfig.testMatch)
-  }
-  if (playwrightConfig.testIgnore) {
-    ignoredFiles.add(playwrightConfig.testIgnore)
+    if (Array.isArray(playwrightConfig.testMatch)) {
+      playwrightConfig.testMatch.forEach((match: string | RegExp) => testFiles.add(match))
+    } else {
+      testFiles.add(playwrightConfig.testMatch)
+    }
   }
 
   if (playwrightConfig.projects) {
-    playwrightConfig.projects.map(getPlaywrightTestFiles)
-      .forEach((entry: { testFiles: string[], ignoredFiles: string[] }) => {
-        entry.testFiles.forEach(file => testFiles.add(file))
-        entry.ignoredFiles.forEach(file => ignoredFiles.add(file))
-      })
+    playwrightConfig.projects.forEach((project: any) => {
+      getPlaywrightTestFiles(project).forEach((file: string | RegExp) => testFiles.add(file))
+    })
   }
 
-  return { testFiles: Array.from(testFiles), ignoredFiles: Array.from(ignoredFiles) }
+  return Array.from(testFiles)
 }
 
 export function findBrowsers (playwrightConfig: any): string[] {
@@ -353,6 +351,12 @@ export function gitignoreToGlob (gitignoreContent: string) {
       }
       return result
     })
+}
+
+export async function findRegexFiles (directory: string, regex: RegExp):
+  Promise<string[]> {
+  const files = await findFilesWithPattern(directory, '**/*', [])
+  return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
 }
 
 export async function findFilesWithPattern (
