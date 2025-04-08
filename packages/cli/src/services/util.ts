@@ -231,7 +231,7 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
-export async function bundlePlayWrightProject (playwrightConfig: string):
+export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
 Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
@@ -249,7 +249,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
     },
   })
   archive.pipe(output)
-  await loadPlaywrightProjectFiles(dir, pwtConfig, archive)
+  await loadPlaywrightProjectFiles(dir, pwtConfig, include, archive)
   archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
@@ -263,8 +263,10 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   })
 }
 
-export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig: any, archive: Archiver) {
-  const ignoredFiles: string[] = ['**/node_modules/**', '.git/**']
+export async function loadPlaywrightProjectFiles (
+  dir: string, playwrightConfig: any, include: string[], archive: Archiver,
+) {
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
   const testFiles = getPlaywrightTestFiles(playwrightConfig)
   try {
     const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
@@ -276,7 +278,11 @@ export async function loadPlaywrightProjectFiles (dir: string, playwrightConfig:
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath })
   }
+  // TODO: This code below should be a single glob
   archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  for (const includePattern of include) {
+    archive.glob(includePattern, { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  }
 }
 
 export function getPlaywrightTestFiles (playwrightConfig: any): (string | RegExp)[] {

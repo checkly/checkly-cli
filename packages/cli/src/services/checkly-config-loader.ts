@@ -70,6 +70,11 @@ export type ChecklyConfig = {
      * Playwright config path to be used during bundling and playwright config parsing
      */
     playwrightConfigPath?: string,
+
+    /**
+     * Extra files to be included into the playwright bundle
+     */
+    include?: string | string[],
     /**
      * List of playwright checks that use the defined playwright config path
      */

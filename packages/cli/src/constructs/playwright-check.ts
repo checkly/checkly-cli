@@ -15,6 +15,7 @@ export interface PlaywrightCheckProps extends CheckProps {
   pwProjects?: string|string[]
   pwTags?: string|string[]
   browsers?: string[]
+  include?: string|string[]
 }
 
 export class PlaywrightCheck extends Check {
@@ -25,6 +26,7 @@ export class PlaywrightCheck extends Check {
   pwTags: string[]
   codeBundlePath?: string
   browsers?: string[]
+  include: string[]
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
     this.codeBundlePath = props.codeBundlePath
@@ -35,6 +37,9 @@ export class PlaywrightCheck extends Check {
       : []
     this.pwTags = props.pwTags
       ? (Array.isArray(props.pwTags) ? props.pwTags : [props.pwTags])
+      : []
+    this.include = props.include
+      ? (Array.isArray(props.include) ? props.include : [props.include])
       : []
     this.testCommand = props.testCommand ?? 'npx playwright test'
     if (!fs.existsSync(props.playwrightConfigPath)) {
@@ -54,10 +59,12 @@ export class PlaywrightCheck extends Check {
     return `${testCommand} --config ${playwrightConfigPath}${playwrightProject?.length ? ' --project ' + playwrightProject.map(project => `"${project}"`).join(' ') : ''}${playwrightTag?.length ? ' --grep="' + playwrightTag.join('|') + '"' : ''}`
   }
 
-  static async bundleProject (playwrightConfigPath: string) {
+  static async bundleProject (playwrightConfigPath: string, include: string[]) {
     let dir = ''
     try {
-      const { outputFile, browsers, relativePlaywrightConfigPath } = await bundlePlayWrightProject(playwrightConfigPath)
+      const {
+        outputFile, browsers, relativePlaywrightConfigPath,
+      } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await uploadPlaywrightProject(dir)
       return { key, browsers, relativePlaywrightConfigPath }

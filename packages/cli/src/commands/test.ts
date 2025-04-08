@@ -184,6 +184,7 @@ export default class Test extends AuthCommand {
       verifyRuntimeDependencies,
       checklyConfigConstructs,
       playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      include: checklyConfig.checks?.include,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const checks = Object.entries(project.data.check)
@@ -240,7 +241,7 @@ export default class Test extends AuthCommand {
       }
       const {
         relativePlaywrightConfigPath, browsers, key,
-      } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath)
+      } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath, check.include)
       check.codeBundlePath = key
       check.browsers = browsers
       check.playwrightConfigPath = relativePlaywrightConfigPath

@@ -32,6 +32,7 @@ type ProjectParseOpts = {
   verifyRuntimeDependencies?: boolean,
   checklyConfigConstructs?: Construct[],
   playwrightConfigPath?: string
+  include?: string | string[],
   playwrightChecks?: PlaywrightSlimmedProp[]
 }
 
@@ -55,6 +56,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     verifyRuntimeDependencies,
     checklyConfigConstructs,
     playwrightConfigPath,
+    include,
     playwrightChecks,
   } = opts
   const project = new Project(projectLogicalId, {
@@ -72,13 +74,16 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
 
+  const includeWrapped = include
+    ? (Array.isArray(include) ? include : [include])
+    : []
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
   await Promise.all([
     loadAllCheckFiles(directory, checkMatch, ignoreDirectories),
     loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
     loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
-    loadPlaywrightChecks(playwrightChecks, playwrightConfigPath),
+    loadPlaywrightChecks(playwrightChecks, playwrightConfigPath, includeWrapped),
   ])
 
   // private-location must be processed after all checks and groups are loaded.
@@ -87,16 +92,18 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   return project
 }
 
-async function loadPlaywrightChecks (playwrightChecks?: PlaywrightSlimmedProp[], playwrightConfigPath?: string) {
+async function loadPlaywrightChecks (
+  playwrightChecks?: PlaywrightSlimmedProp[], playwrightConfigPath?: string, include?: string[]) {
   if (!playwrightConfigPath) {
     return
   }
+
   if (playwrightChecks?.length) {
     for (const playwrightCheckProps of playwrightChecks) {
       // TODO: Don't upload for each check
       const {
         key, browsers, relativePlaywrightConfigPath,
-      } = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+      } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
       const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.name, {
         ...playwrightCheckProps,
         codeBundlePath: key,
@@ -107,7 +114,7 @@ async function loadPlaywrightChecks (playwrightChecks?: PlaywrightSlimmedProp[],
   } else {
     const {
       key, browsers, relativePlaywrightConfigPath,
-    } = await PlaywrightCheck.bundleProject(playwrightConfigPath)
+    } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
     const playwrightCheck = new PlaywrightCheck(path.basename(playwrightConfigPath), {
       name: path.basename(playwrightConfigPath),
       codeBundlePath: key,
