@@ -52,20 +52,24 @@ export function buildWebhookAlertChannelConfig (
 
   if (config.headers) {
     const headers = config.headers
-    builder.array('headers', builder => {
-      for (const header of headers) {
-        builder.value(valueForKeyValuePair(header))
-      }
-    })
+    if (headers.length > 0) {
+      builder.array('headers', builder => {
+        for (const header of headers) {
+          builder.value(valueForKeyValuePair(header))
+        }
+      })
+    }
   }
 
   if (config.queryParameters) {
     const queryParameters = config.queryParameters
-    builder.array('queryParameters', builder => {
-      for (const param of queryParameters) {
-        builder.value(valueForKeyValuePair(param))
-      }
-    })
+    if (queryParameters.length > 0) {
+      builder.array('queryParameters', builder => {
+        for (const param of queryParameters) {
+          builder.value(valueForKeyValuePair(param))
+        }
+      })
+    }
   }
 
   if (config.webhookSecret) {
