@@ -44,7 +44,7 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                       const serviceVariable = context.lookupStatusPageService(service.id)
                       builder.value(serviceVariable)
                     } catch (err) {
-                      throw new Error('Status page refers to a service that is not being imported.')
+                      throw new Error(`Status page '${resource.id}' refers to service '${service.id}' which is not being imported.`)
                     }
                   }
                 })

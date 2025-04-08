@@ -114,7 +114,7 @@ export function buildCheckProps (
       const groupVariable = context.lookupCheckGroup(resource.groupId)
       builder.value('group', groupVariable)
     } catch (err) {
-      throw new Error('Check belongs to a group that is not being imported.')
+      throw new Error(`Check '${resource.id}' belongs to group #${resource.groupId} which is not being imported.`)
     }
   }
 
