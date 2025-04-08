@@ -64,11 +64,13 @@ function buildCheckGroupProps (
 
   if (resource.locations) {
     const locations = resource.locations
-    builder.array('locations', builder => {
-      for (const location of locations) {
-        builder.string(location)
-      }
-    })
+    if (locations.length > 0) {
+      builder.array('locations', builder => {
+        for (const location of locations) {
+          builder.string(location)
+        }
+      })
+    }
   }
 
   const privateLocationIds = (() => {
@@ -93,11 +95,13 @@ function buildCheckGroupProps (
 
   if (resource.tags) {
     const tags = resource.tags
-    builder.array('tags', builder => {
-      for (const tag of tags) {
-        builder.string(tag)
-      }
-    })
+    if (tags.length > 0) {
+      builder.array('tags', builder => {
+        for (const tag of tags) {
+          builder.string(tag)
+        }
+      })
+    }
   }
 
   if (resource.frequency !== undefined) {
@@ -106,11 +110,13 @@ function buildCheckGroupProps (
 
   if (resource.environmentVariables) {
     const variables = resource.environmentVariables
-    builder.array('environmentVariables', builder => {
-      for (const variable of variables) {
-        builder.value(valueForKeyValuePair(variable))
-      }
-    })
+    if (variables.length > 0) {
+      builder.array('environmentVariables', builder => {
+        for (const variable of variables) {
+          builder.value(valueForKeyValuePair(variable))
+        }
+      })
+    }
   }
 
   const alertChannelIds = (() => {
@@ -194,37 +200,45 @@ function buildCheckGroupProps (
 
       if (config.headers) {
         const headers = config.headers
-        builder.array('headers', builder => {
-          for (const header of headers) {
-            builder.value(valueForKeyValuePair(header))
-          }
-        })
+        if (headers.length > 0) {
+          builder.array('headers', builder => {
+            for (const header of headers) {
+              builder.value(valueForKeyValuePair(header))
+            }
+          })
+        }
       }
 
       if (config.queryParameters) {
         const params = config.queryParameters
-        builder.array('queryParameters', builder => {
-          for (const param of params) {
-            builder.value(valueForKeyValuePair(param))
-          }
-        })
+        if (params.length > 0) {
+          builder.array('queryParameters', builder => {
+            for (const param of params) {
+              builder.value(valueForKeyValuePair(param))
+            }
+          })
+        }
       }
 
       if (config.basicAuth) {
         const basicAuth = config.basicAuth
-        builder.object('basicAuth', builder => {
-          builder.string('username', basicAuth.username)
-          builder.string('password', basicAuth.password)
-        })
+        if (basicAuth.username !== '' && basicAuth.password !== '') {
+          builder.object('basicAuth', builder => {
+            builder.string('username', basicAuth.username)
+            builder.string('password', basicAuth.password)
+          })
+        }
       }
 
       if (config.assertions) {
         const assertions = config.assertions
-        builder.array('assertions', builder => {
-          for (const assertion of assertions) {
-            builder.value(valueForAssertion(program, assertion))
-          }
-        })
+        if (assertions.length > 0) {
+          builder.array('assertions', builder => {
+            for (const assertion of assertions) {
+              builder.value(valueForAssertion(program, assertion))
+            }
+          })
+        }
       }
     })
   }

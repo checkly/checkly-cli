@@ -58,13 +58,15 @@ export function buildCheckProps (
     builder.string('runtimeId', resource.runtimeId)
   }
 
-  if (resource.locations && resource.locations.length > 0) {
+  if (resource.locations) {
     const locations = resource.locations
-    builder.array('locations', builder => {
-      for (const location of locations) {
-        builder.string(location)
-      }
-    })
+    if (locations.length > 0) {
+      builder.array('locations', builder => {
+        for (const location of locations) {
+          builder.string(location)
+        }
+      })
+    }
   }
 
   const privateLocationIds = (() => {
@@ -87,26 +89,30 @@ export function buildCheckProps (
     })
   }
 
-  if (resource.tags && resource.tags.length > 0) {
+  if (resource.tags) {
     const tags = resource.tags
-    builder.array('tags', builder => {
-      for (const tag of tags) {
-        builder.string(tag)
-      }
-    })
+    if (tags.length > 0) {
+      builder.array('tags', builder => {
+        for (const tag of tags) {
+          builder.string(tag)
+        }
+      })
+    }
   }
 
   if (resource.frequency !== undefined) {
     builder.value('frequency', valueForFrequency(program, resource.frequency))
   }
 
-  if (resource.environmentVariables && resource.environmentVariables.length > 0) {
+  if (resource.environmentVariables) {
     const variables = resource.environmentVariables
-    builder.array('environmentVariables', builder => {
-      for (const variable of variables) {
-        builder.value(valueForKeyValuePair(variable))
-      }
-    })
+    if (variables.length > 0) {
+      builder.array('environmentVariables', builder => {
+        for (const variable of variables) {
+          builder.value(valueForKeyValuePair(variable))
+        }
+      })
+    }
   }
 
   if (resource.groupId) {

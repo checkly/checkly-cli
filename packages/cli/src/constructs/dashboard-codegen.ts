@@ -38,11 +38,13 @@ export class DashboardCodegen extends Codegen<DashboardResource> {
         builder.object(builder => {
           if (resource.tags) {
             const tags = resource.tags
-            builder.array('tags', builder => {
-              for (const tag of tags) {
-                builder.string(tag)
-              }
-            })
+            if (tags.length > 0) {
+              builder.array('tags', builder => {
+                for (const tag of tags) {
+                  builder.string(tag)
+                }
+              })
+            }
           }
 
           if (resource.customUrl) {
