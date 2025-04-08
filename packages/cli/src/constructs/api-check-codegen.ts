@@ -69,17 +69,6 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               builder.boolean('skipSSL', resource.request.skipSSL)
             }
 
-            if (resource.request.assertions) {
-              const assertions = resource.request.assertions
-              if (assertions.length > 0) {
-                builder.array('assertions', builder => {
-                  for (const assertion of assertions) {
-                    builder.value(valueForAssertion(this.program, assertion))
-                  }
-                })
-              }
-            }
-
             if (resource.request.body !== undefined && resource.request.body !== '') {
               builder.string('body', resource.request.body)
             }
@@ -116,6 +105,17 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
                 builder.object('basicAuth', builder => {
                   builder.string('username', basicAuth.username)
                   builder.string('password', basicAuth.password)
+                })
+              }
+            }
+
+            if (resource.request.assertions) {
+              const assertions = resource.request.assertions
+              if (assertions.length > 0) {
+                builder.array('assertions', builder => {
+                  for (const assertion of assertions) {
+                    builder.value(valueForAssertion(this.program, assertion))
+                  }
                 })
               }
             }

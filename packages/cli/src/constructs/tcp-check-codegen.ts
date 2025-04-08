@@ -42,6 +42,10 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
               builder.string('ipFamily', resource.request.ipFamily)
             }
 
+            if (resource.request.data) {
+              builder.string('data', resource.request.data)
+            }
+
             if (resource.request.assertions) {
               const assertions = resource.request.assertions
               if (assertions.length > 0) {
@@ -51,10 +55,6 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
                   }
                 })
               }
-            }
-
-            if (resource.request.data) {
-              builder.string('data', resource.request.data)
             }
           })
 
