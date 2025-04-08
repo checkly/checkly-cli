@@ -9,7 +9,13 @@ import { StringValue } from './string'
 import { UndefinedValue } from './undefined'
 import { Value } from './value'
 
-export function object (build: (builder: ObjectValueBuilder) => void, options?: ObjectValueOptions): Value {
+export interface ObjectValueBuilderOptions extends ObjectValueOptions {
+  implicitOrder?: boolean
+  implicitOrderStart?: number
+  implicitOrderStep?: number
+}
+
+export function object (build: (builder: ObjectValueBuilder) => void, options?: ObjectValueBuilderOptions): Value {
   const builder = new ObjectValueBuilder(options)
   build(builder)
   return builder.build()
@@ -17,10 +23,27 @@ export function object (build: (builder: ObjectValueBuilder) => void, options?: 
 
 export class ObjectValueBuilder {
   #properties = new Map<string, ObjectProperty>()
-  #options?: ObjectValueOptions
+  #valueOptions?: ObjectValueOptions
+  #implicitOrder = true
+  #implicitOrderValue = 0
+  #implicitOrderStep = 100
 
-  constructor (options?: ObjectValueOptions) {
-    this.#options = options
+  constructor (options?: ObjectValueBuilderOptions) {
+    this.#valueOptions = {
+      ...options,
+    }
+
+    if (options?.implicitOrder !== undefined) {
+      this.#implicitOrder = options.implicitOrder
+    }
+
+    if (options?.implicitOrderStart !== undefined) {
+      this.#implicitOrderValue = options.implicitOrderStart
+    }
+
+    if (options?.implicitOrderStep !== undefined) {
+      this.#implicitOrderStep = options.implicitOrderStep
+    }
   }
 
   string (name: string, value: string, options?: ObjectPropertyOptions): this {
@@ -65,11 +88,21 @@ export class ObjectValueBuilder {
   }
 
   value (name: string, value: Value, options?: ObjectPropertyOptions): this {
+    if (options?.order === undefined && this.#implicitOrder) {
+      options = {
+        ...options,
+        order: this.#implicitOrderValue,
+      }
+
+      this.#implicitOrderValue += this.#implicitOrderStep
+    }
+
     this.#properties.set(name, new ObjectProperty(name, value, options))
+
     return this
   }
 
   build (): ObjectValue {
-    return new ObjectValue([...this.#properties.values()], this.#options)
+    return new ObjectValue([...this.#properties.values()], this.#valueOptions)
   }
 }
