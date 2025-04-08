@@ -58,7 +58,7 @@ export function buildCheckProps (
     builder.string('runtimeId', resource.runtimeId)
   }
 
-  if (resource.locations) {
+  if (resource.locations && resource.locations.length > 0) {
     const locations = resource.locations
     builder.array('locations', builder => {
       for (const location of locations) {
@@ -87,7 +87,7 @@ export function buildCheckProps (
     })
   }
 
-  if (resource.tags) {
+  if (resource.tags && resource.tags.length > 0) {
     const tags = resource.tags
     builder.array('tags', builder => {
       for (const tag of tags) {
@@ -100,7 +100,7 @@ export function buildCheckProps (
     builder.value('frequency', valueForFrequency(program, resource.frequency))
   }
 
-  if (resource.environmentVariables) {
+  if (resource.environmentVariables && resource.environmentVariables.length > 0) {
     const variables = resource.environmentVariables
     builder.array('environmentVariables', builder => {
       for (const variable of variables) {
