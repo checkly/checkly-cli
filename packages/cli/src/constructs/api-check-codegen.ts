@@ -71,11 +71,13 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
 
             if (resource.request.assertions) {
               const assertions = resource.request.assertions
-              builder.array('assertions', builder => {
-                for (const assertion of assertions) {
-                  builder.value(valueForAssertion(this.program, assertion))
-                }
-              })
+              if (assertions.length > 0) {
+                builder.array('assertions', builder => {
+                  for (const assertion of assertions) {
+                    builder.value(valueForAssertion(this.program, assertion))
+                  }
+                })
+              }
             }
 
             if (resource.request.body !== undefined && resource.request.body !== '') {
@@ -88,20 +90,24 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
 
             if (resource.request.headers) {
               const headers = resource.request.headers
-              builder.array('headers', builder => {
-                for (const header of headers) {
-                  builder.value(valueForKeyValuePair(header))
-                }
-              })
+              if (headers.length > 0) {
+                builder.array('headers', builder => {
+                  for (const header of headers) {
+                    builder.value(valueForKeyValuePair(header))
+                  }
+                })
+              }
             }
 
             if (resource.request.queryParameters) {
               const queryParameters = resource.request.queryParameters
-              builder.array('queryParameters', builder => {
-                for (const param of queryParameters) {
-                  builder.value(valueForKeyValuePair(param))
-                }
-              })
+              if (queryParameters.length > 0) {
+                builder.array('queryParameters', builder => {
+                  for (const param of queryParameters) {
+                    builder.value(valueForKeyValuePair(param))
+                  }
+                })
+              }
             }
 
             if (resource.request.basicAuth) {

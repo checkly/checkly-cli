@@ -44,11 +44,13 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
 
             if (resource.request.assertions) {
               const assertions = resource.request.assertions
-              builder.array('assertions', builder => {
-                for (const assertion of assertions) {
-                  builder.value(valueForTcpAssertion(this.program, assertion))
-                }
-              })
+              if (assertions.length > 0) {
+                builder.array('assertions', builder => {
+                  for (const assertion of assertions) {
+                    builder.value(valueForTcpAssertion(this.program, assertion))
+                  }
+                })
+              }
             }
 
             if (resource.request.data) {
