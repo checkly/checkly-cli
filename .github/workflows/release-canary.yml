@@ -19,15 +19,16 @@ jobs:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
       # Extract the dynamic value from the canary label if present
-      - name: Extract dynamic value from canary label
+      - name: Extract CANARY_TAG
         id: extract-canary
         run: |
-          if [[ "${GITHUB_EVENT_LABEL_NAME}" == canary:* ]]; then
-            CANARY_TAG="${GITHUB_EVENT_LABEL_NAME#canary:}"
-            echo "CANARY_TAG=${CANARY_TAG}" >> $GITHUB_ENV
-          fi
-        env:
-          GITHUB_EVENT_LABEL_NAME: ${{ github.event.label.name }}
+          LABELS_JSON='${{ toJson(github.event.pull_request.labels) }}'
+          CANARY_TAG=$(node -e "
+            const labels = JSON.parse(process.env.LABELS_JSON || '[]');
+            const canaryLabel = labels.find(label => label.name.startsWith('canary:'));
+            if (canaryLabel) console.log(canaryLabel.name.split(':')[1]);
+          ")
+          echo "CANARY_TAG=$CANARY_TAG" >> $GITHUB_ENV
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
