@@ -408,8 +408,6 @@ export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
       ],
       frequency: 10,
       locations: ['us-east-1'],
-      tags: [],
-      runtimeId: '2024.09',
     },
     cli: {
       runLocation: 'us-east-1',
