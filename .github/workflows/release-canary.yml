@@ -18,12 +18,27 @@ jobs:
         with:
           node-version: '18.x'
           registry-url: 'https://registry.npmjs.org'
+      # Extract the dynamic value from the canary label if present
+      - name: Extract dynamic value from canary label
+        id: extract-canary
+        run: |
+          if [[ "${GITHUB_EVENT_LABEL_NAME}" == canary:* ]]; then
+            CANARY_TAG="${GITHUB_EVENT_LABEL_NAME#canary:}"
+            echo "CANARY_TAG=${CANARY_TAG}" >> $GITHUB_ENV
+          fi
+        env:
+          GITHUB_EVENT_LABEL_NAME: ${{ github.event.label.name }}
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: npm ci
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
-      - run: npm publish --workspace packages/cli --tag experimental
+      # Publish to npm with the additional tag if CANARY_TAG is set
+      - run: |
+          npm publish --workspace packages/cli --tag experimental
+           if [[ -n "${{ env.CANARY_TAG }}" ]]; then
+             npm dist-tag add checkly@${{ env.PR_VERSION }} ${{ env.CANARY_TAG }}
+           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: marocchino/sticky-pull-request-comment@v2
@@ -36,4 +51,3 @@ jobs:
             ```
             npm install checkly@${{env.PR_VERSION}}
             ```
- 
