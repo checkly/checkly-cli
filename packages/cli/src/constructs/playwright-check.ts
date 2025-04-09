@@ -19,7 +19,7 @@ export interface PlaywrightCheckProps extends CheckProps {
 }
 
 export class PlaywrightCheck extends Check {
-  installCommand: string
+  installCommand?: string
   testCommand: string
   playwrightConfigPath: string
   pwProjects: string[]
@@ -30,7 +30,7 @@ export class PlaywrightCheck extends Check {
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
     this.codeBundlePath = props.codeBundlePath
-    this.installCommand = props.installCommand ?? 'npm install --only=dev'
+    this.installCommand = props.installCommand
     this.browsers = props.browsers
     this.pwProjects = props.pwProjects
       ? (Array.isArray(props.pwProjects) ? props.pwProjects : [props.pwProjects])
