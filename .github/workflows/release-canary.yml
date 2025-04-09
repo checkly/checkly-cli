@@ -4,12 +4,36 @@ on:
   pull_request:
     types:
       - labeled
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build and release'
+        required: true
+        default: 'main'
+      release_name:
+        description: 'Release name to publish to npm'
+        required: true
+        default: 'experimental'
 
 jobs:
   publish:
-    if: ${{ github.event.label.name == 'build' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Validate label name
+        if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'build' }}
+        run: echo "Label is 'build', proceeding with the workflow."
+
+      - name: Check for open pull request
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: check_pr
+        run: |
+          PR_DATA=$(gh pr list --state open --head ${{ inputs.branch }} --json number --jq '.[0]')
+          if [ -z "$PR_DATA" ]; then
+            echo "No open pull request found for branch ${{ inputs.branch }}."
+            exit 1
+          fi
+          echo "PR_NUMBER=$(echo $PR_DATA | jq -r '.number')" >> $GITHUB_ENV
+
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -20,7 +44,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
-      - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - run: echo "PR_VERSION=${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '0.0.0-pr.${{github.event.pull_request.number}}'.$(git rev-parse --short HEAD)}}" >> $GITHUB_ENV
       - run: npm ci
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag experimental
