@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.event.pull_request.head.sha }}
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
@@ -44,7 +44,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
-      - run: echo "PR_VERSION=${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '0.0.0-pr.${{github.event.pull_request.number}}'.$(git rev-parse --short HEAD)}}" >> $GITHUB_ENV
+      - name: Set PR_VERSION
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "PR_VERSION=${{ inputs.release_name }}" >> $GITHUB_ENV
+          else
+            pr_number=${{ github.event.pull_request.number }}
+            git_hash=$(git rev-parse --short HEAD)
+            echo "PR_VERSION=0.0.0-pr.${pr_number}${git_hash}" >> $GITHUB_ENV
+          fi
       - run: npm ci
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       - run: npm publish --workspace packages/cli --tag experimental
