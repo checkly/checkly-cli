@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { Program, ObjectValueBuilder, expr, ident, Value } from '../sourcegen'
+import { Program, GeneratedFile, ObjectValueBuilder, expr, ident, Value } from '../sourcegen'
 
 import { EmailAlertChannelCodegen } from './email-alert-channel-codegen'
 import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen'
@@ -52,8 +52,8 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
 
 const construct = 'AlertChannel'
 
-export function valueForAlertChannelFromId (program: Program, physicalId: number): Value {
-  program.import(construct, 'checkly/constructs')
+export function valueForAlertChannelFromId (genfile: GeneratedFile, physicalId: number): Value {
+  genfile.import(construct, 'checkly/constructs')
 
   return expr(ident(construct), builder => {
     builder.member(ident('fromId'))

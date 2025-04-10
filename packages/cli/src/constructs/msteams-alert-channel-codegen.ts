@@ -13,17 +13,21 @@ const construct = 'MSTeamsAlertChannel'
 
 export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResource> {
   prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
-    context.registerAlertChannel(resource.id, 'teamsAlert')
+    context.registerAlertChannel(
+      resource.id,
+      'teamsAlert',
+      this.program.generatedFile('resources/alert-channels/ms-teams'),
+    )
   }
 
   gencode (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupAlertChannel(resource.id)
 
-    const id = context.lookupAlertChannel(resource.id)
+    file.import(construct, 'checkly/constructs')
 
     const { config } = resource
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

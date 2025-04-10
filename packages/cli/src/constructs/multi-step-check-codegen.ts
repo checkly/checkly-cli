@@ -14,9 +14,11 @@ const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/multi-step-checks/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
@@ -34,7 +36,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, builder, resource, context)
+          buildCheckProps(file, builder, resource, context)
         })
       })
     }))

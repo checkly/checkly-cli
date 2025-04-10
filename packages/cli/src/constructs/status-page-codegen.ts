@@ -25,9 +25,11 @@ const construct = 'StatusPage'
 
 export class StatusPageCodegen extends Codegen<StatusPageResource> {
   gencode (logicalId: string, resource: StatusPageResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/status-pages/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
@@ -42,7 +44,8 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                   for (const service of card.services) {
                     try {
                       const serviceVariable = context.lookupStatusPageService(service.id)
-                      builder.value(serviceVariable)
+                      context.importVariable(serviceVariable, file)
+                      builder.value(serviceVariable.id)
                     } catch (err) {
                       throw new Error(`Status page '${resource.id}' refers to service '${service.id}' which is not being imported.`)
                     }

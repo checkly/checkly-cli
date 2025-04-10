@@ -1,10 +1,10 @@
-import { Value, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { Value, expr, ident, ObjectValueBuilder, GeneratedFile } from '../sourcegen'
 import { RetryStrategy, RetryStrategyOptions, RetryStrategyType } from './retry-strategy'
 
 export type RetryStrategyResource = RetryStrategy
 
-export function valueForRetryStrategy (program: Program, strategy?: RetryStrategyResource | null): Value {
-  program.import('RetryStrategyBuilder', 'checkly/constructs')
+export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryStrategyResource | null): Value {
+  genfile.import('RetryStrategyBuilder', 'checkly/constructs')
 
   function buildCommonOptions (
     options: RetryStrategyOptions,
