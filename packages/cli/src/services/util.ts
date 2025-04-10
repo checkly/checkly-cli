@@ -359,9 +359,9 @@ export function gitignoreToGlob (gitignoreContent: string) {
     })
 }
 
-export async function findRegexFiles (directory: string, regex: RegExp):
+export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
   Promise<string[]> {
-  const files = await findFilesWithPattern(directory, '**/*', [])
+  const files = await findFilesWithPattern(directory, '**/*.{js,ts,mjs}', ignorePattern)
   return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
 }
 

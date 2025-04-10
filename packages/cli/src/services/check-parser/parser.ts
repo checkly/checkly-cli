@@ -180,20 +180,22 @@ export class Parser {
   }
 
   private async getFilesFromPaths (paths: (string|RegExp)[]): Promise<string[]> {
+    // TODO: make this configurable
+    const ignoredFiles = ['**/node_modules/**', '.git/**']
     const files = paths.map(async (currPath) => {
       if (currPath instanceof RegExp) {
-        return findRegexFiles(process.cwd(), currPath)
+        return findRegexFiles(process.cwd(), currPath, ignoredFiles)
       }
       const normalizedPath = pathToPosix(currPath)
       try {
         const stats = await fsAsync.lstat(normalizedPath)
         if (stats.isDirectory()) {
-          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', [])
+          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', ignoredFiles)
         }
         return [normalizedPath]
       } catch (err) {
         if (normalizedPath.includes('*') || normalizedPath.includes('?') || normalizedPath.includes('{')) {
-          return findFilesWithPattern(process.cwd(), normalizedPath, [])
+          return findFilesWithPattern(process.cwd(), normalizedPath, ignoredFiles)
         } else {
           return []
         }
