@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { Program, ObjectValueBuilder } from '../sourcegen'
+import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen'
@@ -35,7 +35,7 @@ export interface CheckResource {
 }
 
 export function buildCheckProps (
-  program: Program,
+  genfile: GeneratedFile,
   builder: ObjectValueBuilder,
   resource: CheckResource,
   context: Context,
@@ -81,9 +81,10 @@ export function buildCheckProps (
       for (const privateLocationId of privateLocationIds) {
         try {
           const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
-          builder.value(privateLocationVariable)
+          context.importVariable(privateLocationVariable, genfile)
+          builder.value(privateLocationVariable.id)
         } catch (err) {
-          builder.value(valueForPrivateLocationFromId(program, privateLocationId))
+          builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
         }
       }
     })
@@ -101,7 +102,7 @@ export function buildCheckProps (
   }
 
   if (resource.frequency !== undefined) {
-    builder.value('frequency', valueForFrequency(program, resource.frequency))
+    builder.value('frequency', valueForFrequency(genfile, resource.frequency))
   }
 
   if (resource.environmentVariables) {
@@ -118,7 +119,8 @@ export function buildCheckProps (
   if (resource.groupId) {
     try {
       const groupVariable = context.lookupCheckGroup(resource.groupId)
-      builder.value('group', groupVariable)
+      context.importVariable(groupVariable, genfile)
+      builder.value('group', groupVariable.id)
     } catch (err) {
       throw new Error(`Check '${resource.id}' belongs to group #${resource.groupId} which is not being imported.`)
     }
@@ -136,23 +138,24 @@ export function buildCheckProps (
       for (const alertChannelId of alertChannelIds) {
         try {
           const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
-          builder.value(alertChannelVariable)
+          context.importVariable(alertChannelVariable, genfile)
+          builder.value(alertChannelVariable.id)
         } catch (err) {
-          builder.value(valueForAlertChannelFromId(program, alertChannelId))
+          builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
         }
       }
     })
   }
 
   if (resource.alertSettings) {
-    builder.value('alertEscalationPolicy', valueForAlertEscalation(program, resource.alertSettings))
+    builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
   if (resource.testOnly !== undefined) {
     builder.boolean('testOnly', resource.testOnly)
   }
 
-  builder.value('retryStrategy', valueForRetryStrategy(program, resource.retryStrategy))
+  builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
 
   if (resource.runParallel !== undefined) {
     builder.boolean('runParallel', resource.runParallel)

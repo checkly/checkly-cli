@@ -15,9 +15,11 @@ const construct = 'BrowserCheck'
 
 export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
   gencode (logicalId: string, resource: BrowserCheckResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/browser-checks/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
@@ -39,7 +41,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, builder, resource, context)
+          buildCheckProps(file, builder, resource, context)
         })
       })
     }))

@@ -10,15 +10,18 @@ const construct = 'StatusPageService'
 
 export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource> {
   prepare (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
-    context.registerStatusPageService(resource.id)
+    context.registerStatusPageService(
+      resource.id,
+      this.program.generatedFile(`resources/status-pages/services/${logicalId}`),
+    )
   }
 
   gencode (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupStatusPageService(resource.id)
 
-    const id = context.lookupStatusPageService(resource.id)
+    file.import(construct, 'checkly/constructs')
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

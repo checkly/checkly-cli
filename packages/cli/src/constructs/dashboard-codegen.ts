@@ -30,9 +30,11 @@ const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/dashboards/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
