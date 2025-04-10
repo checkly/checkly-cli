@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
