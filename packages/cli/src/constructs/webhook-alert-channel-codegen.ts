@@ -1,4 +1,4 @@
-import { decl, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
@@ -31,6 +31,9 @@ export interface WebhookAlertChannelResource extends AlertChannelResource {
 }
 
 export function buildWebhookAlertChannelConfig (
+  program: Program,
+  genfile: GeneratedFile,
+  context: Context,
   builder: ObjectValueBuilder,
   config: WebhookAlertChannelResourceConfig,
 ): void {
@@ -55,7 +58,7 @@ export function buildWebhookAlertChannelConfig (
     if (headers.length > 0) {
       builder.array('headers', builder => {
         for (const header of headers) {
-          builder.value(valueForKeyValuePair(header))
+          builder.value(valueForKeyValuePair(program, genfile, context, header))
         }
       })
     }
@@ -66,7 +69,7 @@ export function buildWebhookAlertChannelConfig (
     if (queryParameters.length > 0) {
       builder.array('queryParameters', builder => {
         for (const param of queryParameters) {
-          builder.value(valueForKeyValuePair(param))
+          builder.value(valueForKeyValuePair(program, genfile, context, param))
         }
       })
     }
@@ -134,7 +137,7 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
         builder.new(builder => {
           builder.string(logicalId)
           builder.object(builder => {
-            buildWebhookAlertChannelConfig(builder, resource.config)
+            buildWebhookAlertChannelConfig(this.program, file, context, builder, resource.config)
             buildAlertChannelProps(builder, resource)
           })
         })

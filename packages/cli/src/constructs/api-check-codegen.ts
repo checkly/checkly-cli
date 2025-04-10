@@ -84,7 +84,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               if (headers.length > 0) {
                 builder.array('headers', builder => {
                   for (const header of headers) {
-                    builder.value(valueForKeyValuePair(header))
+                    builder.value(valueForKeyValuePair(this.program, file, context, header))
                   }
                 })
               }
@@ -95,7 +95,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               if (queryParameters.length > 0) {
                 builder.array('queryParameters', builder => {
                   for (const param of queryParameters) {
-                    builder.value(valueForKeyValuePair(param))
+                    builder.value(valueForKeyValuePair(this.program, file, context, param))
                   }
                 })
               }
@@ -163,7 +163,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(file, builder, resource, context)
+          buildCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))
