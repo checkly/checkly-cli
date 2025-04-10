@@ -35,6 +35,7 @@ export interface CheckResource {
 }
 
 export function buildCheckProps (
+  program: Program,
   genfile: GeneratedFile,
   builder: ObjectValueBuilder,
   resource: CheckResource,
@@ -110,7 +111,7 @@ export function buildCheckProps (
     if (variables.length > 0) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
-          builder.value(valueForKeyValuePair(variable))
+          builder.value(valueForKeyValuePair(program, genfile, context, variable))
         }
       })
     }

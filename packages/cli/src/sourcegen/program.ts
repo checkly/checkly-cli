@@ -9,13 +9,18 @@ type Content = Declaration | Value
 
 export interface ProgramOptions {
   rootDirectory: string
-  ext: string
+  constructFileSuffix: string
+  language: 'typescript' | 'javascript'
+}
+
+export interface GeneratedFileOptions {
+  type: 'construct' | 'auxiliary'
 }
 
 export class Program {
   #options: ProgramOptions
   #generatedFiles = new Map<string, GeneratedFile>()
-  #auxiliaryFile = new Map<string, AuxiliaryFile>()
+  #staticAuxiliaryFiles = new Map<string, StaticAuxiliaryFile>()
 
   constructor (options: ProgramOptions) {
     this.#options = {
@@ -30,7 +35,7 @@ export class Program {
       paths.push(path.join(this.#options.rootDirectory, file.path))
     }
 
-    for (const file of this.#auxiliaryFile.values()) {
+    for (const file of this.#staticAuxiliaryFiles.values()) {
       paths.push(path.join(this.#options.rootDirectory, file.path))
     }
 
@@ -39,13 +44,29 @@ export class Program {
     return paths
   }
 
-  generatedFile (path: string): GeneratedFile {
-    const extPath = path + this.#options.ext
-    let file = this.#generatedFiles.get(extPath)
-    if (file === undefined) {
-      file = new GeneratedFile(extPath)
-      this.#generatedFiles.set(extPath, file)
+  generatedFile (path: string, options?: GeneratedFileOptions): GeneratedFile {
+    const type = options?.type ?? 'construct'
+    if (type === 'construct') {
+      path += this.#options.constructFileSuffix
     }
+
+    switch (this.#options.language) {
+      case 'typescript':
+        path += '.ts'
+        break
+      case 'javascript':
+        path += '.js'
+        break
+      default:
+        throw new Error(`Unknown value '${this.#options.language}' for \`ProgramOptions.language\``)
+    }
+
+    let file = this.#generatedFiles.get(path)
+    if (file === undefined) {
+      file = new GeneratedFile(path)
+      this.#generatedFiles.set(path, file)
+    }
+
     return file
   }
 
@@ -54,9 +75,11 @@ export class Program {
       const fullFilePath = path.join(this.#options.rootDirectory, file.path)
       const { dir: fileDir } = path.parse(fullFilePath)
 
-      await mkdir(fileDir, {
-        recursive: true,
-      })
+      if (fileDir !== '') {
+        await mkdir(fileDir, {
+          recursive: true,
+        })
+      }
 
       const output = new Output()
       file.render(output)
@@ -64,13 +87,15 @@ export class Program {
       await writeFile(fullFilePath, output.finalize())
     }
 
-    for (const file of this.#auxiliaryFile.values()) {
+    for (const file of this.#staticAuxiliaryFiles.values()) {
       const fullFilePath = path.join(this.#options.rootDirectory, file.path)
       const { dir: fileDir } = path.parse(fullFilePath)
 
-      await mkdir(fileDir, {
-        recursive: true,
-      })
+      if (fileDir !== '') {
+        await mkdir(fileDir, {
+          recursive: true,
+        })
+      }
 
       await writeFile(fullFilePath, file.content)
     }
@@ -87,6 +112,7 @@ export abstract class ProgramFile {
 
 export interface ImportOptions {
   relativeTo?: string
+  relativeToSelf?: boolean
 }
 
 export class GeneratedFile extends ProgramFile {
@@ -94,11 +120,18 @@ export class GeneratedFile extends ProgramFile {
   #sections: Content[] = []
 
   import (type: string, from: string, options?: ImportOptions) {
-    if (options?.relativeTo !== undefined) {
-      from = path.posix.relative(options.relativeTo, from)
+    let relativeTo = options?.relativeTo
+    if (relativeTo === undefined && options?.relativeToSelf) {
+      relativeTo = path.dirname(this.path)
+    }
+    if (relativeTo !== undefined) {
+      from = path.relative(relativeTo, from)
       if (!from.startsWith('.')) {
         from = `./${from}`
       }
+
+      // Attempt to make sure we create a posix path.
+      from = from.replace(/\\/g, '/')
     }
 
     // Shouldn't have imports with .ts extensions.
@@ -150,7 +183,7 @@ export class GeneratedFile extends ProgramFile {
   }
 }
 
-export class AuxiliaryFile extends ProgramFile {
+export class StaticAuxiliaryFile extends ProgramFile {
   readonly content: string | Buffer
 
   constructor (path: string, content: string | Buffer) {

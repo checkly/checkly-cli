@@ -23,7 +23,7 @@ export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
           builder.number('grace', resource.heartbeat.grace)
           builder.string('graceUnit', resource.heartbeat.graceUnit)
 
-          buildCheckProps(file, builder, resource, context)
+          buildCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

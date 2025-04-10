@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./constructs": "./dist/constructs/index.js"
+    "./constructs": "./dist/constructs/index.js",
+    "./util": "./dist/util/index.js"
   },
   "engines": {
     "node": ">=18.0.0"

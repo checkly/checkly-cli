@@ -68,7 +68,7 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(file, builder, resource, context)
+          buildCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

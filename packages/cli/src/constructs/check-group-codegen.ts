@@ -43,6 +43,7 @@ export interface CheckGroupResource {
 }
 
 function buildCheckGroupProps (
+  program: Program,
   genfile: GeneratedFile,
   builder: ObjectValueBuilder,
   resource: CheckGroupResource,
@@ -114,7 +115,7 @@ function buildCheckGroupProps (
     if (variables.length > 0) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
-          builder.value(valueForKeyValuePair(variable))
+          builder.value(valueForKeyValuePair(program, genfile, context, variable))
         }
       })
     }
@@ -205,7 +206,7 @@ function buildCheckGroupProps (
         if (headers.length > 0) {
           builder.array('headers', builder => {
             for (const header of headers) {
-              builder.value(valueForKeyValuePair(header))
+              builder.value(valueForKeyValuePair(program, genfile, context, header))
             }
           })
         }
@@ -216,7 +217,7 @@ function buildCheckGroupProps (
         if (params.length > 0) {
           builder.array('queryParameters', builder => {
             for (const param of params) {
-              builder.value(valueForKeyValuePair(param))
+              builder.value(valueForKeyValuePair(program, genfile, context, param))
             }
           })
         }
@@ -272,7 +273,7 @@ export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
         builder.new(builder => {
           builder.string(logicalId)
           builder.object(builder => {
-            buildCheckGroupProps(file, builder, resource, context)
+            buildCheckGroupProps(this.program, file, builder, resource, context)
           })
         })
       }))
