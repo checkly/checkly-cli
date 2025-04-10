@@ -108,7 +108,11 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
       }
     }
 
-    context.registerAlertChannel(resource.id, 'webhookAlert')
+    context.registerAlertChannel(
+      resource.id,
+      'webhookAlert',
+      this.program.generatedFile('resources/alert-channels/webhook'),
+    )
   }
 
   gencode (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
@@ -121,11 +125,11 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
       }
     }
 
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupAlertChannel(resource.id)
 
-    const id = context.lookupAlertChannel(resource.id)
+    file.import(construct, 'checkly/constructs')
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

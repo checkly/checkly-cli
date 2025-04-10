@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import path from 'node:path'
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
@@ -11,7 +11,7 @@ import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
-import { Program, Output } from '../../sourcegen'
+import { Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
 
@@ -24,12 +24,17 @@ export default class ImportPlanCommand extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
+    root: Flags.string({
+      description: 'The root folder in which to write generated code files.',
+      default: '.',
+    }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(ImportPlanCommand)
     const {
       config: configFilename,
+      root: rootDirectory,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -80,16 +85,43 @@ export default class ImportPlanCommand extends AuthCommand {
       throw err
     }
 
-    this.#generateCode(plan)
+    const program = new Program({
+      rootDirectory,
+      ext: '.check.ts',
+    })
+
+    this.#generateCode(plan, program)
+
+    if (this.fancy) {
+      ux.action.start('Writing files', undefined, { stdout: true })
+    }
+
+    try {
+      await program.realize()
+
+      if (this.fancy) {
+        ux.action.stop('✅ ')
+      }
+    } catch (err) {
+      if (this.fancy) {
+        ux.action.stop('❌')
+      }
+
+      throw err
+    }
+
+    this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
+    for (const filePath of program.paths) {
+      this.log(`  - ${chalk.green(filePath)}`)
+    }
   }
 
-  #generateCode (plan: ImportPlan) {
+  #generateCode (plan: ImportPlan, program: Program): void {
     if (this.fancy) {
       ux.action.start('Generating Checkly constructs for imported resources', undefined, { stdout: true })
     }
 
     try {
-      const program = new Program()
       const codegen = new ConstructCodegen(program)
       const context = new Context()
 
@@ -108,16 +140,6 @@ export default class ImportPlanCommand extends AuthCommand {
       if (this.fancy) {
         ux.action.stop('✅ ')
       }
-
-      const output = new Output()
-      program.render(output)
-
-      // TODO: file structure
-      const filename = './generated.check.ts'
-
-      writeFileSync(filename, output.finalize())
-
-      this.log(`${logSymbols.success} Generated code can be found in ${chalk.bold(filename)}`)
     } catch (err) {
       if (this.fancy) {
         ux.action.stop('❌')

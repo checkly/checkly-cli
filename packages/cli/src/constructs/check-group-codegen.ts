@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
@@ -43,7 +43,7 @@ export interface CheckGroupResource {
 }
 
 function buildCheckGroupProps (
-  program: Program,
+  genfile: GeneratedFile,
   builder: ObjectValueBuilder,
   resource: CheckGroupResource,
   context: Context,
@@ -85,9 +85,10 @@ function buildCheckGroupProps (
       for (const privateLocationId of privateLocationIds) {
         try {
           const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
-          builder.value(privateLocationVariable)
+          context.importVariable(privateLocationVariable, genfile)
+          builder.value(privateLocationVariable.id)
         } catch (err) {
-          builder.value(valueForPrivateLocationFromId(program, privateLocationId))
+          builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
         }
       }
     })
@@ -105,7 +106,7 @@ function buildCheckGroupProps (
   }
 
   if (resource.frequency !== undefined) {
-    builder.value('frequency', valueForFrequency(program, resource.frequency))
+    builder.value('frequency', valueForFrequency(genfile, resource.frequency))
   }
 
   if (resource.environmentVariables) {
@@ -131,16 +132,17 @@ function buildCheckGroupProps (
       for (const alertChannelId of alertChannelIds) {
         try {
           const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
-          builder.value(alertChannelVariable)
+          context.importVariable(alertChannelVariable, genfile)
+          builder.value(alertChannelVariable.id)
         } catch (err) {
-          builder.value(valueForAlertChannelFromId(program, alertChannelId))
+          builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
         }
       }
     })
   }
 
   if (resource.alertSettings) {
-    builder.value('alertEscalationPolicy', valueForAlertEscalation(program, resource.alertSettings))
+    builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
   if (resource.browserChecks) {
@@ -158,7 +160,7 @@ function buildCheckGroupProps (
 
       // Only frequency is handled by the construct.
       if (config.frequency !== undefined) {
-        builder.value('frequency', valueForFrequency(program, config.frequency))
+        builder.value('frequency', valueForFrequency(genfile, config.frequency))
       }
     })
   }
@@ -178,7 +180,7 @@ function buildCheckGroupProps (
 
       // Only frequency is handled by the construct.
       if (config.frequency !== undefined) {
-        builder.value('frequency', valueForFrequency(program, config.frequency))
+        builder.value('frequency', valueForFrequency(genfile, config.frequency))
       }
     })
   }
@@ -235,7 +237,7 @@ function buildCheckGroupProps (
         if (assertions.length > 0) {
           builder.array('assertions', builder => {
             for (const assertion of assertions) {
-              builder.value(valueForAssertion(program, assertion))
+              builder.value(valueForAssertion(genfile, assertion))
             }
           })
         }
@@ -243,7 +245,7 @@ function buildCheckGroupProps (
     })
   }
 
-  builder.value('retryStrategy', valueForRetryStrategy(program, resource.retryStrategy))
+  builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
 
   if (resource.runParallel !== undefined) {
     builder.boolean('runParallel', resource.runParallel)
@@ -254,20 +256,23 @@ const construct = 'CheckGroup'
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
-    context.registerCheckGroup(resource.id)
+    context.registerCheckGroup(
+      resource.id,
+      this.program.generatedFile(`resources/check-groups/${logicalId}`),
+    )
   }
 
   gencode (logicalId: string, resource: CheckGroupResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupCheckGroup(resource.id)
 
-    const id = context.lookupCheckGroup(resource.id)
+    file.import(construct, 'checkly/constructs')
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)
           builder.object(builder => {
-            buildCheckGroupProps(this.program, builder, resource, context)
+            buildCheckGroupProps(file, builder, resource, context)
           })
         })
       }))

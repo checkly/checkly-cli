@@ -1,8 +1,8 @@
-import { expr, ident, Program, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen'
 import { Ref } from './ref'
 
-export function valueForRef (program: Program, ref: Ref): Value {
-  program.import('Ref', 'checkly/constructs')
+export function valueForRef (genfile: GeneratedFile, ref: Ref): Value {
+  genfile.import('Ref', 'checkly/constructs')
 
   return expr(ident('Ref'), builder => {
     builder.member(ident('from'))

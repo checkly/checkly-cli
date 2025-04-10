@@ -10,9 +10,11 @@ export interface HeartbeatCheckResource extends CheckResource {
 
 export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
   gencode (logicalId: string, resource: HeartbeatCheckResource, context: Context): void {
-    this.program.import('HeartbeatCheck', 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/heartbeats/${logicalId}`)
 
-    this.program.section(expr(ident('HeartbeatCheck'), builder => {
+    file.import('HeartbeatCheck', 'checkly/constructs')
+
+    file.section(expr(ident('HeartbeatCheck'), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
@@ -21,7 +23,7 @@ export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
           builder.number('grace', resource.heartbeat.grace)
           builder.string('graceUnit', resource.heartbeat.graceUnit)
 
-          buildCheckProps(this.program, builder, resource, context)
+          buildCheckProps(file, builder, resource, context)
         })
       })
     }))

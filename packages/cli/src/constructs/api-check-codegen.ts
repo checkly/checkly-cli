@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident, Program, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
@@ -24,8 +24,8 @@ export interface ApiCheckResource extends CheckResource {
   maxResponseTime?: number
 }
 
-export function valueForAssertion (program: Program, assertion: Assertion): Value {
-  program.import('AssertionBuilder', 'checkly/constructs')
+export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion): Value {
+  genfile.import('AssertionBuilder', 'checkly/constructs')
 
   switch (assertion.source) {
     case 'STATUS_CODE':
@@ -47,9 +47,11 @@ const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
   gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/api-checks/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
@@ -114,7 +116,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
               if (assertions.length > 0) {
                 builder.array('assertions', builder => {
                   for (const assertion of assertions) {
-                    builder.value(valueForAssertion(this.program, assertion))
+                    builder.value(valueForAssertion(file, assertion))
                   }
                 })
               }
@@ -161,7 +163,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, builder, resource, context)
+          buildCheckProps(file, builder, resource, context)
         })
       })
     }))

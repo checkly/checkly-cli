@@ -1,10 +1,10 @@
-import { expr, ident, Program, Value, ArgumentsValueBuilder } from '../sourcegen'
+import { expr, ident, Value, ArgumentsValueBuilder, GeneratedFile } from '../sourcegen'
 import { AlertEscalation } from './alert-escalation-policy'
 
 export type AlertEscalationResource = AlertEscalation
 
-export function valueForAlertEscalation (program: Program, escalation: AlertEscalationResource): Value {
-  program.import('AlertEscalationBuilder', 'checkly/constructs')
+export function valueForAlertEscalation (genfile: GeneratedFile, escalation: AlertEscalationResource): Value {
+  genfile.import('AlertEscalationBuilder', 'checkly/constructs')
 
   function appendCommonArguments (escalation: AlertEscalationResource, builder: ArgumentsValueBuilder): void {
     if (escalation.reminders) {

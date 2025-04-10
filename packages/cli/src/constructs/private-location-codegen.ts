@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident, Program, Value } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen'
 
 export interface PrivateLocationResource {
   id: string
@@ -11,8 +11,8 @@ export interface PrivateLocationResource {
 
 const construct = 'PrivateLocation'
 
-export function valueForPrivateLocationFromId (program: Program, physicalId: string): Value {
-  program.import(construct, 'checkly/constructs')
+export function valueForPrivateLocationFromId (genfile: GeneratedFile, physicalId: string): Value {
+  genfile.import(construct, 'checkly/constructs')
 
   return expr(ident(construct), builder => {
     builder.member(ident('fromId'))
@@ -24,15 +24,18 @@ export function valueForPrivateLocationFromId (program: Program, physicalId: str
 
 export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
   prepare (logicalId: string, resource: PrivateLocationResource, context: Context): void {
-    context.registerPrivateLocation(resource.id)
+    context.registerPrivateLocation(
+      resource.id,
+      this.program.generatedFile(`resources/private-locations/${logicalId}`),
+    )
   }
 
   gencode (logicalId: string, resource: PrivateLocationResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupPrivateLocation(resource.id)
 
-    const id = context.lookupPrivateLocation(resource.id)
+    file.import(construct, 'checkly/constructs')
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

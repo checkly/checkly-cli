@@ -1,14 +1,14 @@
-import { expr, ident, NumberValue, Program, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, NumberValue, Value } from '../sourcegen'
 import { Frequency } from './frequency'
 
 export type FrequencyResource = Frequency | number
 
-export function valueForFrequency (program: Program, frequency: FrequencyResource): Value {
+export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyResource): Value {
   if (typeof frequency === 'number') {
     return new NumberValue(frequency)
   }
 
-  program.import('Frequency', 'checkly/constructs')
+  genfile.import('Frequency', 'checkly/constructs')
 
   const predefined = {
     EVERY_10S: Frequency.EVERY_10S,

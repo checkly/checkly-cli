@@ -13,15 +13,19 @@ const construct = 'EmailAlertChannel'
 
 export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource> {
   prepare (logicalId: string, resource: EmailAlertChannelResource, context: Context): void {
-    context.registerAlertChannel(resource.id, 'emailAlert')
+    context.registerAlertChannel(
+      resource.id,
+      'emailAlert',
+      this.program.generatedFile('resources/alert-channels/email'),
+    )
   }
 
   gencode (logicalId: string, resource: EmailAlertChannelResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupAlertChannel(resource.id)
 
-    const id = context.lookupAlertChannel(resource.id)
+    file.import(construct, 'checkly/constructs')
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

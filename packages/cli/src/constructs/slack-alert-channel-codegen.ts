@@ -14,17 +14,21 @@ const construct = 'SlackAlertChannel'
 
 export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource> {
   prepare (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
-    context.registerAlertChannel(resource.id, 'slackAlert')
+    context.registerAlertChannel(
+      resource.id,
+      'slackAlert',
+      this.program.generatedFile('resources/alert-channels/slack'),
+    )
   }
 
   gencode (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const { id, file } = context.lookupAlertChannel(resource.id)
 
-    const id = context.lookupAlertChannel(resource.id)
+    file.import(construct, 'checkly/constructs')
 
     const { config } = resource
 
-    this.program.section(decl(id, builder => {
+    file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
         builder.new(builder => {
           builder.string(logicalId)

@@ -1,64 +1,85 @@
-import { IdentifierValue } from '../../../sourcegen'
+import { dirname } from 'node:path'
+
+import { GeneratedFile, IdentifierValue } from '../../../sourcegen'
 
 export class MissingContextVariableMappingError extends Error {}
 
+export class VariableLocator {
+  readonly id: IdentifierValue
+  readonly file: GeneratedFile
+
+  constructor (id: IdentifierValue, file: GeneratedFile) {
+    this.id = id
+    this.file = file
+  }
+}
+
 export class Context {
-  #alertChannelVariablesByPhysicalId = new Map<number, IdentifierValue>()
+  #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
 
   #checkAlertChannelPhysicalIdsByPhysicalId = new Map<string, number[]>()
   #checkPrivateLocationPhysicalIdsByPhysicalId = new Map<string, string[]>()
 
   #checkGroupAlertChannelPhysicalIdsByPhysicalId = new Map<number, number[]>()
   #checkGroupPrivateLocationPhysicalIdsByPhysicalId = new Map<number, string[]>()
-  #checkGroupVariablesByPhysicalId = new Map<number, IdentifierValue>()
+  #checkGroupVariablesByPhysicalId = new Map<number, VariableLocator>()
 
-  #privateLocationVariablesByPhysicalId = new Map<string, IdentifierValue>()
+  #privateLocationVariablesByPhysicalId = new Map<string, VariableLocator>()
 
-  #statusPageServiceVariablesByPhysicalId = new Map<string, IdentifierValue>()
+  #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
 
-  registerCheckGroup (physicalId: number): IdentifierValue {
+  importVariable (locator: VariableLocator, file: GeneratedFile): void {
+    file.import(locator.id.value, locator.file.path, {
+      relativeTo: dirname(file.path),
+    })
+  }
+
+  registerCheckGroup (physicalId: number, file: GeneratedFile): VariableLocator {
     const nth = this.#checkGroupVariablesByPhysicalId.size + 1
-    const variable = new IdentifierValue(`group${nth}`)
-    this.#checkGroupVariablesByPhysicalId.set(physicalId, variable)
-    return variable
+    const id = new IdentifierValue(`group${nth}`)
+    const locator = new VariableLocator(id, file)
+    this.#checkGroupVariablesByPhysicalId.set(physicalId, locator)
+    return locator
   }
 
-  lookupCheckGroup (physicalId: number): IdentifierValue {
-    const id = this.#checkGroupVariablesByPhysicalId.get(physicalId)
-    if (id === undefined) {
+  lookupCheckGroup (physicalId: number): VariableLocator {
+    const locator = this.#checkGroupVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
-    return id
+    return locator
   }
 
-  registerAlertChannel (physicalId: number, variablePrefix: string): IdentifierValue {
+  registerAlertChannel (physicalId: number, variablePrefix: string, file: GeneratedFile): VariableLocator {
     const nth = this.#alertChannelVariablesByPhysicalId.size + 1
-    const variable = new IdentifierValue(`${variablePrefix}${nth}`)
-    this.#alertChannelVariablesByPhysicalId.set(physicalId, variable)
-    return variable
+    const id = new IdentifierValue(`${variablePrefix}${nth}`)
+    const locator = new VariableLocator(id, file)
+    this.#alertChannelVariablesByPhysicalId.set(physicalId, locator)
+    return locator
   }
 
-  lookupAlertChannel (physicalId: number): IdentifierValue {
-    const id = this.#alertChannelVariablesByPhysicalId.get(physicalId)
-    if (id === undefined) {
+  lookupAlertChannel (physicalId: number): VariableLocator {
+    const locator = this.#alertChannelVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
-    return id
+    return locator
   }
 
-  registerPrivateLocation (physicalId: string): IdentifierValue {
+  registerPrivateLocation (physicalId: string, file: GeneratedFile): VariableLocator {
     const nth = this.#privateLocationVariablesByPhysicalId.size + 1
-    const variable = new IdentifierValue(`privateLocation${nth}`)
-    this.#privateLocationVariablesByPhysicalId.set(physicalId, variable)
-    return variable
+    const id = new IdentifierValue(`privateLocation${nth}`)
+    const locator = new VariableLocator(id, file)
+    this.#privateLocationVariablesByPhysicalId.set(physicalId, locator)
+    return locator
   }
 
-  lookupPrivateLocation (physicalId: string): IdentifierValue {
-    const id = this.#privateLocationVariablesByPhysicalId.get(physicalId)
-    if (id === undefined) {
+  lookupPrivateLocation (physicalId: string): VariableLocator {
+    const locator = this.#privateLocationVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
-    return id
+    return locator
   }
 
   registerPrivateLocationGroupAssignment (privateLocationPhysicalId: string, groupPhysicalId: number) {
@@ -121,18 +142,19 @@ export class Context {
     return ids
   }
 
-  registerStatusPageService (physicalId: string): IdentifierValue {
+  registerStatusPageService (physicalId: string, file: GeneratedFile): VariableLocator {
     const nth = this.#statusPageServiceVariablesByPhysicalId.size + 1
-    const variable = new IdentifierValue(`service${nth}`)
-    this.#statusPageServiceVariablesByPhysicalId.set(physicalId, variable)
-    return variable
+    const id = new IdentifierValue(`service${nth}`)
+    const locator = new VariableLocator(id, file)
+    this.#statusPageServiceVariablesByPhysicalId.set(physicalId, locator)
+    return locator
   }
 
-  lookupStatusPageService (physicalId: string): IdentifierValue {
-    const id = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
-    if (id === undefined) {
+  lookupStatusPageService (physicalId: string): VariableLocator {
+    const locator = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
-    return id
+    return locator
   }
 }

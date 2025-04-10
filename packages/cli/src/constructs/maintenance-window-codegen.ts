@@ -15,9 +15,11 @@ const construct = 'MaintenanceWindow'
 
 export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
   gencode (logicalId: string, resource: MaintenanceWindowResource, context: Context): void {
-    this.program.import(construct, 'checkly/constructs')
+    const file = this.program.generatedFile(`resources/maintenance-windows/${logicalId}`)
 
-    this.program.section(expr(ident(construct), builder => {
+    file.import(construct, 'checkly/constructs')
+
+    file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
