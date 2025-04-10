@@ -140,44 +140,58 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   return config
 }
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
-  let config
+export async function loadChecklyConfig (
+  dir: string,
+  filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs'],
+): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
-  for (const filename of filenames) {
-    config = await loadFile(path.join(dir, filename))
-    if (config) {
-      break
-    }
-  }
+
+  let config = await findConfigFile(dir, filenames)
 
   if (!config) {
-    const baseName = path.basename(dir)
-    const checklyConfig = getDefaultChecklyConfig(baseName)
-    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
-    if (playwrightConfigPath && existsSync(path.resolve(dir, playwrightConfigPath))) {
-      await writeChecklyConfigFile(dir, checklyConfig)
-      // @ts-ignore
-      checklyConfig.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
-      Session.loadingChecklyConfigFile = false
-      return { config: checklyConfig, constructs: [] }
-    }
-    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+    config = await handleMissingConfig(dir, filenames)
   }
 
-  for (const field of ['logicalId', 'projectName']) {
-    const requiredField = config?.[field]
-    if (!requiredField || !(isString(requiredField))) {
-      throw new Error(`Config object missing a ${field} as type string`)
-    }
-  }
-  const playwrightConfigPath = config.checks?.playwrightConfigPath
-  if (playwrightConfigPath) {
-    config.checks.playwrightConfigPath = path.resolve(dir, playwrightConfigPath)
-  }
+  validateConfigFields(config, ['logicalId', 'projectName'])
 
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
   Session.checklyConfigFileConstructs = []
   return { config, constructs }
+}
+
+async function findConfigFile (dir: string, filenames: string[]): Promise<ChecklyConfig | null> {
+  for (const filename of filenames) {
+    const config = await loadFile(path.join(dir, filename))
+    if (config) {
+      return config
+    }
+  }
+  return null
+}
+
+async function handleMissingConfig (dir: string, filenames: string[]): Promise<ChecklyConfig> {
+  const baseName = path.basename(dir)
+  const playwrightConfigPath = findPlaywrightConfigPath(dir)
+  if (playwrightConfigPath) {
+    const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`)
+    await writeChecklyConfigFile(dir, checklyConfig)
+    return checklyConfig
+  }
+  throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+}
+
+function findPlaywrightConfigPath (dir: string): string | undefined {
+  return ['playwright.config.ts', 'playwright.config.js']
+    .map(file => path.resolve(dir, file))
+    .find(filePath => existsSync(filePath))
+}
+
+function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConfig)[]): void {
+  for (const field of fields) {
+    if (!config?.[field] || !isString(config[field])) {
+      throw new Error(`Config object missing a ${field} as type string`)
+    }
+  }
 }

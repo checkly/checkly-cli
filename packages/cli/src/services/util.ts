@@ -393,12 +393,12 @@ export function cleanup (dir: string) {
   return fs.rm(dir)
 }
 
-export function getDefaultChecklyConfig (directoryName: string): ChecklyConfig {
+export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string): ChecklyConfig {
   return {
     logicalId: directoryName,
     projectName: directoryName,
     checks: {
-      playwrightConfigPath: './playwright.config.ts',
+      playwrightConfigPath,
       playwrightChecks: [
         {
           name: directoryName,
