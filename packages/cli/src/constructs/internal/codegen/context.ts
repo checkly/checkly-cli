@@ -28,6 +28,8 @@ export class Context {
 
   #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
 
+  #knownSecrets = new Set<string>()
+
   importVariable (locator: VariableLocator, file: GeneratedFile): void {
     file.import(locator.id.value, locator.file.path, {
       relativeTo: dirname(file.path),
@@ -156,5 +158,14 @@ export class Context {
       throw new MissingContextVariableMappingError()
     }
     return locator
+  }
+
+  registerKnownSecret (name: string): boolean {
+    if (this.#knownSecrets.has(name)) {
+      return false
+    }
+
+    this.#knownSecrets.add(name)
+    return true
   }
 }

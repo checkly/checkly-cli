@@ -41,7 +41,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(file, builder, resource, context)
+          buildCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

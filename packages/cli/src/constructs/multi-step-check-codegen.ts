@@ -36,7 +36,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(file, builder, resource, context)
+          buildCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))
