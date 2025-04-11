@@ -1,4 +1,4 @@
-import { dirname } from 'node:path'
+import path, { dirname } from 'node:path'
 
 import { GeneratedFile, IdentifierValue, kebabCase } from '../../../sourcegen'
 
@@ -16,6 +16,35 @@ export class VariableLocator {
 
 const CHECKLY_IMPORT_FILENAME_TAG_PREFIX = 'checkly-import-filename:'
 
+export interface FilenameOptions {
+  tags?: string[]
+  isolate?: boolean
+  unique?: boolean
+  contentKey?: string
+}
+
+const splitExt = (filePath: string): [string, string] => {
+  const { dir, base } = path.parse(filePath)
+  // Remove all extensions even if there are multiple.
+  const index = base.indexOf('.')
+  return index !== -1
+    ? [path.join(dir, base.slice(0, index)), base.slice(index)]
+    : [filePath, '']
+}
+
+export class FilePath {
+  fullPath: string
+
+  constructor (fullPath: string) {
+    this.fullPath = fullPath
+  }
+
+  get extless (): string {
+    const [value] = splitExt(this.fullPath)
+    return value
+  }
+}
+
 export class Context {
   #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
 
@@ -32,29 +61,81 @@ export class Context {
 
   #knownSecrets = new Set<string>()
 
-  filename (resourceName: string, tags?: string[]): { filename: string, stub: string } {
-    const stub = (filename: string) => {
-      const index = filename.indexOf('.')
-      return index !== -1 ? filename.slice(0, index) : filename
-    }
+  #knownFilePaths = new Map<string, number>()
+  #filePathContentKeys = new Map<string, string>()
 
-    if (tags !== undefined) {
-      for (const tag of tags) {
+  filePath (parent: string, hint: string, options?: FilenameOptions): FilePath {
+    let filename = kebabCase(hint)
+
+    if (options?.tags !== undefined) {
+      for (const tag of options.tags) {
         if (tag.startsWith(CHECKLY_IMPORT_FILENAME_TAG_PREFIX)) {
-          const filename = tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length)
-          return {
-            filename,
-            stub: stub(filename),
-          }
+          filename = tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length)
+          break
         }
       }
     }
 
-    const filename = kebabCase(resourceName)
-    return {
-      filename,
-      stub: stub(filename),
+    const [base, ext] = splitExt(filename)
+
+    const parts = [parent]
+    if (options?.isolate) {
+      parts.push(base)
     }
+
+    parts.push(filename)
+
+    let candidate = path.join(...parts)
+
+    do {
+      let counter = this.#knownFilePaths.get(candidate) ?? 0
+
+      let satisfied = true
+
+      // If we wanted a unique match and this isn't the first time we've seen
+      // the candidate, we're not satisfied.
+      if (counter !== 0 && options?.unique) {
+        satisfied = false
+      }
+
+      // A content key attempts to differentiate between files based on a
+      // representative value of their contents. If we've previously found
+      // the candidate path but it had a different content key, we're
+      // not satisfied, even if a unique match was not requested.
+      if (options?.contentKey !== undefined) {
+        const currentKey = this.#filePathContentKeys.get(candidate)
+        if (currentKey !== undefined) {
+          if (currentKey !== options.contentKey) {
+            satisfied = false
+          }
+        } else {
+          this.#filePathContentKeys.set(candidate, options.contentKey)
+        }
+      }
+
+      if (!satisfied || counter === 0) {
+        counter += 1
+      }
+
+      this.#knownFilePaths.set(candidate, counter)
+
+      if (satisfied) {
+        return new FilePath(candidate)
+      }
+
+      parts.pop()
+
+      const nthBase = base + '-' + counter
+
+      if (options?.isolate) {
+        parts.pop()
+        parts.push(nthBase)
+      }
+
+      parts.push(nthBase + ext)
+
+      candidate = path.join(...parts)
+    } while (true)
   }
 
   importVariable (locator: VariableLocator, file: GeneratedFile): void {

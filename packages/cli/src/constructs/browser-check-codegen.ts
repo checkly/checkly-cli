@@ -15,8 +15,13 @@ const construct = 'BrowserCheck'
 
 export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
   gencode (logicalId: string, resource: BrowserCheckResource, context: Context): void {
-    const { filename, stub } = context.filename(resource.name, resource.tags)
-    const file = this.program.generatedConstructFile(`resources/browser-checks/${stub}/${filename}`)
+    const filePath = context.filePath('resources/browser-checks', resource.name, {
+      tags: resource.tags,
+      isolate: true,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -25,7 +30,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            const scriptFile = this.program.staticSpecFile(`${file.dirname}/${filename}`, resource.script)
+            const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 

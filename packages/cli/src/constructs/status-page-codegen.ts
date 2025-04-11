@@ -25,8 +25,11 @@ const construct = 'StatusPage'
 
 export class StatusPageCodegen extends Codegen<StatusPageResource> {
   gencode (logicalId: string, resource: StatusPageResource, context: Context): void {
-    const { filename } = context.filename(resource.name)
-    const file = this.program.generatedConstructFile(`resources/status-pages/${filename}`)
+    const filePath = context.filePath('resources/status-pages', resource.name, {
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 
