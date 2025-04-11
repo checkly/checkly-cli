@@ -4,7 +4,7 @@ import { RetryStrategy, RetryStrategyOptions, RetryStrategyType } from './retry-
 export type RetryStrategyResource = RetryStrategy
 
 export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryStrategyResource | null): Value {
-  genfile.import('RetryStrategyBuilder', 'checkly/constructs')
+  genfile.namedImport('RetryStrategyBuilder', 'checkly/constructs')
 
   function buildCommonOptions (
     options: RetryStrategyOptions,

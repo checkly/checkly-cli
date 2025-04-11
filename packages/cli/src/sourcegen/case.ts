@@ -84,10 +84,12 @@ function wordify (value: string): string[] {
       continue
     }
 
-    if (word.length !== 0 && char >= '0' && char <= '9') {
-      word += char
-      small = true
-      continue
+    if (char >= '0' && char <= '9') {
+      if (words.length !== 0) {
+        word += char
+        small = true
+        continue
+      }
     }
 
     if (char >= 'A' && char <= 'Z') {

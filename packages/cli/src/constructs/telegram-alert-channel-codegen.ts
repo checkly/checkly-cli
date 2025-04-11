@@ -30,14 +30,14 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
     context.registerAlertChannel(
       resource.id,
       'telegramAlert',
-      this.program.generatedFile('resources/alert-channels/telegram'),
+      this.program.generatedConstructFile('resources/alert-channels/telegram'),
     )
   }
 
   gencode (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

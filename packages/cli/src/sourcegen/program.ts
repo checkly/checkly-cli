@@ -10,21 +10,30 @@ type Content = Declaration | Value
 export interface ProgramOptions {
   rootDirectory: string
   constructFileSuffix: string
+  specFileSuffix: string
   language: 'typescript' | 'javascript'
-}
-
-export interface GeneratedFileOptions {
-  type: 'construct' | 'auxiliary'
 }
 
 export class Program {
   #options: ProgramOptions
+  #ext: string
   #generatedFiles = new Map<string, GeneratedFile>()
   #staticAuxiliaryFiles = new Map<string, StaticAuxiliaryFile>()
 
   constructor (options: ProgramOptions) {
     this.#options = {
       ...options,
+    }
+
+    switch (options.language) {
+      case 'typescript':
+        this.#ext = '.ts'
+        break
+      case 'javascript':
+        this.#ext = '.js'
+        break
+      default:
+        throw new Error(`Unknown value '${options.language}' for \`ProgramOptions.language\``)
     }
   }
 
@@ -44,22 +53,9 @@ export class Program {
     return paths
   }
 
-  generatedFile (path: string, options?: GeneratedFileOptions): GeneratedFile {
-    const type = options?.type ?? 'construct'
-    if (type === 'construct') {
-      path += this.#options.constructFileSuffix
-    }
-
-    switch (this.#options.language) {
-      case 'typescript':
-        path += '.ts'
-        break
-      case 'javascript':
-        path += '.js'
-        break
-      default:
-        throw new Error(`Unknown value '${this.#options.language}' for \`ProgramOptions.language\``)
-    }
+  generatedConstructFile (path: string): GeneratedFile {
+    path += this.#options.constructFileSuffix
+    path += this.#ext
 
     let file = this.#generatedFiles.get(path)
     if (file === undefined) {
@@ -67,6 +63,40 @@ export class Program {
       this.#generatedFiles.set(path, file)
     }
 
+    return file
+  }
+
+  generatedSupportFile (path: string): GeneratedFile {
+    path += this.#ext
+
+    let file = this.#generatedFiles.get(path)
+    if (file === undefined) {
+      file = new GeneratedFile(path)
+      this.#generatedFiles.set(path, file)
+    }
+
+    return file
+  }
+
+  staticSpecFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
+    path += this.#options.specFileSuffix
+    path += this.#ext
+    const file = new StaticAuxiliaryFile(path, content)
+    this.#staticAuxiliaryFiles.set(path, file)
+    return file
+  }
+
+  staticStyleFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
+    path += '.css'
+    const file = new StaticAuxiliaryFile(path, content)
+    this.#staticAuxiliaryFiles.set(path, file)
+    return file
+  }
+
+  staticSupportFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
+    path += this.#ext
+    const file = new StaticAuxiliaryFile(path, content)
+    this.#staticAuxiliaryFiles.set(path, file)
     return file
   }
 
@@ -108,6 +138,26 @@ export abstract class ProgramFile {
   constructor (path: string) {
     this.path = path
   }
+
+  get dirname (): string {
+    return path.dirname(this.path)
+  }
+
+  get basename (): string {
+    return path.basename(this.path)
+  }
+
+  relativePath (to: ProgramFile): string {
+    let relpath = path.relative(this.dirname, to.path)
+    if (!relpath.startsWith('.')) {
+      relpath = `./${relpath}`
+    }
+    return posixPath(relpath)
+  }
+}
+
+function posixPath (path: string): string {
+  return path.replace(/\\/g, '/')
 }
 
 export interface ImportOptions {
@@ -116,10 +166,27 @@ export interface ImportOptions {
 }
 
 export class GeneratedFile extends ProgramFile {
-  #imports = new Map<string, Set<string>>()
+  #namedImports = new Map<string, Set<string>>()
+  #plainImports = new Set<string>()
   #sections: Content[] = []
 
-  import (type: string, from: string, options?: ImportOptions) {
+  namedImport (type: string, from: string, options?: ImportOptions) {
+    from = this.#processImportFrom(from, options)
+
+    if (this.#namedImports.has(from)) {
+      this.#namedImports.get(from)?.add(type)
+    } else {
+      this.#namedImports.set(from, new Set([type]))
+    }
+  }
+
+  plainImport (from: string, options?: ImportOptions) {
+    from = this.#processImportFrom(from, options)
+
+    this.#plainImports.add(from)
+  }
+
+  #processImportFrom (from: string, options?: ImportOptions): string {
     let relativeTo = options?.relativeTo
     if (relativeTo === undefined && options?.relativeToSelf) {
       relativeTo = path.dirname(this.path)
@@ -130,8 +197,7 @@ export class GeneratedFile extends ProgramFile {
         from = `./${from}`
       }
 
-      // Attempt to make sure we create a posix path.
-      from = from.replace(/\\/g, '/')
+      from = posixPath(from)
     }
 
     // Shouldn't have imports with .ts extensions.
@@ -139,11 +205,7 @@ export class GeneratedFile extends ProgramFile {
       from = from.slice(0, -3) + '.js'
     }
 
-    if (this.#imports.has(from)) {
-      this.#imports.get(from)?.add(type)
-    } else {
-      this.#imports.set(from, new Set([type]))
-    }
+    return from
   }
 
   section (content: Content) {
@@ -151,8 +213,8 @@ export class GeneratedFile extends ProgramFile {
   }
 
   render (output: Output): void {
-    if (this.#imports.size > 0) {
-      for (const [pkg, types] of this.#imports.entries()) {
+    if (this.#namedImports.size > 0) {
+      for (const [pkg, types] of this.#namedImports.entries()) {
         output.append('import')
         output.cosmeticWhitespace()
         output.append('{')
@@ -169,6 +231,15 @@ export class GeneratedFile extends ProgramFile {
         output.append('}')
         output.significantWhitespace()
         output.append('from')
+        output.significantWhitespace()
+        output.append(`'${pkg}'`)
+        output.endLine()
+      }
+    }
+
+    if (this.#plainImports.size > 0) {
+      for (const pkg of this.#plainImports.values()) {
+        output.append('import')
         output.significantWhitespace()
         output.append(`'${pkg}'`)
         output.endLine()

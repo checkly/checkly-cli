@@ -17,14 +17,14 @@ export class SmsAlertChannelCodegen extends Codegen<SmsAlertChannelResource> {
     context.registerAlertChannel(
       resource.id,
       'smsAlert',
-      this.program.generatedFile('resources/alert-channels/sms'),
+      this.program.generatedConstructFile('resources/alert-channels/sms'),
     )
   }
 
   gencode (logicalId: string, resource: SmsAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

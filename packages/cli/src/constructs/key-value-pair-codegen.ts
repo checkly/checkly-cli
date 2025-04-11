@@ -25,11 +25,9 @@ export function valueForKeyValuePair (
       })
 
       if (context.registerKnownSecret(secretVariable.value)) {
-        const secretsFile = program.generatedFile('secrets', {
-          type: 'auxiliary',
-        })
+        const secretsFile = program.generatedSupportFile('secrets')
 
-        secretsFile.import('secret', 'checkly/util')
+        secretsFile.namedImport('secret', 'checkly/util')
 
         secretsFile.section(decl(secretVariable, builder => {
           builder.variable(expr(ident('secret'), builder => {
@@ -42,7 +40,7 @@ export function valueForKeyValuePair (
         }))
       }
 
-      genfile.import(secretVariable.value, 'secrets', {
+      genfile.namedImport(secretVariable.value, 'secrets', {
         relativeToSelf: true,
       })
 
