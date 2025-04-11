@@ -31,7 +31,7 @@ const construct = 'Dashboard'
 export class DashboardCodegen extends Codegen<DashboardResource> {
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
     const name = kebabCase(resource.header ?? logicalId)
-    const file = this.program.generatedConstructFile(`resources/dashboards/${name}`)
+    const file = this.program.generatedConstructFile(`resources/dashboards/${name}/${name}`)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -121,7 +121,7 @@ export class DashboardCodegen extends Codegen<DashboardResource> {
           if (resource.customCSS) {
             const content = resource.customCSS
             builder.object('customCSS', builder => {
-              const cssFile = this.program.staticStyleFile(`${file.dirname}/${name}`, content)
+              const cssFile = this.program.staticStyleFile(`${file.dirname}/style`, content)
               builder.string('entrypoint', file.relativePath(cssFile))
             })
           }
