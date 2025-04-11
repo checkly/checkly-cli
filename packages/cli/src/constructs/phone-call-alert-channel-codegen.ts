@@ -17,14 +17,14 @@ export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelR
     context.registerAlertChannel(
       resource.id,
       'phoneCallAlert',
-      this.program.generatedFile('resources/alert-channels/phone-call'),
+      this.program.generatedConstructFile('resources/alert-channels/phone-call'),
     )
   }
 
   gencode (logicalId: string, resource: PhoneCallAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

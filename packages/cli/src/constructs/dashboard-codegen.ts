@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
+import { expr, ident, kebabCase } from '../sourcegen'
 
 export interface DashboardResource {
   tags?: string[]
@@ -30,9 +30,10 @@ const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/dashboards/${logicalId}`)
+    const name = kebabCase(resource.header ?? logicalId)
+    const file = this.program.generatedConstructFile(`resources/dashboards/${name}`)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {
@@ -120,9 +121,8 @@ export class DashboardCodegen extends Codegen<DashboardResource> {
           if (resource.customCSS) {
             const content = resource.customCSS
             builder.object('customCSS', builder => {
-            // TODO: Consider creating a separate file with the content
-            // and referring to it via entrypoint instead.
-              builder.string('content', content)
+              const cssFile = this.program.staticStyleFile(`${file.dirname}/${name}`, content)
+              builder.string('entrypoint', file.relativePath(cssFile))
             })
           }
 

@@ -8,7 +8,7 @@ export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyR
     return new NumberValue(frequency)
   }
 
-  genfile.import('Frequency', 'checkly/constructs')
+  genfile.namedImport('Frequency', 'checkly/constructs')
 
   const predefined = {
     EVERY_10S: Frequency.EVERY_10S,

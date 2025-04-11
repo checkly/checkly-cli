@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
+import { decl, expr, ident, kebabCase } from '../sourcegen'
 
 export interface StatusPageServiceResource {
   id: string
@@ -12,14 +12,14 @@ export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource>
   prepare (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
     context.registerStatusPageService(
       resource.id,
-      this.program.generatedFile(`resources/status-pages/services/${logicalId}`),
+      this.program.generatedConstructFile(`resources/status-pages/services/${kebabCase(resource.name)}`),
     )
   }
 
   gencode (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
     const { id, file } = context.lookupStatusPageService(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

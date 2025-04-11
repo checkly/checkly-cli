@@ -4,7 +4,7 @@ import { AlertEscalation } from './alert-escalation-policy'
 export type AlertEscalationResource = AlertEscalation
 
 export function valueForAlertEscalation (genfile: GeneratedFile, escalation: AlertEscalationResource): Value {
-  genfile.import('AlertEscalationBuilder', 'checkly/constructs')
+  genfile.namedImport('AlertEscalationBuilder', 'checkly/constructs')
 
   function appendCommonArguments (escalation: AlertEscalationResource, builder: ArgumentsValueBuilder): void {
     if (escalation.reminders) {

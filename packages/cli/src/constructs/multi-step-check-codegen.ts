@@ -1,4 +1,4 @@
-import { expr, ident } from '../sourcegen'
+import { expr, ident, kebabCase } from '../sourcegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { Codegen, Context } from './internal/codegen'
@@ -14,9 +14,9 @@ const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/multi-step-checks/${logicalId}`)
+    const file = this.program.generatedConstructFile(`resources/multi-step-checks/${kebabCase(resource.name)}`)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {

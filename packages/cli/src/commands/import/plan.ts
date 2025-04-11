@@ -87,6 +87,7 @@ export default class ImportPlanCommand extends AuthCommand {
     const program = new Program({
       rootDirectory,
       constructFileSuffix: '.check',
+      specFileSuffix: '.spec',
       language: 'typescript',
     })
 

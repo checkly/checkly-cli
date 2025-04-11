@@ -16,14 +16,14 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
     context.registerAlertChannel(
       resource.id,
       'teamsAlert',
-      this.program.generatedFile('resources/alert-channels/ms-teams'),
+      this.program.generatedConstructFile('resources/alert-channels/ms-teams'),
     )
   }
 
   gencode (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

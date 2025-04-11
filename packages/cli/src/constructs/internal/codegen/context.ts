@@ -31,7 +31,7 @@ export class Context {
   #knownSecrets = new Set<string>()
 
   importVariable (locator: VariableLocator, file: GeneratedFile): void {
-    file.import(locator.id.value, locator.file.path, {
+    file.namedImport(locator.id.value, locator.file.path, {
       relativeTo: dirname(file.path),
     })
   }

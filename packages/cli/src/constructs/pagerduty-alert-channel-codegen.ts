@@ -18,14 +18,14 @@ export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelR
     context.registerAlertChannel(
       resource.id,
       'pagerdutyAlert',
-      this.program.generatedFile('resources/alert-channels/pagerduty'),
+      this.program.generatedConstructFile('resources/alert-channels/pagerduty'),
     )
   }
 
   gencode (logicalId: string, resource: PagerdutyAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

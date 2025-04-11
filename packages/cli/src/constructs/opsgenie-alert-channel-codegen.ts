@@ -19,14 +19,14 @@ export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelRes
     context.registerAlertChannel(
       resource.id,
       'opsgenieAlert',
-      this.program.generatedFile('resources/alert-channels/opsgenie'),
+      this.program.generatedConstructFile('resources/alert-channels/opsgenie'),
     )
   }
 
   gencode (logicalId: string, resource: OpsgenieAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

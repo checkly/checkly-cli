@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, kebabCase, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
@@ -259,14 +259,14 @@ export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
     context.registerCheckGroup(
       resource.id,
-      this.program.generatedFile(`resources/check-groups/${logicalId}`),
+      this.program.generatedConstructFile(`resources/check-groups/${kebabCase(resource.name)}`),
     )
   }
 
   gencode (logicalId: string, resource: CheckGroupResource, context: Context): void {
     const { id, file } = context.lookupCheckGroup(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

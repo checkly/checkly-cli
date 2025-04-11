@@ -16,14 +16,14 @@ export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource>
     context.registerAlertChannel(
       resource.id,
       'emailAlert',
-      this.program.generatedFile('resources/alert-channels/email'),
+      this.program.generatedConstructFile('resources/alert-channels/email'),
     )
   }
 
   gencode (logicalId: string, resource: EmailAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {
