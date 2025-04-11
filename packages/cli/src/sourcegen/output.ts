@@ -74,6 +74,19 @@ export class Output {
   }
 
   finalize (): string {
+    // Remove trailing empty lines.
+    for (;;) {
+      const line = this.#lines.pop()
+      if (line === undefined) {
+        break
+      }
+
+      if (!line.isEmpty()) {
+        this.#lines.push(line)
+        break
+      }
+    }
+
     const buf = new OutputBuffer()
 
     for (const line of this.#lines) {
