@@ -13,7 +13,6 @@ import { PrivateLocationCheckAssignment } from './private-location-check-assignm
 import { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
-import { StatusPageServiceCheckAssignment } from './status-page-service-check-assignment'
 
 export interface CheckProps {
   /**
@@ -223,18 +222,6 @@ export abstract class Check extends Construct {
     }
   }
 
-  addStatusPageServiceCheckAssignments () {
-    if (!this.triggerIncident) {
-      return
-    }
-    const { service } = this.triggerIncident
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const assignment = new StatusPageServiceCheckAssignment(`status-page-service-check-assignment#${this.logicalId}#${service.logicalId}`, {
-      statusPageServiceId: Ref.from(service.logicalId),
-      checkId: Ref.from(this.logicalId),
-    })
-  }
-
   getSourceFile () {
     return this.__checkFilePath
   }
@@ -242,11 +229,11 @@ export abstract class Check extends Construct {
   synthesize () {
     const triggerIncident = (() => {
       if (this.triggerIncident) {
-        // Remove service from the payload, it is sent separately via
-        // StatusPageServiceCheckAssignment.
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { service, ...triggerIncident } = this.triggerIncident
-        return triggerIncident
+        return {
+          ...triggerIncident,
+          serviceId: service.ref(),
+        }
       }
     })()
 
