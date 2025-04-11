@@ -92,6 +92,7 @@ export class BrowserCheck extends Check {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+    this.addStatusPageServiceCheckAssignments()
   }
 
   private static applyDefaultBrowserCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
