@@ -257,11 +257,14 @@ const construct = 'CheckGroup'
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
-    const { filename } = context.filename(resource.name, resource.tags)
+    const filename = context.filePath('resources/check-group', resource.name, {
+      isolate: true,
+      unique: true,
+    })
 
     context.registerCheckGroup(
       resource.id,
-      this.program.generatedConstructFile(`resources/check-groups/${filename}`),
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

@@ -47,8 +47,13 @@ const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
   gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
-    const { filename, stub } = context.filename(resource.name, resource.tags)
-    const file = this.program.generatedConstructFile(`resources/api-checks/${stub}/${filename}`)
+    const filePath = context.filePath('resources/api-checks', resource.name, {
+      tags: resource.tags,
+      isolate: true,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -134,8 +139,11 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             const snippet = resource.setupScript
             if (snippet.script !== undefined) {
               const script = snippet.script
-              const { filename } = context.filename(snippet.name)
-              const snippetFile = this.program.staticSupportFile(`snippets/${filename}`, script)
+              const snippetFilePath = context.filePath('snippets', snippet.name, {
+                unique: false,
+                contentKey: `snippet::${snippet.id}`,
+              })
+              const snippetFile = this.program.staticSupportFile(snippetFilePath.fullPath, script)
               const scriptFile = this.program.generatedSupportFile(`${file.dirname}/setup-script`)
               scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('setupScript', builder => {
@@ -154,8 +162,11 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             const snippet = resource.tearDownScript
             if (snippet.script !== undefined) {
               const script = snippet.script
-              const { filename } = context.filename(snippet.name)
-              const snippetFile = this.program.staticSupportFile(`snippets/${filename}`, script)
+              const snippetFilePath = context.filePath('snippets', snippet.name, {
+                unique: false,
+                contentKey: `snippet::${snippet.id}`,
+              })
+              const snippetFile = this.program.staticSupportFile(snippetFilePath.fullPath, script)
               const scriptFile = this.program.generatedSupportFile(`${file.dirname}/teardown-script`)
               scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('tearDownScript', builder => {

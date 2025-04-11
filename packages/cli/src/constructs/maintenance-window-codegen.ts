@@ -15,8 +15,11 @@ const construct = 'MaintenanceWindow'
 
 export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
   gencode (logicalId: string, resource: MaintenanceWindowResource, context: Context): void {
-    const { filename } = context.filename(resource.name)
-    const file = this.program.generatedConstructFile(`resources/maintenance-windows/${filename}`)
+    const filePath = context.filePath('resources/maintenance-windows', resource.name, {
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 
