@@ -14,7 +14,8 @@ const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
-    const file = this.program.generatedConstructFile(`resources/multi-step-checks/${kebabCase(resource.name)}`)
+    const name = kebabCase(resource.name)
+    const file = this.program.generatedConstructFile(`resources/multi-step-checks/${name}/${name}`)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -23,13 +24,8 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            if (resource.scriptPath) {
-            // TODO separate file
-              builder.string('entrypoint', resource.scriptPath)
-              builder.string('content', resource.script)
-            } else {
-              builder.string('content', resource.script)
-            }
+            const scriptFile = this.program.staticSupportFile(`${file.dirname}/entrypoint`, resource.script)
+            builder.string('entrypoint', file.relativePath(scriptFile))
           })
 
           if (resource.playwrightConfig) {
