@@ -91,6 +91,7 @@ export class TcpCheck extends Check {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+    this.addStatusPageServiceCheckAssignments()
   }
 
   synthesize () {

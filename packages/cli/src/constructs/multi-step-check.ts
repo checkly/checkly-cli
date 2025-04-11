@@ -77,6 +77,7 @@ export class MultiStepCheck extends Check {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+    this.addStatusPageServiceCheckAssignments()
   }
 
   private static applyDefaultMultiStepCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {

@@ -12,6 +12,8 @@ import { PrivateLocation } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 import { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
+import { IncidentTrigger } from './incident'
+import { StatusPageServiceCheckAssignment } from './status-page-service-check-assignment'
 
 export interface CheckProps {
   /**
@@ -98,6 +100,12 @@ export interface CheckProps {
    * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
    */
   runParallel?: boolean
+  /**
+   * Determines whether the check should create and resolve an incident based on its alert configuration.
+   * See https://www.checklyhq.com/docs/status-pages/incidents/#incident-automation to learn more about automated
+   * incidents.
+   */
+  triggerIncident?: IncidentTrigger
 }
 
 // This is an abstract class. It shouldn't be used directly.
@@ -121,6 +129,7 @@ export abstract class Check extends Construct {
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
+  triggerIncident?: IncidentTrigger
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
 
   static readonly __checklyType = 'check'
@@ -160,6 +169,7 @@ export abstract class Check extends Construct {
     this.alertSettings = props.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
     this.runParallel = props.runParallel ?? false
+    this.triggerIncident = props.triggerIncident
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -213,11 +223,33 @@ export abstract class Check extends Construct {
     }
   }
 
+  addStatusPageServiceCheckAssignments () {
+    if (!this.triggerIncident) {
+      return
+    }
+    const { service } = this.triggerIncident
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const assignment = new StatusPageServiceCheckAssignment(`status-page-service-check-assignment#${this.logicalId}#${service.logicalId}`, {
+      statusPageServiceId: Ref.from(service.logicalId),
+      checkId: Ref.from(this.logicalId),
+    })
+  }
+
   getSourceFile () {
     return this.__checkFilePath
   }
 
   synthesize () {
+    const triggerIncident = (() => {
+      if (this.triggerIncident) {
+        // Remove service from the payload, it is sent separately via
+        // StatusPageServiceCheckAssignment.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { service, ...triggerIncident } = this.triggerIncident
+        return triggerIncident
+      }
+    })()
+
     return {
       name: this.name,
       activated: this.activated,
@@ -246,6 +278,7 @@ export abstract class Check extends Construct {
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,
+      triggerIncident,
     }
   }
 }

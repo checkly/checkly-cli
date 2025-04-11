@@ -204,6 +204,7 @@ export class ApiCheck extends Check {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+    this.addStatusPageServiceCheckAssignments()
   }
 
   static bundle (entrypoint: string, runtimeId?: string) {
