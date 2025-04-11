@@ -10,8 +10,12 @@ export interface HeartbeatCheckResource extends CheckResource {
 
 export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
   gencode (logicalId: string, resource: HeartbeatCheckResource, context: Context): void {
-    const { filename } = context.filename(resource.name, resource.tags)
-    const file = this.program.generatedConstructFile(`resources/heartbeats/${filename}`)
+    const filePath = context.filePath('resources/heartbeats', resource.name, {
+      tags: resource.tags,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport('HeartbeatCheck', 'checkly/constructs')
 

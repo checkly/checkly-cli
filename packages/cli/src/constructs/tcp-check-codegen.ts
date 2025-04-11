@@ -28,8 +28,12 @@ const construct = 'TcpCheck'
 
 export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
   gencode (logicalId: string, resource: TcpCheckResource, context: Context): void {
-    const { filename, stub } = context.filename(resource.name, resource.tags)
-    const file = this.program.generatedConstructFile(`resources/tcp-checks/${stub}/${filename}`)
+    const filePath = context.filePath('resources/tcp-checks', resource.name, {
+      tags: resource.tags,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 

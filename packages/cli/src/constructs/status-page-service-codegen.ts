@@ -10,11 +10,13 @@ const construct = 'StatusPageService'
 
 export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource> {
   prepare (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
-    const { filename } = context.filename(resource.name)
+    const filePath = context.filePath('resources/status-pages/services', resource.name, {
+      unique: true,
+    })
 
     context.registerStatusPageService(
       resource.id,
-      this.program.generatedConstructFile(`resources/status-pages/services/${filename}`),
+      this.program.generatedConstructFile(filePath.fullPath),
     )
   }
 

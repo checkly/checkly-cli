@@ -30,8 +30,12 @@ const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
-    const { filename, stub } = context.filename(resource.header ?? logicalId)
-    const file = this.program.generatedConstructFile(`resources/dashboards/${stub}/${filename}`)
+    const filePath = context.filePath('resources/dashboards', resource.header ?? logicalId, {
+      isolate: true,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 

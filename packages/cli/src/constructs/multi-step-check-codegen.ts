@@ -14,8 +14,12 @@ const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
-    const { filename, stub } = context.filename(resource.name, resource.tags)
-    const file = this.program.generatedConstructFile(`resources/multi-step-checks/${stub}/${filename}`)
+    const filePath = context.filePath('resources/multi-step-checks', resource.name, {
+      tags: resource.tags,
+      unique: true,
+    })
+
+    const file = this.program.generatedConstructFile(filePath.fullPath)
 
     file.namedImport(construct, 'checkly/constructs')
 
