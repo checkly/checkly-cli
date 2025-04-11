@@ -201,8 +201,8 @@ export class GeneratedFile extends ProgramFile {
     }
 
     // Shouldn't have imports with .ts extensions.
-    if (from.endsWith('.ts')) {
-      from = from.slice(0, -3) + '.js'
+    if (from.endsWith('.ts') || from.endsWith('.js')) {
+      from = from.slice(0, -3)
     }
 
     return from
