@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, kebabCase, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
@@ -257,9 +257,11 @@ const construct = 'CheckGroup'
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
+    const { filename } = context.filename(resource.name, resource.tags)
+
     context.registerCheckGroup(
       resource.id,
-      this.program.generatedConstructFile(`resources/check-groups/${kebabCase(resource.name)}`),
+      this.program.generatedConstructFile(`resources/check-groups/${filename}`),
     )
   }
 

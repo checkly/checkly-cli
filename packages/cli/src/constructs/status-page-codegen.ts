@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident, kebabCase } from '../sourcegen'
+import { expr, ident } from '../sourcegen'
 import { StatusPageServiceResource } from './status-page-service-codegen'
 import { StatusPageTheme } from './status-page'
 
@@ -25,7 +25,8 @@ const construct = 'StatusPage'
 
 export class StatusPageCodegen extends Codegen<StatusPageResource> {
   gencode (logicalId: string, resource: StatusPageResource, context: Context): void {
-    const file = this.program.generatedConstructFile(`resources/status-pages/${kebabCase(resource.name)}`)
+    const { filename } = context.filename(resource.name)
+    const file = this.program.generatedConstructFile(`resources/status-pages/${filename}`)
 
     file.namedImport(construct, 'checkly/constructs')
 
