@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, kebabCase, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
@@ -25,7 +25,7 @@ export interface ApiCheckResource extends CheckResource {
 }
 
 export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion): Value {
-  genfile.import('AssertionBuilder', 'checkly/constructs')
+  genfile.namedImport('AssertionBuilder', 'checkly/constructs')
 
   switch (assertion.source) {
     case 'STATUS_CODE':
@@ -47,9 +47,10 @@ const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
   gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/api-checks/${logicalId}`)
+    const name = kebabCase(resource.name)
+    const file = this.program.generatedConstructFile(`resources/api-checks/${name}/${name}`)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {
@@ -126,15 +127,18 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
           if (resource.localSetupScript) {
             const content = resource.localSetupScript
             builder.object('setupScript', builder => {
-              builder.string('content', content)
+              const scriptFile = this.program.staticSupportFile(`${file.dirname}/setup-script`, content)
+              builder.string('entrypoint', file.relativePath(scriptFile))
             })
           } else if (resource.setupScript) {
             const snippet = resource.setupScript
             if (snippet.script !== undefined) {
               const script = snippet.script
+              const snippetFile = this.program.staticSupportFile(`snippets/${kebabCase(snippet.name)}`, script)
+              const scriptFile = this.program.generatedSupportFile(`${file.dirname}/setup-script`)
+              scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('setupScript', builder => {
-                // TODO: Move to a separate file and use entrypoint instead.
-                builder.string('content', script)
+                builder.string('entrypoint', file.relativePath(scriptFile))
               })
             }
           }
@@ -142,15 +146,18 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
           if (resource.localTearDownScript) {
             const content = resource.localTearDownScript
             builder.object('tearDownScript', builder => {
-              builder.string('content', content)
+              const scriptFile = this.program.staticSupportFile(`${file.dirname}/teardown-script`, content)
+              builder.string('entrypoint', file.relativePath(scriptFile))
             })
           } else if (resource.tearDownScript) {
             const snippet = resource.tearDownScript
             if (snippet.script !== undefined) {
               const script = snippet.script
+              const snippetFile = this.program.staticSupportFile(`snippets/${kebabCase(snippet.name)}`, script)
+              const scriptFile = this.program.generatedSupportFile(`${file.dirname}/teardown-script`)
+              scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('tearDownScript', builder => {
-                // TODO: Move to a separate file and use entrypoint instead.
-                builder.string('content', script)
+                builder.string('entrypoint', file.relativePath(scriptFile))
               })
             }
           }

@@ -114,7 +114,7 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
     context.registerAlertChannel(
       resource.id,
       'webhookAlert',
-      this.program.generatedFile('resources/alert-channels/webhook'),
+      this.program.generatedConstructFile('resources/alert-channels/webhook'),
     )
   }
 
@@ -130,7 +130,7 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
 
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

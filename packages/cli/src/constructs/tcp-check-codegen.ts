@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, kebabCase, Value } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
 import { TcpAssertion, TcpRequest } from './tcp-check'
@@ -12,7 +12,7 @@ export interface TcpCheckResource extends CheckResource {
 }
 
 export function valueForTcpAssertion (genfile: GeneratedFile, assertion: TcpAssertion): Value {
-  genfile.import('TcpAssertionBuilder', 'checkly/constructs')
+  genfile.namedImport('TcpAssertionBuilder', 'checkly/constructs')
 
   switch (assertion.source) {
     case 'RESPONSE_DATA':
@@ -28,9 +28,9 @@ const construct = 'TcpCheck'
 
 export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
   gencode (logicalId: string, resource: TcpCheckResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/tcp-checks/${logicalId}`)
+    const file = this.program.generatedConstructFile(`resources/tcp-checks/${kebabCase(resource.name)}`)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {

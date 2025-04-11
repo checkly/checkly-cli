@@ -31,14 +31,14 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
     context.registerAlertChannel(
       resource.id,
       'incidentioAlert',
-      this.program.generatedFile('resources/alert-channels/incident-io'),
+      this.program.generatedConstructFile('resources/alert-channels/incident-io'),
     )
   }
 
   gencode (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 

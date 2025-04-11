@@ -3,7 +3,17 @@ export { args, ArgumentsValueBuilder } from './argsbuilder'
 export { ArrayValue } from './array'
 export { array, ArrayValueBuilder } from './arraybuilder'
 export { BooleanValue } from './boolean'
-export { cased, CaseFormat } from './case'
+export {
+  cased,
+  CaseFormat,
+  camelCase,
+  pascalCase,
+  trainCase,
+  snakeCase,
+  screamingSnakeCase,
+  kebabCase,
+  screamingKebabCase,
+} from './case'
 export {
   VariableDeclaration,
   ExportDeclaration,

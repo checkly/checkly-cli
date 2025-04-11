@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
+import { expr, ident, kebabCase } from '../sourcegen'
 
 export interface MaintenanceWindowResource {
   name: string
@@ -15,9 +15,9 @@ const construct = 'MaintenanceWindow'
 
 export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
   gencode (logicalId: string, resource: MaintenanceWindowResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/maintenance-windows/${logicalId}`)
+    const file = this.program.generatedConstructFile(`resources/maintenance-windows/${kebabCase(resource.name)}`)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {

@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
+import { expr, ident, kebabCase } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { Heartbeat } from './heartbeat-check'
 
@@ -10,9 +10,9 @@ export interface HeartbeatCheckResource extends CheckResource {
 
 export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
   gencode (logicalId: string, resource: HeartbeatCheckResource, context: Context): void {
-    const file = this.program.generatedFile(`resources/heartbeats/${logicalId}`)
+    const file = this.program.generatedConstructFile(`resources/heartbeats/${kebabCase(resource.name)}`)
 
-    file.import('HeartbeatCheck', 'checkly/constructs')
+    file.namedImport('HeartbeatCheck', 'checkly/constructs')
 
     file.section(expr(ident('HeartbeatCheck'), builder => {
       builder.new(builder => {

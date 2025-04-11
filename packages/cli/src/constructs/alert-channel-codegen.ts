@@ -53,7 +53,7 @@ export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: A
 const construct = 'AlertChannel'
 
 export function valueForAlertChannelFromId (genfile: GeneratedFile, physicalId: number): Value {
-  genfile.import(construct, 'checkly/constructs')
+  genfile.namedImport(construct, 'checkly/constructs')
 
   return expr(ident(construct), builder => {
     builder.member(ident('fromId'))

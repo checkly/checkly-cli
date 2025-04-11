@@ -17,14 +17,14 @@ export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource>
     context.registerAlertChannel(
       resource.id,
       'slackAlert',
-      this.program.generatedFile('resources/alert-channels/slack'),
+      this.program.generatedConstructFile('resources/alert-channels/slack'),
     )
   }
 
   gencode (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
     const { id, file } = context.lookupAlertChannel(resource.id)
 
-    file.import(construct, 'checkly/constructs')
+    file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
 
