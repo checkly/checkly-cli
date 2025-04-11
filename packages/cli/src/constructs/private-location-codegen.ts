@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, kebabCase, Value } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen'
 
 export interface PrivateLocationResource {
   id: string
@@ -24,9 +24,11 @@ export function valueForPrivateLocationFromId (genfile: GeneratedFile, physicalI
 
 export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
   prepare (logicalId: string, resource: PrivateLocationResource, context: Context): void {
+    const { filename } = context.filename(resource.slugName)
+
     context.registerPrivateLocation(
       resource.id,
-      this.program.generatedConstructFile(`resources/private-locations/${kebabCase(resource.slugName)}`),
+      this.program.generatedConstructFile(`resources/private-locations/${filename}`),
     )
   }
 

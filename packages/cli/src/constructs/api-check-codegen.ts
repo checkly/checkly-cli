@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, GeneratedFile, ident, kebabCase, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
@@ -47,8 +47,8 @@ const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
   gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
-    const name = kebabCase(resource.name)
-    const file = this.program.generatedConstructFile(`resources/api-checks/${name}/${name}`)
+    const { filename, stub } = context.filename(resource.name, resource.tags)
+    const file = this.program.generatedConstructFile(`resources/api-checks/${stub}/${filename}`)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -134,7 +134,8 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             const snippet = resource.setupScript
             if (snippet.script !== undefined) {
               const script = snippet.script
-              const snippetFile = this.program.staticSupportFile(`snippets/${kebabCase(snippet.name)}`, script)
+              const { filename } = context.filename(snippet.name)
+              const snippetFile = this.program.staticSupportFile(`snippets/${filename}`, script)
               const scriptFile = this.program.generatedSupportFile(`${file.dirname}/setup-script`)
               scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('setupScript', builder => {
@@ -153,7 +154,8 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             const snippet = resource.tearDownScript
             if (snippet.script !== undefined) {
               const script = snippet.script
-              const snippetFile = this.program.staticSupportFile(`snippets/${kebabCase(snippet.name)}`, script)
+              const { filename } = context.filename(snippet.name)
+              const snippetFile = this.program.staticSupportFile(`snippets/${filename}`, script)
               const scriptFile = this.program.generatedSupportFile(`${file.dirname}/teardown-script`)
               scriptFile.plainImport(scriptFile.relativePath(snippetFile))
               builder.object('tearDownScript', builder => {

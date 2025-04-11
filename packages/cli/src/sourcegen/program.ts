@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import path from 'node:path'
+import path, { extname } from 'node:path'
 
 import { Output } from './output'
 import { Value } from './value'
@@ -54,8 +54,10 @@ export class Program {
   }
 
   generatedConstructFile (path: string): GeneratedFile {
-    path += this.#options.constructFileSuffix
-    path += this.#ext
+    if (this.#shouldModifyPath(path)) {
+      path += this.#options.constructFileSuffix
+      path += this.#ext
+    }
 
     let file = this.#generatedFiles.get(path)
     if (file === undefined) {
@@ -67,7 +69,9 @@ export class Program {
   }
 
   generatedSupportFile (path: string): GeneratedFile {
-    path += this.#ext
+    if (this.#shouldModifyPath(path)) {
+      path += this.#ext
+    }
 
     let file = this.#generatedFiles.get(path)
     if (file === undefined) {
@@ -79,25 +83,36 @@ export class Program {
   }
 
   staticSpecFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
-    path += this.#options.specFileSuffix
-    path += this.#ext
+    if (this.#shouldModifyPath(path)) {
+      path += this.#options.specFileSuffix
+      path += this.#ext
+    }
     const file = new StaticAuxiliaryFile(path, content)
     this.#staticAuxiliaryFiles.set(path, file)
     return file
   }
 
   staticStyleFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
-    path += '.css'
+    if (this.#shouldModifyPath(path)) {
+      path += '.css'
+    }
     const file = new StaticAuxiliaryFile(path, content)
     this.#staticAuxiliaryFiles.set(path, file)
     return file
   }
 
   staticSupportFile (path: string, content: string | Buffer): StaticAuxiliaryFile {
-    path += this.#ext
+    if (this.#shouldModifyPath(path)) {
+      path += this.#ext
+    }
     const file = new StaticAuxiliaryFile(path, content)
     this.#staticAuxiliaryFiles.set(path, file)
     return file
+  }
+
+  #shouldModifyPath (path: string): boolean {
+    // Don't add extensions if it looks like we already have some.
+    return extname(path) === ''
   }
 
   async realize (): Promise<void> {

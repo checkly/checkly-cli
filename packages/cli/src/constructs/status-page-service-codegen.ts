@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident, kebabCase } from '../sourcegen'
+import { decl, expr, ident } from '../sourcegen'
 
 export interface StatusPageServiceResource {
   id: string
@@ -10,9 +10,11 @@ const construct = 'StatusPageService'
 
 export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource> {
   prepare (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
+    const { filename } = context.filename(resource.name)
+
     context.registerStatusPageService(
       resource.id,
-      this.program.generatedConstructFile(`resources/status-pages/services/${kebabCase(resource.name)}`),
+      this.program.generatedConstructFile(`resources/status-pages/services/${filename}`),
     )
   }
 

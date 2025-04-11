@@ -1,6 +1,6 @@
 import { dirname } from 'node:path'
 
-import { GeneratedFile, IdentifierValue } from '../../../sourcegen'
+import { GeneratedFile, IdentifierValue, kebabCase } from '../../../sourcegen'
 
 export class MissingContextVariableMappingError extends Error {}
 
@@ -13,6 +13,8 @@ export class VariableLocator {
     this.file = file
   }
 }
+
+const CHECKLY_IMPORT_FILENAME_TAG_PREFIX = 'checkly-import-filename:'
 
 export class Context {
   #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
@@ -29,6 +31,31 @@ export class Context {
   #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
 
   #knownSecrets = new Set<string>()
+
+  filename (resourceName: string, tags?: string[]): { filename: string, stub: string } {
+    const stub = (filename: string) => {
+      const index = filename.indexOf('.')
+      return index !== -1 ? filename.slice(0, index) : filename
+    }
+
+    if (tags !== undefined) {
+      for (const tag of tags) {
+        if (tag.startsWith(CHECKLY_IMPORT_FILENAME_TAG_PREFIX)) {
+          const filename = tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length)
+          return {
+            filename,
+            stub: stub(filename),
+          }
+        }
+      }
+    }
+
+    const filename = kebabCase(resourceName)
+    return {
+      filename,
+      stub: stub(filename),
+    }
+  }
 
   importVariable (locator: VariableLocator, file: GeneratedFile): void {
     file.namedImport(locator.id.value, locator.file.path, {

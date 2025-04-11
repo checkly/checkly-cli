@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident, kebabCase } from '../sourcegen'
+import { expr, ident } from '../sourcegen'
 
 export interface DashboardResource {
   tags?: string[]
@@ -30,8 +30,8 @@ const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
-    const name = kebabCase(resource.header ?? logicalId)
-    const file = this.program.generatedConstructFile(`resources/dashboards/${name}/${name}`)
+    const { filename, stub } = context.filename(resource.header ?? logicalId)
+    const file = this.program.generatedConstructFile(`resources/dashboards/${stub}/${filename}`)
 
     file.namedImport(construct, 'checkly/constructs')
 

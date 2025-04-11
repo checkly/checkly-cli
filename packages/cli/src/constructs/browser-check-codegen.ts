@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { expr, ident, kebabCase } from '../sourcegen'
+import { expr, ident } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
 
@@ -15,8 +15,8 @@ const construct = 'BrowserCheck'
 
 export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
   gencode (logicalId: string, resource: BrowserCheckResource, context: Context): void {
-    const name = kebabCase(resource.name)
-    const file = this.program.generatedConstructFile(`resources/browser-checks/${name}/${name}`)
+    const { filename, stub } = context.filename(resource.name, resource.tags)
+    const file = this.program.generatedConstructFile(`resources/browser-checks/${stub}/${filename}`)
 
     file.namedImport(construct, 'checkly/constructs')
 
@@ -25,7 +25,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            const scriptFile = this.program.staticSpecFile(`${file.dirname}/${name}`, resource.script)
+            const scriptFile = this.program.staticSpecFile(`${file.dirname}/${filename}`, resource.script)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 
