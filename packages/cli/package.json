@@ -61,8 +61,7 @@
         "description": "Manage Checkly environment variables."
       }
     },
-    "helpClass": "./dist/help/help-extension",
-    "topicSeparator": " "
+    "helpClass": "./dist/help/help-extension"
   },
   "bin": {
     "checkly": "./bin/run"
