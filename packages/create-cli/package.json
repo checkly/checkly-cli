@@ -70,14 +70,14 @@
     "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
-    "@types/config": "^3.3.3",
+    "@types/config": "^3.3.5",
     "@types/debug": "^4.1.12",
     "@types/jest": "^29.5.14",
     "@types/luxon": "^3.3.1",
     "@types/node": "^20.3.3",
     "@types/prompts": "^2.4.2",
     "@types/uuid": "^10.0.0",
-    "config": "^3.3.9",
+    "config": "^3.3.12",
     "jest": "^29.7.0",
     "rimraf": "^5.0.10",
     "ts-jest": "^29.2.4",
