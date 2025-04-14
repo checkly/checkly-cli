@@ -104,7 +104,7 @@
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.14",
     "@types/luxon": "^3.6.2",
-    "@types/node": "^20.3.3",
+    "@types/node": "^22.14.1",
     "@types/prompts": "^2.4.9",
     "@types/tunnel": "^0.0.3",
     "@types/uuid": "^10.0.0",
