@@ -106,7 +106,7 @@
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.14.1",
     "@types/prompts": "^2.4.9",
-    "@types/tunnel": "^0.0.3",
+    "@types/tunnel": "^0.0.7",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.5",
     "config": "^3.3.12",
