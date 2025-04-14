@@ -117,7 +117,7 @@
     "rimraf": "^5.0.10",
     "simple-git-hooks": "^2.12.1",
     "ts-jest": "^29.2.4",
-    "ts-node": "^10.9.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "jest": {
