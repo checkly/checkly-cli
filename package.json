@@ -20,7 +20,7 @@
     "@typescript-eslint/eslint-plugin": "^8.30.0",
     "@typescript-eslint/parser": "^8.30.0",
     "eslint": "^8.57.1",
-    "lint-staged": "^15.4.3",
+    "lint-staged": "^15.5.1",
     "simple-git-hooks": "^2.12.1"
   },
   "simple-git-hooks": {
