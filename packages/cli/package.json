@@ -82,7 +82,7 @@
     "conf": "^10.2.0",
     "dotenv": "^16.3.1",
     "git-repo-info": "^2.1.1",
-    "glob": "^10.3.1",
+    "glob": "^10.4.5",
     "indent-string": "^4.0.0",
     "json-stream-stringify": "^3.1.6",
     "json5": "^2.2.3",
@@ -101,7 +101,7 @@
   "devDependencies": {
     "@playwright/test": "^1.51.1",
     "@types/config": "^3.3.3",
-    "@types/glob": "^8.0.0",
+    "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.14",
     "@types/luxon": "^3.3.1",
     "@types/node": "^20.3.3",
