@@ -94,7 +94,7 @@
     "p-queue": "^6.6.2",
     "prompts": "^2.4.2",
     "proxy-from-env": "^1.1.0",
-    "recast": "^0.23.4",
+    "recast": "^0.23.11",
     "tunnel": "^0.0.6",
     "uuid": "^11.1.0"
   },
