@@ -99,7 +99,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.1",
+    "@playwright/test": "^1.51.1",
     "@types/config": "^3.3.3",
     "@types/glob": "^8.0.0",
     "@types/jest": "^29.5.14",
