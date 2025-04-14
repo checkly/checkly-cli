@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Service } from 'ts-node'
 import { existsSync } from 'fs'
 import * as path from 'path'
