@@ -35,7 +35,7 @@ async function loadTsFileDefault (filepath: string): Promise<any> {
       exported = (await require(filepath)).default
     } catch (err: any) {
       if (err.message && err.message.includes('Unable to compile TypeScript')) {
-        throw new Error(`You might try installing "jiti" instead of "ts-node" for improved TypeScript support\n${err.stack}`)
+        throw new Error(`Consider installing "jiti" instead of "ts-node" for improved TypeScript support\n${err.stack}`)
       }
       throw err
     }
