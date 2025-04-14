@@ -1,6 +1,6 @@
 import { Command, Help } from '@oclif/core'
 import examples from './examples'
-import { Topic } from '@oclif/core/lib/interfaces'
+import { Topic } from '@oclif/core/interfaces'
 
 export default class ChecklyHelpClass extends Help {
   protected formatAllCommands (commands: Array<Command.Loadable>,
