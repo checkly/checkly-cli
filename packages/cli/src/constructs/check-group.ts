@@ -220,9 +220,11 @@ export class CheckGroup extends Construct {
         // the browserChecks props inherited from the group are applied in BrowserCheck.constructor()
       }
       const checkLogicalId = pathToPosix(path.relative(Session.basePath!, filepath))
-      checkType === CheckTypes.BROWSER
-        ? new BrowserCheck(checkLogicalId, props)
-        : new MultiStepCheck(checkLogicalId, props)
+      if (checkType === CheckTypes.BROWSER) {
+        new BrowserCheck(checkLogicalId, props)
+      } else {
+        new MultiStepCheck(checkLogicalId, props)
+      }
     }
   }
 

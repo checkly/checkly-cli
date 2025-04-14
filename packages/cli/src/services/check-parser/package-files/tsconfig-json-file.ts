@@ -107,8 +107,10 @@ export class TSConfigFile {
 
   collectLookupPaths (filePath: string): string[] {
     let {
+      // eslint-disable-next-line prefer-const
       outDir,
       rootDir,
+      // eslint-disable-next-line prefer-const
       rootDirs,
       composite,
     } = this.jsonFile.data.compilerOptions ?? {}

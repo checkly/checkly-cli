@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import type { CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -11,7 +12,7 @@ import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunn
 import { glob } from 'glob'
 
 // Copied from oclif/core
-// eslint-disable-next-line
+ 
 const _importDynamic = new Function('modulePath', 'return import(modulePath)')
 
 export interface GitInformation {

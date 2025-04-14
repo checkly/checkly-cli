@@ -42,7 +42,9 @@ export default class Login extends BaseCommand {
         type: 'confirm',
         message: `You are currently logged in to "${config.data.get('accountName')}". Do you want to log out and log in to a different account?`,
       })
-      !setNewkey && this.exit(0)
+      if (!setNewkey) {
+        this.exit(0)
+      }
     }
   }
 
