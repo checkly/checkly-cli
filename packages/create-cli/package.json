@@ -12,8 +12,8 @@
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
-    "test": "jest --selectProjects unit",
-    "test:e2e": "npm run prepare && jest --selectProjects E2E",
+    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit",
+    "test:e2e": "npm run prepare && cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects E2E",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },
@@ -78,6 +78,7 @@
     "@types/prompts": "^2.4.9",
     "@types/uuid": "^10.0.0",
     "config": "^3.3.12",
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
     "jiti": "^2.4.2",
     "rimraf": "^5.0.10",
