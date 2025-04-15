@@ -89,8 +89,9 @@ async function loadTsFileDefault (filepath: string): Promise<any> {
         throw new Error(`Consider installing "jiti" instead of "ts-node" for improved TypeScript support\n${err.stack}`)
       }
       throw err
+    } finally {
+      tsCompiler.enabled(false) // Re-disable the TS compiler
     }
-    tsCompiler.enabled(false) // Re-disable the TS compiler
     return exported
   }
 
