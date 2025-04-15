@@ -6,6 +6,8 @@ import {
   uploadPlaywrightProject,
 } from '../services/util'
 import { ValidationError } from './validator-error'
+import { printLn } from '../reporters/util'
+import chalk from 'chalk'
 
 export interface PlaywrightCheckProps extends CheckProps {
   playwrightConfigPath: string
@@ -16,6 +18,7 @@ export interface PlaywrightCheckProps extends CheckProps {
   pwTags?: string|string[]
   browsers?: string[]
   include?: string|string[]
+  groupName?: string
 }
 
 export class PlaywrightCheck extends Check {
@@ -27,6 +30,7 @@ export class PlaywrightCheck extends Check {
   codeBundlePath?: string
   browsers?: string[]
   include: string[]
+  groupName?: string
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
     this.codeBundlePath = props.codeBundlePath
@@ -45,8 +49,26 @@ export class PlaywrightCheck extends Check {
     if (!fs.existsSync(props.playwrightConfigPath)) {
       throw new ValidationError(`Playwright config doesnt exist ${props.playwrightConfigPath}`)
     }
+    this.groupName = props.groupName
     this.playwrightConfigPath = props.playwrightConfigPath
+    this.applyGroup(this.groupName)
     Session.registerConstruct(this)
+  }
+
+  applyGroup (groupName?: string) {
+    if (!groupName) {
+      return
+    }
+    const checkGroups = Session.project?.data?.['check-group']
+    if (!checkGroups) {
+      return
+    }
+    const group = Object.values(checkGroups).find(group => group.name === groupName)
+    if (group) {
+      this.groupId = group.ref()
+    } else {
+      printLn(chalk.red(`Error: No group named "${groupName}". Please verify the group exists in your code or create it.`))
+    }
   }
 
   getSourceFile () {
