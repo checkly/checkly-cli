@@ -24,7 +24,15 @@ export function readPackageJson (dirPath: string): PackageJson {
 }
 
 export function loadPlaywrightConfig (playwrightConfigPath: string) {
-  return loadFile(playwrightConfigPath)
+  if (!fs.existsSync(playwrightConfigPath)) {
+    return Promise.resolve(null)
+  }
+  if (/\.[mc]?(js|ts)$/.test(playwrightConfigPath)) {
+    return loadFile(playwrightConfigPath)
+  } else {
+    throw new Error('Unable to load the config file. ' +
+    `Please use a .js, .mjs, .cjs, .ts, .mts or .cts file instead.\n${playwrightConfigPath}`)
+  }
 }
 
 export function isValidProjectDirectory (dirPath: string) {
