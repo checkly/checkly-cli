@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
@@ -17,7 +18,7 @@ import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 
 // Copied from oclif/core
-// eslint-disable-next-line
+
 const _importDynamic = new Function('modulePath', 'return import(modulePath)')
 
 export interface GitInformation {

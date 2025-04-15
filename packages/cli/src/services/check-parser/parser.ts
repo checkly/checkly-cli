@@ -11,7 +11,7 @@ import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-est
 import { findFilesWithPattern, findRegexFiles, pathToPosix } from '../util'
 
 // Our custom configuration to handle walking errors
-// eslint-disable-next-line @typescript-eslint/no-empty-function
+ 
 const ignore = (_node: any, _st: any, _c: any) => {}
 
 type Module = {
@@ -60,10 +60,11 @@ function getTsParser (): any {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     tsParser = require('@typescript-eslint/typescript-estree')
     const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
     // Our custom configuration to handle walking errors
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
+     
     Object.values(AST_NODE_TYPES).forEach((astType) => {
       // Only handle the TS specific ones
       if (!astType.startsWith('TS')) {
@@ -220,7 +221,7 @@ export class Parser {
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
     // We can add a not-null assertion operator (!).
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+     
       const item = bfsQueue.shift()!
 
       if (item.filePath.endsWith(PACKAGE_EXTENSION)) {
