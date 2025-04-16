@@ -1,19 +1,23 @@
-import path from 'path'
-import { loadFile } from '../services/checkly-config-loader'
 import fs from 'fs'
+import path from 'path'
+import { loadFile } from '../services/util'
 
 export async function loadPlaywrightConfig () {
-  let config
-  const filenames = ['playwright.config.ts', 'playwright.config.js']
+  const filenames = [
+    'playwright.config.ts',
+    'playwright.config.mts',
+    'playwright.config.cts',
+    'playwright.config.js',
+    'playwright.config.mjs',
+    'playwright.config.cjs',
+  ]
   for (const configFile of filenames) {
-    if (!fs.existsSync(path.resolve(path.dirname(configFile)))) {
+    const configPath = path.resolve(configFile)
+    if (!fs.existsSync(configPath)) {
       continue
     }
-    const dir = path.resolve(path.dirname(configFile))
-    config = await loadFile(path.join(dir, configFile))
-    if (config) {
-      break
-    }
+    const result = await loadFile(configPath)
+    return result
   }
-  return config
+  return undefined
 }

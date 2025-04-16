@@ -1,9 +1,8 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { getDefaultChecklyConfig, loadJsFile, loadTsFile, writeChecklyConfigFile } from './util'
+import { getDefaultChecklyConfig, loadFile, writeChecklyConfigFile } from './util'
 import { CheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
-
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
@@ -93,35 +92,19 @@ export type ChecklyConfig = {
   }
 }
 
-// eslint-disable-next-line no-restricted-syntax
-enum Extension {
-  JS = '.js',
-  MJS = '.mjs',
-  TS = '.ts',
-}
-
-export function loadFile (file: string) {
-  if (!existsSync(file)) {
-    return Promise.resolve(null)
-  }
-  switch (path.extname(file)) {
-    case Extension.JS:
-      return loadJsFile(file)
-    case Extension.MJS:
-      return loadJsFile(file)
-    case Extension.TS:
-      return loadTsFile(file)
-    default:
-      throw new Error(`Unsupported file extension ${file} for the config file`)
-  }
-}
-
 function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
 export function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
-  const filenames: string[] = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs']
+  const filenames = [
+    'checkly.config.ts',
+    'checkly.config.mts',
+    'checkly.config.cts',
+    'checkly.config.js',
+    'checkly.config.mjs',
+    'checkly.config.cjs',
+  ]
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))
@@ -142,7 +125,7 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
 
 export async function loadChecklyConfig (
   dir: string,
-  filenames = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mjs'],
+  filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'],
 ): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
