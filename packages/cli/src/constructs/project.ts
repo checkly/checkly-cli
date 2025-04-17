@@ -95,6 +95,10 @@ export class Project extends Construct {
     return {
       project,
       resources: [
+        // Create status pages before checks because checks may refer to
+        // status page services via incident triggers.
+        ...this.synthesizeRecord(this.data['status-page-service']),
+        ...this.synthesizeRecord(this.data['status-page']),
         ...this.synthesizeRecord(this.data.check, addTestOnly),
         ...this.synthesizeRecord(this.data['check-group']),
         ...this.synthesizeRecord(this.data['alert-channel']),
@@ -104,8 +108,6 @@ export class Project extends Construct {
         ...this.synthesizeRecord(this.data['private-location-check-assignment']),
         ...this.synthesizeRecord(this.data['private-location-group-assignment']),
         ...this.synthesizeRecord(this.data.dashboard),
-        ...this.synthesizeRecord(this.data['status-page-service']),
-        ...this.synthesizeRecord(this.data['status-page']),
       ],
     }
   }
