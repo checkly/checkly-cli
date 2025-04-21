@@ -14,8 +14,8 @@ new ApiCheck('api-check', {
     assertions: []
   },
   privateLocations: [privateLocation],
-  setupScript: {content: "console.log('hi from setup')"},
-  tearDownScript:{content:  "console.log('hi from teardown')"},
+  setupScript: { content: "console.log('hi from setup')" },
+  tearDownScript: { content: "console.log('hi from teardown')" },
   degradedResponseTime: 20000,
   maxResponseTime: 30000
 })
@@ -31,8 +31,8 @@ new ApiCheck('api-check-high-freq', {
     skipSSL: false,
     assertions: []
   },
-  setupScript: {content: "console.log('hi from setup')"},
-  tearDownScript: {content: "console.log('hi from teardown')"},
+  setupScript: { content: "console.log('hi from setup')" },
+  tearDownScript: { content: "console.log('hi from teardown')" },
   degradedResponseTime: 20000,
   maxResponseTime: 30000
 })
