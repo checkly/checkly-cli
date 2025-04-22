@@ -34,7 +34,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 
-          if (resource.sslCheckDomain) {
+          if (resource.sslCheckDomain !== undefined && resource.sslCheckDomain !== null && resource.sslCheckDomain !== '') {
             builder.string('sslCheckDomain', resource.sslCheckDomain)
           }
 
