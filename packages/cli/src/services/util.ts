@@ -318,18 +318,16 @@ export async function loadPlaywrightProjectFiles (
 
 export function getPlaywrightTestFiles (playwrightConfig: any): (string | RegExp)[] {
   const testFiles = new Set<string | RegExp>()
+  const fileDefinitions = ['tsconfig', 'testDir', 'testMatch', 'globalSetup', 'globalTeardown']
 
-  if (playwrightConfig.tsconfig) {
-    testFiles.add(playwrightConfig.tsconfig)
-  }
-  if (playwrightConfig.testDir) {
-    testFiles.add(playwrightConfig.testDir)
-  }
-  if (playwrightConfig.testMatch) {
-    if (Array.isArray(playwrightConfig.testMatch)) {
-      playwrightConfig.testMatch.forEach((match: string | RegExp) => testFiles.add(match))
+  for (const fileDefinition of fileDefinitions) {
+      if (!playwrightConfig[fileDefinition]) {
+        continue
+      }
+    if (Array.isArray(playwrightConfig[fileDefinition])) {
+      playwrightConfig[fileDefinition].forEach((match: string | RegExp) => testFiles.add(match))
     } else {
-      testFiles.add(playwrightConfig.testMatch)
+      testFiles.add(playwrightConfig[fileDefinition])
     }
   }
 
