@@ -16,6 +16,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
     const filePath = context.filePath('resources/multi-step-checks', resource.name, {
       tags: resource.tags,
+      isolate: true,
       unique: true,
     })
 
