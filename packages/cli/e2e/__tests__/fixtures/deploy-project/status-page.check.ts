@@ -2,11 +2,11 @@
 
 import { StatusPage, StatusPageService } from 'checkly/constructs'
 
-const fooService = new StatusPageService('foo-service', {
+export const fooService = new StatusPageService('foo-service', {
   name: 'Foo',
 })
 
-const barService = new StatusPageService('bar-service', {
+export const barService = new StatusPageService('bar-service', {
   name: 'Bar',
 })
 

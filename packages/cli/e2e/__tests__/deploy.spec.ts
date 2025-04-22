@@ -238,6 +238,7 @@ Update and Unchanged:
 `Create:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
+    ApiCheck: api-check-incident-trigger
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
     TcpCheck: tcp-check
@@ -253,6 +254,7 @@ Update and Unchanged:
 `Create:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
+    ApiCheck: api-check-incident-trigger
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
