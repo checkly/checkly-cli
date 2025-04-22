@@ -29,7 +29,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            const scriptFile = this.program.staticSupportFile(`${file.dirname}/entrypoint`, resource.script)
+            const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 
