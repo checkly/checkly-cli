@@ -105,6 +105,6 @@ export class ArrayValueBuilder {
   }
 
   build (): ArrayValue {
-    return new ArrayValue(this.#elements)
+    return new ArrayValue([...this.#elements])
   }
 }

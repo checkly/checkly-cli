@@ -107,6 +107,6 @@ export class ArgumentsValueBuilder {
   }
 
   build (): ArgumentsValue {
-    return new ArgumentsValue(this.#elements)
+    return new ArgumentsValue([...this.#elements])
   }
 }
