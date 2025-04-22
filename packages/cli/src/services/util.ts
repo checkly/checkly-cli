@@ -13,7 +13,7 @@ import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
 import { checklyStorage } from '../rest/api'
-import { ChecklyConfig, loadFile } from './checkly-config-loader'
+import { ChecklyConfig } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 
