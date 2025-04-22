@@ -48,7 +48,7 @@ export class ExpressionValueBuilder {
     return this
   }
 
-  build (): Value {
+  build (): ExpressionValue {
     return this.#context
   }
 }
