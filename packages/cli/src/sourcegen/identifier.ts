@@ -25,5 +25,8 @@ export function ident (value: string, options?: IdentOptions): IdentifierValue {
     value = cased(value, format)
   }
 
+  // Get rid of any leading digits.
+  value = value.replace(/^[0-9]+/, '')
+
   return new IdentifierValue(value)
 }
