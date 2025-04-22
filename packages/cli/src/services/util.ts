@@ -321,13 +321,14 @@ export function getPlaywrightTestFiles (playwrightConfig: any): (string | RegExp
   const fileDefinitions = ['tsconfig', 'testDir', 'testMatch', 'globalSetup', 'globalTeardown']
 
   for (const fileDefinition of fileDefinitions) {
-      if (!playwrightConfig[fileDefinition]) {
+    const definition = playwrightConfig[fileDefinition]
+      if (!definition) {
         continue
       }
-    if (Array.isArray(playwrightConfig[fileDefinition])) {
-      playwrightConfig[fileDefinition].forEach((match: string | RegExp) => testFiles.add(match))
+    if (Array.isArray(definition)) {
+      definition.forEach((match: string | RegExp) => testFiles.add(match))
     } else {
-      testFiles.add(playwrightConfig[fileDefinition])
+      testFiles.add(definition)
     }
   }
 
