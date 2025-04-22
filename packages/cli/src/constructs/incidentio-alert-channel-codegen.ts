@@ -54,6 +54,8 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
               const apiKey = apiKeyFromHeaders(config.headers)
               if (apiKey) {
                 builder.string('apiKey', apiKey)
+              } else {
+                throw new Error(`Failed to extract incident.io API Key from webhook headers`)
               }
             }
 

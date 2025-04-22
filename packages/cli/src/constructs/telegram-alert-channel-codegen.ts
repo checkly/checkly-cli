@@ -52,6 +52,8 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
               const chatId = chatIdFromTemplate(config.template)
               if (chatId) {
                 builder.string('chatId', chatId)
+              } else {
+                throw new Error(`Failed to extract Telegram Chat ID from webhook template: ${config.template}`)
               }
             }
 
@@ -59,6 +61,8 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
               const apiKey = apiKeyFromUrl(config.url)
               if (apiKey) {
                 builder.string('apiKey', apiKey)
+              } else {
+                throw new Error(`Failed to extract Telegram API Key from webhook template: ${config.template}`)
               }
             }
 
