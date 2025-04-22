@@ -48,7 +48,7 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
           builder.string(logicalId)
           builder.object(builder => {
             builder.string('name', config.name)
-            builder.string('url', config.url.toString())
+            builder.string('url', config.url)
 
             if (config.headers) {
               const apiKey = apiKeyFromHeaders(config.headers)
