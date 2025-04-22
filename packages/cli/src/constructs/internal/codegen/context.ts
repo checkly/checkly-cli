@@ -135,6 +135,7 @@ export class Context {
       parts.push(nthBase + ext)
 
       candidate = path.join(...parts)
+    // eslint-disable-next-line no-constant-condition
     } while (true)
   }
 
