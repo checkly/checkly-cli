@@ -8,6 +8,15 @@ export class StringValue extends Value {
 
   constructor (value: string) {
     super()
+
+    if (value === null) {
+      throw new Error('String value cannot be null')
+    }
+
+    if (value === undefined) {
+      throw new Error('String value cannot be undefined')
+    }
+
     this.value = value
   }
 

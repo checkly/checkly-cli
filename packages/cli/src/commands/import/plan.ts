@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
@@ -27,6 +28,16 @@ export default class ImportPlanCommand extends AuthCommand {
       description: 'The root folder in which to write generated code files.',
       default: '.',
     }),
+    'debug-import-plan': Flags.boolean({
+      description: 'Output the import plan to a file.',
+      default: false,
+      hidden: true,
+    }),
+    'debug-import-plan-output-file': Flags.string({
+      description: 'The file to output the import plan to.',
+      default: './debug-import-plan.json',
+      hidden: true,
+    }),
   }
 
   async run (): Promise<void> {
@@ -34,6 +45,8 @@ export default class ImportPlanCommand extends AuthCommand {
     const {
       config: configFilename,
       root: rootDirectory,
+      'debug-import-plan': debugImportPlan,
+      'debug-import-plan-output-file': debugImportPlanOutputFile,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -84,36 +97,56 @@ export default class ImportPlanCommand extends AuthCommand {
       throw err
     }
 
-    const program = new Program({
-      rootDirectory,
-      constructFileSuffix: '.check',
-      specFileSuffix: '.spec',
-      language: 'typescript',
-    })
-
-    this.#generateCode(plan, program)
-
-    if (this.fancy) {
-      ux.action.start('Writing files', undefined, { stdout: true })
+    if (debugImportPlan) {
+      const output = JSON.stringify(plan, null, 2)
+      await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
+      this.log(`Successfully wrote debug import plan to "${debugImportPlanOutputFile}".`)
+      return
     }
 
     try {
-      await program.realize()
+      const program = new Program({
+        rootDirectory,
+        constructFileSuffix: '.check',
+        specFileSuffix: '.spec',
+        language: 'typescript',
+      })
+
+      this.#generateCode(plan, program)
 
       if (this.fancy) {
-        ux.action.stop('✅ ')
+        ux.action.start('Writing files', undefined, { stdout: true })
+      }
+
+      try {
+        await program.realize()
+
+        if (this.fancy) {
+          ux.action.stop('✅ ')
+        }
+      } catch (err) {
+        if (this.fancy) {
+          ux.action.stop('❌')
+        }
+
+        throw err
+      }
+
+      this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
+      for (const filePath of program.paths) {
+        this.log(`  - ${chalk.green(filePath)}`)
       }
     } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
+      try {
+        const output = JSON.stringify(plan, null, 2)
+        await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
+        this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com and attach the newly created "${debugImportPlanOutputFile}" file.`)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (err) {
+        this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
       }
 
       throw err
-    }
-
-    this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
-    for (const filePath of program.paths) {
-      this.log(`  - ${chalk.green(filePath)}`)
     }
   }
 
@@ -130,11 +163,19 @@ export default class ImportPlanCommand extends AuthCommand {
         sortResources(plan.changes.resources as any)
 
         for (const resource of plan.changes.resources) {
-          codegen.prepare(resource.logicalId, resource as any, context)
+          try {
+            codegen.prepare(resource.logicalId, resource as any, context)
+          } catch (cause) {
+            throw new Error(`Failed to prepare resource '${resource.type}:${resource.logicalId}': ${cause}`, { cause })
+          }
         }
 
         for (const resource of plan.changes.resources) {
-          codegen.gencode(resource.logicalId, resource as any, context)
+          try {
+            codegen.gencode(resource.logicalId, resource as any, context)
+          } catch (cause) {
+            throw new Error(`Failed to process resource '${resource.type}:${resource.logicalId}': ${cause}`, { cause })
+          }
         }
       }
 

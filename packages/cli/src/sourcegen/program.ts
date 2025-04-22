@@ -127,7 +127,11 @@ export class Program {
       }
 
       const output = new Output()
-      file.render(output)
+      try {
+        file.render(output)
+      } catch (cause) {
+        throw new Error(`Failed to render output file '${fullFilePath}': ${cause}`, { cause })
+      }
 
       await writeFile(fullFilePath, output.finalize())
     }

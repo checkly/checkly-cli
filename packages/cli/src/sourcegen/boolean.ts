@@ -6,6 +6,15 @@ export class BooleanValue extends Value {
 
   constructor (value: boolean) {
     super()
+
+    if (value === null) {
+      throw new Error('Boolean value cannot be null')
+    }
+
+    if (value === undefined) {
+      throw new Error('Boolean value cannot be undefined')
+    }
+
     this.value = value
   }
 

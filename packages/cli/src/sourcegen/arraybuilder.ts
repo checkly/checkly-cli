@@ -24,39 +24,75 @@ export class ArrayValueBuilder {
   }
 
   string (value: string): this {
-    return this.value(new StringValue(value))
+    try {
+      return this.value(new StringValue(value))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (string): ${cause}`, { cause })
+    }
   }
 
   boolean (value: boolean): this {
-    return this.value(new BooleanValue(value))
+    try {
+      return this.value(new BooleanValue(value))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (boolean): ${cause}`, { cause })
+    }
   }
 
   number (value: number): this {
-    return this.value(new NumberValue(value))
+    try {
+      return this.value(new NumberValue(value))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (number): ${cause}`, { cause })
+    }
   }
 
   null (): this {
-    return this.value(new NullValue())
+    try {
+      return this.value(new NullValue())
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (null): ${cause}`, { cause })
+    }
   }
 
   undefined (): this {
-    return this.value(new UndefinedValue())
+    try {
+      return this.value(new UndefinedValue())
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (undefined): ${cause}`, { cause })
+    }
   }
 
   ident (value: string): this {
-    return this.value(new IdentifierValue(value))
+    try {
+      return this.value(new IdentifierValue(value))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (identifier): ${cause}`, { cause })
+    }
   }
 
   array (build: (builder: ArrayValueBuilder) => void): this {
-    return this.value(array(build))
+    try {
+      return this.value(array(build))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (array): ${cause}`, { cause })
+    }
   }
 
   object (build: (builder: ObjectValueBuilder) => void): this {
-    return this.value(object(build))
+    try {
+      return this.value(object(build))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (object): ${cause}`, { cause })
+    }
   }
 
   expr (context: Value, build: (builder: ExpressionValueBuilder) => void): this {
-    return this.value(expr(context, build))
+    try {
+      return this.value(expr(context, build))
+    } catch (cause) {
+      throw new Error(`Failed to add array item #${this.#elements.length} (expr): ${cause}`, { cause })
+    }
   }
 
   value (value: Value): this {
