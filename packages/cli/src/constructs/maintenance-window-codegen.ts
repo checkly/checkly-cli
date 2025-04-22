@@ -6,7 +6,7 @@ export interface MaintenanceWindowResource {
   tags: Array<string>,
   startsAt: string
   endsAt: string
-  repeatInterval?: number
+  repeatInterval?: number | null
   repeatUnit?: string
   repeatEndsAt?: string
 }
@@ -47,7 +47,7 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
             })
           })
 
-          if (resource.repeatInterval !== undefined) {
+          if (resource.repeatInterval !== undefined && resource.repeatInterval !== null) {
             builder.number('repeatInterval', resource.repeatInterval)
           }
 
