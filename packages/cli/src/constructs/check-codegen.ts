@@ -20,7 +20,8 @@ export interface CheckResource {
   name: string
   activated?: boolean
   muted?: boolean
-  doubleCheck?: boolean
+  // Handled by the backend which creates the appropriate retryStrategy.
+  // doubleCheck?: boolean
   shouldFail?: boolean
   runtimeId?: string
   locations?: string[]
