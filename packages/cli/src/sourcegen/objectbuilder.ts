@@ -47,35 +47,67 @@ export class ObjectValueBuilder {
   }
 
   string (name: string, value: string, options?: ObjectPropertyOptions): this {
-    return this.value(name, new StringValue(value), options)
+    try {
+      return this.value(name, new StringValue(value), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (string): ${cause}`, { cause })
+    }
   }
 
   boolean (name: string, value: boolean, options?: ObjectPropertyOptions): this {
-    return this.value(name, new BooleanValue(value), options)
+    try {
+      return this.value(name, new BooleanValue(value), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (boolean): ${cause}`, { cause })
+    }
   }
 
   number (name: string, value: number, options?: ObjectPropertyOptions): this {
-    return this.value(name, new NumberValue(value), options)
+    try {
+      return this.value(name, new NumberValue(value), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (number): ${cause}`, { cause })
+    }
   }
 
   null (name: string, options?: ObjectPropertyOptions): this {
-    return this.value(name, new NullValue(), options)
+    try {
+      return this.value(name, new NullValue(), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (null): ${cause}`, { cause })
+    }
   }
 
   undefined (name: string, options?: ObjectPropertyOptions): this {
-    return this.value(name, new UndefinedValue(), options)
+    try {
+      return this.value(name, new UndefinedValue(), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (undefined): ${cause}`, { cause })
+    }
   }
 
   ident (name: string, value: string, options?: ObjectPropertyOptions): this {
-    return this.value(name, new IdentifierValue(value), options)
+    try {
+      return this.value(name, new IdentifierValue(value), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (identifier): ${cause}`, { cause })
+    }
   }
 
   array (name: string, build: (builder: ArrayValueBuilder) => void, options?: ObjectPropertyOptions): this {
-    return this.value(name, array(build), options)
+    try {
+      return this.value(name, array(build), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (array): ${cause}`, { cause })
+    }
   }
 
   object (name: string, build: (builder: ObjectValueBuilder) => void, options?: ObjectPropertyOptions): this {
-    return this.value(name, object(build), options)
+    try {
+      return this.value(name, object(build), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (object): ${cause}`, { cause })
+    }
   }
 
   expr (
@@ -84,7 +116,11 @@ export class ObjectValueBuilder {
     build: (builder: ExpressionValueBuilder) => void,
     options?: ObjectPropertyOptions,
   ): this {
-    return this.value(name, expr(context, build), options)
+    try {
+      return this.value(name, expr(context, build), options)
+    } catch (cause) {
+      throw new Error(`Failed to set object property '${name}' (expr): ${cause}`, { cause })
+    }
   }
 
   value (name: string, value: Value, options?: ObjectPropertyOptions): this {

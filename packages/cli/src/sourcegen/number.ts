@@ -6,6 +6,15 @@ export class NumberValue extends Value {
 
   constructor (value: number) {
     super()
+
+    if (value === null) {
+      throw new Error('Number value cannot be null')
+    }
+
+    if (value === undefined) {
+      throw new Error('Number value cannot be undefined')
+    }
+
     this.value = value
   }
 

@@ -16,19 +16,31 @@ export class ExpressionValueBuilder {
   }
 
   new (build: (builder: ArgumentsValueBuilder) => void): this {
-    const builder = new ArgumentsValueBuilder()
-    build(builder)
-    return this.context(new NewExpressionValue(this.#context, builder.build()))
+    try {
+      const builder = new ArgumentsValueBuilder()
+      build(builder)
+      return this.context(new NewExpressionValue(this.#context, builder.build()))
+    } catch (cause) {
+      throw new Error(`Failed to create 'new' expression: ${cause}`, { cause })
+    }
   }
 
   call (build: (builder: ArgumentsValueBuilder) => void): this {
-    const builder = new ArgumentsValueBuilder()
-    build(builder)
-    return this.context(new CallExpressionValue(this.#context, builder.build()))
+    try {
+      const builder = new ArgumentsValueBuilder()
+      build(builder)
+      return this.context(new CallExpressionValue(this.#context, builder.build()))
+    } catch (cause) {
+      throw new Error(`Failed to create 'call' expression: ${cause}`, { cause })
+    }
   }
 
   member (property: Value): this {
-    return this.context(new MemberExpressionValue(this.#context, property))
+    try {
+      return this.context(new MemberExpressionValue(this.#context, property))
+    } catch (cause) {
+      throw new Error(`Failed to create 'member' expression: ${cause}`, { cause })
+    }
   }
 
   context (value: Value): this {
