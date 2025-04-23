@@ -299,10 +299,6 @@ export async function loadPlaywrightProjectFiles (
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const testFiles = getPlaywrightTestFiles(playwrightConfig)
-  try {
-    const gitignore = await fs.readFile(path.join(dir, '.gitignore'), { encoding: 'utf-8' })
-    ignoredFiles.push(...gitignoreToGlob(gitignore))
-  } catch (e) {}
   const parser = new Parser({})
   const { files } = await parser.getFilesAndDependencies(testFiles)
   for (const file of files) {
@@ -362,31 +358,6 @@ export function findBrowsers (playwrightConfig: any): string[] {
     browsers.add('chromium')
   }
   return Array.from(browsers)
-}
-
-export function gitignoreToGlob (gitignoreContent: string) {
-  return gitignoreContent.split('\n')
-    .map(line => line.trim())
-    .filter(line => !line.startsWith('#') && line.length)
-    .map(line => {
-      let result = line
-      if (line.startsWith('/')) {
-        result = result.substring(1)
-      } else {
-        if (!line.startsWith('**/')) {
-          result = `**/${result}`
-        }
-      }
-
-      if (line.endsWith('/')) {
-        result = `${result}**`
-      } else {
-        if (!line.endsWith('/**')) {
-          result = `${result}/**`
-        }
-      }
-      return result
-    })
 }
 
 export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
