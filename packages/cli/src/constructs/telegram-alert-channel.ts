@@ -16,6 +16,11 @@ export interface TelegramAlertChannelProps extends AlertChannelProps {
    * {@link https://www.checklyhq.com/docs/integrations/telegram/}
    */
   apiKey: string
+  /**
+   * An optional custom payload. If not given,
+   * `TelegramAlertChannel.DEFAULT_PAYLOAD` will be used.
+   */
+  payload?: string
 }
 
 /**
@@ -26,6 +31,11 @@ export interface TelegramAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class TelegramAlertChannel extends WebhookAlertChannel {
+  static DEFAULT_PAYLOAD = `<b>{{ALERT_TITLE}}</b> at {{STARTED_AT}} in {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)
+Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/each}}
+<a href="{{RESULT_LINK}}">View check result</a>
+`
+
   /**
      * Constructs the Telegram Alert Channel instance
      *
@@ -39,10 +49,10 @@ export class TelegramAlertChannel extends WebhookAlertChannel {
     super(logicalId, props)
     this.webhookType = 'WEBHOOK_TELEGRAM'
     this.method = 'POST'
-    this.template = `chat_id=${props.chatId}&parse_mode=HTML&text=<b>{{ALERT_TITLE}}</b> at {{STARTED_AT}} in {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)
-Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/each}}
-<a href="{{RESULT_LINK}}">View check result</a>
-`
+    const payload = props.payload ?? TelegramAlertChannel.DEFAULT_PAYLOAD
+    // For historical reasons the payload is not escaped even though it
+    // should be.
+    this.template = `chat_id=${props.chatId}&parse_mode=HTML&text=${payload}`
     this.url = `https://api.telegram.org/bot${props.apiKey}/sendMessage`
   }
 
