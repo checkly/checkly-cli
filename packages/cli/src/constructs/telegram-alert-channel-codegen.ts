@@ -4,6 +4,7 @@ import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
+import { TelegramAlertChannel } from './telegram-alert-channel'
 
 export interface TelegramAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {
@@ -18,13 +19,26 @@ function apiKeyFromUrl (url: string): string | undefined {
   }
 }
 
-function chatIdFromTemplate (template: string): string | undefined {
+interface TemplateValues {
+  chatId?: string
+  text?: string
+}
+
+function parseTemplate (template: string): TemplateValues {
   const values = qs.parse(template)
-  const chatId = values['chat_id']
-  if (Array.isArray(chatId)) {
-    return chatId[0]
+
+  const singleValue = (key: string): string | undefined => {
+    const value = values[key]
+    if (Array.isArray(value)) {
+      return value[0]
+    }
+    return value
   }
-  return chatId
+
+  return {
+    chatId: singleValue('chat_id'),
+    text: singleValue('text'),
+  }
 }
 
 const construct = 'TelegramAlertChannel'
@@ -52,21 +66,29 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
           builder.object(builder => {
             builder.string('name', config.name)
 
-            if (config.template) {
-              const chatId = chatIdFromTemplate(config.template)
-              if (chatId) {
-                builder.string('chatId', chatId)
-              } else {
-                throw new Error(`Failed to extract Telegram Chat ID from webhook template: ${config.template}`)
-              }
-            }
-
             if (config.headers) {
               const apiKey = apiKeyFromUrl(config.url)
               if (apiKey) {
                 builder.string('apiKey', apiKey)
               } else {
                 throw new Error(`Failed to extract Telegram API Key from webhook template: ${config.template}`)
+              }
+            }
+
+            if (config.template) {
+              const { chatId, text } = parseTemplate(config.template)
+              if (chatId) {
+                builder.string('chatId', chatId)
+              } else {
+                throw new Error(`Failed to extract Telegram Chat ID from webhook template: ${config.template}`)
+              }
+
+              if (text) {
+                if (text !== TelegramAlertChannel.DEFAULT_PAYLOAD) {
+                  builder.string('payload', text)
+                }
+              } else {
+                throw new Error(`Failed to extract Telegram payload from webhook template: ${config.template}`)
               }
             }
 
