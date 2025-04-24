@@ -74,7 +74,8 @@ export function buildCheckProps (
   const privateLocationIds = (() => {
     try {
       return context.lookupCheckPrivateLocations(resource.id)
-    } catch (err) {
+    } catch {
+      return
     }
   })()
 
@@ -85,7 +86,7 @@ export function buildCheckProps (
           const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
           context.importVariable(privateLocationVariable, genfile)
           builder.value(privateLocationVariable.id)
-        } catch (err) {
+        } catch {
           builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
         }
       }
@@ -123,7 +124,7 @@ export function buildCheckProps (
       const groupVariable = context.lookupCheckGroup(resource.groupId)
       context.importVariable(groupVariable, genfile)
       builder.value('group', groupVariable.id)
-    } catch (err) {
+    } catch {
       builder.value('group', valueForCheckGroupFromId(genfile, resource.groupId))
     }
   }
@@ -131,7 +132,8 @@ export function buildCheckProps (
   const alertChannelIds = (() => {
     try {
       return context.lookupCheckAlertChannels(resource.id)
-    } catch (err) {
+    } catch {
+      return
     }
   })()
 
@@ -142,7 +144,7 @@ export function buildCheckProps (
           const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
           context.importVariable(alertChannelVariable, genfile)
           builder.value(alertChannelVariable.id)
-        } catch (err) {
+        } catch {
           builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
         }
       }

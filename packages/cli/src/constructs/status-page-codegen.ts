@@ -50,7 +50,7 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                       const serviceVariable = context.lookupStatusPageService(service.id)
                       context.importVariable(serviceVariable, file)
                       builder.value(serviceVariable.id)
-                    } catch (err) {
+                    } catch {
                       throw new Error(`Status page '${resource.id}' refers to service '${service.id}' which is not being imported.`)
                     }
                   }
