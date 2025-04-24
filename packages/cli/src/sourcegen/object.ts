@@ -65,6 +65,10 @@ export class ObjectValue extends Value {
     this.options = options
   }
 
+  isEmpty (): boolean {
+    return this.value.length === 0
+  }
+
   render (output: Output): void {
     const sorter = this.options?.sort ?? sortObjectPropertiesByOrderAndName
     const properties = [...this.value].sort(sorter)

@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program, Value } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
@@ -198,7 +198,7 @@ function buildCheckGroupProps (
 
   if (resource.apiCheckDefaults) {
     const config = resource.apiCheckDefaults
-    builder.object('apiCheckDefaults', builder => {
+    const value = object(builder => {
       if (config.url) {
         builder.string('url', config.url)
       }
@@ -246,6 +246,10 @@ function buildCheckGroupProps (
         }
       }
     })
+
+    if (!value.isEmpty()) {
+      builder.value('apiCheckDefaults', value)
+    }
   }
 
   builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
