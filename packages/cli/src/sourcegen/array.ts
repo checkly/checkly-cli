@@ -9,6 +9,10 @@ export class ArrayValue extends Value {
     this.value = value
   }
 
+  isEmpty (): boolean {
+    return this.value.length === 0
+  }
+
   render (output: Output): void {
     if (this.value.length === 0) {
       output.append('[]')
