@@ -17,7 +17,7 @@ function apiKeyFromUrl (url: string): string | undefined {
 }
 
 function chatIdFromTemplate (template: string): string | undefined {
-  const match = /chatId=(-?[0-9]+)/.exec(template)
+  const match = /chat_id=(-?[0-9]+)/.exec(template)
   if (match) {
     return match[1]
   }
