@@ -4,10 +4,10 @@ import { Ref } from './ref'
 import { Session } from './project'
 import { Construct } from './construct'
 import { BrowserCheck } from './browser-check'
-import { AlertChannel } from './alert-channel'
+import { AlertChannel, AlertChannelRef } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
-import { PrivateLocation } from './private-location'
+import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
@@ -73,7 +73,7 @@ export interface CheckGroupProps {
   /**
    * An array of one or more private locations where to run the checks.
    */
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -90,7 +90,7 @@ export interface CheckGroupProps {
   /**
    * List of alert channels to be alerted when checks in this group fail or recover.
    */
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel|AlertChannelRef>
   browserChecks?: BrowserCheckConfig,
   multiStepChecks?: MultiStepCheckConfig,
   alertEscalationPolicy?: AlertEscalation,
@@ -132,12 +132,12 @@ export class CheckGroup extends Construct {
   doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   tags?: Array<string>
   concurrency?: number
   frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel|AlertChannelRef>
   localSetupScript?: string
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
