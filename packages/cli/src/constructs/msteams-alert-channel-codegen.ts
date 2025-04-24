@@ -2,6 +2,7 @@ import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
+import { MSTeamsAlertChannel } from './msteams-alert-channel'
 
 export interface MSTeamsAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {
@@ -34,6 +35,12 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
           builder.object(builder => {
             builder.string('name', config.name)
             builder.string('url', config.url)
+
+            if (config.template) {
+              if (config.template !== MSTeamsAlertChannel.DEFAULT_PAYLOAD) {
+                builder.string('payload', config.template)
+              }
+            }
 
             buildAlertChannelProps(builder, resource)
           })

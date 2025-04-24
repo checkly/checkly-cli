@@ -11,6 +11,11 @@ export interface MSTeamsAlertChannelProps extends AlertChannelProps {
    * {@link https://www.checklyhq.com/docs/integrations/msteams/}
    */
   url: string
+  /**
+   * An optional custom payload. If not given,
+   * `MSTeamsAlertChannel.DEFAULT_PAYLOAD` will be used.
+   */
+  payload?: string
 }
 
 /**
@@ -21,19 +26,7 @@ export interface MSTeamsAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class MSTeamsAlertChannel extends WebhookAlertChannel {
-  /**
-   * Constructs the Microsoft Teams Alert Channel instance
-   *
-   * @param logicalId unique project-scoped resource name identification
-   * @param props MSTeams alert channel configuration properties
-   *
-   * {@link https://checklyhq.com/docs/cli/constructs/#msteamsalertchannel Read more in the docs}
-  */
-  constructor (logicalId: string, props: MSTeamsAlertChannelProps) {
-    super(logicalId, props)
-    this.webhookType = 'WEBHOOK_MSTEAMS'
-    this.method = 'POST'
-    this.template = `{
+  static DEFAULT_PAYLOAD = `{
   "type":"message",
   "attachments":[
     {
@@ -106,6 +99,20 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
   ]
 }
 `
+
+  /**
+   * Constructs the Microsoft Teams Alert Channel instance
+   *
+   * @param logicalId unique project-scoped resource name identification
+   * @param props MSTeams alert channel configuration properties
+   *
+   * {@link https://checklyhq.com/docs/cli/constructs/#msteamsalertchannel Read more in the docs}
+  */
+  constructor (logicalId: string, props: MSTeamsAlertChannelProps) {
+    super(logicalId, props)
+    this.webhookType = 'WEBHOOK_MSTEAMS'
+    this.method = 'POST'
+    this.template = props.payload ?? MSTeamsAlertChannel.DEFAULT_PAYLOAD
   }
 
   synthesize () {
