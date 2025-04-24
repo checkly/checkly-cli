@@ -4,22 +4,32 @@ import { Session } from './project'
 export interface AlertChannelProps {
   /**
    * Determines if an alert should be send for check recoveries.
+   *
+   * If not given, the default is `true`.
    */
   sendRecovery?: boolean
   /**
    * Determines if an alert should be send for check failures.
+   *
+   * If not given, the default is `true`.
    */
   sendFailure?: boolean
   /**
    * Determines if an alert should be send when a check is degraded.
+   *
+   * If not given, the default is `false`.
    */
   sendDegraded?: boolean
   /**
    * Determines if an alert should be send for expiring SSL certificates.
+   *
+   * If not given, the default is `false`.
    */
   sslExpiry?: boolean
   /**
    * At what moment in time to start alerting on SSL certificates.
+   *
+   * If not given, the default is `30` (i.e. 30 days).
    */
   sslExpiryThreshold?: number
 }

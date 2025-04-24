@@ -29,23 +29,28 @@ export interface AlertChannelResource {
 }
 
 export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: AlertChannelResource): void {
-  if (resource.sendRecovery !== undefined) {
+  // The default value for sendRecovery is true, only include if false.
+  if (resource.sendRecovery !== undefined && !resource.sendRecovery) {
     builder.boolean('sendRecovery', resource.sendRecovery)
   }
 
-  if (resource.sendFailure !== undefined) {
+  // The default value for sendFailure is true, only include if false.
+  if (resource.sendFailure !== undefined && !resource.sendFailure) {
     builder.boolean('sendFailure', resource.sendFailure)
   }
 
-  if (resource.sendDegraded !== undefined) {
+  // The default value for sendDegraded is false, only include if true.
+  if (resource.sendDegraded !== undefined && resource.sendDegraded) {
     builder.boolean('sendDegraded', resource.sendDegraded)
   }
 
-  if (resource.sslExpiry !== undefined) {
+  // The default value for sslExpiry is false, only include if true.
+  if (resource.sslExpiry !== undefined && resource.sslExpiry) {
     builder.boolean('sslExpiry', resource.sslExpiry)
   }
 
-  if (resource.sslExpiryThreshold !== undefined) {
+  // The default value for sslExpiryThreshold is 30, only include if other.
+  if (resource.sslExpiryThreshold !== undefined && resource.sslExpiryThreshold !== 30) {
     builder.number('sslExpiryThreshold', resource.sslExpiryThreshold)
   }
 }
