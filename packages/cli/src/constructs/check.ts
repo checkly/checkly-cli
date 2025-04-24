@@ -1,14 +1,14 @@
 import { Ref } from './ref'
 import { Frequency } from './frequency'
 import { Construct } from './construct'
-import { AlertChannel } from './alert-channel'
+import { AlertChannel, AlertChannelRef } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroup } from './check-group'
-import { PrivateLocation } from './private-location'
+import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 import { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
@@ -57,7 +57,7 @@ export interface CheckProps {
    * `string` slug names are **only** allowed for private locations that **not** belong to the project. Use
    * PrivateLocation instances references for private locations created within the project.
    */
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -81,7 +81,7 @@ export interface CheckProps {
    * If you don't set at least one, we won't be able to alert you in case something goes wrong with your check.
    * @link {https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/#alert-channels Alert channels}
    */
-  alertChannels?: Array<AlertChannel>,
+  alertChannels?: Array<AlertChannel|AlertChannelRef>,
   /**
    * Determines the alert escalation policy for that particular check
    */
@@ -116,13 +116,13 @@ export abstract class Check extends Construct {
   shouldFail?: boolean
   runtimeId?: string
   locations?: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number
   environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel|AlertChannelRef>
   testOnly?: boolean
   retryStrategy?: RetryStrategy
   alertSettings?: AlertEscalation

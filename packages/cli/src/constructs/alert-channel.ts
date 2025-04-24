@@ -34,7 +34,12 @@ export interface AlertChannelProps {
   sslExpiryThreshold?: number
 }
 
-class AlertChannelWrapper extends Construct {
+/**
+ * Creates a reference to an existing Alert Channel.
+ *
+ * References link existing resources to a project without managing them.
+ */
+export class AlertChannelRef extends Construct {
   constructor (logicalId: string, physicalId: string|number) {
     super(AlertChannel.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
@@ -77,7 +82,7 @@ export abstract class AlertChannel extends Construct {
   }
 
   static fromId (id: string|number) {
-    return new AlertChannelWrapper(`alert-channel-${id}`, id)
+    return new AlertChannelRef(`alert-channel-${id}`, id)
   }
 
   allowInChecklyConfig () {
