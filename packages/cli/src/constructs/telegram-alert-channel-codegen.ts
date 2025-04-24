@@ -1,3 +1,5 @@
+import qs from 'node:querystring'
+
 import { Codegen, Context } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
@@ -17,10 +19,12 @@ function apiKeyFromUrl (url: string): string | undefined {
 }
 
 function chatIdFromTemplate (template: string): string | undefined {
-  const match = /chat_id=(-?[0-9]+)/.exec(template)
-  if (match) {
-    return match[1]
+  const values = qs.parse(template)
+  const chatId = values['chat_id']
+  if (Array.isArray(chatId)) {
+    return chatId[0]
   }
+  return chatId
 }
 
 const construct = 'TelegramAlertChannel'
