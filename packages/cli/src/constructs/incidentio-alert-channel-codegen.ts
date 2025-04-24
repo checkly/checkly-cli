@@ -3,6 +3,7 @@ import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
+import { IncidentioAlertChannel } from './incidentio-alert-channel'
 
 export interface IncidentioAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {
@@ -56,6 +57,12 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
                 builder.string('apiKey', apiKey)
               } else {
                 throw new Error(`Failed to extract incident.io API Key from webhook headers`)
+              }
+            }
+
+            if (config.template) {
+              if (config.template !== IncidentioAlertChannel.DEFAULT_PAYLOAD) {
+                builder.string('payload', config.template)
               }
             }
 
