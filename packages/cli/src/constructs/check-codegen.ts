@@ -3,7 +3,7 @@ import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen'
-import { CheckGroupCodegen } from './check-group-codegen'
+import { CheckGroupCodegen, valueForCheckGroupFromId } from './check-group-codegen'
 import { EnvironmentVariable } from './environment-variable'
 import { FrequencyResource, valueForFrequency } from './frequency-codegen'
 import { HeartbeatCheckCodegen, HeartbeatCheckResource } from './heartbeat-check-codegen'
@@ -124,7 +124,7 @@ export function buildCheckProps (
       context.importVariable(groupVariable, genfile)
       builder.value('group', groupVariable.id)
     } catch (err) {
-      throw new Error(`Check '${resource.id}' belongs to group #${resource.groupId} which is not being imported.`)
+      builder.value('group', valueForCheckGroupFromId(genfile, resource.groupId))
     }
   }
 

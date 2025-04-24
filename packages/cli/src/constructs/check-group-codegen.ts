@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program, Value } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
 import { valueForAssertion } from './api-check-codegen'
@@ -254,6 +254,17 @@ function buildCheckGroupProps (
 }
 
 const construct = 'CheckGroup'
+
+export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: number): Value {
+  genfile.namedImport(construct, 'checkly/constructs')
+
+  return expr(ident(construct), builder => {
+    builder.member(ident('fromId'))
+    builder.call(builder => {
+      builder.number(physicalId)
+    })
+  })
+}
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
