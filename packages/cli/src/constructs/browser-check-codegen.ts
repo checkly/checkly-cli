@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, validateScript } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
@@ -30,6 +30,14 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
+            validateScript(resource.script)
+
+            const snippetFiles = context.findScriptSnippetFiles(resource.script)
+            for (const snippetFile of snippetFiles) {
+              const localSnippetFile = this.program.generatedSupportFile(`${file.dirname}/snippets/${snippetFile.basename}`)
+              localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
+            }
+
             const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })

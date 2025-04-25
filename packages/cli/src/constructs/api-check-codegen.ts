@@ -1,25 +1,19 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, validateScript } from './internal/codegen'
 import { expr, GeneratedFile, ident, Value } from '../sourcegen'
 import { Assertion, Request } from './api-check'
 import { buildCheckProps, CheckResource } from './check-codegen'
 import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 
-export interface SnippetResource {
-  id: number
-  name: string
-  script?: string
-}
-
 export interface ApiCheckResource extends CheckResource {
   checkType: 'API'
   request: Request
   localSetupScript?: string
   setupScriptPath?: string
-  setupScript?: SnippetResource
+  setupSnippetId?: number | null
   localTearDownScript?: string
   tearDownScriptPath?: string
-  tearDownScript?: SnippetResource
+  tearDownSnippetId?: number | null
   degradedResponseTime?: number
   maxResponseTime?: number
 }
@@ -131,48 +125,58 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
 
           if (resource.localSetupScript) {
             const content = resource.localSetupScript
+            validateScript(content)
+
+            const snippetFiles = context.findScriptSnippetFiles(content)
+            for (const snippetFile of snippetFiles) {
+              const localSnippetFile = this.program.generatedSupportFile(`${file.dirname}/snippets/${snippetFile.basename}`)
+              localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
+            }
+
             builder.object('setupScript', builder => {
               const scriptFile = this.program.staticSupportFile(`${file.dirname}/setup-script`, content)
               builder.string('entrypoint', file.relativePath(scriptFile))
             })
-          } else if (resource.setupScript) {
-            const snippet = resource.setupScript
-            if (snippet.script !== undefined) {
-              const script = snippet.script
-              const snippetFilePath = context.filePath('snippets', snippet.name, {
-                unique: false,
-                contentKey: `snippet::${snippet.id}`,
-              })
-              const snippetFile = this.program.staticSupportFile(snippetFilePath.fullPath, script)
-              const scriptFile = this.program.generatedSupportFile(`${file.dirname}/setup-script`)
-              scriptFile.plainImport(scriptFile.relativePath(snippetFile))
-              builder.object('setupScript', builder => {
-                builder.string('entrypoint', file.relativePath(scriptFile))
-              })
+          } else if (resource.setupSnippetId) {
+            const snippetFile = context.lookupAuxiliarySnippetFile(resource.setupSnippetId)
+            if (!snippetFile) {
+              throw new Error(`Setup script refers to snippet #${resource.setupSnippetId} which is missing`)
             }
+
+            const scriptFile = this.program.generatedSupportFile(`${file.dirname}/setup-script`)
+            scriptFile.plainImport(scriptFile.relativePath(snippetFile))
+
+            builder.object('setupScript', builder => {
+              builder.string('entrypoint', file.relativePath(scriptFile))
+            })
           }
 
           if (resource.localTearDownScript) {
             const content = resource.localTearDownScript
+            validateScript(content)
+
+            const snippetFiles = context.findScriptSnippetFiles(content)
+            for (const snippetFile of snippetFiles) {
+              const aliasFile = this.program.generatedSupportFile(`${file.dirname}/snippets/${snippetFile.basename}`)
+              aliasFile.plainImport(aliasFile.relativePath(snippetFile))
+            }
+
             builder.object('tearDownScript', builder => {
               const scriptFile = this.program.staticSupportFile(`${file.dirname}/teardown-script`, content)
               builder.string('entrypoint', file.relativePath(scriptFile))
             })
-          } else if (resource.tearDownScript) {
-            const snippet = resource.tearDownScript
-            if (snippet.script !== undefined) {
-              const script = snippet.script
-              const snippetFilePath = context.filePath('snippets', snippet.name, {
-                unique: false,
-                contentKey: `snippet::${snippet.id}`,
-              })
-              const snippetFile = this.program.staticSupportFile(snippetFilePath.fullPath, script)
-              const scriptFile = this.program.generatedSupportFile(`${file.dirname}/teardown-script`)
-              scriptFile.plainImport(scriptFile.relativePath(snippetFile))
-              builder.object('tearDownScript', builder => {
-                builder.string('entrypoint', file.relativePath(scriptFile))
-              })
+          } else if (resource.tearDownSnippetId) {
+            const snippetFile = context.lookupAuxiliarySnippetFile(resource.tearDownSnippetId)
+            if (!snippetFile) {
+              throw new Error(`Teardown script refers to snippet #${resource.tearDownSnippetId} which is missing`)
             }
+
+            const scriptFile = this.program.generatedSupportFile(`${file.dirname}/teardown-script`)
+            scriptFile.plainImport(scriptFile.relativePath(snippetFile))
+
+            builder.object('tearDownScript', builder => {
+              builder.string('entrypoint', file.relativePath(scriptFile))
+            })
           }
 
           if (resource.degradedResponseTime !== undefined) {
