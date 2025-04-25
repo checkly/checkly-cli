@@ -25,6 +25,12 @@ export interface ResourceSync {
   payload: any,
 }
 
+export interface AuxiliaryResourceSync {
+  physicalId?: string|number
+  type: string
+  payload: any
+}
+
 export interface ProjectSync {
   project: Project,
   resources: Array<ResourceSync>,
@@ -38,6 +44,7 @@ export interface ProjectDeployResponse {
 
 export interface ImportPlanChanges {
   resources: ResourceSync[]
+  auxiliary?: AuxiliaryResourceSync[]
 }
 
 export interface ImportPlan {

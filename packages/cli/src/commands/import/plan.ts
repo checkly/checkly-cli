@@ -14,6 +14,11 @@ import { ImportPlan } from '../../rest/projects'
 import { Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
+import {
+  isSnippet,
+  isSafeSnippetFilename,
+} from '../../constructs/internal/codegen/snippet'
+import { StaticAuxiliaryFile } from '../../sourcegen/program'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -160,9 +165,75 @@ export default class ImportPlanCommand extends AuthCommand {
       const context = new Context()
 
       if (plan.changes) {
-        sortResources(plan.changes.resources as any)
+        const { resources, auxiliary } = plan.changes
 
-        for (const resource of plan.changes.resources) {
+        if (auxiliary) {
+          const globalSnippetFiles = new Set<StaticAuxiliaryFile>()
+
+          for (const resource of auxiliary) {
+            try {
+              switch (resource.type) {
+                case 'snippet': {
+                  const snippet = resource.payload
+
+                  if (!isSnippet(snippet)) {
+                    throw new Error(`Invalid auxiliary snippet`)
+                  }
+
+                  const snippetFilePath = context.filePath('snippets', snippet.name, {
+                    unique: false,
+                    contentKey: `snippet::${snippet.id}`,
+                    case: isSafeSnippetFilename(snippet.name) ? 'identity' : 'kebab-case',
+                  })
+
+                  const snippetFile = program.staticSupportFile(
+                    snippetFilePath.fullPath,
+                    snippet.script,
+                  )
+
+                  globalSnippetFiles.add(snippetFile)
+
+                  context.registerAuxiliarySnippetFile(snippet.id, snippetFile)
+
+                  break
+                }
+                default:
+                  throw new Error(`Unable to process unsupported auxiliary resource type '${resource.type}'.`)
+              }
+            } catch (cause) {
+              throw new Error(`Failed to process auxiliary resource '${resource.type}:${resource.physicalId}': ${cause}`, { cause })
+            }
+          }
+
+          // Due to questionable historical design choices, snippets may
+          // reference other snippets in two ways:
+          //
+          // 1. From the same folder (i.e. `require('./other-snippet')`) if
+          //    the requiring snippet is NOT the main entrypoint, but has
+          //    itself been required by another snippet or script.
+          // 2. From the magic './snippets' folder using
+          //    `require('./snippets/other-snippet')` irrespective of whether
+          //    the requiring snippet is the main entrypoint or not (works in
+          //    either case).
+          //
+          // To emulate this functionality with a proper file structure, we
+          // need to check if any global snippets are using the second method,
+          // and create appropriate aliases in the beatifully named
+          // './snippets/snippets/' folder so that the paths can resolve
+          // without modification.
+          for (const globalSnippetFile of globalSnippetFiles) {
+            const content = globalSnippetFile.content.toString()
+            const snippetFiles = context.findScriptSnippetFiles(content)
+            for (const snippetFile of snippetFiles) {
+              const localSnippetFile = program.generatedSupportFile(`snippets/snippets/${snippetFile.basename}`)
+              localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
+            }
+          }
+        }
+
+        sortResources(resources as any)
+
+        for (const resource of resources) {
           try {
             codegen.prepare(resource.logicalId, resource as any, context)
           } catch (cause) {
@@ -170,7 +241,7 @@ export default class ImportPlanCommand extends AuthCommand {
           }
         }
 
-        for (const resource of plan.changes.resources) {
+        for (const resource of resources) {
           try {
             codegen.gencode(resource.logicalId, resource as any, context)
           } catch (cause) {

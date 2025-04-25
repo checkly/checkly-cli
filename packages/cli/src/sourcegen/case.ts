@@ -1,4 +1,5 @@
 export type CaseFormat =
+  'identity' |
   'camelCase' |
   'PascalCase' |
   'Train-Case' |
@@ -52,6 +53,8 @@ export function screamingKebabCase (value: string): string {
 
 export function cased (value: string, format: CaseFormat): string {
   switch (format) {
+    case 'identity':
+      return value
     case 'camelCase':
       return camelCase(value)
     case 'PascalCase':

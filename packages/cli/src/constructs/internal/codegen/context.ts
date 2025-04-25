@@ -1,6 +1,8 @@
 import path, { dirname } from 'node:path'
 
-import { GeneratedFile, IdentifierValue, kebabCase } from '../../../sourcegen'
+import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen'
+import { ProgramFile } from '../../../sourcegen/program'
+import { parseSnippetDependencies } from './snippet'
 
 export class MissingContextVariableMappingError extends Error {}
 
@@ -21,6 +23,7 @@ export interface FilenameOptions {
   isolate?: boolean
   unique?: boolean
   contentKey?: string
+  case?: CaseFormat
 }
 
 const splitExt = (filePath: string): [string, string] => {
@@ -64,8 +67,11 @@ export class Context {
   #knownFilePaths = new Map<string, number>()
   #filePathContentKeys = new Map<string, string>()
 
+  #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
+  #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
+
   filePath (parent: string, hint: string, options?: FilenameOptions): FilePath {
-    let filename = kebabCase(hint)
+    let filename = cased(hint, options?.case ?? 'kebab-case')
 
     if (options?.tags !== undefined) {
       for (const tag of options.tags) {
@@ -276,5 +282,43 @@ export class Context {
 
     this.#knownSecrets.add(name)
     return true
+  }
+
+  registerAuxiliarySnippetFile (physicalId: number, snippetFile: ProgramFile) {
+    this.#auxiliarySnippetFilesByPhysicalId.set(physicalId, snippetFile)
+    this.#auxiliarySnippetFilesByFilename.set(snippetFile.basename, snippetFile)
+  }
+
+  lookupAuxiliarySnippetFile (physicalId: number): ProgramFile | undefined {
+    return this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
+  }
+
+  findScriptSnippetFiles (content: string): ProgramFile[] {
+    const files = new Set<ProgramFile>()
+
+    const filenames = parseSnippetDependencies(content)
+
+    for (const filename of filenames) {
+      const { name } = path.parse(filename)
+
+      const candidates = [
+        name,
+        filename,
+        `${name}.ts`,
+        `${name}.js`,
+        `${filename}.ts`,
+        `${filename}.js`,
+      ]
+
+      for (const candidate of candidates) {
+        const match = this.#auxiliarySnippetFilesByFilename.get(candidate)
+        if (match !== undefined) {
+          files.add(match)
+          break
+        }
+      }
+    }
+
+    return [...files]
   }
 }
