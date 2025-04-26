@@ -31,7 +31,7 @@ export default class ImportPlanCommand extends AuthCommand {
     }),
     root: Flags.string({
       description: 'The root folder in which to write generated code files.',
-      default: '.',
+      default: '__checks__',
     }),
     'debug-import-plan': Flags.boolean({
       description: 'Output the import plan to a file.',
