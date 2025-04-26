@@ -1,6 +1,6 @@
 import qs from 'node:querystring'
 
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
@@ -44,7 +44,29 @@ function parseTemplate (template: string): TemplateValues {
 const construct = 'TelegramAlertChannel'
 
 export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelResource> {
+  validateSafety (resource: TelegramAlertChannelResource) {
+    const { config } = resource
+
+    if (config.method !== 'POST') {
+      throw new ImportSafetyViolation(`Unsupported value for property 'method' (expected 'POST')`)
+    }
+
+    if (config.headers !== undefined && config.headers.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected no value or an empty array)`)
+    }
+
+    if (config.queryParameters !== undefined && config.queryParameters.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
+    }
+
+    if (config.webhookSecret) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
+    }
+  }
+
   prepare (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     context.registerAlertChannel(
       resource.id,
       'telegramAlert',
@@ -53,6 +75,8 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
   }
 
   gencode (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     const { id, file } = context.lookupAlertChannel(resource.id)
 
     file.namedImport(construct, 'checkly/constructs')
