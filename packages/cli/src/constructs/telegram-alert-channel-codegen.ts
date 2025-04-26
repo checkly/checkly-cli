@@ -66,13 +66,11 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
           builder.object(builder => {
             builder.string('name', config.name)
 
-            if (config.headers) {
-              const apiKey = apiKeyFromUrl(config.url)
-              if (apiKey) {
-                builder.string('apiKey', apiKey)
-              } else {
-                throw new Error(`Failed to extract Telegram API Key from webhook template: ${config.template}`)
-              }
+            const apiKey = apiKeyFromUrl(config.url)
+            if (apiKey) {
+              builder.string('apiKey', apiKey)
+            } else {
+              throw new Error(`Failed to extract Telegram API Key from webhook template: ${config.template}`)
             }
 
             if (config.template) {
