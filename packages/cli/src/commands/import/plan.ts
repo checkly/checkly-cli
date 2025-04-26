@@ -9,8 +9,8 @@ import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
-import { loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan } from '../../rest/projects'
+import { ChecklyConfig, loadChecklyConfig } from '../../services/checkly-config-loader'
+import { ImportPlan, ProjectNotFoundError } from '../../rest/projects'
 import { Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
@@ -59,6 +59,8 @@ export default class ImportPlanCommand extends AuthCommand {
       config: checklyConfig,
     } = await loadChecklyConfig(configDirectory, configFilenames)
 
+    await this.#initializeProject(checklyConfig)
+
     const {
       logicalId,
     } = checklyConfig
@@ -71,35 +73,9 @@ export default class ImportPlanCommand extends AuthCommand {
       await this.#handleExistingPlans(existingPlans)
     }
 
-    if (this.fancy) {
-      ux.action.start('Creating a new plan', undefined, { stdout: true })
-    }
-
-    let plan: ImportPlan
-
-    try {
-      const { data } = await api.projects.createImportPlan(logicalId)
-      plan = data
-
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-      }
-    } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-      }
-
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          const message = err.response?.data.message
-          if (message) {
-            this.log(chalk.red(message))
-            return
-          }
-        }
-      }
-
-      throw err
+    const plan = await this.#createImportPlan(logicalId)
+    if (!plan) {
+      return
     }
 
     if (debugImportPlan) {
@@ -149,6 +125,38 @@ export default class ImportPlanCommand extends AuthCommand {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
+      }
+
+      throw err
+    }
+  }
+
+  async #createImportPlan (logicalId: string): Promise<ImportPlan | undefined> {
+    if (this.fancy) {
+      ux.action.start('Creating a new plan', undefined, { stdout: true })
+    }
+
+    try {
+      const { data } = await api.projects.createImportPlan(logicalId)
+
+      if (this.fancy) {
+        ux.action.stop('✅ ')
+      }
+
+      return data
+    } catch (err) {
+      if (this.fancy) {
+        ux.action.stop('❌')
+      }
+
+      if (isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          const message = err.response?.data.message
+          if (message) {
+            this.log(chalk.red(message))
+            return
+          }
+        }
       }
 
       throw err
@@ -259,6 +267,102 @@ export default class ImportPlanCommand extends AuthCommand {
       }
 
       throw err
+    }
+  }
+
+  async #initializeProject (config: ChecklyConfig): Promise<void> {
+    const {
+      logicalId,
+      projectName,
+      repoUrl,
+    } = config
+
+    if (this.fancy) {
+      ux.action.start('Checking project status', undefined, { stdout: true })
+    }
+
+    try {
+      await api.projects.get(logicalId)
+
+      if (this.fancy) {
+        ux.action.stop('✅ ')
+      }
+
+      // The project has already been initialized, not need to do anything.
+      return
+    } catch (err) {
+      if (err instanceof ProjectNotFoundError) {
+        if (this.fancy) {
+          ux.action.stop('❌ Uninitialized project')
+        }
+
+        // The project does not exist yet and we must create (initialize) it.
+      } else {
+        if (this.fancy) {
+          ux.action.stop('❌')
+        }
+
+        throw err
+      }
+    }
+
+    const choices: prompts.Choice[] = [{
+      title: `Yes, I want to start a new project with the imported resources`,
+      value: 'init',
+    }, {
+      title: `No, I intended to import resources into an existing project`,
+      value: 'mistake',
+      description: 'Exit and verify your configuration.',
+    }, {
+      title: 'No, I want to cancel and exit',
+      value: 'exit',
+      description: 'No changes will be made.',
+    }]
+
+    const { action } = await prompts({
+      name: 'action',
+      type: 'select',
+      message: 'Your project has not been initialized yet. Initialize now?',
+      choices,
+    })
+
+    switch (action) {
+      case 'init': {
+        try {
+          if (this.fancy) {
+            ux.action.start('Initializing project', undefined, { stdout: true })
+          }
+
+          await api.projects.create({
+            name: projectName,
+            logicalId,
+            repoUrl,
+          })
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+          }
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+          }
+
+          throw err
+        }
+
+        break
+      }
+      case 'mistake':
+        this.log(chalk.red('Please verify your configuration and try again.'))
+        this.log('Exiting without making any changes.')
+        this.exit(0)
+        break
+      case 'exit':
+        // falls through
+      default: {
+        this.log('Exiting without making any changes.')
+        this.exit(0)
+      }
     }
   }
 

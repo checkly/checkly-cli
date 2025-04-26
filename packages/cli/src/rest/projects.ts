@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { isAxiosError, type AxiosInstance } from 'axios'
 import type { GitInformation } from '../services/util'
 import { compressJSONPayload } from './util'
 
@@ -55,6 +55,8 @@ export interface ImportPlan {
   changes?: ImportPlanChanges
 }
 
+export class ProjectNotFoundError extends Error {}
+
 class Projects {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -65,16 +67,36 @@ class Projects {
     return this.api.get<Array<ProjectResponse>>('/next/projects')
   }
 
-  get (id: string) {
-    return this.api.get<ProjectResponse>(`/next/projects/${id}`)
+  async get (id: string) {
+    try {
+      return await this.api.get<ProjectResponse>(`/next/projects/${id}`)
+    } catch (err) {
+      if (isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          throw new ProjectNotFoundError()
+        }
+      }
+
+      throw err
+    }
   }
 
   create (project: Project) {
     return this.api.post('/next/projects', project)
   }
 
-  deleteProject (logicalId: string) {
-    return this.api.delete(`/next/projects/${logicalId}`)
+  async deleteProject (logicalId: string) {
+    try {
+      return await this.api.delete(`/next/projects/${logicalId}`)
+    } catch (err) {
+      if (isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          throw new ProjectNotFoundError()
+        }
+      }
+
+      throw err
+    }
   }
 
   deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true } = {}) {
@@ -89,13 +111,23 @@ class Projects {
     return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`)
   }
 
-  findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {
-    return this.api.get<ImportPlan[]>(`/next/projects/${logicalId}/imports`, {
-      params: {
-        onlyUnapplied,
-        onlyUncommitted,
-      },
-    })
+  async findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {
+    try {
+      return await this.api.get<ImportPlan[]>(`/next/projects/${logicalId}/imports`, {
+        params: {
+          onlyUnapplied,
+          onlyUncommitted,
+        },
+      })
+    } catch (err) {
+      if (isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          throw new ProjectNotFoundError()
+        }
+      }
+
+      throw err
+    }
   }
 
   listImportPlans ({ onlyUnapplied = false, onlyUncommitted = false } = {}) {
