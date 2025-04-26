@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { HttpHeader } from './http-header'
@@ -28,7 +28,37 @@ function apiKeyFromHeaders (headers: HttpHeader[]): string | undefined {
 const construct = 'IncidentioAlertChannel'
 
 export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChannelResource> {
+  validateSafety (resource: IncidentioAlertChannelResource): void {
+    const { config } = resource
+
+    if (config.method !== 'POST') {
+      throw new ImportSafetyViolation(`Unsupported value for property 'method' (expected 'POST')`)
+    }
+
+    if (config.headers === undefined) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected a single 'authorization' header)`)
+    }
+
+    if (config.headers.length !== 1) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected a single 'authorization' header)`)
+    }
+
+    if (config.headers[0].key.toLowerCase() !== 'authorization') {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected a single 'authorization' header)`)
+    }
+
+    if (config.queryParameters !== undefined && config.queryParameters.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
+    }
+
+    if (config.webhookSecret) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
+    }
+  }
+
   prepare (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     context.registerAlertChannel(
       resource.id,
       'incidentioAlert',
@@ -37,6 +67,8 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
   }
 
   gencode (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     const { id, file } = context.lookupAlertChannel(resource.id)
 
     file.namedImport(construct, 'checkly/constructs')

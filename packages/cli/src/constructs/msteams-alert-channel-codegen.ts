@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 import { decl, expr, ident } from '../sourcegen'
 import { buildAlertChannelProps } from './alert-channel-codegen'
 import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
@@ -13,7 +13,29 @@ export interface MSTeamsAlertChannelResource extends WebhookAlertChannelResource
 const construct = 'MSTeamsAlertChannel'
 
 export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResource> {
+  validateSafety (resource: MSTeamsAlertChannelResource): void {
+    const { config } = resource
+
+    if (config.method !== 'POST') {
+      throw new ImportSafetyViolation(`Unsupported value for property 'method' (expected 'POST')`)
+    }
+
+    if (config.headers !== undefined && config.headers.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected no value or an empty array)`)
+    }
+
+    if (config.queryParameters !== undefined && config.queryParameters.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
+    }
+
+    if (config.webhookSecret !== undefined) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
+    }
+  }
+
   prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     context.registerAlertChannel(
       resource.id,
       'teamsAlert',
@@ -22,11 +44,29 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
   }
 
   gencode (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
+    this.validateSafety(resource)
+
     const { id, file } = context.lookupAlertChannel(resource.id)
 
     file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
+
+    if (config.method !== 'POST') {
+      throw new ImportSafetyViolation(`Unsupported value for property 'method' (expected 'POST')`)
+    }
+
+    if (config.headers !== undefined && config.headers.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected no value or an empty array)`)
+    }
+
+    if (config.queryParameters !== undefined && config.queryParameters.length !== 0) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
+    }
+
+    if (config.webhookSecret) {
+      throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
+    }
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

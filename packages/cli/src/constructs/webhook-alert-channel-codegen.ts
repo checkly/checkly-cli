@@ -7,7 +7,7 @@ import { QueryParam } from './query-param'
 import { IncidentioAlertChannelCodegen } from './incidentio-alert-channel-codegen'
 import { MSTeamsAlertChannelCodegen } from './msteams-alert-channel-codegen'
 import { TelegramAlertChannelCodegen } from './telegram-alert-channel-codegen'
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 
 export type WebhookType =
   'WEBHOOK_INCIDENTIO' |
@@ -22,7 +22,7 @@ export interface WebhookAlertChannelResourceConfig {
   method?: string
   headers?: HttpHeader[]
   queryParameters?: QueryParam[]
-  webhookSecret?: string
+  webhookSecret?: string | null
 }
 
 export interface WebhookAlertChannelResource extends AlertChannelResource {
@@ -102,12 +102,22 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
   }
 
   prepare (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
-    const { webhookType } = resource.config
-    if (webhookType) {
-      const codegen = this.codegensByWebhookType[webhookType]
-      if (codegen) {
-        codegen.prepare(logicalId, resource, context)
-        return
+    try {
+      const { webhookType } = resource.config
+      if (webhookType) {
+        const codegen = this.codegensByWebhookType[webhookType]
+        if (codegen) {
+          codegen.prepare(logicalId, resource, context)
+          return
+        }
+      }
+    } catch (err) {
+      if (err instanceof ImportSafetyViolation) {
+        // The webhook contains unsupported data for its claimed type.
+        // Fall back to the standard webhook alert channel which can handle
+        // all subtypes.
+      } else {
+        throw err
       }
     }
 
@@ -119,12 +129,22 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
   }
 
   gencode (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
-    const { webhookType } = resource.config
-    if (webhookType) {
-      const codegen = this.codegensByWebhookType[webhookType]
-      if (codegen) {
-        codegen.gencode(logicalId, resource, context)
-        return
+    try {
+      const { webhookType } = resource.config
+      if (webhookType) {
+        const codegen = this.codegensByWebhookType[webhookType]
+        if (codegen) {
+          codegen.gencode(logicalId, resource, context)
+          return
+        }
+      }
+    } catch (err) {
+      if (err instanceof ImportSafetyViolation) {
+        // The webhook contains unsupported data for its claimed type.
+        // Fall back to the standard webhook alert channel which can handle
+        // all subtypes.
+      } else {
+        throw err
       }
     }
 
