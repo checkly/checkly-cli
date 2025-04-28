@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-import type { AxiosResponse, CreateAxiosDefaults } from 'axios'
+import type { CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
@@ -12,10 +12,10 @@ import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunn
 import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
-import { checklyStorage } from '../rest/api'
 import { ChecklyConfig } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
+import { PlaywrightConfig } from './playwright-config'
 
 export interface GitInformation {
   commitId: string
@@ -271,8 +271,6 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputFile)
 
-  const browsers = findBrowsers(pwtConfig)
-
   const archive = create('tar', {
     gzip: true,
     gzipOptions: {
@@ -280,12 +278,15 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
     },
   })
   archive.pipe(output)
-  await loadPlaywrightProjectFiles(dir, pwtConfig, include, archive)
+
+  const pwConfigParsed = new PlaywrightConfig(pwtConfig)
+
+  await loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
-      return resolve({ outputFile, browsers, relativePlaywrightConfigPath: path.relative(dir, filePath) })
+      return resolve({ outputFile, browsers: pwConfigParsed.getBrowsers(), relativePlaywrightConfigPath: path.relative(dir, filePath) })
     })
 
     output.on('error', (err) => {
@@ -295,12 +296,11 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
 }
 
 export async function loadPlaywrightProjectFiles (
-  dir: string, playwrightConfig: any, include: string[], archive: Archiver,
+  dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
-  const testFiles = getPlaywrightTestFiles(playwrightConfig)
   const parser = new Parser({})
-  const { files } = await parser.getFilesAndDependencies(testFiles)
+  const { files } = await parser.getFilesAndDependencies(pwConfigParsed.getFiles())
   for (const file of files) {
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath })
@@ -310,54 +310,6 @@ export async function loadPlaywrightProjectFiles (
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/'), ignore: ignoredFiles })
   }
-}
-
-export function getPlaywrightTestFiles (playwrightConfig: any): (string | RegExp)[] {
-  const testFiles = new Set<string | RegExp>()
-  const fileDefinitions = ['tsconfig', 'testDir', 'testMatch', 'globalSetup', 'globalTeardown']
-
-  for (const fileDefinition of fileDefinitions) {
-    const definition = playwrightConfig[fileDefinition]
-      if (!definition) {
-        continue
-      }
-    if (Array.isArray(definition)) {
-      definition.forEach((match: string | RegExp) => testFiles.add(match))
-    } else {
-      testFiles.add(definition)
-    }
-  }
-
-  if (playwrightConfig.projects) {
-    playwrightConfig.projects.forEach((project: any) => {
-      getPlaywrightTestFiles(project).forEach((file: string | RegExp) => testFiles.add(file))
-    })
-  }
-
-  return Array.from(testFiles)
-}
-
-export function findBrowsers (playwrightConfig: any): string[] {
-  const browsers = new Set<string>()
-  // TODO: Fine tune the browser detection
-  const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
-  for (const browserKeyword of browserKeywords) {
-    if (playwrightConfig?.use?.[browserKeyword]) {
-      browsers.add(playwrightConfig?.use[browserKeyword])
-    }
-  }
-  for (const project of playwrightConfig.projects) {
-    for (const browserKeyword of browserKeywords) {
-      if (project?.use?.[browserKeyword]) {
-        browsers.add(project?.use[browserKeyword])
-      }
-    }
-  }
-  if (browsers.size === 0) {
-    // Add the default browser
-    browsers.add('chromium')
-  }
-  return Array.from(browsers)
 }
 
 export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
@@ -379,12 +331,6 @@ export async function findFilesWithPattern (
     absolute: true,
   })
   return files.sort()
-}
-
-export async function uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
-  const { size } = await fs.stat(dir)
-  const stream = fsSync.createReadStream(dir)
-  return checklyStorage.uploadCodeBundle(stream, size)
 }
 
 export function cleanup (dir: string) {

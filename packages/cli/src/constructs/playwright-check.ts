@@ -1,10 +1,11 @@
 import fs from 'fs'
+import type { AxiosResponse } from 'axios'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import {
   bundlePlayWrightProject, cleanup,
-  uploadPlaywrightProject,
 } from '../services/util'
+import { checklyStorage } from '../rest/api'
 import { ValidationError } from './validator-error'
 import { printLn } from '../reporters/util'
 import chalk from 'chalk'
@@ -88,12 +89,19 @@ export class PlaywrightCheck extends Check {
         outputFile, browsers, relativePlaywrightConfigPath,
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
-      const { data: { key } } = await uploadPlaywrightProject(dir)
+      const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
       return { key, browsers, relativePlaywrightConfigPath }
     } finally {
       await cleanup(dir)
     }
   }
+
+  static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
+    const { size } = await fs.promises.stat(dir)
+    const stream = fs.createReadStream(dir)
+    return checklyStorage.uploadCodeBundle(stream, size)
+  }
+
 
   synthesize () {
     const testCommand = PlaywrightCheck.buildTestCommand(
