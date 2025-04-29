@@ -146,9 +146,11 @@ export async function loadChecklyConfig (
 
 async function findConfigFile (dir: string, filenames: string[]): Promise<ChecklyConfig | null> {
   for (const filename of filenames) {
-    const config = await loadFile(path.join(dir, filename))
-    if (config) {
-      return config
+    if (existsSync(path.join(dir, filename))) {
+      const config = await loadFile(path.join(dir, filename))
+      if (config) {
+        return config
+      }
     }
   }
   return null
