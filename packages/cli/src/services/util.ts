@@ -113,10 +113,17 @@ type Jiti = ReturnType<(typeof import('jiti', {
 
 // To avoid a dependency on typescript for users with no TS checks, we need to dynamically import jiti
 let jiti: Jiti
+let haveJiti = false
 async function getJiti (): Promise<Jiti | undefined> {
-  if (jiti) return jiti
+  if (haveJiti) return jiti
   try {
-    jiti = (await import('jiti')).createJiti(__filename)
+    const maybeJiti = await import('jiti')
+    // Jiti 1x does not have createJiti().
+    if (typeof maybeJiti.createJiti !== 'function') {
+      return
+    }
+    jiti = maybeJiti.createJiti(__filename)
+    haveJiti = true
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
       return undefined
