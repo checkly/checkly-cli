@@ -37,6 +37,10 @@ class OutputLine {
   }
 }
 
+export interface EndLineOptions {
+  collapse?: boolean
+}
+
 export class Output {
   #level = 0
   #lines: OutputLine[] = []
@@ -56,7 +60,11 @@ export class Output {
     this.#level -= 1
   }
 
-  endLine () {
+  endLine (options?: EndLineOptions) {
+    if (options?.collapse && this.#currentLine.isEmpty()) {
+      return
+    }
+
     this.#currentLine = new OutputLine(this.#level)
     this.#lines.push(this.#currentLine)
   }

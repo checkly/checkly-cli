@@ -1,11 +1,14 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path, { extname } from 'node:path'
 
+import { Comment } from './comment'
 import { Output } from './output'
 import { Value } from './value'
 import { Declaration } from './decl'
 
-type Content = Declaration | Value
+type Content = Comment | Declaration | Value
+
+type Header = Comment
 
 export interface ProgramOptions {
   rootDirectory: string
@@ -188,6 +191,7 @@ export class GeneratedFile extends ProgramFile {
   #namedImports = new Map<string, Set<string>>()
   #plainImports = new Set<string>()
   #sections: Content[] = []
+  #headers: Header[] = []
 
   namedImport (type: string, from: string, options?: ImportOptions) {
     from = this.#processImportFrom(from, options)
@@ -227,11 +231,21 @@ export class GeneratedFile extends ProgramFile {
     return from
   }
 
+  header (header: Header) {
+    this.#headers.push(header)
+  }
+
   section (content: Content) {
     this.#sections.push(content)
   }
 
   render (output: Output): void {
+    for (const header of this.#headers) {
+      header.render(output)
+      output.endLine()
+      output.endLine()
+    }
+
     if (this.#namedImports.size > 0) {
       for (const [pkg, types] of this.#namedImports.entries()) {
         output.append('import')

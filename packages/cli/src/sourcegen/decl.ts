@@ -1,3 +1,4 @@
+import { Comment } from './comment'
 import { IdentifierValue } from './identifier'
 import { Output } from './output'
 import { Value } from './value'
@@ -62,5 +63,41 @@ export class ExportDeclaration extends Declaration {
     output.append('export')
     output.significantWhitespace()
     this.decl.render(output)
+  }
+}
+
+export class LeadingCommentDeclaration extends Declaration {
+  decl: Declaration
+  comment: Comment
+
+  constructor (comment: Comment, decl: Declaration) {
+    super()
+    this.decl = decl
+    this.comment = comment
+  }
+
+  render (output: Output): void {
+    this.comment.render(output)
+    output.endLine({
+      collapse: true,
+    })
+    this.decl.render(output)
+  }
+}
+
+export class TrailingCommentDeclaration extends Declaration {
+  decl: Declaration
+  comment: Comment
+
+  constructor (comment: Comment, decl: Declaration) {
+    super()
+    this.decl = decl
+    this.comment = comment
+  }
+
+  render (output: Output): void {
+    this.decl.render(output)
+    output.cosmeticWhitespace()
+    this.comment.render(output)
   }
 }
