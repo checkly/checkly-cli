@@ -15,6 +15,16 @@ export {
   screamingKebabCase,
 } from './case'
 export {
+  blockComment,
+  BlockComment,
+  Comment,
+  CommentValue,
+  docComment,
+  DocComment,
+  lineComment,
+  LineComment,
+} from './comment'
+export {
   VariableDeclaration,
   ExportDeclaration,
 } from './decl'

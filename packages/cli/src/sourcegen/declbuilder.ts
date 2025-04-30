@@ -1,4 +1,5 @@
-import { Declaration, IdentifierDeclaration, VariableDeclarationOptions, VariableDeclaration, ExportDeclaration } from './decl'
+import { Comment } from './comment'
+import { Declaration, IdentifierDeclaration, VariableDeclarationOptions, VariableDeclaration, ExportDeclaration, LeadingCommentDeclaration, TrailingCommentDeclaration } from './decl'
 import { IdentifierValue } from './identifier'
 import { Value } from './value'
 
@@ -24,6 +25,16 @@ export class DeclarationBuilder {
 
   export (): this {
     this.#decl = new ExportDeclaration(this.#decl)
+    return this
+  }
+
+  leadingComment (comment: Comment): this {
+    this.#decl = new LeadingCommentDeclaration(comment, this.#decl)
+    return this
+  }
+
+  trailingComment (comment: Comment): this {
+    this.#decl = new TrailingCommentDeclaration(comment, this.#decl)
     return this
   }
 

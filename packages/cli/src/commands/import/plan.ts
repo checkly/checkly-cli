@@ -11,7 +11,7 @@ import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan, ProjectNotFoundError } from '../../rest/projects'
-import { Program } from '../../sourcegen'
+import { docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
 import {
@@ -234,6 +234,12 @@ export default class ImportPlanCommand extends AuthCommand {
             const snippetFiles = context.findScriptSnippetFiles(content)
             for (const snippetFile of snippetFiles) {
               const localSnippetFile = program.generatedSupportFile(`snippets/snippets/${snippetFile.basename}`)
+              localSnippetFile.header(docComment(
+                `This file has been generated to help resolve cross-snippet imports.\n` +
+                `\n` +
+                `We recommend rewriting your imports to not reference this file, after which\n` +
+                `you may remove it.`,
+              ))
               localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
             }
           }
