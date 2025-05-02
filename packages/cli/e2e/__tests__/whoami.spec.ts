@@ -1,5 +1,7 @@
-import { runChecklyCli } from '../run-checkly'
 import config from 'config'
+import { describe, it, expect } from 'vitest'
+
+import { runChecklyCli } from '../run-checkly'
 
 describe('whomai', () => {
   it('should give correct user', async () => {

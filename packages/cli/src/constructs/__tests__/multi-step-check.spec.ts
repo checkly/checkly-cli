@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { Project, Session } from '../project'
 import { MultiStepCheck } from '../multi-step-check'
 

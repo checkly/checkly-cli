@@ -1,6 +1,5 @@
 /* eslint-disable no-new */
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { BrowserCheck, PrivateLocation, CheckGroup } = require('../../../../../constructs')
+import { BrowserCheck, PrivateLocation, CheckGroup } from '../../../../../constructs'
 
 const privateLocation = new PrivateLocation('private-location-1', {
   name: 'My Private Location',

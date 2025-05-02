@@ -12,8 +12,8 @@
     "clean": "rimraf ./dist",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
-    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects unit",
-    "test:e2e": "npm run prepare && cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest --selectProjects E2E",
+    "test": "vitest",
+    "test:e2e": "vitest -c ./vitest.config.e2e.mts",
     "start": "node ./index.mjs",
     "watch": "tsc --watch"
   },
@@ -72,19 +72,17 @@
   "devDependencies": {
     "@types/config": "^3.3.5",
     "@types/debug": "^4.1.12",
-    "@types/jest": "^29.5.14",
     "@types/luxon": "^3.3.1",
     "@types/node": "^22.14.1",
     "@types/prompts": "^2.4.9",
     "@types/uuid": "^10.0.0",
     "config": "^3.3.12",
     "cross-env": "^7.0.3",
-    "jest": "^29.7.0",
     "jiti": "^2.4.2",
     "rimraf": "^5.0.10",
-    "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "3.1.2"
   },
   "peerDependencies": {
     "jiti": ">=2"
@@ -93,32 +91,5 @@
     "jiti": {
       "optional": true
     }
-  },
-  "jest": {
-    "projects": [
-      {
-        "displayName": "unit",
-        "testMatch": [
-          "<rootDir>/src/**/*.spec.ts"
-        ],
-        "preset": "ts-jest",
-        "testEnvironment": "node"
-      },
-      {
-        "displayName": "E2E",
-        "testMatch": [
-          "<rootDir>/e2e/__tests__/**/*.spec.ts"
-        ],
-        "testPathIgnorePatterns": [
-          "<rootDir>/e2e/__tests__/fixtures"
-        ],
-        "preset": "ts-jest",
-        "testEnvironment": "node"
-      }
-    ],
-    "reporters": [
-      "default",
-      "github-actions"
-    ]
   }
 }

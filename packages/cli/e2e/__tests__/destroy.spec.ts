@@ -1,6 +1,9 @@
-import * as path from 'path'
+import path from 'node:path'
+
 import config from 'config'
 import { v4 as uuidv4 } from 'uuid'
+import { describe, it, expect, beforeEach } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
 
 describe('destroy', () => {

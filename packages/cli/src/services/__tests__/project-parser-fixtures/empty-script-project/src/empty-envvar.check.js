@@ -1,6 +1,5 @@
 /* eslint-disable no-new */
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { BrowserCheck, CheckGroup } = require('../../../../../constructs')
+import { BrowserCheck, CheckGroup } from '../../../../../constructs'
 
 const group = new CheckGroup('check-group-1', {
   name: 'group',

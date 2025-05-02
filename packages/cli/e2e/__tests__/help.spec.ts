@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
 
 describe('help', () => {

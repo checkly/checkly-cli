@@ -1,4 +1,7 @@
-import * as path from 'path'
+import path from 'node:path'
+
+import { describe, it, expect } from 'vitest'
+
 import { pathToPosix, isFileSync } from '../util'
 
 describe('util', () => {

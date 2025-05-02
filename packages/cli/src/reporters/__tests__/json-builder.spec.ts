@@ -1,3 +1,5 @@
+import { describe, expect, test } from 'vitest'
+
 import { JsonBuilder } from '../json'
 import { generateMapAndTestResultIds } from './helpers'
 

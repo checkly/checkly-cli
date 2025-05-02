@@ -1,6 +1,9 @@
 /* eslint no-console: 'off' */
-import * as path from 'path'
-import * as prompts from 'prompts'
+import path from 'node:path'
+
+import prompts from 'prompts'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+
 import {
   PROJECT_TEMPLATES,
   askInitializeProject,
@@ -12,13 +15,13 @@ import {
 } from '../prompts'
 import * as directoryUtils from '../../utils/directory'
 
-const generateProjectName = jest.spyOn(directoryUtils, 'generateProjectName').mockReturnValue('generated-project-name')
+const generateProjectName = vi.spyOn(directoryUtils, 'generateProjectName').mockReturnValue('generated-project-name')
 
 describe('prompts', () => {
-  const onCancel = jest.fn()
+  const onCancel = vi.fn()
 
   afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it('should ask for confirmation (all confirm questions)', async () => {

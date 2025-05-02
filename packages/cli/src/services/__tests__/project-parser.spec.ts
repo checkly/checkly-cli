@@ -1,6 +1,9 @@
-import * as path from 'path'
+import path from 'node:path'
+
 import { AxiosResponse } from 'axios'
 import { v4 as uuidv4 } from 'uuid'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
+
 import { privateLocations } from '../../rest/api'
 import { parseProject } from '../project-parser'
 
@@ -22,8 +25,8 @@ const mockPrivateLocationsResponse = {
 
 describe('parseProject()', () => {
   beforeAll(() => {
-    jest.resetAllMocks()
-    jest.spyOn(privateLocations, 'getAll').mockResolvedValue(mockPrivateLocationsResponse)
+    vi.resetAllMocks()
+    vi.spyOn(privateLocations, 'getAll').mockResolvedValue(mockPrivateLocationsResponse)
   })
   it('should parse a simple project', async () => {
     const simpleProjectPath = path.join(__dirname, 'project-parser-fixtures', 'simple-project')

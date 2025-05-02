@@ -1,5 +1,8 @@
+import path from 'node:path'
+
+import { describe, it, expect } from 'vitest'
+
 import { Parser } from '../parser'
-import * as path from 'path'
 import { pathToPosix } from '../../util'
 
 describe('project parser - getFilesAndDependencies()', () => {
@@ -159,7 +162,6 @@ describe('project parser - getFilesAndDependencies()', () => {
     const parser = new Parser({})
     expect.assertions(1)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       await parser.getFilesAndDependencies([toAbsolutePath('entrypoint.js')])
     } catch (err) {
       expect(err).toMatchObject({
