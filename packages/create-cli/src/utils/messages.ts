@@ -1,5 +1,5 @@
 /* eslint no-console: 'off' */
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import { getFullName } from './fullname'
 
 function sleep (ms: number): Promise<void> {
