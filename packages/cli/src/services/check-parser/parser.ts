@@ -1,14 +1,17 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import url from 'url'
 import * as fsAsync from 'fs/promises'
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
+import { minimatch } from 'minimatch'
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies } from './package-files/resolver'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
-import { findFilesWithPattern, findRegexFiles, pathToPosix } from '../util'
+import type { PlaywrightConfig } from '../playwright-config'
+import { findFilesWithPattern, pathToPosix } from '../util'
 
 // Our custom configuration to handle walking errors
 
@@ -21,6 +24,7 @@ type Module = {
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
+const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png']
 
 const supportedBuiltinModules = [
   'node:assert',
@@ -129,9 +133,9 @@ export class Parser {
     }
   }
 
-  async getFilesAndDependencies (paths: (string| RegExp)[]):
+  async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
     Promise<{ files: string[], errors: string[] }> {
-    const files = new Set(await this.getFilesFromPaths(paths))
+    const files = new Set(await this.getFilesFromPaths(playwrightConfig))
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
@@ -139,7 +143,7 @@ export class Parser {
       if (resultFileSet.has(file)) {
         continue
       }
-      if (file.endsWith('.json')) {
+      if (STATIC_FILE_EXTENSION.includes(path.extname(file))) {
         // Holds info about the main file and doesn't need to be parsed
         resultFileSet.add(file)
         continue
@@ -175,36 +179,79 @@ export class Parser {
       resultFileSet.add(pathToPosix(item.filePath))
     }
     if (missingFiles.size) {
-      throw new DependencyParseError(paths.join(', '), Array.from(missingFiles), [], [])
+      throw new DependencyParseError([].join(', '), Array.from(missingFiles), [], [])
     }
     return { files: Array.from(resultFileSet), errors: Array.from(errors) }
   }
 
-  private async getFilesFromPaths (paths: (string|RegExp)[]): Promise<string[]> {
-    // TODO: make this configurable
-    const ignoredFiles = ['**/node_modules/**', '.git/**']
-    const files = paths.map(async (currPath) => {
-      if (currPath instanceof RegExp) {
-        return findRegexFiles(process.cwd(), currPath, ignoredFiles)
-      }
-      const normalizedPath = pathToPosix(currPath)
-      try {
-        const stats = await fsAsync.lstat(normalizedPath)
-        if (stats.isDirectory()) {
-          return findFilesWithPattern(normalizedPath, '**/*.{js,ts,mjs}', ignoredFiles)
-        }
-        return [normalizedPath]
-      } catch (err) {
-        if (normalizedPath.includes('*') || normalizedPath.includes('?') || normalizedPath.includes('{')) {
-          return findFilesWithPattern(process.cwd(), normalizedPath, ignoredFiles)
-        } else {
-          return []
-        }
-      }
-    })
+  private async collectFiles(cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
+    let files = cache.get(testDir)
+    if (!files) {
+      files = await findFilesWithPattern(testDir, '**/*.{js,ts,mjs}', ignoredFiles)
+      cache.set(testDir, files)
+    }
+    return files
+  }
 
-    const filesArray = await Promise.all(files)
-    return filesArray.flat()
+  private async getFilesFromPaths (playwrightConfig: (PlaywrightConfig)): Promise<string[]> {
+    const ignoredFiles = ['**/node_modules/**', '.git/**']
+    const cachedFiles = new Map<string, string[]>
+    // If projects is definited, ignore root settings
+    const projects = playwrightConfig.projects ?? [playwrightConfig]
+    for (const project of projects) {
+      // Cache the files by test dir
+      const files = await this.collectFiles(cachedFiles, project.testDir, ignoredFiles)
+      const matcher = this.createFileMatcher(Array.from(project.testMatch))
+      for (const file of files) {
+        if (!matcher(file)) {
+          continue
+        }
+        project.addFiles(file)
+        const snaphotsPaths = project.getSnapshotPath(file)
+        const snapshots = await findFilesWithPattern(project.testDir, snaphotsPaths, ignoredFiles)
+        if (snapshots.length) {
+          project.addFiles(...snapshots)
+        }
+      }
+    }
+    return playwrightConfig.getFiles()
+  }
+
+  createFileMatcher(patterns: (string | RegExp)[]): (filePath: string) => boolean {
+    const reList: RegExp[] = [];
+    const filePatterns: string[] = [];
+    for (const pattern of patterns) {
+      if (pattern instanceof RegExp) {
+        reList.push(pattern);
+      } else {
+        if (!pattern.startsWith('**/'))
+          filePatterns.push('**/' + pattern);
+        else
+          filePatterns.push(pattern);
+      }
+    }
+    return (filePath: string) => {
+      for (const re of reList) {
+        re.lastIndex = 0;
+        if (re.test(filePath))
+          return true;
+      }
+      // Windows might still receive unix style paths from Cygwin or Git Bash.
+      // Check against the file url as well.
+      if (path.sep === '\\') {
+        const fileURL = url.pathToFileURL(filePath).href;
+        for (const re of reList) {
+          re.lastIndex = 0;
+          if (re.test(fileURL))
+            return true;
+        }
+      }
+      for (const pattern of filePatterns) {
+        if (minimatch(filePath, pattern, { nocase: true, dot: true }))
+          return true;
+      }
+      return false;
+    }
   }
 
   parse (entrypoint: string) {

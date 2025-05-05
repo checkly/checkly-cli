@@ -286,7 +286,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   })
   archive.pipe(output)
 
-  const pwConfigParsed = new PlaywrightConfig(pwtConfig)
+  const pwConfigParsed = new PlaywrightConfig(dir, pwtConfig)
 
   await loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
@@ -307,7 +307,7 @@ export async function loadPlaywrightProjectFiles (
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
-  const { files } = await parser.getFilesAndDependencies(pwConfigParsed.getFiles())
+  const { files } = await parser.getFilesAndDependencies(pwConfigParsed)
   for (const file of files) {
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath })
@@ -328,7 +328,7 @@ export async function findRegexFiles (directory: string, regex: RegExp, ignorePa
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
-  ignorePattern: string[],
+  ignorePattern: string[]
 ): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
   const files = await glob(pattern, {

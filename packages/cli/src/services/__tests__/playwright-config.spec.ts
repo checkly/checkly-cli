@@ -2,21 +2,20 @@ import path from "node:path";
 import { loadFile } from "../util";
 import { PlaywrightConfig } from "../playwright-config";
 
-const loadConfig = (filename: string) => {
-  return loadFile(path.join(__dirname, 'fixtures', 'playwright-configs', filename))
-}
+
+const fixturesPath = path.join(__dirname, 'fixtures', 'playwright-configs')
 
 describe('playwright-config', () => {
   it('it should load simple config correctly', async () => {
-    const pwConfig = await loadConfig('simple-config.ts')
-    const config = new PlaywrightConfig(pwConfig)
-    expect(config.getFiles()).toEqual(['./tests'])
+    const pwConfig = await loadFile(path.join(fixturesPath, 'simple-config.ts'))
+    const config = new PlaywrightConfig(fixturesPath, pwConfig)
+    expect(Array.from(config.testMatch)).toEqual(['**/*.@(spec|test).?(c|m)[jt]s?(x)'])
     expect(config.getBrowsers()).toEqual(['chromium', 'webkit', 'msedge', 'chrome'])
   })
   it('it should load simple config correctly', async () => {
-    const pwConfig = await loadConfig('simple-config-no-browsers.ts')
-    const config = new PlaywrightConfig(pwConfig)
-    expect(config.getFiles()).toEqual(['./tests', 'tests.*.ts'])
+    const pwConfig = await loadFile(path.join(fixturesPath,'simple-config-no-browsers.ts'))
+    const config = new PlaywrightConfig(fixturesPath, pwConfig)
+    expect(Array.from(config.testMatch)).toEqual(['tests.*.ts'])
     expect(config.getBrowsers()).toEqual(['chromium'])
   })
 })
