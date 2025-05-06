@@ -7,8 +7,6 @@ import {
 } from '../services/util'
 import { checklyStorage } from '../rest/api'
 import { ValidationError } from './validator-error'
-import { printLn } from '../reporters/util'
-import chalk from 'chalk'
 
 export interface PlaywrightCheckProps extends CheckProps {
   playwrightConfigPath: string
@@ -46,7 +44,7 @@ export class PlaywrightCheck extends Check {
     this.include = props.include
       ? (Array.isArray(props.include) ? props.include : [props.include])
       : []
-    this.testCommand = props.testCommand ?? '{packageManager} playwright test'
+    this.testCommand = props.testCommand ?? 'npx playwright test'
     if (!fs.existsSync(props.playwrightConfigPath)) {
       throw new ValidationError(`Playwright config doesnt exist ${props.playwrightConfigPath}`)
     }
@@ -68,7 +66,7 @@ export class PlaywrightCheck extends Check {
     if (group) {
       this.groupId = group.ref()
     } else {
-      printLn(chalk.red(`Error: No group named "${groupName}". Please verify the group exists in your code or create it.`))
+      throw new ValidationError(`Error: No group named "${groupName}". Please verify the group exists in your code or create it.`)
     }
   }
 
