@@ -46,7 +46,7 @@ export class PlaywrightCheck extends Check {
     this.include = props.include
       ? (Array.isArray(props.include) ? props.include : [props.include])
       : []
-    this.testCommand = props.testCommand ?? 'npx playwright test'
+    this.testCommand = props.testCommand ?? '{packageManager} playwright test'
     if (!fs.existsSync(props.playwrightConfigPath)) {
       throw new ValidationError(`Playwright config doesnt exist ${props.playwrightConfigPath}`)
     }
