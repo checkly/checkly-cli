@@ -314,6 +314,8 @@ export async function loadPlaywrightProjectFiles (
   }
   // TODO: This code below should be a single glob
   archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/'), ignore: ignoredFiles })
   }
