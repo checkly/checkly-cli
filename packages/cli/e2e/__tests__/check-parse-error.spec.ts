@@ -1,5 +1,8 @@
-import * as path from 'path'
+import path from 'node:path'
+
 import config from 'config'
+import { describe, it, expect } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
 
 describe('check parse error', () => {

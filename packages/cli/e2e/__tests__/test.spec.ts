@@ -1,10 +1,13 @@
-import * as path from 'path'
+import path from 'node:path'
+import fs from 'node:fs'
+
 import * as uuid from 'uuid'
 import config from 'config'
-import * as fs from 'fs'
+import { describe, it, expect } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
 
-describe('test', () => {
+describe('test', { timeout: 45000 }, () => {
   it('Test project should run successfully', async () => {
     const secretEnv = uuid.v4()
     const result = await runChecklyCli({

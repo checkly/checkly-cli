@@ -1,6 +1,8 @@
-import * as path from 'path'
+import path from 'node:path'
+
 import * as uuid from 'uuid'
 import config from 'config'
+import { describe, expect, beforeAll, afterAll, test } from 'vitest'
 
 import { runChecklyCli } from '../run-checkly'
 

@@ -58,7 +58,8 @@ export async function loadFile (filepath: string): Promise<any> {
     if (/\.[mc]?ts$/.test(filepath)) {
       exported = await loadTsFileDefault(filepath)
     } else {
-      exported = (await import(pathToPosix(filepath))).default
+      const imported = await import(pathToPosix(filepath))
+      exported = imported.default ?? {}
     }
     if (typeof exported === 'function') {
       exported = await exported()

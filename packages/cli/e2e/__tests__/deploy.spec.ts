@@ -1,10 +1,13 @@
-import * as path from 'path'
+import path from 'node:path'
+
 import config from 'config'
 import { v4 as uuidv4 } from 'uuid'
 import axios from 'axios'
-import { runChecklyCli } from '../run-checkly'
-import Projects from '../../src/rest/projects'
 import { DateTime, Duration } from 'luxon'
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
+
+import Projects from '../../src/rest/projects'
+import { runChecklyCli } from '../run-checkly'
 import CheckTypes from '../../src/constants'
 
 async function cleanupProjects (projectLogicalId?: string) {

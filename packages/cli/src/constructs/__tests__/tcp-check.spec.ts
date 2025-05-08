@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { TcpCheck, CheckGroup, TcpRequest } from '../index'
 import { Project, Session } from '../project'
 

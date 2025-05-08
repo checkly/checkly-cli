@@ -1,12 +1,15 @@
+import path from 'node:path'
+import fs from 'node:fs'
+import { SpawnSyncReturns } from 'node:child_process'
+
 import axios from 'axios'
 import * as rimraf from 'rimraf'
-import * as path from 'path'
-import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
+import { describe, it, expect, afterAll, beforeAll, beforeEach } from 'vitest'
+
 import { runChecklyCreateCli } from '../run-create-cli'
 import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
-import { SpawnSyncReturns } from 'child_process'
 
 const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 

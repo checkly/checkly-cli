@@ -1,6 +1,8 @@
 import Conf from 'conf'
+import { describe, it, expect, vi } from 'vitest'
+
 import config from '../config'
-jest.mock('conf')
+vi.mock('conf')
 
 describe('config', () => {
   it('should avoid reading config file if environment variables are set', () => {

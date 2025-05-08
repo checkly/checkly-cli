@@ -1,4 +1,6 @@
 import config from 'config'
+import { describe, it, expect, beforeEach } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
 
 describe('login', () => {

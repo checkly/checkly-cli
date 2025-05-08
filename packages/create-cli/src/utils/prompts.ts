@@ -1,6 +1,6 @@
 import * as path from 'path'
-import * as chalk from 'chalk'
-import * as prompts from 'prompts'
+import chalk from 'chalk'
+import prompts from 'prompts'
 import { generateProjectName, isValidProjectDirectory } from '../utils/directory'
 
 export const PROJECT_TEMPLATES = [

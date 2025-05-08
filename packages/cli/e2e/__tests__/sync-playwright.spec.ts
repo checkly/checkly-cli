@@ -1,7 +1,10 @@
+import path from 'node:path'
+import fs from 'node:fs'
+
+import { describe, it, expect, afterEach } from 'vitest'
+
 import { runChecklyCli } from '../run-checkly'
-import * as path from 'path'
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
-import * as fs from 'fs'
 
 describe('sync-playwright', () => {
   // Since we are modifying the file let's keep it clean after each test
