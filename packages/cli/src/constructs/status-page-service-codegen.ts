@@ -9,6 +9,10 @@ export interface StatusPageServiceResource {
 const construct = 'StatusPageService'
 
 export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource> {
+  describe (resource: StatusPageServiceResource): string {
+    return `Status Page Service: ${resource.name}`
+  }
+
   prepare (logicalId: string, resource: StatusPageServiceResource, context: Context): void {
     const filePath = context.filePath('resources/status-pages/services', resource.name, {
       unique: true,

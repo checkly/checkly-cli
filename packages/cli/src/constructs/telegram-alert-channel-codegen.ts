@@ -64,6 +64,12 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
     }
   }
 
+  describe (resource: TelegramAlertChannelResource): string {
+    this.validateSafety(resource)
+
+    return `Telegram Alert Channel: ${resource.config.name}`
+  }
+
   prepare (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 

@@ -97,6 +97,15 @@ export class ConstructCodegen extends Codegen<Resource> {
     }
   }
 
+  describe (resource: Resource): string {
+    const codegen = this.codegensByType[resource.type]
+    if (codegen === undefined) {
+      throw new Error(`Unable to describe unsupported resource type '${resource.type}'.`)
+    }
+
+    return codegen.describe(resource.payload)
+  }
+
   prepare (logicalId: string, resource: Resource, context: Context): void {
     const codegen = this.codegensByType[resource.type]
     if (codegen === undefined) {

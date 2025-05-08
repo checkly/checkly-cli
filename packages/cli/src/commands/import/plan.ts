@@ -129,15 +129,6 @@ future deployments include the imported resources.`
       return parseFilter(value as string)
     })
 
-    // Inject the default filter.
-    //
-    // By default all resource will be included, unless the user has specified
-    // an inclusive filter by themselves, in which case the default filter
-    // excludes all resources.
-    filters.unshift({
-      type: filters.some(({ type }) => type === 'include') ? 'exclude' : 'include',
-    })
-
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -159,6 +150,28 @@ future deployments include the imported resources.`
       }
     }
 
+    const program = new Program({
+      rootDirectory,
+      constructFileSuffix: '.check',
+      constructHeaders: preview ? [previewComment()] : undefined,
+      specFileSuffix: '.spec',
+      language: 'typescript',
+    })
+
+    // If the user provided no filter, ask interactively.
+    if (filters.length === 0) {
+      filters.push(...await this.#interactiveFilter(logicalId, program))
+    }
+
+    // Inject the default filter.
+    //
+    // By default all resource will be included, unless the user has specified
+    // an inclusive filter by themselves, in which case the default filter
+    // excludes all resources.
+    filters.unshift({
+      type: filters.some(({ type }) => type === 'include') ? 'exclude' : 'include',
+    })
+
     const plan = await this.#createImportPlan(logicalId, {
       preview,
       filters,
@@ -175,14 +188,6 @@ future deployments include the imported resources.`
     }
 
     try {
-      const program = new Program({
-        rootDirectory,
-        constructFileSuffix: '.check',
-        constructHeaders: preview ? [previewComment()] : undefined,
-        specFileSuffix: '.spec',
-        language: 'typescript',
-      })
-
       this.#generateCode(plan, program)
 
       if (this.fancy) {
@@ -250,6 +255,111 @@ future deployments include the imported resources.`
       }
 
       throw err
+    }
+  }
+
+  async #interactiveFilter (logicalId: string, program: Program): Promise<ImportPlanFilter[]> {
+    const choices: prompts.Choice[] = [{
+      title: `I want to import everything in one go`,
+      value: 'all',
+    }, {
+      title: `Let me choose resources manually`,
+      value: 'choose',
+      description: 'You will be presented with options.'
+    }, {
+      title: 'Cancel and exit',
+      value: 'exit',
+      description: 'No changes will be made.',
+    }]
+
+    const { action } = await prompts({
+      name: 'action',
+      type: 'select',
+      message: 'You are about to import resources from your Checkly account. Which resources would you like to import?',
+      choices,
+    })
+
+    switch (action) {
+      case 'all':
+        return []
+      case 'choose': {
+        const codegen = new ConstructCodegen(program)
+
+        const choices: prompts.Choice[] = await (async () => {
+          if (this.fancy) {
+            ux.action.start('Fetching available resources', undefined, { stdout: true })
+          }
+
+          try {
+            const { data } = await api.projects.createImportPlan(logicalId, {
+              preview: true,
+              filters: [{
+                type: 'include',
+              }],
+            })
+
+            if (this.fancy) {
+              ux.action.stop('✅ ')
+            }
+
+            return (data.changes?.resources ?? []).flatMap(resource => {
+              if (!isFilterable(resource.type)) {
+                return []
+              }
+
+              return [{
+                title: codegen.describe(resource as any),
+                value: `${resource.type}:${resource.physicalId}`,
+                description: `${resource.type}:${resource.physicalId}`,
+              }]
+            })
+          } catch (err) {
+            if (this.fancy) {
+              ux.action.stop('❌')
+            }
+
+            if (isAxiosError(err)) {
+              if (err.response?.status === 404) {
+                return []
+              }
+            }
+
+            throw err
+          }
+        })()
+
+        choices.sort((a, b) => {
+          return a.title.localeCompare(b.title)
+        })
+
+        const { resources } = await prompts({
+          name: 'resources',
+          type: 'autocompleteMultiselect',
+          message: 'Please select the resources you would like to import',
+          choices,
+          hint: ' - Space to select. Return to submit',
+          instructions: false,
+        })
+
+        if (resources === undefined) {
+          this.log('Exiting without making any changes.')
+          this.exit(0)
+        }
+
+        if (resources.length === 0) {
+          this.log(chalk.red('You did not choose any resources.'))
+          this.log('Exiting without making any changes.')
+          this.exit(0)
+        }
+
+        return resources.map(parseFilter)
+      }
+      case 'exit':
+        // falls through
+      default: {
+        this.log('Exiting without making any changes.')
+        this.exit(0)
+      }
     }
   }
 
@@ -581,51 +691,7 @@ function parseFilter (spec: string): ImportPlanFilter {
 
   const [type, physicalId] = spec.split(':', 2)
 
-  const integerPhysicalId = (value: string | undefined): number | undefined => {
-    if (value === undefined) {
-      return
-    }
-
-    if (value === '' || value === '*') {
-      return
-    }
-
-    const numberValue = parseInt(value, 10)
-    if (Number.isNaN(numberValue)) {
-      throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid integer`)
-    }
-
-    return numberValue
-  }
-
-  const uuidPhysicalId = (value: string | undefined): string | undefined => {
-    if (value === undefined) {
-      return
-    }
-
-    if (value === '' || value === '*') {
-      return
-    }
-
-    if (!validateUuid(value)) {
-      throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid UUID`)
-    }
-
-    return value
-  }
-
-  const mappings = {
-    'alert-channel': integerPhysicalId,
-    'check-group': integerPhysicalId,
-    'check': uuidPhysicalId,
-    'dashboard': integerPhysicalId,
-    'maintenance-window': integerPhysicalId,
-    'private-location': uuidPhysicalId,
-    'status-page-service': uuidPhysicalId,
-    'status-page': uuidPhysicalId,
-  }
-
-  const parseId = mappings[type as keyof typeof mappings]
+  const parseId = importables[type as keyof typeof importables]
   if (parseId === undefined) {
     throw new Error(`Invalid resource specifier '${spec}': Unsupported resource type '${type}'`)
   }
@@ -644,4 +710,52 @@ function parseFilter (spec: string): ImportPlanFilter {
   }
 
   return filter
+}
+
+function integerPhysicalId (value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return
+  }
+
+  if (value === '' || value === '*') {
+    return
+  }
+
+  const numberValue = parseInt(value, 10)
+  if (Number.isNaN(numberValue)) {
+    throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid integer`)
+  }
+
+  return numberValue
+}
+
+function uuidPhysicalId (value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return
+  }
+
+  if (value === '' || value === '*') {
+    return
+  }
+
+  if (!validateUuid(value)) {
+    throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid UUID`)
+  }
+
+  return value
+}
+
+const importables = {
+  'alert-channel': integerPhysicalId,
+  'check-group': integerPhysicalId,
+  'check': uuidPhysicalId,
+  'dashboard': integerPhysicalId,
+  'maintenance-window': integerPhysicalId,
+  'private-location': uuidPhysicalId,
+  'status-page-service': uuidPhysicalId,
+  'status-page': uuidPhysicalId,
+}
+
+function isFilterable (type: string): boolean {
+  return importables[type as keyof typeof importables] !== undefined
 }

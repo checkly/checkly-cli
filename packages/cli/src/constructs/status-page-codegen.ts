@@ -24,6 +24,10 @@ export interface StatusPageResource {
 const construct = 'StatusPage'
 
 export class StatusPageCodegen extends Codegen<StatusPageResource> {
+  describe (resource: StatusPageResource): string {
+    return `Status Page: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: StatusPageResource, context: Context): void {
     const filePath = context.filePath('resources/status-pages', resource.name, {
       unique: true,

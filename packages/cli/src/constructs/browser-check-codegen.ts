@@ -14,6 +14,10 @@ export interface BrowserCheckResource extends CheckResource {
 const construct = 'BrowserCheck'
 
 export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
+  describe (resource: BrowserCheckResource): string {
+    return `Browser Check: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: BrowserCheckResource, context: Context): void {
     const filePath = context.filePath('resources/browser-checks', resource.name, {
       tags: resource.tags,

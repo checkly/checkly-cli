@@ -13,6 +13,14 @@ export interface SmsAlertChannelResource extends AlertChannelResource {
 const construct = 'SmsAlertChannel'
 
 export class SmsAlertChannelCodegen extends Codegen<SmsAlertChannelResource> {
+  describe (resource: SmsAlertChannelResource): string {
+    if (resource.config.name) {
+      return `SMS Alert Channel: ${resource.config.name}`
+    }
+
+    return `SMS Alert Channel: ${resource.config.number}`
+  }
+
   prepare (logicalId: string, resource: SmsAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,

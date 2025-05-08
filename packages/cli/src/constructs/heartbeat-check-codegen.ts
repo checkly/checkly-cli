@@ -9,6 +9,10 @@ export interface HeartbeatCheckResource extends CheckResource {
 }
 
 export class HeartbeatCheckCodegen extends Codegen<HeartbeatCheckResource> {
+  describe (resource: HeartbeatCheckResource): string {
+    return `Heartbeat: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: HeartbeatCheckResource, context: Context): void {
     const filePath = context.filePath('resources/heartbeats', resource.name, {
       tags: resource.tags,

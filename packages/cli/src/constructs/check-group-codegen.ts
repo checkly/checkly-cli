@@ -273,6 +273,10 @@ export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: nu
 }
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
+  describe (resource: CheckGroupResource): string {
+    return `Check Group: ${resource.name}`
+  }
+
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
     const filename = context.filePath('resources/check-group', resource.name, {
       isolate: true,

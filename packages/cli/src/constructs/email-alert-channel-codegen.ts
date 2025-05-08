@@ -12,6 +12,10 @@ export interface EmailAlertChannelResource extends AlertChannelResource {
 const construct = 'EmailAlertChannel'
 
 export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource> {
+  describe (resource: EmailAlertChannelResource): string {
+    return `Email Alert Channel: ${resource.config.address}`
+  }
+
   prepare (logicalId: string, resource: EmailAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,

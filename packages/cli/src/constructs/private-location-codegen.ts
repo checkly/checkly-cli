@@ -23,6 +23,10 @@ export function valueForPrivateLocationFromId (genfile: GeneratedFile, physicalI
 }
 
 export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
+  describe (resource: PrivateLocationResource): string {
+    return `Private Location: ${resource.name}`
+  }
+
   prepare (logicalId: string, resource: PrivateLocationResource, context: Context): void {
     const filePath = context.filePath('resources/private-locations', resource.slugName, {
       unique: true,

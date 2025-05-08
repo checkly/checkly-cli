@@ -27,6 +27,10 @@ export function valueForTcpAssertion (genfile: GeneratedFile, assertion: TcpAsse
 const construct = 'TcpCheck'
 
 export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
+  describe (resource: TcpCheckResource): string {
+    return `TCP Check: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: TcpCheckResource, context: Context): void {
     const filePath = context.filePath('resources/tcp-checks', resource.name, {
       tags: resource.tags,

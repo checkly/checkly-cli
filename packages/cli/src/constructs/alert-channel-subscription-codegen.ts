@@ -7,6 +7,10 @@ export interface AlertChannelSubscriptionResource {
 }
 
 export class AlertChannelSubscriptionCodegen extends Codegen<AlertChannelSubscriptionResource> {
+  describe (resource: AlertChannelSubscriptionResource): string {
+    return 'Alert Channel Subscription'
+  }
+
   prepare (logicalId: string, resource: AlertChannelSubscriptionResource, context: Context): void {
     if (resource.checkId !== undefined) {
       context.registerAlertChannelCheckSubscription(resource.alertChannelId, resource.checkId)

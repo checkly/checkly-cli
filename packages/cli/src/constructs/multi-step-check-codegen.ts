@@ -13,6 +13,10 @@ export interface MultiStepCheckResource extends CheckResource {
 const construct = 'MultiStepCheck'
 
 export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
+  describe (resource: MultiStepCheckResource): string {
+    return `Multistep Check: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: MultiStepCheckResource, context: Context): void {
     const filePath = context.filePath('resources/multi-step-checks', resource.name, {
       tags: resource.tags,

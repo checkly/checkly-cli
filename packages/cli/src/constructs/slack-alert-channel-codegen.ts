@@ -13,6 +13,14 @@ export interface SlackAlertChannelResource extends AlertChannelResource {
 const construct = 'SlackAlertChannel'
 
 export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource> {
+  describe (resource: SlackAlertChannelResource): string {
+    if (resource.config.channel) {
+      return `Slack Alert Channel: ${resource.config.channel}`
+    }
+
+    return 'Slack Alert Channel'
+  }
+
   prepare (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,

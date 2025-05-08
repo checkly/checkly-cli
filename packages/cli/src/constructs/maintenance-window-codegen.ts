@@ -14,6 +14,10 @@ export interface MaintenanceWindowResource {
 const construct = 'MaintenanceWindow'
 
 export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource> {
+  describe (resource: MaintenanceWindowResource): string {
+    return `Maintenance Window: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: MaintenanceWindowResource, context: Context): void {
     const filePath = context.filePath('resources/maintenance-windows', resource.name, {
       unique: true,
