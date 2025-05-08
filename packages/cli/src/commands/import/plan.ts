@@ -1,17 +1,18 @@
 import fs from 'node:fs/promises'
-import { Flags, ux } from '@oclif/core'
+import { Args, Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
 import { isAxiosError } from 'axios'
 import logSymbols from 'log-symbols'
+import { validate as validateUuid } from 'uuid'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError } from '../../rest/projects'
-import { docComment, Program } from '../../sourcegen'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions } from '../../rest/projects'
+import { Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
 import {
@@ -33,6 +34,10 @@ export default class ImportPlanCommand extends AuthCommand {
       description: 'The root folder in which to write generated code files.',
       default: '__checks__',
     }),
+    preview: Flags.boolean({
+      description: 'Preview generated code without creating an actual import plan.',
+      default: false,
+    }),
     'debug-import-plan': Flags.boolean({
       description: 'Output the import plan to a file.',
       default: false,
@@ -45,14 +50,38 @@ export default class ImportPlanCommand extends AuthCommand {
     }),
   }
 
+  static args = {
+    resource: Args.string({
+      name: 'resource',
+      required: false,
+      description: 'A specific resource to import.',
+    }),
+  }
+
+  static strict = false
+
   async run (): Promise<void> {
-    const { flags } = await this.parse(ImportPlanCommand)
+    const { flags, argv } = await this.parse(ImportPlanCommand)
     const {
       config: configFilename,
       root: rootDirectory,
       'debug-import-plan': debugImportPlan,
       'debug-import-plan-output-file': debugImportPlanOutputFile,
+      preview,
     } = flags
+
+    const filters = argv.map(value => {
+      return parseFilter(value as string)
+    })
+
+    // Inject the default filter.
+    //
+    // By default all resource will be included, unless the user has specified
+    // an inclusive filter by themselves, in which case the default filter
+    // excludes all resources.
+    filters.unshift({
+      type: filters.some(({ type }) => type === 'include') ? 'exclude' : 'include',
+    })
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -65,15 +94,20 @@ export default class ImportPlanCommand extends AuthCommand {
       logicalId,
     } = checklyConfig
 
-    const { data: existingPlans } = await api.projects.findImportPlans(logicalId, {
-      onlyUncommitted: true,
-    })
+    if (!preview) {
+      const { data: existingPlans } = await api.projects.findImportPlans(logicalId, {
+        onlyUncommitted: true,
+      })
 
-    if (existingPlans.length !== 0) {
-      await this.#handleExistingPlans(existingPlans)
+      if (existingPlans.length !== 0) {
+        await this.#handleExistingPlans(existingPlans)
+      }
     }
 
-    const plan = await this.#createImportPlan(logicalId)
+    const plan = await this.#createImportPlan(logicalId, {
+      preview,
+      filters,
+    })
     if (!plan) {
       return
     }
@@ -89,6 +123,7 @@ export default class ImportPlanCommand extends AuthCommand {
       const program = new Program({
         rootDirectory,
         constructFileSuffix: '.check',
+        constructHeaders: preview ? [previewComment()] : undefined,
         specFileSuffix: '.spec',
         language: 'typescript',
       })
@@ -131,13 +166,13 @@ export default class ImportPlanCommand extends AuthCommand {
     }
   }
 
-  async #createImportPlan (logicalId: string): Promise<ImportPlan | undefined> {
+  async #createImportPlan (logicalId: string, options: ImportPlanOptions): Promise<ImportPlan | undefined> {
     if (this.fancy) {
       ux.action.start('Creating a new plan', undefined, { stdout: true })
     }
 
     try {
-      const { data } = await api.projects.createImportPlan(logicalId)
+      const { data } = await api.projects.createImportPlan(logicalId, options)
 
       if (this.fancy) {
         ux.action.stop('✅ ')
@@ -467,4 +502,91 @@ export default class ImportPlanCommand extends AuthCommand {
       }
     }
   }
+}
+
+function previewComment(): Comment {
+  return docComment(
+    'This Checkly construct file has been generated for preview purposes only.' +
+    '\n\n' +
+    'Deploying this file will create duplicate resources.',
+  )
+}
+
+class InvalidResourceIdentifierError extends Error {}
+
+function parseFilter (spec: string): ImportPlanFilter {
+  const filter: ImportPlanFilter = {
+    type: 'include'
+  }
+
+  if (spec.startsWith('!')) {
+    filter.type = 'exclude'
+    spec = spec.slice(1)
+  }
+
+  const [type, physicalId] = spec.split(':', 2)
+
+  const integerPhysicalId = (value: string | undefined): number | undefined => {
+    if (value === undefined) {
+      return
+    }
+
+    if (value === '' || value === '*') {
+      return
+    }
+
+    const numberValue = parseInt(value, 10)
+    if (Number.isNaN(numberValue)) {
+      throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid integer`)
+    }
+
+    return numberValue
+  }
+
+  const uuidPhysicalId = (value: string | undefined): string | undefined => {
+    if (value === undefined) {
+      return
+    }
+
+    if (value === '' || value === '*') {
+      return
+    }
+
+    if (!validateUuid(value)) {
+      throw new InvalidResourceIdentifierError(`Resource identifier '${value}' must be a valid UUID`)
+    }
+
+    return value
+  }
+
+  const mappings = {
+    'alert-channel': integerPhysicalId,
+    'check-group': integerPhysicalId,
+    'check': uuidPhysicalId,
+    'dashboard': integerPhysicalId,
+    'maintenance-window': integerPhysicalId,
+    'private-location': uuidPhysicalId,
+    'status-page-service': uuidPhysicalId,
+    'status-page': uuidPhysicalId,
+  }
+
+  const parseId = mappings[type as keyof typeof mappings]
+  if (parseId === undefined) {
+    throw new Error(`Invalid resource specifier '${spec}': Unsupported resource type '${type}'`)
+  }
+
+  try {
+    filter.resource = {
+      type,
+      physicalId: parseId(physicalId),
+    }
+  } catch (err) {
+    if (err instanceof InvalidResourceIdentifierError) {
+      throw new Error(`Invalid resource specifier '${spec}': ${err.message}`)
+    }
+
+    throw err
+  }
+
+  return filter
 }
