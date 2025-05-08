@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
@@ -36,7 +36,9 @@ export interface CheckGroupResource {
   multiStepChecks?: MultiStepCheckConfigResource
   alertSettings?: AlertEscalationResource
   localSetupScript?: string
+  setupSnippetId?: number | null
   localTearDownScript?: string
+  tearDownSnippetId?: number | null
   apiCheckDefaults?: ApiCheckDefaultConfig
   retryStrategy?: RetryStrategyResource
   runParallel?: boolean
@@ -273,11 +275,23 @@ export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: nu
 }
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
+  validateSafety (resource: CheckGroupResource) {
+    if (resource.setupSnippetId) {
+      throw new ImportSafetyViolation(`Conversion of Check Group setup/teardown snippets is not supported.`)
+    }
+
+    if (resource.tearDownSnippetId) {
+      throw new ImportSafetyViolation(`Conversion of Check Group setup/teardown snippets is not supported.`)
+    }
+  }
+
   describe (resource: CheckGroupResource): string {
     return `Check Group: ${resource.name}`
   }
 
   prepare (logicalId: string, resource: CheckGroupResource, context: Context): void {
+    this.validateSafety(resource)
+
     const filename = context.filePath('resources/check-group', resource.name, {
       isolate: true,
       unique: true,
@@ -290,6 +304,8 @@ export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
   }
 
   gencode (logicalId: string, resource: CheckGroupResource, context: Context): void {
+    this.validateSafety(resource)
+
     const { id, file } = context.lookupCheckGroup(resource.id)
 
     file.namedImport(construct, 'checkly/constructs')
