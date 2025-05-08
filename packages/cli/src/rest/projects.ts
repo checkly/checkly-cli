@@ -42,6 +42,19 @@ export interface ProjectDeployResponse {
   diff: Array<Change>
 }
 
+export interface ImportPlanFilter {
+  type: 'include' | 'exclude'
+  resource?: {
+    type: string
+    physicalId?: string | number
+  }
+}
+
+export interface ImportPlanOptions {
+  preview?: boolean
+  filters?: ImportPlanFilter[]
+}
+
 export interface ImportPlanChanges {
   resources: ResourceSync[]
   auxiliary?: AuxiliaryResourceSync[]
@@ -107,8 +120,15 @@ class Projects {
     )
   }
 
-  createImportPlan (logicalId: string) {
-    return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`)
+  async createImportPlan (logicalId: string, options?: ImportPlanOptions) {
+    const payload = {
+      filters: options?.filters,
+    }
+    return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`, payload, {
+      params: {
+        preview: options?.preview ?? false,
+      },
+    })
   }
 
   async findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {

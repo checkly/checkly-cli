@@ -13,6 +13,7 @@ type Header = Comment
 export interface ProgramOptions {
   rootDirectory: string
   constructFileSuffix: string
+  constructHeaders?: Header[]
   specFileSuffix: string
   language: 'typescript' | 'javascript'
 }
@@ -65,6 +66,9 @@ export class Program {
     let file = this.#generatedFiles.get(path)
     if (file === undefined) {
       file = new GeneratedFile(path)
+      for (const header of this.#options.constructHeaders ?? []) {
+        file.header(header)
+      }
       this.#generatedFiles.set(path, file)
     }
 
