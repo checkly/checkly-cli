@@ -9,6 +9,7 @@ import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
+import { BaseCommand } from '../baseCommand'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
@@ -52,27 +53,7 @@ export default class ImportCommitCommand extends AuthCommand {
 
     const plan = await this.#selectPlan(uncommittedPlans)
 
-    if (this.fancy) {
-      ux.action.start('Committing plan')
-    }
-
-    try {
-      await api.projects.commitImportPlan(plan.id)
-
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-        this.log()
-      }
-    } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-        this.log()
-      }
-
-      throw err
-    }
-
-    this.log(`${logSymbols.success} All imported plan resources are now fully managed by the Checkly CLI.`)
+    await performCommitAction.call(this, plan)
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
@@ -109,4 +90,60 @@ export default class ImportCommitCommand extends AuthCommand {
 
     return plan
   }
+}
+
+export async function confirmCommit (this: BaseCommand): Promise<boolean> {
+  const { commit } = await prompts({
+    name: 'commit',
+    type: 'confirm',
+    message: 'Would you like to commit the plan now?',
+  })
+
+  if (commit) {
+    return true
+  }
+
+  this.log()
+  this.log(`\
+  To commit your plan at a later time, please run:
+
+    npx checkly import commit
+
+  To cancel the plan, run:
+
+    npx checkly import cancel
+`)
+
+  return false
+}
+
+export async function performCommitAction (this: BaseCommand, plan: ImportPlan): Promise<void> {
+  if (this.fancy) {
+    ux.action.start('Committing plan')
+  }
+
+  try {
+    await api.projects.commitImportPlan(plan.id)
+
+    if (this.fancy) {
+      ux.action.stop('✅ ')
+      this.log()
+    }
+  } catch (err) {
+    if (this.fancy) {
+      ux.action.stop('❌')
+      this.log()
+    }
+
+    throw err
+  }
+
+  this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been committed!')}`)
+  this.log()
+  this.log(`\
+  The underlying resources are now fully managed by the Checkly CLI the same
+  way as any other CLI-native resource, and the import process is finished.
+
+  Enjoy!
+`)
 }

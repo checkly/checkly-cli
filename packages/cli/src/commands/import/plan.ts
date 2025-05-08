@@ -21,6 +21,8 @@ import {
 } from '../../constructs/internal/codegen/snippet'
 import { StaticAuxiliaryFile } from '../../sourcegen/program'
 import { ExitError } from '@oclif/core/errors'
+import { confirmCommit, performCommitAction } from './commit'
+import { confirmApply, performApplyAction } from './apply'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -284,10 +286,46 @@ future deployments include the imported resources.`
           throw err
         }
 
-        this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
-        for (const filePath of program.paths) {
-          this.log(`  - ${chalk.green(filePath)}`)
+        this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been created!')}`)
+        this.log()
+        this.log(`  You can find the generated code under the following directory:`)
+        this.log()
+        this.log(`    ${chalk.green(rootDirectory)}`)
+        this.log()
+        this.log(`\
+  The imported resources have not been linked to your project yet. Please
+  make sure to inspect the generated code. Should you find anything you do
+  not like, you can cancel the import plan and no harm will be done.
+
+  ${logSymbols.warning} \
+${chalk.yellow('If you deploy now, you will end up with duplicate resources!')}
+
+  Once you have inspected the code, the next step will be to apply the plan,
+  which links the generated code to the underlying resources, making them
+  modifiable. At this point you may still cancel the plan, though any changes
+  you've already deployed cannot be undone.
+
+  ${logSymbols.info} \
+${chalk.cyan('For safety, resources are not deletable until the plan has been committed.')}
+
+  The final step will be to commit your plan, at which point the underlying
+  resources will be fully managed by the Checkly CLI in the exact same
+  capacity as any other CLI-native resource.
+`)
+
+        const apply = await confirmApply.call(this)
+        if (!apply) {
+          return
         }
+
+        await performApplyAction.call(this, plan)
+
+        const commit = await confirmCommit.call(this)
+        if (!commit) {
+          return
+        }
+
+        await performCommitAction.call(this, plan)
 
         return
       } catch (err) {
