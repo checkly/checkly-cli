@@ -13,6 +13,14 @@ export interface PhoneCallAlertChannelResource extends AlertChannelResource {
 const construct = 'PhoneCallAlertChannel'
 
 export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelResource> {
+  describe (resource: PhoneCallAlertChannelResource): string {
+    if (resource.config.name) {
+      return `Phone Call Alert Channel: ${resource.config.name}`
+    }
+
+    return `Phone Call Alert Channel: ${resource.config.number}`
+  }
+
   prepare (logicalId: string, resource: PhoneCallAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,

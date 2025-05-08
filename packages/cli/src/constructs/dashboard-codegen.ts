@@ -29,6 +29,14 @@ export interface DashboardResource {
 const construct = 'Dashboard'
 
 export class DashboardCodegen extends Codegen<DashboardResource> {
+  describe (resource: DashboardResource): string {
+    if (resource.header) {
+      return `Dashboard: ${resource.header}`
+    }
+
+    return 'Dashboard'
+  }
+
   gencode (logicalId: string, resource: DashboardResource, context: Context): void {
     const filePath = context.filePath('resources/dashboards', resource.header ?? logicalId, {
       isolate: true,

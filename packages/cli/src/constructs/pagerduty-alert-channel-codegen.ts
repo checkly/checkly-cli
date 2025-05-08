@@ -14,6 +14,18 @@ export interface PagerdutyAlertChannelResource extends AlertChannelResource {
 const construct = 'PagerdutyAlertChannel'
 
 export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelResource> {
+  describe (resource: PagerdutyAlertChannelResource): string {
+    if (resource.config.account) {
+      return `Pagerduty Alert Channel: ${resource.config.account}`
+    }
+
+    if (resource.config.serviceName) {
+      return `Pagerduty Alert Channel: ${resource.config.serviceName}`
+    }
+
+    return 'Pagerduty Alert Channel'
+  }
+
   prepare (logicalId: string, resource: PagerdutyAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,

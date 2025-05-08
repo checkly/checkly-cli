@@ -101,6 +101,28 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
     }
   }
 
+  describe (resource: WebhookAlertChannelResource): string {
+    try {
+      const { webhookType } = resource.config
+      if (webhookType) {
+        const codegen = this.codegensByWebhookType[webhookType]
+        if (codegen) {
+          return codegen.describe(resource)
+        }
+      }
+    } catch (err) {
+      if (err instanceof ImportSafetyViolation) {
+        // The webhook contains unsupported data for its claimed type.
+        // Fall back to the standard webhook alert channel which can handle
+        // all subtypes.
+      } else {
+        throw err
+      }
+    }
+
+    return `Webhook Alert Channel: ${resource.config.name}`
+  }
+
   prepare (logicalId: string, resource: WebhookAlertChannelResource, context: Context): void {
     try {
       const { webhookType } = resource.config

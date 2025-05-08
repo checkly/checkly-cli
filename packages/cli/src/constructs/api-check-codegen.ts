@@ -40,6 +40,10 @@ export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion)
 const construct = 'ApiCheck'
 
 export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
+  describe (resource: ApiCheckResource): string {
+    return `API Check: ${resource.name}`
+  }
+
   gencode (logicalId: string, resource: ApiCheckResource, context: Context): void {
     const filePath = context.filePath('resources/api-checks', resource.name, {
       tags: resource.tags,

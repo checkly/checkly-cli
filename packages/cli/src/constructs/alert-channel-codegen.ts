@@ -99,6 +99,15 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
     }
   }
 
+  describe (resource: AlertChannelResource): string {
+    const codegen = this.codegensByType[resource.type]
+    if (codegen === undefined) {
+      throw new Error(`Unable to describe unsupported alert channel type '${resource.type}'.`)
+    }
+
+    return codegen.describe(resource)
+  }
+
   prepare (logicalId: string, resource: AlertChannelResource, context: Context): void {
     const codegen = this.codegensByType[resource.type]
     if (codegen === undefined) {

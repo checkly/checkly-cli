@@ -33,6 +33,12 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
     }
   }
 
+  describe (resource: MSTeamsAlertChannelResource): string {
+    this.validateSafety(resource)
+
+    return `Microsoft Teams Alert Channel: ${resource.config.name}`
+  }
+
   prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 

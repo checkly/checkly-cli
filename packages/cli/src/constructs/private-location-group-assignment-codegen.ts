@@ -6,6 +6,10 @@ export interface PrivateLocationGroupAssignmentResource {
 }
 
 export class PrivateLocationGroupAssignmentCodegen extends Codegen<PrivateLocationGroupAssignmentResource> {
+  describe (resource: PrivateLocationGroupAssignmentResource): string {
+    return 'Private Location Group Assignment'
+  }
+
   prepare (logicalId: string, resource: PrivateLocationGroupAssignmentResource, context: Context): void {
     context.registerPrivateLocationGroupAssignment(resource.privateLocationId, resource.groupId)
   }

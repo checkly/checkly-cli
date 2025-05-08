@@ -184,6 +184,25 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.tcpCheckCodegen = new TcpCheckCodegen(program)
   }
 
+  describe (resource: CheckResource): string {
+    const { checkType } = resource
+
+    switch (checkType) {
+      case 'BROWSER':
+        return this.browserCheckCodegen.describe(resource as BrowserCheckResource)
+      case 'API':
+        return this.apiCheckCodegen.describe(resource as ApiCheckResource)
+      case 'TCP':
+        return this.tcpCheckCodegen.describe(resource as TcpCheckResource)
+      case 'MULTI_STEP':
+        return this.multiStepCheckCodegen.describe(resource as MultiStepCheckResource)
+      case 'HEARTBEAT':
+        return this.heartbeatCheckCodegen.describe(resource as HeartbeatCheckResource)
+      default:
+        throw new Error(`Unable to describe unsupported check type '${checkType}'.`)
+    }
+  }
+
   gencode (logicalId: string, resource: CheckResource, context: Context): void {
     const { checkType } = resource
 

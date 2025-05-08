@@ -12,5 +12,7 @@ export abstract class Codegen<T> {
     // No-op
   }
 
+  abstract describe (resource: T): string
+
   abstract gencode (logicalId: string, resource: T, context: Context): void
 }

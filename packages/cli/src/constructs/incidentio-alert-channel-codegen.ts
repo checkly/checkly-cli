@@ -56,6 +56,12 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
     }
   }
 
+  describe (resource: IncidentioAlertChannelResource): string {
+    this.validateSafety(resource)
+
+    return `Incident.io Alert Channel: ${resource.config.name}`
+  }
+
   prepare (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 

@@ -15,6 +15,10 @@ export interface OpsgenieAlertChannelResource extends AlertChannelResource {
 const construct = 'OpsgenieAlertChannel'
 
 export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelResource> {
+  describe (resource: OpsgenieAlertChannelResource): string {
+    return `Opsgenie Alert Channel: ${resource.config.name}`
+  }
+
   prepare (logicalId: string, resource: OpsgenieAlertChannelResource, context: Context): void {
     context.registerAlertChannel(
       resource.id,
