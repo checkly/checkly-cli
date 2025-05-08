@@ -423,7 +423,7 @@ future deployments include the imported resources.`
           type: 'autocompleteMultiselect',
           message: 'Please select the resources you would like to import',
           choices,
-          hint: ' - Space to select. Return to submit',
+          hint: ' - Space to select. Return to submit.',
           instructions: false,
         })
 
