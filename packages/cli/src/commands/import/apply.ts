@@ -55,10 +55,12 @@ export default class ImportApplyCommand extends AuthCommand {
 
       if (this.fancy) {
         ux.action.stop('✅ ')
+        this.log()
       }
     } catch (err) {
       if (this.fancy) {
         ux.action.stop('❌')
+        this.log()
       }
 
       throw err
