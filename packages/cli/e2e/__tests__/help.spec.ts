@@ -34,7 +34,7 @@ describe('help', () => {
   import apply   Attach imported resources into your project in a pending state.
   import cancel  Cancels an ongoing import plan that has not been committed yet.
   import commit  Permanently commit imported resources into your project.
-  import plan    Begin the import process by creating a plan.`)
+  import plan    Import existing resources from your Checkly account to your project.`)
   })
 
   it('should print core and additional commands and topic', async () => {
