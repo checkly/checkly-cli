@@ -26,22 +26,23 @@ export default class ImportPlanCommand extends AuthCommand {
   static description = `\
 Import existing resources from your Checkly account to your project.
 
-By default, all resources that can be imported will be imported. However,
-you may fine-tune the process by including or excluding any combination of
+By default, all resources that can be imported will be imported. However, you
+may fine-tune the process by including or excluding any combination of
 resources.
 
 The import process consists of three steps:
 
-  1. Creating a plan, which generates the appropriate code for your resources
-  2. Applying the plan, which links your resources to the generated code
-  3. Committing the plan, which finalizes the import session
+1. Creating a plan, which generates the appropriate code for your resources
+2. Applying the plan, which links your resources to the generated code
+3. Committing the plan, which finalizes the import session
 
 CREATING A PLAN
 
 Creating a plan carries no risk as no concrete links to your Checkly resources
 are made at this point. However, if you accidentally deploy the generated code
-before applying the plan, you will end up with duplicate resources and will not
-be able to complete the import session without first deleting the duplicates.
+before applying the plan, you will end up with duplicate resources and will
+not be able to complete the import session without first deleting the
+duplicates.
 
 For the curious, you may also preview the generated code with the '--preview'
 option. No plan will be created, allowing you to leisurely inspect the
@@ -49,19 +50,19 @@ generated code. However keep in mind that you will need to create a plan to
 actually import any resources, at which point the code will be generated
 again.
 
-You may cancel any plan you've created without affecting any of the underlying
-resources.
+You may cancel any plan you've created without affecting any of the
+underlying resources.
 
 APPLYING A PLAN
 
-Applying a plan links your existing resources to the generated code. You should
-carefully review the generated code to make sure that it contains the resources
-you expect before applying a plan. After a plan has been applied, any
-deployments of those resources will irreversibly modify the underlying Checkly
-resources. However, as a fail safe against concurrent use, any deployments not
-including the imported resources will not delete the underlying resources (or
-the links to the resources). This means that there is no need to block
-deployments while working on an import session.
+Applying a plan links your existing resources to the generated code. You
+should carefully review the generated code to make sure that it contains the
+resources you expect before applying a plan. After a plan has been applied,
+any deployments of those resources will irreversibly modify the underlying
+Checkly resources. However, as a fail safe against concurrent use, any
+deployments not including the imported resources will not delete the
+underlying resources (or the links to the resources). This means that there
+is no need to block deployments while working on an import session.
 
 Even after you've applied a plan, you may still cancel it, which will unlink
 the underlying resources from your project once more. However, keep in mind
