@@ -1,5 +1,3 @@
-/* eslint-disable no-labels */
-
 import path from 'node:path'
 
 import { SourceFile } from './source-file'
