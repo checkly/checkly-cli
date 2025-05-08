@@ -1,5 +1,5 @@
 import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
+import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen'
 
 export interface StatusPageServiceResource {
   id: string
@@ -7,6 +7,17 @@ export interface StatusPageServiceResource {
 }
 
 const construct = 'StatusPageService'
+
+export function valueForStatusPageServiceFromId (genfile: GeneratedFile, physicalId: string): Value {
+  genfile.namedImport(construct, 'checkly/constructs')
+
+  return expr(ident(construct), builder => {
+    builder.member(ident('fromId'))
+    builder.call(builder => {
+      builder.string(physicalId)
+    })
+  })
+}
 
 export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource> {
   describe (resource: StatusPageServiceResource): string {
