@@ -1,6 +1,7 @@
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import logSymbols from 'log-symbols'
+import chalk from 'chalk'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
@@ -18,12 +19,17 @@ export default class ImportCancelCommand extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
+    all: Flags.boolean({
+      description: 'Cancel all plans.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(ImportCancelCommand)
     const {
       config: configFilename,
+      all,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -39,10 +45,17 @@ export default class ImportCancelCommand extends AuthCommand {
       onlyUncommitted: true,
     })
 
-    const plans = await this.#selectPlans(cancelablePlans)
+    if (cancelablePlans.length === 0) {
+      this.log(`${chalk.red('No plans available to cancel.')}`)
+      return
+    }
+
+    const plans = all
+      ? cancelablePlans
+      : await this.#selectPlans(cancelablePlans)
 
     if (this.fancy) {
-      ux.action.start('Canceling selected plan(s)')
+      ux.action.start('Canceling plan(s)')
     }
 
     try {
