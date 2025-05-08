@@ -1,5 +1,6 @@
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
+import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
 import * as api from '../../rest/api'
@@ -8,6 +9,8 @@ import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan } from '../../rest/projects'
+import { BaseCommand } from '../baseCommand'
+import { confirmCommit, performCommitAction } from './commit'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
@@ -46,25 +49,14 @@ export default class ImportApplyCommand extends AuthCommand {
 
     const plan = await this.#selectPlan(unappliedPlans)
 
-    if (this.fancy) {
-      ux.action.start('Applying plan')
+    await performApplyAction.call(this, plan)
+
+    const commit = await confirmCommit.call(this)
+    if (!commit) {
+      return
     }
 
-    try {
-      await api.projects.applyImportPlan(plan.id)
-
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-        this.log()
-      }
-    } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-        this.log()
-      }
-
-      throw err
-    }
+    await performCommitAction.call(this, plan)
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
@@ -101,4 +93,70 @@ export default class ImportApplyCommand extends AuthCommand {
 
     return plan
   }
+}
+
+export async function confirmApply (this: BaseCommand): Promise<boolean> {
+  const { apply } = await prompts({
+    name: 'apply',
+    type: 'confirm',
+    message: 'Would you like to apply the plan now?',
+  })
+
+  if (apply) {
+    return true
+  }
+
+  this.log()
+  this.log(`\
+  To apply your plan at a later time, please run:
+
+    npx checkly import apply
+
+  To cancel the plan, run:
+
+    npx checkly import cancel
+`)
+
+  return false
+}
+
+export async function performApplyAction (this: BaseCommand, plan: ImportPlan) {
+  if (this.fancy) {
+    ux.action.start('Applying plan')
+  }
+
+  try {
+    await api.projects.applyImportPlan(plan.id)
+
+    if (this.fancy) {
+      ux.action.stop('✅ ')
+      this.log()
+    }
+  } catch (err) {
+    if (this.fancy) {
+      ux.action.stop('❌')
+      this.log()
+    }
+
+    throw err
+  }
+
+  this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been applied!')}`)
+  this.log()
+  this.log(`\
+  The code generated for the import plan is now linked to the underlying
+  resources. In other words, if you deploy now, you are modifying the actual
+  resources. You may still cancel the plan but any changes you've deployed
+  cannot be undone.
+
+  ${logSymbols.info} \
+${chalk.cyan('For safety, resources are not deletable until the plan has been committed.')}
+
+  The final step will be to commit your plan, at which point the underlying
+  resources will be fully managed by the Checkly CLI in the exact same
+  capacity as any other CLI-native resource.
+
+  ${logSymbols.warning} \
+${chalk.yellow('The plan cannot be cancelled after it has been committed.')}
+`)
 }
