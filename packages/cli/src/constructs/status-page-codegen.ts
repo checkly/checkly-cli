@@ -1,6 +1,6 @@
 import { Codegen, Context } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
-import { StatusPageServiceResource } from './status-page-service-codegen'
+import { StatusPageServiceResource, valueForStatusPageServiceFromId } from './status-page-service-codegen'
 import { StatusPageTheme } from './status-page'
 
 export interface StatusPageCardResource {
@@ -55,7 +55,7 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                       context.importVariable(serviceVariable, file)
                       builder.value(serviceVariable.id)
                     } catch {
-                      throw new Error(`Status page '${resource.id}' refers to service '${service.id}' which is not being imported.`)
+                      builder.value(valueForStatusPageServiceFromId(file, service.id))
                     }
                   }
                 })
