@@ -1,5 +1,6 @@
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
+import chalk from 'chalk'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
@@ -37,6 +38,11 @@ export default class ImportApplyCommand extends AuthCommand {
     const { data: unappliedPlans } = await api.projects.findImportPlans(logicalId, {
       onlyUnapplied: true,
     })
+
+    if (unappliedPlans.length === 0) {
+      this.log(`${chalk.red('No plans available to apply.')}`)
+      return
+    }
 
     const plan = await this.#selectPlan(unappliedPlans)
 

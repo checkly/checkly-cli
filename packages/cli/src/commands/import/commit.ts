@@ -1,6 +1,7 @@
 import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import logSymbols from 'log-symbols'
+import chalk from 'chalk'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
@@ -43,6 +44,11 @@ export default class ImportCommitCommand extends AuthCommand {
     const uncommittedPlans = data.filter(plan => {
       return plan.appliedAt
     })
+
+    if (uncommittedPlans.length === 0) {
+      this.log(`${chalk.red('No plans available to commit.')}`)
+      return
+    }
 
     const plan = await this.#selectPlan(uncommittedPlans)
 
