@@ -11,7 +11,7 @@ import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions } from '../../rest/projects'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync } from '../../rest/projects'
 import { Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
@@ -20,6 +20,7 @@ import {
   isSafeSnippetFilename,
 } from '../../constructs/internal/codegen/snippet'
 import { StaticAuxiliaryFile } from '../../sourcegen/program'
+import { ExitError } from '@oclif/core/errors'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -159,9 +160,11 @@ future deployments include the imported resources.`
       language: 'typescript',
     })
 
+    const codegen = new ConstructCodegen(program)
+
     // If the user provided no filter, ask interactively.
     if (filters.length === 0) {
-      filters.push(...await this.#interactiveFilter(logicalId, program))
+      filters.push(...await this.#interactiveFilter(logicalId, codegen))
     }
 
     // Inject the default filter.
@@ -173,58 +176,138 @@ future deployments include the imported resources.`
       type: filters.some(({ type }) => type === 'include') ? 'exclude' : 'include',
     })
 
-    const plan = await this.#createImportPlan(logicalId, {
-      preview,
-      filters,
-    })
-    if (!plan) {
-      return
-    }
+    while (true) {
+      const plan = await this.#createImportPlan(logicalId, {
+        preview,
+        filters,
+      })
+      if (!plan) {
+        return
+      }
 
-    if (debugImportPlan) {
-      const output = JSON.stringify(plan, null, 2)
-      await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
-      this.log(`Successfully wrote debug import plan to "${debugImportPlanOutputFile}".`)
-      return
-    }
-
-    try {
-      this.#generateCode(plan, program)
-
-      if (this.fancy) {
-        ux.action.start('Writing files', undefined, { stdout: true })
+      if (debugImportPlan) {
+        const output = JSON.stringify(plan, null, 2)
+        await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
+        this.log(`Successfully wrote debug import plan to "${debugImportPlanOutputFile}".`)
+        return
       }
 
       try {
-        await program.realize()
+        const { failures } = this.#generateCode(plan, program, codegen)
+        if (failures.length) {
+          this.log()
+          this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
+          this.log()
+
+          for (const { resource, cause } of failures) {
+            const spec = `${resource.type}:${resource.physicalId}`
+            const desc = (() => {
+              try {
+                return codegen.describe(resource as any)
+              } catch {
+                return resource.type
+              }
+            })()
+
+            this.log(`  ${desc} (${chalk.gray(spec)})`)
+            this.log()
+            this.log(`    ${chalk.red(cause.toString())}`)
+            this.log()
+
+            // Proactively exclude the failed resource. If the user wants to
+            // retry it'll already be in the filter list, and otherwise it will
+            // simply not get used.
+            filters.push({
+              type: 'exclude',
+              resource: {
+                type: resource.type,
+                physicalId: resource.physicalId,
+              },
+            })
+          }
+
+          const retry = await this.#confirmRetryWithoutFailed()
+          if (!retry) {
+            this.log('Exiting without making any changes.')
+            this.exit(0)
+          }
+
+          this.log(`${logSymbols.info} The current plan will be cancelled so that a new plan can be created.`)
+
+          if (this.fancy) {
+            ux.action.start('Cancelling current plan', undefined, { stdout: true })
+          }
+
+          try {
+            await api.projects.cancelImportPlan(plan.id)
+
+            if (this.fancy) {
+              ux.action.stop('✅ ')
+            }
+          } catch (err) {
+            if (this.fancy) {
+              ux.action.stop('❌')
+            }
+
+            throw err
+          }
+
+          this.log(`${logSymbols.info} A new plan will be created without the failed resources.`)
+
+          continue
+        }
 
         if (this.fancy) {
-          ux.action.stop('✅ ')
+          ux.action.start('Writing files', undefined, { stdout: true })
         }
+
+        try {
+          await program.realize()
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+          }
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+          }
+
+          throw err
+        }
+
+        this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
+        for (const filePath of program.paths) {
+          this.log(`  - ${chalk.green(filePath)}`)
+        }
+
+        return
       } catch (err) {
-        if (this.fancy) {
-          ux.action.stop('❌')
+        if (err instanceof ExitError) {
+          throw err
+        }
+
+        try {
+          const output = JSON.stringify(plan, null, 2)
+          await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
+          this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com and attach the newly created "${debugImportPlanOutputFile}" file.`)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (err) {
+          this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
         }
 
         throw err
       }
-
-      this.log(`${logSymbols.success} Successfully generated the following files for your import plan:`)
-      for (const filePath of program.paths) {
-        this.log(`  - ${chalk.green(filePath)}`)
-      }
-    } catch (err) {
-      try {
-        const output = JSON.stringify(plan, null, 2)
-        await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
-        this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com and attach the newly created "${debugImportPlanOutputFile}" file.`)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (err) {
-        this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
-      }
-
-      throw err
     }
+  }
+
+  async #confirmRetryWithoutFailed (): Promise<boolean> {
+    const { action } = await prompts({
+      name: 'action',
+      type: 'confirm',
+      message: 'Would you like to try again without the failed resources?',
+    })
+
+    return action ?? false
   }
 
   async #createImportPlan (logicalId: string, options: ImportPlanOptions): Promise<ImportPlan | undefined> {
@@ -259,7 +342,7 @@ future deployments include the imported resources.`
     }
   }
 
-  async #interactiveFilter (logicalId: string, program: Program): Promise<ImportPlanFilter[]> {
+  async #interactiveFilter (logicalId: string, codegen: ConstructCodegen): Promise<ImportPlanFilter[]> {
     const choices: prompts.Choice[] = [{
       title: `I want to import everything in one go`,
       value: 'all',
@@ -284,8 +367,6 @@ future deployments include the imported resources.`
       case 'all':
         return []
       case 'choose': {
-        const codegen = new ConstructCodegen(program)
-
         const choices: prompts.Choice[] = await (async () => {
           if (this.fancy) {
             ux.action.start('Fetching available resources', undefined, { stdout: true })
@@ -308,11 +389,15 @@ future deployments include the imported resources.`
                 return []
               }
 
-              return [{
-                title: codegen.describe(resource as any),
-                value: `${resource.type}:${resource.physicalId}`,
-                description: `${resource.type}:${resource.physicalId}`,
-              }]
+              try {
+                return [{
+                  title: codegen.describe(resource as any),
+                  value: `${resource.type}:${resource.physicalId}`,
+                  description: `${resource.type}:${resource.physicalId}`,
+                }]
+              } catch {
+                return []
+              }
             })
           } catch (err) {
             if (this.fancy) {
@@ -364,14 +449,15 @@ future deployments include the imported resources.`
     }
   }
 
-  #generateCode (plan: ImportPlan, program: Program): void {
+  #generateCode (plan: ImportPlan, program: Program, codegen: ConstructCodegen): GenerateCodeResult {
     if (this.fancy) {
       ux.action.start('Generating Checkly constructs for imported resources', undefined, { stdout: true })
     }
 
     try {
-      const codegen = new ConstructCodegen(program)
       const context = new Context()
+
+      const failures = new Map<string, FailedResource>()
 
       if (plan.changes) {
         const { resources, auxiliary } = plan.changes
@@ -452,21 +538,47 @@ future deployments include the imported resources.`
           try {
             codegen.prepare(resource.logicalId, resource as any, context)
           } catch (cause) {
-            throw new Error(`Failed to prepare resource '${resource.type}:${resource.logicalId}': ${cause}`, { cause })
+            if (!(cause instanceof Error)) {
+              throw cause
+            }
+
+            failures.set(resource.logicalId, {
+              resource,
+              cause,
+            })
           }
         }
 
         for (const resource of resources) {
+          if (failures.has(resource.logicalId)) {
+            continue
+          }
+
           try {
             codegen.gencode(resource.logicalId, resource as any, context)
           } catch (cause) {
-            throw new Error(`Failed to process resource '${resource.type}:${resource.logicalId}': ${cause}`, { cause })
+            if (!(cause instanceof Error)) {
+              throw cause
+            }
+
+            failures.set(resource.logicalId, {
+              resource,
+              cause,
+            })
           }
         }
       }
 
       if (this.fancy) {
-        ux.action.stop('✅ ')
+        if (failures.size === 0) {
+          ux.action.stop('✅ ')
+        } else {
+          ux.action.stop('❌')
+        }
+      }
+
+      return {
+        failures: [...failures.values()],
       }
     } catch (err) {
       if (this.fancy) {
@@ -668,6 +780,15 @@ future deployments include the imported resources.`
       }
     }
   }
+}
+
+interface FailedResource {
+  resource: ResourceSync
+  cause: Error
+}
+
+interface GenerateCodeResult {
+  failures: FailedResource[]
 }
 
 function previewComment(): Comment {
