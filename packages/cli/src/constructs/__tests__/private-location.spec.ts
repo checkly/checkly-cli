@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { PrivateLocation } from '../index'
 import { Project, Session } from '../project'
 
