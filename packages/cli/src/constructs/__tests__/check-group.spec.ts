@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { CheckGroup } from '../index'
 import { Project, Session } from '../project'
 

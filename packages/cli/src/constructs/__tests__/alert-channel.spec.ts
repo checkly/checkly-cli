@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'vitest'
+
 import { AlertChannel, AlertChannelProps } from '../index'
 import { Project, Session } from '../project'
 
