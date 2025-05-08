@@ -1,8 +1,9 @@
-// create test for checkly env pull
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
+
 import config from 'config'
 import { nanoid } from 'nanoid'
-import * as fs from 'fs'
+import { describe, beforeAll, afterAll, it, expect } from 'vitest'
 
 import { runChecklyCli } from '../../run-checkly'
 

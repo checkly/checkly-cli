@@ -1,7 +1,7 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { hasGitDir, hasGitIgnore } from '../utils/directory'
-import * as execa from 'execa'
+import execa from 'execa'
 import { askInitializeGit } from '../utils/prompts'
 
 export async function initGit (targetDir: string): Promise<void> {

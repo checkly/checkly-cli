@@ -1,6 +1,5 @@
 /* eslint-disable no-new */
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { BrowserCheck } = require('../../../../../../constructs')
+import { BrowserCheck } from '../../../../../../constructs'
 
 new BrowserCheck('nested', {
   name: 'nested',

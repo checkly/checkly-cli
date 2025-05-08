@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-new */
-const path = require('path')
-const { BrowserCheck, ApiCheck } = require('../../../../../../constructs')
+const path = require('node:path')
+import { BrowserCheck, ApiCheck } from '../../../../../../constructs'
 
 new BrowserCheck('browser-check-2', {
   name: 'Search Service Check',

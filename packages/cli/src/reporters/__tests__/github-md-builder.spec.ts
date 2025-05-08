@@ -1,3 +1,5 @@
+import { describe, expect, test } from 'vitest'
+
 import { GithubMdBuilder } from '../github'
 import { generateMapAndTestResultIds } from './helpers'
 

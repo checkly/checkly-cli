@@ -1,8 +1,10 @@
+import { Settings } from 'luxon'
+import { describe, it, expect, beforeAll } from 'vitest'
+
 import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus } from '../util'
 import { simpleCheckFixture } from './fixtures/simple-check'
 import { apiCheckResult } from './fixtures/api-check-result'
 import { browserCheckResult } from './fixtures/browser-check-result'
-import { Settings } from 'luxon'
 
 function stripAnsi (input: string): string {
   return input.replace(

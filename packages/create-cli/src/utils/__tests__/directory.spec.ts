@@ -1,4 +1,7 @@
-import * as path from 'path'
+import path from 'node:path'
+
+import { describe, expect, test } from 'vitest'
+
 import { hasPackageJsonFile, isValidProjectDirectory, readPackageJson } from '../directory'
 
 describe('isValidProjectDirectory()', () => {

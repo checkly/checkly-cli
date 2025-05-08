@@ -1,4 +1,4 @@
-import * as chalk from 'chalk'
+import chalk from 'chalk'
 import { spinner } from '../utils/terminal'
 import { loadPlaywrightConfig } from '../utils/directory'
 import * as recast from 'recast'

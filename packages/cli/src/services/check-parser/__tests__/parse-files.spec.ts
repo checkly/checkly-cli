@@ -1,5 +1,8 @@
+import path from 'node:path'
+
+import { describe, it, expect } from 'vitest'
+
 import { Parser } from '../parser'
-import * as path from 'path'
 import { pathToPosix, loadFile } from '../../util'
 import { PlaywrightConfig } from "../../playwright-config"
 

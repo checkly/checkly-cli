@@ -1,5 +1,8 @@
+import path from 'node:path'
+
+import { describe, it, expect } from 'vitest'
+
 import { Parser } from '../parser'
-import * as path from 'path'
 
 const defaultNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
