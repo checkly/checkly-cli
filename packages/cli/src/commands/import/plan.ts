@@ -136,6 +136,12 @@ future deployments include the imported resources.`
       config: checklyConfig,
     } = await loadChecklyConfig(configDirectory, configFilenames)
 
+    this.log(`${logSymbols.info} You are about to import resources from your Checkly account.`)
+    this.log()
+    this.log(`  Please make sure to commit any unsaved changes to avoid having any local`)
+    this.log(`  changes get overwritten by generated code.`)
+    this.log()
+
     await this.#initializeProject(checklyConfig)
 
     const {
@@ -195,7 +201,6 @@ future deployments include the imported resources.`
       try {
         const { failures } = this.#generateCode(plan, program, codegen)
         if (failures.length) {
-          this.log()
           this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
           this.log()
 
@@ -243,10 +248,12 @@ future deployments include the imported resources.`
 
             if (this.fancy) {
               ux.action.stop('✅ ')
+              this.log()
             }
           } catch (err) {
             if (this.fancy) {
               ux.action.stop('❌')
+              this.log()
             }
 
             throw err
@@ -266,10 +273,12 @@ future deployments include the imported resources.`
 
           if (this.fancy) {
             ux.action.stop('✅ ')
+            this.log()
           }
         } catch (err) {
           if (this.fancy) {
             ux.action.stop('❌')
+            this.log()
           }
 
           throw err
@@ -320,12 +329,14 @@ future deployments include the imported resources.`
 
       if (this.fancy) {
         ux.action.stop('✅ ')
+        this.log()
       }
 
       return data
     } catch (err) {
       if (this.fancy) {
         ux.action.stop('❌')
+        this.log()
       }
 
       if (isAxiosError(err)) {
@@ -359,7 +370,7 @@ future deployments include the imported resources.`
     const { action } = await prompts({
       name: 'action',
       type: 'select',
-      message: 'You are about to import resources from your Checkly account. Which resources would you like to import?',
+      message: 'Which resources would you like to import?',
       choices,
     })
 
@@ -382,6 +393,7 @@ future deployments include the imported resources.`
 
             if (this.fancy) {
               ux.action.stop('✅ ')
+              this.log()
             }
 
             return (data.changes?.resources ?? []).flatMap(resource => {
@@ -402,6 +414,7 @@ future deployments include the imported resources.`
           } catch (err) {
             if (this.fancy) {
               ux.action.stop('❌')
+              this.log()
             }
 
             if (isAxiosError(err)) {
@@ -572,8 +585,10 @@ future deployments include the imported resources.`
       if (this.fancy) {
         if (failures.size === 0) {
           ux.action.stop('✅ ')
+          this.log()
         } else {
           ux.action.stop('❌')
+          this.log()
         }
       }
 
@@ -583,6 +598,7 @@ future deployments include the imported resources.`
     } catch (err) {
       if (this.fancy) {
         ux.action.stop('❌')
+        this.log()
       }
 
       throw err
@@ -605,6 +621,7 @@ future deployments include the imported resources.`
 
       if (this.fancy) {
         ux.action.stop('✅ ')
+        this.log()
       }
 
       // The project has already been initialized, not need to do anything.
@@ -613,12 +630,14 @@ future deployments include the imported resources.`
       if (err instanceof ProjectNotFoundError) {
         if (this.fancy) {
           ux.action.stop('❌ Uninitialized project')
+          this.log()
         }
 
         // The project does not exist yet and we must create (initialize) it.
       } else {
         if (this.fancy) {
           ux.action.stop('❌')
+          this.log()
         }
 
         throw err
@@ -660,10 +679,12 @@ future deployments include the imported resources.`
 
           if (this.fancy) {
             ux.action.stop('✅ ')
+            this.log()
           }
         } catch (err) {
           if (this.fancy) {
             ux.action.stop('❌')
+            this.log()
           }
 
           throw err
@@ -757,10 +778,12 @@ future deployments include the imported resources.`
 
             if (this.fancy) {
               ux.action.stop('✅ ')
+              this.log()
             }
           } catch (err) {
             if (this.fancy) {
               ux.action.stop('❌')
+              this.log()
             }
 
             throw err
