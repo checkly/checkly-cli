@@ -310,7 +310,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
   The final step will be to commit your plan, at which point the underlying
   resources will be fully managed by the Checkly CLI in the exact same
-  capacity as any other CLI-native resource.
+  manner as any other CLI-native resource.
 `)
 
         const apply = await confirmApply.call(this)
