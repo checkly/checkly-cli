@@ -24,6 +24,8 @@ export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow
   | 'text-size' | 'three-bars' | 'thumbsdown' | 'thumbsup' | 'tools' | 'trashcan' | 'triangle-down' | 'triangle-left'
   | 'triangle-right' | 'triangle-up' | 'unfold' | 'unmute' | 'unverified' | 'verified' | 'versions' | 'watch'
   | 'x' | 'zap'
+  // Allow any string value, but keep auto complete for known values.
+  | (string & Record<never, never>)
 
 export interface PrivateLocationProps {
   /**
