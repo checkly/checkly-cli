@@ -24,6 +24,8 @@ export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow
   | 'text-size' | 'three-bars' | 'thumbsdown' | 'thumbsup' | 'tools' | 'trashcan' | 'triangle-down' | 'triangle-left'
   | 'triangle-right' | 'triangle-up' | 'unfold' | 'unmute' | 'unverified' | 'verified' | 'versions' | 'watch'
   | 'x' | 'zap'
+  // Allow any string value, but keep auto complete for known values.
+  | (string & Record<never, never>)
 
 export interface PrivateLocationProps {
   /**
@@ -44,7 +46,12 @@ export interface PrivateLocationProps {
   proxyUrl?: string
 }
 
-class PrivateLocationWrapper extends Construct {
+/**
+ * Creates a reference to an existing Private Location.
+ *
+ * References link existing resources to a project without managing them.
+ */
+export class PrivateLocationRef extends Construct {
   constructor (logicalId: string, physicalId: string|number) {
     super(PrivateLocation.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
@@ -94,7 +101,7 @@ export class PrivateLocation extends Construct {
   }
 
   static fromId (id: string) {
-    return new PrivateLocationWrapper(`private-location-${id}`, id)
+    return new PrivateLocationRef(`private-location-${id}`, id)
   }
 
   allowInChecklyConfig () {

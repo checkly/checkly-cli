@@ -25,6 +25,19 @@ describe('help', () => {
               <value>".`)
   })
 
+  it('should print import topic help', async () => {
+    const { stdout } = await runChecklyCli({
+      args: ['import', '--help'],
+    })
+    // use a 80 char line output
+    expect(stdout).toContain(`COMMANDS
+  import apply   Attach imported resources into your project in a pending state.
+  import cancel  Cancels an ongoing import plan that has not been committed yet.
+  import commit  Permanently commit imported resources into your project.
+  import plan    Import existing resources from your Checkly account to your
+                 project.`)
+  })
+
   it('should print core and additional commands and topic', async () => {
     const { stdout } = await runChecklyCli({
       args: ['--help'],
@@ -38,6 +51,8 @@ describe('help', () => {
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
   help             Display help for checkly.
+  import           Import existing resources from your Checkly account to your
+                   project.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
   runtimes         List all supported runtimes and dependencies.

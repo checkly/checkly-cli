@@ -9,6 +9,22 @@ export interface StatusPageServiceProps {
 }
 
 /**
+ * Creates a reference to an existing Status Page Service.
+ *
+ * References link existing resources to a project without managing them.
+ */
+export class StatusPageServiceRef extends Construct {
+  constructor (logicalId: string, physicalId: string|number) {
+    super(StatusPageService.__checklyType, logicalId, physicalId, false)
+    Session.registerConstruct(this)
+  }
+
+  synthesize () {
+    return null
+  }
+}
+
+/**
  * Creates a Service for Status Pages
  */
 export class StatusPageService extends Construct {
@@ -29,6 +45,10 @@ export class StatusPageService extends Construct {
     this.name = props.name
 
     Session.registerConstruct(this)
+  }
+
+  static fromId (id: string) {
+    return new StatusPageServiceRef(`status-page-service-${id}`, id)
   }
 
   synthesize (): any|null {
