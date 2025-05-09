@@ -145,9 +145,8 @@ export async function performApplyAction (this: BaseCommand, plan: ImportPlan) {
   this.log()
   this.log(`\
   The code generated for the import plan is now linked to the underlying
-  resources. In other words, if you deploy now, you are modifying the actual
-  resources. You may still cancel the plan but any changes you've deployed
-  cannot be undone.
+  resources. If you deploy now, you are modifying the actual resources. You
+  may still cancel the plan but any changes you've deployed cannot be undone.
 
   ${logSymbols.info} \
 ${chalk.cyan('For safety, resources are not deletable until the plan has been committed.')}
