@@ -239,6 +239,11 @@ future deployments include the imported resources.`
             this.exit(0)
           }
 
+          // When previewing, there is no plan to cancel.
+          if (preview) {
+            continue
+          }
+
           this.log(`${logSymbols.info} The current plan will be cancelled so that a new plan can be created.`)
 
           if (this.fancy) {
