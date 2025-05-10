@@ -1,8 +1,11 @@
+import { Comment } from './comment'
 import { Output } from './output'
 import { Value } from './value'
 
 export interface ObjectPropertyOptions {
   order?: number
+  leadingComment?: Comment
+  trailingComment?: Comment
 }
 
 export class ObjectProperty {
@@ -76,13 +79,28 @@ export class ObjectValue extends Value {
     output.append('{')
     output.increaseIndent()
 
-    for (const { name, value } of properties) {
-      output.endLine()
+    for (const { name, value, options } of properties) {
+      output.endLine({
+        collapse: true,
+      })
+      if (options?.leadingComment) {
+        options.leadingComment.render(output)
+        output.endLine({
+          collapse: true,
+        })
+      }
       output.append(name)
       output.append(':')
       output.cosmeticWhitespace()
       value.render(output)
       output.append(',')
+      if (options?.trailingComment) {
+        output.cosmeticWhitespace()
+        options.trailingComment.render(output)
+        output.endLine({
+          collapse: true,
+        })
+      }
     }
 
     output.decreaseIndent()
