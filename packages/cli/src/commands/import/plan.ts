@@ -10,9 +10,9 @@ import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
-import { ChecklyConfig, loadChecklyConfig } from '../../services/checkly-config-loader'
+import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader'
 import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync } from '../../rest/projects'
-import { Comment, docComment, Program } from '../../sourcegen'
+import { cased, Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
 import {
@@ -23,6 +23,8 @@ import { StaticAuxiliaryFile } from '../../sourcegen/program'
 import { ExitError } from '@oclif/core/errors'
 import { confirmCommit, performCommitAction } from './commit'
 import { confirmApply, performApplyAction } from './apply'
+import { generateChecklyConfig } from '../../services/checkly-config-codegen'
+import { wrap } from '../../helpers/wrap'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -133,16 +135,23 @@ future deployments include the imported resources.`
       return parseFilter(value as string)
     })
 
-    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
-    const {
-      config: checklyConfig,
-    } = await loadChecklyConfig(configDirectory, configFilenames)
-
     this.log(`${logSymbols.info} You are about to import resources from your Checkly account.`)
     this.log()
-    this.log(`  Please make sure to commit any unsaved changes to avoid having any local`)
-    this.log(`  changes get overwritten by generated code.`)
-    this.log()
+    this.#outputComment(
+      `Please make sure to commit any unsaved changes to avoid having any ` +
+      `local changes get overwritten by generated code.`,
+    )
+
+    const program = new Program({
+      rootDirectory,
+      constructFileSuffix: '.check',
+      constructHeaders: preview ? [previewComment()] : undefined,
+      specFileSuffix: '.spec',
+      language: 'typescript',
+    })
+
+    const checklyConfig = await this.#loadConfig(configFilename)
+      ?? await this.#interactiveCreateConfig()
 
     await this.#initializeProject(checklyConfig)
 
@@ -159,14 +168,6 @@ future deployments include the imported resources.`
         await this.#handleExistingPlans(existingPlans)
       }
     }
-
-    const program = new Program({
-      rootDirectory,
-      constructFileSuffix: '.check',
-      constructHeaders: preview ? [previewComment()] : undefined,
-      specFileSuffix: '.spec',
-      language: 'typescript',
-    })
 
     const codegen = new ConstructCodegen(program)
 
@@ -235,8 +236,7 @@ future deployments include the imported resources.`
 
           const retry = await this.#confirmRetryWithoutFailed()
           if (!retry) {
-            this.log('Exiting without making any changes.')
-            this.exit(0)
+            this.cancelAndExit()
           }
 
           // When previewing, there is no plan to cancel.
@@ -349,6 +349,221 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
         throw err
       }
+    }
+  }
+
+  #outputComment (comment: string) {
+    this.log(chalk.cyan(wrap(comment, { prefix: '// ' })))
+    this.log()
+  }
+
+  #outputConfigSection (options: {
+    title: string,
+    step: [number, number],
+    description: string,
+  }) {
+    const { title, step: [step, totalSteps], description } = options
+    this.log(`  ${title} ${chalk.grey(`(step ${step}/${totalSteps})`)}`)
+    this.log()
+    this.#outputComment(description)
+  }
+
+  async #askProjectName (step: [number, number]): Promise<string> {
+    this.#outputConfigSection({
+      title: `Let's give your project a name`,
+      description: `You'll be able to change the name later if you like.`,
+      step,
+    })
+
+    while (true) {
+      const { projectName } = await prompts({
+        name: 'projectName',
+        type: 'text',
+        message: 'What should we call your project?',
+      })
+      this.log()
+
+      if (projectName === undefined) {
+        this.cancelAndExit()
+      }
+
+      if (projectName.trim() !== '') {
+        return projectName
+      }
+
+      this.#outputComment(
+        `Sorry, but a project name is absolutely required. ` +
+        `You can also press ESC to cancel and exit.`,
+      )
+    }
+  }
+
+  async #askLogicalId (suggested: string, step: [number, number]): Promise<string> {
+    this.#outputConfigSection({
+      title: `Set up a unique project identifier`,
+      description: `The identifier given here uniquely identifies your ` +
+        `project among any other Checkly projects you may have. You will ` +
+        `not be able to change the identifier later without recreating the ` +
+        `project. Please choose a value you'll be comfortable with ` +
+        `long term.`,
+      step,
+    })
+
+    while (true) {
+      const { logicalId } = await prompts({
+        name: 'logicalId',
+        type: 'text',
+        message: 'How would you like your project to be identified?',
+        initial: suggested,
+        validate: (input) => {
+          if (!/^[A-Za-z0-9_\-/#.]+$/.test(input)) {
+            return `Please only use ASCII letters, numbers, and the ` +
+              `symbols _, -, /, #, and .`
+          }
+
+          return true
+        },
+      })
+      this.log()
+
+      if (logicalId === undefined) {
+        this.cancelAndExit()
+      }
+
+      if (logicalId.trim() !== '') {
+        return logicalId
+      }
+
+      this.#outputComment(
+        `Sorry, but a project identifier is absolutely required. ` +
+        `You can also press ESC to cancel and exit.`,
+      )
+    }
+  }
+
+  async #interactiveCreateConfig (): Promise<ChecklyConfig> {
+    this.log(`${logSymbols.warning} ${chalk.yellow(`Unable to find an existing Checkly configuration file.`)}`)
+    this.log()
+    this.#outputComment(
+      `Setting up Checkly for the first time? No worries, we'll walk you ` +
+      `through the process.`,
+    )
+
+    const choices: prompts.Choice[] = [{
+      title: `Yes, I want to start a new project for the imported resources`,
+      value: 'init',
+      description: `We'll walk you through a minimal setup`,
+    }, {
+      title: `No, I intended to import resources into an existing project`,
+      value: 'mistake',
+      description: 'Exit and verify your configuration.',
+    }, {
+      title: 'No, I want to cancel and exit',
+      value: 'exit',
+      description: 'No changes will be made.',
+    }]
+
+    const { action } = await prompts({
+      name: 'action',
+      type: 'select',
+      message: 'Set up a new Checkly project?',
+      choices,
+    })
+    this.log()
+
+    switch (action) {
+      case 'init': {
+        const projectName = await this.#askProjectName([1, 2])
+        const suggestedLogicalId = cased(projectName, 'kebab-case')
+        const logicalId = await this.#askLogicalId(suggestedLogicalId, [2, 2])
+
+        try {
+          if (this.fancy) {
+            ux.action.start('Creating project', undefined, { stdout: true })
+          }
+
+          try {
+            await api.projects.create({
+              name: projectName,
+              logicalId,
+            })
+          } catch (err) {
+            if (isAxiosError(err)) {
+              if (err.response?.status === 409) {
+                throw new Error(`You are already using the same identifier for a different project.`)
+              }
+            }
+
+            throw err
+          }
+
+          const program = new Program({
+            rootDirectory: '.',
+            constructFileSuffix: '.check',
+            specFileSuffix: '.spec',
+            language: 'typescript',
+          })
+
+          const context = new Context()
+
+          const config: ChecklyConfig = {
+            projectName,
+            logicalId,
+            checks: {
+              checkMatch: '**/__checks__/**/*.check.ts',
+            },
+          }
+
+          // TODO: Make this less ugly.
+          generateChecklyConfig(program, context, config, 'checkly.config.ts')
+
+          await program.realize()
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+            this.log()
+          }
+
+          return config
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+            this.log()
+          }
+
+          throw err
+        }
+
+        break
+      }
+      case 'mistake':
+        this.log(chalk.red('Please verify your configuration and try again.'))
+        this.log()
+        this.cancelAndExit()
+        break
+      case 'exit':
+        // falls through
+      default: {
+        this.cancelAndExit()
+      }
+    }
+  }
+
+  async #loadConfig (configFile?: string): Promise<ChecklyConfig | undefined> {
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
+
+    try {
+      const {
+        config: checklyConfig,
+      } = await loadChecklyConfig(configDirectory, configFilenames)
+
+      return checklyConfig
+    } catch (err) {
+      if (err instanceof ConfigNotFoundError) {
+        return
+      }
+
+      throw err
     }
   }
 
@@ -484,14 +699,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         })
 
         if (resources === undefined) {
-          this.log('Exiting without making any changes.')
-          this.exit(0)
+          this.cancelAndExit()
         }
 
         if (resources.length === 0) {
           this.log(chalk.red('You did not choose any resources.'))
-          this.log('Exiting without making any changes.')
-          this.exit(0)
+          this.log()
+          this.cancelAndExit()
         }
 
         return resources.map(parseFilter)
@@ -499,8 +713,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       case 'exit':
         // falls through
       default: {
-        this.log('Exiting without making any changes.')
-        this.exit(0)
+        this.cancelAndExit()
       }
     }
   }
@@ -737,14 +950,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       }
       case 'mistake':
         this.log(chalk.red('Please verify your configuration and try again.'))
-        this.log('Exiting without making any changes.')
-        this.exit(0)
+        this.log()
+        this.cancelAndExit()
         break
       case 'exit':
         // falls through
       default: {
-        this.log('Exiting without making any changes.')
-        this.exit(0)
+        this.cancelAndExit()
       }
     }
   }
@@ -801,9 +1013,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           })
 
           if (action === 'exit') {
-            this.log('Exiting without making any changes.')
-            this.exit(0)
-            return
+            this.cancelAndExit()
           }
 
           continue
@@ -840,11 +1050,15 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         case 'exit':
           // falls through
         default: {
-          this.log('Exiting without making any changes.')
-          this.exit(0)
+          this.cancelAndExit()
         }
       }
     }
+  }
+
+  cancelAndExit (): never {
+    this.log('Exiting without making any changes.')
+    this.exit(0)
   }
 }
 

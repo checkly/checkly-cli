@@ -51,17 +51,27 @@ export class VariableDeclaration extends Declaration {
   }
 }
 
+export interface ExportDeclarationOptions {
+  default?: boolean
+}
+
 export class ExportDeclaration extends Declaration {
   decl: Declaration
+  default: boolean
 
-  constructor (decl: Declaration) {
+  constructor (decl: Declaration, options?: ExportDeclarationOptions) {
     super()
     this.decl = decl
+    this.default = options?.default ?? false
   }
 
   render (output: Output): void {
     output.append('export')
     output.significantWhitespace()
+    if (this.default) {
+      output.append('default')
+      output.significantWhitespace()
+    }
     this.decl.render(output)
   }
 }
