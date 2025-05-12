@@ -7,7 +7,6 @@ import { valueForPlaywrightConfig } from '../constructs/playwright-config-codege
 import { valueForPrivateLocationFromId } from '../constructs/private-location-codegen'
 import { valueForRetryStrategy } from '../constructs/retry-strategy-codegen'
 import { array, decl, docComment, expr, GeneratedFile, ident, ObjectValueBuilder, Program, StringValue } from '../sourcegen'
-import { ProgramFile } from '../sourcegen/program'
 import { ChecklyConfig, CheckConfigDefaults } from './checkly-config-loader'
 
 function buildCheckConfigDefaults (
