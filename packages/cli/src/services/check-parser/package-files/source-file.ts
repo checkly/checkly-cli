@@ -28,7 +28,7 @@ export class SourceFile {
   contents: string
   meta: FileMeta
 
-  private constructor (meta: FileMeta, contents: string) {
+  constructor (meta: FileMeta, contents: string) {
     this.meta = meta
     this.contents = contents
   }

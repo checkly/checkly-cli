@@ -25,6 +25,8 @@ import { confirmCommit, performCommitAction } from './commit'
 import { confirmApply, performApplyAction } from './apply'
 import { generateChecklyConfig } from '../../services/checkly-config-codegen'
 import { wrap } from '../../helpers/wrap'
+import { PackageFilesResolver } from '../../services/check-parser/package-files/resolver'
+import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -497,34 +499,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             throw err
           }
 
-          const program = new Program({
-            rootDirectory: '.',
-            constructFileSuffix: '.check',
-            specFileSuffix: '.spec',
-            language: 'typescript',
-          })
-
-          const context = new Context()
-
-          const config: ChecklyConfig = {
-            projectName,
-            logicalId,
-            checks: {
-              checkMatch: '**/__checks__/**/*.check.ts',
-            },
-          }
-
-          // TODO: Make this less ugly.
-          generateChecklyConfig(program, context, config, 'checkly.config.ts')
-
-          await program.realize()
-
           if (this.fancy) {
             ux.action.stop('✅ ')
             this.log()
           }
 
-          return config
         } catch (err) {
           if (this.fancy) {
             ux.action.stop('❌')
@@ -534,7 +513,116 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           throw err
         }
 
-        break
+        const program = new Program({
+          rootDirectory: '.',
+          constructFileSuffix: '.check',
+          specFileSuffix: '.spec',
+          language: 'typescript',
+        })
+
+        const context = new Context()
+
+        const config: ChecklyConfig = {
+          projectName,
+          logicalId,
+          checks: {
+            checkMatch: '**/__checks__/**/*.check.ts',
+          },
+        }
+
+        try {
+          if (this.fancy) {
+            ux.action.start('Creating Checkly configuration', undefined, { stdout: true })
+          }
+
+          // TODO: Make this less ugly.
+          generateChecklyConfig(program, context, config, 'checkly.config.ts')
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+            this.log()
+          }
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+            this.log()
+          }
+
+          throw err
+        }
+
+        try {
+          if (this.fancy) {
+            ux.action.start('Configuring package.json for Checkly', undefined, { stdout: true })
+          }
+
+          // TODO: Make this less ugly.
+          const packageJson = (() => {
+            const file = this.#loadPackageJson()
+            if (file !== undefined) {
+              this.log(`${logSymbols.success} Found existing package.json`)
+              return file
+            } else {
+              this.log(`${logSymbols.success} Creating a new minimal package.json`)
+              return this.#createPackageJson(logicalId)
+            }
+          })()
+
+          const updated = packageJson.upsertDevDependencies({
+            checkly: `^5`,
+            jiti: '^2',
+          })
+
+          if (updated) {
+            this.log(`${logSymbols.success} Successfully added Checkly devDependencies`)
+            program.staticSupportFile(packageJson.meta.filePath, packageJson.toJSON())
+          } else {
+            this.log(`${logSymbols.success} Checkly devDependencies are already up to date`)
+          }
+
+          this.log()
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+            this.log()
+          }
+
+          if (updated) {
+            this.#outputComment(
+              `Please make sure to run the appropriate install command for ` +
+              `your package manager once you're done with the setup.`,
+            )
+          }
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+            this.log()
+          }
+
+          throw err
+        }
+
+        try {
+          if (this.fancy) {
+            ux.action.start('Writing project files', undefined, { stdout: true })
+          }
+
+          await program.realize()
+
+          if (this.fancy) {
+            ux.action.stop('✅ ')
+            this.log()
+          }
+        } catch (err) {
+          if (this.fancy) {
+            ux.action.stop('❌')
+            this.log()
+          }
+
+          throw err
+        }
+
+        return config
       }
       case 'mistake':
         this.log(chalk.red('Please verify your configuration and try again.'))
@@ -547,6 +635,21 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         this.cancelAndExit()
       }
     }
+  }
+
+  #loadPackageJson (): PackageJsonFile | undefined {
+    const resolver = new PackageFilesResolver()
+    return resolver.loadPackageJsonFile(process.cwd(), {
+      isDir: true,
+    })
+  }
+
+  #createPackageJson (logicalId: string): PackageJsonFile {
+    return PackageJsonFile.make(PackageJsonFile.FILENAME, {
+      name: logicalId,
+      version: '1.0.0',
+      private: true,
+    })
   }
 
   async #loadConfig (configFile?: string): Promise<ChecklyConfig | undefined> {

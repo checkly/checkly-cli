@@ -124,7 +124,7 @@ export class Program {
 
   async realize (): Promise<void> {
     for (const file of this.#generatedFiles.values()) {
-      const fullFilePath = path.join(this.#options.rootDirectory, file.path)
+      const fullFilePath = path.resolve(this.#options.rootDirectory, file.path)
       const { dir: fileDir } = path.parse(fullFilePath)
 
       if (fileDir !== '') {
@@ -144,7 +144,7 @@ export class Program {
     }
 
     for (const file of this.#staticAuxiliaryFiles.values()) {
-      const fullFilePath = path.join(this.#options.rootDirectory, file.path)
+      const fullFilePath = path.resolve(this.#options.rootDirectory, file.path)
       const { dir: fileDir } = path.parse(fullFilePath)
 
       if (fileDir !== '') {

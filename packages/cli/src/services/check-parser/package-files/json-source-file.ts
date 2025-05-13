@@ -7,7 +7,7 @@ export class JsonSourceFile<Schema> {
   sourceFile: SourceFile
   data: Schema
 
-  private constructor (sourceFile: SourceFile, data: Schema) {
+  constructor (sourceFile: SourceFile, data: Schema) {
     this.sourceFile = sourceFile
     this.data = data
   }
