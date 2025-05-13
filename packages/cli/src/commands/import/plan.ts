@@ -876,6 +876,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       type: 'confirm',
       message: 'Would you like to try again without the failed resources?',
     })
+    this.log()
 
     return action ?? false
   }
@@ -934,6 +935,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       message: 'Which resources would you like to import?',
       choices,
     })
+    this.log()
 
     switch (action) {
       case 'all':
@@ -1000,6 +1002,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           hint: ' - Space to select. Return to submit.',
           instructions: false,
         })
+        this.log()
 
         if (resources === undefined) {
           this.cancelAndExit()
@@ -1222,6 +1225,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       message: 'Your project has not been initialized yet. Initialize now?',
       choices,
     })
+    this.log()
 
     switch (action) {
       case 'init': {
@@ -1287,6 +1291,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         message: `Found ${plans.length} existing uncommitted plan(s). How do you want to proceed?`,
         choices,
       })
+      this.log()
 
       switch (action) {
         case 'show': {
@@ -1314,6 +1319,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
               value: 'return',
             }],
           })
+          this.log()
 
           if (action === 'exit') {
             this.cancelAndExit()

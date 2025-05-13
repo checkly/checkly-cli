@@ -77,6 +77,7 @@ export default class ImportCommitCommand extends AuthCommand {
       message: `Found ${plans.length} applied plan(s). Which one to commit?`,
       choices,
     })
+    this.log()
 
     if (planId === 'exit' || planId === undefined) {
       this.log('Exiting without making any changes.')
@@ -98,6 +99,7 @@ export async function confirmCommit (this: BaseCommand): Promise<boolean> {
     type: 'confirm',
     message: 'Would you like to commit the plan now?',
   })
+  this.log()
 
   if (commit) {
     return true

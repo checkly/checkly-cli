@@ -80,6 +80,7 @@ export default class ImportApplyCommand extends AuthCommand {
       message: `Found ${plans.length} unapplied plan(s). Which one to apply?`,
       choices,
     })
+    this.log()
 
     if (planId === 'exit' || planId === undefined) {
       this.log('Exiting without making any changes.')
@@ -101,12 +102,12 @@ export async function confirmApply (this: BaseCommand): Promise<boolean> {
     type: 'confirm',
     message: 'Would you like to apply the plan now?',
   })
+  this.log()
 
   if (apply) {
     return true
   }
 
-  this.log()
   this.log(`\
   To apply your plan at a later time, please run:
 
