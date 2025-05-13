@@ -110,11 +110,11 @@ export async function confirmApply (this: BaseCommand): Promise<boolean> {
   this.log(`\
   To apply your plan at a later time, please run:
 
-    npx checkly import apply
+    ${chalk.green('npx checkly import apply')}
 
   To cancel the plan, run:
 
-    npx checkly import cancel
+    ${chalk.green('npx checkly import cancel')}
 `)
 
   return false

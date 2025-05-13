@@ -107,11 +107,11 @@ export async function confirmCommit (this: BaseCommand): Promise<boolean> {
   this.log(`\
   To commit your plan at a later time, please run:
 
-    npx checkly import commit
+    ${chalk.green('npx checkly import commit')}
 
   To cancel the plan, run:
 
-    npx checkly import cancel
+    ${chalk.green('npx checkly import cancel')}
 `)
 
   return false
