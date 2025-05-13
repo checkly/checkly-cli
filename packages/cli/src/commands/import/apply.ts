@@ -155,6 +155,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   resources will be fully managed by the Checkly CLI in the exact same
   manner as any other CLI-native resource.
 
+  If there is any risk that a different user or a CI workflow may deploy a
+  different version of this Checkly project before the imported resources can
+  be merged to your codebase, you should hold off committing the plan until
+  the merge is completed.
+
   ${logSymbols.warning} \
 ${chalk.yellow('The plan cannot be cancelled after it has been committed.')}
 `)
