@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises'
+import { setTimeout } from 'node:timers/promises'
+
 import { Args, Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
@@ -27,6 +29,7 @@ import { generateChecklyConfig } from '../../services/checkly-config-codegen'
 import { wrap } from '../../helpers/wrap'
 import { PackageFilesResolver } from '../../services/check-parser/package-files/resolver'
 import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
+import { detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -551,13 +554,16 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           throw err
         }
 
+        let askInstall = false
+        let packageJson: PackageJsonFile
+
         try {
           if (this.fancy) {
             ux.action.start('Configuring package.json for Checkly', undefined, { stdout: true })
           }
 
           // TODO: Make this less ugly.
-          const packageJson = (() => {
+          packageJson = (() => {
             const file = this.#loadPackageJson()
             if (file !== undefined) {
               this.log(`${logSymbols.success} Found existing package.json`)
@@ -576,6 +582,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           if (updated) {
             this.log(`${logSymbols.success} Successfully added Checkly devDependencies`)
             program.staticSupportFile(packageJson.meta.filePath, packageJson.toJSON())
+            askInstall = true
           } else {
             this.log(`${logSymbols.success} Checkly devDependencies are already up to date`)
           }
@@ -585,13 +592,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           if (this.fancy) {
             ux.action.stop('✅ ')
             this.log()
-          }
-
-          if (updated) {
-            this.#outputComment(
-              `Please make sure to run the appropriate install command for ` +
-              `your package manager once you're done with the setup.`,
-            )
           }
         } catch (err) {
           if (this.fancy) {
@@ -622,6 +622,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           throw err
         }
 
+        if (askInstall && packageJson !== undefined) {
+          await this.#interactiveNpmInstall(packageJson.meta.dirname)
+        }
+
         return config
       }
       case 'mistake':
@@ -650,6 +654,202 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       version: '1.0.0',
       private: true,
     })
+  }
+
+  async #interactiveNpmInstall (dirPath: string, forcePackageManager?: PackageManager): Promise<void> {
+    const { execa } = await import('execa')
+
+    const packageManager = forcePackageManager ?? await (async () => {
+      try {
+        if (this.fancy) {
+          ux.action.start(`Detecting package manager`)
+        }
+
+        const packageManager = await detectPackageManager(dirPath)
+
+        if (this.fancy) {
+          ux.action.stop('✅ ')
+          this.log()
+        }
+
+        this.#outputComment(
+          `It looks like your package manager is ${packageManager.name}.`,
+        )
+
+        return packageManager
+      } catch (err) {
+        if (this.fancy) {
+          ux.action.stop('❌')
+          this.log()
+        }
+
+        throw err
+      }
+    })()
+
+    const { unsafeDisplayCommand, executable, args } = packageManager.installCommand()
+
+    const choices: prompts.Choice[] = [{
+      title: `Yes, please run \`${unsafeDisplayCommand}\` for me`,
+      value: 'install',
+    }, {
+      title: `I want to use a different package manager`,
+      value: 'other-manager',
+    }, {
+      title: `I want to use a different command`,
+      value: 'other-command',
+    }, {
+      title: 'I will do it later myself',
+      value: 'later',
+    }]
+
+    const { action } = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'Would you like to install dependencies now? (recommended)',
+      choices,
+    })
+    this.log()
+
+    switch (action) {
+      case 'install': {
+        this.#outputComment(
+          `Ok, now running \`${unsafeDisplayCommand}\`.`,
+        )
+
+        try {
+          await execa(executable, args, {
+            cwd: dirPath,
+            stdout: ['inherit'],
+            stderr: ['inherit'],
+            stdin: ['inherit'],
+          })
+
+          this.log()
+
+          this.#outputComment(
+            `Successfully installed dependencies.`,
+          )
+        } catch (err) {
+          if (err instanceof Error) {
+            this.log(`${logSymbols.error} Failed to install dependencies:`)
+            this.log()
+            this.log(`  ${chalk.red(err.message)}`)
+            this.log()
+          }
+
+          this.#outputComment(
+            `Uh oh. Looks like that didn't quite work as expected.` +
+            `\n\n` +
+            `You can still continue the import process and install ` +
+            `dependencies later by yourself.`,
+          )
+
+          const { action } = await prompts({
+            type: 'confirm',
+            name: 'action',
+            message: 'Continue the import process?',
+          })
+          this.log()
+
+          if (action) {
+            this.#outputComment(
+              `Great, let's proceed to the next step.`
+            )
+            await setTimeout(200)
+          } else {
+            this.cancelAndExit()
+          }
+        }
+
+        break
+      }
+      case 'other-manager': {
+        const packageManagersByName = Object.fromEntries(
+          knownPackageManagers.map(packageManager => {
+            return [packageManager.name, packageManager]
+          })
+        )
+
+        const choices = knownPackageManagers.map(packageManager => ({
+          title: packageManager.name,
+          value: packageManager.name,
+        }))
+
+        choices.push({
+          title: 'None of the above',
+          value: 'other',
+        })
+
+        const { action } = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'Which package manager would you like to use?',
+          choices,
+        })
+        this.log()
+
+        if (action === undefined) {
+          this.cancelAndExit()
+        }
+
+        if (action === 'other') {
+          this.#outputComment(
+            `Alright. If possible, let us know which package manager you ` +
+            `use and we may be able to support it in the future.` +
+            `\n\n` +
+            `You can still continue the import process and install ` +
+            `dependencies later by yourself.`,
+          )
+
+          const { action } = await prompts({
+            type: 'confirm',
+            name: 'action',
+            message: 'Continue the import process?',
+          })
+          this.log()
+
+          if (action) {
+            this.#outputComment(
+              `Great, let's proceed to the next step.`
+            )
+            await setTimeout(200)
+            break
+          } else {
+            this.cancelAndExit()
+          }
+        }
+
+        const packageManager = packageManagersByName[action]
+        if (packageManager === undefined) {
+          throw new Error(`Somehow, you selected an option that does not exist.`)
+        }
+
+        return this.#interactiveNpmInstall(dirPath, packageManager)
+      }
+      case 'other-command': {
+        this.#outputComment(
+          `Ok, but make sure to run the appropriate install command for ` +
+          `your package manager once you've completed the setup.` +
+          `\n\n` +
+          `If you do not, the Checkly CLI will not function as intended.`,
+        )
+        await setTimeout(200)
+        break
+      }
+      case 'later': {
+        this.#outputComment(
+          'Ok, but make sure to do it before using the CLI.' +
+          `\n\n` +
+          `If you do not, the Checkly CLI will not function as intended.`,
+        )
+        await setTimeout(200)
+        break
+      }
+      default: {
+        this.cancelAndExit()
+      }
+    }
   }
 
   async #loadConfig (configFile?: string): Promise<ChecklyConfig | undefined> {
