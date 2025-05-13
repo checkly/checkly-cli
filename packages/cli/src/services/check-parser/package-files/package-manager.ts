@@ -35,6 +35,7 @@ function unsafeQuoteArg (arg: string) {
 export interface PackageManager {
   get name (): string
   installCommand (): Runnable
+  execCommand (args: string[]): Runnable
 }
 
 class NotDetectedError extends Error {}
@@ -46,6 +47,7 @@ export abstract class PackageManagerDetector {
   abstract detectLockfile (dir: string): Promise<void>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
+  abstract execCommand (args: string[]): Runnable
 }
 
 export class NpmDetector extends PackageManagerDetector implements PackageManager {
@@ -71,6 +73,10 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('npm', ['install'])
+  }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('npx', args)
   }
 }
 
@@ -98,6 +104,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
   installCommand (): Runnable {
     return new Runnable('cnpm', ['install'])
   }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('npx', args)
+  }
 }
 
 export class PNpmDetector extends PackageManagerDetector implements PackageManager {
@@ -123,6 +133,10 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('pnpm', ['install'])
+  }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('pnpm', args)
   }
 }
 
@@ -150,6 +164,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
   installCommand (): Runnable {
     return new Runnable('yarn', ['install'])
   }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('yarn', args)
+  }
 }
 
 export class DenoDetector extends PackageManagerDetector implements PackageManager {
@@ -176,6 +194,10 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
   installCommand (): Runnable {
     return new Runnable('deno', ['install'])
   }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('deno', ['run', '-A', `npm:${args[0]}`, ...args.slice(1)])
+  }
 }
 
 export class BunDetector extends PackageManagerDetector implements PackageManager {
@@ -201,6 +223,10 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('bun', ['install'])
+  }
+
+  execCommand (args: string[]): Runnable {
+    return new Runnable('bunx', args)
   }
 }
 
