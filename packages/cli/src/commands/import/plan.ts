@@ -635,9 +635,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       title: `I want to use a different package manager`,
       value: 'other-manager',
     }, {
-      title: `I want to use a different command`,
-      value: 'other-command',
-    }, {
       title: 'I will do it later myself',
       value: 'later',
     }]
@@ -763,19 +760,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
         return this.#interactiveNpmInstall(dirPath, packageManager)
       }
-      case 'other-command': {
-        this.style.comment(
-          `Ok, but make sure to run the appropriate install command for ` +
-          `your package manager once you've completed the setup.` +
-          `\n\n` +
-          `If you do not, the Checkly CLI will not function as intended.`,
-        )
-        await setTimeout(200)
-        break
-      }
       case 'later': {
         this.style.comment(
-          'Ok, but make sure to do it before using the CLI.' +
+          `Ok, but make sure to perform the appropriate actions to install ` +
+          `dependencies once you've completed the setup.` +
           `\n\n` +
           `If you do not, the Checkly CLI will not function as intended.`,
         )
