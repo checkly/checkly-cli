@@ -77,12 +77,14 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     : []
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
+
+  await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
   await Promise.all([
-    loadAllCheckFiles(directory, checkMatch, ignoreDirectories),
     loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
     loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
     loadPlaywrightChecks(playwrightChecks, playwrightConfigPath, includeWrapped),
   ])
+
 
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
