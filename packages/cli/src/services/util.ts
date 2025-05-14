@@ -16,6 +16,7 @@ import { ChecklyConfig } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
+import { DependencyParseError } from './check-parser/errors'
 
 export interface GitInformation {
   commitId: string
@@ -308,7 +309,10 @@ export async function loadPlaywrightProjectFiles (
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
-  const { files } = await parser.getFilesAndDependencies(pwConfigParsed)
+  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  if (errors.length) {
+      throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
+  }
   for (const file of files) {
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath })
