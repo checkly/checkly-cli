@@ -140,9 +140,10 @@ future deployments include the imported resources.`
       return parseFilter(value as string)
     })
 
-    this.log(`${logSymbols.info} You are about to import resources from your Checkly account.`)
-    this.log()
-    this.#outputComment(
+    this.style.shortInfo(
+      `You are about to import resources from your Checkly account.`,
+    )
+    this.style.comment(
       `Please make sure to commit any unsaved changes to avoid having any ` +
       `local changes get overwritten by generated code.`,
     )
@@ -202,7 +203,9 @@ future deployments include the imported resources.`
       if (debugImportPlan) {
         const output = JSON.stringify(plan, null, 2)
         await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
-        this.log(`Successfully wrote debug import plan to "${debugImportPlanOutputFile}".`)
+        this.style.shortSuccess(
+          `Successfully wrote debug import plan to "${debugImportPlanOutputFile}".`,
+        )
         return
       }
 
@@ -249,49 +252,35 @@ future deployments include the imported resources.`
             continue
           }
 
-          this.log(`${logSymbols.info} The current plan will be cancelled so that a new plan can be created.`)
+          this.style.comment(
+            `The current plan will be cancelled so that a new plan can be created.`,
+          )
 
-          if (this.fancy) {
-            ux.action.start('Cancelling current plan', undefined, { stdout: true })
-          }
+          this.style.actionStart('Cancelling current plan')
 
           try {
             await api.projects.cancelImportPlan(plan.id)
 
-            if (this.fancy) {
-              ux.action.stop('✅ ')
-              this.log()
-            }
+            this.style.actionSuccess()
           } catch (err) {
-            if (this.fancy) {
-              ux.action.stop('❌')
-              this.log()
-            }
+            this.style.actionFailure()
 
             throw err
           }
 
-          this.log(`${logSymbols.info} A new plan will be created without the failed resources.`)
+          this.style.comment(`A new plan will be created without the failed resources.`)
 
           continue
         }
 
-        if (this.fancy) {
-          ux.action.start('Writing files', undefined, { stdout: true })
-        }
+        this.style.actionStart('Writing files')
 
         try {
           await program.realize()
 
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
@@ -357,11 +346,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  #outputComment (comment: string) {
-    this.log(chalk.cyan(wrap(comment, { prefix: '// ' })))
-    this.log()
-  }
-
   #outputConfigSection (options: {
     title: string,
     step: [number, number],
@@ -370,7 +354,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     const { title, step: [step, totalSteps], description } = options
     this.log(`  ${title} ${chalk.grey(`(step ${step}/${totalSteps})`)}`)
     this.log()
-    this.#outputComment(description)
+    this.style.comment(description)
   }
 
   async #askProjectName (step: [number, number]): Promise<string> {
@@ -396,7 +380,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         return projectName
       }
 
-      this.#outputComment(
+      this.style.comment(
         `Sorry, but a project name is absolutely required. ` +
         `You can also press ESC to cancel and exit.`,
       )
@@ -439,7 +423,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         return logicalId
       }
 
-      this.#outputComment(
+      this.style.comment(
         `Sorry, but a project identifier is absolutely required. ` +
         `You can also press ESC to cancel and exit.`,
       )
@@ -447,9 +431,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #interactiveCreateConfig (): Promise<ChecklyConfig> {
-    this.log(`${logSymbols.warning} ${chalk.yellow(`Unable to find an existing Checkly configuration file.`)}`)
-    this.log()
-    this.#outputComment(
+    this.style.shortWarning(`Unable to find an existing Checkly configuration file.`)
+    this.style.comment(
       `Setting up Checkly for the first time? No worries, we'll walk you ` +
       `through the process.`,
     )
@@ -483,9 +466,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         const logicalId = await this.#askLogicalId(suggestedLogicalId, [2, 2])
 
         try {
-          if (this.fancy) {
-            ux.action.start('Creating project', undefined, { stdout: true })
-          }
+          this.style.actionStart('Creating project')
 
           try {
             await api.projects.create({
@@ -502,16 +483,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             throw err
           }
 
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
-
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
@@ -534,22 +508,14 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
 
         try {
-          if (this.fancy) {
-            ux.action.start('Creating Checkly configuration', undefined, { stdout: true })
-          }
+          this.style.actionStart('Creating Checkly configuration')
 
           // TODO: Make this less ugly.
           generateChecklyConfig(program, context, config, 'checkly.config.ts')
 
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
@@ -558,18 +524,16 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         let packageJson: PackageJsonFile
 
         try {
-          if (this.fancy) {
-            ux.action.start('Configuring package.json for Checkly', undefined, { stdout: true })
-          }
+          this.style.actionStart('Configuring package.json for Checkly')
 
           // TODO: Make this less ugly.
           packageJson = (() => {
             const file = this.#loadPackageJson()
             if (file !== undefined) {
-              this.log(`${logSymbols.success} Found existing package.json`)
+              this.style.shortSuccess(`Found existing package.json`)
               return file
             } else {
-              this.log(`${logSymbols.success} Creating a new minimal package.json`)
+              this.style.shortSuccess(`Creating a new minimal package.json`)
               return this.#createPackageJson(logicalId)
             }
           })()
@@ -580,44 +544,28 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           })
 
           if (updated) {
-            this.log(`${logSymbols.success} Successfully added Checkly devDependencies`)
+            this.style.shortSuccess(`Successfully added Checkly devDependencies`)
             program.staticSupportFile(packageJson.meta.filePath, packageJson.toJSON())
             askInstall = true
           } else {
-            this.log(`${logSymbols.success} Checkly devDependencies are already up to date`)
+            this.style.shortSuccess(`Checkly devDependencies are already up to date`)
           }
 
-          this.log()
-
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
 
         try {
-          if (this.fancy) {
-            ux.action.start('Writing project files', undefined, { stdout: true })
-          }
+          this.style.actionStart('Writing project files')
 
           await program.realize()
 
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
@@ -629,8 +577,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         return config
       }
       case 'mistake':
-        this.log(chalk.red('Please verify your configuration and try again.'))
-        this.log()
+        this.style.fatal(`Please verify your configuration and try again.`)
         this.cancelAndExit()
         break
       case 'exit':
@@ -661,27 +608,19 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     const packageManager = forcePackageManager ?? await (async () => {
       try {
-        if (this.fancy) {
-          ux.action.start(`Detecting package manager`)
-        }
+        this.style.actionStart(`Detecting package manager`)
 
         const packageManager = await detectPackageManager(dirPath)
 
-        if (this.fancy) {
-          ux.action.stop('✅ ')
-          this.log()
-        }
+        this.style.actionSuccess()
 
-        this.#outputComment(
+        this.style.comment(
           `It looks like your package manager is ${packageManager.name}.`,
         )
 
         return packageManager
       } catch (err) {
-        if (this.fancy) {
-          ux.action.stop('❌')
-          this.log()
-        }
+        this.style.actionFailure()
 
         throw err
       }
@@ -713,7 +652,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     switch (action) {
       case 'install': {
-        this.#outputComment(
+        this.style.comment(
           `Ok, now running \`${unsafeDisplayCommand}\`.`,
         )
 
@@ -727,18 +666,15 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
           this.log()
 
-          this.#outputComment(
+          this.style.comment(
             `Successfully installed dependencies.`,
           )
         } catch (err) {
           if (err instanceof Error) {
-            this.log(`${logSymbols.error} Failed to install dependencies:`)
-            this.log()
-            this.log(`  ${chalk.red(err.message)}`)
-            this.log()
+            this.style.longError(`Failed to install dependencies`, err.message) // TODO :
           }
 
-          this.#outputComment(
+          this.style.comment(
             `Uh oh. Looks like that didn't quite work as expected.` +
             `\n\n` +
             `You can still continue the import process and install ` +
@@ -753,7 +689,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           this.log()
 
           if (action) {
-            this.#outputComment(
+            this.style.comment(
               `Great, let's proceed to the next step.`
             )
             await setTimeout(200)
@@ -794,7 +730,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
 
         if (action === 'other') {
-          this.#outputComment(
+          this.style.comment(
             `Alright. If possible, let us know which package manager you ` +
             `use and we may be able to support it in the future.` +
             `\n\n` +
@@ -810,7 +746,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           this.log()
 
           if (action) {
-            this.#outputComment(
+            this.style.comment(
               `Great, let's proceed to the next step.`
             )
             await setTimeout(200)
@@ -828,7 +764,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         return this.#interactiveNpmInstall(dirPath, packageManager)
       }
       case 'other-command': {
-        this.#outputComment(
+        this.style.comment(
           `Ok, but make sure to run the appropriate install command for ` +
           `your package manager once you've completed the setup.` +
           `\n\n` +
@@ -838,7 +774,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         break
       }
       case 'later': {
-        this.#outputComment(
+        this.style.comment(
           'Ok, but make sure to do it before using the CLI.' +
           `\n\n` +
           `If you do not, the Checkly CLI will not function as intended.`,
@@ -882,30 +818,22 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #createImportPlan (logicalId: string, options: ImportPlanOptions): Promise<ImportPlan | undefined> {
-    if (this.fancy) {
-      ux.action.start('Creating a new plan', undefined, { stdout: true })
-    }
+    this.style.actionStart('Creating a new plan')
 
     try {
       const { data } = await api.projects.createImportPlan(logicalId, options)
 
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-        this.log()
-      }
+      this.style.actionSuccess()
 
       return data
     } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-        this.log()
-      }
+      this.style.actionFailure()
 
       if (isAxiosError(err)) {
         if (err.response?.status === 404) {
           const message = err.response?.data.message
           if (message) {
-            this.log(chalk.red(message))
+            this.style.fatal(message)
             return
           }
         }
@@ -942,9 +870,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         return []
       case 'choose': {
         const choices: prompts.Choice[] = await (async () => {
-          if (this.fancy) {
-            ux.action.start('Fetching available resources', undefined, { stdout: true })
-          }
+          this.style.actionStart('Fetching available resources')
 
           try {
             const { data } = await api.projects.createImportPlan(logicalId, {
@@ -954,10 +880,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
               }],
             })
 
-            if (this.fancy) {
-              ux.action.stop('✅ ')
-              this.log()
-            }
+            this.style.actionSuccess()
 
             return (data.changes?.resources ?? []).flatMap(resource => {
               if (!isFilterable(resource.type)) {
@@ -975,10 +898,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
               }
             })
           } catch (err) {
-            if (this.fancy) {
-              ux.action.stop('❌')
-              this.log()
-            }
+            this.style.actionFailure()
 
             if (isAxiosError(err)) {
               if (err.response?.status === 404) {
@@ -1009,8 +929,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
 
         if (resources.length === 0) {
-          this.log(chalk.red('You did not choose any resources.'))
-          this.log()
+          this.style.fatal(`You did not choose any resources.`)
           this.cancelAndExit()
         }
 
@@ -1025,9 +944,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   #generateCode (plan: ImportPlan, program: Program, codegen: ConstructCodegen): GenerateCodeResult {
-    if (this.fancy) {
-      ux.action.start('Generating Checkly constructs for imported resources', undefined, { stdout: true })
-    }
+    this.style.actionStart('Generating Checkly constructs for imported resources')
 
     try {
       const context = new Context()
@@ -1144,24 +1061,17 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
       }
 
-      if (this.fancy) {
-        if (failures.size === 0) {
-          ux.action.stop('✅ ')
-          this.log()
-        } else {
-          ux.action.stop('❌')
-          this.log()
-        }
+      if (failures.size === 0) {
+        this.style.actionSuccess()
+      } else {
+        this.style.actionFailure()
       }
 
       return {
         failures: [...failures.values()],
       }
     } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-        this.log()
-      }
+      this.style.actionFailure()
 
       throw err
     }
@@ -1174,36 +1084,23 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       repoUrl,
     } = config
 
-    if (this.fancy) {
-      ux.action.start('Checking project status', undefined, { stdout: true })
-    }
+    this.style.actionStart('Checking project status')
 
     try {
       await api.projects.get(logicalId)
 
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-        this.log()
-      }
+      this.style.actionSuccess()
 
       // The project has already been initialized, not need to do anything.
       return
     } catch (err) {
-      if (err instanceof ProjectNotFoundError) {
-        if (this.fancy) {
-          ux.action.stop('❌ Uninitialized project')
-          this.log()
-        }
+      this.style.actionFailure()
 
-        // The project does not exist yet and we must create (initialize) it.
-      } else {
-        if (this.fancy) {
-          ux.action.stop('❌')
-          this.log()
-        }
-
+      if (!(err instanceof ProjectNotFoundError)) {
         throw err
       }
+
+      // The project does not exist yet and we must create (initialize) it.
     }
 
     const choices: prompts.Choice[] = [{
@@ -1230,9 +1127,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     switch (action) {
       case 'init': {
         try {
-          if (this.fancy) {
-            ux.action.start('Initializing project', undefined, { stdout: true })
-          }
+          this.style.actionStart('Initializing project')
 
           await api.projects.create({
             name: projectName,
@@ -1240,15 +1135,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             repoUrl,
           })
 
-          if (this.fancy) {
-            ux.action.stop('✅ ')
-            this.log()
-          }
+          this.style.actionSuccess()
         } catch (err) {
-          if (this.fancy) {
-            ux.action.stop('❌')
-            this.log()
-          }
+          this.style.actionFailure()
 
           throw err
         }
@@ -1256,8 +1145,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         break
       }
       case 'mistake':
-        this.log(chalk.red('Please verify your configuration and try again.'))
-        this.log()
+        this.style.fatal(`Please verify your configuration and try again.`)
         this.cancelAndExit()
         break
       case 'exit':
@@ -1328,25 +1216,17 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           continue
         }
         case 'cancel-proceed': {
-          if (this.fancy) {
-            ux.action.start('Cancelling existing plans', undefined, { stdout: true })
-          }
+          this.style.actionStart('Cancelling existing plans')
 
           try {
             for (const plan of plans) {
               await api.projects.cancelImportPlan(plan.id)
-              this.log(`${logSymbols.success} Cancelled plan ${plan.id}`)
+              this.style.shortSuccess(`Cancelled plan ${plan.id}`)
             }
 
-            if (this.fancy) {
-              ux.action.stop('✅ ')
-              this.log()
-            }
+            this.style.actionSuccess()
           } catch (err) {
-            if (this.fancy) {
-              ux.action.stop('❌')
-              this.log()
-            }
+            this.style.actionFailure()
 
             throw err
           }

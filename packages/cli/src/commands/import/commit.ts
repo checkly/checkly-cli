@@ -47,7 +47,7 @@ export default class ImportCommitCommand extends AuthCommand {
     })
 
     if (uncommittedPlans.length === 0) {
-      this.log(`${chalk.red('No plans available to commit.')}`)
+      this.style.fatal(`No plans available to commit.`)
       return
     }
 
@@ -105,7 +105,6 @@ export async function confirmCommit (this: BaseCommand): Promise<boolean> {
     return true
   }
 
-  this.log()
   this.log(`\
   To commit your plan at a later time, please run:
 
@@ -120,22 +119,14 @@ export async function confirmCommit (this: BaseCommand): Promise<boolean> {
 }
 
 export async function performCommitAction (this: BaseCommand, plan: ImportPlan): Promise<void> {
-  if (this.fancy) {
-    ux.action.start('Committing plan')
-  }
+  this.style.actionStart('Committing plan')
 
   try {
     await api.projects.commitImportPlan(plan.id)
 
-    if (this.fancy) {
-      ux.action.stop('✅ ')
-      this.log()
-    }
+    this.style.actionSuccess()
   } catch (err) {
-    if (this.fancy) {
-      ux.action.stop('❌')
-      this.log()
-    }
+    this.style.actionFailure()
 
     throw err
   }

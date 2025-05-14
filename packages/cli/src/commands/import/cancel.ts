@@ -46,7 +46,7 @@ export default class ImportCancelCommand extends AuthCommand {
     })
 
     if (cancelablePlans.length === 0) {
-      this.log(`${chalk.red('No plans available to cancel.')}`)
+      this.style.fatal(`No plans available to cancel.`)
       return
     }
 
@@ -54,25 +54,17 @@ export default class ImportCancelCommand extends AuthCommand {
       ? cancelablePlans
       : await this.#selectPlans(cancelablePlans)
 
-    if (this.fancy) {
-      ux.action.start('Canceling plan(s)')
-    }
+    this.style.actionStart('Canceling plan(s)')
 
     try {
       for (const plan of plans) {
         await api.projects.cancelImportPlan(plan.id)
-        this.log(`${logSymbols.success} Canceled plan ${plan.id}`)
+        this.style.shortSuccess(`Canceled plan ${plan.id}`)
       }
 
-      if (this.fancy) {
-        ux.action.stop('✅ ')
-        this.log()
-      }
+      this.style.actionSuccess()
     } catch (err) {
-      if (this.fancy) {
-        ux.action.stop('❌')
-        this.log()
-      }
+      this.style.actionFailure()
 
       throw err
     }

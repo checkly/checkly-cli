@@ -43,7 +43,7 @@ export default class ImportApplyCommand extends AuthCommand {
     })
 
     if (unappliedPlans.length === 0) {
-      this.log(`${chalk.red('No plans available to apply.')}`)
+      this.style.fatal(`No plans available to apply.`)
       return
     }
 
@@ -122,22 +122,14 @@ export async function confirmApply (this: BaseCommand): Promise<boolean> {
 }
 
 export async function performApplyAction (this: BaseCommand, plan: ImportPlan) {
-  if (this.fancy) {
-    ux.action.start('Applying plan')
-  }
+  this.style.actionStart('Applying plan')
 
   try {
     await api.projects.applyImportPlan(plan.id)
 
-    if (this.fancy) {
-      ux.action.stop('✅ ')
-      this.log()
-    }
+    this.style.actionSuccess()
   } catch (err) {
-    if (this.fancy) {
-      ux.action.stop('❌')
-      this.log()
-    }
+    this.style.actionFailure()
 
     throw err
   }
