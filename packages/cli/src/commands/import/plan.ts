@@ -502,6 +502,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           projectName,
           logicalId,
           checks: {
+            tags: ['mac'],
             checkMatch: '**/__checks__/**/*.check.ts',
           },
         }
