@@ -1,4 +1,4 @@
-import { Flags, ux } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import prompts from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'

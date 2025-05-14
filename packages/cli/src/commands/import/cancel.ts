@@ -1,7 +1,5 @@
-import { Flags, ux } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import prompts from 'prompts'
-import logSymbols from 'log-symbols'
-import chalk from 'chalk'
 
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
