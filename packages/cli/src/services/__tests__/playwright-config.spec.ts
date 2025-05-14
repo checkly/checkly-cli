@@ -1,6 +1,7 @@
 import path from "node:path";
 import { loadFile } from "../util";
 import { PlaywrightConfig } from "../playwright-config";
+import { describe, it, expect } from 'vitest'
 
 
 const fixturesPath = path.join(__dirname, 'fixtures', 'playwright-configs')
