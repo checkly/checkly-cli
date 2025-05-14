@@ -18,6 +18,7 @@ export interface PlaywrightCheckProps extends CheckProps {
   browsers?: string[]
   include?: string|string[]
   groupName?: string
+  logicalId: string
 }
 
 export class PlaywrightCheck extends Check {
@@ -30,8 +31,11 @@ export class PlaywrightCheck extends Check {
   browsers?: string[]
   include: string[]
   groupName?: string
+  name: string
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
+    this.logicalId = logicalId
+    this.name = props.name
     this.codeBundlePath = props.codeBundlePath
     this.installCommand = props.installCommand
     this.browsers = props.browsers

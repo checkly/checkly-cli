@@ -102,7 +102,7 @@ async function loadPlaywrightChecks (
       const {
         key, browsers, relativePlaywrightConfigPath,
       } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
-      const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.name, {
+      const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
         ...playwrightCheckProps,
         codeBundlePath: key,
         browsers,
@@ -115,6 +115,7 @@ async function loadPlaywrightChecks (
     } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
     const playwrightCheck = new PlaywrightCheck(path.basename(playwrightConfigPath), {
       name: path.basename(playwrightConfigPath),
+      logicalId: path.basename(playwrightConfigPath),
       codeBundlePath: key,
       browsers,
       playwrightConfigPath: relativePlaywrightConfigPath,

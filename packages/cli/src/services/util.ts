@@ -362,6 +362,7 @@ export function getDefaultChecklyConfig (directoryName: string, playwrightConfig
       playwrightConfigPath,
       playwrightChecks: [
         {
+          logicalId: directoryName,
           name: directoryName,
           frequency: 10,
           locations: ['us-east-1'],
