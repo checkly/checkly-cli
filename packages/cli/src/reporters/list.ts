@@ -42,14 +42,14 @@ export default class ListReporter extends AbstractListReporter {
     printLn(formatCheckTitle(CheckStatus.RETRIED, checkResult, { printRetryDuration: true }))
     printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
     if (links) {
-      printLn(indentString('View result: ' + chalk.underline.cyan(`${links.testResultLink}`), 4))
+      printLn(indentString('View result: ' + chalk.underline.cyan(links.testResultLink), 4))
       if (links.testTraceLinks?.length) {
         // TODO: print all video files URLs
-        printLn(indentString('View trace : ' + chalk.underline.cyan(links.testTraceLinks.join(', ')), 4))
+        printLn(indentString('View trace : ' + links.testTraceLinks.map(link => chalk.underline.cyan(link)).join(', '), 4))
       }
       if (links.videoLinks?.length) {
         // TODO: print all trace files URLs
-        printLn(indentString('View video : ' + chalk.underline.cyan(`${links.videoLinks.join(', ')}`), 4))
+        printLn(indentString('View video : ' + links.videoLinks.map(link => chalk.underline.cyan(link)).join(', '), 4))
       }
       printLn('')
     }
@@ -76,14 +76,14 @@ export default class ListReporter extends AbstractListReporter {
     }
 
     if (links) {
-      printLn(indentString('View result: ' + chalk.underline.cyan(`${links.testResultLink}`), 4))
+      printLn(indentString('View result: ' + chalk.underline.cyan(links.testResultLink), 4))
       if (links.testTraceLinks?.length) {
         // TODO: print all video files URLs
-        printLn(indentString('View trace : ' + chalk.underline.cyan(links.testTraceLinks.join(', ')), 4))
+        printLn(indentString('View trace : ' + links.testTraceLinks.map(link => chalk.underline.cyan(link)).join(', '), 4))
       }
       if (links.videoLinks?.length) {
         // TODO: print all trace files URLs
-        printLn(indentString('View video : ' + chalk.underline.cyan(`${links.videoLinks.join(', ')}`), 4))
+        printLn(indentString('View video : ' + links.videoLinks.map(link => chalk.underline.cyan(link)).join(', '), 4))
       }
       printLn('')
     }
