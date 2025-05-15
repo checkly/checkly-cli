@@ -1,8 +1,7 @@
 import * as path from 'path'
 import { existsSync } from 'fs'
-import { getDefaultChecklyConfig, loadFile, writeChecklyConfigFile } from './util'
+import { loadFile } from './util'
 import { CheckProps } from '../constructs/check'
-import { PlaywrightCheckProps } from '../constructs/playwright-check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
@@ -13,11 +12,6 @@ import { PlaywrightConfig } from '../constructs/playwright-config'
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
-
-export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
-  | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'
-  | 'pwProjects' | 'pwTags' | 'installCommand'| 'testCommand' | 'groupName' | 'runParallel' | 'logicalId'>
 
 export type ChecklyConfig = {
   /**
@@ -65,19 +59,6 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
-    /**
-     * Playwright config path to be used during bundling and playwright config parsing
-     */
-    playwrightConfigPath?: string,
-
-    /**
-     * Extra files to be included into the playwright bundle
-     */
-    include?: string | string[],
-    /**
-     * List of playwright checks that use the defined playwright config path
-     */
-    playwrightChecks?: PlaywrightSlimmedProp[]
   },
   /**
    * CLI default configuration properties.
@@ -123,60 +104,31 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   return config
 }
 
-export async function loadChecklyConfig (
-  dir: string,
-  filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'],
-): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+  let config
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
-
-  let config = await findConfigFile(dir, filenames)
-
-  if (!config) {
-    config = await handleMissingConfig(dir, filenames)
+  for (const filename of filenames) {
+    const filePath = path.join(dir, filename)
+    if (existsSync(filePath)) {
+      config = await loadFile(filePath)
+      break
+    }
   }
 
-  validateConfigFields(config, ['logicalId', 'projectName'])
+  if (!config) {
+    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+  }
+
+  for (const field of ['logicalId', 'projectName']) {
+    const requiredField = config?.[field]
+    if (!requiredField || !(isString(requiredField))) {
+      throw new Error(`Config object missing a ${field} as type string`)
+    }
+  }
 
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
   Session.checklyConfigFileConstructs = []
   return { config, constructs }
-}
-
-async function findConfigFile (dir: string, filenames: string[]): Promise<ChecklyConfig | null> {
-  for (const filename of filenames) {
-    if (existsSync(path.join(dir, filename))) {
-      const config = await loadFile(path.join(dir, filename))
-      if (config) {
-        return config
-      }
-    }
-  }
-  return null
-}
-
-async function handleMissingConfig (dir: string, filenames: string[]): Promise<ChecklyConfig> {
-  const baseName = path.basename(dir)
-  const playwrightConfigPath = findPlaywrightConfigPath(dir)
-  if (playwrightConfigPath) {
-    const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`)
-    await writeChecklyConfigFile(dir, checklyConfig)
-    return checklyConfig
-  }
-  throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
-}
-
-function findPlaywrightConfigPath (dir: string): string | undefined {
-  return ['playwright.config.ts', 'playwright.config.js']
-    .map(file => path.resolve(dir, file))
-    .find(filePath => existsSync(filePath))
-}
-
-function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConfig)[]): void {
-  for (const field of fields) {
-    if (!config?.[field] || !isString(config[field])) {
-      throw new Error(`Config object missing a ${field} as type string`)
-    }
-  }
 }
