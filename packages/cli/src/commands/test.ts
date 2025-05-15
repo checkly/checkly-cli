@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
+import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, PlaywrightCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -146,6 +146,7 @@ export default class Test extends AuthCommand {
       'update-snapshots': updateSnapshots,
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
+      playwrightConfig,
     } = flags
     const filePatterns = argv as string[]
 
@@ -182,6 +183,9 @@ export default class Test extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
+      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      include: checklyConfig.checks?.include,
+      playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const checks = Object.entries(project.data.check)
       .filter(([, check]) => {
@@ -228,6 +232,19 @@ export default class Test extends AuthCommand {
         continue
       }
       check.snapshots = await uploadSnapshots(check.rawSnapshots)
+    }
+
+    for (const check of checks) {
+      // TODO: Improve bundling and uploading
+      if (!(check instanceof PlaywrightCheck) || check.codeBundlePath) {
+        continue
+      }
+      const {
+        relativePlaywrightConfigPath, browsers, key,
+      } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath, check.include)
+      check.codeBundlePath = key
+      check.browsers = browsers
+      check.playwrightConfigPath = relativePlaywrightConfigPath
     }
 
     if (this.fancy) {
