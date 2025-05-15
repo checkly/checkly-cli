@@ -1,5 +1,3 @@
-/* eslint-disable no-labels */
-
 import path from 'node:path'
 
 import { SourceFile } from './source-file'
@@ -144,35 +142,63 @@ export type Dependencies = {
   local: LocalDependency[],
 }
 
+export interface WalkUpOptions {
+  root?: string
+  isDir?: boolean
+}
+
+function walkUp (filePath: string, find: (dirPath: string) => boolean, options?: WalkUpOptions): boolean {
+  let currentPath = filePath
+
+  if (options?.isDir === true) {
+    // To keep things simple, just add a dummy component.
+    currentPath = path.join(currentPath, 'z')
+  }
+
+  while (true) {
+    const prevPath = currentPath
+
+    currentPath = path.dirname(prevPath)
+
+    // Bail out if we reach root.
+    if (prevPath === currentPath) {
+      break
+    }
+
+    if (find(currentPath)) {
+      return true
+    }
+
+    // Stop if we reach the user-specified root directory.
+    // TODO: I don't like a string comparison for this but it'll do for now.
+    if (currentPath === options?.root) {
+      break
+    }
+  }
+
+  return false
+}
+
 export class PackageFilesResolver {
   cache = new PackageFilesCache()
 
-  loadPackageFiles (filePath: string, options?: { root?: string }): PackageFiles {
+  loadPackageJsonFile (filePath: string, options?: WalkUpOptions): PackageJsonFile | undefined {
+    let packageJson: PackageJsonFile | undefined
+
+    walkUp(filePath, dirPath => {
+      packageJson = this.cache.packageJson(PackageJsonFile.filePath(dirPath))
+      return packageJson !== undefined
+    }, options)
+
+    return packageJson
+  }
+
+  loadPackageFiles (filePath: string, options?: WalkUpOptions): PackageFiles {
     const files = new PackageFiles()
 
-    let currentPath = filePath
-
-    while (true) {
-      const prevPath = currentPath
-
-      currentPath = path.dirname(prevPath)
-
-      // Bail out if we reach root.
-      if (prevPath === currentPath) {
-        break
-      }
-
-      // Try to find all files and stop if we do.
-      if (files.satisfyFromDirPath(currentPath, this.cache)) {
-        break
-      }
-
-      // Stop if we reach the user-specified root directory.
-      // TODO: I don't like a string comparison for this but it'll do for now.
-      if (currentPath === options?.root) {
-        break
-      }
-    }
+    walkUp(filePath, dirPath => {
+      return files.satisfyFromDirPath(dirPath, this.cache)
+    }, options)
 
     return files
   }

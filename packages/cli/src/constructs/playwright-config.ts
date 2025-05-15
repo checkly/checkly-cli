@@ -1,5 +1,3 @@
-import { CheckProps } from './check'
-
 /**
  * Ref: https://playwright.dev/docs/network#http-proxy
  */

@@ -4,17 +4,17 @@ import { Ref } from './ref'
 import { Session } from './project'
 import { Construct } from './construct'
 import { BrowserCheck } from './browser-check'
-import { AlertChannel } from './alert-channel'
+import { AlertChannel, AlertChannelRef } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
-import { PrivateLocation } from './private-location'
+import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
-import type { Frequency } from './frequency'
-import type { RetryStrategy } from './retry-strategy'
+import { type Frequency } from './frequency'
+import { type RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { MultiStepCheck } from './multi-step-check'
 import CheckTypes from '../constants'
@@ -73,7 +73,7 @@ export interface CheckGroupProps {
   /**
    * An array of one or more private locations where to run the checks.
    */
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   /**
    * Tags for organizing and filtering checks.
    */
@@ -90,7 +90,7 @@ export interface CheckGroupProps {
   /**
    * List of alert channels to be alerted when checks in this group fail or recover.
    */
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel|AlertChannelRef>
   browserChecks?: BrowserCheckConfig,
   multiStepChecks?: MultiStepCheckConfig,
   alertEscalationPolicy?: AlertEscalation,
@@ -119,6 +119,40 @@ export interface CheckGroupProps {
 }
 
 /**
+ * Creates a reference to an existing Check Group.
+ *
+ * References link existing resources to a project without managing them.
+ */
+export class CheckGroupRef extends Construct {
+  constructor (logicalId: string, physicalId: string|number) {
+    super(CheckGroup.__checklyType, logicalId, physicalId, false)
+    Session.registerConstruct(this)
+  }
+
+  public getCheckDefaults (): CheckConfigDefaults {
+    // The only value CheckGroup.getCheckDefaults() returns is frequency,
+    // which exists purely for convenience, and only at CLI-level. It never
+    // gets sent to the backend. If references are being used, no access to
+    // this feature is required, and it can be ignored entirely.
+    return {}
+  }
+
+  public getBrowserCheckDefaults (): CheckConfigDefaults {
+    // See the comment for getCheckDefaults(), the same applies here.
+    return {}
+  }
+
+  public getMultiStepCheckDefaults (): CheckConfigDefaults {
+    // See the comment for getCheckDefaults(), the same applies here.
+    return {}
+  }
+
+  synthesize () {
+    return null
+  }
+}
+
+/**
  * Creates a Check Group
  *
  * @remarks
@@ -132,12 +166,12 @@ export class CheckGroup extends Construct {
   doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation>
+  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   tags?: Array<string>
   concurrency?: number
   frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
-  alertChannels?: Array<AlertChannel>
+  alertChannels?: Array<AlertChannel|AlertChannelRef>
   localSetupScript?: string
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
@@ -200,6 +234,10 @@ export class CheckGroup extends Construct {
     Session.registerConstruct(this)
     this.__addSubscriptions()
     this.__addPrivateLocationGroupAssignments()
+  }
+
+  static fromId (id: number) {
+    return new CheckGroupRef(`check-group-${id}`, id)
   }
 
   private __addChecks (

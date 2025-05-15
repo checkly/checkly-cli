@@ -2,6 +2,7 @@ import axios from 'axios'
 import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
+import { CommandStyle } from '../helpers/command-style'
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
@@ -11,6 +12,7 @@ export abstract class BaseCommand extends Command {
   static coreCommand = false
   static hidden = true
   fancy = true
+  style = new CommandStyle(this)
 
   protected async init (): Promise<void> {
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version

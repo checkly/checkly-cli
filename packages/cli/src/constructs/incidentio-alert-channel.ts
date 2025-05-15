@@ -16,6 +16,11 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
    * {@link https://www.checklyhq.com/docs/integrations/incidentio/}
    */
   apiKey: string
+  /**
+   * An optional custom payload. If not given,
+   * `IncidentioAlertChannel.DEFAULT_PAYLOAD` will be used.
+   */
+  payload?: string
 }
 
 /**
@@ -26,6 +31,23 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class IncidentioAlertChannel extends WebhookAlertChannel {
+  static DEFAULT_PAYLOAD = `{
+  "title": "{{ALERT_TITLE}}",
+  "description": "{{ALERT_TITLE}} at {{STARTED_AT}} in {{RUN_LOCATION}} {{RESPONSE_TIME}}ms",
+  "deduplication_key": "{{CHECK_ID}}",
+  "metadata": {
+    "alertType": "{{ALERT_TYPE}}",
+    "check_result_id": "{{CHECK_RESULT_ID}}",
+    "resultLink": "{{RESULT_LINK}}"
+  },
+  {{#contains ALERT_TYPE "RECOVERY"}}
+  "status": "resolved"
+  {{else}}
+  "status": "firing"
+  {{/contains}}
+}
+`
+
   /**
    * Constructs the Incident.io Alert Channel instance
    *
@@ -45,22 +67,7 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
         locked: false,
       },
     ]
-    this.template = `{
-  "title": "{{ALERT_TITLE}}",
-  "description": "{{ALERT_TITLE}} at {{STARTED_AT}} in {{RUN_LOCATION}} {{RESPONSE_TIME}}ms",
-  "deduplication_key": "{{CHECK_ID}}",
-  "metadata": {
-    "alertType": "{{ALERT_TYPE}}",
-    "check_result_id": "{{CHECK_RESULT_ID}}",
-    "resultLink": "{{RESULT_LINK}}"
-  },
-  {{#contains ALERT_TYPE "RECOVERY"}}
-  "status": "resolved"
-  {{else}}
-  "status": "firing"
-  {{/contains}}
-}
-`
+    this.template = props.payload ?? IncidentioAlertChannel.DEFAULT_PAYLOAD
   }
 
   synthesize () {

@@ -77,9 +77,18 @@ export class Project extends Construct {
   }
 
   addResource (type: string, logicalId: string, resource: Construct) {
-    if (this.data[type as keyof ProjectData][logicalId]) {
+    const existingResource = this.data[type as keyof ProjectData][logicalId]
+    if (existingResource) {
+      // Non-member resources (i.e. references) can be used multiple times.
+      // Behind the scenes, we'll create a single mapping for them, and the
+      // referenced resource isn't managed by the project at all.
+      if (!resource.member && !existingResource.member && existingResource.physicalId === resource.physicalId) {
+        return
+      }
+
       throw new Error(`Resource of type '${type}' with logical id '${logicalId}' already exists.`)
     }
+
     this.data[type as keyof ProjectData][logicalId] = resource
   }
 

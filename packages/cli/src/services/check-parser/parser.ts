@@ -342,6 +342,12 @@ export class Parser {
 
   static tsNodeVisitor (tsParser: any, dependencies: Set<string>): any {
     return {
+      // While rare, TypeScript files may also use require.
+      CallExpression (node: Node) {
+        if (!Parser.isRequireExpression(node)) return
+        const requireStringArg = Parser.getRequireStringArg(node)
+        Parser.registerDependency(requireStringArg, dependencies)
+      },
       ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return

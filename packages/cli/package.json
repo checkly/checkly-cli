@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./constructs": "./dist/constructs/index.js"
+    "./constructs": "./dist/constructs/index.js",
+    "./util": "./dist/util/index.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -59,6 +60,9 @@
     "topics": {
       "env": {
         "description": "Manage Checkly environment variables."
+      },
+      "import": {
+        "description": "Import existing resources from your Checkly account to your project."
       }
     },
     "helpClass": "./dist/help/help-extension"
@@ -81,6 +85,7 @@
     "ci-info": "^4.2.0",
     "conf": "^10.2.0",
     "dotenv": "^16.5.0",
+    "execa": "^9.5.3",
     "git-repo-info": "^2.1.1",
     "glob": "^10.4.5",
     "indent-string": "^4.0.0",
@@ -95,6 +100,7 @@
     "prompts": "^2.4.2",
     "proxy-from-env": "^1.1.0",
     "recast": "^0.23.11",
+    "semver": "^7.7.2",
     "tunnel": "^0.0.6",
     "uuid": "^11.1.0"
   },
@@ -105,6 +111,7 @@
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.14.1",
     "@types/prompts": "^2.4.9",
+    "@types/semver": "^7.7.0",
     "@types/tunnel": "^0.0.7",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.5",

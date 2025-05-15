@@ -104,6 +104,8 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   return config
 }
 
+export class ConfigNotFoundError extends Error {}
+
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config
   Session.loadingChecklyConfigFile = true
@@ -117,7 +119,7 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   }
 
   if (!config) {
-    throw new Error(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+    throw new ConfigNotFoundError(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
   }
 
   for (const field of ['logicalId', 'projectName']) {
