@@ -16,7 +16,8 @@ import { ChecklyConfig } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
-import { DependencyParseError } from './check-parser/errors'
+import { access , readFile} from 'fs/promises'
+import { createHash } from 'crypto';
 
 export interface GitInformation {
   commitId: string
@@ -272,7 +273,7 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
 }
 
 export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
-Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string}> {
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await loadFile(filePath)
@@ -290,18 +291,54 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
 
   const pwConfigParsed = new PlaywrightConfig(dir, pwtConfig)
 
-  await loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
+  const [cacheHash] = await Promise.all([
+    getCacheHash(dir),
+    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
+  ])
+
   archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
-      return resolve({ outputFile, browsers: pwConfigParsed.getBrowsers(), relativePlaywrightConfigPath: path.relative(dir, filePath) })
+      return resolve({
+        outputFile,
+        browsers: pwConfigParsed.getBrowsers(),
+        relativePlaywrightConfigPath: path.relative(dir, filePath),
+        cacheHash
+      })
     })
 
     output.on('error', (err) => {
       return reject(err)
     })
   })
+}
+
+export async function getCacheHash (dir: string): Promise<string> {
+  const lockFile = await findLockFile(dir)
+  if (!lockFile) {
+    throw new Error('No lock file found')
+  }
+  const fileBuffer = await readFile(lockFile);
+  const hash = createHash('sha256');
+  hash.update(fileBuffer);
+  return hash.digest('hex');
+
+}
+
+async function findLockFile(dir: string): Promise<string | null> {
+  const lockFiles = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"];
+
+  for (const lockFile of lockFiles) {
+    const filePath = path.join(dir, lockFile);
+    try {
+      await access(filePath);
+      return filePath;
+    } catch {
+      // Ignore errors, just check the next file
+    }
+  }
+  return null; // Return null if no lock file is found
 }
 
 export async function loadPlaywrightProjectFiles (
