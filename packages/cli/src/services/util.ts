@@ -9,7 +9,14 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
+import { Archiver, create } from 'archiver'
 import { glob } from 'glob'
+import os from 'node:os'
+import { ChecklyConfig } from './checkly-config-loader'
+import { Parser } from './check-parser/parser'
+import * as JSON5 from 'json5'
+import { PlaywrightConfig } from './playwright-config'
+import { DependencyParseError } from './check-parser/errors'
 
 export interface GitInformation {
   commitId: string
@@ -264,10 +271,71 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
+export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string}> {
+  const dir = path.resolve(path.dirname(playwrightConfig))
+  const filePath = path.resolve(dir, playwrightConfig)
+  const pwtConfig = await loadFile(filePath)
+  const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
+  const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
+  const output = fsSync.createWriteStream(outputFile)
+
+  const archive = create('tar', {
+    gzip: true,
+    gzipOptions: {
+      level: 9,
+    },
+  })
+  archive.pipe(output)
+
+  const pwConfigParsed = new PlaywrightConfig(dir, pwtConfig)
+
+  await loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
+  archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
+  await archive.finalize()
+  return new Promise((resolve, reject) => {
+    output.on('close', () => {
+      return resolve({ outputFile, browsers: pwConfigParsed.getBrowsers(), relativePlaywrightConfigPath: path.relative(dir, filePath) })
+    })
+
+    output.on('error', (err) => {
+      return reject(err)
+    })
+  })
+}
+
+export async function loadPlaywrightProjectFiles (
+  dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
+) {
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  const parser = new Parser({})
+  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  if (errors.length) {
+      throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
+  }
+  for (const file of files) {
+    const relativePath = path.relative(dir, file)
+    archive.file(file, { name: relativePath })
+  }
+  // TODO: This code below should be a single glob
+  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  for (const includePattern of include) {
+    archive.glob(includePattern, { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  }
+}
+
+export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
+  Promise<string[]> {
+  const files = await findFilesWithPattern(directory, '**/*.{js,ts,mjs}', ignorePattern)
+  return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
+}
+
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
-  ignorePattern: string[],
+  ignorePattern: string[]
 ): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
   const files = await glob(pattern, {
@@ -277,4 +345,42 @@ export async function findFilesWithPattern (
     absolute: true,
   })
   return files.sort()
+}
+
+export function cleanup (dir: string) {
+  if (!dir.length) {
+    return
+  }
+  return fs.rm(dir)
+}
+
+export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string): ChecklyConfig {
+  return {
+    logicalId: directoryName,
+    projectName: directoryName,
+    checks: {
+      playwrightConfigPath,
+      playwrightChecks: [
+        {
+          logicalId: directoryName,
+          name: directoryName,
+          frequency: 10,
+          locations: ['us-east-1'],
+        },
+      ],
+      frequency: 10,
+      locations: ['us-east-1'],
+    },
+    cli: {
+      runLocation: 'us-east-1',
+    },
+  }
+}
+
+export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig) {
+  const configFile = path.join(dir, 'checkly.config.ts')
+  const configContent =
+    `import { defineConfig } from 'checkly'\n\nconst config = defineConfig(${JSON5.stringify(config, null, 2)})\n\nexport default config`
+
+  await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
 }
