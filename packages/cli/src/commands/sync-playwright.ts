@@ -16,16 +16,16 @@ export default class SyncPlaywright extends BaseCommand {
       ux.action.start('Syncing Playwright config to the Checkly config file', undefined, { stdout: true })
     }
 
-    const config = await loadPlaywrightConfig()
-    if (!config) {
-      return this.handleError('Could not find any playwright.config file.')
-    }
-
-    const configFile = getChecklyConfigFile()
+    const configFile = await getChecklyConfigFile()
     if (!configFile) {
       return this.handleError('Could not find a checkly config file')
     }
     const checklyAst = recast.parse(configFile.checklyConfig)
+
+    const config = await loadPlaywrightConfig()
+    if (!config) {
+      return this.handleError('Could not find any playwright.config file.')
+    }
 
     const checksAst = this.findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {

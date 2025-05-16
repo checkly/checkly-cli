@@ -12,6 +12,13 @@ import {
 } from './'
 import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
+import {
+  FileLoader,
+  JitiFileLoader,
+  MixedFileLoader,
+  NativeFileLoader,
+  TSNodeFileLoader,
+} from '../loader'
 
 export interface ProjectProps {
   /**
@@ -153,6 +160,11 @@ export class Project extends Construct {
 }
 
 export class Session {
+  static loader: FileLoader = new MixedFileLoader(
+    new NativeFileLoader(),
+    new JitiFileLoader(),
+    new TSNodeFileLoader(),
+  )
   static project?: Project
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults
@@ -167,6 +179,28 @@ export class Session {
   static checklyConfigFileConstructs?: Construct[]
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
+
+  static async loadFile<T = unknown> (filePath: string): Promise<T> {
+    const loader = this.loader
+    if (loader === undefined) {
+      throw new Error(`Session has no loader set`)
+    }
+
+    if (!loader.isAuthoritativeFor(filePath)) {
+      throw new Error(`Unable to find a compatible loader for file '${filePath}'`)
+    }
+
+    try {
+      const moduleExports = await loader.loadFile<T>(filePath)
+      const defaultExport = (moduleExports as any)?.default ?? moduleExports
+      if (typeof defaultExport === 'function') {
+        return await defaultExport()
+      }
+      return defaultExport
+    } catch (err: any) {
+      throw new Error(`Error loading file '${filePath}'\n${err.stack}`)
+    }
+  }
 
   static registerConstruct (construct: Construct) {
     if (Session.project) {
