@@ -92,7 +92,13 @@ function buildCheckGroupProps (
           context.importVariable(privateLocationVariable, genfile)
           builder.value(privateLocationVariable.id)
         } catch {
-          builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+          try {
+            const privateLocationVariable = context.lookupFriendPrivateLocation(privateLocationId)
+            context.importFriendVariable(privateLocationVariable, genfile)
+            builder.value(privateLocationVariable.id)
+          } catch {
+            builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+          }
         }
       }
     })
@@ -140,7 +146,13 @@ function buildCheckGroupProps (
           context.importVariable(alertChannelVariable, genfile)
           builder.value(alertChannelVariable.id)
         } catch {
-          builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+          try {
+            const alertChannelVariable = context.lookupFriendAlertChannel(alertChannelId)
+            context.importFriendVariable(alertChannelVariable, genfile)
+            builder.value(alertChannelVariable.id)
+          } catch {
+            builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+          }
         }
       }
     })

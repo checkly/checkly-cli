@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 
 import { Args, Flags } from '@oclif/core'
@@ -13,7 +14,7 @@ import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync } from '../../rest/projects'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync } from '../../rest/projects'
 import { cased, Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
@@ -29,6 +30,14 @@ import { generateChecklyConfig } from '../../services/checkly-config-codegen'
 import { PackageFilesResolver } from '../../services/check-parser/package-files/resolver'
 import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
 import { detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
+import { parseProject } from '../../services/project-parser'
+import { Runtime } from '../../rest/runtimes'
+import config from '../../services/config'
+import { ConstructExport, Session } from '../../constructs/project'
+
+type FriendExports = {
+  [type in FriendResourceSync['type']]: Map<string, ConstructExport>
+}
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
@@ -147,10 +156,42 @@ future deployments include the imported resources.`
       `local changes get overwritten by generated code.`,
     )
 
-    const checklyConfig = await this.#loadConfig(configFilename)
-      ?? await this.#interactiveCreateConfig()
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+
+    const checklyConfig = await this.#loadConfig(configDirectory, configFilenames)
+      ?? await this.#interactiveCreateConfig(configDirectory)
 
     await this.#initializeProject(checklyConfig)
+
+    const constructExports = await this.#findExportedResources(
+      configDirectory,
+      checklyConfig,
+      rootDirectory,
+    )
+
+    const friendExports: FriendExports = {
+      'alert-channel': new Map(),
+      'check-group': new Map(),
+      'private-location': new Map(),
+      'status-page-service': new Map(),
+    }
+
+    const friends: ImportPlanFriend[] = []
+    for (const constructExport of constructExports) {
+      const { type, logicalId } = constructExport
+
+      const friendExport = friendExports[type as keyof typeof friendExports]
+      if (friendExport === undefined) {
+        continue
+      }
+
+      friendExport.set(logicalId, constructExport)
+
+      friends.push({
+        type,
+        logicalId,
+      })
+    }
 
     const {
       logicalId,
@@ -204,6 +245,7 @@ future deployments include the imported resources.`
       const plan = await this.#createImportPlan(logicalId, {
         preview,
         filters,
+        friends,
       })
       if (!plan) {
         return
@@ -219,7 +261,7 @@ future deployments include the imported resources.`
       }
 
       try {
-        const { failures } = this.#generateCode(plan, program, codegen)
+        const { failures } = this.#generateCode(plan, program, codegen, friendExports)
         if (failures.length) {
           this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
           this.log()
@@ -439,7 +481,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #interactiveCreateConfig (): Promise<ChecklyConfig> {
+  async #interactiveCreateConfig (configDirectory: string): Promise<ChecklyConfig> {
     this.style.shortWarning(`Unable to find an existing Checkly configuration file.`)
     this.style.comment(
       `Setting up Checkly for the first time? No worries, we'll walk you ` +
@@ -500,7 +542,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
 
         const program = new Program({
-          rootDirectory: '.',
+          rootDirectory: configDirectory,
           constructFileSuffix: '.check',
           specFileSuffix: '.spec',
           language: 'typescript',
@@ -786,9 +828,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #loadConfig (configFile?: string): Promise<ChecklyConfig | undefined> {
-    const { configDirectory, configFilenames } = splitConfigFilePath(configFile)
-
+  async #loadConfig (configDirectory: string, configFilenames?: string[]): Promise<ChecklyConfig | undefined> {
     try {
       const {
         config: checklyConfig,
@@ -799,6 +839,75 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       if (err instanceof ConfigNotFoundError) {
         return
       }
+
+      throw err
+    }
+  }
+
+  async #findExportedResources (
+    configDirectory: string,
+    checklyConfig: ChecklyConfig,
+    rootDirectory: string,
+  ): Promise<ConstructExport[]> {
+    this.style.actionStart('Parsing your project for exported resources')
+
+    try {
+      const { data: account } = await api.accounts.get(config.getAccountId())
+      const { data: availableRuntimes } = await api.runtimes.getAll()
+
+      await parseProject({
+        directory: configDirectory,
+        projectLogicalId: checklyConfig.logicalId,
+        projectName: checklyConfig.projectName,
+        repoUrl: checklyConfig.repoUrl,
+        checkMatch: checklyConfig.checks?.checkMatch,
+        browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
+        multiStepCheckMatch: checklyConfig.checks?.multiStepChecks?.testMatch,
+        ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
+        checkDefaults: checklyConfig.checks,
+        browserCheckDefaults: checklyConfig.checks?.browserChecks,
+        availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
+          acc[runtime.name] = runtime
+          return acc
+        }, <Record<string, Runtime>> {}),
+        defaultRuntimeId: account.runtimeId,
+        verifyRuntimeDependencies: false,
+      })
+
+      this.style.actionSuccess()
+
+      const constructExports = Session.constructExports
+
+      switch (constructExports.length) {
+        case 0: {
+          this.style.comment(
+            `Did not find any exported resources.`,
+          )
+          break
+        }
+        case 1: {
+          this.style.comment(
+            `Found 1 exported resource.`,
+          )
+          break
+        }
+        default: {
+          this.style.comment(
+            `Found ${constructExports.length} exported resources.`,
+          )
+          break
+        }
+      }
+
+      // Paths need to be relative to the root directory or our generated
+      // imports won't work correctly.
+      for (const constructExport of constructExports) {
+        constructExport.filePath = path.relative(rootDirectory, constructExport.filePath)
+      }
+
+      return constructExports
+    } catch (err) {
+      this.style.actionFailure()
 
       throw err
     }
@@ -941,7 +1050,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  #generateCode (plan: ImportPlan, program: Program, codegen: ConstructCodegen): GenerateCodeResult {
+  #generateCode (
+    plan: ImportPlan,
+    program: Program,
+    codegen: ConstructCodegen,
+    friendExports: FriendExports,
+  ): GenerateCodeResult {
     this.style.actionStart('Generating Checkly constructs for imported resources')
 
     try {
@@ -950,7 +1064,39 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       const failures = new Map<string, FailedResource>()
 
       if (plan.changes) {
-        const { resources, auxiliary } = plan.changes
+        const { resources, friends, auxiliary } = plan.changes
+
+        if (friends) {
+          for (const resource of friends) {
+            try {
+              if (friendExports[resource.type] === undefined) {
+                throw new Error(`Unable to process unsupported friend resource type '${resource.type}'.`)
+              }
+
+              const friendExport = friendExports[resource.type].get(resource.logicalId)
+              if (friendExport === undefined) {
+                throw new Error(`Received friend resource '${resource.logicalId}' that was not requested for.`)
+              }
+
+              switch (resource.type) {
+                case 'alert-channel':
+                  context.registerFriendAlertChannel(resource.physicalId, friendExport)
+                  break
+                case 'check-group':
+                  context.registerFriendCheckGroup(resource.physicalId, friendExport)
+                  break
+                case 'private-location':
+                  context.registerFriendPrivateLocation(resource.physicalId, friendExport)
+                  break
+                case 'status-page-service':
+                  context.registerFriendStatusPageService(resource.physicalId, friendExport)
+                  break
+              }
+            } catch (cause) {
+              throw new Error(`Failed to process friend resource '${resource.type}:${resource.physicalId}' (${resource.logicalId}): ${cause}`, { cause })
+            }
+          }
+        }
 
         if (auxiliary) {
           const globalSnippetFiles = new Set<StaticAuxiliaryFile>()

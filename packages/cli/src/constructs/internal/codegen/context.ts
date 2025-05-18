@@ -3,6 +3,7 @@ import path, { dirname } from 'node:path'
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen'
 import { ProgramFile } from '../../../sourcegen/program'
 import { parseSnippetDependencies } from './snippet'
+import { ConstructExport } from '../../project'
 
 export class MissingContextVariableMappingError extends Error {}
 
@@ -13,6 +14,16 @@ export class VariableLocator {
   constructor (id: IdentifierValue, file: GeneratedFile) {
     this.id = id
     this.file = file
+  }
+}
+
+export class FriendVariableLocator {
+  readonly id: IdentifierValue
+  readonly filePath: string
+
+  constructor (id: IdentifierValue, filePath: string) {
+    this.id = id
+    this.filePath = filePath
   }
 }
 
@@ -50,6 +61,7 @@ export class FilePath {
 
 export class Context {
   #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
   #checkAlertChannelPhysicalIdsByPhysicalId = new Map<string, number[]>()
   #checkPrivateLocationPhysicalIdsByPhysicalId = new Map<string, string[]>()
@@ -57,10 +69,13 @@ export class Context {
   #checkGroupAlertChannelPhysicalIdsByPhysicalId = new Map<number, number[]>()
   #checkGroupPrivateLocationPhysicalIdsByPhysicalId = new Map<number, string[]>()
   #checkGroupVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #checkGroupFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
   #privateLocationVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #privateLocationFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
   #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #statusPageServiceFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
   #knownSecrets = new Set<string>()
 
@@ -151,6 +166,12 @@ export class Context {
     })
   }
 
+  importFriendVariable (locator: FriendVariableLocator, file: GeneratedFile): void {
+    file.namedImport(locator.id.value, locator.filePath, {
+      relativeTo: dirname(file.path),
+    })
+  }
+
   registerCheckGroup (physicalId: number, file: GeneratedFile): VariableLocator {
     const nth = this.#checkGroupVariablesByPhysicalId.size + 1
     const id = new IdentifierValue(`group${nth}`)
@@ -161,6 +182,21 @@ export class Context {
 
   lookupCheckGroup (physicalId: number): VariableLocator {
     const locator = this.#checkGroupVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendCheckGroup (physicalId: number, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#checkGroupFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendCheckGroup (physicalId: number): FriendVariableLocator {
+    const locator = this.#checkGroupFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
@@ -183,6 +219,21 @@ export class Context {
     return locator
   }
 
+  registerFriendAlertChannel (physicalId: number, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#alertChannelFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendAlertChannel (physicalId: number): FriendVariableLocator {
+    const locator = this.#alertChannelFriendVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
   registerPrivateLocation (physicalId: string, file: GeneratedFile): VariableLocator {
     const nth = this.#privateLocationVariablesByPhysicalId.size + 1
     const id = new IdentifierValue(`privateLocation${nth}`)
@@ -193,6 +244,21 @@ export class Context {
 
   lookupPrivateLocation (physicalId: string): VariableLocator {
     const locator = this.#privateLocationVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendPrivateLocation (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#privateLocationFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendPrivateLocation (physicalId: string): FriendVariableLocator {
+    const locator = this.#privateLocationFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
@@ -269,6 +335,21 @@ export class Context {
 
   lookupStatusPageService (physicalId: string): VariableLocator {
     const locator = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendStatusPageService (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#statusPageServiceFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendStatusPageService (physicalId: string): FriendVariableLocator {
+    const locator = this.#statusPageServiceFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
