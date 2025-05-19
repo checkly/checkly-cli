@@ -1,13 +1,12 @@
 import * as path from 'path'
-import { existsSync } from 'fs'
-import { loadFile } from './util'
+import fs from 'node:fs/promises'
 import { CheckProps } from '../constructs/check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
-import * as fs from 'fs'
 import { PlaywrightConfig } from '../constructs/playwright-config'
+import { FileLoader } from '../loader'
 
 export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
   | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
@@ -70,6 +69,7 @@ export type ChecklyConfig = {
     failOnNoMatching?: boolean,
     reporters?: ReporterType[],
     retries?: number,
+    loader?: FileLoader,
   }
 }
 
@@ -77,7 +77,7 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
+export async function getChecklyConfigFile (): Promise<{checklyConfig: string, fileName: string} | undefined> {
   const filenames = [
     'checkly.config.ts',
     'checkly.config.mts',
@@ -89,10 +89,13 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
   let config
   for (const configFile of filenames) {
     const dir = path.resolve(path.dirname(configFile))
-    if (!existsSync(path.resolve(dir, configFile))) {
+    const configFilePath = path.resolve(dir, configFile)
+    try {
+      await fs.access(configFilePath, fs.constants.R_OK)
+    } catch {
       continue
     }
-    const file = fs.readFileSync(path.resolve(dir, configFile))
+    const file = await fs.readFile(configFilePath)
     if (file) {
       config = {
         checklyConfig: file.toString(),
@@ -107,22 +110,25 @@ export function getChecklyConfigFile (): {checklyConfig: string, fileName: strin
 export class ConfigNotFoundError extends Error {}
 
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
-  let config
+  let config: ChecklyConfig | undefined
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
   for (const filename of filenames) {
     const filePath = path.join(dir, filename)
-    if (existsSync(filePath)) {
-      config = await loadFile(filePath)
-      break
+    try {
+      await fs.access(filePath, fs.constants.R_OK)
+    } catch {
+      continue
     }
+    config = await Session.loadFile<ChecklyConfig>(filePath)
+    break
   }
 
   if (!config) {
     throw new ConfigNotFoundError(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
   }
 
-  for (const field of ['logicalId', 'projectName']) {
+  for (const field of ['logicalId', 'projectName'] as const) {
     const requiredField = config?.[field]
     if (!requiredField || !(isString(requiredField))) {
       throw new Error(`Config object missing a ${field} as type string`)
@@ -132,5 +138,8 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   const constructs = Session.checklyConfigFileConstructs
   Session.loadingChecklyConfigFile = false
   Session.checklyConfigFileConstructs = []
+  if (config.cli?.loader) {
+    Session.loader = config.cli.loader
+  }
   return { config, constructs }
 }
