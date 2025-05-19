@@ -146,7 +146,6 @@ export default class Test extends AuthCommand {
       'update-snapshots': updateSnapshots,
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
-      playwrightConfig,
     } = flags
     const filePatterns = argv as string[]
 
