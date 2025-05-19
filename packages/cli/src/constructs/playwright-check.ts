@@ -84,7 +84,10 @@ export class PlaywrightCheck extends Check {
   static buildTestCommand (
     testCommand: string, playwrightConfigPath: string, playwrightProject?: string[], playwrightTag?: string[],
   ) {
-    return `${testCommand} --config ${playwrightConfigPath}${playwrightProject?.length ? ' --project ' + playwrightProject.map(project => `"${project}"`).join(' ') : ''}${playwrightTag?.length ? ' --grep="' + playwrightTag.join('|') + '"' : ''}`
+    const quotedPath = `"${playwrightConfigPath}"`
+    const projectArg = playwrightProject?.length ? ' --project ' + playwrightProject.map(p => `"${p}"`).join(' ') : ''
+    const tagArg = playwrightTag?.length ? ' --grep "' + playwrightTag.join('|').replace(/"/g, '\\"') + '"' : ''
+    return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
   static async bundleProject (playwrightConfigPath: string, include: string[]) {
