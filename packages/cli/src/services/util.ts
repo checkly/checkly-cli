@@ -16,6 +16,7 @@ import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
 import { access , readFile} from 'fs/promises'
 import { createHash } from 'crypto';
+import { Session } from '../constructs'
 
 export interface GitInformation {
   commitId: string
@@ -175,7 +176,7 @@ export async function bundlePlayWrightProject (playwrightConfig: string, include
 Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
-  const pwtConfig = await loadFile(filePath)
+  const pwtConfig = await Session.loadFile(filePath)
   const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
   const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputFile)
