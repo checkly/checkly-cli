@@ -207,8 +207,8 @@ export class Parser {
           continue
         }
         project.addFiles(file)
-        const snaphotsPaths = project.getSnapshotPath(file)
-        const snapshots = await findFilesWithPattern(project.testDir, snaphotsPaths, ignoredFiles)
+        const snapshotGlobs = project.getSnapshotPath(file).map(snapshotPath => pathToPosix(snapshotPath))
+        const snapshots = await findFilesWithPattern(project.testDir, snapshotGlobs, ignoredFiles)
         if (snapshots.length) {
           project.addFiles(...snapshots)
         }
