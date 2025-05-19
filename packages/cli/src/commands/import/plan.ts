@@ -147,14 +147,6 @@ future deployments include the imported resources.`
       `local changes get overwritten by generated code.`,
     )
 
-    const program = new Program({
-      rootDirectory,
-      constructFileSuffix: '.check',
-      constructHeaders: preview ? [previewComment()] : undefined,
-      specFileSuffix: '.spec',
-      language: 'typescript',
-    })
-
     const checklyConfig = await this.#loadConfig(configFilename)
       ?? await this.#interactiveCreateConfig()
 
@@ -174,6 +166,19 @@ future deployments include the imported resources.`
       }
     }
 
+    const createProgram = () => {
+      return new Program({
+        rootDirectory,
+        constructFileSuffix: '.check',
+        constructHeaders: preview ? [previewComment()] : undefined,
+        specFileSuffix: '.spec',
+        language: 'typescript',
+      })
+    }
+
+    // These are needed for the interactive filter creation for now. Ideally
+    // we'd remove these.
+    const program = createProgram()
     const codegen = new ConstructCodegen(program)
 
     // If the user provided no filter, ask interactively.
@@ -191,6 +196,11 @@ future deployments include the imported resources.`
     })
 
     while (true) {
+      // Recreate program on every attempt as otherwise resources from earlier
+      // runs will persist.
+      const program = createProgram()
+      const codegen = new ConstructCodegen(program)
+
       const plan = await this.#createImportPlan(logicalId, {
         preview,
         filters,
