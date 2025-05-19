@@ -34,6 +34,7 @@ export class PrivateLocationCodegen extends Codegen<PrivateLocationResource> {
 
     context.registerPrivateLocation(
       resource.id,
+      resource.name,
       this.program.generatedConstructFile(filePath.fullPath),
     )
   }

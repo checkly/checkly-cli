@@ -311,6 +311,7 @@ export class CheckGroupCodegen extends Codegen<CheckGroupResource> {
 
     context.registerCheckGroup(
       resource.id,
+      resource.name,
       this.program.generatedConstructFile(filename.fullPath),
     )
   }

@@ -22,9 +22,11 @@ export class SmsAlertChannelCodegen extends Codegen<SmsAlertChannelResource> {
   }
 
   prepare (logicalId: string, resource: SmsAlertChannelResource, context: Context): void {
+    const { name } = resource.config
+
     context.registerAlertChannel(
       resource.id,
-      'smsAlert',
+      name ? `${name} sms` : 'sms',
       this.program.generatedConstructFile('resources/alert-channels/sms'),
     )
   }

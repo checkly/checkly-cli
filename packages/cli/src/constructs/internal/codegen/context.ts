@@ -59,6 +59,58 @@ export class FilePath {
   }
 }
 
+/**
+ * Creates a usable variable name from a fixed base component and a variable
+ * name component.
+ *
+ * In order to keep variable names short and sensible, the base component
+ * may or may not be included in the final result if its value is deemed
+ * redundant.
+ *
+ * @example
+ * formatVariable('group', 'Website Group') === 'websiteGroup'
+ * formatVariable('group', 'Production') === 'productionGroup'
+ * formatVariable('alert', 'ops email') === 'opsEmailAlert'
+ * formatVariable('location', 'Office Rack #12') === 'officeRack12Location'
+ * @param base Fixed base component
+ * @param name Variable component
+ * @returns Formatted variable name
+ */
+function formatVariable (base: string, name: string): string {
+  let prefix = cased(name, 'camelCase').replace(/^[0-9]+/, '')
+
+  // Allow pretty long variables but set a hard limit. Limit does not include
+  // the suffix.
+  if (prefix.length > 64) {
+    prefix = prefix.slice(0, 64)
+  }
+
+  // The name might consist of characters that all get stripped out. If so,
+  // just use the base.
+  if (prefix === '') {
+    return cased(base, 'camelCase')
+  }
+
+  // Maybe the resource name already starts with the base. Can happen if the
+  // resource name is "Group #123" and base is "group", which would result in
+  // "group123Group" if the normal suffix was added. Instead, don't add the
+  // suffix.
+  if (prefix.startsWith(base)) {
+    return prefix
+  }
+
+  const suffix = cased(base, 'PascalCase')
+
+  // Maybe the resource name already includes the base. For example,
+  // if the resource name is "My Group" and the base "group", that would
+  // then result in "myGroupGroup" which is weird. If so skip the suffix.
+  if (prefix.endsWith(suffix)) {
+    return prefix
+  }
+
+  return prefix + suffix
+}
+
 export class Context {
   #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
   #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
@@ -84,6 +136,37 @@ export class Context {
 
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
+
+  #reservedIdentifiersByFilePath = new Map<string, Map<string, number>>()
+
+  #reserveIdentifier (filePath: string, name: string): IdentifierValue {
+    const fileVariables = this.#reservedIdentifiersByFilePath.get(filePath)
+      ?? new Map<string, number>()
+
+    this.#reservedIdentifiersByFilePath.set(filePath, fileVariables)
+
+    // First use? Let it through.
+    let nth = fileVariables.get(name) ?? 0
+    if (nth === 0) {
+      fileVariables.set(name, 1)
+      return new IdentifierValue(name)
+    }
+
+    // Nth use? Try to find the next available number, keeping in mind the
+    // possibility that someone may have separately reserved a variable with
+    // the same counter value at the end, which can happen if the base
+    // variable name includes a number.
+    //
+    // Starts counting from 2 (first use has no counter appended).
+    let newName: string
+    do {
+      nth += 1
+      newName = `${name}${nth}`
+    } while (fileVariables.has(newName))
+
+    fileVariables.set(newName, nth)
+    return new IdentifierValue(newName)
+  }
 
   filePath (parent: string, hint: string, options?: FilenameOptions): FilePath {
     let filename = cased(hint, options?.case ?? 'kebab-case')
@@ -172,9 +255,8 @@ export class Context {
     })
   }
 
-  registerCheckGroup (physicalId: number, file: GeneratedFile): VariableLocator {
-    const nth = this.#checkGroupVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`group${nth}`)
+  registerCheckGroup (physicalId: number, name: string, file: GeneratedFile): VariableLocator {
+    const id = this.#reserveIdentifier(file.path, formatVariable('group', name))
     const locator = new VariableLocator(id, file)
     this.#checkGroupVariablesByPhysicalId.set(physicalId, locator)
     return locator
@@ -203,9 +285,8 @@ export class Context {
     return locator
   }
 
-  registerAlertChannel (physicalId: number, variablePrefix: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#alertChannelVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`${variablePrefix}${nth}`)
+  registerAlertChannel (physicalId: number, name: string, file: GeneratedFile): VariableLocator {
+    const id = this.#reserveIdentifier(file.path, formatVariable('alert', name))
     const locator = new VariableLocator(id, file)
     this.#alertChannelVariablesByPhysicalId.set(physicalId, locator)
     return locator
@@ -234,9 +315,8 @@ export class Context {
     return locator
   }
 
-  registerPrivateLocation (physicalId: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#privateLocationVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`privateLocation${nth}`)
+  registerPrivateLocation (physicalId: string, name: string, file: GeneratedFile): VariableLocator {
+    const id = this.#reserveIdentifier(file.path, formatVariable('location', name))
     const locator = new VariableLocator(id, file)
     this.#privateLocationVariablesByPhysicalId.set(physicalId, locator)
     return locator
@@ -325,9 +405,8 @@ export class Context {
     return ids
   }
 
-  registerStatusPageService (physicalId: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#statusPageServiceVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`service${nth}`)
+  registerStatusPageService (physicalId: string, name: string, file: GeneratedFile): VariableLocator {
+    const id = this.#reserveIdentifier(file.path, formatVariable('service', name))
     const locator = new VariableLocator(id, file)
     this.#statusPageServiceVariablesByPhysicalId.set(physicalId, locator)
     return locator

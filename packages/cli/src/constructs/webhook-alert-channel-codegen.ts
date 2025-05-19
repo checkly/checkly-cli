@@ -143,9 +143,11 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
       }
     }
 
+    const { name } = resource.config
+
     context.registerAlertChannel(
       resource.id,
-      'webhookAlert',
+      `${name} webhook`,
       this.program.generatedConstructFile('resources/alert-channels/webhook'),
     )
   }
