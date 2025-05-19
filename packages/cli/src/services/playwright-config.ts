@@ -130,9 +130,7 @@ export class PlaywrightProject {
     this.projectName = playwrightProject.name
     this.platform = 'linux'
     this.testDir = playwrightProject.testDir ?  toAbsolutePath(dir, playwrightProject.testDir): playwrightConfig.testDir
-    this.snapshotDir = playwrightProject.snapshotDir ? toAbsolutePath(dir, playwrightProject.snapshotDir):  playwrightProject.testDir
-    this.testDir = playwrightProject.testDir ?? playwrightConfig.testDir
-    this.snapshotDir = playwrightProject.snapshotDir ?? this.testDir
+    this.snapshotDir = playwrightProject.snapshotDir ? toAbsolutePath(dir, playwrightProject.snapshotDir):  (playwrightConfig.snapshotDir ?? this.testDir)
     this.files = new Set<string>()
     this.snapshotTemplates = new Set<string>()
     const testMatch = playwrightProject.testMatch ?? Array.from(playwrightConfig.testMatch)

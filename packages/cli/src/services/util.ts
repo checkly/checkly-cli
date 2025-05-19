@@ -351,7 +351,7 @@ export function cleanup (dir: string) {
   if (!dir.length) {
     return
   }
-  return fs.rm(dir)
+  return fs.rm(dir, { recursive: true, force: true })
 }
 
 export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string): ChecklyConfig {
