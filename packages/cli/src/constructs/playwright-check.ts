@@ -104,6 +104,9 @@ export class PlaywrightCheck extends Check {
   static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
     const { size } = await fs.promises.stat(dir)
     const stream = fs.createReadStream(dir)
+    stream.on('error', (err) => {
+         throw new Error(`Failed to read Playwright project file: ${err.message}`)
+    })
     return checklyStorage.uploadCodeBundle(stream, size)
   }
 
