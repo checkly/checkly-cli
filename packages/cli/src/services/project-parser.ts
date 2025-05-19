@@ -102,18 +102,19 @@ async function loadPlaywrightChecks (
     for (const playwrightCheckProps of playwrightChecks) {
       // TODO: Don't upload for each check
       const {
-        key, browsers, relativePlaywrightConfigPath,
+        key, browsers, relativePlaywrightConfigPath, cacheHash,
       } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
       const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
         ...playwrightCheckProps,
         codeBundlePath: key,
         browsers,
         playwrightConfigPath: relativePlaywrightConfigPath,
+        cacheHash,
       })
     }
   } else {
     const {
-      key, browsers, relativePlaywrightConfigPath,
+      key, browsers, relativePlaywrightConfigPath, cacheHash,
     } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
     const playwrightCheck = new PlaywrightCheck(path.basename(playwrightConfigPath), {
       name: path.basename(playwrightConfigPath),
@@ -121,6 +122,7 @@ async function loadPlaywrightChecks (
       codeBundlePath: key,
       browsers,
       playwrightConfigPath: relativePlaywrightConfigPath,
+      cacheHash,
     })
   }
 }

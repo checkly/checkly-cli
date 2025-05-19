@@ -19,6 +19,7 @@ export interface PlaywrightCheckProps extends CheckProps {
   include?: string|string[]
   groupName?: string
   logicalId: string
+  cacheHash?: string
 }
 
 export class PlaywrightCheck extends Check {
@@ -32,10 +33,12 @@ export class PlaywrightCheck extends Check {
   include: string[]
   groupName?: string
   name: string
+  cacheHash?: string
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
     this.logicalId = logicalId
     this.name = props.name
+    this.cacheHash = props.cacheHash
     this.codeBundlePath = props.codeBundlePath
     this.installCommand = props.installCommand
     this.browsers = props.browsers
@@ -88,11 +91,11 @@ export class PlaywrightCheck extends Check {
     let dir = ''
     try {
       const {
-        outputFile, browsers, relativePlaywrightConfigPath,
+        outputFile, browsers, relativePlaywrightConfigPath, cacheHash,
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
-      return { key, browsers, relativePlaywrightConfigPath }
+      return { key, browsers, relativePlaywrightConfigPath, cacheHash }
     } finally {
       await cleanup(dir)
     }
@@ -119,6 +122,7 @@ export class PlaywrightCheck extends Check {
       testCommand,
       installCommand: this.installCommand,
       browsers: this.browsers,
+      cacheHash: this.cacheHash,
     }
   }
 }
