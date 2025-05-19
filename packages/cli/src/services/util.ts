@@ -7,7 +7,8 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
-import { Archiver, create } from 'archiver'
+import archiver from 'archiver'
+import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
 import { ChecklyConfig } from './checkly-config-loader'
@@ -181,7 +182,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputFile)
 
-  const archive = create('tar', {
+  const archive = archiver('tar', {
     gzip: true,
     gzipOptions: {
       level: 9,
