@@ -1,6 +1,6 @@
-import fs from 'fs'
+import fs from 'node:fs/promises'
 import path from 'path'
-import { loadFile } from '../services/util'
+import { Session } from '../constructs/project'
 
 export async function loadPlaywrightConfig () {
   const filenames = [
@@ -13,10 +13,12 @@ export async function loadPlaywrightConfig () {
   ]
   for (const configFile of filenames) {
     const configPath = path.resolve(configFile)
-    if (!fs.existsSync(configPath)) {
+    try {
+      await fs.access(configPath, fs.constants.R_OK)
+    } catch {
       continue
     }
-    const result = await loadFile(configPath)
+    const result = await Session.loadFile(configPath)
     return result
   }
   return undefined

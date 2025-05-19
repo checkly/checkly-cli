@@ -1,7 +1,7 @@
 import * as path from 'path'
 import {
   findFilesWithPattern,
-  loadFile,
+
   pathToPosix,
 } from './util'
 import {
@@ -137,12 +137,7 @@ async function loadAllCheckFiles (
     // setting the checkFilePath is used for filtering by file name on the command line
     Session.checkFileAbsolutePath = checkFile
     Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
-    if (/\.[mc]?(js|ts)$/.test(checkFile)) {
-      await loadFile(checkFile)
-    } else {
-      throw new Error('Unable to load check configuration file with unsupported extension. ' +
-      `Please use a .js, .mjs, .cjs, .ts, .mts or .cts file instead.\n${checkFile}`)
-    }
+    await Session.loadFile(checkFile)
     Session.checkFilePath = undefined
     Session.checkFileAbsolutePath = undefined
   }
