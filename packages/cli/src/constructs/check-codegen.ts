@@ -84,10 +84,16 @@ export function buildCheckProps (
       for (const privateLocationId of privateLocationIds) {
         try {
           const privateLocationVariable = context.lookupPrivateLocation(privateLocationId)
-          context.importVariable(privateLocationVariable, genfile)
-          builder.value(privateLocationVariable.id)
+          const id = context.importVariable(privateLocationVariable, genfile)
+          builder.value(id)
         } catch {
-          builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+          try {
+            const privateLocationVariable = context.lookupFriendPrivateLocation(privateLocationId)
+            const id = context.importFriendVariable(privateLocationVariable, genfile)
+            builder.value(id)
+          } catch {
+            builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+          }
         }
       }
     })
@@ -122,10 +128,16 @@ export function buildCheckProps (
   if (resource.groupId) {
     try {
       const groupVariable = context.lookupCheckGroup(resource.groupId)
-      context.importVariable(groupVariable, genfile)
-      builder.value('group', groupVariable.id)
+      const id = context.importVariable(groupVariable, genfile)
+      builder.value('group', id)
     } catch {
-      builder.value('group', valueForCheckGroupFromId(genfile, resource.groupId))
+      try {
+        const groupVariable = context.lookupFriendCheckGroup(resource.groupId)
+        const id = context.importFriendVariable(groupVariable, genfile)
+        builder.value('group', id)
+      } catch {
+        builder.value('group', valueForCheckGroupFromId(genfile, resource.groupId))
+      }
     }
   }
 
@@ -142,10 +154,16 @@ export function buildCheckProps (
       for (const alertChannelId of alertChannelIds) {
         try {
           const alertChannelVariable = context.lookupAlertChannel(alertChannelId)
-          context.importVariable(alertChannelVariable, genfile)
-          builder.value(alertChannelVariable.id)
+          const id = context.importVariable(alertChannelVariable, genfile)
+          builder.value(id)
         } catch {
-          builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+          try {
+            const alertChannelVariable = context.lookupFriendAlertChannel(alertChannelId)
+            const id = context.importFriendVariable(alertChannelVariable, genfile)
+            builder.value(id)
+          } catch {
+            builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+          }
         }
       }
     })

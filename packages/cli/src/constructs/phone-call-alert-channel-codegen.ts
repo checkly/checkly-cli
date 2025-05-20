@@ -22,9 +22,11 @@ export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelR
   }
 
   prepare (logicalId: string, resource: PhoneCallAlertChannelResource, context: Context): void {
+    const { name } = resource.config
+
     context.registerAlertChannel(
       resource.id,
-      'phoneCallAlert',
+      name ? `${name} phone call` : 'phone call',
       this.program.generatedConstructFile('resources/alert-channels/phone-call'),
     )
   }

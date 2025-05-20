@@ -31,6 +31,7 @@ export class StatusPageServiceCodegen extends Codegen<StatusPageServiceResource>
 
     context.registerStatusPageService(
       resource.id,
+      resource.name,
       this.program.generatedConstructFile(filePath.fullPath),
     )
   }

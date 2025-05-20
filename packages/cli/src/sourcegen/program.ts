@@ -189,22 +189,46 @@ function posixPath (path: string): string {
 export interface ImportOptions {
   relativeTo?: string
   relativeToSelf?: boolean
+  alias?: string
+}
+
+export interface NamedImport {
+  identifier: string
+  alias?: string
+}
+
+function sortNamedImports (imports: NamedImport[]): NamedImport[] {
+  return Array.from(imports).sort((a, b) => {
+    const valueA = [a.identifier, a.alias].join(', ')
+    const valueB = [b.identifier, b.alias].join(', ')
+    return valueA.localeCompare(valueB)
+  })
 }
 
 export class GeneratedFile extends ProgramFile {
-  #namedImports = new Map<string, Set<string>>()
+  #namedImports = new Map<string, NamedImport[]>()
   #plainImports = new Set<string>()
   #sections: Content[] = []
   #headers: Header[] = []
 
-  namedImport (type: string, from: string, options?: ImportOptions) {
+  namedImport (identifier: string, from: string, options?: ImportOptions) {
     from = this.#processImportFrom(from, options)
 
-    if (this.#namedImports.has(from)) {
-      this.#namedImports.get(from)?.add(type)
-    } else {
-      this.#namedImports.set(from, new Set([type]))
+    const namedImports = this.#namedImports.get(from) ?? []
+
+    for (const namedImport of namedImports) {
+      if (namedImport.identifier === identifier && namedImport.alias === options?.alias) {
+        // Already imported.
+        return
+      }
     }
+
+    namedImports.push({
+      identifier,
+      alias: options?.alias,
+    })
+
+    this.#namedImports.set(from, namedImports)
   }
 
   plainImport (from: string, options?: ImportOptions) {
@@ -251,18 +275,24 @@ export class GeneratedFile extends ProgramFile {
     }
 
     if (this.#namedImports.size > 0) {
-      for (const [pkg, types] of this.#namedImports.entries()) {
+      for (const [pkg, imports] of this.#namedImports.entries()) {
         output.append('import')
         output.cosmeticWhitespace()
         output.append('{')
         let first = true
-        for (const type of Array.from(types).sort()) {
+        for (const { identifier, alias } of sortNamedImports(imports)) {
           if (!first) {
             output.append(',')
           }
           output.cosmeticWhitespace()
           first = false
-          output.append(type)
+          output.append(identifier)
+          if (alias !== undefined) {
+            output.significantWhitespace()
+            output.append('as')
+            output.significantWhitespace()
+            output.append(alias)
+          }
         }
         output.cosmeticWhitespace()
         output.append('}')
