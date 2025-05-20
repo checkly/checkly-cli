@@ -52,13 +52,13 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                   for (const service of card.services) {
                     try {
                       const serviceVariable = context.lookupStatusPageService(service.id)
-                      context.importVariable(serviceVariable, file)
-                      builder.value(serviceVariable.id)
+                      const id = context.importVariable(serviceVariable, file)
+                      builder.value(id)
                     } catch {
                       try {
                         const serviceVariable = context.lookupFriendStatusPageService(service.id)
-                        context.importFriendVariable(serviceVariable, file)
-                        builder.value(serviceVariable.id)
+                        const id = context.importFriendVariable(serviceVariable, file)
+                        builder.value(id)
                       } catch {
                         builder.value(valueForStatusPageServiceFromId(file, service.id))
                       }

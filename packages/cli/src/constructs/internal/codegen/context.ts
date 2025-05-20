@@ -7,24 +7,26 @@ import { ConstructExport } from '../../project'
 
 export class MissingContextVariableMappingError extends Error {}
 
-export class VariableLocator {
-  readonly id: IdentifierValue
-  readonly file: GeneratedFile
-
-  constructor (id: IdentifierValue, file: GeneratedFile) {
-    this.id = id
-    this.file = file
-  }
-}
-
-export class FriendVariableLocator {
-  readonly id: IdentifierValue
-  readonly filePath: string
+export abstract class VariableLocator {
+  id: IdentifierValue
+  filePath: string
 
   constructor (id: IdentifierValue, filePath: string) {
     this.id = id
     this.filePath = filePath
   }
+}
+
+export class GeneratedVariableLocator extends VariableLocator {
+  file: GeneratedFile
+
+  constructor (id: IdentifierValue, file: GeneratedFile) {
+    super(id, file.path)
+    this.file = file
+  }
+}
+
+export class FriendVariableLocator extends VariableLocator {
 }
 
 const CHECKLY_IMPORT_FILENAME_TAG_PREFIX = 'checkly-import-filename:'
@@ -112,7 +114,7 @@ function formatVariable (base: string, name: string): string {
 }
 
 export class Context {
-  #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #alertChannelVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
   #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
   #checkAlertChannelPhysicalIdsByPhysicalId = new Map<string, number[]>()
@@ -120,13 +122,13 @@ export class Context {
 
   #checkGroupAlertChannelPhysicalIdsByPhysicalId = new Map<number, number[]>()
   #checkGroupPrivateLocationPhysicalIdsByPhysicalId = new Map<number, string[]>()
-  #checkGroupVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #checkGroupVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
   #checkGroupFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
-  #privateLocationVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #privateLocationVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
   #privateLocationFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
-  #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #statusPageServiceVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
   #statusPageServiceFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
   #knownSecrets = new Set<string>()
@@ -137,19 +139,30 @@ export class Context {
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
 
-  #reservedIdentifiersByFilePath = new Map<string, Map<string, number>>()
+  #reservedIdentifiersByFilePath = new Map<string, Map<string, VariableLocator>>()
 
-  #reserveIdentifier (filePath: string, name: string): IdentifierValue {
+  #reserveIdentifierForLocator (
+    filePath: string,
+    locator: VariableLocator,
+  ): IdentifierValue {
     const fileVariables = this.#reservedIdentifiersByFilePath.get(filePath)
-      ?? new Map<string, number>()
+      ?? new Map<string, VariableLocator>()
 
     this.#reservedIdentifiersByFilePath.set(filePath, fileVariables)
 
+    const name = locator.id.value
+
     // First use? Let it through.
-    let nth = fileVariables.get(name) ?? 0
-    if (nth === 0) {
-      fileVariables.set(name, 1)
-      return new IdentifierValue(name)
+    const existingLocator = fileVariables.get(name)
+    if (existingLocator === undefined) {
+      fileVariables.set(name, locator)
+      return locator.id
+    }
+
+    // If we're reserving an identifier for the same locator as earlier, let
+    // it through. The same identifier will work for our purposes.
+    if (existingLocator === locator) {
+      return locator.id
     }
 
     // Nth use? Try to find the next available number, keeping in mind the
@@ -158,14 +171,19 @@ export class Context {
     // variable name includes a number.
     //
     // Starts counting from 2 (first use has no counter appended).
-    let newName: string
-    do {
-      nth += 1
-      newName = `${name}${nth}`
-    } while (fileVariables.has(newName))
+    for (let nth = 2; ; nth += 1) {
+      const newName = `${name}${nth}`
 
-    fileVariables.set(newName, nth)
-    return new IdentifierValue(newName)
+      const existingLocator = fileVariables.get(newName)
+      if (existingLocator === undefined) {
+        fileVariables.set(newName, locator)
+        return new IdentifierValue(newName)
+      }
+
+      if (existingLocator === locator) {
+        return new IdentifierValue(newName)
+      }
+    }
   }
 
   filePath (parent: string, hint: string, options?: FilenameOptions): FilePath {
@@ -243,26 +261,37 @@ export class Context {
     } while (true)
   }
 
-  importVariable (locator: VariableLocator, file: GeneratedFile): void {
+  importVariable (locator: GeneratedVariableLocator, file: GeneratedFile): IdentifierValue {
+    const reservedVariable = this.#reserveIdentifierForLocator(file.path, locator)
+
     file.namedImport(locator.id.value, locator.file.path, {
       relativeTo: dirname(file.path),
+      alias: reservedVariable === locator.id ? undefined : reservedVariable.value,
     })
+
+    return reservedVariable
   }
 
-  importFriendVariable (locator: FriendVariableLocator, file: GeneratedFile): void {
+  importFriendVariable (locator: FriendVariableLocator, file: GeneratedFile): IdentifierValue {
+    const reservedVariable = this.#reserveIdentifierForLocator(file.path, locator)
+
     file.namedImport(locator.id.value, locator.filePath, {
       relativeTo: dirname(file.path),
+      alias: reservedVariable === locator.id ? undefined : reservedVariable.value,
     })
+
+    return reservedVariable
   }
 
-  registerCheckGroup (physicalId: number, name: string, file: GeneratedFile): VariableLocator {
-    const id = this.#reserveIdentifier(file.path, formatVariable('group', name))
-    const locator = new VariableLocator(id, file)
+  registerCheckGroup (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('group', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#checkGroupVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupCheckGroup (physicalId: number): VariableLocator {
+  lookupCheckGroup (physicalId: number): GeneratedVariableLocator {
     const locator = this.#checkGroupVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
@@ -285,14 +314,15 @@ export class Context {
     return locator
   }
 
-  registerAlertChannel (physicalId: number, name: string, file: GeneratedFile): VariableLocator {
-    const id = this.#reserveIdentifier(file.path, formatVariable('alert', name))
-    const locator = new VariableLocator(id, file)
+  registerAlertChannel (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('alert', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#alertChannelVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupAlertChannel (physicalId: number): VariableLocator {
+  lookupAlertChannel (physicalId: number): GeneratedVariableLocator {
     const locator = this.#alertChannelVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
@@ -315,14 +345,15 @@ export class Context {
     return locator
   }
 
-  registerPrivateLocation (physicalId: string, name: string, file: GeneratedFile): VariableLocator {
-    const id = this.#reserveIdentifier(file.path, formatVariable('location', name))
-    const locator = new VariableLocator(id, file)
+  registerPrivateLocation (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('location', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#privateLocationVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupPrivateLocation (physicalId: string): VariableLocator {
+  lookupPrivateLocation (physicalId: string): GeneratedVariableLocator {
     const locator = this.#privateLocationVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
@@ -405,14 +436,15 @@ export class Context {
     return ids
   }
 
-  registerStatusPageService (physicalId: string, name: string, file: GeneratedFile): VariableLocator {
-    const id = this.#reserveIdentifier(file.path, formatVariable('service', name))
-    const locator = new VariableLocator(id, file)
+  registerStatusPageService (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('service', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#statusPageServiceVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupStatusPageService (physicalId: string): VariableLocator {
+  lookupStatusPageService (physicalId: string): GeneratedVariableLocator {
     const locator = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
