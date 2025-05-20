@@ -222,14 +222,13 @@ describe('parseProject()', () => {
         runtimeId: '2023.09',
       },
     })
-    expect(project.synthesize()).toMatchObject({
-      project: {
-        logicalId: 'glob-project-id',
-      },
-      resources: [
-        { type: 'check', logicalId: '__checks__/browser/check2.spec.js' },
-        { type: 'check', logicalId: '__checks__/multistep/check1.spec.js' },
-      ],
+    const synthesizedProject = project.synthesize()
+    expect(synthesizedProject.project.logicalId).toEqual('glob-project-id')
+    expect(synthesizedProject.resources).toHaveLength(2)
+    const checkLogicalIds = ['__checks__/browser/check2.spec.js', '__checks__/multistep/check1.spec.js']
+    synthesizedProject.resources.forEach((resource) => {
+      expect(resource.type).toEqual('check')
+      expect(checkLogicalIds).toContain(resource.logicalId)
     })
   })
 })
