@@ -213,6 +213,9 @@ export class Session {
   }
 
   static validateCreateConstruct (construct: Construct) {
+    if (!construct.logicalId) {
+      throw new ValidationError('The "logicalId" property is required.')
+    }
     if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
       throw new ValidationError(`The "logicalId" can only include the following characters: [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
     }
