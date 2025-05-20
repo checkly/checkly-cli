@@ -159,6 +159,13 @@ export class Project extends Construct {
   }
 }
 
+export interface ConstructExport {
+  type: string
+  logicalId: string
+  filePath: string
+  exportName: string
+}
+
 export class Session {
   static loader: FileLoader = new MixedFileLoader(
     new NativeFileLoader(),
@@ -179,6 +186,7 @@ export class Session {
   static checklyConfigFileConstructs?: Construct[]
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
+  static constructExports: ConstructExport[] = []
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
@@ -191,11 +199,25 @@ export class Session {
     }
 
     try {
-      const moduleExports = await loader.loadFile<T>(filePath)
-      const defaultExport = (moduleExports as any)?.default ?? moduleExports
+      const moduleExports = await loader.loadFile<Record<string, any>>(filePath)
+
+      // Register all exported constructs we find.
+      for (const [exportName, value] of Object.entries(moduleExports ?? {})) {
+        if (value instanceof Construct) {
+          this.constructExports.push({
+            type: value.type,
+            logicalId: value.logicalId,
+            filePath,
+            exportName,
+          })
+        }
+      }
+
+      const defaultExport = moduleExports?.default ?? moduleExports
       if (typeof defaultExport === 'function') {
         return await defaultExport()
       }
+
       return defaultExport
     } catch (err: any) {
       throw new Error(`Error loading file '${filePath}'\n${err.stack}`)

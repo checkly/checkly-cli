@@ -27,10 +27,20 @@ export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelR
   }
 
   prepare (logicalId: string, resource: PagerdutyAlertChannelResource, context: Context): void {
+    const { serviceName, account, serviceKey } = resource.config
+
+    const prefix = serviceName ?? account
+    const last4Chars = serviceKey.slice(-4)
+    const fallbackName = `pagerduty-${last4Chars}`
+
+    const filename = context.filePath('resources/alert-channels/pagerduty', prefix || fallbackName, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'pagerdutyAlert',
-      this.program.generatedConstructFile('resources/alert-channels/pagerduty'),
+      prefix ? `${prefix} pagerduty` : fallbackName,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

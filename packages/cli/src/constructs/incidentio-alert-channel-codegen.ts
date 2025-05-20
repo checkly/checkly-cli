@@ -65,10 +65,16 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
   prepare (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 
+    const { name } = resource.config
+
+    const filename = context.filePath('resources/alert-channels/incident-io', name, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'incidentioAlert',
-      this.program.generatedConstructFile('resources/alert-channels/incident-io'),
+      `${name} incidentio`,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

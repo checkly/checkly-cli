@@ -22,10 +22,19 @@ export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource>
   }
 
   prepare (logicalId: string, resource: SlackAlertChannelResource, context: Context): void {
+    const { channel, url } = resource.config
+
+    const last4Chars = url.slice(-4)
+    const fallbackName = `slack-${last4Chars}`
+
+    const filename = context.filePath('resources/alert-channels/slack', channel || fallbackName, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'slackAlert',
-      this.program.generatedConstructFile('resources/alert-channels/slack'),
+      channel ? `${channel} slack` : fallbackName,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

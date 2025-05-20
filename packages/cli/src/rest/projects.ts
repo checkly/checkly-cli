@@ -25,6 +25,36 @@ export interface ResourceSync {
   payload: any,
 }
 
+export interface AlertChannelFriendResource {
+  type: 'alert-channel'
+  logicalId: string
+  physicalId: number
+}
+
+export interface CheckGroupFriendResource {
+  type: 'check-group'
+  logicalId: string
+  physicalId: number
+}
+
+export interface PrivateLocationFriendResource {
+  type: 'private-location'
+  logicalId: string
+  physicalId: string
+}
+
+export interface StatusPageServiceFriendResource {
+  type: 'status-page-service'
+  logicalId: string
+  physicalId: string
+}
+
+export type FriendResourceSync =
+  AlertChannelFriendResource |
+  CheckGroupFriendResource |
+  PrivateLocationFriendResource |
+  StatusPageServiceFriendResource
+
 export interface AuxiliaryResourceSync {
   physicalId?: string|number
   type: string
@@ -50,13 +80,20 @@ export interface ImportPlanFilter {
   }
 }
 
+export interface ImportPlanFriend {
+  type: string
+  logicalId: string
+}
+
 export interface ImportPlanOptions {
   preview?: boolean
   filters?: ImportPlanFilter[]
+  friends?: ImportPlanFriend[]
 }
 
 export interface ImportPlanChanges {
   resources: ResourceSync[]
+  friends?: FriendResourceSync[]
   auxiliary?: AuxiliaryResourceSync[]
 }
 
@@ -123,6 +160,7 @@ class Projects {
   async createImportPlan (logicalId: string, options?: ImportPlanOptions) {
     const payload = {
       filters: options?.filters,
+      friends: options?.friends,
     }
     return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`, payload, {
       params: {

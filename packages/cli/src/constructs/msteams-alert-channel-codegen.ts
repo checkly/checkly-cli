@@ -42,10 +42,16 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
   prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 
+    const { name } = resource.config
+
+    const filename = context.filePath('resources/alert-channels/ms-teams', name, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'teamsAlert',
-      this.program.generatedConstructFile('resources/alert-channels/ms-teams'),
+      `${name} teams`,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

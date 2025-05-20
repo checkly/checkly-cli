@@ -20,10 +20,16 @@ export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelRes
   }
 
   prepare (logicalId: string, resource: OpsgenieAlertChannelResource, context: Context): void {
+    const { name } = resource.config
+
+    const filename = context.filePath('resources/alert-channels/opsgenie', name, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'opsgenieAlert',
-      this.program.generatedConstructFile('resources/alert-channels/opsgenie'),
+      `${name} opsgenie`,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 

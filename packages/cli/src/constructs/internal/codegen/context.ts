@@ -3,17 +3,30 @@ import path, { dirname } from 'node:path'
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen'
 import { ProgramFile } from '../../../sourcegen/program'
 import { parseSnippetDependencies } from './snippet'
+import { ConstructExport } from '../../project'
 
 export class MissingContextVariableMappingError extends Error {}
 
-export class VariableLocator {
-  readonly id: IdentifierValue
-  readonly file: GeneratedFile
+export abstract class VariableLocator {
+  id: IdentifierValue
+  filePath: string
+
+  constructor (id: IdentifierValue, filePath: string) {
+    this.id = id
+    this.filePath = filePath
+  }
+}
+
+export class GeneratedVariableLocator extends VariableLocator {
+  file: GeneratedFile
 
   constructor (id: IdentifierValue, file: GeneratedFile) {
-    this.id = id
+    super(id, file.path)
     this.file = file
   }
+}
+
+export class FriendVariableLocator extends VariableLocator {
 }
 
 const CHECKLY_IMPORT_FILENAME_TAG_PREFIX = 'checkly-import-filename:'
@@ -48,19 +61,81 @@ export class FilePath {
   }
 }
 
+/**
+ * Creates a usable variable name from a fixed base component and a variable
+ * name component.
+ *
+ * In order to keep variable names short and sensible, the base component
+ * may or may not be included in the final result if its value is deemed
+ * redundant.
+ *
+ * @example
+ * formatVariable('group', 'Website Group') === 'websiteGroup'
+ * formatVariable('group', 'Production') === 'productionGroup'
+ * formatVariable('alert', 'ops email') === 'opsEmailAlert'
+ * formatVariable('location', 'Office Rack #12') === 'officeRack12Location'
+ * @param base Fixed base component
+ * @param name Variable component
+ * @returns Formatted variable name
+ */
+function formatVariable (base: string, name: string): string {
+  let prefix = cased(name, 'camelCase')
+
+  // Even camelcased, the prefix may start with a number. Get rid of it.
+  if (/^[0-9]+/.test(prefix)) {
+    prefix = prefix.replace(/^[0-9]+/, '')
+    prefix = cased(prefix, 'camelCase')
+  }
+
+  // Allow pretty long variables but set a hard limit. Limit does not include
+  // the suffix.
+  if (prefix.length > 64) {
+    prefix = prefix.slice(0, 64)
+  }
+
+  // The name might consist of characters that all get stripped out. If so,
+  // just use the base.
+  if (prefix === '') {
+    return cased(base, 'camelCase')
+  }
+
+  // Maybe the resource name already starts with the base. Can happen if the
+  // resource name is "Group #123" and base is "group", which would result in
+  // "group123Group" if the normal suffix was added. Instead, don't add the
+  // suffix.
+  if (prefix.startsWith(base)) {
+    return prefix
+  }
+
+  const suffix = cased(base, 'PascalCase')
+
+  // Maybe the resource name already includes the base. For example,
+  // if the resource name is "My Group" and the base "group", that would
+  // then result in "myGroupGroup" which is weird. If so skip the suffix.
+  if (prefix.endsWith(suffix)) {
+    return prefix
+  }
+
+  return prefix + suffix
+}
+
 export class Context {
-  #alertChannelVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #alertChannelVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
+  #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
   #checkAlertChannelPhysicalIdsByPhysicalId = new Map<string, number[]>()
   #checkPrivateLocationPhysicalIdsByPhysicalId = new Map<string, string[]>()
 
   #checkGroupAlertChannelPhysicalIdsByPhysicalId = new Map<number, number[]>()
   #checkGroupPrivateLocationPhysicalIdsByPhysicalId = new Map<number, string[]>()
-  #checkGroupVariablesByPhysicalId = new Map<number, VariableLocator>()
+  #checkGroupVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
+  #checkGroupFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
-  #privateLocationVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #privateLocationVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
+  #privateLocationFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
-  #statusPageServiceVariablesByPhysicalId = new Map<string, VariableLocator>()
+  #statusPageServiceVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
+  #statusPageServiceFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
   #knownSecrets = new Set<string>()
 
@@ -69,6 +144,53 @@ export class Context {
 
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
+
+  #reservedIdentifiersByFilePath = new Map<string, Map<string, VariableLocator>>()
+
+  #reserveIdentifierForLocator (
+    filePath: string,
+    locator: VariableLocator,
+  ): IdentifierValue {
+    const fileVariables = this.#reservedIdentifiersByFilePath.get(filePath)
+      ?? new Map<string, VariableLocator>()
+
+    this.#reservedIdentifiersByFilePath.set(filePath, fileVariables)
+
+    const name = locator.id.value
+
+    // First use? Let it through.
+    const existingLocator = fileVariables.get(name)
+    if (existingLocator === undefined) {
+      fileVariables.set(name, locator)
+      return locator.id
+    }
+
+    // If we're reserving an identifier for the same locator as earlier, let
+    // it through. The same identifier will work for our purposes.
+    if (existingLocator === locator) {
+      return locator.id
+    }
+
+    // Nth use? Try to find the next available number, keeping in mind the
+    // possibility that someone may have separately reserved a variable with
+    // the same counter value at the end, which can happen if the base
+    // variable name includes a number.
+    //
+    // Starts counting from 2 (first use has no counter appended).
+    for (let nth = 2; ; nth += 1) {
+      const newName = `${name}${nth}`
+
+      const existingLocator = fileVariables.get(newName)
+      if (existingLocator === undefined) {
+        fileVariables.set(newName, locator)
+        return new IdentifierValue(newName)
+      }
+
+      if (existingLocator === locator) {
+        return new IdentifierValue(newName)
+      }
+    }
+  }
 
   filePath (parent: string, hint: string, options?: FilenameOptions): FilePath {
     let filename = cased(hint, options?.case ?? 'kebab-case')
@@ -145,21 +267,37 @@ export class Context {
     } while (true)
   }
 
-  importVariable (locator: VariableLocator, file: GeneratedFile): void {
+  importVariable (locator: GeneratedVariableLocator, file: GeneratedFile): IdentifierValue {
+    const reservedVariable = this.#reserveIdentifierForLocator(file.path, locator)
+
     file.namedImport(locator.id.value, locator.file.path, {
       relativeTo: dirname(file.path),
+      alias: reservedVariable === locator.id ? undefined : reservedVariable.value,
     })
+
+    return reservedVariable
   }
 
-  registerCheckGroup (physicalId: number, file: GeneratedFile): VariableLocator {
-    const nth = this.#checkGroupVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`group${nth}`)
-    const locator = new VariableLocator(id, file)
+  importFriendVariable (locator: FriendVariableLocator, file: GeneratedFile): IdentifierValue {
+    const reservedVariable = this.#reserveIdentifierForLocator(file.path, locator)
+
+    file.namedImport(locator.id.value, locator.filePath, {
+      relativeTo: dirname(file.path),
+      alias: reservedVariable === locator.id ? undefined : reservedVariable.value,
+    })
+
+    return reservedVariable
+  }
+
+  registerCheckGroup (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('group', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#checkGroupVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupCheckGroup (physicalId: number): VariableLocator {
+  lookupCheckGroup (physicalId: number): GeneratedVariableLocator {
     const locator = this.#checkGroupVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
@@ -167,15 +305,30 @@ export class Context {
     return locator
   }
 
-  registerAlertChannel (physicalId: number, variablePrefix: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#alertChannelVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`${variablePrefix}${nth}`)
-    const locator = new VariableLocator(id, file)
+  registerFriendCheckGroup (physicalId: number, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#checkGroupFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendCheckGroup (physicalId: number): FriendVariableLocator {
+    const locator = this.#checkGroupFriendVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerAlertChannel (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('alert', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#alertChannelVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupAlertChannel (physicalId: number): VariableLocator {
+  lookupAlertChannel (physicalId: number): GeneratedVariableLocator {
     const locator = this.#alertChannelVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
@@ -183,16 +336,46 @@ export class Context {
     return locator
   }
 
-  registerPrivateLocation (physicalId: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#privateLocationVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`privateLocation${nth}`)
-    const locator = new VariableLocator(id, file)
+  registerFriendAlertChannel (physicalId: number, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#alertChannelFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendAlertChannel (physicalId: number): FriendVariableLocator {
+    const locator = this.#alertChannelFriendVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerPrivateLocation (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('location', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#privateLocationVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupPrivateLocation (physicalId: string): VariableLocator {
+  lookupPrivateLocation (physicalId: string): GeneratedVariableLocator {
     const locator = this.#privateLocationVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendPrivateLocation (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#privateLocationFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendPrivateLocation (physicalId: string): FriendVariableLocator {
+    const locator = this.#privateLocationFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
@@ -259,16 +442,31 @@ export class Context {
     return ids
   }
 
-  registerStatusPageService (physicalId: string, file: GeneratedFile): VariableLocator {
-    const nth = this.#statusPageServiceVariablesByPhysicalId.size + 1
-    const id = new IdentifierValue(`service${nth}`)
-    const locator = new VariableLocator(id, file)
+  registerStatusPageService (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('service', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#statusPageServiceVariablesByPhysicalId.set(physicalId, locator)
     return locator
   }
 
-  lookupStatusPageService (physicalId: string): VariableLocator {
+  lookupStatusPageService (physicalId: string): GeneratedVariableLocator {
     const locator = this.#statusPageServiceVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendStatusPageService (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#statusPageServiceFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendStatusPageService (physicalId: string): FriendVariableLocator {
+    const locator = this.#statusPageServiceFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }

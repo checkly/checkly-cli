@@ -73,10 +73,16 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
   prepare (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
     this.validateSafety(resource)
 
+    const { name } = resource.config
+
+    const filename = context.filePath('resources/alert-channels/telegram', name, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      'telegramAlert',
-      this.program.generatedConstructFile('resources/alert-channels/telegram'),
+      `${name} telegram`,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 
