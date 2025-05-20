@@ -19,10 +19,16 @@ export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource>
   prepare (logicalId: string, resource: EmailAlertChannelResource, context: Context): void {
     const { address } = resource.config
 
+    const prefix = address.split('@')[0]
+
+    const filename = context.filePath('resources/alert-channels/email', prefix, {
+      unique: true,
+    })
+
     context.registerAlertChannel(
       resource.id,
-      `${address.split('@')[0]} email`,
-      this.program.generatedConstructFile('resources/alert-channels/email'),
+      `${prefix} email`,
+      this.program.generatedConstructFile(filename.fullPath),
     )
   }
 
