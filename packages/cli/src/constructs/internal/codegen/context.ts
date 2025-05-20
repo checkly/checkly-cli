@@ -79,7 +79,13 @@ export class FilePath {
  * @returns Formatted variable name
  */
 function formatVariable (base: string, name: string): string {
-  let prefix = cased(name, 'camelCase').replace(/^[0-9]+/, '')
+  let prefix = cased(name, 'camelCase')
+
+  // Even camelcased, the prefix may start with a number. Get rid of it.
+  if (/^[0-9]+/.test(prefix)) {
+    prefix = prefix.replace(/^[0-9]+/, '')
+    prefix = cased(prefix, 'camelCase')
+  }
 
   // Allow pretty long variables but set a hard limit. Limit does not include
   // the suffix.
