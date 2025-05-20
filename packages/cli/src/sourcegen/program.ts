@@ -197,6 +197,14 @@ export interface NamedImport {
   alias?: string
 }
 
+function sortNamedImports (imports: NamedImport[]): NamedImport[] {
+  return Array.from(imports).sort((a, b) => {
+    const valueA = [a.identifier, a.alias].join(', ')
+    const valueB = [b.identifier, b.alias].join(', ')
+    return valueA.localeCompare(valueB)
+  })
+}
+
 export class GeneratedFile extends ProgramFile {
   #namedImports = new Map<string, NamedImport[]>()
   #plainImports = new Set<string>()
@@ -272,7 +280,7 @@ export class GeneratedFile extends ProgramFile {
         output.cosmeticWhitespace()
         output.append('{')
         let first = true
-        for (const { identifier, alias } of Array.from(imports).sort()) {
+        for (const { identifier, alias } of sortNamedImports(imports)) {
           if (!first) {
             output.append(',')
           }
