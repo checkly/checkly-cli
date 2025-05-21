@@ -37,6 +37,7 @@ const DEFAULT_SNAPSHOT_TEMPLATE = '{snapshotDir}/{testFilePath}-snapshots/{arg}{
 
 export class PlaywrightConfig {
   projectName: string
+  configFilePath: string
   platform: string
   testDir: string
   snapshotDir: string
@@ -46,7 +47,7 @@ export class PlaywrightConfig {
   projects?: PlaywrightProject[]
   files: Set<string>
 
-  constructor(dir: string, playwrightConfig: any) {
+  constructor(dir: string, playwrightConfig: any, configFileName: string) {
     this.projectName = ''
     this.platform = 'linux'
     this.testDir = playwrightConfig.testDir ? toAbsolutePath(dir, playwrightConfig.testDir) : dir
@@ -55,6 +56,7 @@ export class PlaywrightConfig {
     this.snapshotTemplates = new Set<string>()
     const testMatch = playwrightConfig.testMatch ?? ['**/*.@(spec|test).?(c|m)[jt]s?(x)']
     this.testMatch = new Set<string | RegExp>(Array.isArray(testMatch) ? testMatch : [testMatch])
+    this.configFilePath = toAbsolutePath(dir, configFileName)
 
     const fileDefinitions = ['tsconfig', 'globalSetup', 'globalTeardown']
     for (const fileDefinition of fileDefinitions) {
