@@ -194,10 +194,9 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
 
   const [cacheHash] = await Promise.all([
     getCacheHash(dir),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
+    loadPlaywrightProjectFiles(dir, filePath, pwConfigParsed, include, archive)
   ])
 
-  archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
@@ -243,11 +242,11 @@ async function findLockFile(dir: string): Promise<string | null> {
 }
 
 export async function loadPlaywrightProjectFiles (
-  dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
+  dir: string, playwrightConfigFilePath: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
-  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed, playwrightConfigFilePath)
   if (errors.length) {
       throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }

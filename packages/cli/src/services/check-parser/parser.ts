@@ -133,9 +133,9 @@ export class Parser {
     }
   }
 
-  async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
+  async getFilesAndDependencies (playwrightConfig: PlaywrightConfig, playwrightConfigFilePath: string):
     Promise<{ files: string[], errors: string[] }> {
-    const files = new Set(await this.getFilesFromPaths(playwrightConfig))
+    const files = new Set(await this.getFilesFromPaths(playwrightConfig)).add(playwrightConfigFilePath)
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
