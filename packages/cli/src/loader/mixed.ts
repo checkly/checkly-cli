@@ -25,12 +25,13 @@ export class MixedFileLoader extends FileLoader {
     for (const loader of this.loaders) {
       if (loader.isAuthoritativeFor(filePath)) {
         try {
-          return loader.loadFile<T>(filePath)
+          return await loader.loadFile<T>(filePath)
         } catch (err) {
           if (err instanceof UnsupportedFileLoaderError) {
             // We'll always get the same error. Just remove the loader to
             // avoid calling it again.
             this.loaders.delete(loader)
+            continue
           }
 
           throw err
