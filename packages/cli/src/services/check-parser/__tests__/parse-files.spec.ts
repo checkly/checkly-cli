@@ -12,10 +12,10 @@ const fixturePath = path.join(__dirname, 'check-parser-fixtures')
 describe('project parser - getFilesAndDependencies()', () => {
   it('should handle spec file', async () => {
     const projectPath = path.join(fixturePath, 'playwright-project')
+
     const playwrightConfig = new PlaywrightConfig(
-      projectPath,
-      await Session.loadFile(path.join(projectPath, 'playwright.config.ts')),
-      'playwright.config.ts'
+      path.join(projectPath, 'playwright.config.ts'),
+      await Session.loadFile(path.join(projectPath, 'playwright.config.ts'))
     )
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies(playwrightConfig)
@@ -25,9 +25,8 @@ describe('project parser - getFilesAndDependencies()', () => {
   it('should handle a spec file with snapshots', async () => {
     const projectPath = path.join(fixturePath, 'playwright-project-snapshots')
     const playwrightConfig = new PlaywrightConfig(
-      projectPath,
-      await Session.loadFile(path.join(projectPath, 'playwright.config.ts')),
-      'playwright.config.ts'
+      path.join(projectPath, 'playwright.config.ts'),
+      await Session.loadFile(path.join(projectPath, 'playwright.config.ts'))
     )
     const parser = new Parser({})
     const res = await parser.getFilesAndDependencies(playwrightConfig)
