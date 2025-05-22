@@ -190,14 +190,13 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   })
   archive.pipe(output)
 
-  const pwConfigParsed = new PlaywrightConfig(dir, pwtConfig)
+  const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
   const [cacheHash] = await Promise.all([
     getCacheHash(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   ])
 
-  archive.file(playwrightConfig, { name: path.basename(playwrightConfig) })
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
