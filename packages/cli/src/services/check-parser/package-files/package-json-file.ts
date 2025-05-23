@@ -13,10 +13,17 @@ type Schema = {
   version?: string
   license?: string
   main?: string
+  engines?: Record<string, string>
   exports?: string | string[] | Record<string, string> | Record<ExportCondition, Record<string, string>>
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   private?: boolean
+}
+
+export interface EngineSupportResult {
+  engine: string
+  requirements?: string
+  incompatible: boolean
 }
 
 export class PackageJsonFile {
@@ -50,6 +57,36 @@ export class PackageJsonFile {
 
   public get devDependencies () {
     return this.jsonFile.data.devDependencies
+  }
+
+  public get engines () {
+    return this.jsonFile.data.engines
+  }
+
+  supportsEngine (engine: string, version: string): EngineSupportResult {
+    const requirements = this.engines?.[engine]
+    if (requirements === undefined) {
+      return {
+        engine,
+        incompatible: false,
+      }
+    }
+
+    try {
+      const ok = semver.satisfies(version, requirements)
+
+      return {
+        engine,
+        requirements,
+        incompatible: !ok,
+      }
+    } catch {
+      return {
+        engine,
+        requirements,
+        incompatible: false,
+      }
+    }
   }
 
   static make (filePath: string, data: Schema): PackageJsonFile {
