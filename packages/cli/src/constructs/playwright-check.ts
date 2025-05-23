@@ -59,6 +59,8 @@ export class PlaywrightCheck extends Check {
     this.playwrightConfigPath = props.playwrightConfigPath
     this.applyGroup(this.groupName)
     Session.registerConstruct(this)
+    this.addSubscriptions()
+    this.addPrivateLocationCheckAssignments()
   }
 
   applyGroup (groupName?: string) {
