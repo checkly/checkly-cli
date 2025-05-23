@@ -3,6 +3,7 @@ import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
 import { CommandStyle } from '../helpers/command-style'
+import { PackageFilesResolver } from '../services/check-parser/package-files/resolver'
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
@@ -14,7 +15,47 @@ export abstract class BaseCommand extends Command {
   fancy = true
   style = new CommandStyle(this)
 
+  checkEngineCompatibility (): void {
+    const nodeVersion = process.versions.node
+    if (nodeVersion === undefined) {
+      // Do nothing if Node version is not present. Note that Bun and Deno
+      // do set a value for it though.
+      return
+    }
+
+    const resolver = new PackageFilesResolver()
+    const packageJson = resolver.loadPackageJsonFile(__filename)
+    if (packageJson === undefined) {
+      // Do nothing if there's no package.json.
+      return
+    }
+
+    const {
+      incompatible,
+      requirements,
+    } = packageJson.supportsEngine('node', nodeVersion)
+
+    if (!incompatible) {
+      // Do nothing if not incompatible.
+      return
+    }
+
+    this.style.longWarning(
+      `Unsupported Node version`,
+      `You are using Node v${nodeVersion}, which is not compatible with ` +
+      `the Checkly CLI. While you may continue to use the CLI, please be ` +
+      `advised that some functionality may not function correctly. Please ` +
+      `update to a newer version as soon as possible.` +
+      `\n\n` +
+      `We currently support the following versions:` +
+      `\n\n` +
+      `  ${requirements}`,
+    )
+  }
+
   protected async init (): Promise<void> {
+    this.checkEngineCompatibility()
+
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
 
     // use latest version from NPM if it's running from the local environment or E2E
