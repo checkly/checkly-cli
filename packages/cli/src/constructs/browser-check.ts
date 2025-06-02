@@ -77,6 +77,11 @@ export class BrowserCheck extends Check {
         'code',
         new Error(`Either "entrypoint" or "content" is required.`),
       ))
+    } else if (isEntrypoint(this.code) && isContent(this.code)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'code',
+        new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
+      ))
     }
 
     if (isEntrypoint(this.code)) {

@@ -173,6 +173,11 @@ export class ApiCheck extends Check {
           'setupScript',
           new Error(`Either "entrypoint" or "content" is required.`),
         ))
+      } else if (isEntrypoint(this.setupScript) && isContent(this.setupScript)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'setupScript',
+          new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
+        ))
       }
     }
 
@@ -188,6 +193,11 @@ export class ApiCheck extends Check {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'tearDownScript',
           new Error(`Either "entrypoint" or "content" is required.`),
+        ))
+      } else if (isEntrypoint(this.tearDownScript) && isContent(this.tearDownScript)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'tearDownScript',
+          new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
         ))
       }
     }

@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises'
+
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
@@ -58,6 +60,11 @@ export class MultiStepCheck extends Check {
         'code',
         new Error(`Either "entrypoint" or "content" is required.`),
       ))
+    } else if (isEntrypoint(this.code) && isContent(this.code)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'code',
+        new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
+      ))
     }
 
     const runtime = Session.getRuntime(this.runtimeId)
@@ -66,6 +73,24 @@ export class MultiStepCheck extends Check {
         diagnostics.add(new UnsupportedRuntimeFeatureDiagnostic(
           runtime.name,
           new Error(`Multi-Step Checks are not supported.`),
+        ))
+      }
+    }
+
+    if (isEntrypoint(this.code)) {
+      const entrypoint = this.resolveContentFilePath(this.code.entrypoint)
+      try {
+        const stats = await fs.stat(entrypoint)
+        if (stats.size === 0) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'code',
+            new Error(`The file pointed to by "entrypoint" ("${entrypoint}") must not be empty.`),
+          ))
+        }
+      } catch (err) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'code',
+          new Error(`The file pointed to by "entrypoint" ("${entrypoint}") cannot be found.`, { cause: err }),
         ))
       }
     }

@@ -189,6 +189,11 @@ export class Dashboard extends Construct {
           'customCSS',
           new Error(`Either "entrypoint" or "content" is required.`),
         ))
+      } else if (isEntrypoint(this.customCSS) && isContent(this.customCSS)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'customCSS',
+          new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
+        ))
       }
     }
   }
