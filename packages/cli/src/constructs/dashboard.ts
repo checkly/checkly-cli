@@ -212,7 +212,8 @@ export class Dashboard extends Construct {
     const customCSS = await (async () => {
       if (this.customCSS) {
         if (isEntrypoint(this.customCSS)) {
-          const content = await fs.readFile(this.customCSS.entrypoint)
+          const entrypoint = this.resolveContentFilePath(this.customCSS.entrypoint)
+          const content = await fs.readFile(entrypoint)
           return content.toString('utf8')
         }
 
