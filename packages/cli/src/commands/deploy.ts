@@ -3,7 +3,7 @@ import * as fs from 'fs/promises'
 import * as api from '../rest/api'
 import config from '../services/config'
 import prompts from 'prompts'
-import { Flags, ux } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
@@ -11,8 +11,7 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, BrowserCheck, PlaywrightCheck,
-  Diagnostics,
+  Project, ProjectData, Diagnostics,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
@@ -20,7 +19,6 @@ import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
-import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
