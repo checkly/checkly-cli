@@ -72,6 +72,6 @@ export class ConstructDiagnostics extends Diagnostics {
   }
 
   add (diagnostic: Diagnostic): void {
-    this.observations.push(new ConstructDiagnostic(this.construct, diagnostic))
+    super.add(new ConstructDiagnostic(this.construct, diagnostic))
   }
 }
