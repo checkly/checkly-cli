@@ -213,6 +213,10 @@ export class ApiCheck extends Check {
   async bundle (): Promise<ApiCheckBundle> {
     const props: ApiCheckBundleProps = {}
 
+    if (this.localSetupScript) {
+      props.localSetupScript = this.localSetupScript
+    }
+
     if (this.setupScript) {
       if (isEntrypoint(this.setupScript)) {
         const { script, scriptPath, dependencies } = ApiCheck.bundle(
@@ -227,8 +231,8 @@ export class ApiCheck extends Check {
       }
     }
 
-    if (this.localSetupScript) {
-      props.localSetupScript = this.localSetupScript
+    if (this.localTearDownScript) {
+      props.localTearDownScript = this.localTearDownScript
     }
 
     if (this.tearDownScript) {
@@ -243,10 +247,6 @@ export class ApiCheck extends Check {
       } else {
         props.localTearDownScript = this.tearDownScript.content
       }
-    }
-
-    if (this.localTearDownScript) {
-      props.localTearDownScript = this.localTearDownScript
     }
 
     return new ApiCheckBundle(this, props)
