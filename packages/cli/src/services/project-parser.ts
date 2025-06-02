@@ -80,12 +80,12 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
 
   await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-  await Promise.all([
-    loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
-    loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
-    loadPlaywrightChecks(directory, playwrightChecks, playwrightConfigPath, include),
-  ])
 
+  // Load sequentially because otherwise Session.checkFileAbsolutePath and
+  // Session.checkFilePath are going to be subject to race conditions.
+  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+  await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
+  await loadPlaywrightChecks(directory, playwrightChecks, playwrightConfigPath, include)
 
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
