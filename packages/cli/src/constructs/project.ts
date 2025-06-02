@@ -23,6 +23,7 @@ import {
 import { Diagnostics } from './diagnostics'
 import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle'
+import { pathToPosix } from '../services/util'
 
 export interface ProjectProps {
   /**
@@ -329,6 +330,6 @@ export class Session {
   }
 
   static relativePosixPath (filePath: string): string {
-    return path.relative(Session.basePath!, filePath)
+    return pathToPosix(path.relative(Session.basePath!, filePath))
   }
 }
