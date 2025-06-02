@@ -34,12 +34,13 @@ export class ProjectBundle implements Bundle {
     return {
       ...this.project.synthesize(),
       resources: [
-        // Create status pages before checks because checks may refer to
-        // status page services via incident triggers.
+        // The order in which resources are defined here is important. If
+        // resource A may include references to resource B, it should occur
+        // later than resource B.
         ...this.synthesizeRecord(this.data['status-page-service']),
         ...this.synthesizeRecord(this.data['status-page']),
-        ...this.synthesizeRecord(this.data.check),
         ...this.synthesizeRecord(this.data['check-group']),
+        ...this.synthesizeRecord(this.data.check),
         ...this.synthesizeRecord(this.data['alert-channel']),
         ...this.synthesizeRecord(this.data['alert-channel-subscription']),
         ...this.synthesizeRecord(this.data['maintenance-window']),
