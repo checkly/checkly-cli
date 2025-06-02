@@ -1,12 +1,12 @@
-import * as path from 'path'
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
 import { Session } from './project'
 import { QueryParam } from './query-param'
-import { pathToPosix } from '../services/util'
-import { printDeprecationWarning } from '../reporters/util'
-import { Content, Entrypoint } from './construct'
+import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+import { Diagnostics } from './diagnostics'
+import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 
 type AssertionSource =
   | 'STATUS_CODE'
@@ -42,13 +42,6 @@ export class AssertionBuilder {
   static responseTime () {
     return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
   }
-}
-
-function _printWarning (path: string | undefined): void {
-  printDeprecationWarning(`API check "${path}" is probably providing a setup ` +
-  'or tearDown script using the "localSetupScript" or "localTearDownScript" property. Please update your API checks to ' +
-  'reference any setup / tearDown using the "setupScript" and "tearDownScript" properties See the docs at ' +
-  'https://checklyhq.com/docs/cli/constructs-reference#apicheck')
 }
 
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
@@ -140,15 +133,13 @@ export interface ApiCheckProps extends CheckProps {
  * This class make use of the API Checks endpoints.
  */
 export class ApiCheck extends Check {
-  request: Request
-  localSetupScript?: string
-  localTearDownScript?: string
-  degradedResponseTime?: number
-  maxResponseTime?: number
-  private readonly setupScriptDependencies?: Array<ScriptDependency>
-  private readonly tearDownScriptDependencies?: Array<ScriptDependency>
-  private readonly setupScriptPath?: string
-  private readonly tearDownScriptPath?: string
+  readonly request: Request
+  readonly localSetupScript?: string
+  readonly setupScript?: Content | Entrypoint
+  readonly localTearDownScript?: string
+  readonly tearDownScript?: Content | Entrypoint
+  readonly degradedResponseTime?: number
+  readonly maxResponseTime?: number
 
   /**
    * Constructs the API Check instance
@@ -162,41 +153,10 @@ export class ApiCheck extends Check {
   constructor (logicalId: string, props: ApiCheckProps) {
     super(logicalId, props)
 
-    if (props.setupScript) {
-      if ('entrypoint' in props.setupScript) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.setupScript.entrypoint, this.runtimeId)
-        this.localSetupScript = script
-        this.setupScriptPath = scriptPath
-        this.setupScriptDependencies = dependencies
-      } else if ('content' in props.setupScript) {
-        this.localSetupScript = props.setupScript.content
-      } else {
-        throw new Error('Unrecognized type for the "setupScript" property. A "setupScript" should have either a "content" ' +
-            'or "entrypoint" property.')
-      }
-    }
-
-    if (props.localSetupScript) {
-      _printWarning(Session.checkFilePath)
-      this.localSetupScript = props.localSetupScript
-    }
-
-    if (props.tearDownScript) {
-      if ('entrypoint' in props.tearDownScript) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(props.tearDownScript.entrypoint, this.runtimeId)
-        this.localTearDownScript = script
-        this.tearDownScriptPath = scriptPath
-        this.tearDownScriptDependencies = dependencies
-      } else if ('content' in props.tearDownScript) {
-        this.localTearDownScript = props.tearDownScript.content
-      }
-    }
-
-    if (props.localTearDownScript) {
-      _printWarning(Session.checkFilePath)
-      this.localTearDownScript = props.localTearDownScript
-    }
-
+    this.setupScript = props.setupScript
+    this.localSetupScript = props.localSetupScript
+    this.tearDownScript = props.tearDownScript
+    this.localTearDownScript = props.localTearDownScript
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
@@ -206,35 +166,101 @@ export class ApiCheck extends Check {
     this.addPrivateLocationCheckAssignments()
   }
 
-  static bundle (entrypoint: string, runtimeId?: string) {
-    let absoluteEntrypoint = null
-    if (path.isAbsolute(entrypoint)) {
-      absoluteEntrypoint = entrypoint
-    } else {
-      if (!Session.checkFileAbsolutePath) {
-        throw new Error('You cant use relative paths without the checkFileAbsolutePath in session')
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (this.setupScript) {
+      if (!isEntrypoint(this.setupScript) && !isContent(this.setupScript)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'setupScript',
+          new Error(`Either "entrypoint" or "content" is required.`),
+        ))
       }
-      absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
     }
 
+    if (this.localSetupScript) {
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'localSetupScript',
+        new Error(`Use "setupScript" instead.`),
+      ))
+    }
+
+    if (this.tearDownScript) {
+      if (!isEntrypoint(this.tearDownScript) && !isContent(this.tearDownScript)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'tearDownScript',
+          new Error(`Either "entrypoint" or "content" is required.`),
+        ))
+      }
+    }
+
+    if (this.localTearDownScript) {
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'localTearDownScript',
+        new Error(`Use "tearDownScript" instead.`),
+      ))
+    }
+  }
+
+  async bundle (): Promise<ApiCheckBundle> {
+    const props: ApiCheckBundleProps = {}
+
+    if (this.setupScript) {
+      if (isEntrypoint(this.setupScript)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(
+          this.resolveContentFilePath(this.setupScript.entrypoint),
+          this.runtimeId,
+        )
+        props.localSetupScript = script
+        props.setupScriptPath = scriptPath
+        props.setupScriptDependencies = dependencies
+      } else {
+        props.localSetupScript = this.setupScript.content
+      }
+    }
+
+    if (this.localSetupScript) {
+      props.localSetupScript = this.localSetupScript
+    }
+
+    if (this.tearDownScript) {
+      if (isEntrypoint(this.tearDownScript)) {
+        const { script, scriptPath, dependencies } = ApiCheck.bundle(
+          this.resolveContentFilePath(this.tearDownScript.entrypoint),
+          this.runtimeId,
+        )
+        props.localTearDownScript = script
+        props.tearDownScriptPath = scriptPath
+        props.tearDownScriptDependencies = dependencies
+      } else {
+        props.localTearDownScript = this.tearDownScript.content
+      }
+    }
+
+    if (this.localTearDownScript) {
+      props.localTearDownScript = this.localTearDownScript
+    }
+
+    return new ApiCheckBundle(this, props)
+  }
+
+  static bundle (entrypoint: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
     const parser = Session.getParser(runtime)
-    const parsed = parser.parse(absoluteEntrypoint)
+    const parsed = parser.parse(entrypoint)
     // Maybe we can get the parsed deps with the content immediately
 
     const deps: ScriptDependency[] = []
     for (const { filePath, content } of parsed.dependencies) {
       deps.push({
-        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        path: Session.relativePosixPath(filePath),
         content,
       })
     }
     return {
       script: parsed.entrypoint.content,
-      scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
+      scriptPath: Session.relativePosixPath(parsed.entrypoint.filePath),
       dependencies: deps,
     }
   }
@@ -245,11 +271,7 @@ export class ApiCheck extends Check {
       checkType: 'API',
       request: this.request,
       localSetupScript: this.localSetupScript,
-      setupScriptPath: this.setupScriptPath,
-      setupScriptDependencies: this.setupScriptDependencies,
       localTearDownScript: this.localTearDownScript,
-      tearDownScriptPath: this.tearDownScriptPath,
-      tearDownScriptDependencies: this.tearDownScriptDependencies,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }

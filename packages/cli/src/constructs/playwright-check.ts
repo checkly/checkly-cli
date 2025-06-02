@@ -1,4 +1,6 @@
-import fs from 'fs'
+import { createReadStream } from 'node:fs'
+import fs from 'node:fs/promises'
+
 import type { AxiosResponse } from 'axios'
 import { Check, CheckProps } from './check'
 import { Session } from './project'
@@ -6,20 +8,19 @@ import {
   bundlePlayWrightProject, cleanup,
 } from '../services/util'
 import { checklyStorage } from '../rest/api'
-import { ValidationError } from './validator-error'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { PlaywrightCheckBundle } from './playwright-check-bundle'
+import { Ref } from './ref'
 
 export interface PlaywrightCheckProps extends CheckProps {
   playwrightConfigPath: string
-  codeBundlePath?: string
   installCommand?: string
   testCommand?: string
   pwProjects?: string|string[]
   pwTags?: string|string[]
-  browsers?: string[]
   include?: string|string[]
   groupName?: string
-  logicalId: string
-  cacheHash?: string
 }
 
 export class PlaywrightCheck extends Check {
@@ -28,20 +29,12 @@ export class PlaywrightCheck extends Check {
   playwrightConfigPath: string
   pwProjects: string[]
   pwTags: string[]
-  codeBundlePath?: string
-  browsers?: string[]
   include: string[]
   groupName?: string
-  name: string
-  cacheHash?: string
+
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
-    this.logicalId = logicalId
-    this.name = props.name
-    this.cacheHash = props.cacheHash
-    this.codeBundlePath = props.codeBundlePath
     this.installCommand = props.installCommand
-    this.browsers = props.browsers
     this.pwProjects = props.pwProjects
       ? (Array.isArray(props.pwProjects) ? props.pwProjects : [props.pwProjects])
       : []
@@ -52,35 +45,41 @@ export class PlaywrightCheck extends Check {
       ? (Array.isArray(props.include) ? props.include : [props.include])
       : []
     this.testCommand = props.testCommand ?? 'npx playwright test'
-    if (!fs.existsSync(props.playwrightConfigPath)) {
-      throw new ValidationError(`Playwright config doesnt exist ${props.playwrightConfigPath}`)
-    }
     this.groupName = props.groupName
     this.playwrightConfigPath = props.playwrightConfigPath
-    this.applyGroup(this.groupName)
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
   }
 
-  applyGroup (groupName?: string) {
-    if (!groupName) {
-      return
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    try {
+      await fs.access(this.playwrightConfigPath, fs.constants.R_OK)
+    } catch (err: any) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'playwrightConfigPath',
+        new Error(`Playwright config "${this.playwrightConfigPath}" does not exist: ${err.message}`, { cause: err }),
+      ))
     }
-    const checkGroups = Session.project?.data?.['check-group']
-    if (!checkGroups) {
-      return
-    }
-    const group = Object.values(checkGroups).find(group => group.name === groupName)
-    if (group) {
-      this.groupId = group.ref()
-    } else {
-      throw new ValidationError(`Error: No group named "${groupName}". Please verify the group exists in your code or create it.`)
+
+    if (this.groupName) {
+      const checkGroup = this.#findGroupByName(this.groupName)
+      if (!checkGroup) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'groupName',
+          new Error(`No such group "${this.groupName}".`),
+        ))
+      }
     }
   }
 
+  #findGroupByName (groupName: string) {
+    return Object.values(Session.project?.data?.['check-group'] ?? {})
+      .find(group => group.name === groupName)
+  }
+
   getSourceFile () {
-    return this.__checkFilePath ?? this.logicalId
+    return this.__checkFilePath
   }
 
   static buildTestCommand (
@@ -107,14 +106,36 @@ export class PlaywrightCheck extends Check {
   }
 
   static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
-    const { size } = await fs.promises.stat(dir)
-    const stream = fs.createReadStream(dir)
+    const { size } = await fs.stat(dir)
+    const stream = createReadStream(dir)
     stream.on('error', (err) => {
          throw new Error(`Failed to read Playwright project file: ${err.message}`)
     })
     return checklyStorage.uploadCodeBundle(stream, size)
   }
 
+  async bundle (): Promise<PlaywrightCheckBundle> {
+    let groupId: Ref | undefined
+    if (this.groupName) {
+      const checkGroup = this.#findGroupByName(this.groupName)
+      if (checkGroup) {
+        groupId = checkGroup.ref()
+      }
+    }
+
+    const {
+      key: codeBundlePath,
+      browsers,
+      cacheHash,
+    } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+
+    return new PlaywrightCheckBundle(this, {
+      groupId,
+      codeBundlePath,
+      browsers,
+      cacheHash,
+    })
+  }
 
   synthesize () {
     const testCommand = PlaywrightCheck.buildTestCommand(
@@ -126,11 +147,8 @@ export class PlaywrightCheck extends Check {
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
-      codeBundlePath: this.codeBundlePath,
       testCommand,
       installCommand: this.installCommand,
-      browsers: this.browsers,
-      cacheHash: this.cacheHash,
     }
   }
 }

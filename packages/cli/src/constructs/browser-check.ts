@@ -1,11 +1,16 @@
-import * as path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+
 import { Check, CheckProps } from './check'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
-import { Content, Entrypoint } from './construct'
-import { detectSnapshots, Snapshot } from '../services/snapshot-service'
+import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
+import { detectSnapshots } from '../services/snapshot-service'
 import { PlaywrightConfig } from './playwright-config'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { BrowserCheckBundle } from './browser-check-bundle'
 
 export interface CheckDependency {
   path: string
@@ -38,16 +43,9 @@ export interface BrowserCheckProps extends CheckProps {
  * This class make use of the Browser Checks endpoints.
  */
 export class BrowserCheck extends Check {
-  script: string
-  scriptPath?: string
-  dependencies?: Array<CheckDependency>
-  sslCheckDomain?: string
-
-  // For snapshots, we first store `rawSnapshots` with the path to the file.
-  // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
-  rawSnapshots?: Array<{ absolutePath: string, path: string }>
-  snapshots?: Array<Snapshot>
-  playwrightConfig?: PlaywrightConfig
+  readonly code: Content | Entrypoint
+  readonly sslCheckDomain?: string
+  readonly playwrightConfig?: PlaywrightConfig
 
   /**
    * Constructs the Browser Check instance
@@ -61,37 +59,43 @@ export class BrowserCheck extends Check {
       BrowserCheck.applyDefaultBrowserCheckGroupConfig(props, props.group.getBrowserCheckDefaults())
     }
     BrowserCheck.applyDefaultBrowserCheckConfig(props)
+
     super(logicalId, props)
+
+    this.code = props.code
     this.sslCheckDomain = props.sslCheckDomain
     this.playwrightConfig = props.playwrightConfig
-    if ('content' in props.code) {
-      const script = props.code.content
-      this.script = script
-    } else if ('entrypoint' in props.code) {
-      const entrypoint = props.code.entrypoint
-      let absoluteEntrypoint = null
-      if (path.isAbsolute(entrypoint)) {
-        absoluteEntrypoint = entrypoint
-      } else {
-        if (!Session.checkFileAbsolutePath) {
-          throw new Error('You cannot use relative paths without the checkFileAbsolutePath in session')
-        }
-        absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
-      }
-      const bundle = BrowserCheck.bundle(absoluteEntrypoint, this.runtimeId)
-      if (!bundle.script) {
-        throw new Error(`Browser check "${logicalId}" is not allowed to be empty`)
-      }
-      this.script = bundle.script
-      this.scriptPath = bundle.scriptPath
-      this.dependencies = bundle.dependencies
-      this.rawSnapshots = bundle.snapshots
-    } else {
-      throw new Error('Unrecognized type for the "code" property. The "code" property should be a string of JS/TS code.')
-    }
+
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (!isEntrypoint(this.code) && !isContent(this.code)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'code',
+        new Error(`Either "entrypoint" or "content" is required.`),
+      ))
+    }
+
+    if (isEntrypoint(this.code)) {
+      const entrypoint = this.resolveContentFilePath(this.code.entrypoint)
+      try {
+        const stats = await fs.stat(entrypoint)
+        if (stats.size === 0) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'code',
+            new Error(`The file pointed to by "entrypoint" ("${entrypoint}") must not be empty.`),
+          ))
+        }
+      } catch (err) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'code',
+          new Error(`The file pointed to by "entrypoint" ("${entrypoint}") cannot be found.`, { cause: err }),
+        ))
+      }
+    }
   }
 
   private static applyDefaultBrowserCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
@@ -131,25 +135,46 @@ export class BrowserCheck extends Check {
     }
     return {
       script: parsed.entrypoint.content,
-      scriptPath: pathToPosix(path.relative(Session.basePath!, parsed.entrypoint.filePath)),
+      scriptPath: Session.relativePosixPath(parsed.entrypoint.filePath),
       dependencies: deps,
       snapshots: detectSnapshots(Session.basePath!, parsed.entrypoint.filePath),
     }
   }
 
   getSourceFile () {
-    return this.__checkFilePath ?? this.scriptPath
+    return this.__checkFilePath
+  }
+
+  async bundle (): Promise<BrowserCheckBundle> {
+    return new BrowserCheckBundle(this, (() => {
+      if (isEntrypoint(this.code)) {
+        const bundle = BrowserCheck.bundle(
+          this.resolveContentFilePath(this.code.entrypoint),
+          this.runtimeId,
+        )
+        if (!bundle.script) {
+          throw new Error(`The "code" property points to an empty file.`)
+        }
+        return {
+          script: bundle.script,
+          scriptPath: bundle.scriptPath,
+          dependencies: bundle.dependencies,
+          rawSnapshots: bundle.snapshots,
+        }
+      }
+
+      const script = this.code.content
+      return {
+        script,
+      }
+    })())
   }
 
   synthesize () {
     return {
       ...super.synthesize(),
       checkType: 'BROWSER',
-      script: this.script,
-      scriptPath: this.scriptPath,
-      dependencies: this.dependencies,
       sslCheckDomain: this.sslCheckDomain || null, // empty string is converted to null
-      snapshots: this.snapshots,
       playwrightConfig: this.playwrightConfig,
     }
   }

@@ -12,12 +12,15 @@ import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData, BrowserCheck, PlaywrightCheck,
+  Diagnostics,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
+import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
+import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -75,9 +78,7 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    if (this.fancy) {
-      ux.action.start('Parsing your project', undefined, { stdout: true })
-    }
+    this.style.actionStart('Parsing your project')
     const { flags } = await this.parse(Deploy)
     const {
       force,
@@ -120,33 +121,53 @@ export default class Deploy extends AuthCommand {
     })
     const repoInfo = getGitInformation(project.repoUrl)
 
-    if (this.fancy) {
-      ux.action.stop()
+    this.style.actionSuccess()
+
+    this.style.actionStart('Validating project resources')
+
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+
+    for (const diag of diagnostics.observations) {
+      if (diag.isFatal()) {
+        this.style.longError(diag.title, diag.message)
+      } else if (!diag.isBenign()) {
+        this.style.longWarning(diag.title, diag.message)
+      } else {
+        this.style.longInfo(diag.title, diag.message)
+      }
     }
 
+    if (diagnostics.isFatal()) {
+      this.style.actionFailure()
+      this.style.shortError(`Unable to deploy due to unresolved validation errors`)
+      this.exit(1)
+    }
+
+    this.style.actionSuccess()
+
+    this.style.actionStart('Bundling project resources')
+    const projectBundle = await (async () => {
+      try {
+        const bundle = await project.bundle()
+        this.style.actionSuccess()
+        return bundle
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    })()
+
     if (!preview) {
-      for (const check of Object.values(project.data.check)) {
-        if (!(check instanceof BrowserCheck)) {
+      for (const { bundle: check } of Object.values(projectBundle.data.check)) {
+        if (!(check instanceof BrowserCheckBundle)) {
           continue
         }
         check.snapshots = await uploadSnapshots(check.rawSnapshots)
       }
-
-      for (const check of Object.values(project.data.check)) {
-        // TODO: Improve bundling and uploading
-        if (!(check instanceof PlaywrightCheck) || check.codeBundlePath) {
-          continue
-        }
-        const {
-          relativePlaywrightConfigPath, browsers, key,
-        } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath, check.include)
-        check.codeBundlePath = key
-        check.browsers = browsers
-        check.playwrightConfigPath = relativePlaywrightConfigPath
-      }
     }
 
-    const projectPayload = project.synthesize(false)
+    const projectPayload = projectBundle.synthesize()
     if (!projectPayload.resources.length) {
       if (preview) {
         this.log('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')

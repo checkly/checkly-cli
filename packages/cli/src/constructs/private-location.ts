@@ -1,4 +1,6 @@
 import { Construct } from './construct'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { Diagnostics } from './diagnostics'
 import { Session } from './project'
 import { ValidationError } from './validator-error'
 
@@ -62,6 +64,8 @@ export class PrivateLocationRef extends Construct {
   }
 }
 
+const RE_SLUG = /^((?!((us(-gov)?|ap|ca|cn|eu|sa|af|me)-(central|(north|south)?(east|west)?)-\d+))[a-zA-Z0-9-]{1,30})$/
+
 /**
  * Creates a Private Location
  *
@@ -92,12 +96,16 @@ export class PrivateLocation extends Construct {
     this.icon = props.icon
     this.proxyUrl = props.proxyUrl
 
-    if (!/^((?!((us(-gov)?|ap|ca|cn|eu|sa|af|me)-(central|(north|south)?(east|west)?)-\d+))[a-zA-Z0-9-]{1,30})$/
-      .test(this.slugName)) {
-      throw new ValidationError(`The "slugName" must differ from all AWS locations. (slugName='${this.slugName}')`)
-    }
-
     Session.registerConstruct(this)
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (!RE_SLUG.test(this.slugName)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'slugName',
+        new Error(`Value must not equal any AWS location.`),
+      ))
+    }
   }
 
   static fromId (id: string) {

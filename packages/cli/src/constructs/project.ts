@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import * as api from '../rest/api'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Parser } from '../services/check-parser/parser'
@@ -10,7 +12,6 @@ import {
   PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService,
 } from './'
-import { ResourceSync } from '../rest/projects'
 import { PrivateLocationApi } from '../rest/private-locations'
 import {
   FileLoader,
@@ -19,6 +20,9 @@ import {
   NativeFileLoader,
   TSNodeFileLoader,
 } from '../loader'
+import { Diagnostics } from './diagnostics'
+import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { ProjectBundle, ProjectDataBundle } from './project-bundle'
 
 export interface ProjectProps {
   /**
@@ -31,24 +35,29 @@ export interface ProjectProps {
   repoUrl?: string
 }
 
-export interface ProjectData {
-  check: Record<string, Check>,
-  'check-group': Record<string, CheckGroup>,
-  'alert-channel': Record<string, AlertChannel>,
-  'alert-channel-subscription': Record<string, AlertChannelSubscription>,
-  'maintenance-window': Record<string, MaintenanceWindow>,
-  'private-location': Record<string, PrivateLocation>,
-  'private-location-check-assignment': Record<string, PrivateLocationCheckAssignment>,
-  'private-location-group-assignment': Record<string, PrivateLocationGroupAssignment>,
-  dashboard: Record<string, Dashboard>,
-  'status-page': Record<string, StatusPage>,
-  'status-page-service': Record<string, StatusPageService>,
+export type Resources = {
+  check: Check
+  'check-group': CheckGroup
+  'alert-channel': AlertChannel
+  'alert-channel-subscription': AlertChannelSubscription
+  'maintenance-window': MaintenanceWindow
+  'private-location': PrivateLocation
+  'private-location-check-assignment': PrivateLocationCheckAssignment
+  'private-location-group-assignment': PrivateLocationGroupAssignment
+  dashboard: Dashboard
+  'status-page': StatusPage
+  'status-page-service': StatusPageService
+}
+
+export type ProjectData = {
+  [x in keyof Resources]: Record<string, Resources[x]>
 }
 
 export class Project extends Construct {
   name: string
   repoUrl?: string
   logicalId: string
+  testOnlyAllowed = false
   data: ProjectData = {
     check: {},
     'check-group': {},
@@ -73,14 +82,36 @@ export class Project extends Construct {
    */
   constructor (logicalId: string, props: ProjectProps) {
     super(Project.__checklyType, logicalId)
-    if (!props.name) {
-      // TODO: Can we collect a list of validation errors and return them all at once? This might be better UX.
-      throw new ValidationError('Please give your project a name in the "name" property.')
-    }
-
     this.name = props.name
     this.repoUrl = props.repoUrl
     this.logicalId = logicalId
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (!this.name) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'name',
+        new Error(`Value must not be empty.`),
+      ))
+    }
+
+    const data: Record<keyof ProjectData, Record<string, Construct>> = this.data
+
+    const constructDiagnostics = await Promise.all(
+      Object.entries(data).flatMap(([, records]) => {
+        return Object.values(records).map(async construct => {
+          const diagnostics = new ConstructDiagnostics(construct)
+          await construct.validate(diagnostics)
+          return diagnostics
+        })
+      })
+    )
+
+    diagnostics.extend(...constructDiagnostics)
+  }
+
+  allowTestOnly (enabled: boolean) {
+    this.testOnlyAllowed = enabled
   }
 
   addResource (type: string, logicalId: string, resource: Construct) {
@@ -99,10 +130,45 @@ export class Project extends Construct {
     this.data[type as keyof ProjectData][logicalId] = resource
   }
 
-  synthesize (addTestOnly = true): {
-    project: Pick<Project, 'logicalId' | 'name' | 'repoUrl'>,
-    resources: Array<ResourceSync>
-  } {
+  async bundle (): Promise<ProjectBundle> {
+    const data: Record<keyof ProjectData, Record<string, Construct>> = {
+      ...this.data,
+
+      // Filter out testOnly checks before bundling.
+      check: Object.fromEntries(
+        Object.entries(this.data.check)
+          .filter(([, check]) => !check.testOnly || this.testOnlyAllowed)
+          .filter(([, check]) => Session.checkFilter?.(check) ?? true),
+      ),
+    }
+
+    const constructBundles = await Promise.all(
+      Object.entries(data).flatMap(([, records]) => {
+        return Object.entries(records).map(async ([, construct]) => {
+          const bundle = await construct.bundle()
+          return {
+            construct,
+            bundle,
+          }
+        })
+      })
+    )
+
+    const dataBundle = Object.fromEntries(
+      Object.entries(data).map(([type]) => {
+        return [type, {}]
+      }),
+    ) as ProjectDataBundle
+
+    for (const constructBundle of constructBundles) {
+      const { construct: { type, logicalId } } = constructBundle 
+      dataBundle[type as keyof ProjectDataBundle][logicalId] = constructBundle
+    }
+
+    return new ProjectBundle(this, dataBundle)
+  }
+
+  synthesize () {
     const project = {
       logicalId: this.logicalId,
       name: this.name,
@@ -110,21 +176,6 @@ export class Project extends Construct {
     }
     return {
       project,
-      resources: [
-        // Create status pages before checks because checks may refer to
-        // status page services via incident triggers.
-        ...this.synthesizeRecord(this.data['status-page-service']),
-        ...this.synthesizeRecord(this.data['status-page']),
-        ...this.synthesizeRecord(this.data.check, addTestOnly),
-        ...this.synthesizeRecord(this.data['check-group']),
-        ...this.synthesizeRecord(this.data['alert-channel']),
-        ...this.synthesizeRecord(this.data['alert-channel-subscription']),
-        ...this.synthesizeRecord(this.data['maintenance-window']),
-        ...this.synthesizeRecord(this.data['private-location']),
-        ...this.synthesizeRecord(this.data['private-location-check-assignment']),
-        ...this.synthesizeRecord(this.data['private-location-group-assignment']),
-        ...this.synthesizeRecord(this.data.dashboard),
-      ],
     }
   }
 
@@ -143,20 +194,6 @@ export class Project extends Construct {
       .filter((construct: Construct) => construct instanceof HeartbeatCheck)
       .map((construct: Check) => construct.logicalId)
   }
-
-  private synthesizeRecord (record: Record<string,
-    Check|CheckGroup|AlertChannel|AlertChannelSubscription|MaintenanceWindow|Dashboard|
-    PrivateLocation|PrivateLocationCheckAssignment|PrivateLocationGroupAssignment>, addTestOnly = true) {
-    return Object.entries(record)
-      .filter(([, construct]) => construct instanceof Check ? !construct.testOnly || addTestOnly : true)
-      .map(([key, construct]) => ({
-        logicalId: key,
-        type: construct.type,
-        physicalId: construct.physicalId,
-        member: construct.member,
-        payload: construct.synthesize(),
-      }))
-  }
 }
 
 export interface ConstructExport {
@@ -165,6 +202,8 @@ export interface ConstructExport {
   filePath: string
   exportName: string
 }
+
+export type CheckFilter = (check: Check) => boolean
 
 export class Session {
   static loader: FileLoader = new MixedFileLoader(
@@ -175,6 +214,7 @@ export class Session {
   static project?: Project
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults
+  static checkFilter?: CheckFilter
   static browserCheckDefaults?: CheckConfigDefaults
   static multiStepCheckDefaults?: CheckConfigDefaults
   static checkFilePath?: string
@@ -286,5 +326,9 @@ export class Session {
     Session.parsers.set(runtime.name, parser)
 
     return parser
+  }
+
+  static relativePosixPath (filePath: string): string {
+    return path.relative(Session.basePath!, filePath)
   }
 }
