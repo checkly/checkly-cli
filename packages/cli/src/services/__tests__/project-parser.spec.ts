@@ -85,12 +85,12 @@ describe('parseProject()', () => {
       },
       resources: [
         {
-          type: 'check',
-          logicalId: 'browser-check-1',
-        },
-        {
           type: 'check-group',
           logicalId: 'group-1',
+        },
+        {
+          type: 'check',
+          logicalId: 'browser-check-1',
         },
         {
           type: 'private-location',
