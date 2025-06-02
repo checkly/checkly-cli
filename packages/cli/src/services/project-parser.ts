@@ -22,6 +22,7 @@ type ProjectParseOpts = {
   repoUrl?: string,
   checkMatch?: string | string[],
   checkFilter?: CheckFilter,
+  includeTestOnlyChecks?: boolean,
   browserCheckMatch?: string | string[],
   multiStepCheckMatch?: string | string[],
   ignoreDirectoriesMatch?: string[],
@@ -44,6 +45,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     directory,
     checkMatch = '**/*.check.{js,ts}',
     checkFilter,
+    includeTestOnlyChecks = false,
     browserCheckMatch,
     multiStepCheckMatch,
     projectLogicalId,
@@ -64,6 +66,11 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     name: projectName,
     repoUrl,
   })
+
+  if (includeTestOnlyChecks) {
+    project.allowTestOnly(true)
+  }
+
   checklyConfigConstructs?.forEach(
     (construct) => project.addResource(construct.type, construct.logicalId, construct),
   )

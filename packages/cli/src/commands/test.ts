@@ -169,6 +169,7 @@ export default class Test extends AuthCommand {
       projectLogicalId: checklyConfig.logicalId,
       projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
+      includeTestOnlyChecks: true,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       multiStepCheckMatch: checklyConfig.checks?.multiStepChecks?.testMatch,
