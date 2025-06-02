@@ -65,6 +65,22 @@ export class MultiStepCheck extends Check {
         'code',
         new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
       ))
+    } else if (isEntrypoint(this.code)) {
+      const entrypoint = this.resolveContentFilePath(this.code.entrypoint)
+      try {
+        const stats = await fs.stat(entrypoint)
+        if (stats.size === 0) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'code',
+            new Error(`The entrypoint file "${entrypoint}" must not be empty.`),
+          ))
+        }
+      } catch (err: any) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'code',
+          new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
+        ))
+      }
     }
 
     const runtime = Session.getRuntime(this.runtimeId)
@@ -73,24 +89,6 @@ export class MultiStepCheck extends Check {
         diagnostics.add(new UnsupportedRuntimeFeatureDiagnostic(
           runtime.name,
           new Error(`Multi-Step Checks are not supported.`),
-        ))
-      }
-    }
-
-    if (isEntrypoint(this.code)) {
-      const entrypoint = this.resolveContentFilePath(this.code.entrypoint)
-      try {
-        const stats = await fs.stat(entrypoint)
-        if (stats.size === 0) {
-          diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'code',
-            new Error(`The file pointed to by "entrypoint" ("${entrypoint}") must not be empty.`),
-          ))
-        }
-      } catch (err) {
-        diagnostics.add(new InvalidPropertyValueDiagnostic(
-          'code',
-          new Error(`The file pointed to by "entrypoint" ("${entrypoint}") cannot be found.`, { cause: err }),
         ))
       }
     }

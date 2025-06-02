@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises'
+import fs from 'node:fs/promises'
 
-import { Bundle, Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct'
+import { Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Session } from './project'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
@@ -194,6 +194,16 @@ export class Dashboard extends Construct {
           'customCSS',
           new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
         ))
+      } else if (isEntrypoint(this.customCSS)) {
+        const entrypoint = this.resolveContentFilePath(this.customCSS.entrypoint)
+        try {
+          await fs.access(entrypoint, fs.constants.R_OK)
+        } catch (err: any) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'customCSS',
+            new Error(`Unable to access file "${entrypoint}": ${err.message}`, { cause: err }),
+          ))
+        }
       }
     }
   }
@@ -202,7 +212,7 @@ export class Dashboard extends Construct {
     const customCSS = await (async () => {
       if (this.customCSS) {
         if (isEntrypoint(this.customCSS)) {
-          const content = await readFile(this.customCSS.entrypoint)
+          const content = await fs.readFile(this.customCSS.entrypoint)
           return content.toString('utf8')
         }
 

@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises'
+
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
 import { Session } from './project'
@@ -178,6 +180,16 @@ export class ApiCheck extends Check {
           'setupScript',
           new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
         ))
+      } else if (isEntrypoint(this.setupScript)) {
+        const entrypoint = this.resolveContentFilePath(this.setupScript.entrypoint)
+        try {
+          await fs.access(entrypoint, fs.constants.R_OK)
+        } catch (err: any) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'setupScript',
+            new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
+          ))
+        }
       }
     }
 
@@ -199,6 +211,16 @@ export class ApiCheck extends Check {
           'tearDownScript',
           new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
         ))
+      } else if (isEntrypoint(this.tearDownScript)) {
+        const entrypoint = this.resolveContentFilePath(this.tearDownScript.entrypoint)
+        try {
+          await fs.access(entrypoint, fs.constants.R_OK)
+        } catch (err: any) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'tearDownScript',
+            new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
+          ))
+        }
       }
     }
 

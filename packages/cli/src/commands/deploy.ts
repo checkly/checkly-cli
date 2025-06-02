@@ -138,7 +138,7 @@ export default class Deploy extends AuthCommand {
 
     if (diagnostics.isFatal()) {
       this.style.actionFailure()
-      this.style.shortError(`Unable to deploy due to unresolved validation errors`)
+      this.style.shortError(`Unable to deploy due to unresolved validation errors.`)
       this.exit(1)
     }
 

@@ -7,7 +7,10 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   constructor (property: string, error: Error) {
     super({
       title: `Invalid property value`,
-      message: `The value provided for property "${property}" is not valid: ${error.message}`,
+      message:
+        `The value provided for property "${property}" is not valid.` +
+        `\n\n` +
+        `Reason: ${error.message}`,
       error,
     })
 
@@ -21,7 +24,10 @@ export class DeprecatedPropertyDiagnostic extends WarningDiagnostic {
   constructor (property: string, error: Error) {
     super({
       title: `Use of deprecated property`,
-      message: `Property "${property}" is deprecated and will eventually be removed: ${error.message}`,
+      message:
+        `Property "${property}" is deprecated and will eventually be removed.` +
+        `\n\n` +
+        `Hint: ${error.message}`,
     })
 
     this.property = property
@@ -34,7 +40,10 @@ export class UnsupportedRuntimeFeatureDiagnostic extends ErrorDiagnostic {
   constructor (runtimeId: string, error: Error) {
     super({
       title: `Use of unsupported runtime feature`,
-      message: `Unsupported feature on runtime "${runtimeId}": ${error.message}`,
+      message:
+        `Runtime "${runtimeId}" does not support the requested feature.` +
+        `\n\n` +
+        `Missing feature: ${error.message}`,
       error,
     })
 
@@ -47,7 +56,7 @@ export class ConstructDiagnostic extends Diagnostic {
 
   constructor (construct: Construct, underlying: Diagnostic) {
     super({
-      title: `${underlying.title} in construct "${construct.type}:${construct.logicalId}"`,
+      title: `[${construct.type}:${construct.logicalId}] ${underlying.title}`,
       message: underlying.message,
     })
 

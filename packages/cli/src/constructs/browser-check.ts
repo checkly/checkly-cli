@@ -82,22 +82,20 @@ export class BrowserCheck extends Check {
         'code',
         new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
       ))
-    }
-
-    if (isEntrypoint(this.code)) {
+    } else if (isEntrypoint(this.code)) {
       const entrypoint = this.resolveContentFilePath(this.code.entrypoint)
       try {
         const stats = await fs.stat(entrypoint)
         if (stats.size === 0) {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
             'code',
-            new Error(`The file pointed to by "entrypoint" ("${entrypoint}") must not be empty.`),
+            new Error(`The entrypoint file "${entrypoint}" must not be empty.`),
           ))
         }
-      } catch (err) {
+      } catch (err: any) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'code',
-          new Error(`The file pointed to by "entrypoint" ("${entrypoint}") cannot be found.`, { cause: err }),
+          new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
         ))
       }
     }
