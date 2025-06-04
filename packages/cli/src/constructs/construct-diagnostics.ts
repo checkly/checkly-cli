@@ -34,6 +34,22 @@ export class DeprecatedPropertyDiagnostic extends WarningDiagnostic {
   }
 }
 
+export class DeprecatedConstructDiagnostic extends WarningDiagnostic {
+  construct: string
+
+  constructor (construct: string, error: Error) {
+    super({
+      title: `Use of deprecated Construct`,
+      message:
+        `Construct "${construct}" is deprecated and will eventually be removed.` +
+        `\n\n` +
+        `Hint: ${error.message}`,
+    })
+
+    this.construct = construct
+  }
+}
+
 export class UnsupportedRuntimeFeatureDiagnostic extends ErrorDiagnostic {
   runtimeId: string
 

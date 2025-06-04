@@ -23,10 +23,10 @@ export interface MultiStepCheckConfigResource {
 export interface CheckGroupResource {
   id: number
   name: string
-  activated?: boolean
-  muted?: boolean
-  doubleCheck?: boolean
-  runtimeId?: string
+  activated?: boolean | null
+  muted?: boolean | null
+  doubleCheck?: boolean | null
+  runtimeId?: string | null
   locations?: string[]
   tags?: string[]
   concurrency?: number
@@ -34,14 +34,14 @@ export interface CheckGroupResource {
   environmentVariables?: EnvironmentVariable[]
   browserChecks?: BrowserCheckConfigResource
   multiStepChecks?: MultiStepCheckConfigResource
-  alertSettings?: AlertEscalationResource
+  alertSettings?: AlertEscalationResource | null
   localSetupScript?: string
   setupSnippetId?: number | null
   localTearDownScript?: string
   tearDownSnippetId?: number | null
   apiCheckDefaults?: ApiCheckDefaultConfig
-  retryStrategy?: RetryStrategyResource
-  runParallel?: boolean
+  retryStrategy?: RetryStrategyResource | 'FALLBACK'
+  runParallel?: boolean | null
 }
 
 function buildCheckGroupProps (
@@ -53,11 +53,11 @@ function buildCheckGroupProps (
 ): void {
   builder.string('name', resource.name)
 
-  if (resource.activated !== undefined) {
+  if (resource.activated !== undefined && resource.activated !== null) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined) {
+  if (resource.muted !== undefined && resource.muted !== null) {
     builder.boolean('muted', resource.muted)
   }
 
@@ -266,14 +266,16 @@ function buildCheckGroupProps (
     }
   }
 
-  builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+  if (resource.retryStrategy !== 'FALLBACK') {
+    builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+  }
 
-  if (resource.runParallel !== undefined) {
+  if (resource.runParallel !== undefined && resource.runParallel !== null) {
     builder.boolean('runParallel', resource.runParallel)
   }
 }
 
-const construct = 'CheckGroup'
+const construct = 'CheckGroupV2'
 
 export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: number): Value {
   genfile.namedImport(construct, 'checkly/constructs')
