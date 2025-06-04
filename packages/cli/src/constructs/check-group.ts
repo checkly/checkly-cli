@@ -14,12 +14,16 @@ import { ApiCheckDefaultConfig } from './api-check'
 import { pathToPosix } from '../services/util'
 import type { Region } from '..'
 import { type Frequency } from './frequency'
-import { type RetryStrategy } from './retry-strategy'
+import {
+  type RetryStrategy,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type RetryStrategyBuilder, // Used for @links in comments.
+} from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { MultiStepCheck } from './multi-step-check'
 import CheckTypes from '../constants'
 import { Diagnostics } from './diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -50,72 +54,199 @@ export interface CheckGroupProps {
    * The name of the check group.
    */
   name: string
+
   /**
-   * Determines if the checks in the group are running or not.
+   * Determines whether the checks in the group are running or not.
+   *
+   * When `true`, all checks in the group that are also activated will run.
+   *
+   * When `false`, no checks in the group will run, regardless of whether they
+   * are activated or not.
+   *
+   * If not set, individual check settings are used.
    */
   activated?: boolean
+
   /**
-   * Determines if any notifications will be sent out when a check in this group fails and/or recovers.
+   * Determines if any notifications will be sent out when a check in this
+   * group fails and/or recovers.
+   *
+   * When `true`, all checks in the group act as if they are muted, regardless
+   * of their own state, and will not trigger alerts.
+   *
+   * When `false`, all checks in the group that are also not muted will trigger
+   * alerts.
+   *
+   * If not set, individual check settings are used.
    */
   muted?: boolean
+
   /**
-   * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
-   * randomly selected region before marking the check as failed.
+   * Setting this to "true" will trigger a retry when a check fails from
+   * the failing region and another, randomly selected region before marking
+   * the check as failed.
+   *
+   * If set, overrides the doubleCheck property of all checks in the group.
+   *
+   * If not set, individual check settings are used.
+   *
    * @deprecated Use {@link CheckGroupProps.retryStrategy} instead.
    */
   doubleCheck?: boolean
+
   /**
-   * The runtime version, i.e. fixed set of runtime dependencies, used to execute checks in this group.
+   * The runtime version, i.e. fixed set of runtime dependencies, used to
+   * execute checks in this group.
+   *
+   * This value is only used as a fallback for checks that do not explicitly
+   * choose a runtime.
+   *
+   * If not set, the ultimate fallback is the account default runtime.
    */
   runtimeId?: string
+
   /**
    * An array of one or more data center locations where to run the checks.
+   *
+   * If either {@link CheckGroupProps.locations} or
+   * {@link CheckGroupProps.privateLocations} is set to a non-empty value, all
+   * checks in the group will use those values instead of their own.
    */
-  locations?: Array<keyof Region>
+  locations?: (keyof Region)[]
+
   /**
    * An array of one or more private locations where to run the checks.
+   *
+   * If either {@link CheckGroupProps.locations} or
+   * {@link CheckGroupProps.privateLocations} is set to a non-empty value, all
+   * checks in the group will use those values instead of their own.
    */
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
+  privateLocations?: (string | PrivateLocation | PrivateLocationRef)[]
+
   /**
    * Tags for organizing and filtering checks.
+   *
+   * Checks in the group will behave as if they had the these tags set, though
+   * they may not be visible.
    */
-  tags?: Array<string>
+  tags?: string[]
+
   /**
-   * Determines how many checks are invoked concurrently when triggering a check group from CI/CD or through the API.
+   * Determines how many checks are invoked concurrently when triggering a
+   * check group from CI/CD or through the API.
    */
   concurrency?: number
+
   /**
-   * Optional fallback value for checks belonging to the group. How often the check should run in minutes.
+   * Optional fallback value for all checks belonging to the group. How often
+   * the check should run in minutes.
+   *
+   * Note that this settings is stored at the check level and is not persisted
+   * in the group.
    */
   frequency?: number | Frequency
-  environmentVariables?: Array<EnvironmentVariable>
+
   /**
-   * List of alert channels to be alerted when checks in this group fail or recover.
+   * When set, any environment variables defined here will be available to
+   * all checks in the group.
+   *
+   * If a global environment variable with the same name exists, the group
+   * environment variable will override it.
+   *
+   * If a check environment variable with the same name exists, it will
+   * override the group environment variable.
+   *
+   * See https://www.checklyhq.com/docs/groups/variables/#variable-hierarchy
+   * for more information.
    */
-  alertChannels?: Array<AlertChannel|AlertChannelRef>
+  environmentVariables?: EnvironmentVariable[]
+
+  /**
+   * List of alert channels to be alerted when checks in this group fail or
+   * recover.
+   */
+  alertChannels?: (AlertChannel | AlertChannelRef)[]
+
+  /**
+   * This optional setting can be used to provide CLI-level defaults for
+   * all browser checks in the group.
+   *
+   * Note that any settings defined here are stored at the check level and are
+   * not persisted in the group.
+   *
+   * Currently only the following settings have an effect:
+   * - {@link BrowserCheckConfig.frequency}
+   */
   browserChecks?: BrowserCheckConfig,
+
+  /**
+   * This optional setting can be used to provide CLI-level defaults for
+   * all multi-step checks in the group.
+   *
+   * Note that any settings defined here are stored at the check level and are
+   * not persisted in the group.
+   *
+   * Currently only the following settings have an effect:
+   * - {@link MultiStepCheckConfig.frequency}
+   */
   multiStepChecks?: MultiStepCheckConfig,
+
+  /**
+   * If set, all checks in the group will use the group's alert escalation
+   * policy.
+   *
+   * If not set, individual check settings are used.
+   */
   alertEscalationPolicy?: AlertEscalation,
+
   /**
-   * A valid piece of Node.js code to run in the setup phase of an API check in this group.
-  * @deprecated use the "ApiCheck.setupScript" property instead and use common JS/TS code
-  * composition to add group specific setup routines.
-  */
+   * A valid piece of Node.js code to run in the setup phase of an API check
+   * in this group.
+   *
+   * @deprecated Use the "ApiCheck.setupScript" property instead and use
+   * common JS/TS code composition to add group specific setup routines.
+   */
   localSetupScript?: string
+
   /**
-   * A valid piece of Node.js code to run in the teardown phase of an API check in this group.
-  * @deprecated use the "ApiCheck.tearDownScript" property instead and use common JS/TS code
-  * composition to add group specific teardown routines.
+   * A valid piece of Node.js code to run in the teardown phase of an API
+   * check in this group.
+   *
+   * @deprecated use the "ApiCheck.tearDownScript" property instead and use
+   * common JS/TS code composition to add group specific teardown routines.
    */
   localTearDownScript?: string
-  apiCheckDefaults?: ApiCheckDefaultConfig
+
   /**
-   * Sets a retry policy for the group. Use RetryStrategyBuilder to create a retry policy.
+   * If set, the values provided here are merged with the values defined
+   * in individual API checks.
+   */
+  apiCheckDefaults?: ApiCheckDefaultConfig
+
+  /**
+   * Sets a retry policy for the group. Use {@link RetryStrategyBuilder} to
+   * create a retry policy.
+   *
+   * If set, all checks in the group use the group's retry strategy.
+   *
+   * If not set, individual check settings are used.
    */
   retryStrategy?: RetryStrategy
+
   /**
-   * Determines whether the checks in the group should run on all selected locations in parallel or round-robin.
-   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn more about scheduling strategies.
+   * Determines whether the checks in the group should run on all selected
+   * locations in parallel or round-robin.
+   *
+   * When `true`, all checks in the group run in parallel regardless of their
+   * individual setting.
+   *
+   * When `false`, all checks in the group run in round-robin regardless of
+   * their individual setting.
+   *
+   * If not set, individual check settings are used.
+   *
+   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn
+   * more about scheduling strategies.
    */
   runParallel?: boolean
 }
@@ -232,6 +363,35 @@ export class CheckGroup extends Construct {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    if (this.doubleCheck !== undefined) {
+      if (this.doubleCheck) {
+        diagnostics.add(new DeprecatedPropertyDiagnostic(
+          'doubleCheck',
+          new Error(
+            `To match the behavior of doubleCheck: true, please use the ` +
+            `following retryStategy instead:` +
+            `\n\n` +
+            `  RetryStrategyBuilder.fixedStrategy({\n` +
+            `    maxRetries: 1,\n` +
+            `    baseBackoffSeconds: 0,\n`+
+            `    maxDurationSeconds: 600,\n` +
+            `    sameRegion: false,\n` +
+            `  })`,
+          ),
+        ))
+      } else {
+        diagnostics.add(new DeprecatedPropertyDiagnostic(
+          'doubleCheck',
+          new Error(
+            `To match the behavior of doubleCheck: false, please use the ` +
+            `following retryStategy instead:` +
+            `\n\n` +
+            `  RetryStrategyBuilder.noRetries()`,
+          ),
+        ))
+      }
+    }
+
     if (this.environmentVariables) {
       this.environmentVariables.forEach(ev => {
         // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
@@ -242,6 +402,24 @@ export class CheckGroup extends Construct {
           ))
         }
       })
+    }
+
+    if (this.localSetupScript) {
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'localSetupScript',
+        new Error(
+          `Use the setupScript property directly in your ApiChecks instead.`,
+        ),
+      ))
+    }
+
+    if (this.localTearDownScript) {
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'localTearDownScript',
+        new Error(
+          `Use the tearDownScript property directly in your ApiChecks instead.`,
+        ),
+      ))
     }
   }
 
