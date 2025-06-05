@@ -33,7 +33,8 @@ import { detectPackageManager, knownPackageManagers, PackageManager } from '../.
 import { parseProject } from '../../services/project-parser'
 import { Runtime } from '../../rest/runtimes'
 import config from '../../services/config'
-import { ConstructExport, Session } from '../../constructs/project'
+import { ConstructExport, Project, Session } from '../../constructs/project'
+import { Diagnostics } from '../../constructs'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -844,18 +845,44 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
+  async #validateProject (project: Project): Promise<void> {
+    this.style.actionStart('Validating project resources')
+
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+
+    for (const diag of diagnostics.observations) {
+      if (diag.isFatal()) {
+        this.style.longError(diag.title, diag.message)
+      } else if (!diag.isBenign()) {
+        this.style.longWarning(diag.title, diag.message)
+      } else {
+        this.style.longInfo(diag.title, diag.message)
+      }
+    }
+
+    if (diagnostics.isFatal()) {
+      this.style.actionFailure()
+      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
+      this.exit(1)
+    }
+
+    this.style.actionSuccess()
+  }
+
   async #findExportedResources (
     configDirectory: string,
     checklyConfig: ChecklyConfig,
     rootDirectory: string,
   ): Promise<ConstructExport[]> {
-    this.style.actionStart('Parsing your project for exported resources')
+    this.style.actionStart('Parsing your project')
 
+    let project: Project
     try {
       const { data: account } = await api.accounts.get(config.getAccountId())
       const { data: availableRuntimes } = await api.runtimes.getAll()
 
-      await parseProject({
+      project = await parseProject({
         directory: configDirectory,
         projectLogicalId: checklyConfig.logicalId,
         projectName: checklyConfig.projectName,
@@ -875,42 +902,48 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       })
 
       this.style.actionSuccess()
-
-      const constructExports = Session.constructExports
-
-      switch (constructExports.length) {
-        case 0: {
-          this.style.comment(
-            `Did not find any exported resources.`,
-          )
-          break
-        }
-        case 1: {
-          this.style.comment(
-            `Found 1 exported resource.`,
-          )
-          break
-        }
-        default: {
-          this.style.comment(
-            `Found ${constructExports.length} exported resources.`,
-          )
-          break
-        }
-      }
-
-      // Paths need to be relative to the root directory or our generated
-      // imports won't work correctly.
-      for (const constructExport of constructExports) {
-        constructExport.filePath = path.relative(rootDirectory, constructExport.filePath)
-      }
-
-      return constructExports
     } catch (err) {
       this.style.actionFailure()
 
       throw err
     }
+
+    await this.#validateProject(project)
+
+    this.style.actionStart('Searching for exported resources')
+
+    const constructExports = Session.constructExports
+
+    this.style.actionSuccess()
+
+    switch (constructExports.length) {
+      case 0: {
+        this.style.comment(
+          `Did not find any exported resources.`,
+        )
+        break
+      }
+      case 1: {
+        this.style.comment(
+          `Found 1 exported resource.`,
+        )
+        break
+      }
+      default: {
+        this.style.comment(
+          `Found ${constructExports.length} exported resources.`,
+        )
+        break
+      }
+    }
+
+    // Paths need to be relative to the root directory or our generated
+    // imports won't work correctly.
+    for (const constructExport of constructExports) {
+      constructExport.filePath = path.relative(rootDirectory, constructExport.filePath)
+    }
+
+    return constructExports
   }
 
   async #confirmRetryWithoutFailed (): Promise<boolean> {
