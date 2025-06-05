@@ -14,12 +14,11 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
   /**
    * Determines whether the checks in the group are running or not.
    *
-   * When `true`, all checks in the group that are also activated will run.
+   * When `true` (recommended), all checks in the group that are also
+   * activated will run.
    *
    * When `false`, no checks in the group will run, regardless of whether they
    * are activated or not.
-   *
-   * If not set, individual check settings are used.
    */
   activated: boolean
 
@@ -27,13 +26,11 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
    * Determines if any notifications will be sent out when a check in this
    * group fails and/or recovers.
    *
+   * When `false` (recommended), all checks in the group that are also not
+   * muted will trigger alerts.
+   *
    * When `true`, all checks in the group act as if they are muted, regardless
    * of their own state, and will not trigger alerts.
-   *
-   * When `false`, all checks in the group that are also not muted will trigger
-   * alerts.
-   *
-   * If not set, individual check settings are used.
    */
   muted: boolean
 
