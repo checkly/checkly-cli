@@ -7,33 +7,9 @@ import {
 } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { CheckGroupV1, CheckGroupV1Props } from './check-group-v1'
 
 export interface CheckGroupV2Props extends CheckGroupV1Props {
-  /**
-   * Determines whether the checks in the group are running or not.
-   *
-   * When `true` (recommended), all checks in the group that are also
-   * activated will run.
-   *
-   * When `false`, no checks in the group will run, regardless of whether they
-   * are activated or not.
-   */
-  activated: boolean
-
-  /**
-   * Determines if any notifications will be sent out when a check in this
-   * group fails and/or recovers.
-   *
-   * When `false` (recommended), all checks in the group that are also not
-   * muted will trigger alerts.
-   *
-   * When `true`, all checks in the group act as if they are muted, regardless
-   * of their own state, and will not trigger alerts.
-   */
-  muted: boolean
-
   /**
    * Setting this to "true" will trigger a retry when a check fails from
    * the failing region and another, randomly selected region before marking
@@ -128,24 +104,6 @@ export class CheckGroupV2 extends CheckGroupV1 {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
     // No-op
-  }
-
-  async validate (diagnostics: Diagnostics): Promise<void> {
-    if (this.activated !== true && this.activated !== false) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'activated',
-        new Error(`A boolean value is required.`),
-      ))
-    }
-
-    if (this.muted !== true && this.muted !== false) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'muted',
-        new Error(`A boolean value is required.`),
-      ))
-    }
-
-    super.validate(diagnostics)
   }
 
   synthesize() {
