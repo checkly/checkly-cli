@@ -23,8 +23,8 @@ export interface MultiStepCheckConfigResource {
 export interface CheckGroupResource {
   id: number
   name: string
-  activated?: boolean | null
-  muted?: boolean | null
+  activated?: boolean
+  muted?: boolean
   doubleCheck?: boolean | null
   runtimeId?: string | null
   locations?: string[]
@@ -53,11 +53,11 @@ function buildCheckGroupProps (
 ): void {
   builder.string('name', resource.name)
 
-  if (resource.activated !== undefined && resource.activated !== null) {
+  if (resource.activated === false) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined && resource.muted !== null) {
+  if (resource.muted === true) {
     builder.boolean('muted', resource.muted)
   }
 

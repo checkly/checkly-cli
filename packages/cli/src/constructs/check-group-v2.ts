@@ -82,13 +82,9 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
  *
  * The following properties have changed since CheckGroupV1:
  *
- *   - {@link CheckGroupV2Props.activated}
- *     - This property is now required.
  *   - {@link CheckGroupV2Props.alertEscalationPolicy}
  *     - The implicit default for this property has been removed, allowing
  *       individual check settings to take effect.
- *   - {@link CheckGroupV2Props.muted}
- *     - This property is now required.
  *   - {@link CheckGroupV2Props.retryStrategy}
  *     - The implicit default for this property has been removed, allowing
  *       individual check settings to take effect.
