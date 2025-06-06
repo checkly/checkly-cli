@@ -35,6 +35,7 @@ export interface CheckGroupResource {
   browserChecks?: BrowserCheckConfigResource
   multiStepChecks?: MultiStepCheckConfigResource
   alertSettings?: AlertEscalationResource | null
+  useGlobalAlertSettings?: boolean | null
   localSetupScript?: string
   setupSnippetId?: number | null
   localTearDownScript?: string
@@ -158,8 +159,12 @@ function buildCheckGroupProps (
     })
   }
 
-  if (resource.alertSettings) {
-    builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
+  if (resource.useGlobalAlertSettings === true) {
+    builder.string('alertEscalationPolicy', 'global')
+  } else if (resource.useGlobalAlertSettings === false) {
+    if (resource.alertSettings) {
+      builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
+    }
   }
 
   if (resource.browserChecks) {

@@ -199,8 +199,8 @@ export interface CheckGroupV1Props {
    * If set, all checks in the group will use the group's alert escalation
    * policy.
    *
-   * If not set, the implicit default policy is:
-   * `AlertEscalationBuilder.runBasedEscalation(1)`.
+   * If not set, all checks in the group will use the global alert escalation
+   * policy.
    */
   alertEscalationPolicy?: AlertEscalation,
 

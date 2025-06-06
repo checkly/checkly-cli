@@ -5,11 +5,15 @@ import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type RetryStrategyBuilder, // Used for @links in comments.
 } from './retry-strategy'
-import { AlertEscalation } from './alert-escalation-policy'
+import {
+  AlertEscalation,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type AlertEscalationBuilder, // Used for @links in comments.
+} from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
 import { CheckGroupV1, CheckGroupV1Props } from './check-group-v1'
 
-export interface CheckGroupV2Props extends CheckGroupV1Props {
+export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalationPolicy'> {
   /**
    * Setting this to "true" will trigger a retry when a check fails from
    * the failing region and another, randomly selected region before marking
@@ -42,12 +46,16 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
   privateLocations?: (string | PrivateLocation | PrivateLocationRef)[]
 
   /**
-   * If set, all checks in the group will use the group's alert escalation
-   * policy.
+   * When {@link AlertEscalation}, all checks in the group will use the
+   * group's alert escalation policy. Use {@link AlertEscalationBuilder} to
+   * build a suitable policy.
+   *
+   * When `"global"`, all checks in the group will use the global alert
+   * escalation policy.
    *
    * If not set, individual check settings are used.
    */
-  alertEscalationPolicy?: AlertEscalation,
+  alertEscalationPolicy?: AlertEscalation | 'global',
 
   /**
    * Sets a retry policy for the group. Use {@link RetryStrategyBuilder} to
@@ -85,6 +93,7 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
  *   - {@link CheckGroupV2Props.alertEscalationPolicy}
  *     - The implicit default for this property has been removed, allowing
  *       individual check settings to take effect.
+ *     - Can be set to `"global"` to match the earlier default behavior.
  *   - {@link CheckGroupV2Props.retryStrategy}
  *     - The implicit default for this property has been removed, allowing
  *       individual check settings to take effect.
@@ -94,7 +103,39 @@ export interface CheckGroupV2Props extends CheckGroupV1Props {
  */
 export class CheckGroupV2 extends CheckGroupV1 {
   constructor (logicalId: string, props: CheckGroupV2Props) {
-    super(logicalId, props)
+    const { alertEscalationPolicy, useGlobalAlertSettings } = (() => {
+      const { alertEscalationPolicy } = props
+
+      // Do we want to always use the global policy?
+      if (alertEscalationPolicy === 'global') {
+        return {
+          alertEscalationPolicy: undefined,
+          useGlobalAlertSettings: true,
+        }
+      }
+
+      // Do we want to let checks keep their own policies?
+      if (alertEscalationPolicy === undefined) {
+        return {
+          alertEscalationPolicy,
+          useGlobalAlertSettings: undefined,
+        }
+      }
+
+      // The group policy will always apply.
+      return {
+        alertEscalationPolicy,
+        useGlobalAlertSettings: false,
+      }
+    })()
+
+    super(logicalId, {
+      ...props,
+      alertEscalationPolicy,
+    })
+
+    // Must override; the V1 constructor will not give us the desired behavior.
+    this.useGlobalAlertSettings = useGlobalAlertSettings
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
