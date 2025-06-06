@@ -68,7 +68,7 @@ describe('MultistepCheck', () => {
       await check.validate(diagnostics)
       expect(diagnostics.isFatal()).toBe(true)
     } finally {
-      delete Session.defaultRuntimeId
+      Session.defaultRuntimeId = undefined
     }
   })
 
@@ -88,7 +88,7 @@ describe('MultistepCheck', () => {
       await check.validate(diagnostics)
       expect(diagnostics.isFatal()).toBe(false)
     } finally {
-      delete Session.defaultRuntimeId
+      Session.defaultRuntimeId = undefined
     }
   })
 
@@ -108,7 +108,7 @@ describe('MultistepCheck', () => {
       const payload = bundle.synthesize()
       expect(payload.runtimeId).toBeUndefined()
     } finally {
-      delete Session.defaultRuntimeId
+      Session.defaultRuntimeId = undefined
     }
   })
 
@@ -129,7 +129,7 @@ describe('MultistepCheck', () => {
       const payload = bundle.synthesize()
       expect(payload.runtimeId).toEqual('2023.09')
     } finally {
-      delete Session.defaultRuntimeId
+      Session.defaultRuntimeId = undefined
     }
   })
 })

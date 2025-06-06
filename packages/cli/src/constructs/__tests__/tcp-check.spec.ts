@@ -27,7 +27,7 @@ describe('TcpCheck', () => {
     const bundle = await check.bundle()
     const payload = bundle.synthesize()
     expect(payload.runtimeId).toBeUndefined()
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should synthesize runtime if specified', async () => {
@@ -45,7 +45,7 @@ describe('TcpCheck', () => {
     const bundle = await check.bundle()
     const payload = bundle.synthesize()
     expect(payload.runtimeId).toEqual('2022.02')
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should apply default check settings', () => {
@@ -58,7 +58,7 @@ describe('TcpCheck', () => {
       name: 'Test Check',
       request,
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['default tags'] })
   })
 
@@ -73,7 +73,7 @@ describe('TcpCheck', () => {
       tags: ['test check'],
       request,
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['test check'] })
   })
 

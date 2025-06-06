@@ -16,7 +16,7 @@ describe('BrowserCheck', () => {
     Session.availableRuntimes = runtimes
     const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'browser-check', filename)
     const bundle = await BrowserCheck.bundle(getFilePath('entrypoint.js'), '2022.10')
-    delete Session.basePath
+    Session.basePath = undefined
 
     expect(bundle).toMatchObject({
       script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
@@ -45,8 +45,8 @@ describe('BrowserCheck', () => {
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = undefined
     await expect(bundle()).rejects.toThrow('runtime is not set')
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
   it('should successfully bundle if runtime is not specified but default runtime is set', async () => {
@@ -60,8 +60,8 @@ describe('BrowserCheck', () => {
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.10'
     await expect(bundle()).resolves.not.toThrow()
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
   it('should fail to bundle if runtime is not supported even if default runtime is set', async () => {
@@ -75,8 +75,8 @@ describe('BrowserCheck', () => {
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.02'
     await expect(bundle()).rejects.toThrow('9999.99 is not supported')
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
   it('should not synthesize runtime if not specified even if default runtime is set', async () => {
@@ -93,7 +93,7 @@ describe('BrowserCheck', () => {
     const bundle = await browserCheck.bundle()
     const payload = bundle.synthesize()
     expect(payload.runtimeId).toBeUndefined()
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should synthesize runtime if specified', async () => {
@@ -111,7 +111,7 @@ describe('BrowserCheck', () => {
     const bundle = await browserCheck.bundle()
     const payload = bundle.synthesize()
     expect(payload.runtimeId).toEqual('2022.02')
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should apply default check settings', () => {
@@ -124,7 +124,7 @@ describe('BrowserCheck', () => {
       name: 'Test Check',
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['default tags'] })
   })
 
@@ -139,7 +139,7 @@ describe('BrowserCheck', () => {
       tags: ['test check'],
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['test check'] })
   })
 
@@ -154,8 +154,8 @@ describe('BrowserCheck', () => {
       name: 'Test Check',
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
-    delete Session.browserCheckDefaults
+    Session.checkDefaults = undefined
+    Session.browserCheckDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['browser check default'] })
   })
 
