@@ -120,13 +120,13 @@ export class BrowserCheck extends Check {
     }
   }
 
-  static bundle (entry: string, runtimeId?: string) {
+  static async bundle (entry: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
     const parser = Session.getParser(runtime)
-    const parsed = parser.parse(entry)
+    const parsed = await parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 
     const deps: CheckDependency[] = []
@@ -149,9 +149,9 @@ export class BrowserCheck extends Check {
   }
 
   async bundle (): Promise<BrowserCheckBundle> {
-    return new BrowserCheckBundle(this, (() => {
+    return new BrowserCheckBundle(this, await (async () => {
       if (isEntrypoint(this.code)) {
-        const bundle = BrowserCheck.bundle(
+        const bundle = await BrowserCheck.bundle(
           this.resolveContentFilePath(this.code.entrypoint),
           this.runtimeId,
         )

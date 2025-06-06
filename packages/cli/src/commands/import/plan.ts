@@ -580,8 +580,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           this.style.actionStart('Configuring package.json for Checkly')
 
           // TODO: Make this less ugly.
-          packageJson = (() => {
-            const file = this.#loadPackageJson()
+          packageJson = await (async () => {
+            const file = await this.#loadPackageJson()
             if (file !== undefined) {
               this.style.shortSuccess(`Found existing package.json`)
               return file
@@ -641,9 +641,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  #loadPackageJson (): PackageJsonFile | undefined {
+  async #loadPackageJson (): Promise<PackageJsonFile | undefined> {
     const resolver = new PackageFilesResolver()
-    return resolver.loadPackageJsonFile(process.cwd(), {
+    return await resolver.loadPackageJsonFile(process.cwd(), {
       isDir: true,
     })
   }

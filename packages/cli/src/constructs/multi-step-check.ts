@@ -113,13 +113,13 @@ export class MultiStepCheck extends Check {
     }
   }
 
-  static bundle (entry: string, runtimeId?: string) {
+  static async bundle (entry: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
     const parser = Session.getParser(runtime)
-    const parsed = parser.parse(entry)
+    const parsed = await parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 
     const deps: CheckDependency[] = []
@@ -141,9 +141,9 @@ export class MultiStepCheck extends Check {
   }
 
   async bundle (): Promise<MultiStepCheckBundle> {
-    return new MultiStepCheckBundle(this, (() => {
+    return new MultiStepCheckBundle(this, await (async () => {
       if (isEntrypoint(this.code)) {
-        const bundle = MultiStepCheck.bundle(
+        const bundle = await MultiStepCheck.bundle(
           this.resolveContentFilePath(this.code.entrypoint),
           this.runtimeId,
         )

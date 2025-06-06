@@ -13,8 +13,8 @@ class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
 
   #jsonFileLoader<T, S> (load: (jsonFile: JsonSourceFile<S>) => T | undefined): LoadFile<T> {
-    return filePath => {
-      const sourceFile = this.#sourceFileCache.load(filePath)
+    return async filePath => {
+      const sourceFile = await this.#sourceFileCache.load(filePath)
       if (sourceFile === undefined) {
         return
       }
@@ -32,9 +32,9 @@ class PackageFilesCache {
   #tsconfigJsonCache = new FileLoader(this.#jsonFileLoader(TSConfigFile.loadFromJsonSourceFile))
   #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(JSConfigFile.loadFromJsonSourceFile))
 
-  sourceFile (filePath: string, context: LookupContext) {
+  async sourceFile (filePath: string, context: LookupContext): Promise<SourceFile | undefined> {
     for (const lookupPath of context.collectLookupPaths(filePath)) {
-      const sourceFile = this.#sourceFileCache.load(lookupPath)
+      const sourceFile = await this.#sourceFileCache.load(lookupPath)
       if (sourceFile === undefined) {
         continue
       }
@@ -43,15 +43,15 @@ class PackageFilesCache {
     }
   }
 
-  packageJson (filePath: string) {
+  async packageJson (filePath: string): Promise<PackageJsonFile | undefined> {
     return this.#packageJsonCache.load(filePath)
   }
 
-  tsconfigJson (filePath: string) {
+  async tsconfigJson (filePath: string): Promise<TSConfigFile | undefined> {
     return this.#tsconfigJsonCache.load(filePath)
   }
 
-  jsconfigJson (filePath: string) {
+  async jsconfigJson (filePath: string): Promise<JSConfigFile | undefined> {
     return this.#jsconfigJsonCache.load(filePath)
   }
 }
@@ -61,17 +61,17 @@ class PackageFiles {
   tsconfigJson?: TSConfigFile
   jsconfigJson?: JSConfigFile
 
-  satisfyFromDirPath (dirPath: string, cache: PackageFilesCache): boolean {
+  async satisfyFromDirPath (dirPath: string, cache: PackageFilesCache): Promise<boolean> {
     if (this.packageJson === undefined) {
-      this.packageJson = cache.packageJson(PackageJsonFile.filePath(dirPath))
+      this.packageJson = await cache.packageJson(PackageJsonFile.filePath(dirPath))
     }
 
     if (this.tsconfigJson === undefined && this.jsconfigJson === undefined) {
-      this.tsconfigJson = cache.tsconfigJson(TSConfigFile.filePath(dirPath))
+      this.tsconfigJson = await cache.tsconfigJson(TSConfigFile.filePath(dirPath))
     }
 
     if (this.jsconfigJson === undefined && this.tsconfigJson === undefined) {
-      this.jsconfigJson = cache.jsconfigJson(JSConfigFile.filePath(dirPath))
+      this.jsconfigJson = await cache.jsconfigJson(JSConfigFile.filePath(dirPath))
     }
 
     return this.satisfied
@@ -147,7 +147,7 @@ export interface WalkUpOptions {
   isDir?: boolean
 }
 
-function walkUp (filePath: string, find: (dirPath: string) => boolean, options?: WalkUpOptions): boolean {
+async function walkUp (filePath: string, find: (dirPath: string) => Promise<boolean>, options?: WalkUpOptions): Promise<boolean> {
   let currentPath = filePath
 
   if (options?.isDir === true) {
@@ -165,7 +165,8 @@ function walkUp (filePath: string, find: (dirPath: string) => boolean, options?:
       break
     }
 
-    if (find(currentPath)) {
+    const found = await find(currentPath)
+    if (found) {
       return true
     }
 
@@ -182,30 +183,31 @@ function walkUp (filePath: string, find: (dirPath: string) => boolean, options?:
 export class PackageFilesResolver {
   cache = new PackageFilesCache()
 
-  loadPackageJsonFile (filePath: string, options?: WalkUpOptions): PackageJsonFile | undefined {
+  async loadPackageJsonFile (filePath: string, options?: WalkUpOptions): Promise<PackageJsonFile | undefined> {
     let packageJson: PackageJsonFile | undefined
 
-    walkUp(filePath, dirPath => {
-      packageJson = this.cache.packageJson(PackageJsonFile.filePath(dirPath))
+    await walkUp(filePath, async dirPath => {
+      packageJson = await this.cache.packageJson(PackageJsonFile.filePath(dirPath))
       return packageJson !== undefined
     }, options)
 
     return packageJson
   }
 
-  loadPackageFiles (filePath: string, options?: WalkUpOptions): PackageFiles {
+  async loadPackageFiles (filePath: string, options?: WalkUpOptions): Promise<PackageFiles> {
     const files = new PackageFiles()
 
-    walkUp(filePath, dirPath => {
-      return files.satisfyFromDirPath(dirPath, this.cache)
+    await walkUp(filePath, async dirPath => {
+      const found = await files.satisfyFromDirPath(dirPath, this.cache)
+      return found
     }, options)
 
     return files
   }
 
-  private resolveSourceFile (sourceFile: SourceFile, context: LookupContext): SourceFile[] {
+  private async resolveSourceFile (sourceFile: SourceFile, context: LookupContext): Promise<SourceFile[]> {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
-      const packageJson = this.cache.packageJson(sourceFile.meta.filePath)
+      const packageJson = await this.cache.packageJson(sourceFile.meta.filePath)
       if (packageJson === undefined) {
         // This should never happen unless the package.json is invalid or
         // something.
@@ -216,7 +218,7 @@ export class PackageFilesResolver {
       // find a tsconfig for the main file, look it up and attempt to find
       // the original TypeScript sources roughly the same way tsc does it.
       for (const mainPath of packageJson.mainPaths) {
-        const { tsconfigJson, jsconfigJson } = this.loadPackageFiles(mainPath, {
+        const { tsconfigJson, jsconfigJson } = await this.loadPackageFiles(mainPath, {
           root: packageJson.basePath,
         })
 
@@ -230,7 +232,7 @@ export class PackageFilesResolver {
             return context.collectLookupPaths(filePath)
           })
           for (const candidatePath of candidatePaths) {
-            const mainSourceFile = this.cache.sourceFile(candidatePath, context)
+            const mainSourceFile = await this.cache.sourceFile(candidatePath, context)
             if (mainSourceFile === undefined) {
               continue
             }
@@ -241,7 +243,7 @@ export class PackageFilesResolver {
           }
         }
 
-        const mainSourceFile = this.cache.sourceFile(mainPath, context)
+        const mainSourceFile = await this.cache.sourceFile(mainPath, context)
         if (mainSourceFile === undefined) {
           continue
         }
@@ -256,10 +258,10 @@ export class PackageFilesResolver {
     return [sourceFile]
   }
 
-  resolveDependenciesForFilePath (
+  async resolveDependenciesForFilePath (
     filePath: string,
     dependencies: string[],
-  ): Dependencies {
+  ): Promise<Dependencies> {
     const resolved: Dependencies = {
       external: [],
       missing: [],
@@ -268,7 +270,7 @@ export class PackageFilesResolver {
 
     const dirname = path.dirname(filePath)
 
-    const { tsconfigJson, jsconfigJson } = this.loadPackageFiles(filePath)
+    const { tsconfigJson, jsconfigJson } = await this.loadPackageFiles(filePath)
 
     const context = LookupContext.forFilePath(filePath)
 
@@ -283,9 +285,9 @@ export class PackageFilesResolver {
 
       if (isLocalPath(importPath)) {
         const relativeDepPath = path.resolve(dirname, importPath)
-        const sourceFile = this.cache.sourceFile(relativeDepPath, context)
+        const sourceFile = await this.cache.sourceFile(relativeDepPath, context)
         if (sourceFile !== undefined) {
-          const resolvedFiles = this.resolveSourceFile(sourceFile, context)
+          const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
           let found = false
           for (const resolvedFile of resolvedFiles) {
             resolved.local.push({
@@ -316,9 +318,9 @@ export class PackageFilesResolver {
           let found = false
           for (const { source, target } of resolvedPaths) {
             const relativePath = path.resolve(configJson.basePath, target.path)
-            const sourceFile = this.cache.sourceFile(relativePath, context)
+            const sourceFile = await this.cache.sourceFile(relativePath, context)
             if (sourceFile !== undefined) {
-              const resolvedFiles = this.resolveSourceFile(sourceFile, context)
+              const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
               for (const resolvedFile of resolvedFiles) {
                 configJson.registerRelatedSourceFile(resolvedFile)
                 resolved.local.push({
@@ -353,9 +355,9 @@ export class PackageFilesResolver {
 
         if (configJson.baseUrl !== undefined) {
           const relativePath = path.resolve(configJson.basePath, configJson.baseUrl, importPath)
-          const sourceFile = this.cache.sourceFile(relativePath, context)
+          const sourceFile = await this.cache.sourceFile(relativePath, context)
           if (sourceFile !== undefined) {
-            const resolvedFiles = this.resolveSourceFile(sourceFile, context)
+            const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
             let found = false
             for (const resolvedFile of resolvedFiles) {
               configJson.registerRelatedSourceFile(resolvedFile)

@@ -241,7 +241,7 @@ export class ApiCheck extends Check {
 
     if (this.setupScript) {
       if (isEntrypoint(this.setupScript)) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(
+        const { script, scriptPath, dependencies } = await ApiCheck.bundle(
           this.resolveContentFilePath(this.setupScript.entrypoint),
           this.runtimeId,
         )
@@ -259,7 +259,7 @@ export class ApiCheck extends Check {
 
     if (this.tearDownScript) {
       if (isEntrypoint(this.tearDownScript)) {
-        const { script, scriptPath, dependencies } = ApiCheck.bundle(
+        const { script, scriptPath, dependencies } = await ApiCheck.bundle(
           this.resolveContentFilePath(this.tearDownScript.entrypoint),
           this.runtimeId,
         )
@@ -274,13 +274,13 @@ export class ApiCheck extends Check {
     return new ApiCheckBundle(this, props)
   }
 
-  static bundle (entrypoint: string, runtimeId?: string) {
+  static async bundle (entrypoint: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
     }
     const parser = Session.getParser(runtime)
-    const parsed = parser.parse(entrypoint)
+    const parsed = await parser.parse(entrypoint)
     // Maybe we can get the parsed deps with the content immediately
 
     const deps: ScriptDependency[] = []
