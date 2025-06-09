@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 
 import { Project, Session } from '../project'
 import { MultiStepCheck } from '../multi-step-check'
@@ -9,6 +9,14 @@ const runtimesWithMultiStepSupport = {
 }
 
 describe('MultistepCheck', () => {
+  beforeEach(() => {
+    Session.resetSharedFiles()
+  })
+
+  afterAll(() => {
+    Session.resetSharedFiles()
+  })
+
   it('should report multistep as check type', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',

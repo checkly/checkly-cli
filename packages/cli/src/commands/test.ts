@@ -310,6 +310,7 @@ export default class Test extends AuthCommand {
       config.getAccountId(),
       projectBundle,
       checkBundles,
+      Session.sharedFiles,
       location,
       timeout,
       verbose,

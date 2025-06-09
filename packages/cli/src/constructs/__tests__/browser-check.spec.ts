@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 
 import { BrowserCheck, CheckGroup } from '../index'
 import { Project, Session } from '../project'
@@ -11,6 +11,14 @@ const runtimes = {
 }
 
 describe('BrowserCheck', () => {
+  beforeEach(() => {
+    Session.resetSharedFiles()
+  })
+
+  afterAll(() => {
+    Session.resetSharedFiles()
+  })
+
   it('should correctly load file dependencies', async () => {
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
@@ -22,16 +30,21 @@ describe('BrowserCheck', () => {
       script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
       scriptPath: 'fixtures/browser-check/entrypoint.js',
       dependencies: [
-        {
-          path: 'fixtures/browser-check/dep1.js',
-          content: fs.readFileSync(getFilePath('dep1.js')).toString(),
-        },
-        {
-          path: 'fixtures/browser-check/dep2.js',
-          content: fs.readFileSync(getFilePath('dep2.js')).toString(),
-        },
+        0,
+        1,
       ],
     })
+
+    expect(Session.sharedFiles).toEqual([
+      {
+        path: 'fixtures/browser-check/dep1.js',
+        content: fs.readFileSync(getFilePath('dep1.js')).toString(),
+      },
+      {
+        path: 'fixtures/browser-check/dep2.js',
+        content: fs.readFileSync(getFilePath('dep2.js')).toString(),
+      },
+    ])
   })
 
   it('should fail to bundle if runtime is not specified and default runtime is not set', async () => {
