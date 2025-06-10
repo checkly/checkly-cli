@@ -275,6 +275,9 @@ export interface CheckGroupV1Props {
  * Please check the documentation for the individual properties to see their
  * behavior.
  *
+ * For more information regarding the update, please see:
+ *   https://feedback.checklyhq.com/changelog/checkly-groups-update-organize-checks-your-way
+ *
  * @deprecated Use {@link CheckGroupV2} instead.
  */
 export class CheckGroupV1 extends Construct {
@@ -351,7 +354,10 @@ export class CheckGroupV1 extends Construct {
     diagnostics.add(new DeprecatedConstructDiagnostic(
       'CheckGroup',
       new Error(
-        `Please update to CheckGroupV2 which has more intuitive behavior.`
+        `Please update to CheckGroupV2 which has more intuitive behavior.` +
+        `\n\n` +
+        `For more information, please see:\n` +
+        `  https://feedback.checklyhq.com/changelog/checkly-groups-update-organize-checks-your-way`,
       ),
     ))
   }
