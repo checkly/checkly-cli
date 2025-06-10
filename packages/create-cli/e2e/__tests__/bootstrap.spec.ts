@@ -1,6 +1,5 @@
 import path from 'node:path'
-import fs from 'node:fs'
-import { SpawnSyncReturns } from 'node:child_process'
+import fs from 'node:fs/promises'
 
 import axios from 'axios'
 import * as rimraf from 'rimraf'
@@ -10,6 +9,7 @@ import { describe, it, expect, afterAll, beforeAll, beforeEach } from 'vitest'
 import { runChecklyCreateCli } from '../run-create-cli'
 import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
+import { ExecaReturnValue } from 'execa'
 
 const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 
@@ -26,7 +26,7 @@ function expectVersionAndName ({
   latestVersion,
   greeting,
 }: {
-  commandOutput: SpawnSyncReturns<string>
+  commandOutput: ExecaReturnValue<string>
   version?: string
   latestVersion: string
   greeting: string
@@ -42,7 +42,7 @@ function expectCompleteCreation ({
   commandOutput,
   projectFolder,
 }: {
-  commandOutput: SpawnSyncReturns<string>
+  commandOutput: ExecaReturnValue<string>
   projectFolder: string
 }) {
   expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
@@ -56,6 +56,15 @@ function expectCompleteCreation ({
 
          - Check the docs at https://checklyhq.com/docs/cli
          - Join the Checkly Slack community at https://checklyhq.com/slack`)
+}
+
+async function exists (filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath, fs.constants.R_OK)
+    return true
+  } catch {
+    return false
+  }
 }
 
 describe('bootstrap', () => {
@@ -72,16 +81,16 @@ describe('bootstrap', () => {
   })
   afterAll(() => cleanupProjects())
 
-  it('Should create project with advanced-project template', () => {
+  it('Should create project with advanced-project template', async () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       promptsInjection: [projectName, 'advanced-project', true, true],
       timeout: 180_000,
     })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
@@ -91,25 +100,25 @@ describe('bootstrap', () => {
     expect(stdout).toContain('Packages installed successfully')
 
     expect(stderr).toBe('')
-    expect(status).toBe(0)
+    expect(exitCode).toBe(0)
 
-    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.ts'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(true)
+    await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, 'checkly.config.ts'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(true)
   }, 180_000)
 
-  it('Should create an boilerplate-project without installing dependencies', () => {
+  it('Should create an boilerplate-project without installing dependencies', async () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       promptsInjection: [projectName, 'boilerplate-project', false, false],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
@@ -122,21 +131,21 @@ describe('bootstrap', () => {
     expectCompleteCreation({ commandOutput, projectFolder })
 
     expect(stderr).toBe('')
-    expect(status).toBe(0)
+    expect(exitCode).toBe(0)
 
-    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.ts'))).toBe(true)
+    await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, 'checkly.config.ts'))).resolves.toBe(true)
 
     // node_modules nor .git shouldn't exist
-    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
-    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+    await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(false)
+    await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(false)
   }, 15000)
 
-  it('Should create an boilerplate-project using an older version', () => {
+  it('Should create an boilerplate-project using an older version', async () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
     const version = '4.0.13'
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       version,
       promptsInjection: [projectName, 'boilerplate-project', false, false],
@@ -144,7 +153,7 @@ describe('bootstrap', () => {
 
     expectVersionAndName({ commandOutput, version, latestVersion, greeting })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
@@ -157,26 +166,26 @@ describe('bootstrap', () => {
     expectCompleteCreation({ commandOutput, projectFolder })
 
     expect(stderr).toBe('')
-    expect(status).toBe(0)
+    expect(exitCode).toBe(0)
 
-    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.ts'))).toBe(true)
+    await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, 'checkly.config.ts'))).resolves.toBe(true)
 
     // node_modules nor .git shouldn't exist
-    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
-    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+    await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(false)
+    await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(false)
   }, 15000)
 
-  it('Should fail for already initiated project', () => {
+  it('Should fail for already initiated project', async () => {
     const directory = path.join(__dirname, 'fixtures', 'initiated-project')
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       promptsInjection: [projectName, 'advanced-project', false, false],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expect(stderr)
       .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
@@ -187,37 +196,37 @@ describe('bootstrap', () => {
     expect(stdout).not.toContain('Installing packages')
     expect(stdout).not.toContain('Packages installed successfully')
 
-    expect(status).toBe(1)
+    expect(exitCode).toBe(1)
   }, 15000)
 
-  it('Should cancel command and show message', () => {
+  it('Should cancel command and show message', async () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       promptsInjection: [new Error()],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
-    const { status, stderr } = commandOutput
+    const { exitCode, stderr } = commandOutput
     expect(stderr).toContain('Bailing, hope to see you again soon!')
-    expect(status).toBe(2)
+    expect(exitCode).toBe(2)
   }, 15000)
 
-  it('Should create projects with all available templates (without installing dependencies)', () => {
+  it('Should create projects with all available templates (without installing dependencies)', async () => {
     const availableTemplates = PROJECT_TEMPLATES.map(t => t.value)
 
-    availableTemplates.forEach(template => {
+    for (const template of availableTemplates) {
       const newProjectName = `${E2E_PROJECT_PREFIX}${uuidv4()}`
       const directory = path.join(__dirname, 'fixtures', 'empty-project')
       const projectFolder = path.join(directory, newProjectName)
-      const commandOutput = runChecklyCreateCli({
+      const commandOutput = await runChecklyCreateCli({
         directory,
         promptsInjection: [newProjectName, template, false, false],
       })
 
       expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-      const { status, stdout, stderr } = commandOutput
+      const { exitCode, stdout, stderr } = commandOutput
 
       expect(stdout).toContain('Downloading example template...')
       expect(stdout).toContain('Example template copied!')
@@ -230,24 +239,24 @@ describe('bootstrap', () => {
       expectCompleteCreation({ commandOutput, projectFolder })
 
       expect(stderr).toBe('')
-      expect(status).toBe(0)
+      expect(exitCode).toBe(0)
 
-      expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
-      expect(
-        fs.existsSync(path.join(projectFolder, 'checkly.config.ts')) ||
-        fs.existsSync(path.join(projectFolder, 'checkly.config.js')),
-      ).toBe(true)
+      await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
+      await expect(Promise.all([
+        exists(path.join(projectFolder, 'checkly.config.ts')),
+        exists(path.join(projectFolder, 'checkly.config.js')),
+      ])).resolves.toContain(true)
 
       // node_modules nor .git shouldn't exist
-      expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
-      expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
-    })
+      await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(false)
+      await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(false)
+    }
   }, 30000)
 
-  it('Should create a project with --template argument', () => {
+  it('Should create a project with --template argument', async () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
     const projectFolder = path.join(directory, projectName)
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       args: ['--template', 'boilerplate-project-js'],
       promptsInjection: [projectName, false, false],
@@ -255,7 +264,7 @@ describe('bootstrap', () => {
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
@@ -268,27 +277,27 @@ describe('bootstrap', () => {
     expectCompleteCreation({ commandOutput, projectFolder })
 
     expect(stderr).toBe('')
-    expect(status).toBe(0)
+    expect(exitCode).toBe(0)
 
-    expect(fs.existsSync(path.join(projectFolder, 'package.json'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, 'checkly.config.js'))).toBe(true)
-    expect(fs.existsSync(path.join(projectFolder, '__checks__', 'api.check.js'))).toBe(true)
+    await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, 'checkly.config.js'))).resolves.toBe(true)
+    await expect(exists(path.join(projectFolder, '__checks__', 'api.check.js'))).resolves.toBe(true)
 
     // node_modules nor .git shouldn't exist
-    expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(false)
-    expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(false)
+    await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(false)
+    await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(false)
   }, 15000)
 
-  it('Should copy the playwright config', () => {
+  it('Should copy the playwright config', async () => {
     const directory = path.join(__dirname, 'fixtures', 'playwright-project')
-    const commandOutput = runChecklyCreateCli({
+    const commandOutput = await runChecklyCreateCli({
       directory,
       promptsInjection: [true, false, false, true],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    const { status, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
     expect(stdout).toContain('Downloading example template...')
     expect(stdout).toContain('Example template copied!')
@@ -303,13 +312,13 @@ describe('bootstrap', () => {
     expectCompleteCreation({ commandOutput, projectFolder: directory })
 
     expect(stderr).toBe('')
-    expect(status).toBe(0)
+    expect(exitCode).toBe(0)
 
-    expect(fs.existsSync(path.join(directory, 'package.json'))).toBe(true)
-    expect(fs.existsSync(path.join(directory, 'checkly.config.ts'))).toBe(true)
-    expect(fs.existsSync(path.join(directory, '__checks__', 'api.check.ts'))).toBe(true)
+    await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
+    await expect(exists(path.join(directory, '__checks__', 'api.check.ts'))).resolves.toBe(true)
 
     // node_modules nor .git shouldn't exist
-    expect(fs.existsSync(path.join(directory, 'node_modules'))).toBe(false)
+    await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 })
