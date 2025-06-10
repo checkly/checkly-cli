@@ -10,10 +10,10 @@ interface TSNodeService {
 }
 
 export class UninitializedTSNodeFileLoaderState extends FileLoader {
-  init?: Promise<void>
+  private static init?: Promise<void>
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
-    this.init ??= (async () => {
+    UninitializedTSNodeFileLoaderState.init ??= (async () => {
       try {
         const tsNodeExports: TSNodeExports = await import('ts-node')
         const service = tsNodeExports.register({
@@ -30,7 +30,7 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
       }
     })()
 
-    await this.init
+    await UninitializedTSNodeFileLoaderState.init
 
     return await TSNodeFileLoader.state.loadFile(filePath)
   }

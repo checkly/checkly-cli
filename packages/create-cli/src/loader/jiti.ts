@@ -13,10 +13,10 @@ interface Jiti {
 }
 
 export class UninitializedJitiFileLoaderState extends FileLoader {
-  init?: Promise<void>
+  private static init?: Promise<void>
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
-    this.init ??= (async () => {
+    UninitializedJitiFileLoaderState.init ??= (async () => {
       try {
         const jitiExports: JitiExports = await import('jiti')
         const jiti = jitiExports.createJiti(__filename)
@@ -26,7 +26,7 @@ export class UninitializedJitiFileLoaderState extends FileLoader {
       }
     })()
 
-    await this.init
+    await UninitializedJitiFileLoaderState.init
 
     return await JitiFileLoader.state.loadFile(filePath)
   }
