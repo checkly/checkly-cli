@@ -62,6 +62,7 @@
     "debug": "^4.4.0",
     "execa": "^5.1.0",
     "giget": "^1.2.5",
+    "jiti": "^2.4.2",
     "json5": "^2.2.3",
     "ora": "^5.4.1",
     "passwd-user": "^3.0.0",
@@ -78,18 +79,9 @@
     "@types/uuid": "^10.0.0",
     "config": "^3.3.12",
     "cross-env": "^7.0.3",
-    "jiti": "^2.4.2",
     "rimraf": "^5.0.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vitest": "3.1.2"
-  },
-  "peerDependencies": {
-    "jiti": ">=2"
-  },
-  "peerDependenciesMeta": {
-    "jiti": {
-      "optional": true
-    }
   }
 }
