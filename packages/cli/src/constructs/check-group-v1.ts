@@ -366,6 +366,13 @@ export class CheckGroupV1 extends Construct {
     await this.onBeforeValidate(diagnostics)
 
     if (this.doubleCheck !== undefined) {
+      if (this.retryStrategy) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'doubleCheck',
+          new Error('Cannot specify both "doubleCheck" and "retryStrategy".'),
+        ))
+      }
+
       if (this.doubleCheck) {
         diagnostics.add(new DeprecatedPropertyDiagnostic(
           'doubleCheck',
