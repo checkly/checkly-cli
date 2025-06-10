@@ -1,9 +1,10 @@
-import * as path from 'path'
-import * as childProcess from 'node:child_process'
+import path from 'node:path'
+
+import execa from 'execa'
 
 const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
-export function runChecklyCreateCli (options: {
+export async function runChecklyCreateCli (options: {
   directory?: string,
   args?: string[],
   env?: object,
@@ -19,7 +20,8 @@ export function runChecklyCreateCli (options: {
     promptsInjection = [],
     timeout = 30000,
   } = options
-  return childProcess.spawnSync(CHECKLY_PATH, args, {
+
+  const result = await execa(CHECKLY_PATH, args, {
     env: {
       PATH: process.env.PATH,
       CHECKLY_CLI_VERSION: version,
@@ -29,6 +31,9 @@ export function runChecklyCreateCli (options: {
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',
     timeout,
+    reject: false,
     shell: process.platform === 'win32',
   })
+
+  return result
 }
