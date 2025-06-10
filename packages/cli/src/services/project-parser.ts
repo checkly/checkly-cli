@@ -7,11 +7,12 @@ import {
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
+  CheckFilter,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
 import type { Runtime } from '../rest/runtimes'
-import type { Construct } from '../constructs/construct'
+import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
 
 type ProjectParseOpts = {
@@ -20,6 +21,8 @@ type ProjectParseOpts = {
   projectName: string,
   repoUrl?: string,
   checkMatch?: string | string[],
+  checkFilter?: CheckFilter,
+  includeTestOnlyChecks?: boolean,
   browserCheckMatch?: string | string[],
   multiStepCheckMatch?: string | string[],
   ignoreDirectoriesMatch?: string[],
@@ -41,6 +44,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const {
     directory,
     checkMatch = '**/*.check.{js,ts}',
+    checkFilter,
+    includeTestOnlyChecks = false,
     browserCheckMatch,
     multiStepCheckMatch,
     projectLogicalId,
@@ -61,30 +66,33 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     name: projectName,
     repoUrl,
   })
+
+  if (includeTestOnlyChecks) {
+    project.allowTestOnly(true)
+  }
+
   checklyConfigConstructs?.forEach(
     (construct) => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
   Session.basePath = directory
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
+  Session.checkFilter = checkFilter
   Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
 
-  const includeWrapped = include
-    ? (Array.isArray(include) ? include : [include])
-    : []
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
 
   await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-  await Promise.all([
-    loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project),
-    loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project),
-    loadPlaywrightChecks(playwrightChecks, playwrightConfigPath, includeWrapped),
-  ])
 
+  // Load sequentially because otherwise Session.checkFileAbsolutePath and
+  // Session.checkFilePath are going to be subject to race conditions.
+  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+  await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
+  await loadPlaywrightChecks(directory, playwrightChecks, playwrightConfigPath, include)
 
   // private-location must be processed after all checks and groups are loaded.
   await loadAllPrivateLocationsSlugNames(project)
@@ -92,38 +100,57 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   return project
 }
 
+function setCheckFilePaths (checkFile: string, directory: string): string {
+  const relPath = pathToPosix(path.relative(directory, checkFile))
+
+  Session.checkFileAbsolutePath = checkFile
+  Session.checkFilePath = relPath
+
+  return relPath
+}
+
+function resetCheckFilePaths () {
+  Session.checkFilePath = undefined
+  Session.checkFileAbsolutePath = undefined
+}
+
 async function loadPlaywrightChecks (
-  playwrightChecks?: PlaywrightSlimmedProp[], playwrightConfigPath?: string, include?: string[]) {
+  directory: string,
+  playwrightChecks?: PlaywrightSlimmedProp[],
+  playwrightConfigPath?: string,
+  include?: string | string[],
+) {
   if (!playwrightConfigPath) {
     return
   }
 
   if (playwrightChecks?.length) {
-    for (const playwrightCheckProps of playwrightChecks) {
-      // TODO: Don't upload for each check
-      const {
-        key, browsers, relativePlaywrightConfigPath, cacheHash,
-      } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
-      const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
-        ...playwrightCheckProps,
-        codeBundlePath: key,
-        browsers,
-        playwrightConfigPath: relativePlaywrightConfigPath,
-        cacheHash,
-      })
+    try {
+      setCheckFilePaths(playwrightConfigPath, directory)
+      for (const playwrightCheckProps of playwrightChecks) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
+          ...playwrightCheckProps,
+          playwrightConfigPath,
+          include,
+        })
+      }
+    } finally {
+      resetCheckFilePaths()
     }
   } else {
-    const {
-      key, browsers, relativePlaywrightConfigPath, cacheHash,
-    } = await PlaywrightCheck.bundleProject(playwrightConfigPath, include ?? [])
-    const playwrightCheck = new PlaywrightCheck(path.basename(playwrightConfigPath), {
-      name: path.basename(playwrightConfigPath),
-      logicalId: path.basename(playwrightConfigPath),
-      codeBundlePath: key,
-      browsers,
-      playwrightConfigPath: relativePlaywrightConfigPath,
-      cacheHash,
-    })
+    try {
+      setCheckFilePaths(playwrightConfigPath, directory)
+      const basePath = path.basename(playwrightConfigPath)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const playwrightCheck = new PlaywrightCheck(basePath, {
+        name: basePath,
+        playwrightConfigPath,
+        include,
+      })
+    } finally {
+      resetCheckFilePaths()
+    }
   }
 }
 
@@ -134,13 +161,35 @@ async function loadAllCheckFiles (
 ): Promise<void> {
   const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
   for (const checkFile of checkFiles) {
-    // setting the checkFilePath is used for filtering by file name on the command line
-    Session.checkFileAbsolutePath = checkFile
-    Session.checkFilePath = pathToPosix(path.relative(directory, checkFile))
-    await Session.loadFile(checkFile)
-    Session.checkFilePath = undefined
-    Session.checkFileAbsolutePath = undefined
+    try {
+      setCheckFilePaths(checkFile, directory)
+      await Session.loadFile(checkFile)
+    } finally {
+      resetCheckFilePaths()
+    }
   }
+}
+
+function getExistingEntrypoints (project: Project): Set<string> {
+  const files = new Set<string>()
+
+  Object.values(project.data.check).forEach((check) => {
+    if (check instanceof BrowserCheck && isEntrypoint(check.code)) {
+      const absoluteEntrypoint = check.resolveContentFilePath(check.code.entrypoint)
+      const relativeEntrypoint = Session.relativePosixPath(absoluteEntrypoint)
+      files.add(relativeEntrypoint)
+      return
+    }
+
+    if (check instanceof MultiStepCheck && isEntrypoint(check.code)) {
+      const absoluteEntrypoint = check.resolveContentFilePath(check.code.entrypoint)
+      const relativeEntrypoint = Session.relativePosixPath(absoluteEntrypoint)
+      files.add(relativeEntrypoint)
+      return
+    }
+  })
+
+  return files
 }
 
 async function loadAllBrowserChecks (
@@ -153,25 +202,27 @@ async function loadAllBrowserChecks (
     return
   }
   const checkFiles = await findFilesWithPattern(directory, browserCheckFilePattern, ignorePattern)
-  const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.check).forEach((check) => {
-    if ((check instanceof BrowserCheck || check instanceof MultiStepCheck) && check.scriptPath) {
-      preexistingCheckFiles.add(check.scriptPath)
-    }
-  })
+  const preexistingCheckFiles = getExistingEntrypoints(project)
 
   for (const checkFile of checkFiles) {
-    const relPath = pathToPosix(path.relative(directory, checkFile))
-    // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
-    if (preexistingCheckFiles.has(relPath)) {
-      continue
+    try {
+      const relPath = setCheckFilePaths(checkFile, directory)
+      // Don't create an additional check if the checkFile was already added
+      // to a check in loadAllCheckFiles.
+      if (preexistingCheckFiles.has(relPath)) {
+        continue
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const browserCheck = new BrowserCheck(pathToPosix(relPath), {
+        name: path.basename(checkFile),
+        code: {
+          entrypoint: checkFile,
+        },
+      })
+    } finally {
+      resetCheckFilePaths()
     }
-    const browserCheck = new BrowserCheck(pathToPosix(relPath), {
-      name: path.basename(checkFile),
-      code: {
-        entrypoint: checkFile,
-      },
-    })
   }
 }
 
@@ -185,25 +236,27 @@ async function loadAllMultiStepChecks (
     return
   }
   const checkFiles = await findFilesWithPattern(directory, multiStepCheckFilePattern, ignorePattern)
-  const preexistingCheckFiles = new Set<string>()
-  Object.values(project.data.check).forEach((check) => {
-    if ((check instanceof MultiStepCheck || check instanceof BrowserCheck) && check.scriptPath) {
-      preexistingCheckFiles.add(check.scriptPath)
-    }
-  })
+  const preexistingCheckFiles = getExistingEntrypoints(project)
 
   for (const checkFile of checkFiles) {
-    const relPath = pathToPosix(path.relative(directory, checkFile))
-    // Don't create an additional check if the checkFile was already added to a check in loadAllCheckFiles.
-    if (preexistingCheckFiles.has(relPath)) {
-      continue
+    try {
+      const relPath = setCheckFilePaths(checkFile, directory)
+      // Don't create an additional check if the checkFile was already added
+      // to a check in loadAllCheckFiles.
+      if (preexistingCheckFiles.has(relPath)) {
+        continue
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const multistepCheck = new MultiStepCheck(pathToPosix(relPath), {
+        name: path.basename(checkFile),
+        code: {
+          entrypoint: checkFile,
+        },
+      })
+    } finally {
+      resetCheckFilePaths()
     }
-    const multistepCheck = new MultiStepCheck(pathToPosix(relPath), {
-      name: path.basename(checkFile),
-      code: {
-        entrypoint: checkFile,
-      },
-    })
   }
 }
 

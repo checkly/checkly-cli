@@ -1,15 +1,16 @@
-import * as path from 'path'
-import * as fs from 'fs'
-import url from 'url'
-import * as fsAsync from 'fs/promises'
+import fs from 'node:fs/promises'
+import path, { resolve } from 'node:path'
+import url from 'node:url'
+
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
 import { minimatch } from 'minimatch'
+// Only import types given this is an optional dependency
+import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
+
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies } from './package-files/resolver'
-// Only import types given this is an optional dependency
-import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
 
@@ -44,15 +45,15 @@ const supportedBuiltinModules = [
   'node:zlib',
 ]
 
-function validateEntrypoint (entrypoint: string): {extension: SupportedFileExtension, content: string} {
+async function validateEntrypoint (entrypoint: string): Promise<{extension: SupportedFileExtension, content: string}> {
   const extension = path.extname(entrypoint)
   if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
     throw new Error(`Unsupported file extension for ${entrypoint}`)
   }
   try {
-    const content = fs.readFileSync(entrypoint, { encoding: 'utf-8' })
+    const content = await fs.readFile(entrypoint, { encoding: 'utf-8' })
     return { extension, content }
-  } catch (err) {
+  } catch {
     throw new DependencyParseError(entrypoint, [entrypoint], [], [])
   }
 }
@@ -120,15 +121,15 @@ export class Parser {
     return false
   }
 
-  private async validateFileAsync (filePath: string): Promise<{ filePath: string, content: string }> {
+  private async validateFile (filePath: string): Promise<{ filePath: string, content: string }> {
     const extension = path.extname(filePath)
     if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
     try {
-      const content = await fsAsync.readFile(filePath, { encoding: 'utf-8' })
+      const content = await fs.readFile(filePath, { encoding: 'utf-8' })
       return { filePath, content }
-    } catch (err) {
+    } catch {
       throw new DependencyParseError(filePath, [filePath], [], [])
     }
   }
@@ -149,7 +150,7 @@ export class Parser {
         resultFileSet.add(file)
         continue
       }
-      const item = await this.validateFileAsync(file)
+      const item = await this.validateFile(file)
 
       const cache = this.cache.get(item.filePath)
       const { module, error } = cache !== undefined
@@ -162,7 +163,7 @@ export class Parser {
         continue
       }
       const resolvedDependencies = cache?.resolvedDependencies ??
-          this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+        await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       for (const dep of resolvedDependencies.missing) {
         missingFiles.add(pathToPosix(dep.filePath))
@@ -196,7 +197,7 @@ export class Parser {
 
   private async getFilesFromPaths (playwrightConfig: (PlaywrightConfig)): Promise<string[]> {
     const ignoredFiles = ['**/node_modules/**', '.git/**']
-    const cachedFiles = new Map<string, string[]>
+    const cachedFiles = new Map<string, string[]>()
     // If projects is definited, ignore root settings
     const projects = playwrightConfig.projects ?? [playwrightConfig]
     for (const project of projects) {
@@ -255,8 +256,8 @@ export class Parser {
     }
   }
 
-  parse (entrypoint: string) {
-    const { content } = validateEntrypoint(entrypoint)
+  async parse (entrypoint: string) {
+    const { content } = await validateEntrypoint(entrypoint)
 
     /*
   * The importing of files forms a directed graph.
@@ -292,7 +293,7 @@ export class Parser {
       }
 
       const resolvedDependencies = cache?.resolvedDependencies ??
-        this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+        await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       this.cache.set(item.filePath, { module, resolvedDependencies })
 

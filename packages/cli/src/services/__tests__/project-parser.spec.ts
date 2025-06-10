@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest'
 
 import { privateLocations } from '../../rest/api'
 import { parseProject } from '../project-parser'
+import { Diagnostics } from '../../constructs'
 
 const runtimes = {
   2023.02: { name: '2023.02', default: false, stage: 'CURRENT', description: 'Main updates are Playwright 1.28.0, Node.js 16.x and Typescript support. We are also dropping support for Puppeteer', dependencies: { '@playwright/test': '1.28.0', '@opentelemetry/api': '1.0.4', '@opentelemetry/sdk-trace-base': '1.0.1', '@faker-js/faker': '5.5.3', aws4: '1.11.0', axios: '0.27.2', btoa: '1.2.1', chai: '4.3.7', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', expect: '29.3.1', 'form-data': '4.0.0', jsonwebtoken: '8.5.1', lodash: '4.17.21', mocha: '10.1.0', moment: '2.29.2', node: '16.x', otpauth: '9.0.2', playwright: '1.28.0', typescript: '4.8.4', uuid: '9.0.0' } },
@@ -38,7 +39,8 @@ describe('parseProject()', () => {
       availableRuntimes: runtimes,
       defaultRuntimeId: '2024.02',
     })
-    const synthesizedProject = project.synthesize()
+    const bundle = await project.bundle()
+    const synthesizedProject = bundle.synthesize()
     expect(synthesizedProject).toMatchObject({
       project: {
         logicalId: 'project-id',
@@ -73,7 +75,8 @@ describe('parseProject()', () => {
       availableRuntimes: runtimes,
       defaultRuntimeId: '2024.02',
     })
-    const synthesizedProject = project.synthesize()
+    const bundle = await project.bundle()
+    const synthesizedProject = bundle.synthesize()
     expect(synthesizedProject).toMatchObject({
       project: {
         logicalId: 'project-id',
@@ -82,12 +85,12 @@ describe('parseProject()', () => {
       },
       resources: [
         {
-          type: 'check',
-          logicalId: 'browser-check-1',
-        },
-        {
           type: 'check-group',
           logicalId: 'group-1',
+        },
+        {
+          type: 'check',
+          logicalId: 'browser-check-1',
         },
         {
           type: 'private-location',
@@ -153,7 +156,8 @@ describe('parseProject()', () => {
       browserCheckMatch: ['**/__checks1__/*.spec.js', '**/__checks2__/*.spec.js', '**/__nested-checks__/*.spec.js'],
       defaultRuntimeId: '2024.02',
     })
-    expect(project.synthesize()).toMatchObject({
+    const bundle = await project.bundle()
+    expect(bundle.synthesize()).toMatchObject({
       project: {
         logicalId: 'glob-project-id',
       },
@@ -168,43 +172,38 @@ describe('parseProject()', () => {
     })
   })
 
-  it('should throw error for empty browser-check script', async () => {
-    try {
-      const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
-      await parseProject({
-        directory: projectPath,
-        projectLogicalId: 'empty-script-project-id',
-        projectName: 'empty script project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-        availableRuntimes: runtimes,
-        checkMatch: '**/*.foobar.js', // don't match .check.js files used for a different test
-        browserCheckMatch: '**/*.spec.js',
-        defaultRuntimeId: '2024.02',
-      })
-      // shouldn't reach this point
-      expect(true).toBe(false)
-    } catch (e: any) {
-      expect(e.message).toBe('Browser check "src/empty-script.spec.js" is not allowed to be empty')
-    }
+  it('should report error diagnostics for empty browser-check script on validation', async () => {
+    const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
+    const project = await parseProject({
+      directory: projectPath,
+      projectLogicalId: 'empty-script-project-id',
+      projectName: 'empty script project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+      availableRuntimes: runtimes,
+      checkMatch: '**/*.foobar.js', // don't match .check.js files used for a different test
+      browserCheckMatch: '**/*.spec.js',
+      defaultRuntimeId: '2024.02',
+    })
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
   })
 
-  it('should throw error for empty environment variable', async () => {
-    try {
-      const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
-      await parseProject({
-        directory: projectPath,
-        projectLogicalId: 'empty-script-project-id',
-        projectName: 'empty script project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-        availableRuntimes: runtimes,
-        defaultRuntimeId: '2024.02',
-        browserCheckMatch: '**/*.foobar.js', // don't match .spec.js files used for a different test
-      })
-      // shouldn't reach this point
-      expect(true).toBe(false)
-    } catch (e: any) {
-      expect(e.message).toContain('Environment variable "EMPTY_FOO" from check group "check-group-1" is not allowed to be empty')
-    }
+  it('should report error diagnostics for empty environment variable on validate', async () => {
+    const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
+    const project = await parseProject({
+      directory: projectPath,
+      projectLogicalId: 'empty-script-project-id',
+      projectName: 'empty script project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+      availableRuntimes: runtimes,
+      defaultRuntimeId: '2024.02',
+      browserCheckMatch: '**/*.foobar.js', // don't match .spec.js files used for a different test
+    })
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+    // shouldn't reach this point
+    expect(diagnostics.isFatal()).toBe(true)
   })
 
   it('should parse a project with multistep & browser glob patterns', async () => {
@@ -222,7 +221,8 @@ describe('parseProject()', () => {
         runtimeId: '2023.09',
       },
     })
-    const synthesizedProject = project.synthesize()
+    const bundle = await project.bundle()
+    const synthesizedProject = bundle.synthesize()
     expect(synthesizedProject.project.logicalId).toEqual('glob-project-id')
     expect(synthesizedProject.resources).toHaveLength(2)
     const checkLogicalIds = ['__checks__/browser/check2.spec.js', '__checks__/multistep/check1.spec.js']

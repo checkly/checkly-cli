@@ -18,6 +18,8 @@ import { type RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { MultiStepCheck } from './multi-step-check'
 import CheckTypes from '../constants'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -209,13 +211,6 @@ export class CheckGroup extends Construct {
     this.alertSettings = props.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
     this.environmentVariables = props.environmentVariables ?? []
-    this.environmentVariables.forEach(ev => {
-      // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
-      if (ev.value === '') {
-        throw new Error(`Environment variable "${ev.key}" from check group "${logicalId}" is not allowed to be empty`)
-      }
-    })
-
     this.alertChannels = props.alertChannels ?? []
     this.localSetupScript = props.localSetupScript
     this.localTearDownScript = props.localTearDownScript
@@ -234,6 +229,20 @@ export class CheckGroup extends Construct {
     Session.registerConstruct(this)
     this.__addSubscriptions()
     this.__addPrivateLocationGroupAssignments()
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (this.environmentVariables) {
+      this.environmentVariables.forEach(ev => {
+        // only empty string is checked because the KeyValuePair.value doesn't allow undefined or null.
+        if (ev.value === '') {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'environmentVariables',
+            new Error(`Value must not be empty.`),
+          ))
+        }
+      })
+    }
   }
 
   static fromId (id: number) {

@@ -11,12 +11,12 @@ const runtimes = {
 }
 
 describe('BrowserCheck', () => {
-  it('should correctly load file dependencies', () => {
+  it('should correctly load file dependencies', async () => {
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
     const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'browser-check', filename)
-    const bundle = BrowserCheck.bundle(getFilePath('entrypoint.js'), '2022.10')
-    delete Session.basePath
+    const bundle = await BrowserCheck.bundle(getFilePath('entrypoint.js'), '2022.10')
+    Session.basePath = undefined
 
     expect(bundle).toMatchObject({
       script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
@@ -34,52 +34,52 @@ describe('BrowserCheck', () => {
     })
   })
 
-  it('should fail to bundle if runtime is not specified and default runtime is not set', () => {
+  it('should fail to bundle if runtime is not specified and default runtime is not set', async () => {
     const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
-    const bundle = () => {
+    const bundle = async () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _bundle = BrowserCheck.bundle(getFilePath('entrypoint.js'), undefined)
+      const _bundle = await BrowserCheck.bundle(getFilePath('entrypoint.js'), undefined)
     }
 
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = undefined
-    expect(bundle).toThrowError('runtime is not set')
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    await expect(bundle()).rejects.toThrow('runtime is not set')
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
-  it('should successfully bundle if runtime is not specified but default runtime is set', () => {
+  it('should successfully bundle if runtime is not specified but default runtime is set', async () => {
     const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
-    const bundle = () => {
+    const bundle = async () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _bundle = BrowserCheck.bundle(getFilePath('entrypoint.js'), undefined)
+      const _bundle = await BrowserCheck.bundle(getFilePath('entrypoint.js'), undefined)
     }
 
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.10'
-    expect(bundle).not.toThrowError('is not supported')
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    await expect(bundle()).resolves.not.toThrow()
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
-  it('should fail to bundle if runtime is not supported even if default runtime is set', () => {
+  it('should fail to bundle if runtime is not supported even if default runtime is set', async () => {
     const getFilePath = (filename: string) => path.join(__dirname, 'fixtures', 'api-check', filename)
-    const bundle = () => {
+    const bundle = async () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _bundle = BrowserCheck.bundle(getFilePath('entrypoint.js'), '9999.99')
+      const _bundle = await BrowserCheck.bundle(getFilePath('entrypoint.js'), '9999.99')
     }
 
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
     Session.defaultRuntimeId = '2022.02'
-    expect(bundle).toThrowError('9999.99 is not supported')
-    delete Session.basePath
-    delete Session.defaultRuntimeId
+    await expect(bundle()).rejects.toThrow('9999.99 is not supported')
+    Session.basePath = undefined
+    Session.defaultRuntimeId = undefined
   })
 
-  it('should not synthesize runtime if not specified even if default runtime is set', () => {
+  it('should not synthesize runtime if not specified even if default runtime is set', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -90,12 +90,13 @@ describe('BrowserCheck', () => {
       name: 'Test Check',
       code: { content: 'console.log("test check")' },
     })
-    const payload = browserCheck.synthesize()
+    const bundle = await browserCheck.bundle()
+    const payload = bundle.synthesize()
     expect(payload.runtimeId).toBeUndefined()
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
-  it('should synthesize runtime if specified', () => {
+  it('should synthesize runtime if specified', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -107,9 +108,10 @@ describe('BrowserCheck', () => {
       runtimeId: '2022.02',
       code: { content: 'console.log("test check")' },
     })
-    const payload = browserCheck.synthesize()
+    const bundle = await browserCheck.bundle()
+    const payload = bundle.synthesize()
     expect(payload.runtimeId).toEqual('2022.02')
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should apply default check settings', () => {
@@ -122,7 +124,7 @@ describe('BrowserCheck', () => {
       name: 'Test Check',
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['default tags'] })
   })
 
@@ -137,7 +139,7 @@ describe('BrowserCheck', () => {
       tags: ['test check'],
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['test check'] })
   })
 
@@ -152,12 +154,12 @@ describe('BrowserCheck', () => {
       name: 'Test Check',
       code: { content: 'console.log("test check")' },
     })
-    delete Session.checkDefaults
-    delete Session.browserCheckDefaults
+    Session.checkDefaults = undefined
+    Session.browserCheckDefaults = undefined
     expect(browserCheck).toMatchObject({ tags: ['browser check default'] })
   })
 
-  it('should support setting groups with `groupId`', () => {
+  it('should support setting groups with `groupId`', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -168,10 +170,11 @@ describe('BrowserCheck', () => {
       code: { content: '' },
       groupId: group.ref(),
     })
-    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
+    const bundle = await check.bundle()
+    expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
-  it('should support setting groups with `group`', () => {
+  it('should support setting groups with `group`', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -182,6 +185,7 @@ describe('BrowserCheck', () => {
       code: { content: '' },
       group,
     })
-    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
+    const bundle = await check.bundle()
+    expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 })

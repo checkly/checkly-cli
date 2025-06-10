@@ -1,4 +1,4 @@
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 
 export class FileMeta {
@@ -33,16 +33,17 @@ export class SourceFile {
     this.contents = contents
   }
 
-  static loadFromFilePath (filePath: string): SourceFile | undefined {
+  static async loadFromFilePath (filePath: string): Promise<SourceFile | undefined> {
     try {
-      const contents = fs.readFileSync(filePath, {
+      const contents = await fs.readFile(filePath, {
         encoding: 'utf8',
       })
 
       const meta = FileMeta.fromFilePath(filePath)
 
       return new SourceFile(meta, contents)
-    } catch (err: any) {
+    } catch {
+      // Ignore.
     }
   }
 }

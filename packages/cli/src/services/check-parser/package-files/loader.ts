@@ -1,4 +1,4 @@
-export type LoadFile<T> = (filePath: string) => T | undefined
+export type LoadFile<T> = (filePath: string) => Promise<T | undefined>
 
 export class FileLoader<T> {
   loader: LoadFile<T>
@@ -8,11 +8,11 @@ export class FileLoader<T> {
     this.loader = loader
   }
 
-  load (filePath: string): T | undefined {
+  async load (filePath: string): Promise<T | undefined> {
     if (this.cache.has(filePath)) {
       return this.cache.get(filePath)
     }
-    const file = this.loader(filePath)
+    const file = await this.loader(filePath)
     this.cache.set(filePath, file)
     return file
   }

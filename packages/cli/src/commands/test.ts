@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, HeartbeatCheck, MultiStepCheck, PlaywrightCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
+import { BrowserCheck, Check, Diagnostics, HeartbeatCheck, MultiStepCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -24,6 +24,8 @@ import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 import { uploadSnapshots } from '../services/snapshot-service'
+import { isEntrypoint } from '../constructs/construct'
+import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
 
 const DEFAULT_REGION = 'eu-central-1'
 const MAX_RETRIES = 3
@@ -124,9 +126,7 @@ export default class Test extends AuthCommand {
   static strict = false
 
   async run (): Promise<void> {
-    if (this.fancy) {
-      ux.action.start('Parsing your project', undefined, { stdout: true })
-    }
+    this.style.actionStart('Parsing your project')
 
     const { flags, argv } = await this.parse(Test)
     const {
@@ -169,6 +169,7 @@ export default class Test extends AuthCommand {
       projectLogicalId: checklyConfig.logicalId,
       projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
+      includeTestOnlyChecks: true,
       checkMatch: checklyConfig.checks?.checkMatch,
       browserCheckMatch: checklyConfig.checks?.browserChecks?.testMatch,
       multiStepCheckMatch: checklyConfig.checks?.multiStepChecks?.testMatch,
@@ -185,33 +186,45 @@ export default class Test extends AuthCommand {
       playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
       include: checklyConfig.checks?.include,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
-    })
-    const checks = Object.entries(project.data.check)
-      .filter(([, check]) => {
-        return !(check instanceof HeartbeatCheck)
-      })
-      .filter(([, check]) => {
-        if (check instanceof BrowserCheck || check instanceof MultiStepCheck) {
-          return filterByFileNamePattern(filePatterns, check.scriptPath) ||
-            filterByFileNamePattern(filePatterns, check.__checkFilePath)
-        } else {
-          return filterByFileNamePattern(filePatterns, check.__checkFilePath)
+      checkFilter: check => {
+        if (check instanceof HeartbeatCheck) {
+          return false
         }
-      })
-      .filter(([, check]) => {
-        return filterByCheckNamePattern(grep, check.name)
-      })
-      .filter(([, check]) => {
+
+        let entrypointMatch = false
+        if (check instanceof BrowserCheck || check instanceof MultiStepCheck) {
+          // For historical reasons the path used for filtering has always
+          // been relative to the project base path.
+          const relativeEntrypoint = isEntrypoint(check.code)
+            ? Session.relativePosixPath(check.code.entrypoint)
+            : undefined
+
+          if (relativeEntrypoint) {
+            if (filterByFileNamePattern(filePatterns, relativeEntrypoint)) {
+              entrypointMatch = true
+            }
+          }
+        }
+
+        if (!entrypointMatch && !filterByFileNamePattern(filePatterns, check.getSourceFile())) {
+          return false
+        }
+
+        if (!filterByCheckNamePattern(grep, check.name)) {
+          return false
+        }
+
         const tags = [...check.tags ?? []]
         const checkGroup = this.getCheckGroup(project, check)
         if (checkGroup) {
           const checkGroupTags = checkGroup.tags ?? []
           tags.push(...checkGroupTags)
         }
-        return filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)
-      })
-      .map(([key, check]) => {
-        check.logicalId = key
+        if (!filterByTags(targetTags?.map((tags: string) => tags.split(',')) ?? [], tags)) {
+          return false
+        }
+
+        // FIXME: This should not be done here (not related to filtering).
         if (Object.keys(testEnvVars).length) {
           check.environmentVariables = check.environmentVariables
             ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
@@ -223,40 +236,68 @@ export default class Test extends AuthCommand {
             })
           }
         }
-        return check
-      })
 
-    for (const check of checks) {
-      if (!(check instanceof BrowserCheck)) {
+        return true
+      }
+    })
+
+    this.style.actionSuccess()
+
+    this.style.actionStart('Validating project resources')
+
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+
+    for (const diag of diagnostics.observations) {
+      if (diag.isFatal()) {
+        this.style.longError(diag.title, diag.message)
+      } else if (!diag.isBenign()) {
+        this.style.longWarning(diag.title, diag.message)
+      } else {
+        this.style.longInfo(diag.title, diag.message)
+      }
+    }
+
+    if (diagnostics.isFatal()) {
+      this.style.actionFailure()
+      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
+      this.exit(1)
+    }
+
+    this.style.actionSuccess()
+
+    this.style.actionStart('Bundling project resources')
+    const projectBundle = await (async () => {
+      try {
+        const bundle = await project.bundle()
+        this.style.actionSuccess()
+        return bundle
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    })()
+
+    const checkBundles = Object.values(projectBundle.data.check)
+
+    for (const { bundle: check } of checkBundles) {
+      if (!(check instanceof BrowserCheckBundle)) {
         continue
       }
       check.snapshots = await uploadSnapshots(check.rawSnapshots)
-    }
-
-    for (const check of checks) {
-      // TODO: Improve bundling and uploading
-      if (!(check instanceof PlaywrightCheck) || check.codeBundlePath) {
-        continue
-      }
-      const {
-        relativePlaywrightConfigPath, browsers, key,
-      } = await PlaywrightCheck.bundleProject(check.playwrightConfigPath, check.include)
-      check.codeBundlePath = key
-      check.browsers = browsers
-      check.playwrightConfigPath = relativePlaywrightConfigPath
     }
 
     if (this.fancy) {
       ux.action.stop()
     }
 
-    if (!checks.length) {
+    if (!checkBundles.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
       return
     }
 
     if (list) {
-      this.listChecks(checks)
+      this.listChecks(checkBundles.map(({ construct }) => construct))
       return
     }
 
@@ -267,8 +308,8 @@ export default class Test extends AuthCommand {
 
     const runner = new TestRunner(
       config.getAccountId(),
-      project,
-      checks,
+      projectBundle,
+      checkBundles,
       location,
       timeout,
       verbose,

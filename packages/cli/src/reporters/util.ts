@@ -468,7 +468,3 @@ export function getTestSessionUrl (testSessionId: string): string {
 export function getTraceUrl (traceUrl: string): string {
   return `https://trace.playwright.dev/?trace=${encodeURIComponent(traceUrl)}`
 }
-
-export function printDeprecationWarning (text: string): void {
-  process.stdout.write(chalk.yellow(`\n${logSymbols.warning} Deprecation warning: ${text} \n`))
-}

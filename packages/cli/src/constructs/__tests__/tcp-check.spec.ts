@@ -13,7 +13,7 @@ const request: TcpRequest = {
 }
 
 describe('TcpCheck', () => {
-  it('should not synthesize runtime if not specified even if default runtime is set', () => {
+  it('should not synthesize runtime if not specified even if default runtime is set', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -24,12 +24,13 @@ describe('TcpCheck', () => {
       name: 'Test Check',
       request,
     })
-    const payload = check.synthesize()
+    const bundle = await check.bundle()
+    const payload = bundle.synthesize()
     expect(payload.runtimeId).toBeUndefined()
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
-  it('should synthesize runtime if specified', () => {
+  it('should synthesize runtime if specified', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -41,9 +42,10 @@ describe('TcpCheck', () => {
       runtimeId: '2022.02',
       request,
     })
-    const payload = check.synthesize()
+    const bundle = await check.bundle()
+    const payload = bundle.synthesize()
     expect(payload.runtimeId).toEqual('2022.02')
-    delete Session.defaultRuntimeId
+    Session.defaultRuntimeId = undefined
   })
 
   it('should apply default check settings', () => {
@@ -56,7 +58,7 @@ describe('TcpCheck', () => {
       name: 'Test Check',
       request,
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['default tags'] })
   })
 
@@ -71,11 +73,11 @@ describe('TcpCheck', () => {
       tags: ['test check'],
       request,
     })
-    delete Session.checkDefaults
+    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['test check'] })
   })
 
-  it('should support setting groups with `groupId`', () => {
+  it('should support setting groups with `groupId`', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -86,10 +88,11 @@ describe('TcpCheck', () => {
       request,
       groupId: group.ref(),
     })
-    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
+    const bundle = await check.bundle()
+    expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
-  it('should support setting groups with `group`', () => {
+  it('should support setting groups with `group`', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -100,6 +103,7 @@ describe('TcpCheck', () => {
       request,
       group,
     })
-    expect(check.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
+    const bundle = await check.bundle()
+    expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 })

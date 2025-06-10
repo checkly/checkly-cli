@@ -21,7 +21,8 @@ export class JsonSourceFile<Schema> {
       const data: Schema = JSON.parse(sourceFile.contents)
 
       return new JsonSourceFile(sourceFile, data)
-    } catch (err: any) {
+    } catch {
+      // Ignore.
     }
   }
 }

@@ -1,7 +1,10 @@
-import * as fs from 'fs'
-import { Construct, Content, Entrypoint } from './construct'
+import fs from 'node:fs/promises'
+
+import { Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Session } from './project'
-import * as path from 'path'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { DashboardBundle } from './dashboard-bundle'
 
 export interface DashboardProps {
   /**
@@ -107,28 +110,28 @@ export interface DashboardProps {
  * This class make use of the Dashboard endpoints.
  */
 export class Dashboard extends Construct {
-  tags?: Array<string>
-  customUrl?: string
-  customDomain?: string
-  logo?: string
-  favicon?: string
-  link?: string
-  header?: string
-  description?: string
-  width?: 'FULL'|'960PX'
-  refreshRate?: 60|300|600
-  paginate?: boolean
-  paginationRate?: 30|60|300
-  checksPerPage?: number
-  useTagsAndOperator?: boolean
-  hideTags?: boolean
-  enableIncidents?: boolean
-  expandChecks?: boolean
-  showHeader?: boolean
-  customCSS?: string
-  isPrivate?: boolean
-  showP95?: boolean
-  showP99?: boolean
+  readonly tags?: Array<string>
+  readonly customUrl?: string
+  readonly customDomain?: string
+  readonly logo?: string
+  readonly favicon?: string
+  readonly link?: string
+  readonly header?: string
+  readonly description?: string
+  readonly width?: 'FULL'|'960PX'
+  readonly refreshRate?: 60|300|600
+  readonly paginate?: boolean
+  readonly paginationRate?: 30|60|300
+  readonly checksPerPage?: number
+  readonly useTagsAndOperator?: boolean
+  readonly hideTags?: boolean
+  readonly enableIncidents?: boolean
+  readonly expandChecks?: boolean
+  readonly showHeader?: boolean
+  readonly customCSS?: Content | Entrypoint
+  readonly isPrivate?: boolean
+  readonly showP95?: boolean
+  readonly showP99?: boolean
 
   static readonly __checklyType = 'dashboard'
 
@@ -164,33 +167,63 @@ export class Dashboard extends Construct {
     this.showP95 = props.showP95
     this.showP99 = props.showP99
 
-    if (!props.customUrl && !props.customDomain) {
-      throw new Error('Either a "customUrl" or "customDomain" must be specified.')
+    Session.registerConstruct(this)
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    if (!this.customUrl && !this.customDomain) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'customUrl',
+        new Error(`Required unless "customDomain" is set.`),
+      ))
+
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'customDomain',
+        new Error(`Required unless "customUrl" is set.`),
+      ))
     }
 
-    if (props.customCSS) {
-      if ('entrypoint' in props.customCSS) {
-        const entrypoint = props.customCSS.entrypoint
-        let absoluteEntrypoint = null
-        if (path.isAbsolute(entrypoint)) {
-          absoluteEntrypoint = entrypoint
-        } else {
-          if (!Session.checkFileAbsolutePath) {
-            throw new Error('You cannot use relative paths without the checkFileAbsolutePath in session')
-          }
-          absoluteEntrypoint = path.join(path.dirname(Session.checkFileAbsolutePath), entrypoint)
+    if (this.customCSS) {
+      if (!isEntrypoint(this.customCSS) && !isContent(this.customCSS)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'customCSS',
+          new Error(`Either "entrypoint" or "content" is required.`),
+        ))
+      } else if (isEntrypoint(this.customCSS) && isContent(this.customCSS)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'customCSS',
+          new Error(`Provide exactly one of "entrypoint" or "content", but not both.`),
+        ))
+      } else if (isEntrypoint(this.customCSS)) {
+        const entrypoint = this.resolveContentFilePath(this.customCSS.entrypoint)
+        try {
+          await fs.access(entrypoint, fs.constants.R_OK)
+        } catch (err: any) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'customCSS',
+            new Error(`Unable to access file "${entrypoint}": ${err.message}`, { cause: err }),
+          ))
         }
-
-        if (!fs.existsSync(absoluteEntrypoint)) {
-          throw new Error(`Unrecognized CSS code or file not found for 'customCSS' property in dashboard '${logicalId}'.`)
-        }
-        this.customCSS = String(fs.readFileSync(absoluteEntrypoint))
-      } else if ('content' in props.customCSS) {
-        this.customCSS = props.customCSS.content
       }
     }
+  }
 
-    Session.registerConstruct(this)
+  async bundle (): Promise<DashboardBundle> {
+    const customCSS = await (async () => {
+      if (this.customCSS) {
+        if (isEntrypoint(this.customCSS)) {
+          const entrypoint = this.resolveContentFilePath(this.customCSS.entrypoint)
+          const content = await fs.readFile(entrypoint)
+          return content.toString('utf8')
+        }
+
+        return this.customCSS.content
+      }
+    })()
+
+    return new DashboardBundle(this, {
+      customCSS,
+    })
   }
 
   synthesize (): any|null {
@@ -213,7 +246,6 @@ export class Dashboard extends Construct {
       enableIncidents: this.enableIncidents,
       expandChecks: this.expandChecks,
       showHeader: this.showHeader,
-      customCSS: this.customCSS,
       isPrivate: this.isPrivate,
       showP95: this.showP95,
       showP99: this.showP99,

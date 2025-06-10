@@ -11,20 +11,20 @@ const defaultNpmModules = [
 ]
 
 describe('dependency-parser - parser()', () => {
-  it('should handle JS file with no dependencies', () => {
+  it('should handle JS file with no dependencies', async () => {
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(path.join(__dirname, 'check-parser-fixtures', 'no-dependencies.js'))
+    const { dependencies } = await parser.parse(path.join(__dirname, 'check-parser-fixtures', 'no-dependencies.js'))
     expect(dependencies.map(d => d.filePath)).toHaveLength(0)
   })
 
-  it('should handle JS file with dependencies', () => {
+  it('should handle JS file with dependencies', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'simple-example', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -35,69 +35,73 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should report a missing entrypoint file', () => {
+  it('should report a missing entrypoint file', async () => {
     const missingEntrypoint = path.join(__dirname, 'check-parser-fixtures', 'does-not-exist.js')
+    expect.assertions(1)
     try {
       const parser = new Parser({
         supportedNpmModules: defaultNpmModules,
       })
-      parser.parse(missingEntrypoint)
+      await parser.parse(missingEntrypoint)
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [missingEntrypoint] })
     }
   })
 
-  it('should report missing check dependencies', () => {
+  it('should report missing check dependencies', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', ...filepath)
+    expect.assertions(1)
     try {
       const parser = new Parser({
         supportedNpmModules: defaultNpmModules,
       })
-      parser.parse(toAbsolutePath('missing-dependencies.js'))
+      await parser.parse(toAbsolutePath('missing-dependencies.js'))
     } catch (err) {
       expect(err).toMatchObject({ missingFiles: [toAbsolutePath('does-not-exist.js'), toAbsolutePath('does-not-exist2.js')] })
     }
   })
 
-  it('should report syntax errors', () => {
+  it('should report syntax errors', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'syntax-error.js')
+    expect.assertions(1)
     try {
       const parser = new Parser({
         supportedNpmModules: defaultNpmModules,
       })
-      parser.parse(entrypoint)
+      await parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ parseErrors: [{ file: entrypoint, error: 'Unexpected token (4:70)' }] })
     }
   })
 
-  it('should report unsupported dependencies', () => {
+  it('should report unsupported dependencies', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
+    expect.assertions(1)
     try {
       const parser = new Parser({
         supportedNpmModules: defaultNpmModules,
       })
-      parser.parse(entrypoint)
+      await parser.parse(entrypoint)
     } catch (err) {
       expect(err).toMatchObject({ unsupportedNpmDependencies: [{ file: entrypoint, unsupportedDependencies: ['left-pad', 'right-pad'] }] })
     }
   })
 
-  it('should allow unsupported dependencies if configured to do so', () => {
+  it('should allow unsupported dependencies if configured to do so', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'unsupported-dependencies.js')
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
       checkUnsupportedModules: false,
     })
-    parser.parse(entrypoint)
+    await parser.parse(entrypoint)
   })
 
-  it('should handle circular dependencies', () => {
+  it('should handle circular dependencies', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'circular-dependencies', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
 
     // Circular dependencies are allowed in Node.js
     // We just need to test that parsing the dependencies doesn't loop indefinitely
@@ -108,12 +112,12 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should parse typescript dependencies', () => {
+  it('should parse typescript dependencies', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'typescript-example', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.ts'),
       toAbsolutePath('dep2.ts'),
@@ -130,12 +134,12 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should parse typescript dependencies using tsconfig', () => {
+  it('should parse typescript dependencies using tsconfig', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-sample-project', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('lib1', 'file1.ts'),
       toAbsolutePath('lib1', 'file2.ts'),
@@ -150,21 +154,21 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should not include tsconfig if not needed', () => {
+  it('should not include tsconfig if not needed', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-unused', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([])
   })
 
-  it('should support importing ts extensions if allowed', () => {
+  it('should support importing ts extensions if allowed', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-allow-importing-ts-extensions', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('src', 'dep1.ts'),
       toAbsolutePath('src', 'dep2.ts'),
@@ -172,7 +176,7 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should not import TS files from a JS file', () => {
+  it('should not import TS files from a JS file', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'no-import-ts-from-js', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
@@ -180,7 +184,7 @@ describe('dependency-parser - parser()', () => {
     expect.assertions(1)
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
     } catch (err) {
       expect(err).toMatchObject({
         missingFiles: [
@@ -192,12 +196,12 @@ describe('dependency-parser - parser()', () => {
     }
   })
 
-  it('should import JS files from a TS file', () => {
+  it('should import JS files from a TS file', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'import-js-from-ts', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.ts'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -205,12 +209,12 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should handle ES Modules', () => {
+  it('should handle ES Modules', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'esmodules-example', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.js'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.js'),
@@ -220,12 +224,12 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should handle Common JS and ES Modules', () => {
+  it('should handle Common JS and ES Modules', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'common-esm-example', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    const { dependencies } = parser.parse(toAbsolutePath('entrypoint.mjs'))
+    const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.mjs'))
     expect(dependencies.map(d => d.filePath).sort()).toEqual([
       toAbsolutePath('dep1.js'),
       toAbsolutePath('dep2.mjs'),
@@ -236,12 +240,12 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should handle node: prefix for built-ins', () => {
+  it('should handle node: prefix for built-ins', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'builtin-with-node-prefix', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    parser.parse(toAbsolutePath('entrypoint.ts'))
+    await parser.parse(toAbsolutePath('entrypoint.ts'))
   })
 
   /*
@@ -249,29 +253,29 @@ describe('dependency-parser - parser()', () => {
    * Even though the check might execute fine, we throw an error for a missing dependency.
    * We could address this by keeping track of assignments as we walk the AST.
    */
-  it.skip('should ignore cases where require is reassigned', () => {
+  it.skip('should ignore cases where require is reassigned', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'reassign-require.js')
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    parser.parse(entrypoint)
+    await parser.parse(entrypoint)
   })
 
   // Checks run on Checkly are wrapped to support top level await.
   // For consistency with checks created via the UI, the CLI should support this as well.
-  it('should allow top-level await', () => {
+  it('should allow top-level await', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.js')
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    parser.parse(entrypoint)
+    await parser.parse(entrypoint)
   })
 
-  it('should allow top-level await in TypeScript', () => {
+  it('should allow top-level await in TypeScript', async () => {
     const entrypoint = path.join(__dirname, 'check-parser-fixtures', 'top-level-await.ts')
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
     })
-    parser.parse(entrypoint)
+    await parser.parse(entrypoint)
   })
 })
