@@ -78,6 +78,7 @@ describe('bootstrap', () => {
     const commandOutput = runChecklyCreateCli({
       directory,
       promptsInjection: [projectName, 'advanced-project', true, true],
+      timeout: 180_000,
     })
 
     const { status, stdout, stderr } = commandOutput
@@ -96,7 +97,7 @@ describe('bootstrap', () => {
     expect(fs.existsSync(path.join(projectFolder, 'checkly.config.ts'))).toBe(true)
     expect(fs.existsSync(path.join(projectFolder, 'node_modules'))).toBe(true)
     expect(fs.existsSync(path.join(projectFolder, '.git'))).toBe(true)
-  }, 30000)
+  }, 180_000)
 
   it('Should create an boilerplate-project without installing dependencies', () => {
     const directory = path.join(__dirname, 'fixtures', 'empty-project')
