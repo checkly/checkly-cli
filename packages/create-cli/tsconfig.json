@@ -8,7 +8,7 @@
     "outDir": "dist",
     "rootDirs": ["src", "e2e"],
     "strict": true,
-    "target": "ES2021",
+    "target": "es2022",
     "sourceMap": true
   },
   "include": [
