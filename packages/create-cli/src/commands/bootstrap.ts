@@ -2,7 +2,7 @@ import axios from 'axios'
 import chalk from 'chalk'
 import prompts from 'prompts'
 import { Command, Flags } from '@oclif/core'
-import { getUserGreeting, header, footer, hint } from '../utils/messages.js'
+import { getUserGreeting, header, footer, hint } from '../utils/messages'
 import { getPlaywrightConfig, hasPackageJsonFile } from '../utils/directory'
 import {
   copyPlaywrightConfig,
