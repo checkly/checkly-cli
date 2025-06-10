@@ -31,6 +31,7 @@ export async function runChecklyCreateCli (options: {
     cwd: directory ?? process.cwd(),
     encoding: 'utf-8',
     timeout,
+    reject: false,
     shell: process.platform === 'win32',
   })
 
