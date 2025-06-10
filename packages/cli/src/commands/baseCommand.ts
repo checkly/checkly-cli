@@ -15,7 +15,7 @@ export abstract class BaseCommand extends Command {
   fancy = true
   style = new CommandStyle(this)
 
-  checkEngineCompatibility (): void {
+  async checkEngineCompatibility (): Promise<void> {
     const nodeVersion = process.versions.node
     if (nodeVersion === undefined) {
       // Do nothing if Node version is not present. Note that Bun and Deno
@@ -24,7 +24,7 @@ export abstract class BaseCommand extends Command {
     }
 
     const resolver = new PackageFilesResolver()
-    const packageJson = resolver.loadPackageJsonFile(__filename)
+    const packageJson = await resolver.loadPackageJsonFile(__filename)
     if (packageJson === undefined) {
       // Do nothing if there's no package.json.
       return
@@ -54,7 +54,7 @@ export abstract class BaseCommand extends Command {
   }
 
   protected async init (): Promise<void> {
-    this.checkEngineCompatibility()
+    await this.checkEngineCompatibility()
 
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
 
