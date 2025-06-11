@@ -117,7 +117,7 @@ describe('deploy', () => {
       .filter(({ privateLocations }: { privateLocations: string[] }) =>
         privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(2)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
   })
@@ -149,7 +149,7 @@ describe('deploy', () => {
       .filter(({ privateLocations }: { privateLocations: string[] }) =>
         privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
     expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
-      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+      privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(2)
     expect(privateLocations
       .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
   })
@@ -245,7 +245,8 @@ Update and Unchanged:
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
     TcpCheck: tcp-check
-    CheckGroupV1: my-group-1
+    CheckGroupV2: my-group-1
+    CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
     PrivateLocation: private-location-1
@@ -262,7 +263,8 @@ Update and Unchanged:
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
     TcpCheck: tcp-check
-    CheckGroupV1: my-group-1
+    CheckGroupV2: my-group-1
+    CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
     PrivateLocation: private-location-1
