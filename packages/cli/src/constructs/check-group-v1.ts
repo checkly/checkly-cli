@@ -21,7 +21,6 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { BrowserCheck } from './browser-check'
-import { CheckGroupProps } from './check-group'
 import { CheckGroupRef } from './check-group-ref'
 import { Construct } from './construct'
 import { MultiStepCheck } from './multi-step-check'
@@ -313,7 +312,7 @@ export class CheckGroupV1 extends Construct {
    *
    * {@link https://checklyhq.com/docs/cli/constructs-reference/#checkgroup Read more in the docs}
    */
-  constructor (logicalId: string, props: CheckGroupProps) {
+  constructor (logicalId: string, props: CheckGroupV1Props) {
     super(CheckGroupV1.__checklyType, logicalId)
     this.name = props.name
     this.activated = props.activated
