@@ -245,7 +245,7 @@ Update and Unchanged:
     HeartbeatCheck: heartbeat-check-1
     BrowserCheck: homepage-browser-check
     TcpCheck: tcp-check
-    CheckGroup: my-group-1
+    CheckGroupV1: my-group-1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
     PrivateLocation: private-location-1
@@ -262,7 +262,7 @@ Update and Unchanged:
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
     TcpCheck: tcp-check
-    CheckGroup: my-group-1
+    CheckGroupV1: my-group-1
     Dashboard: dashboard-1
     MaintenanceWindow: maintenance-window-1
     PrivateLocation: private-location-1
