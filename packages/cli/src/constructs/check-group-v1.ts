@@ -378,7 +378,7 @@ export class CheckGroupV1 extends Construct {
           'doubleCheck',
           new Error(
             `To match the behavior of doubleCheck: true, please use the ` +
-            `following retryStategy instead:` +
+            `following retryStrategy instead:` +
             `\n\n` +
             `  RetryStrategyBuilder.fixedStrategy({\n` +
             `    maxRetries: 1,\n` +
@@ -393,7 +393,7 @@ export class CheckGroupV1 extends Construct {
           'doubleCheck',
           new Error(
             `To match the behavior of doubleCheck: false, please use the ` +
-            `following retryStategy instead:` +
+            `following retryStrategy instead:` +
             `\n\n` +
             `  RetryStrategyBuilder.noRetries()`,
           ),
