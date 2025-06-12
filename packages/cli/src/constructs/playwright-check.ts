@@ -73,6 +73,10 @@ export class PlaywrightCheck extends Check {
     }
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   #findGroupByName (groupName: string) {
     return Object.values(Session.project?.data?.['check-group'] ?? {})
       .find(group => group.name === groupName)
