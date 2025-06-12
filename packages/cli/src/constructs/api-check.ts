@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
-import { Session } from './project'
+import { Session, SharedFileRef } from './project'
 import { QueryParam } from './query-param'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
@@ -87,11 +87,6 @@ export interface Request {
   headers?: Array<HttpHeader>
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
-}
-
-export interface ScriptDependency {
-  path: string
-  content: string
 }
 
 export interface ApiCheckProps extends CheckProps {
@@ -283,12 +278,12 @@ export class ApiCheck extends Check {
     const parsed = await parser.parse(entrypoint)
     // Maybe we can get the parsed deps with the content immediately
 
-    const deps: ScriptDependency[] = []
+    const deps: SharedFileRef[] = []
     for (const { filePath, content } of parsed.dependencies) {
-      deps.push({
+      deps.push(Session.registerSharedFile({
         path: Session.relativePosixPath(filePath),
         content,
-      })
+      }))
     }
     return {
       script: parsed.entrypoint.content,

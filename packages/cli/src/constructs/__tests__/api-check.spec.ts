@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 
 import { ApiCheck, CheckGroup, Request } from '../index'
 import { Project, Session } from '../project'
@@ -16,6 +16,14 @@ const request: Request = {
 }
 
 describe('ApiCheck', () => {
+  beforeEach(() => {
+    Session.resetSharedFiles()
+  })
+
+  afterAll(() => {
+    Session.resetSharedFiles()
+  })
+
   it('should correctly load file script dependencies', async () => {
     Session.basePath = __dirname
     Session.availableRuntimes = runtimes
@@ -27,16 +35,21 @@ describe('ApiCheck', () => {
       script: fs.readFileSync(getFilePath('entrypoint.js')).toString(),
       scriptPath: 'fixtures/api-check/entrypoint.js',
       dependencies: [
-        {
-          path: 'fixtures/api-check/dep1.js',
-          content: fs.readFileSync(getFilePath('dep1.js')).toString(),
-        },
-        {
-          path: 'fixtures/api-check/dep2.js',
-          content: fs.readFileSync(getFilePath('dep2.js')).toString(),
-        },
+        0,
+        1,
       ],
     })
+
+    expect(Session.sharedFiles).toEqual([
+      {
+        path: 'fixtures/api-check/dep1.js',
+        content: fs.readFileSync(getFilePath('dep1.js')).toString(),
+      },
+      {
+        path: 'fixtures/api-check/dep2.js',
+        content: fs.readFileSync(getFilePath('dep2.js')).toString(),
+      },
+    ])
   })
 
   it('should fail to bundle if runtime is not specified and default runtime is not set', async () => {

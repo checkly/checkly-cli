@@ -1,11 +1,12 @@
 import { Snapshot } from '../services/snapshot-service'
-import { BrowserCheck, CheckDependency } from './browser-check'
+import { BrowserCheck } from './browser-check'
 import { Bundle } from './construct'
+import { SharedFileRef } from './project'
 
 export interface BrowserCheckBundleProps {
   script: string
   scriptPath?: string
-  dependencies?: CheckDependency[]
+  dependencies?: SharedFileRef[]
   rawSnapshots?: { absolutePath: string, path: string }[]
 }
 
@@ -13,7 +14,7 @@ export class BrowserCheckBundle implements Bundle {
   browserCheck: BrowserCheck
   script: string
   scriptPath?: string
-  dependencies?: CheckDependency[]
+  dependencies?: SharedFileRef[]
   // For snapshots, we first store `rawSnapshots` with the path to the file.
   // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
   rawSnapshots?: { absolutePath: string, path: string }[]

@@ -1,18 +1,18 @@
-import { CheckDependency } from './browser-check'
 import { Bundle } from './construct'
 import { MultiStepCheck } from './multi-step-check'
+import { SharedFileRef } from './project'
 
 export interface MultiStepCheckBundleProps {
   script: string
   scriptPath?: string
-  dependencies?: CheckDependency[]
+  dependencies?: SharedFileRef[]
 }
 
 export class MultiStepCheckBundle implements Bundle {
   multiStepCheck: MultiStepCheck
   script: string
   scriptPath?: string
-  dependencies?: CheckDependency[]
+  dependencies?: SharedFileRef[]
 
   constructor (multiStepCheck: MultiStepCheck, props: MultiStepCheckBundleProps) {
     this.multiStepCheck = multiStepCheck

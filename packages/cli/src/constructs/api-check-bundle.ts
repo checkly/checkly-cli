@@ -1,23 +1,24 @@
-import { ScriptDependency, ApiCheck } from './api-check'
+import { ApiCheck } from './api-check'
 import { Bundle } from './construct'
+import { SharedFileRef } from './project'
 
 export interface ApiCheckBundleProps {
   localSetupScript?: string
   setupScriptPath?: string
-  setupScriptDependencies?: ScriptDependency[]
+  setupScriptDependencies?: SharedFileRef[]
   localTearDownScript?: string
   tearDownScriptPath?: string
-  tearDownScriptDependencies?: ScriptDependency[]
+  tearDownScriptDependencies?: SharedFileRef[]
 }
 
 export class ApiCheckBundle implements Bundle {
   apiCheck: ApiCheck
   localSetupScript?: string
   setupScriptPath?: string
-  setupScriptDependencies?: ScriptDependency[]
+  setupScriptDependencies?: SharedFileRef[]
   localTearDownScript?: string
   tearDownScriptPath?: string
-  tearDownScriptDependencies?: ScriptDependency[]
+  tearDownScriptDependencies?: SharedFileRef[]
 
   constructor (apiCheck: ApiCheck, props: ApiCheckBundleProps) {
     this.apiCheck = apiCheck

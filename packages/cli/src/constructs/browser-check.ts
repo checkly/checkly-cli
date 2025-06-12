@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { Check, CheckProps } from './check'
-import { Session } from './project'
+import { Session, SharedFileRef } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
@@ -11,11 +11,6 @@ import { PlaywrightConfig } from './playwright-config'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
-
-export interface CheckDependency {
-  path: string
-  content: string
-}
 
 export interface BrowserCheckProps extends CheckProps {
   /**
@@ -129,12 +124,12 @@ export class BrowserCheck extends Check {
     const parsed = await parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 
-    const deps: CheckDependency[] = []
+    const deps: SharedFileRef[] = []
     for (const { filePath, content } of parsed.dependencies) {
-      deps.push({
+      deps.push(Session.registerSharedFile({
         path: pathToPosix(path.relative(Session.basePath!, filePath)),
         content,
-      })
+      }))
     }
     return {
       script: parsed.entrypoint.content,
