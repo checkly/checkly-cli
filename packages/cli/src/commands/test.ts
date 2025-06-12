@@ -477,7 +477,7 @@ export default class Test extends AuthCommand {
       : null
   }
 
-  private listChecks (checks: Array<Check>) {
+  protected listChecks (checks: Array<Check>) {
     // Sort and print the checks in a way that's consistent with AbstractListReporter
     const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()))].sort()
     const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
