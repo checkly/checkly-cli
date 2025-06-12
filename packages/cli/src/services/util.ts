@@ -11,7 +11,7 @@ import archiver from 'archiver'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
-import { ChecklyConfig } from './checkly-config-loader'
+import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
@@ -322,13 +322,12 @@ export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig
   await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
 }
 
-export function getPwtChecks(pwProjects: string[] | undefined, pwTags: string[]| undefined, playwrightConfigPath: string | undefined): PlaywrightCheck[] {
+export function getPwtChecks(pwProjects: string[] | undefined, pwTags: string[]| undefined, playwrightConfigPath: string | undefined): PlaywrightSlimmedProp[] {
   if (!playwrightConfigPath) {
     return []
   }
-  let checks: PlaywrightCheck[] = []
+  let checks: PlaywrightSlimmedProp[] = []
   // We are creating new checks on the fly, so we need to set the loading state.
-  Session.loadingChecklyConfigFile = true
   if (!pwProjects && pwTags) {
     checks = pwTags.map(tags => createPlaywrightChecks(undefined, tags, playwrightConfigPath))
   } else if (pwProjects && !pwTags) {
@@ -344,11 +343,10 @@ export function getPwtChecks(pwProjects: string[] | undefined, pwTags: string[]|
   } else {
     checks = []
   }
-  Session.loadingChecklyConfigFile = false
   return checks
 }
 
-function createPlaywrightChecks(projects: string | undefined, tags: string, playwrightConfigPath: string) {
+function createPlaywrightChecks(projects: string | undefined, tags: string, playwrightConfigPath: string): PlaywrightSlimmedProp {
     const logicalIdParts = []
     const nameParts = []
     if (projects) {
@@ -366,10 +364,10 @@ function createPlaywrightChecks(projects: string | undefined, tags: string, play
         .toLowerCase())
       .join('-')}`
     const name = `Playwright Check: ${nameParts.join(' - ')}`
-    return new PlaywrightCheck(logicalId, {
+    return {
+      logicalId,
       name,
-      playwrightConfigPath,
       pwProjects: projects ? projects.split(',') : [],
       pwTags: tags ? tags.split(',').map(tag => tag.trim()) : [],
-    })
+    }
 }
