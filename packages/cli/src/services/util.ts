@@ -17,7 +17,7 @@ import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
 import { access , readFile} from 'fs/promises'
 import { createHash } from 'crypto';
-import { Session } from '../constructs'
+import { PlaywrightCheck, Session } from '../constructs'
 
 export interface GitInformation {
   commitId: string
@@ -320,4 +320,56 @@ export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig
     `import { defineConfig } from 'checkly'\n\nconst config = defineConfig(${JSON5.stringify(config, null, 2)})\n\nexport default config`
 
   await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
+}
+
+export function getPwtChecks(pwProjects: string[] | undefined, pwTags: string[]| undefined, playwrightConfigPath: string | undefined): PlaywrightCheck[] {
+  if (!playwrightConfigPath) {
+    return []
+  }
+  let checks: PlaywrightCheck[] = []
+  // We are creating new checks on the fly, so we need to set the loading state.
+  Session.loadingChecklyConfigFile = true
+  if (!pwProjects && pwTags) {
+    checks = pwTags.map(tags => createPlaywrightChecks(undefined, tags, playwrightConfigPath))
+  } else if (pwProjects && !pwTags) {
+    checks = pwProjects.map(projects => createPlaywrightChecks(projects, '', playwrightConfigPath))
+  } else if (pwProjects && pwTags) {
+    const res = []
+    for (const project of pwProjects) {
+      for (const tag of pwTags) {
+        res.push(createPlaywrightChecks(project, tag, playwrightConfigPath))
+      }
+    }
+    checks = res
+  } else {
+    checks = []
+  }
+  Session.loadingChecklyConfigFile = false
+  return checks
+}
+
+function createPlaywrightChecks(projects: string | undefined, tags: string, playwrightConfigPath: string) {
+    const logicalIdParts = []
+    const nameParts = []
+    if (projects) {
+      logicalIdParts.push(...projects)
+      nameParts.push(`Project: ${projects}`)
+    }
+    if (tags) {
+      logicalIdParts.push(tags)
+      nameParts.push(`Tags: ${tags}`)
+    }
+    const logicalId = `check-${logicalIdParts.map(part =>
+      part
+        .replace(' ', '-')
+        .replace(/[^a-zA-Z0-9]/g, '-')
+        .toLowerCase())
+      .join('-')}`
+    const name = `Playwright Check: ${nameParts.join(' - ')}`
+    return new PlaywrightCheck(logicalId, {
+      name,
+      playwrightConfigPath,
+      pwProjects: projects ? projects.split(',') : [],
+      pwTags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+    })
 }

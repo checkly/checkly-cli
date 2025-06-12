@@ -16,9 +16,19 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, Diagnostics, HeartbeatCheck, MultiStepCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
+import {
+  BrowserCheck,
+  Check,
+  Diagnostics,
+  HeartbeatCheck,
+  MultiStepCheck,
+  PlaywrightCheck,
+  Project,
+  RetryStrategyBuilder,
+  Session
+} from '../constructs'
 import type { Region } from '..'
-import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
+import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs, getPwtChecks } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import commonMessages from '../messages/common-messages'
 import { TestResultsShortLinks } from '../rest/test-sessions'
@@ -112,6 +122,22 @@ export default class Test extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    'pwTags': Flags.string({
+      description: 'A comma separated list of tags to filter Playwright tests by.' +
+        ' Only Playwright tests wit at least one of the specified tags will be run.' +
+        ' Multiple --pwtTags flags can be passed, in which case tests will be run if they match any of the --pwtTags filters.' +
+        ' F.ex. `--pwTags production,webapp --pwTags production,backend` will run checks with tags (production AND webapp) OR (production AND backend).',
+      multiple: true,
+      required: false,
+    }),
+    'pwProjects': Flags.string({
+      description: 'A comma separated list of projects to filter Playwright tests by.' +
+        ' Only Playwright tests in the specified projects will be run.' +
+        ' Multiple --pwtProjects flags can be passed, in which case tests will be run if they match any of the --pwtProjects filters.' +
+        ' If combining with --pwtTags, only tests that match both the specified projects and tags will be run.' ,
+      multiple: true,
+      required: false,
+    })
   }
 
   static args = {
@@ -146,6 +172,8 @@ export default class Test extends AuthCommand {
       'update-snapshots': updateSnapshots,
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
+      pwTags,
+      pwProjects
     } = flags
     const filePatterns = argv as string[]
 
@@ -163,6 +191,11 @@ export default class Test extends AuthCommand {
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
+
+    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
+    const playwrightChecks = (pwProjects || pwTags)
+      ? getPwtChecks(pwProjects, pwTags, playwrightConfigPath)
+      : checklyConfig.checks?.playwrightChecks
 
     const project = await parseProject({
       directory: configDirectory,
@@ -183,12 +216,17 @@ export default class Test extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
-      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightConfigPath,
       include: checklyConfig.checks?.include,
-      playwrightChecks: checklyConfig.checks?.playwrightChecks,
+      playwrightChecks,
       checkFilter: check => {
         if (check instanceof HeartbeatCheck) {
           return false
+        }
+
+        if (pwProjects || pwTags) {
+          // if Playwright projects or tags are specified, we only want to run Playwright checks
+          return check instanceof PlaywrightCheck
         }
 
         let entrypointMatch = false
