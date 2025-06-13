@@ -7,7 +7,7 @@ import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
-import type { CheckGroup, CheckGroupRef } from './check-group'
+import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
 import { RetryStrategy } from './retry-strategy'
@@ -75,7 +75,7 @@ export interface CheckProps {
   /**
    * The CheckGroup that this check is part of.
    */
-  group?: CheckGroup|CheckGroupRef
+  group?: CheckGroupV1 | CheckGroupV2 | CheckGroupRef
   /**
    * List of alert channels to notify when the check fails or recovers.
    * If you don't set at least one, we won't be able to alert you in case something goes wrong with your check.

@@ -1,9 +1,9 @@
 /* eslint-disable no-new */
-import { ApiCheck, CheckGroup } from 'checkly/constructs'
+import { ApiCheck, CheckGroupV2 } from 'checkly/constructs'
 
 const executionId = process.env.EXECUTION_ID!
 
-const prodBackendGroup = new CheckGroup('prod-backend-group', {
+const prodBackendGroup = new CheckGroupV2('prod-backend-group', {
   name: 'Production Backend Group (Trigger Test)',
   locations: ['eu-central-1'],
   tags: ['production', 'backend', executionId, 'additional-tag'],
