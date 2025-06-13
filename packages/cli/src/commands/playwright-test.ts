@@ -7,7 +7,7 @@ import * as api from '../rest/api'
 import type { Region } from '..'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import {  Diagnostics } from '../constructs'
+import { Diagnostics, Session } from '../constructs'
 import { ux } from '@oclif/core'
 import TestRunner from '../services/test-runner'
 import { Events, SequenceId } from '../services/abstract-check-runner'
@@ -109,6 +109,7 @@ export default class PlaywrightTest extends Test {
       config.getAccountId(),
       projectBundle,
       checkBundles,
+      Session.sharedFiles, // sharedFiles
       location,
       10000,
       false,
