@@ -12,16 +12,24 @@ import {
 } from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
 import { CheckGroupV1, CheckGroupV1Props } from './check-group-v1'
+import { RemovedPropertyDiagnostic } from './construct-diagnostics'
 
 export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalationPolicy'> {
   /**
-   * Setting this to "true" will trigger a retry when a check fails from
-   * the failing region and another, randomly selected region before marking
-   * the check as failed.
+   * This property is no longer supported; use {@link retryStrategy} instead.
    *
-   * If set, overrides the doubleCheck property of all checks in the group.
+   * To match the behavior of `doubleCheck: true`, use:
    *
-   * If not set, individual check settings are used.
+   *     retryStrategy: RetryStrategyBuilder.fixedStrategy({
+   *       maxRetries: 1,
+   *       baseBackoffSeconds: 0,
+   *       maxDurationSeconds: 600,
+   *       sameRegion: false,
+   *     })
+   *
+   * To match the behavior of `doubleCheck: false`, use:
+   *
+   *     retryStrategy: RetryStrategyBuilder.noRetries()
    *
    * @deprecated Use {@link CheckGroupV2Props.retryStrategy} instead.
    */
@@ -143,9 +151,41 @@ export class CheckGroupV2 extends CheckGroupV1 {
     // No-op
   }
 
+  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
+    if (this.doubleCheck !== undefined) {
+      if (this.doubleCheck) {
+        diagnostics.add(new RemovedPropertyDiagnostic(
+          'doubleCheck',
+          new Error(
+            `To match the behavior of doubleCheck: true, please use the ` +
+            `following retryStrategy instead:` +
+            `\n\n` +
+            `  RetryStrategyBuilder.fixedStrategy({\n` +
+            `    maxRetries: 1,\n` +
+            `    baseBackoffSeconds: 0,\n`+
+            `    maxDurationSeconds: 600,\n` +
+            `    sameRegion: false,\n` +
+            `  })`,
+          ),
+        ))
+      } else {
+        diagnostics.add(new RemovedPropertyDiagnostic(
+          'doubleCheck',
+          new Error(
+            `To match the behavior of doubleCheck: false, please use the ` +
+            `following retryStrategy instead:` +
+            `\n\n` +
+            `  RetryStrategyBuilder.noRetries()`,
+          ),
+        ))
+      }
+    }
+  }
+
   synthesize() {
     return {
       ...super.synthesize(),
+      doubleCheck: undefined,
       v: 2,
     }
   }

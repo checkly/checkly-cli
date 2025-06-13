@@ -361,9 +361,7 @@ export class CheckGroupV1 extends Construct {
     ))
   }
 
-  async validate (diagnostics: Diagnostics): Promise<void> {
-    await this.onBeforeValidate(diagnostics)
-
+  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
     if (this.doubleCheck !== undefined) {
       if (this.retryStrategy) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
@@ -399,6 +397,12 @@ export class CheckGroupV1 extends Construct {
         ))
       }
     }
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await this.onBeforeValidate(diagnostics)
+
+    await this.validateDoubleCheck(diagnostics)
 
     if (this.environmentVariables) {
       this.environmentVariables.forEach(ev => {
