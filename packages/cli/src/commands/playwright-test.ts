@@ -31,7 +31,6 @@ export default class PlaywrightTest extends Test {
       privateRunLocation: undefined,
     })
 
-    console.log(input)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const playWrightChecks: PlaywrightSlimmedProp = {
@@ -100,15 +99,6 @@ export default class PlaywrightTest extends Test {
       ux.action.stop()
     }
 
-    // if (!checkBundles.length) {
-    //   this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
-    //   return
-    // }
-    //
-    // if (list) {
-    //   this.listChecks(checkBundles.map(({ construct }) => construct))
-    //   return
-    // }
     const reporterTypes = this.prepareReportersTypes('list', checklyConfig.cli?.reporters)
 
     const reporters = createReporters(reporterTypes, location, false)
