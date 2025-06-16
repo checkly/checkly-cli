@@ -59,7 +59,7 @@ export default class Trigger extends AuthCommand {
       allowNo: true,
     }),
     'fail-on-no-matching': Flags.boolean({
-      description: 'Exit with a failing status code when there are no matching tests.',
+      description: 'Exit with a failing status code when there are no matching tests. Enabled by default.',
       default: true,
       allowNo: true,
     }),
@@ -101,7 +101,7 @@ export default class Trigger extends AuthCommand {
       tags: targetTags,
       timeout,
       verbose: verboseFlag,
-      'fail-on-no-matching': failOnNoMatchingFlag,
+      'fail-on-no-matching': failOnNoMatching,
       record: shouldRecord,
       reporter: reporterFlag,
       env,
@@ -122,7 +122,6 @@ export default class Trigger extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
-    const failOnNoMatching = this.prepareFailOnNoMatching(failOnNoMatchingFlag, checklyConfig?.cli?.failOnNoMatching)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig?.cli?.reporters)
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
@@ -229,10 +228,6 @@ export default class Trigger extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
-  }
-
-  prepareFailOnNoMatching (failOnNoMatchingFlag?: boolean, cliFailOnNoMatchingFlag?: boolean) {
-    return failOnNoMatchingFlag ?? cliFailOnNoMatchingFlag ?? false
   }
 
   prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
