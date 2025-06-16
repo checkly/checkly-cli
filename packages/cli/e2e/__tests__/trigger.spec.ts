@@ -68,7 +68,7 @@ describe('trigger', () => {
     expect(result.status).toBe(1)
   })
 
-  test('Should return code 1 when no checks match and the fail-on-no-match flag is set', async () => {
+  test('Should return code 1 when no checks match and the fail-on-no-matching flag is set', async () => {
     const result = await runChecklyCli({
       args: [
         'trigger',
@@ -84,7 +84,7 @@ describe('trigger', () => {
     expect(result.status).toBe(1)
   })
 
-  test('Should return code - when no checks match and the no-fail-on-no-match flag is set', async () => {
+  test('Should return code 0 when no checks match and the no-fail-on-no-matching flag is set', async () => {
     const result = await runChecklyCli({
       args: [
         'trigger',
