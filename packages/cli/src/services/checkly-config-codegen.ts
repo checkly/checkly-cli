@@ -209,10 +209,6 @@ more information.`))
                 builder.boolean('verbose', cli.verbose)
               }
 
-              if (cli.failOnNoMatching !== undefined) {
-                builder.boolean('failOnNoMatching', cli.failOnNoMatching)
-              }
-
               if (cli.reporters !== undefined) {
                 const reporters = cli.reporters
                 builder.array('reporters', builder => {

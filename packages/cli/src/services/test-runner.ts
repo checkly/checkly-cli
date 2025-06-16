@@ -4,7 +4,7 @@ import { testSessions } from '../rest/api'
 import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
 import { GitInformation } from './util'
 import { Check } from '../constructs/check'
-import { RetryStrategy } from '../constructs'
+import { RetryStrategy, SharedFile } from '../constructs'
 import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle'
 import { pullSnapshots } from '../services/snapshot-service'
 import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
@@ -13,6 +13,7 @@ import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
 export default class TestRunner extends AbstractCheckRunner {
   projectBundle: ProjectBundle
   checkBundles: ResourceDataBundle<Check>[]
+  sharedFiles: SharedFile[]
   location: RunLocation
   shouldRecord: boolean
   repoInfo: GitInformation | null
@@ -25,6 +26,7 @@ export default class TestRunner extends AbstractCheckRunner {
     accountId: string,
     projectBundle: ProjectBundle,
     checkBundles: ResourceDataBundle<Check>[],
+    sharedFiles: SharedFile[],
     location: RunLocation,
     timeout: number,
     verbose: boolean,
@@ -38,6 +40,7 @@ export default class TestRunner extends AbstractCheckRunner {
     super(accountId, timeout, verbose)
     this.projectBundle = projectBundle
     this.checkBundles = checkBundles
+    this.sharedFiles = sharedFiles
     this.location = location
     this.shouldRecord = shouldRecord
     this.repoInfo = repoInfo
@@ -81,6 +84,7 @@ export default class TestRunner extends AbstractCheckRunner {
         name: this.projectBundle.project.name,
         checkRunJobs,
         project: { logicalId: this.projectBundle.project.logicalId },
+        sharedFiles: this.sharedFiles,
         runLocation: this.location,
         repoInfo: this.repoInfo,
         environment: this.environment,

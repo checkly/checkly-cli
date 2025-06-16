@@ -1,6 +1,7 @@
 import { isAxiosError, type AxiosInstance } from 'axios'
 import type { GitInformation } from '../services/util'
 import { compressJSONPayload } from './util'
+import { SharedFile } from '../constructs'
 
 export interface Project {
   name: string
@@ -63,6 +64,7 @@ export interface AuxiliaryResourceSync {
 
 export interface ProjectSync {
   project: Project,
+  sharedFiles?: SharedFile[]
   resources: Array<ResourceSync>,
   repoInfo: GitInformation|null,
 }

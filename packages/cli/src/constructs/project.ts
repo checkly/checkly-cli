@@ -177,6 +177,7 @@ export class Project extends Construct {
     }
     return {
       project,
+      sharedFiles: Session.sharedFiles,
     }
   }
 
@@ -205,6 +206,13 @@ export interface ConstructExport {
 }
 
 export type CheckFilter = (check: Check) => boolean
+
+export interface SharedFile {
+  path: string
+  content: string
+}
+
+export type SharedFileRef = number
 
 export class Session {
   static loader: FileLoader = new MixedFileLoader(
@@ -331,5 +339,23 @@ export class Session {
 
   static relativePosixPath (filePath: string): string {
     return pathToPosix(path.relative(Session.basePath!, filePath))
+  }
+
+  static sharedFileRefs = new Map<string, SharedFileRef>()
+  static sharedFiles: SharedFile[] = []
+
+  static registerSharedFile (file: SharedFile): SharedFileRef {
+    const ref = Session.sharedFileRefs.get(file.path)
+    if (ref !== undefined) {
+      return ref
+    }
+    const newRef = Session.sharedFiles.push(file) - 1
+    Session.sharedFileRefs.set(file.path, newRef)
+    return newRef
+  }
+
+  static resetSharedFiles (): void {
+    Session.sharedFileRefs.clear()
+    Session.sharedFiles.splice(0)
   }
 }

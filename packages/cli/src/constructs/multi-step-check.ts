@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises'
 
 import { Check, CheckProps } from './check'
-import { Session } from './project'
+import { Session, SharedFileRef } from './project'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import CheckTypes from '../constants'
-import { CheckDependency } from './browser-check'
 import { PlaywrightConfig } from './playwright-config'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic, UnsupportedRuntimeFeatureDiagnostic } from './construct-diagnostics'
@@ -122,12 +121,12 @@ export class MultiStepCheck extends Check {
     const parsed = await parser.parse(entry)
     // Maybe we can get the parsed deps with the content immediately
 
-    const deps: CheckDependency[] = []
+    const deps: SharedFileRef[] = []
     for (const { filePath, content } of parsed.dependencies) {
-      deps.push({
+      deps.push(Session.registerSharedFile({
         path: Session.relativePosixPath(filePath),
         content,
-      })
+      }))
     }
     return {
       script: parsed.entrypoint.content,

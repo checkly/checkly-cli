@@ -87,7 +87,6 @@ export type ChecklyConfig = {
     runLocation?: keyof Region,
     privateRunLocation?: string,
     verbose?: boolean,
-    failOnNoMatching?: boolean,
     reporters?: ReporterType[],
     retries?: number,
     loader?: FileLoader,

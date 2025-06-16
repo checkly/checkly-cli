@@ -1,12 +1,13 @@
 import type { AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util'
-import { RetryStrategy } from '../constructs'
+import { RetryStrategy, SharedFile } from '../constructs'
 import { compressJSONPayload } from './util'
 
 type RunTestSessionRequest = {
   name: string,
   checkRunJobs: any[],
   project: { logicalId: string },
+  sharedFiles?: SharedFile[]
   runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
   repoInfo?: GitInformation | null,
   environment?: string | null,

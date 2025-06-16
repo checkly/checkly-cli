@@ -1,8 +1,8 @@
-import { CheckGroup, BrowserCheck } from 'checkly/constructs'
+import { CheckGroupV2, BrowserCheck } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 
-const group = new CheckGroup('check-group-1', {
+const group = new CheckGroupV2('check-group-1', {
   name: 'Group',
   activated: true,
   muted: false,
