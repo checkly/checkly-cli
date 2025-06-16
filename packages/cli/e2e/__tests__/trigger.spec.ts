@@ -53,7 +53,7 @@ describe('trigger', () => {
     expect(result.status).toBe(0)
   })
 
-  test('Should return code 0 when no checks match', async () => {
+  test('Should return code 1 when no checks match', async () => {
     const result = await runChecklyCli({
       args: [
         'trigger',
@@ -65,7 +65,7 @@ describe('trigger', () => {
     })
 
     expect(result.stdout).toContain('No matching checks were found.')
-    expect(result.status).toBe(0)
+    expect(result.status).toBe(1)
   })
 
   test('Should return code 1 when no checks match and the fail-on-no-match flag is set', async () => {
@@ -82,5 +82,21 @@ describe('trigger', () => {
 
     expect(result.stdout).toContain('No matching checks were found.')
     expect(result.status).toBe(1)
+  })
+
+  test('Should return code - when no checks match and the no-fail-on-no-match flag is set', async () => {
+    const result = await runChecklyCli({
+      args: [
+        'trigger',
+        '--tags',
+        'no-checks-match-this-tag',
+        '--no-fail-on-no-matching',
+      ],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+
+    expect(result.stdout).toContain('No matching checks were found.')
+    expect(result.status).toBe(0)
   })
 })

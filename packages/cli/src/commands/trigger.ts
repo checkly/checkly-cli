@@ -60,6 +60,8 @@ export default class Trigger extends AuthCommand {
     }),
     'fail-on-no-matching': Flags.boolean({
       description: 'Exit with a failing status code when there are no matching tests.',
+      default: true,
+      allowNo: true,
     }),
     reporter: Flags.string({
       char: 'r',
