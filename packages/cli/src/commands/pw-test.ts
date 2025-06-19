@@ -1,17 +1,35 @@
 import { AuthCommand } from './authCommand'
-import { getCiInformation, getGitInformation, splitConfigFilePath } from '../services/util'
-import { loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader'
-import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
+import {
+  getCiInformation,
+  getDefaultChecklyConfig,
+  getEnvs,
+  getGitInformation,
+  splitConfigFilePath, writeChecklyConfigFile
+} from '../services/util'
+import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader'
+import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags } from '../helpers/test-helper'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
 import { Diagnostics, Session } from '../constructs'
-import { ux } from '@oclif/core'
-import { createReporters } from '../reporters/reporter'
+import { Flags, ux } from '@oclif/core'
+import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
-import { Events, SequenceId } from '../services/abstract-check-runner'
+import { DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, Events, SequenceId } from '../services/abstract-check-runner'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import commonMessages from '../messages/common-messages'
+import type { Region } from '..'
+import path from 'node:path'
+import * as recast from 'recast'
+import {
+  addItemToArray,
+  addOrReplaceItem,
+  findPropertyByName,
+  reWriteChecklyConfigFile
+} from '../helpers/write-config-helpers'
+import * as JSON5 from 'json5'
+
 const DEFAULT_REGION = 'eu-central-1'
 
 
@@ -20,30 +38,104 @@ export default class PwTestCommand extends AuthCommand {
   static hidden = false
   static description = 'Test your Playwright Tests on Checkly'
   static state = 'beta'
+  static flags = {
+    'cly-location': Flags.string({
+      description: 'The location to run the checks at.',
+    }),
+    'cly-private-location': Flags.string({
+      description: 'The private location to run checks at.',
+      exclusive: ['location'],
+    }),
+    env: Flags.string({
+      char: 'e',
+      description: 'Env vars to be passed to the test run.',
+      exclusive: ['env-file'],
+      multiple: true,
+      default: [],
+    }),
+    'env-file': Flags.string({
+      description: 'dotenv file path to be passed. For example --env-file="./.env"',
+      exclusive: ['env'],
+    }),
+    'cly-timeout': Flags.integer({
+      default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+      description: 'A timeout (in seconds) to wait for checks to complete.',
+    }),
+    'cly-verbose': Flags.boolean({
+      description: 'Always show the full logs of the checks.',
+    }),
+    'cly-reporter': Flags.string({
+      description: 'A list of custom reporters for the test output.',
+      options: ['list', 'dot', 'ci', 'github', 'json'],
+    }),
+    'cly-config': Flags.string({
+      description: commonMessages.configFile,
+    }),
+    'cly-skip-record': Flags.boolean({
+      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
+      default: false,
+    }),
+    'cly-test-session-name': Flags.string({
+      description: 'A name to use when storing results in Checkly',
+    }),
+    'cly-create-check': Flags.boolean({
+      description: 'Create a Checkly check from the Playwright test.',
+      default: true,
+    })
+  }
+
 
   async run(): Promise<void> {
     this.style.actionStart('Parsing your Playwright project')
     const rawArgs = this.argv || []
-
-    const { configDirectory, configFilenames } = splitConfigFilePath()
+    const { checklyFlags, playwrightFlags } = splitChecklyAndPlaywrightFlags(rawArgs)
+    if (!this.validChecklyFlags(checklyFlags)) {
+      this.style.actionFailure()
+      this.style.shortError('Invalid Checkly flags provided. Please check the command usage.')
+      this.exit(1)
+    }
+    const {
+      location: runLocation = DEFAULT_REGION,
+      'private-location': privateRunLocation,
+      env = [],
+      'env-file': envFile,
+      timeout = DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+      verbose: verboseFlag,
+      reporter: reporterFlag,
+      config: configFilename,
+      'skip-record': skipRecord = false,
+      'test-session-name': testSessionName,
+      'create-check': createCheck = false,
+    } = checklyFlags
+    const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
-    } = await loadChecklyConfig(configDirectory, configFilenames)
+    } = await loadChecklyConfig(configDirectory, configFilenames, false)
 
-    // TODO: ADD PROPER LOCATION HANDLING
-    const location = await prepareRunLocation(checklyConfig.cli, {}, api, config.getAccountId())
+    const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
+    const playwrightCheck = PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region)
+    if (createCheck) {
+      this.style.actionStart('Creating Checkly check from Playwright test')
+      await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
+      return
+    }
 
-    // TODO: SET PROPER REPORTER TYPES
-    const reporterTypes = prepareReportersTypes('list', checklyConfig.cli?.reporters)
+
+    const location = await prepareRunLocation(checklyConfig.cli, {
+      runLocation: runLocation as keyof Region,
+      privateRunLocation,
+    }, api, config.getAccountId())
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
+    const testEnvVars = await getEnvs(envFile, env)
+
 
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
-      // TODO: ADD PROPPER TEST SESSION NAME HANDLING
-      projectName: checklyConfig.projectName,
+      projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       includeTestOnlyChecks: true,
       checkMatch: checklyConfig.checks?.checkMatch,
@@ -56,10 +148,21 @@ export default class PwTestCommand extends AuthCommand {
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies: false,
       checklyConfigConstructs,
-      playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
+      playwrightConfigPath,
       include: checklyConfig.checks?.include,
-      playwrightChecks: PwTestCommand.createPlaywrightCheck(rawArgs),
+      playwrightChecks: [playwrightCheck],
       checkFilter: check => {
+        if (Object.keys(testEnvVars).length) {
+          check.environmentVariables = check.environmentVariables
+            ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
+          for (const [key, value] of Object.entries(testEnvVars)) {
+            check.environmentVariables.push({
+              key,
+              value,
+              locked: true,
+            })
+          }
+        }
         return true
       }
     })
@@ -112,31 +215,21 @@ export default class PwTestCommand extends AuthCommand {
       return
     }
 
-    // TODO: ADD PROPER LIST FLAG HANDLING
-    // if (list) {
-    //   this.listChecks(checkBundles.map(({ construct }) => construct))
-    //   return
-    // }
-
-    // TODO: ADD PROPER VERBOSE FLAG HANDLING
-    const reporters = createReporters(reporterTypes, location, false)
+    const reporters = createReporters(reporterTypes, location, verboseFlag)
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
     // TODO: ADD PROPER RETRY STRATEGY HANDLING
     // const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
-
+    const shouldRecord = !skipRecord
     const runner = new TestRunner(
       config.getAccountId(),
       projectBundle,
       checkBundles,
       Session.sharedFiles,
       location,
-      // TODO: ADD PROPER TEST SESSION TIMEOUT HANDLING
-      1000,
-      // TODO: ADD PROPER VERBOSE FLAG HANDLING
-      false,
-      // TODO: ADD PROPER RECORD FLAG HANDLING
-      true,
+      timeout,
+      verboseFlag,
+      shouldRecord,
       repoInfo,
       ciInfo.environment,
       // NO NEED TO UPLOAD SNAPSHOTS FOR PLAYWRIGHT TESTS
@@ -199,13 +292,77 @@ export default class PwTestCommand extends AuthCommand {
 
 
     }
-    static createPlaywrightCheck(args: string[]): PlaywrightSlimmedProp [] {
-      const input = args.join(' ') || ''
-     return [{
-        logicalId: 'playwright-check',
+    static createPlaywrightCheck(args: string[], runLocation: keyof Region): PlaywrightSlimmedProp {
+    const input = args.join(' ') || ''
+      const inputLogicalId = input.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().substring(0, 50)
+     return {
+        logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
         testCommand: `npx playwright test ${input}`,
-        locations: [DEFAULT_REGION],
-      }]
+        locations: [runLocation],
+        frequency: 10,
+      }
+  }
+
+  private validChecklyFlags (checklyFlags: Record<string, any>) {
+    const validFlags = [
+      'location',
+      'private-location',
+      'env',
+      'env-file',
+      'list',
+      'timeout',
+      'verbose',
+      'reporter',
+      'config',
+      'skip-record',
+      'test-session-name',
+      'create-check'
+    ]
+    return Object.keys(checklyFlags).every(flag => validFlags.includes(flag))
+  }
+
+  private getConfigPath (playwrightFlags: string[]) {
+    for (let i = 0; i < playwrightFlags.length; i++) {
+      const arg = playwrightFlags[i]
+      if (arg.startsWith('--config') || arg.startsWith('-c')) {
+        return arg.includes('=') ? arg.split('=')[1] : playwrightFlags[i + 1]
+      }
+    }
+  }
+
+  private async createPlaywrightCheck (playwrightCheck: PlaywrightSlimmedProp, playwrightConfigPath: string = './playwright.config.ts') {
+    const dir = process.cwd()
+    const baseName = path.basename(dir)
+
+    const configFile = await getChecklyConfigFile()
+    if (!configFile) {
+      this.style.longInfo('No Checkly config file found', 'Creating a default checkly config file.')
+      const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`, playwrightCheck)
+      await writeChecklyConfigFile(dir, checklyConfig)
+      this.style.actionSuccess()
+      return
+    }
+    const checklyAst = recast.parse(configFile.checklyConfig)
+    const checksAst = findPropertyByName(checklyAst, 'checks')
+    if (!checksAst) {
+      this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is ' +
+        'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
+        'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
+
+      return
+    }
+    const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
+    const playwrightCheckAst = recast.parse(playwrightCheckString)
+    const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init;
+
+    addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
+    const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
+    const writeDir = path.resolve(path.dirname(configFile.fileName))
+    await reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, writeDir)
+    this.style.actionSuccess()
+
+    return
+
   }
 }

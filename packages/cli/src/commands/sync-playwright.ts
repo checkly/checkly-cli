@@ -2,10 +2,10 @@ import { BaseCommand } from './baseCommand'
 import * as recast from 'recast'
 import { getChecklyConfigFile } from '../services/checkly-config-loader'
 import { loadPlaywrightConfig } from '../playwright/playwright-config-loader'
-import fs from 'fs'
 import path from 'path'
 import { ux } from '@oclif/core'
 import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
+import { addOrReplaceItem, findPropertyByName, reWriteChecklyConfigFile } from '../helpers/write-config-helpers'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = false
@@ -27,7 +27,7 @@ export default class SyncPlaywright extends BaseCommand {
       return this.handleError('Could not find any playwright.config file.')
     }
 
-    const checksAst = this.findPropertyByName(checklyAst, 'checks')
+    const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is ' +
           'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
@@ -35,12 +35,12 @@ export default class SyncPlaywright extends BaseCommand {
     }
 
     const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
-    const pwtConfigAst = this.findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
-    this.addOrReplacePlaywrightConfig(checksAst.value, pwtConfigAst)
+    const pwtConfigAst = findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
+    addOrReplaceItem(checksAst.value, pwtConfigAst, 'playwrightConfig')
 
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
     const dir = path.resolve(path.dirname(configFile.fileName))
-    this.reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, dir)
+    await reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, dir)
 
     if (this.fancy) {
       ux.action.stop('✅ ')
@@ -55,31 +55,5 @@ export default class SyncPlaywright extends BaseCommand {
     }
     this.log(message)
     this.exit(1)
-  }
-
-  private findPropertyByName (ast: any, name: string): recast.types.namedTypes.Property | undefined {
-    let node
-    recast.visit(ast, {
-      visitProperty (path: any) {
-        if (path.node.key.name === name) {
-          node = path.node
-        }
-        return false
-      },
-    })
-    return node
-  }
-
-  private addOrReplacePlaywrightConfig (ast: any, node: any) {
-    const playWrightConfig = this.findPropertyByName(ast, 'playwrightConfig')
-    if (playWrightConfig) {
-      playWrightConfig.value = node.value
-    } else {
-      ast.properties.push(node)
-    }
-  }
-
-  private reWriteChecklyConfigFile (data: string, fileName: string, dir: string) {
-    fs.writeFileSync(path.join(dir, fileName), data)
   }
 }
