@@ -57,25 +57,15 @@ export function prepareReportersTypes (reporterFlag: ReporterType, cliReporters:
 }
 
 export function splitChecklyAndPlaywrightFlags(args: string[]) {
-  const checklyFlags: Record<string, any> = {}
-  const playwrightFlags: string[] = []
-  let idx = 0;
-  while (idx < args.length) {
-    const arg = args[idx]
-    if (arg.startsWith('--cly-') || arg === '-e' || arg === '--env' || arg === '--env-file') {
-      if (arg.includes('=')) {
-        const split = arg.split(/=(.*)/s)
-        const k: string = split[0].replace('--cly-', '')
-        checklyFlags[k] = split[1]
-      } else {
-        const k: string = arg.replace('--cly-', '')
-        checklyFlags[k] = args[idx + 1] === undefined ? true : args[idx + 1]
-        idx++
-      }
-    } else {
-      playwrightFlags.push(arg)
-    }
-    idx++
+  const separatorIndex = args.indexOf('--');
+  let checklyFlags: string[] = [];
+  let playwrightFlags: string[] = [];
+
+  if (separatorIndex !== -1) {
+    checklyFlags = args.slice(0, separatorIndex);
+    playwrightFlags = args.slice(separatorIndex + 1);
+  } else {
+    checklyFlags = args;
   }
   return { checklyFlags, playwrightFlags }
 }

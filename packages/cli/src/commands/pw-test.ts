@@ -23,8 +23,7 @@ import type { Region } from '..'
 import path from 'node:path'
 import * as recast from 'recast'
 import {
-  addItemToArray,
-  addOrReplaceItem,
+  addItemToArray, addOrReplaceItem,
   findPropertyByName,
   reWriteChecklyConfigFile
 } from '../helpers/write-config-helpers'
@@ -39,10 +38,12 @@ export default class PwTestCommand extends AuthCommand {
   static description = 'Test your Playwright Tests on Checkly'
   static state = 'beta'
   static flags = {
-    'cly-location': Flags.string({
+    'location': Flags.string({
+      char: 'l',
+      default: DEFAULT_REGION,
       description: 'The location to run the checks at.',
     }),
-    'cly-private-location': Flags.string({
+    'private-location': Flags.string({
       description: 'The private location to run checks at.',
       exclusive: ['location'],
     }),
@@ -57,56 +58,52 @@ export default class PwTestCommand extends AuthCommand {
       description: 'dotenv file path to be passed. For example --env-file="./.env"',
       exclusive: ['env'],
     }),
-    'cly-timeout': Flags.integer({
+    'timeout': Flags.integer({
       default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
-    'cly-verbose': Flags.boolean({
+    'verbose': Flags.boolean({
       description: 'Always show the full logs of the checks.',
     }),
-    'cly-reporter': Flags.string({
+    'reporter': Flags.string({
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
     }),
-    'cly-config': Flags.string({
+    'config': Flags.string({
       description: commonMessages.configFile,
     }),
-    'cly-skip-record': Flags.boolean({
+    'skip-record': Flags.boolean({
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
-    'cly-test-session-name': Flags.string({
+    'test-session-name': Flags.string({
       description: 'A name to use when storing results in Checkly',
     }),
-    'cly-create-check': Flags.boolean({
+    'create-check': Flags.boolean({
       description: 'Create a Checkly check from the Playwright test.',
-      default: true,
+      default: false,
     })
   }
 
-
   async run(): Promise<void> {
     this.style.actionStart('Parsing your Playwright project')
-    const rawArgs = this.argv || []
-    const { checklyFlags, playwrightFlags } = splitChecklyAndPlaywrightFlags(rawArgs)
-    if (!this.validChecklyFlags(checklyFlags)) {
-      this.style.actionFailure()
-      this.style.shortError('Invalid Checkly flags provided. Please check the command usage.')
-      this.exit(1)
-    }
+
+    const { checklyFlags, playwrightFlags } = splitChecklyAndPlaywrightFlags(this.argv)
+
+    const { flags } = await this.parse(PwTestCommand, checklyFlags)
     const {
-      location: runLocation = DEFAULT_REGION,
+      location: runLocation,
       'private-location': privateRunLocation,
       env = [],
       'env-file': envFile,
-      timeout = DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+      timeout,
       verbose: verboseFlag,
       reporter: reporterFlag,
       config: configFilename,
-      'skip-record': skipRecord = false,
+      'skip-record': skipRecord,
       'test-session-name': testSessionName,
-      'create-check': createCheck = false,
-    } = checklyFlags
+      'create-check': createCheck,
+    } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -293,7 +290,13 @@ export default class PwTestCommand extends AuthCommand {
 
     }
     static createPlaywrightCheck(args: string[], runLocation: keyof Region): PlaywrightSlimmedProp {
-    const input = args.join(' ') || ''
+    const parseArgs = args.map(arg => {
+      if (arg.includes(' ')) {
+        arg = `"${arg}"`
+      }
+      return arg
+    })
+    const input = parseArgs.join(' ') || ''
       const inputLogicalId = input.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().substring(0, 50)
      return {
         logicalId: `playwright-check-${inputLogicalId}`,
@@ -302,24 +305,6 @@ export default class PwTestCommand extends AuthCommand {
         locations: [runLocation],
         frequency: 10,
       }
-  }
-
-  private validChecklyFlags (checklyFlags: Record<string, any>) {
-    const validFlags = [
-      'location',
-      'private-location',
-      'env',
-      'env-file',
-      'list',
-      'timeout',
-      'verbose',
-      'reporter',
-      'config',
-      'skip-record',
-      'test-session-name',
-      'create-check'
-    ]
-    return Object.keys(checklyFlags).every(flag => validFlags.includes(flag))
   }
 
   private getConfigPath (playwrightFlags: string[]) {
@@ -337,7 +322,8 @@ export default class PwTestCommand extends AuthCommand {
 
     const configFile = await getChecklyConfigFile()
     if (!configFile) {
-      this.style.longInfo('No Checkly config file found', 'Creating a default checkly config file.')
+      this.style.shortWarning('No Checkly config file found')
+      this.style.shortInfo('Creating a default checkly config file.')
       const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`, playwrightCheck)
       await writeChecklyConfigFile(dir, checklyConfig)
       this.style.actionSuccess()
@@ -352,16 +338,17 @@ export default class PwTestCommand extends AuthCommand {
 
       return
     }
+    const playwrightConfigPathNode = recast.parse(`const playwrightConfig = '${playwrightConfigPath}'`)
+
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
     const playwrightCheckAst = recast.parse(playwrightCheckString)
     const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init;
-
+    addOrReplaceItem(checksAst.value, playwrightConfigPathNode.value, 'playwrightConfig')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
     const writeDir = path.resolve(path.dirname(configFile.fileName))
     await reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, writeDir)
     this.style.actionSuccess()
-
     return
 
   }
