@@ -259,7 +259,7 @@ export async function loadPlaywrightProjectFiles (
   archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
   archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+    archive.glob(includePattern, { cwd: path.join(dir, '/') })
   }
 }
 
