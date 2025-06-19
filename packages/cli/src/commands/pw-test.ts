@@ -28,6 +28,7 @@ import {
   reWriteChecklyConfigFile
 } from '../helpers/write-config-helpers'
 import * as JSON5 from 'json5'
+import fs from 'node:fs/promises'
 
 const DEFAULT_REGION = 'eu-central-1'
 
@@ -111,7 +112,8 @@ export default class PwTestCommand extends AuthCommand {
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
 
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
-    const playwrightCheck = PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region)
+    const dir = path.dirname(playwrightConfigPath || '.')
+    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, dir)
     if (createCheck) {
       this.style.actionStart('Creating Checkly check from Playwright test')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
@@ -286,22 +288,22 @@ export default class PwTestCommand extends AuthCommand {
       process.exitCode = 1
     })
     await runner.run()
-
-
     }
-    static createPlaywrightCheck(args: string[], runLocation: keyof Region): PlaywrightSlimmedProp {
-    const parseArgs = args.map(arg => {
-      if (arg.includes(' ')) {
-        arg = `"${arg}"`
-      }
-      return arg
-    })
-    const input = parseArgs.join(' ') || ''
+
+    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, dir: string): Promise<PlaywrightSlimmedProp> {
+      const parseArgs = args.map(arg => {
+        if (arg.includes(' ')) {
+          arg = `"${arg}"`
+        }
+        return arg
+      })
+      const packageManager = await PwTestCommand.getPackageManagerExecutable(dir)
+      const input = parseArgs.join(' ') || ''
       const inputLogicalId = input.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().substring(0, 50)
-     return {
+      return {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
-        testCommand: `npx playwright test ${input}`,
+        testCommand: `${packageManager} playwright test ${input}`,
         locations: [runLocation],
         frequency: 10,
       }
@@ -351,5 +353,24 @@ export default class PwTestCommand extends AuthCommand {
     this.style.actionSuccess()
     return
 
+  }
+
+  private static async getPackageManagerExecutable(directoryPath: string): Promise<string| undefined> {
+    const packageManagers = [
+      { name: 'npx', lockFile: 'package-lock.json' },
+      { name: 'yarn', lockFile: 'yarn.lock' },
+      { name: 'pnpm', lockFile: 'pnpm-lock.yaml' },
+    ];
+
+    for (const pm of packageManagers) {
+      const lockFilePath = path.join(directoryPath, pm.lockFile);
+      try {
+        await fs.access(lockFilePath);
+        return pm.name;
+      } catch (error) {
+        continue;
+      }
+    }
+    return
   }
 }
