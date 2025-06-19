@@ -1,13 +1,10 @@
 import { Flags, Args, ux } from '@oclif/core'
 import indentString from 'indent-string'
-import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import {
   Events,
-  RunLocation,
-  PrivateRunLocation,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
 } from '../services/abstract-check-runner'

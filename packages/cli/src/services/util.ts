@@ -11,7 +11,7 @@ import archiver from 'archiver'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
-import { ChecklyConfig } from './checkly-config-loader'
+import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
@@ -291,20 +291,19 @@ export function cleanup (dir: string) {
   return fs.rm(dir, { recursive: true, force: true })
 }
 
-export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string): ChecklyConfig {
+export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string, playwrightCheck: PlaywrightSlimmedProp | null = null): ChecklyConfig {
+  const check = playwrightCheck || {
+    logicalId: directoryName,
+    name: directoryName,
+    frequency: 10,
+    locations: ['us-east-1'],
+  }
   return {
     logicalId: directoryName,
     projectName: directoryName,
     checks: {
       playwrightConfigPath,
-      playwrightChecks: [
-        {
-          logicalId: directoryName,
-          name: directoryName,
-          frequency: 10,
-          locations: ['us-east-1'],
-        },
-      ],
+      playwrightChecks: [check],
       frequency: 10,
       locations: ['us-east-1'],
     },
