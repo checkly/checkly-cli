@@ -44,6 +44,7 @@ describe('help', () => {
     })
     expect(stdout).toContain(`CORE COMMANDS
   deploy   Deploy your project to your Checkly account.
+  pw-test  Test your Playwright Tests on Checkly.
   test     Test your checks on Checkly.
   trigger  Trigger your existing checks on Checkly.`)
 

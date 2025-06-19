@@ -35,7 +35,7 @@ const DEFAULT_REGION = 'eu-central-1'
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
-  static description = 'Test your Playwright Tests on Checkly'
+  static description = 'Test your Playwright Tests on Checkly.'
   static state = 'beta'
   static flags = {
     'location': Flags.string({
