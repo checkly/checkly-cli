@@ -13,9 +13,6 @@ type HttpAssertionSource =
 
 export type HttpAssertion = CoreAssertion<HttpAssertionSource>
 
-// Aliased for backwards compatibility.
-export type Assertion = HttpAssertion
-
 export class HttpAssertionBuilder {
   static statusCode () {
     return new NumericAssertionBuilder<HttpAssertionSource>('STATUS_CODE')
@@ -34,16 +31,6 @@ export class HttpAssertionBuilder {
   }
 
   static responseTime () {
-    return new NumericAssertionBuilder<HttpAssertionSource>('RESPONSE_TIME')
-  }
-}
-
-// This class serves as an alias for backwards compatibility while also
-// removing the deprecated method from HttpAssertionBuilder by isolating
-// it to the AssertionBuilder.
-export class AssertionBuilder extends HttpAssertionBuilder {
-  /** @deprecated Use responseTime() instead */
-  static responseTme () {
     return new NumericAssertionBuilder<HttpAssertionSource>('RESPONSE_TIME')
   }
 }

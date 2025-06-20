@@ -36,6 +36,3 @@ export interface HttpRequest {
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
 }
-
-// Aliased for backwards compatibility.
-export type Request = HttpRequest

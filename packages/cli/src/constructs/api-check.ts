@@ -9,7 +9,22 @@ import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
-import { HttpAssertion } from './http-assertion'
+import { HttpAssertion, HttpAssertionBuilder } from './http-assertion'
+
+// Aliased for backwards compatibility.
+export type Assertion = HttpAssertion
+
+// Aliased for backwards compatibility.
+export type Request = HttpRequest
+
+// Aliased via inheritance for backwards compatibility, keeping deprecated
+// method for now.
+export class AssertionBuilder extends HttpAssertionBuilder {
+  /** @deprecated Use responseTime() instead */
+  static responseTme () {
+    return HttpAssertionBuilder.responseTime()
+  }
+}
 
 export type ApiCheckDefaultConfig = {
   url?: string,
