@@ -110,7 +110,6 @@ export default class PwTestCommand extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
-
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
     const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, dir)
@@ -340,12 +339,17 @@ export default class PwTestCommand extends AuthCommand {
 
       return
     }
-    const playwrightConfigPathNode = recast.parse(`const playwrightConfig = '${playwrightConfigPath}'`)
+    const b = recast.types.builders;
+    const playwrightPropertyNode = b.property(
+      'init',
+      b.identifier('playwrightConfigPath'),
+      b.stringLiteral(playwrightConfigPath)
+    );
 
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
     const playwrightCheckAst = recast.parse(playwrightCheckString)
     const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init;
-    addOrReplaceItem(checksAst.value, playwrightConfigPathNode.value, 'playwrightConfig')
+    addOrReplaceItem(checksAst.value, playwrightPropertyNode, 'playwrightConfigPath')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
     const writeDir = path.resolve(path.dirname(configFile.fileName))
@@ -371,6 +375,6 @@ export default class PwTestCommand extends AuthCommand {
         continue;
       }
     }
-    return
+    return 'npx'; // Default to npx if no lock file is found
   }
 }
