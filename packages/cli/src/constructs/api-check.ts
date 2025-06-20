@@ -2,98 +2,28 @@ import fs from 'node:fs/promises'
 
 import { Check, CheckProps } from './check'
 import { HttpHeader } from './http-header'
+import { BasicAuth, HttpRequest } from './http-request'
 import { Session, SharedFileRef } from './project'
 import { QueryParam } from './query-param'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
-
-type AssertionSource =
-  | 'STATUS_CODE'
-  | 'JSON_BODY'
-  | 'HEADERS'
-  | 'TEXT_BODY'
-  | 'RESPONSE_TIME'
-
-export type Assertion = CoreAssertion<AssertionSource>
-
-export class AssertionBuilder {
-  static statusCode () {
-    return new NumericAssertionBuilder<AssertionSource>('STATUS_CODE')
-  }
-
-  static jsonBody (property?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('JSON_BODY', property)
-  }
-
-  static headers (property?: string, regex?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('HEADERS', property, regex)
-  }
-
-  static textBody (property?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('TEXT_BODY', property)
-  }
-
-  /** @deprecated Use responseTime() instead */
-  static responseTme () {
-    return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
-  }
-
-  static responseTime () {
-    return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
-  }
-}
-
-export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
-
-export type HttpRequestMethod =
-  | 'get' | 'GET'
-  | 'post' | 'POST'
-  | 'put' | 'PUT'
-  | 'patch' | 'PATCH'
-  | 'head' | 'HEAD'
-  | 'delete' | 'DELETE'
-  | 'options' | 'OPTIONS'
-
-export type IPFamily = 'IPv4' | 'IPv6'
-export interface BasicAuth {
-  username: string
-  password: string
-}
+import { HttpAssertion } from './http-assertion'
 
 export type ApiCheckDefaultConfig = {
   url?: string,
   headers?: Array<HttpHeader>
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
-  assertions?: Array<Assertion>
-}
-
-export interface Request {
-  url: string,
-  method: HttpRequestMethod,
-  ipFamily?: IPFamily,
-  followRedirects?: boolean,
-  skipSSL?: boolean,
-  /**
-   * Check the main Checkly documentation on assertions for specific values like regular expressions
-   * and JSON path descriptors you can use in the "property" field.
-   */
-  assertions?: Array<Assertion>
-  body?: string
-  bodyType?: BodyType
-  headers?: Array<HttpHeader>
-  queryParameters?: Array<QueryParam>
-  basicAuth?: BasicAuth
+  assertions?: Array<HttpAssertion>
 }
 
 export interface ApiCheckProps extends CheckProps {
   /**
    *  Determines the request that the check is going to run.
    */
-  request: Request
+  request: HttpRequest
   /**
    * A valid piece of Node.js code to run in the setup phase.
    * @deprecated use the "setupScript" property instead
@@ -130,7 +60,7 @@ export interface ApiCheckProps extends CheckProps {
  * This class make use of the API Checks endpoints.
  */
 export class ApiCheck extends Check {
-  readonly request: Request
+  readonly request: HttpRequest
   readonly localSetupScript?: string
   readonly setupScript?: Content | Entrypoint
   readonly localTearDownScript?: string

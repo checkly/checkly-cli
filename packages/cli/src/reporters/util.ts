@@ -3,7 +3,7 @@ import indentString from 'indent-string'
 import { DateTime } from 'luxon'
 import * as logSymbols from 'log-symbols'
 
-import { Assertion } from '../constructs/api-check'
+import { Assertion } from '../constructs/http-assertion'
 import { getDefaults } from '../rest/api'
 
 // eslint-disable-next-line no-restricted-syntax

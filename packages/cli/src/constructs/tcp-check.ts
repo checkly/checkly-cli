@@ -1,5 +1,5 @@
 import { Check, CheckProps } from './check'
-import { IPFamily } from './api-check'
+import { IPFamily } from './ip'
 import { Session } from './project'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 
