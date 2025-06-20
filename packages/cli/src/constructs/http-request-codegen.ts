@@ -10,8 +10,6 @@ export function valueForHttpRequest (
   context: Context,
   request: HttpRequest,
 ): Value {
-  genfile.namedImport('HttpAssertionBuilder', 'checkly/constructs')
-
   return object(builder => {
     builder.string('url', request.url)
     builder.string('method', request.method)
