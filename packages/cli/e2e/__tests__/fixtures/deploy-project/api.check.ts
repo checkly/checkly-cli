@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { ApiCheck, Frequency } from 'checkly/constructs'
+import { ApiCheck, Frequency, RetryStrategyBuilder } from 'checkly/constructs'
 import { privateLocation } from './private-location.check'
 import { fooService } from './status-page.check'
 
@@ -57,4 +57,24 @@ new ApiCheck('api-check-incident-trigger', {
     description: 'We have detected a disruption in connectivity.',
     notifySubscribers: true,
   }
+})
+
+new ApiCheck('api-check-retry-only-on-network-error', {
+  name: 'Api Check Retry Only On Network Error',
+  activated: false,
+  frequency: Frequency.EVERY_30S,
+  request: {
+    url: 'https://www.google.com',
+    method: 'GET',
+    followRedirects: false,
+    skipSSL: false,
+    assertions: []
+  },
+  setupScript: { content: "console.log('hi from setup')" },
+  tearDownScript: { content: "console.log('hi from teardown')" },
+  degradedResponseTime: 20000,
+  maxResponseTime: 30000,
+  retryStrategy: RetryStrategyBuilder.fixedStrategy({
+    onlyOn: 'NETWORK_ERROR',
+  }),
 })
