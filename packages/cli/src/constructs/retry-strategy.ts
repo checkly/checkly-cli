@@ -2,6 +2,11 @@
 export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES'
 
 /**
+ * Conditions can be used to limit when a retry strategy applies.
+ */
+export type RetryStrategyCondition = 'NETWORK_ERROR'
+
+/**
  * Configuration for check retry behavior.
  * Defines how and when to retry failed checks before marking them as permanently failed.
  */
@@ -55,13 +60,19 @@ export interface RetryStrategy {
    * @defaultValue true
    */
   sameRegion?: boolean,
+
+  /**
+   * Apply the retry strategy only if the cause of the failure matches the
+   * given condition. Otherwise, do not retry.
+   */
+  onlyOn?: RetryStrategyCondition,
 }
 
 /**
  * Options for configuring retry strategy behavior.
  * These options can be used with any retry strategy type.
  */
-export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds' | 'sameRegion'>
+export type RetryStrategyOptions = Omit<RetryStrategy, 'type'>
 
 /**
  * Builder class for creating retry strategies.
@@ -92,6 +103,14 @@ export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'm
  * 
  * // No retries - fail immediately
  * const noRetries = RetryStrategyBuilder.noRetries()
+ *
+ * // Retry on network errors only
+ * const retryOnNetworkError = RetryStrategyBuilder.fixedStrategy({
+ *   maxRetries: 1,
+ *   baseBackoffSeconds: 30,
+ *   sameRegion: false,
+ *   onlyOn: 'NETWORK_ERROR'
+ * })
  * ```
  * 
  * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/retries/ | Retry Strategies Documentation}

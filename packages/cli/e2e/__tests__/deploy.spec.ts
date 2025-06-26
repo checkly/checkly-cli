@@ -242,6 +242,7 @@ Update and Unchanged:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
+    ApiCheck: api-check-retry-only-on-network-error
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     TcpMonitor: tcp-monitor
@@ -259,6 +260,7 @@ Update and Unchanged:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
+    ApiCheck: api-check-retry-only-on-network-error
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
