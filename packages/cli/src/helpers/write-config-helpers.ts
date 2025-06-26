@@ -38,10 +38,7 @@ export function addItemToArray(ast: any, node: any, name: string) {
       item.value.elements = item.value.elements || [];
       item.value.elements.push(node);
     } else {
-      item.value = {
-        type: 'ArrayExpression',
-        elements: [node]
-      };
+      throw new Error(`Property "${name}" exists but is not an array`);
     }
   } else {
     ast.properties.push({
