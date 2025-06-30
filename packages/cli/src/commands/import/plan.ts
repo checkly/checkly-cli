@@ -114,6 +114,10 @@ future deployments include the imported resources.`
       default: false,
       hidden: true,
     }),
+    'debug-import-plan-input-file': Flags.string({
+      description: 'A file to load an import plan from.',
+      hidden: true,
+    }),
     'debug-import-plan-output-file': Flags.string({
       description: 'The file to output the import plan to.',
       default: './debug-import-plan.json',
@@ -141,6 +145,7 @@ future deployments include the imported resources.`
       config: configFilename,
       root: rootDirectory,
       'debug-import-plan': debugImportPlan,
+      'debug-import-plan-input-file': debugImportPlanInputFile,
       'debug-import-plan-output-file': debugImportPlanOutputFile,
       preview,
     } = flags
@@ -148,6 +153,80 @@ future deployments include the imported resources.`
     const filters = argv.map(value => {
       return parseFilter(value as string)
     })
+
+    const createProgram = () => {
+      return new Program({
+        rootDirectory,
+        constructFileSuffix: '.check',
+        constructHeaders: preview ? [previewComment()] : undefined,
+        specFileSuffix: '.spec',
+        language: 'typescript',
+      })
+    }
+
+    const friendExports: FriendExports = {
+      'alert-channel': new Map(),
+      'check-group': new Map(),
+      'private-location': new Map(),
+      'status-page-service': new Map(),
+    }
+
+    if (debugImportPlanInputFile) {
+      const plan = await (async () => {
+        this.style.actionStart('Loading debug import plan')
+
+        try {
+          const input = await fs.readFile(debugImportPlanInputFile, {
+            encoding: 'utf8',
+          })
+
+          const plan = JSON.parse(input)
+
+          this.style.actionSuccess()
+
+          return plan
+        } catch (err) {
+          this.style.actionFailure()
+
+          throw err
+        }
+      })()
+
+      this.style.shortSuccess(
+        `Successfully loaded debug import plan from "${debugImportPlanInputFile}".`,
+      )
+
+      const program = createProgram()
+      const codegen = new ConstructCodegen(program)
+
+      const { failures } = this.#generateCode(plan, program, codegen, friendExports)
+      if (failures.length) {
+        this.#outputFailures(failures, codegen)
+        this.style.shortError(`Unable to continue due to failed resources.`)
+        this.exit(1)
+      }
+
+      this.style.actionStart('Writing files')
+
+      try {
+        await program.realize()
+
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+
+        throw err
+      }
+
+      this.style.longSuccess(
+        `Debug import plan has been created!`,
+        `You can find the generated code under the following directory:` +
+        `\n\n` +
+        `  ${chalk.green(rootDirectory)}`
+      )
+
+      return
+    }
 
     this.style.shortInfo(
       `You are about to import resources from your Checkly account.`,
@@ -169,13 +248,6 @@ future deployments include the imported resources.`
       checklyConfig,
       rootDirectory,
     )
-
-    const friendExports: FriendExports = {
-      'alert-channel': new Map(),
-      'check-group': new Map(),
-      'private-location': new Map(),
-      'status-page-service': new Map(),
-    }
 
     const friends: ImportPlanFriend[] = []
     for (const constructExport of constructExports) {
@@ -206,16 +278,6 @@ future deployments include the imported resources.`
       if (existingPlans.length !== 0) {
         await this.#handleExistingPlans(existingPlans)
       }
-    }
-
-    const createProgram = () => {
-      return new Program({
-        rootDirectory,
-        constructFileSuffix: '.check',
-        constructHeaders: preview ? [previewComment()] : undefined,
-        specFileSuffix: '.spec',
-        language: 'typescript',
-      })
     }
 
     // These are needed for the interactive filter creation for now. Ideally
@@ -264,35 +326,12 @@ future deployments include the imported resources.`
       try {
         const { failures } = this.#generateCode(plan, program, codegen, friendExports)
         if (failures.length) {
-          this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
-          this.log()
+          const excludeFailed = this.#outputFailures(failures, codegen)
 
-          for (const { resource, cause } of failures) {
-            const spec = `${resource.type}:${resource.physicalId}`
-            const desc = (() => {
-              try {
-                return codegen.describe(resource as any)
-              } catch {
-                return resource.type
-              }
-            })()
-
-            this.log(`  ${desc} (${chalk.gray(spec)})`)
-            this.log()
-            this.log(`    ${chalk.red(cause.toString())}`)
-            this.log()
-
-            // Proactively exclude the failed resource. If the user wants to
-            // retry it'll already be in the filter list, and otherwise it will
-            // simply not get used.
-            filters.push({
-              type: 'exclude',
-              resource: {
-                type: resource.type,
-                physicalId: resource.physicalId,
-              },
-            })
-          }
+          // Proactively exclude failed resources. If the user wants to
+          // retry they'll already be in the filter list, and otherwise the
+          // filters will simply not get used.
+          filters.push(...excludeFailed)
 
           const retry = await this.#confirmRetryWithoutFailed()
           if (!retry) {
@@ -396,6 +435,39 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         throw err
       }
     }
+  }
+
+  #outputFailures (failures: FailedResource[], codegen: ConstructCodegen): ImportPlanFilter[] {
+    const filters: ImportPlanFilter[] = []
+
+    this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
+    this.log()
+
+    for (const { resource, cause } of failures) {
+      const spec = `${resource.type}:${resource.physicalId}`
+      const desc = (() => {
+        try {
+          return codegen.describe(resource as any)
+        } catch {
+          return resource.type
+        }
+      })()
+
+      this.log(`  ${desc} (${chalk.gray(spec)})`)
+      this.log()
+      this.log(`    ${chalk.red(cause.toString())}`)
+      this.log()
+
+      filters.push({
+        type: 'exclude',
+        resource: {
+          type: resource.type,
+          physicalId: resource.physicalId,
+        },
+      })
+    }
+
+    return filters
   }
 
   #outputConfigSection (options: {
