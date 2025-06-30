@@ -488,7 +488,7 @@
           "type": "CALL",
           "config": {
             "name": "Tim's mobile",
-            "number": "+31619543299"
+            "number": "{{PHONE_NUMBER}}"
           },
           "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
           "created_at": "2025-02-05T23:27:38.543Z",
