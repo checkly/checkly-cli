@@ -511,7 +511,7 @@
           "id": 248077,
           "type": "WEBHOOK",
           "config": {
-            "url": "https://api.telegram.org/bot5692603774:AAGDbMPNOttAngeWneFnQJIz1xwbQo4UMx0/sendMessage",
+            "url": "https://api.telegram.org/{{token}}sendMessage",
             "name": "tim's test channel",
             "method": "POST",
             "headers": [],
@@ -585,7 +585,7 @@
           "id": 248558,
           "type": "WEBHOOK",
           "config": {
-            "url": "https://hooks.slack.com/services/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",
+            "url": "https://hooks.slack.com/services/{{SLACK_WEBHOOK_ID}}",
             "name": "webhook to Slack App",
             "method": "POST",
             "headers": [],
