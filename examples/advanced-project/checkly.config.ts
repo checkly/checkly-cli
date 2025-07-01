@@ -45,6 +45,15 @@ const config = defineConfig({
       * */
       testMatch: '**/__checks__/**/*.spec.ts',
     },
+    playwrightConfigPath: './playwright.config.ts',
+    playwrightChecks: [
+      {
+        logicalId: 'playwright-check',
+        name: 'Playwright Test Project',
+        locations: ['eu-west-1'],
+        frequency: 10,
+      }
+    ],
   },
   cli: {
     /* The default datacenter location to use when running npx checkly test */
