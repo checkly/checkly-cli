@@ -1,4 +1,4 @@
-import { AlertEscalationBuilder, CheckGroup, RetryStrategyBuilder } from 'checkly/constructs'
+import { AlertEscalationBuilder, CheckGroupV2, RetryStrategyBuilder } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../alert-channels'
 const alertChannels = [smsChannel, emailChannel]
 /*
@@ -13,11 +13,11 @@ const alertChannels = [smsChannel, emailChannel]
 * You can use either or both. In this example we show option 1.
 **/
 
-export const websiteGroup = new CheckGroup('website-check-group-1', {
+export const websiteGroup = new CheckGroupV2('website-check-group-1', {
   name: 'Website Group',
   activated: true,
   muted: false,
-  runtimeId: '2024.09',
+  runtimeId: '2025.04',
   locations: ['us-east-1', 'eu-west-1'],
   tags: ['mac', 'group'],
   environmentVariables: [],
