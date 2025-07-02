@@ -1,12 +1,12 @@
 import { Codegen, Context, validateScript } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
-import { HttpRequest } from './http-request'
-import { valueForHttpRequest } from './http-request-codegen'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
+import { Request } from './api-request'
+import { valueForRequest } from './api-request-codegen'
 
-export interface ApiCheckResource extends CheckResource {
+export interface ApiCheckResource extends RuntimeCheckResource {
   checkType: 'API'
-  request: HttpRequest
+  request: Request
   localSetupScript?: string
   setupScriptPath?: string
   setupSnippetId?: number | null
@@ -39,7 +39,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          builder.value('request', valueForHttpRequest(this.program, file, context, resource.request))
+          builder.value('request', valueForRequest(this.program, file, context, resource.request))
 
           if (resource.localSetupScript) {
             const content = resource.localSetupScript
@@ -105,7 +105,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildRuntimeCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

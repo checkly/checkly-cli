@@ -1,16 +1,16 @@
 import fs from 'node:fs/promises'
 
-import { Check, CheckProps } from './check'
+import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session, SharedFileRef } from './project'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import CheckTypes from '../constants'
 import { PlaywrightConfig } from './playwright-config'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic, UnsupportedRuntimeFeatureDiagnostic } from './construct-diagnostics'
 import { MultiStepCheckBundle } from './multi-step-check-bundle'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
-export interface MultiStepCheckProps extends CheckProps {
+export interface MultiStepCheckProps extends RuntimeCheckProps {
   /**
    * A valid piece of Node.js javascript code describing a multi-step interaction
    * with the Puppeteer or Playwright frameworks.
@@ -26,7 +26,7 @@ export interface MultiStepCheckProps extends CheckProps {
  *
  * This class make use of the multi-step checks endpoints.
  */
-export class MultiStepCheck extends Check {
+export class MultiStepCheck extends RuntimeCheck {
   readonly code: Content | Entrypoint
   readonly playwrightConfig?: PlaywrightConfig
 
@@ -38,11 +38,6 @@ export class MultiStepCheck extends Check {
    * {@link https://checklyhq.com/docs/cli/constructs-reference/#multistepcheck Read more in the docs}
    */
   constructor (logicalId: string, props: MultiStepCheckProps) {
-    if (props.group) {
-      MultiStepCheck.applyDefaultMultiStepCheckGroupConfig(props, props.group.getMultiStepCheckDefaults())
-    }
-    MultiStepCheck.applyDefaultMultiStepCheckConfig(props)
-
     super(logicalId, props)
 
     this.code = props.code
@@ -93,23 +88,13 @@ export class MultiStepCheck extends Check {
     }
   }
 
-  private static applyDefaultMultiStepCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in groupProps) {
-      const newVal: any = props[configKey] ?? groupProps[configKey]
-      props[configKey] = newVal
-    }
-  }
-
-  private static applyDefaultMultiStepCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.multiStepCheckDefaults) {
-      return
-    }
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in Session.multiStepCheckDefaults) {
-      const newVal: any = props[configKey] ?? Session.multiStepCheckDefaults[configKey]
-      props[configKey] = newVal
-    }
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+    return makeConfigDefaultsGetter(
+      props.group?.getMultiStepCheckDefaults(),
+      Session.multiStepCheckDefaults,
+      props.group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
   }
 
   static async bundle (entry: string, runtimeId?: string) {

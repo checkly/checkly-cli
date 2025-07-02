@@ -2,7 +2,7 @@ import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckDefaultConfig } from './api-check'
-import { valueForHttpAssertion } from './http-assertion-codegen'
+import { valueForAssertion } from './api-assertion-codegen'
 import { EnvironmentVariable } from './environment-variable'
 import { FrequencyResource, valueForFrequency } from './frequency-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
@@ -259,7 +259,7 @@ function buildCheckGroupProps (
         if (assertions.length > 0) {
           builder.array('assertions', builder => {
             for (const assertion of assertions) {
-              builder.value(valueForHttpAssertion(genfile, assertion))
+              builder.value(valueForAssertion(genfile, assertion))
             }
           })
         }

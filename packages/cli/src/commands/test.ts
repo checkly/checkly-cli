@@ -16,7 +16,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
 import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, Diagnostics, HeartbeatCheck, MultiStepCheck, Project, RetryStrategyBuilder, Session } from '../constructs'
+import { BrowserCheck, Check, Diagnostics, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs'
 import type { Region } from '..'
 import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -187,7 +187,7 @@ export default class Test extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
       checkFilter: check => {
-        if (check instanceof HeartbeatCheck) {
+        if (check instanceof HeartbeatMonitor) {
           return false
         }
 
@@ -226,14 +226,16 @@ export default class Test extends AuthCommand {
 
         // FIXME: This should not be done here (not related to filtering).
         if (Object.keys(testEnvVars).length) {
-          check.environmentVariables = check.environmentVariables
+          if (check instanceof RuntimeCheck) {
+            check.environmentVariables = check.environmentVariables
             ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
-          for (const [key, value] of Object.entries(testEnvVars)) {
-            check.environmentVariables.push({
-              key,
-              value,
-              locked: true,
-            })
+            for (const [key, value] of Object.entries(testEnvVars)) {
+              check.environmentVariables.push({
+                key,
+                value,
+                locked: true,
+              })
+            }
           }
         }
 

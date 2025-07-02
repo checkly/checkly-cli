@@ -1,44 +1,29 @@
 import fs from 'node:fs/promises'
 
-import { Check, CheckProps } from './check'
+import { RuntimeCheck, RuntimeCheckProps } from './check'
 import { HttpHeader } from './http-header'
-import { BasicAuth, HttpRequest } from './http-request'
+import { BasicAuth, Request } from './api-request'
 import { Session, SharedFileRef } from './project'
 import { QueryParam } from './query-param'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
-import { HttpAssertion, HttpAssertionBuilder } from './http-assertion'
-
-// Aliased for backwards compatibility.
-export type Assertion = HttpAssertion
-
-// Aliased for backwards compatibility.
-export type Request = HttpRequest
-
-// Aliased via inheritance for backwards compatibility, keeping deprecated
-// method for now.
-export class AssertionBuilder extends HttpAssertionBuilder {
-  /** @deprecated Use responseTime() instead */
-  static responseTme () {
-    return HttpAssertionBuilder.responseTime()
-  }
-}
+import { Assertion } from './api-assertion'
 
 export type ApiCheckDefaultConfig = {
   url?: string,
   headers?: Array<HttpHeader>
   queryParameters?: Array<QueryParam>
   basicAuth?: BasicAuth
-  assertions?: Array<HttpAssertion>
+  assertions?: Array<Assertion>
 }
 
-export interface ApiCheckProps extends CheckProps {
+export interface ApiCheckProps extends RuntimeCheckProps {
   /**
    *  Determines the request that the check is going to run.
    */
-  request: HttpRequest
+  request: Request
   /**
    * A valid piece of Node.js code to run in the setup phase.
    * @deprecated use the "setupScript" property instead
@@ -74,8 +59,8 @@ export interface ApiCheckProps extends CheckProps {
  *
  * This class make use of the API Checks endpoints.
  */
-export class ApiCheck extends Check {
-  readonly request: HttpRequest
+export class ApiCheck extends RuntimeCheck {
+  readonly request: Request
   readonly localSetupScript?: string
   readonly setupScript?: Content | Entrypoint
   readonly localTearDownScript?: string

@@ -1,25 +1,25 @@
 import { Codegen, Context } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
-import { HttpRequest } from './http-request'
-import { valueForHttpRequest } from './http-request-codegen'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen'
+import { UrlRequest } from './url-request'
+import { valueForUrlRequest } from './url-request-codegen'
 
-export interface HttpCheckResource extends CheckResource {
-  checkType: 'HTTP'
-  request: HttpRequest
+export interface UrlMonitorResource extends MonitorResource {
+  checkType: 'URL'
+  request: UrlRequest
   degradedResponseTime?: number
   maxResponseTime?: number
 }
 
-const construct = 'HttpCheck'
+const construct = 'UrlMonitor'
 
-export class HttpCheckCodegen extends Codegen<HttpCheckResource> {
-  describe (resource: HttpCheckResource): string {
-    return `HTTP Check: ${resource.name}`
+export class UrlMonitorCodegen extends Codegen<UrlMonitorResource> {
+  describe (resource: UrlMonitorResource): string {
+    return `URL Monitor: ${resource.name}`
   }
 
-  gencode (logicalId: string, resource: HttpCheckResource, context: Context): void {
-    const filePath = context.filePath('resources/http-checks', resource.name, {
+  gencode (logicalId: string, resource: UrlMonitorResource, context: Context): void {
+    const filePath = context.filePath('resources/url-monitors', resource.name, {
       tags: resource.tags,
       unique: true,
     })
@@ -32,7 +32,7 @@ export class HttpCheckCodegen extends Codegen<HttpCheckResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          builder.value('request', valueForHttpRequest(this.program, file, context, resource.request))
+          builder.value('request', valueForUrlRequest(this.program, file, context, resource.request))
 
           if (resource.degradedResponseTime !== undefined) {
             builder.number('degradedResponseTime', resource.degradedResponseTime)
@@ -42,7 +42,7 @@ export class HttpCheckCodegen extends Codegen<HttpCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context)
         })
       })
     }))

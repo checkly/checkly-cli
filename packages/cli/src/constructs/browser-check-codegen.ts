@@ -1,9 +1,9 @@
 import { Codegen, Context, validateScript } from './internal/codegen'
 import { expr, ident } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
 
-export interface BrowserCheckResource extends CheckResource {
+export interface BrowserCheckResource extends RuntimeCheckResource {
   checkType: 'BROWSER'
   script: string
   scriptPath?: string
@@ -54,7 +54,7 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildRuntimeCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

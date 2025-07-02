@@ -1,18 +1,20 @@
-import { Check, CheckProps } from './check'
-import { HttpRequest } from './http-request'
+import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
+import { UrlRequest } from './url-request'
 
-export interface HttpCheckProps extends Omit<CheckProps, 'doubleCheck' | 'shouldFail'> {
+export interface UrlMonitorProps extends MonitorProps {
   /**
    *  Determines the request that the check is going to run.
    */
-  request: HttpRequest
+  request: UrlRequest
   /**
-   * The response time in milliseconds where a check should be considered degraded.
+   * The response time in milliseconds where the monitor should be considered
+   * degraded.
    */
   degradedResponseTime?: number
   /**
-   * The response time in milliseconds where a check should be considered failing.
+   * The response time in milliseconds where the monitor should be considered
+   * failing.
    */
   maxResponseTime?: number
 }
@@ -20,21 +22,21 @@ export interface HttpCheckProps extends Omit<CheckProps, 'doubleCheck' | 'should
 /**
  * Creates an HTTP Check
  */
-export class HttpCheck extends Check {
-  readonly request: HttpRequest
+export class UrlMonitor extends Monitor {
+  readonly request: UrlRequest
   readonly degradedResponseTime?: number
   readonly maxResponseTime?: number
 
   /**
-   * Constructs the HTTP Check instance
+   * Constructs the URL Monitor instance
    *
    * @param logicalId unique project-scoped resource name identification
-   * @param props check configuration properties
+   * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#httpcheck Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#urlmonitor Read more in the docs}
    */
 
-  constructor (logicalId: string, props: HttpCheckProps) {
+  constructor (logicalId: string, props: UrlMonitorProps) {
     super(logicalId, props)
 
     this.request = props.request
@@ -49,8 +51,11 @@ export class HttpCheck extends Check {
   synthesize () {
     return {
       ...super.synthesize(),
-      checkType: 'HTTP',
-      request: this.request,
+      checkType: 'URL',
+      request: {
+        ...this.request,
+        method: 'GET',
+      },
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }

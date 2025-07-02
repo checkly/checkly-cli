@@ -1,9 +1,9 @@
 import { expr, ident } from '../sourcegen'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
 import { Codegen, Context } from './internal/codegen'
 
-export interface MultiStepCheckResource extends CheckResource {
+export interface MultiStepCheckResource extends RuntimeCheckResource {
   checkType: 'MULTI_STEP'
   script: string
   scriptPath?: string
@@ -41,7 +41,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
             builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildRuntimeCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

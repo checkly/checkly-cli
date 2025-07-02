@@ -9,7 +9,7 @@ import { ValidationError } from './validator-error'
 import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
-  PrivateLocation, HeartbeatCheck, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+  PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService,
 } from './'
 import { PrivateLocationApi } from '../rest/private-locations'
@@ -193,7 +193,7 @@ export class Project extends Construct {
   getHeartbeatLogicalIds (): string[] {
     return Object
       .values(this.data.check)
-      .filter((construct: Construct) => construct instanceof HeartbeatCheck)
+      .filter((construct: Construct) => construct instanceof HeartbeatMonitor)
       .map((construct: Check) => construct.logicalId)
   }
 }

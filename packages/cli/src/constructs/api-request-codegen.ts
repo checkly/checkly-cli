@@ -1,14 +1,14 @@
 import { GeneratedFile, object, Program, Value } from '../sourcegen'
-import { valueForHttpAssertion } from './http-assertion-codegen'
-import { HttpRequest } from './http-request'
+import { valueForAssertion } from './api-assertion-codegen'
+import { Request } from './api-request'
 import { Context } from './internal/codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 
-export function valueForHttpRequest (
+export function valueForRequest (
   program: Program,
   genfile: GeneratedFile,
   context: Context,
-  request: HttpRequest,
+  request: Request,
 ): Value {
   return object(builder => {
     builder.string('url', request.url)
@@ -71,7 +71,7 @@ export function valueForHttpRequest (
       if (assertions.length > 0) {
         builder.array('assertions', builder => {
           for (const assertion of assertions) {
-            builder.value(valueForHttpAssertion(genfile, assertion))
+            builder.value(valueForAssertion(genfile, assertion))
           }
         })
       }

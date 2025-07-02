@@ -1,8 +1,8 @@
 /* eslint-disable no-new */
-import { TcpCheck } from 'checkly/constructs'
+import { TcpMonitor } from 'checkly/constructs'
 
-new TcpCheck('tcp-check', {
-  name: 'TCP Check',
+new TcpMonitor('tcp-monitor', {
+  name: 'TCP Monitor',
   activated: false,
   request: {
     hostname: 'api.checklyhq.com',

@@ -1,9 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { Check, CheckProps } from './check'
+import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session, SharedFileRef } from './project'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { detectSnapshots } from '../services/snapshot-service'
@@ -11,8 +10,9 @@ import { PlaywrightConfig } from './playwright-config'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
-export interface BrowserCheckProps extends CheckProps {
+export interface BrowserCheckProps extends RuntimeCheckProps {
   /**
    * A valid piece of Node.js javascript code describing a browser interaction
    * with the Puppeteer or Playwright frameworks.
@@ -37,7 +37,7 @@ export interface BrowserCheckProps extends CheckProps {
  *
  * This class make use of the Browser Checks endpoints.
  */
-export class BrowserCheck extends Check {
+export class BrowserCheck extends RuntimeCheck {
   readonly code: Content | Entrypoint
   readonly sslCheckDomain?: string
   readonly playwrightConfig?: PlaywrightConfig
@@ -50,11 +50,6 @@ export class BrowserCheck extends Check {
    * {@link https://checklyhq.com/docs/cli/constructs-reference/#browsercheck Read more in the docs}
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
-    if (props.group) {
-      BrowserCheck.applyDefaultBrowserCheckGroupConfig(props, props.group.getBrowserCheckDefaults())
-    }
-    BrowserCheck.applyDefaultBrowserCheckConfig(props)
-
     super(logicalId, props)
 
     this.code = props.code
@@ -64,6 +59,15 @@ export class BrowserCheck extends Check {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+    return makeConfigDefaultsGetter(
+      props.group?.getBrowserCheckDefaults(),
+      Session.browserCheckDefaults,
+      props.group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
@@ -93,25 +97,6 @@ export class BrowserCheck extends Check {
           new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
         ))
       }
-    }
-  }
-
-  private static applyDefaultBrowserCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in groupProps) {
-      const newVal: any = props[configKey] ?? groupProps[configKey]
-      props[configKey] = newVal
-    }
-  }
-
-  private static applyDefaultBrowserCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.browserCheckDefaults) {
-      return
-    }
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in Session.browserCheckDefaults) {
-      const newVal: any = props[configKey] ?? Session.browserCheckDefaults[configKey]
-      props[configKey] = newVal
     }
   }
 
