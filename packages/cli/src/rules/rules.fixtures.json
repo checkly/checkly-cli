@@ -3,7 +3,7 @@
   "changes": {
     "resources": [
       {
-        "logicalId": "check-with-no-state-hUYeQlv4",
+        "logicalId": "example-browser-check",
         "physicalId": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
         "type": "check",
         "member": true,
@@ -11,7 +11,7 @@
         "payload": {
           "id": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
           "checkType": "BROWSER",
-          "name": "Check with no State",
+          "name": "Example Browser Check",
           "frequency": 10,
           "frequencyOffset": 33,
           "activated": false,
@@ -94,7 +94,7 @@
         }
       },
       {
-        "logicalId": "runtimes-api-66WOkQ4w",
+        "logicalId": "api-check",
         "physicalId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
         "type": "check",
         "member": true,
@@ -102,7 +102,7 @@
         "payload": {
           "id": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
           "checkType": "API",
-          "name": "Runtimes API",
+          "name": "Example API check",
           "frequency": 60,
           "frequencyOffset": 504,
           "activated": true,
@@ -209,7 +209,7 @@
         }
       },
       {
-        "logicalId": "tcp-bin-5iUd5zIM",
+        "logicalId": "example-tcp-check",
         "physicalId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
         "type": "check",
         "member": true,
@@ -217,7 +217,7 @@
         "payload": {
           "id": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
           "checkType": "TCP",
-          "name": "TCP bin",
+          "name": "Example TCP Check",
           "frequency": 60,
           "frequencyOffset": 426,
           "activated": true,
@@ -315,308 +315,6 @@
             }
           ],
           "heartbeat": null
-        }
-      },
-      {
-        "logicalId": "otel-test-app-pjRu1wvs",
-        "physicalId": "a12e1ff9-f2b8-4a25-b6e1-a2b5034648fe",
-        "type": "check",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": "a12e1ff9-f2b8-4a25-b6e1-a2b5034648fe",
-          "checkType": "BROWSER",
-          "name": "OTEL test app",
-          "frequency": 180,
-          "frequencyOffset": 34,
-          "activated": true,
-          "muted": false,
-          "shouldFail": false,
-          "locations": [
-            "eu-central-1",
-            "eu-north-1"
-          ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "script": "/**\n  * To learn more about Playwright Test visit:\n  * https://checklyhq.com/docs/browser-checks/playwright-test/\n  * https://playwright.dev/docs/writing-tests\n  */\n\nconst { expect, test } = require('@playwright/test')\n\n// Configure the Playwright Test timeout to 210 seconds,\n// ensuring that longer tests conclude before Checkly's browser check timeout of 240 seconds.\n// The default Playwright Test timeout is set at 30 seconds.\n// For additional information on timeouts, visit: https://checklyhq.com/docs/browser-checks/timeouts/\ntest.setTimeout(210000)\n\n// Set the action timeout to 10 seconds to quickly identify failing actions.\n// By default Playwright Test has no timeout for actions (e.g. clicking an element).\ntest.use({ actionTimeout: 10000 })\n\ntest('visit page and take screenshot', async ({ page }) => {\n  // Change checklyhq.com to your site's URL,\n  // or, even better, define a ENVIRONMENT_URL environment variable\n  // to reuse it across your browser checks\n  const response = await page.goto(process.env.ENVIRONMENT_URL || 'https://nextjs-three-jade-93.vercel.app')\n\n  // Take a screenshot\n  await page.screenshot({ path: 'screenshot.jpg' })\n\n  // Test that the response did not fail\n  expect(response.status(), 'should respond with correct status code').toBeLessThan(400)\n})\n",
-          "created_at": "2025-04-01T11:39:38.954Z",
-          "updated_at": "2025-06-26T14:45:09.383Z",
-          "environmentVariables": [],
-          "doubleCheck": false,
-          "tags": [
-            "app:webshop",
-            "enduser:webshop-visitor",
-            "feature:search"
-          ],
-          "sslCheckDomain": "",
-          "setupSnippetId": null,
-          "tearDownSnippetId": null,
-          "localSetupScript": null,
-          "localTearDownScript": null,
-          "alertSettings": {
-            "reminders": {
-              "amount": 0,
-              "interval": 5
-            },
-            "escalationType": "RUN_BASED",
-            "runBasedEscalation": {
-              "failedRunThreshold": 1
-            },
-            "timeBasedEscalation": {
-              "minutesFailingThreshold": 5
-            },
-            "parallelRunFailureThreshold": {
-              "enabled": false,
-              "percentage": 10
-            }
-          },
-          "useGlobalAlertSettings": true,
-          "isSample": false,
-          "degradedResponseTime": 15000,
-          "maxResponseTime": 30000,
-          "groupId": null,
-          "groupOrder": null,
-          "runtimeId": null,
-          "importedFrom": null,
-          "scriptPath": null,
-          "setupScriptPath": null,
-          "tearDownScriptPath": null,
-          "retryStrategy": null,
-          "requestCount": 0,
-          "runParallel": true,
-          "playwrightConfig": null,
-          "tracing": null,
-          "codeBundlePath": null,
-          "testCommand": null,
-          "installCommand": null,
-          "browsers": null,
-          "triggerIncident": false,
-          "cacheHash": null,
-          "request": null,
-          "privateLocationAssignments": [],
-          "alertChannelSubscriptions": [],
-          "heartbeat": null
-        }
-      },
-      {
-        "logicalId": "acme-webshop-checkout-3v5TloCX",
-        "physicalId": "e6f8a6ac-30a4-4a01-a387-9e990dab5ee9",
-        "type": "check",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": "e6f8a6ac-30a4-4a01-a387-9e990dab5ee9",
-          "checkType": "BROWSER",
-          "name": "ACME webshop checkout",
-          "frequency": 120,
-          "frequencyOffset": 11,
-          "activated": true,
-          "muted": false,
-          "shouldFail": false,
-          "locations": [
-            "eu-central-1",
-            "eu-west-2"
-          ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "script": "\n\nconst { expect, test } = require('@playwright/test')\n\n// Configure the Playwright Test timeout to 210 seconds,\n// ensuring that longer tests conclude before Checkly's browser check timeout of 240 seconds.\n// The default Playwright Test timeout is set at 30 seconds.\n// For additional information on timeouts, visit: https://checklyhq.com/docs/browser-checks/timeouts/\ntest.setTimeout(210000)\n\n// Set the action timeout to 10 seconds to quickly identify failing actions.\n// By default Playwright Test has no timeout for actions (e.g. clicking an element).\ntest.use({ actionTimeout: 10000 })\n\ntest('visit page and take screenshot', async ({ page }) => {\n  // Change checklyhq.com to your site's URL,\n  // or, even better, define a ENVIRONMENT_URL environment variable\n  // to reuse it across your browser checks\n  const response = await page.goto(process.env.ENVIRONMENT_URL || 'https://www.checklyhq.com/learn/playwright/waits-and-timeouts/')\n  // Take a screenshot\n  // Test that the response did not fail\n  expect(response.status(), 'should respond with correct status code').toBeLessThan(400)\n})",
-          "created_at": "2025-01-06T13:19:29.619Z",
-          "updated_at": "2025-06-26T14:50:08.816Z",
-          "environmentVariables": [],
-          "doubleCheck": false,
-          "tags": [
-            "enduser:webshop-visitor",
-            "feature:checkout",
-            "app:webshop"
-          ],
-          "sslCheckDomain": "",
-          "setupSnippetId": null,
-          "tearDownSnippetId": null,
-          "localSetupScript": null,
-          "localTearDownScript": null,
-          "alertSettings": {
-            "reminders": {
-              "amount": 0,
-              "interval": 5
-            },
-            "escalationType": "RUN_BASED",
-            "runBasedEscalation": {
-              "failedRunThreshold": 1
-            },
-            "timeBasedEscalation": {
-              "minutesFailingThreshold": 5
-            },
-            "parallelRunFailureThreshold": {
-              "enabled": false,
-              "percentage": 10
-            }
-          },
-          "useGlobalAlertSettings": true,
-          "isSample": false,
-          "degradedResponseTime": 15000,
-          "maxResponseTime": 30000,
-          "groupId": null,
-          "groupOrder": null,
-          "runtimeId": null,
-          "importedFrom": null,
-          "scriptPath": null,
-          "setupScriptPath": null,
-          "tearDownScriptPath": null,
-          "retryStrategy": null,
-          "requestCount": 0,
-          "runParallel": true,
-          "playwrightConfig": null,
-          "tracing": null,
-          "codeBundlePath": null,
-          "testCommand": null,
-          "installCommand": null,
-          "browsers": null,
-          "triggerIncident": false,
-          "cacheHash": null,
-          "request": null,
-          "privateLocationAssignments": [],
-          "alertChannelSubscriptions": [],
-          "heartbeat": null
-        }
-      },
-      {
-        "logicalId": "call-cHdYjztx",
-        "physicalId": 246447,
-        "type": "alert-channel",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 246447,
-          "type": "CALL",
-          "config": {
-            "name": "Tim's mobile",
-            "number": "{{PHONE_NUMBER}}"
-          },
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "created_at": "2025-02-05T23:27:38.543Z",
-          "updated_at": "2025-06-13T09:48:11.651Z",
-          "sendRecovery": false,
-          "sendFailure": false,
-          "sendDegraded": false,
-          "sslExpiry": false,
-          "sslExpiryThreshold": 30,
-          "autoSubscribe": false
-        }
-      },
-      {
-        "logicalId": "webhook-dsXcrYGI",
-        "physicalId": 248077,
-        "type": "alert-channel",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 248077,
-          "type": "WEBHOOK",
-          "config": {
-            "url": "https://api.telegram.org/{{token}}sendMessage",
-            "name": "tim's test channel",
-            "method": "POST",
-            "headers": [],
-            "template": "chat_id=1352727080&parse_mode=HTML&text=<b>{{ALERT_TITLE}}</b> at {{STARTED_AT}} in {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)\nTags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/each}}\n<a href=\"{{RESULT_LINK}}\">View check result</a>\n",
-            "webhookType": "WEBHOOK_TELEGRAM",
-            "queryParameters": []
-          },
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "created_at": "2025-02-26T09:25:17.522Z",
-          "updated_at": null,
-          "sendRecovery": true,
-          "sendFailure": true,
-          "sendDegraded": false,
-          "sslExpiry": false,
-          "sslExpiryThreshold": 30,
-          "autoSubscribe": false
-        }
-      },
-      {
-        "logicalId": "check-alert-channel-subscription#check-with-no-state-hUYeQlv4#webhook-dsXcrYGI",
-        "physicalId": 23951060,
-        "type": "alert-channel-subscription",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 23951060,
-          "checkId": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
-          "alertChannelId": 248077,
-          "activated": true,
-          "groupId": null,
-          "accountId": null
-        }
-      },
-      {
-        "logicalId": "check-alert-channel-subscription#runtimes-api-66WOkQ4w#webhook-dsXcrYGI",
-        "physicalId": 23951063,
-        "type": "alert-channel-subscription",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 23951063,
-          "checkId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
-          "alertChannelId": 248077,
-          "activated": true,
-          "groupId": null,
-          "accountId": null
-        }
-      },
-      {
-        "logicalId": "check-alert-channel-subscription#tcp-bin-5iUd5zIM#webhook-dsXcrYGI",
-        "physicalId": 23951064,
-        "type": "alert-channel-subscription",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 23951064,
-          "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-          "alertChannelId": 248077,
-          "activated": true,
-          "groupId": null,
-          "accountId": null
-        }
-      },
-      {
-        "logicalId": "webhook-6jse54le",
-        "physicalId": 248558,
-        "type": "alert-channel",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 248558,
-          "type": "WEBHOOK",
-          "config": {
-            "url": "https://hooks.slack.com/services/{{SLACK_WEBHOOK_ID}}",
-            "name": "webhook to Slack App",
-            "method": "POST",
-            "headers": [],
-            "template": "{\n  \"text\": \"Hello, world.\"\n}",
-            "webhookSecret": null,
-            "queryParameters": []
-          },
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "created_at": "2025-03-03T12:13:29.925Z",
-          "updated_at": "2025-04-02T15:33:29.145Z",
-          "sendRecovery": true,
-          "sendFailure": true,
-          "sendDegraded": false,
-          "sslExpiry": false,
-          "sslExpiryThreshold": 30,
-          "autoSubscribe": false
-        }
-      },
-      {
-        "logicalId": "check-alert-channel-subscription#tcp-bin-5iUd5zIM#webhook-6jse54le",
-        "physicalId": 25537416,
-        "type": "alert-channel-subscription",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": 25537416,
-          "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-          "alertChannelId": 248558,
-          "activated": true,
-          "groupId": null,
-          "accountId": null
         }
       }
     ],

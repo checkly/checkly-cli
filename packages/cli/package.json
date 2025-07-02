@@ -14,9 +14,13 @@
     "node": "^18.19.0 || >=20.5.0"
   },
   "scripts": {
-    "clean": "rimraf ./dist",
+    "clean:dist": "rimraf ./dist",
+    "clean:gen": "rimraf ./gen",
+    "clean": "npm run clean:dist && npm run clean:gen",
     "prepack": "npx oclif manifest",
-    "prepare": "npm run clean && tsc --build",
+    "prepare:rules": "./bin/run import plan --root gen --debug-import-plan-input-file ./src/rules/rules.fixtures.json && ts-node ./scripts/compile-rules.ts",
+    "prepare:dist": "tsc --build",
+    "prepare": "npm run clean && npm run prepare:dist && npm run prepare:rules",
     "test": "vitest",
     "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config vitest -c ./vitest.config.e2e.mts",
     "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local npm run test:e2e",

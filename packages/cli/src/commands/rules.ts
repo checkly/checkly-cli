@@ -1,167 +1,120 @@
-import { BaseCommand } from './baseCommand'
-import { checklyRulesTemplate } from '../rules/checkly.rules'
+import { BaseCommand } from "./baseCommand";
+import { readFile, writeFile, access } from "fs/promises";
+import { join, dirname } from "path";
+import { constants } from "fs";
+import prompts from "prompts";
+
+const BASE_RULES_FILE_PATH = join(__dirname, "../rules/checkly.rules.md");
+
+// AI IDE config folder names to search for
+const AI_IDE_CONFIGS = [
+  ".windsurf",
+  ".github/copilot", 
+  ".cursor"
+];
 
 export default class Rules extends BaseCommand {
-  static hidden = false
-  static description = 'Generate a rules file to use with AI IDEs and code assistants.'
+  static hidden = false;
+  static description =
+    "Generate a rules file to use with AI IDEs and code assistants.";
 
-  async run (): Promise<void> {
+  async run(): Promise<void> {
     try {
-      // Use the template from the TypeScript file
-      let content = checklyRulesTemplate
+      // Find AI IDE config folders
+      const configFolder = await this.findAIIDEConfigFolder();
+      
+      if (!configFolder) {
+        this.error(
+          "No AI IDE config folders found. Please ensure you have one of the following folders in your project or parent directories:\n" +
+          AI_IDE_CONFIGS.map(folder => `  - ${folder}`).join("\n")
+        );
+        return;
+      }
 
-      // Unescape backticks for proper markdown formatting
-      content = this.unescapeBackticks(content)
+      this.log(`Found AI IDE config folder: ${configFolder}`);
 
-      // Replace placeholders with actual code examples
-      content = this.replacePlaceholders(content)
+      // Read the base rules file
+      const rulesContent = await this.readBaseRulesFile();
+      
+      // Determine the target file path
+      const rulesFileName = "checkly.rules.md";
+      const targetPath = join(configFolder, rulesFileName);
 
-      this.log(content)
+      // Check if file already exists and ask for confirmation
+      const shouldOverwrite = await this.confirmOverwrite(targetPath);
+      
+      if (!shouldOverwrite) {
+        this.log("Operation cancelled.");
+        return;
+      }
+
+      // Save the rules file
+      await writeFile(targetPath, rulesContent, "utf8");
+      
+      this.log(`✅ Successfully saved Checkly rules file to: ${targetPath}`);
+      
     } catch (error) {
-      this.error(`Failed to process template: ${error}`)
+      this.error(`Failed to generate rules file: ${error}`);
     }
   }
 
-  private unescapeBackticks(content: string): string {
-    return content.replace(/\\`/g, '`')
-  }
+  private async findAIIDEConfigFolder(): Promise<string | null> {
+    let currentDir = process.cwd();
+    const root = dirname(currentDir);
 
-  private replacePlaceholders(content: string): string {
-    const examples = {
-      'BROWSER_CHECK': this.getBrowserCheckExample(),
-      'MULTISTEP_CHECK': this.getMultiStepCheckExample(),
-      'TCP_CHECK': this.getTcpCheckExample(),
-      'HEARTBEAT_CHECK': this.getHeartbeatCheckExample()
+    while (currentDir !== root) {
+      for (const configFolder of AI_IDE_CONFIGS) {
+        const configPath = join(currentDir, configFolder);
+        try {
+          await access(configPath, constants.F_OK);
+          return configPath;
+        } catch {
+          // Folder doesn't exist, continue searching
+        }
+      }
+      
+      // Move up one directory
+      currentDir = dirname(currentDir);
     }
 
-    for (const [checkType, example] of Object.entries(examples)) {
-      const placeholder = `<<INSERT ${checkType} EXAMPLE HERE>>`
-      content = content.replace(placeholder, example)
+    // Check root directory as well
+    for (const configFolder of AI_IDE_CONFIGS) {
+      const configPath = join(root, configFolder);
+      try {
+        await access(configPath, constants.F_OK);
+        return configPath;
+      } catch {
+        // Folder doesn't exist
+      }
     }
 
-    return content
+    return null;
   }
 
-  private getBrowserCheckExample(): string {
-    return `\`\`\`typescript
-import { BrowserCheck } from 'checkly/constructs'
-
-new BrowserCheck('homepage-check', {
-  name: 'Homepage Check',
-  code: {
-    entrypoint: './homepage.spec.ts'
-  },
-  activated: true,
-  muted: false,
-  shouldFail: false,
-  locations: ['us-east-1', 'eu-west-1'],
-  tags: ['homepage', 'critical'],
-  frequency: 10,
-  environmentVariables: [
-    {
-      key: 'BASE_URL',
-      value: '{{BASE_URL}}'
+  private async readBaseRulesFile(): Promise<string> {
+    try {
+      return await readFile(BASE_RULES_FILE_PATH, "utf8");
+    } catch (error) {
+      throw new Error(`Failed to read base rules file at ${BASE_RULES_FILE_PATH}: ${error}`);
     }
-  ]
-})
-\`\`\`
-
-\`\`\`typescript
-import { test, expect } from '@playwright/test'
-
-test('Homepage loads correctly', async ({ page }) => {
-  await page.goto(process.env.BASE_URL || 'https://example.com')
-  await expect(page).toHaveTitle(/Example/)
-  await expect(page.locator('h1')).toBeVisible()
-})
-\`\`\``
   }
 
-  private getMultiStepCheckExample(): string {
-    return `\`\`\`typescript
-import { MultiStepCheck } from 'checkly/constructs'
+  private async confirmOverwrite(targetPath: string): Promise<boolean> {
+    try {
+      await access(targetPath, constants.F_OK);
+      
+      // File exists, ask for confirmation
+      const { overwrite } = await prompts({
+        type: "confirm",
+        name: "overwrite",
+        message: `Rules file already exists at ${targetPath}. Do you want to overwrite it?`,
+        initial: false
+      });
 
-new MultiStepCheck('user-journey-check', {
-  name: 'User Journey Check',
-  code: {
-    entrypoint: './user-journey.spec.ts'
-  },
-  activated: true,
-  muted: false,
-  shouldFail: false,
-  locations: ['us-east-1', 'eu-west-1'],
-  tags: ['user-journey', 'critical'],
-  frequency: 60,
-  environmentVariables: [
-    {
-      key: 'BASE_URL',
-      value: '{{BASE_URL}}'
-    },
-    {
-      key: 'TEST_EMAIL',
-      value: '{{TEST_EMAIL}}'
+      return overwrite ?? false;
+    } catch {
+      // File doesn't exist, no need to confirm
+      return true;
     }
-  ]
-})
-\`\`\`
-
-\`\`\`typescript
-// user-journey.spec.ts
-import { test, expect } from '@playwright/test'
-
-test('Complete user journey', async ({ page }) => {
-  // Step 1: Navigate to homepage
-  await page.goto(process.env.BASE_URL || 'https://example.com')
-  
-  // Step 2: Navigate to login
-  await page.click('a[href="/login"]')
-  
-  // Step 3: Fill login form
-  await page.fill('input[name="email"]', process.env.TEST_EMAIL || 'test@example.com')
-  await page.fill('input[name="password"]', '{{TEST_PASSWORD}}')
-  
-  // Step 4: Submit and verify
-  await page.click('button[type="submit"]')
-  await expect(page.locator('.dashboard')).toBeVisible()
-})
-\`\`\``
-  }
-
-  private getTcpCheckExample(): string {
-    return `\`\`\`typescript
-import { TcpCheck, TcpAssertionBuilder } from 'checkly/constructs'
-
-new TcpCheck('database-tcp-check', {
-  name: 'Database TCP Check',
-  host: '{{DB_HOST}}',
-  port: 5432,
-  activated: true,
-  muted: false,
-  shouldFail: false,
-  locations: ['us-east-1', 'eu-west-1'],
-  tags: ['database', 'infrastructure'],
-  frequency: 60,
-  assertions: [
-    TcpAssertionBuilder.responseTime().lessThan(1000)
-  ]
-})
-\`\`\``
-  }
-
-  private getHeartbeatCheckExample(): string {
-    return `\`\`\`typescript
-import { HeartbeatCheck } from 'checkly/constructs'
-
-new HeartbeatCheck('cron-job-heartbeat', {
-  name: 'Cron Job Heartbeat',
-  period: 86400, // 24 hours in seconds
-  periodUnit: 'seconds',
-  grace: 3600, // 1 hour grace period
-  activated: true,
-  muted: false,
-  shouldFail: false,
-  tags: ['cron', 'background-jobs']
-})
-\`\`\``
   }
 }
