@@ -77,7 +77,7 @@ and `MultiStepCheck` respectively from the `checkly/constructs` package and so o
 - Use the `code.entrypoint` property to specify the path to your Playwright test file.
 
 ```typescript
-// INSERT MULTISTEP_CHECK EXAMPLE HERE //
+// INSERT MULTISTEP CHECK EXAMPLE HERE //
 ```
 
 ### Tcp Check
