@@ -96,7 +96,7 @@ and `MultiStepCheck` respectively from the `checkly/constructs` package and so o
 - Checkout the reference docs for [Heartbeat Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#heartbeatcheck) before generating any code.
 
 ```typescript
-// INSERT HEARTBEAT_CHECK EXAMPLE HERE //
+// INSERT HEARTBEAT CHECK EXAMPLE HERE //
 ```
 
 ## Testing and Debugging

@@ -316,6 +316,171 @@
           ],
           "heartbeat": null
         }
+      },
+      {
+        "logicalId": "example-heartbeat-check",
+        "physicalId": "4ee16d38-2d68-469a-ba74-445878922fe1",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "4ee16d38-2d68-469a-ba74-445878922fe1",
+          "checkType": "HEARTBEAT",
+          "name": "Example Heartbeat Check",
+          "frequency": 0,
+          "frequencyOffset": 10,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": null,
+          "created_at": "2025-07-03T13:06:21.409Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": {
+            "id": "6e0f4513-72e6-4f7d-a0d4-83baa6e22150",
+            "expression": null,
+            "period": 1,
+            "periodUnit": "hours",
+            "grace": 30,
+            "graceUnit": "minutes",
+            "alertAfter": "2025-07-03T14:06:32.122Z",
+            "checkId": "4ee16d38-2d68-469a-ba74-445878922fe1",
+            "pingToken": "85a82f06-3e5b-4df5-83fe-5b96e81bb36c"
+          }
+        }
+      },
+      {
+        "logicalId": "example-multi-step-check",
+        "physicalId": "51664a21-1299-491f-8cbc-02a30035f37d",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "51664a21-1299-491f-8cbc-02a30035f37d",
+          "checkType": "MULTI_STEP",
+          "name": "Example Multistep Check",
+          "frequency": 60,
+          "frequencyOffset": 497,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": "import { test, expect } from \"@playwright/test\"\n\nconst baseUrl = \"https://api.spacexdata.com/v3\"\n\ntest(\"SpaceX-API Dragon Capsules & Next Launch\", async ({ request }) => {\n  /**\n   * Get all SpaceX Dragon Capsules\n   */\n  const [first] = await test.step(\"get all capsules\", async () => {\n    const response = await request.get(`${baseUrl}/dragons`)\n    await expect(response).toBeOK()\n\n    const data = await response.json()\n    expect(data.length).toBeGreaterThan(0)\n\n    return data\n  })\n\n  /**\n   * Get a single Dragon Capsule and compare with first capsule\n   * from the `get all` endpoint\n   */\n  await test.step(\"get single dragon capsule\", async () => {\n    const response = await request.get(`${baseUrl}/dragons/${first.id}`)\n    await expect(response).toBeOK()\n\n    const capsule = await response.json()\n    expect(capsule.name).toEqual(first.name)\n  })\n\n  /**\n   * Get next SpaceX Launch\n   */\n  await test.step(\"get next launch\", async () => {\n    const response = await request.get(`${baseUrl}/launches/next`)\n    await expect(response).toBeOK()\n\n    const next = await response.json()\n    console.log(`Next SpaceX Launch: ${next.launch_date_utc}`)\n  })\n})\n",
+          "created_at": "2025-07-03T13:05:20.052Z",
+          "updated_at": "2025-07-03T13:06:07.573Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": null,
+          "requestCount": 6,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
       }
     ],
     "friends": [],

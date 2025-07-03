@@ -22,20 +22,20 @@ const EXAMPLE_CONFIGS: Record<
     exampleConfigPath:
       'resources/api-checks/example-api-check/example-api-check.check.ts',
   },
-  // MULTISTEP_CHECK: {
-  //   templateString: '// INSERT MULTISTEP CHECK EXAMPLE HERE //',
-  //   exampleConfigPath:
-  //     'resources/multi-step-checks/example-multi-step-check.check.ts',
-  // },
+  MULTISTEP_CHECK: {
+    templateString: '// INSERT MULTISTEP CHECK EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/multi-step-checks/example-multistep-check/example-multistep-check.check.ts',
+  },
   TCP_CHECK: {
     templateString: '// INSERT TCP CHECK EXAMPLE HERE //',
     exampleConfigPath: 'resources/tcp-checks/example-tcp-check.check.ts',
   },
-  // HEARTBEAT_CHECK: {
-  //   templateString: '// INSERT HEARTBEAT CHECK EXAMPLE HERE //',
-  //   exampleConfigPath:
-  //     'resources/heartbeat-checks/example-heartbeat-check.check.ts',
-  // },
+  HEARTBEAT_CHECK: {
+    templateString: '// INSERT HEARTBEAT CHECK EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/heartbeats/example-heartbeat-check.check.ts',
+  },
 };
 
 async function compileRules() {
