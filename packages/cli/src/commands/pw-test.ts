@@ -286,6 +286,9 @@ export default class PwTestCommand extends AuthCommand {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
+    runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
+      reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+    })
     await runner.run()
     }
 

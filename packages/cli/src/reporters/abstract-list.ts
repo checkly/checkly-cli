@@ -20,6 +20,7 @@ export type checkFilesMap = Map<string|undefined, Map<SequenceId, {
   testResultId?: string,
   links?: TestResultsShortLinks,
   numRetries: number,
+  logs?: string[],
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -94,6 +95,17 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onError (err: Error) {
     printLn(chalk.red('Unable to run checks: ') + err.message)
+  }
+
+  onStreamLogs (check: any, sequenceId: SequenceId, logs: any) {
+    const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
+    const logList = logs.logs || []
+    if (!checkFile.logs) {
+      checkFile.logs = []
+    }
+    // checkFile.logs.push(...logs.logs)
+    logList.forEach((log: string) => printLn(log, 2))
+    return
   }
 
   // Clear the summary which was printed by _printStatus from stdout

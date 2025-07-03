@@ -14,6 +14,7 @@ export interface Reporter {
   onEnd(): void;
   onError(err: Error): void,
   onSchedulingDelayExceeded(): void
+  onStreamLogs(check: any, sequenceId: SequenceId, logs: string[]): void
 }
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github' | 'json'

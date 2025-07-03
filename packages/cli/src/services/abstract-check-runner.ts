@@ -18,7 +18,8 @@ export enum Events {
   RUN_STARTED = 'RUN_STARTED',
   RUN_FINISHED = 'RUN_FINISHED',
   ERROR = 'ERROR',
-  MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED'
+  MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
+  STREAM_LOGS = 'STREAM_LOGS',
 }
 
 export type PrivateRunLocation = {
@@ -160,6 +161,12 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.disableTimeout(sequenceId)
       this.emit(Events.CHECK_FAILED, sequenceId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
+    } else if (subtopic === 'stream-logs') {
+      const buffer = Buffer.from(message.data)
+      const jsonString = buffer.toString('utf-8');
+      const obj = JSON.parse(jsonString);
+      this.emit(Events.STREAM_LOGS, check, sequenceId, obj)
+
     }
   }
 
