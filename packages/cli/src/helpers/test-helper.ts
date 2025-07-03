@@ -3,8 +3,7 @@ import { Session } from '../constructs'
 import type { Region } from '..'
 import { ReporterType } from '../reporters/reporter'
 import { isCI } from 'ci-info'
-
-const DEFAULT_REGION = 'eu-central-1'
+import { DEFAULT_REGION } from './constants'
 
 export async function prepareRunLocation (
   configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
