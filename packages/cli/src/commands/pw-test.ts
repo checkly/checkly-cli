@@ -30,6 +30,7 @@ import {
 import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
 import { DEFAULT_REGION } from '../helpers/constants'
+import { cased } from '../sourcegen'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -292,7 +293,7 @@ export default class PwTestCommand extends AuthCommand {
         return arg
       })
       const input = parseArgs.join(' ') || ''
-      const inputLogicalId = input.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().substring(0, 50)
+      const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
       return {
         logicalId: `playwright-check-${inputLogicalId}`,
@@ -356,9 +357,6 @@ export default class PwTestCommand extends AuthCommand {
 
   private static async getTestCommand(directoryPath: string, input: string): Promise<string| undefined> {
     const packageManager = await detectPackageManager(directoryPath)
-    if (!packageManager) {
-      throw new Error('Unable to detect package manager. Please ensure you are in a valid Node.js project directory.')
-    }
     // Passing the input to the execCommand will return it quoted, which we want to avoid
     return `${packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand} ${input}`
   }
