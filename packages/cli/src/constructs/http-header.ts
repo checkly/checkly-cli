@@ -7,8 +7,7 @@ import KeyValuePair from './key-value-pair'
  * ```typescript
  * const authHeader: HttpHeader = {
  *   key: 'Authorization',
- *   value: 'Bearer {{API_TOKEN}}',
- *   secret: true
+ *   value: 'Bearer {{API_TOKEN}}'
  * }
  * 
  * const contentTypeHeader: HttpHeader = {

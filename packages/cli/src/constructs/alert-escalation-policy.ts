@@ -10,9 +10,20 @@ enum AlertEscalationType {
  * Defines how often to send reminder notifications after initial alert.
  */
 export type Reminders = {
-  /** Number of reminder notifications to send (0 to disable) */
+  /** 
+   * Number of reminder notifications to send (0 to disable).
+   * @defaultValue 0
+   * @minimum 0
+   * @maximum 5
+   * @example 2  // Send 2 reminder notifications
+   */
   amount?: number,
-  /** Interval between reminder notifications in minutes */
+  
+  /** 
+   * Interval between reminder notifications in minutes.
+   * @defaultValue 5
+   * @enum [5, 10, 15, 30]
+   */
   interval?: number
 }
 
@@ -21,9 +32,20 @@ export type Reminders = {
  * Determines when to alert based on percentage of failed parallel runs.
  */
 export type ParallelRunFailureThreshold = {
-  /** Whether parallel run failure threshold is enabled */
+  /** 
+   * Whether parallel run failure threshold is enabled.
+   * @defaultValue false
+   */
   enabled?: boolean,
-  /** Percentage of runs that must fail to trigger alert (1-100) */
+  
+  /** 
+   * Percentage of runs that must fail to trigger alert.
+   * @defaultValue 10
+   * @minimum 10
+   * @maximum 100
+   * @multipleOf 10
+   * @example 30  // Alert when 30% of parallel runs fail
+   */
   percentage?: number,
 }
 
@@ -36,12 +58,23 @@ export interface AlertEscalation {
   escalationType?: AlertEscalationType,
   /** Configuration for run-based escalation */
   runBasedEscalation?: {
-    /** Number of consecutive failed runs before escalating */
+    /** 
+     * Number of consecutive failed runs before escalating.
+     * @defaultValue 1
+     * @minimum 1
+     * @maximum 5
+     * @example 3  // Escalate after 3 consecutive failures
+     */
     failedRunThreshold?: number
   },
   /** Configuration for time-based escalation */
   timeBasedEscalation?: {
-    /** Minutes that check must be failing before escalating */
+    /** 
+     * Minutes that check must be failing before escalating.
+     * @defaultValue 5
+     * @enum [5, 10, 15, 30]
+     * @example 10  // Escalate after 10 minutes of continuous failure
+     */
     minutesFailingThreshold?: number
   },
   /** Configuration for reminder notifications */

@@ -7,8 +7,7 @@ import KeyValuePair from './key-value-pair'
  * ```typescript
  * const apiKeyParam: QueryParam = {
  *   key: 'api_key',
- *   value: '{{API_KEY}}',
- *   secret: true
+ *   value: '{{API_KEY}}'  // Use environment variables for sensitive data
  * }
  * 
  * const versionParam: QueryParam = {

@@ -40,18 +40,8 @@ export interface Validate {
  * Abstract base class for all constructs in the Checkly CLI system.
  * Provides common functionality for validation, bundling, and resource management.
  * 
- * @example
- * ```typescript
- * class MyConstruct extends Construct {
- *   constructor(logicalId: string) {
- *     super('my-construct', logicalId);
- *   }
- *   
- *   synthesize() {
- *     return { name: 'my-construct' };
- *   }
- * }
- * ```
+ * This class is extended by all built-in constructs like ApiCheck, BrowserCheck, etc.
+ * It should not be extended directly by user code.
  */
 export abstract class Construct implements Validate, Bundle {
   /** The type identifier of the construct */

@@ -67,14 +67,16 @@ export interface CheckProps {
   /**
    * Allows to invert the behaviour of when a check is considered to fail. 
    * Useful for validating error status codes like 404 or 500.
-   * This only applies to API Checks.
+   * This only applies to API Checks. When set to true, the check passes when 
+   * it would normally fail, and fails when it would normally pass.
    * 
    * @defaultValue false
    * @example
    * ```typescript
-   * // Check that expects a 404 status
+   * // Check that expects a 404 status - must set shouldFail: true
    * shouldFail: true,
    * request: {
+   *   method: 'GET',
    *   url: 'https://api.example.com/nonexistent',
    *   assertions: [AssertionBuilder.statusCode().equals(404)]
    * }
@@ -85,7 +87,7 @@ export interface CheckProps {
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
    * 
-   * @example "2023.09" | "2022.10"
+   * @example "2024.09" | "2023.09"
    * @see {@link https://www.checklyhq.com/docs/runtimes/ | Runtime Documentation}
    */
   runtimeId?: string
@@ -136,7 +138,9 @@ export interface CheckProps {
   
   /**
    * Environment variables available to the check script.
+   * Maximum of 50 environment variables per check.
    * 
+   * @maxItems 50
    * @example
    * ```typescript
    * environmentVariables: [
@@ -159,13 +163,18 @@ export interface CheckProps {
    * 
    * @example
    * ```typescript
+   * // Create a new check group
    * const apiGroup = new CheckGroupV2('api-group', {
    *   name: 'API Checks',
    *   activated: true,
    *   locations: ['us-east-1']
    * })
    * 
-   * group: apiGroup
+   * // Reference an existing check group by ID
+   * const existingGroup = CheckGroupV2.fromId(123)
+   * 
+   * // Use in check configuration
+   * group: apiGroup  // or existingGroup
    * ```
    */
   group?: CheckGroupV1 | CheckGroupV2 | CheckGroupRef

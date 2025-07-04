@@ -3,26 +3,57 @@ export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES
 
 /**
  * Configuration for check retry behavior.
- * Defines how and when to retry failed checks.
+ * Defines how and when to retry failed checks before marking them as permanently failed.
  */
 export interface RetryStrategy {
   /** The retry strategy type */
   type: RetryStrategyType,
+  
   /**
-  * The number of seconds to wait before the first retry attempt.
-  */
+   * The number of seconds to wait before the first retry attempt.
+   * This value is used differently based on the retry strategy type:
+   * - FIXED: Same delay for all retries
+   * - LINEAR: Base value that increases linearly (baseBackoffSeconds * attempt)
+   * - EXPONENTIAL: Base value that increases exponentially (baseBackoffSeconds ^ attempt)
+   * 
+   * @defaultValue 60
+   * @example
+   * ```typescript
+   * // Fixed: 30s, 30s, 30s
+   * baseBackoffSeconds: 30
+   * 
+   * // Linear: 10s, 20s, 30s
+   * baseBackoffSeconds: 10
+   * 
+   * // Exponential: 5s, 25s, 125s
+   * baseBackoffSeconds: 5
+   * ```
+   */
   baseBackoffSeconds?: number,
+  
   /**
-  * The maximum number of attempts to retry the check. Value must be between 1 and 10.
-  */
+   * The maximum number of attempts to retry the check.
+   * Value must be between 1 and 10.
+   * 
+   * @defaultValue 2
+   */
   maxRetries?: number,
+  
   /**
-  * The total amount of time to continue retrying the check (maximum 600 seconds).
-  */
+   * The total amount of time to continue retrying the check.
+   * Maximum value is 600 seconds (10 minutes).
+   * If retries would exceed this duration, they are stopped early.
+   * 
+   * @defaultValue 600
+   */
   maxDurationSeconds?: number,
+  
   /**
-  * Whether retries should be run in the same region as the initial check run.
-  */
+   * Whether retries should be run in the same region as the initial check run.
+   * If false, retries use a randomly selected region for better fault tolerance.
+   * 
+   * @defaultValue true
+   */
   sameRegion?: boolean,
 }
 

@@ -32,11 +32,12 @@ export type Assertion = CoreAssertion<AssertionSource>
  * ```typescript
  * // Status code assertions
  * AssertionBuilder.statusCode().equals(200)
- * AssertionBuilder.statusCode().isIn([200, 201, 202])
+ * AssertionBuilder.statusCode().greaterThan(199)
+ * AssertionBuilder.statusCode().lessThan(300)
  * 
  * // JSON body assertions using JSONPath
  * AssertionBuilder.jsonBody('$.user.name').equals('John')
- * AssertionBuilder.jsonBody('$.users').hasLength(5)
+ * AssertionBuilder.jsonBody('$.users.length').equals(5)
  * AssertionBuilder.jsonBody('$.data[0].id').isNotNull()
  * 
  * // Header assertions
@@ -45,11 +46,11 @@ export type Assertion = CoreAssertion<AssertionSource>
  * 
  * // Text body assertions
  * AssertionBuilder.textBody().contains('Welcome to our API')
- * AssertionBuilder.textBody().matches(/success|ok/i)
+ * AssertionBuilder.textBody().notContains('error')
  * 
  * // Response time assertions
  * AssertionBuilder.responseTime().lessThan(1000)
- * AssertionBuilder.responseTime().between(100, 2000)
+ * AssertionBuilder.responseTime().greaterThan(100)
  * ```
  * 
  * @see {@link https://jsonpath.com/ | JSONPath Online Evaluator}
@@ -154,30 +155,59 @@ export type ApiCheckDefaultConfig = {
  * Defines all aspects of the HTTP request to be made.
  */
 export interface Request {
-  /** The URL to make the request to */
+  /** 
+   * The URL to make the request to.
+   * @maxLength 2048
+   * @example 'https://api.example.com/users'
+   */
   url: string,
-  /** The HTTP method to use */
+  
+  /** 
+   * The HTTP method to use.
+   * Supported methods: GET, POST, PUT, HEAD, DELETE, PATCH
+   */
   method: HttpRequestMethod,
-  /** IP family version to use (IPv4 or IPv6) */
+  
+  /** 
+   * IP family version to use for network requests.
+   * @defaultValue 'IPv4'
+   */
   ipFamily?: IPFamily,
-  /** Whether to follow HTTP redirects automatically */
+  
+  /** 
+   * Whether to follow HTTP redirects automatically.
+   * @defaultValue false
+   */
   followRedirects?: boolean,
-  /** Whether to skip SSL certificate verification */
+  
+  /** 
+   * Whether to skip SSL certificate verification.
+   * @defaultValue false
+   */
   skipSSL?: boolean,
+  
   /**
    * Assertions to validate the HTTP response.
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
    */
   assertions?: Array<Assertion>
+  
   /** The request body content */
   body?: string
-  /** The type of the request body */
+  
+  /** 
+   * The type of the request body.
+   * @defaultValue 'NONE'
+   */
   bodyType?: BodyType
+  
   /** HTTP headers to include in the request */
   headers?: Array<HttpHeader>
+  
   /** Query parameters to include in the request URL */
   queryParameters?: Array<QueryParam>
+  
   /** Basic authentication credentials */
   basicAuth?: BasicAuth
 }
@@ -207,10 +237,29 @@ export interface ApiCheckProps extends CheckProps {
   tearDownScript?: Content|Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
+   * Used for performance monitoring and alerting on slow responses.
+   * 
+   * @defaultValue 10000
+   * @minimum 0
+   * @maximum 300000
+   * @example
+   * ```typescript
+   * degradedResponseTime: 2000  // Alert when API responds slower than 2 seconds
+   * ```
    */
   degradedResponseTime?: number
+  
   /**
    * The response time in milliseconds where a check should be considered failing.
+   * The check fails if the response takes longer than this threshold.
+   * 
+   * @defaultValue 20000
+   * @minimum 0  
+   * @maximum 300000
+   * @example
+   * ```typescript
+   * maxResponseTime: 5000  // Fail check if API takes longer than 5 seconds
+   * ```
    */
   maxResponseTime?: number
 }
@@ -228,11 +277,14 @@ export interface ApiCheckProps extends CheckProps {
  *   name: 'Hello API',
  *   request: {
  *     method: 'GET',
- *     url: 'https://api.example.com/hello'
+ *     url: 'https://api.example.com/hello',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(200)
+ *     ]
  *   }
  * })
  * 
- * // Advanced API check with assertions
+ * // Advanced API check with POST request
  * new ApiCheck('user-api', {
  *   name: 'User API Check',
  *   frequency: Frequency.EVERY_5M,
@@ -242,6 +294,7 @@ export interface ApiCheckProps extends CheckProps {
  *     url: 'https://api.example.com/users',
  *     headers: [{ key: 'Content-Type', value: 'application/json' }],
  *     body: JSON.stringify({ name: 'test-user' }),
+ *     bodyType: 'JSON',
  *     assertions: [
  *       AssertionBuilder.statusCode().equals(201),
  *       AssertionBuilder.jsonBody('$.id').isNotNull(),
@@ -250,6 +303,19 @@ export interface ApiCheckProps extends CheckProps {
  *   },
  *   maxResponseTime: 5000,
  *   degradedResponseTime: 2000
+ * })
+ * 
+ * // Error validation check (shouldFail required for error status checks)
+ * new ApiCheck('not-found-check', {
+ *   name: 'Not Found Check',
+ *   shouldFail: true,
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/nonexistent',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(404)
+ *     ]
+ *   }
  * })
  * ```
  * 
