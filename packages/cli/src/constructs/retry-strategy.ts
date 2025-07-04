@@ -1,6 +1,12 @@
+/** Available retry strategy types */
 export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES'
 
+/**
+ * Configuration for check retry behavior.
+ * Defines how and when to retry failed checks.
+ */
 export interface RetryStrategy {
+  /** The retry strategy type */
   type: RetryStrategyType,
   /**
   * The number of seconds to wait before the first retry attempt.
@@ -20,8 +26,45 @@ export interface RetryStrategy {
   sameRegion?: boolean,
 }
 
+/**
+ * Options for configuring retry strategy behavior.
+ * These options can be used with any retry strategy type.
+ */
 export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds' | 'sameRegion'>
 
+/**
+ * Builder class for creating retry strategies.
+ * Provides convenient methods to create different types of retry strategies.
+ * Retry strategies control how and when to retry failed checks before marking them as failed.
+ * 
+ * @example
+ * ```typescript
+ * // Fixed retry strategy - same delay between retries (60s, 60s, 60s)
+ * const fixedRetry = RetryStrategyBuilder.fixedStrategy({
+ *   maxRetries: 3,
+ *   baseBackoffSeconds: 60,
+ *   sameRegion: false
+ * })
+ * 
+ * // Linear retry strategy - increasing delay (10s, 20s, 30s)
+ * const linearRetry = RetryStrategyBuilder.linearStrategy({
+ *   maxRetries: 3,
+ *   baseBackoffSeconds: 10,
+ *   maxDurationSeconds: 600
+ * })
+ * 
+ * // Exponential retry strategy - exponential backoff (10s, 100s, 1000s)
+ * const exponentialRetry = RetryStrategyBuilder.exponentialStrategy({
+ *   maxRetries: 3,
+ *   baseBackoffSeconds: 10
+ * })
+ * 
+ * // No retries - fail immediately
+ * const noRetries = RetryStrategyBuilder.noRetries()
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/retries/ | Retry Strategies Documentation}
+ */
 export class RetryStrategyBuilder {
   private static readonly DEFAULT_BASE_BACKOFF_SECONDS = 60
   private static readonly DEFAULT_MAX_RETRIES = 2

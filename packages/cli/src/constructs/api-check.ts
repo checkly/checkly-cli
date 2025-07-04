@@ -10,6 +10,7 @@ import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 
+/** Sources that can be used for API check assertions */
 type AssertionSource =
   | 'STATUS_CODE'
   | 'JSON_BODY'
@@ -17,21 +18,76 @@ type AssertionSource =
   | 'TEXT_BODY'
   | 'RESPONSE_TIME'
 
+/**
+ * Assertion configuration for API checks.
+ * Allows validation of different aspects of HTTP responses.
+ */
 export type Assertion = CoreAssertion<AssertionSource>
 
+/**
+ * Builder class for creating API check assertions.
+ * Provides convenient methods to create assertions for different parts of HTTP responses.
+ * 
+ * @example
+ * ```typescript
+ * // Status code assertions
+ * AssertionBuilder.statusCode().equals(200)
+ * AssertionBuilder.statusCode().isIn([200, 201, 202])
+ * 
+ * // JSON body assertions using JSONPath
+ * AssertionBuilder.jsonBody('$.user.name').equals('John')
+ * AssertionBuilder.jsonBody('$.users').hasLength(5)
+ * AssertionBuilder.jsonBody('$.data[0].id').isNotNull()
+ * 
+ * // Header assertions
+ * AssertionBuilder.headers('content-type').contains('application/json')
+ * AssertionBuilder.headers('x-rate-limit-remaining').greaterThan(0)
+ * 
+ * // Text body assertions
+ * AssertionBuilder.textBody().contains('Welcome to our API')
+ * AssertionBuilder.textBody().matches(/success|ok/i)
+ * 
+ * // Response time assertions
+ * AssertionBuilder.responseTime().lessThan(1000)
+ * AssertionBuilder.responseTime().between(100, 2000)
+ * ```
+ * 
+ * @see {@link https://jsonpath.com/ | JSONPath Online Evaluator}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/assertions/ | API Check Assertions}
+ */
 export class AssertionBuilder {
+  /**
+   * Creates an assertion builder for HTTP status codes.
+   * @returns A numeric assertion builder for status codes
+   */
   static statusCode () {
     return new NumericAssertionBuilder<AssertionSource>('STATUS_CODE')
   }
 
+  /**
+   * Creates an assertion builder for JSON response body.
+   * @param property Optional JSON path to specific property (e.g., 'user.name')
+   * @returns A general assertion builder for JSON body content
+   */
   static jsonBody (property?: string) {
     return new GeneralAssertionBuilder<AssertionSource>('JSON_BODY', property)
   }
 
+  /**
+   * Creates an assertion builder for HTTP headers.
+   * @param property Optional header name to target specific header
+   * @param regex Optional regex pattern for header matching
+   * @returns A general assertion builder for headers
+   */
   static headers (property?: string, regex?: string) {
     return new GeneralAssertionBuilder<AssertionSource>('HEADERS', property, regex)
   }
 
+  /**
+   * Creates an assertion builder for text response body.
+   * @param property Optional property path for text content
+   * @returns A general assertion builder for text body content
+   */
   static textBody (property?: string) {
     return new GeneralAssertionBuilder<AssertionSource>('TEXT_BODY', property)
   }
@@ -41,13 +97,19 @@ export class AssertionBuilder {
     return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
   }
 
+  /**
+   * Creates an assertion builder for response time.
+   * @returns A numeric assertion builder for response time in milliseconds
+   */
   static responseTime () {
     return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
   }
 }
 
+/** HTTP request body types supported by API checks */
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
 
+/** HTTP request methods supported by API checks */
 export type HttpRequestMethod =
   | 'get' | 'GET'
   | 'post' | 'POST'
@@ -57,35 +119,66 @@ export type HttpRequestMethod =
   | 'delete' | 'DELETE'
   | 'options' | 'OPTIONS'
 
+/** IP family versions for network requests */
 export type IPFamily = 'IPv4' | 'IPv6'
+
+/**
+ * Basic authentication credentials for HTTP requests.
+ */
 export interface BasicAuth {
+  /** Username for basic authentication */
   username: string
+  /** Password for basic authentication */
   password: string
 }
 
+/**
+ * Default configuration that can be applied to API checks.
+ * Used for setting common defaults across multiple checks.
+ */
 export type ApiCheckDefaultConfig = {
+  /** Default URL for API requests */
   url?: string,
+  /** Default HTTP headers to include */
   headers?: Array<HttpHeader>
+  /** Default query parameters to include */
   queryParameters?: Array<QueryParam>
+  /** Default basic authentication credentials */
   basicAuth?: BasicAuth
+  /** Default assertions to apply */
   assertions?: Array<Assertion>
 }
 
+/**
+ * Configuration for an HTTP request in an API check.
+ * Defines all aspects of the HTTP request to be made.
+ */
 export interface Request {
+  /** The URL to make the request to */
   url: string,
+  /** The HTTP method to use */
   method: HttpRequestMethod,
+  /** IP family version to use (IPv4 or IPv6) */
   ipFamily?: IPFamily,
+  /** Whether to follow HTTP redirects automatically */
   followRedirects?: boolean,
+  /** Whether to skip SSL certificate verification */
   skipSSL?: boolean,
   /**
+   * Assertions to validate the HTTP response.
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
    */
   assertions?: Array<Assertion>
+  /** The request body content */
   body?: string
+  /** The type of the request body */
   bodyType?: BodyType
+  /** HTTP headers to include in the request */
   headers?: Array<HttpHeader>
+  /** Query parameters to include in the request URL */
   queryParameters?: Array<QueryParam>
+  /** Basic authentication credentials */
   basicAuth?: BasicAuth
 }
 
@@ -123,11 +216,45 @@ export interface ApiCheckProps extends CheckProps {
 }
 
 /**
- * Creates an API Check
+ * Creates an API Check to monitor HTTP endpoints and APIs.
+ * 
+ * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
+ * You can validate response status codes, response times, headers, and response body content.
  *
- * @remarks
- *
- * This class make use of the API Checks endpoints.
+ * @example
+ * ```typescript
+ * // Basic API check
+ * new ApiCheck('hello-api', {
+ *   name: 'Hello API',
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/hello'
+ *   }
+ * })
+ * 
+ * // Advanced API check with assertions
+ * new ApiCheck('user-api', {
+ *   name: 'User API Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   request: {
+ *     method: 'POST',
+ *     url: 'https://api.example.com/users',
+ *     headers: [{ key: 'Content-Type', value: 'application/json' }],
+ *     body: JSON.stringify({ name: 'test-user' }),
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(201),
+ *       AssertionBuilder.jsonBody('$.id').isNotNull(),
+ *       AssertionBuilder.responseTime().lessThan(1000)
+ *     ]
+ *   },
+ *   maxResponseTime: 5000,
+ *   degradedResponseTime: 2000
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
  */
 export class ApiCheck extends Check {
   readonly request: Request

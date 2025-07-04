@@ -1,33 +1,80 @@
+/** Types of alert escalation strategies */
 // eslint-disable-next-line no-restricted-syntax
 enum AlertEscalationType {
   RUN = 'RUN_BASED',
   TIME = 'TIME_BASED'
 }
 
+/**
+ * Configuration for alert reminders.
+ * Defines how often to send reminder notifications after initial alert.
+ */
 export type Reminders = {
+  /** Number of reminder notifications to send (0 to disable) */
   amount?: number,
+  /** Interval between reminder notifications in minutes */
   interval?: number
 }
 
+/**
+ * Configuration for parallel run failure threshold.
+ * Determines when to alert based on percentage of failed parallel runs.
+ */
 export type ParallelRunFailureThreshold = {
+  /** Whether parallel run failure threshold is enabled */
   enabled?: boolean,
+  /** Percentage of runs that must fail to trigger alert (1-100) */
   percentage?: number,
 }
 
+/**
+ * Configuration for alert escalation policies.
+ * Defines when and how to escalate alerts based on check failures.
+ */
 export interface AlertEscalation {
+  /** The type of escalation strategy to use */
   escalationType?: AlertEscalationType,
+  /** Configuration for run-based escalation */
   runBasedEscalation?: {
+    /** Number of consecutive failed runs before escalating */
     failedRunThreshold?: number
   },
+  /** Configuration for time-based escalation */
   timeBasedEscalation?: {
+    /** Minutes that check must be failing before escalating */
     minutesFailingThreshold?: number
   },
+  /** Configuration for reminder notifications */
   reminders?: Reminders
+  /** Configuration for parallel run failure threshold */
   parallelRunFailureThreshold?: ParallelRunFailureThreshold
 }
 
+/**
+ * Options for configuring alert escalation behavior.
+ * These options can be used with any escalation strategy.
+ */
 export type AlertEscalationOptions = Pick<AlertEscalation, 'runBasedEscalation' | 'timeBasedEscalation' | 'reminders' | 'parallelRunFailureThreshold'>
 
+/**
+ * Builder class for creating alert escalation policies.
+ * Provides convenient methods to create different types of escalation strategies.
+ * 
+ * @example
+ * ```typescript
+ * // Run-based escalation - alert after 3 consecutive failures
+ * const runBased = AlertEscalationBuilder.runBasedEscalation(3, {
+ *   amount: 2,
+ *   interval: 10
+ * })
+ * 
+ * // Time-based escalation - alert after 10 minutes of failure
+ * const timeBased = AlertEscalationBuilder.timeBasedEscalation(10, {
+ *   amount: 1,
+ *   interval: 30
+ * })
+ * ```
+ */
 export class AlertEscalationBuilder {
   private static DEFAULT_RUN_BASED_ESCALATION = { failedRunThreshold: 1 }
   private static DEFAULT_TIME_BASED_ESCALATION = { minutesFailingThreshold: 5 }

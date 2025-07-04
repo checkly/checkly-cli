@@ -31,11 +31,50 @@ export interface BrowserCheckProps extends CheckProps {
 }
 
 /**
- * Creates a Browser Check
+ * Creates a Browser Check to monitor web applications using Playwright.
+ * 
+ * Browser checks allow you to monitor complex user interactions, page performance,
+ * and visual regressions. They run real browser scripts using Playwright to simulate
+ * user behavior and validate web application functionality.
  *
- * @remarks
- *
- * This class make use of the Browser Checks endpoints.
+ * @example
+ * ```typescript
+ * // Basic browser check with script file
+ * new BrowserCheck('login-flow', {
+ *   name: 'User Login Flow',
+ *   frequency: Frequency.EVERY_10M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   code: {
+ *     entrypoint: path.join(__dirname, 'login.spec.js')
+ *   }
+ * })
+ * 
+ * // Browser check with inline code
+ * new BrowserCheck('homepage', {
+ *   name: 'Homepage Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   code: {
+ *     content: `
+ *       const { test, expect } = require('@playwright/test')
+ *       
+ *       test('homepage loads correctly', async ({ page }) => {
+ *         await page.goto('https://example.com')
+ *         await expect(page.locator('h1')).toContainText('Welcome')
+ *         await expect(page).toHaveTitle(/Example/)
+ *       })
+ *     `
+ *   },
+ *   playwrightConfig: {
+ *     use: {
+ *       viewport: { width: 1280, height: 720 }
+ *     }
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck | BrowserCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/browser-checks/ | Browser Checks Documentation}
+ * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
 export class BrowserCheck extends Check {
   readonly code: Content | Entrypoint
