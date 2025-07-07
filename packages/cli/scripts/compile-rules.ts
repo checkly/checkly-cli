@@ -70,6 +70,21 @@ const EXAMPLE_CONFIGS: Record<
     exampleConfigPath:
       'resources/private-locations/example-private-location.check.ts',
   },
+  EMAIL_ALERT_CHANNEL: {
+    templateString: '// INSERT EMAIL ALERT CHANNEL EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/alert-channels/email/test.check.ts',
+  },
+  PHONE_CALL_ALERT_CHANNEL: {
+    templateString: '// INSERT PHONE CALL ALERT CHANNEL EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/alert-channels/phone-call/test-user.check.ts',
+  },
+  SLACK_ALERT_CHANNEL: {
+    templateString: '// INSERT SLACK ALERT CHANNEL EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/alert-channels/slack/general.check.ts',
+  },
 };
 
 async function compileRules() {

@@ -1,15 +1,15 @@
 {
-  "id": "a4e75aff-b99d-4f02-b810-e99e5bf4ba3e",
+  "id": "00000000-0000-0000-0000-000000000000",
   "changes": {
     "resources": [
       {
         "logicalId": "example-browser-check",
-        "physicalId": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
+        "physicalId": "11111111-1111-1111-1111-111111111111",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
+          "id": "11111111-1111-1111-1111-111111111111",
           "checkType": "BROWSER",
           "name": "Example Browser Check",
           "frequency": 10,
@@ -21,7 +21,7 @@
             "eu-central-1",
             "eu-west-2"
           ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "script": "/**\n  * To learn more about Playwright Test visit:\n  * https://checklyhq.com/docs/browser-checks/playwright-test/\n  * https://playwright.dev/docs/writing-tests\n  */\n\nconst { expect, test } = require('@playwright/test')\n\n// Configure the Playwright Test timeout to 210 seconds,\n// ensuring that longer tests conclude before Checkly's browser check timeout of 240 seconds.\n// The default Playwright Test timeout is set at 30 seconds.\n// For additional information on timeouts, visit: https://checklyhq.com/docs/browser-checks/timeouts/\ntest.setTimeout(210000)\n\n// Set the action timeout to 10 seconds to quickly identify failing actions.\n// By default Playwright Test has no timeout for actions (e.g. clicking an element).\ntest.use({ actionTimeout: 10000 })\n\ntest('visit page and take screenshot', async ({ page }) => {\n  // Change checklyhq.com to your site's URL,\n  // or, even better, define a ENVIRONMENT_URL environment variable\n  // to reuse it across your browser checks\n  const response = await page.goto(process.env.ENVIRONMENT_URL || 'https://welcome.checklyhq.com')\n\n  // Take a screenshot\n  await page.screenshot({ path: 'screenshot.jpg' })\n\n  // Test that the response did not fail\n  expect(response.status(), 'should respond with correct status code').toBeLessThan(400)\n})\n",
           "created_at": "2025-02-17T10:03:36.015Z",
           "updated_at": "2025-02-17T10:10:04.498Z",
@@ -82,9 +82,9 @@
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [
             {
-              "id": 23951060,
-              "checkId": "0d5b7903-2a3f-4889-bddc-b560c9918f64",
-              "alertChannelId": 248077,
+              "id": 1000001,
+              "checkId": "11111111-1111-1111-1111-111111111111",
+              "alertChannelId": 100001,
               "activated": true,
               "groupId": null,
               "accountId": null
@@ -95,16 +95,16 @@
       },
       {
         "logicalId": "example-api-check",
-        "physicalId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
+        "physicalId": "22222222-2222-2222-2222-222222222222",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
+          "id": "22222222-2222-2222-2222-222222222222",
           "checkType": "API",
-          "name": "Example API check",
-          "frequency": 60,
-          "frequencyOffset": 504,
+          "name": "Example API Check",
+          "frequency": 5,
+          "frequencyOffset": 21,
           "activated": true,
           "muted": false,
           "shouldFail": false,
@@ -112,18 +112,18 @@
             "eu-central-1",
             "eu-west-2"
           ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "script": null,
-          "created_at": "2025-02-11T12:33:21.773Z",
-          "updated_at": "2025-02-26T15:09:17.277Z",
+          "created_at": "2025-07-07T11:20:14.793Z",
+          "updated_at": "2025-07-07T11:25:00.858Z",
           "environmentVariables": [],
           "doubleCheck": false,
           "tags": [],
           "sslCheckDomain": "api.checklyhq.com",
           "setupSnippetId": null,
           "tearDownSnippetId": null,
-          "localSetupScript": "",
-          "localTearDownScript": null,
+          "localSetupScript": "// Fetch an auth token \nimport axios from 'axios'\nconst { data } = await axios.get('https://example.com/api/token')\nrequest.headers['Authorization'] = `Bearer ${data}`\n",
+          "localTearDownScript": "// Remove a created resource\nimport axios from 'axios'\nconst createdResource = JSON.parse(response.body)\nawait axios.delete(`https://example.com/v1/${createdResource.id}`)",
           "alertSettings": {
             "reminders": {
               "amount": 0,
@@ -152,7 +152,13 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -164,58 +170,40 @@
           "triggerIncident": false,
           "cacheHash": null,
           "request": {
-            "id": 3166697,
+            "id": 1000001,
             "method": "GET",
-            "url": "https://api.checklyhq.com/v1/runtimes",
+            "url": "https://api.example.com/v1/products",
             "protocol": null,
             "port": null,
             "body": "",
             "bodyType": "NONE",
             "headers": [],
             "queryParameters": [],
-            "assertions": [
-              {
-                "order": 0,
-                "regex": null,
-                "source": "STATUS_CODE",
-                "target": "200",
-                "property": "",
-                "comparison": "EQUALS"
-              }
-            ],
+            "assertions": [],
             "basicAuth": {
               "password": "",
               "username": ""
             },
-            "checkId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
-            "created_at": "2025-02-26T15:09:17.273Z",
+            "checkId": "22222222-2222-2222-2222-222222222222",
+            "created_at": "2025-07-07T11:25:00.856Z",
             "updated_at": null,
             "followRedirects": true,
             "skipSSL": false,
             "ipFamily": "IPv4"
           },
           "privateLocationAssignments": [],
-          "alertChannelSubscriptions": [
-            {
-              "id": 23951063,
-              "checkId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
-              "alertChannelId": 248077,
-              "activated": true,
-              "groupId": null,
-              "accountId": null
-            }
-          ],
+          "alertChannelSubscriptions": [],
           "heartbeat": null
         }
       },
       {
         "logicalId": "example-heartbeat-monitor",
-        "physicalId": "4ee16d38-2d68-469a-ba74-445878922fe1",
+        "physicalId": "33333333-3333-3333-3333-333333333333",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "4ee16d38-2d68-469a-ba74-445878922fe1",
+          "id": "33333333-3333-3333-3333-333333333333",
           "checkType": "HEARTBEAT",
           "name": "Example Heartbeat Monitor",
           "frequency": 0,
@@ -224,7 +212,7 @@
           "muted": false,
           "shouldFail": false,
           "locations": [],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "script": null,
           "created_at": "2025-07-03T13:06:21.409Z",
           "updated_at": null,
@@ -285,26 +273,26 @@
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [],
           "heartbeat": {
-            "id": "6e0f4513-72e6-4f7d-a0d4-83baa6e22150",
+            "id": "44444444-4444-4444-4444-444444444444",
             "expression": null,
             "period": 1,
             "periodUnit": "hours",
             "grace": 30,
             "graceUnit": "minutes",
             "alertAfter": "2025-07-03T14:06:32.122Z",
-            "checkId": "4ee16d38-2d68-469a-ba74-445878922fe1",
-            "pingToken": "85a82f06-3e5b-4df5-83fe-5b96e81bb36c"
+            "checkId": "33333333-3333-3333-3333-333333333333",
+            "pingToken": "example-ping-token-placeholder"
           }
         }
       },
       {
         "logicalId": "example-multi-step-check",
-        "physicalId": "51664a21-1299-491f-8cbc-02a30035f37d",
+        "physicalId": "55555555-5555-5555-5555-555555555555",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "51664a21-1299-491f-8cbc-02a30035f37d",
+          "id": "55555555-5555-5555-5555-555555555555",
           "checkType": "MULTI_STEP",
           "name": "Example Multistep Check",
           "frequency": 60,
@@ -316,8 +304,8 @@
             "eu-central-1",
             "eu-west-2"
           ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "script": "import { test, expect } from \"@playwright/test\"\n\nconst baseUrl = \"https://api.spacexdata.com/v3\"\n\ntest(\"SpaceX-API Dragon Capsules & Next Launch\", async ({ request }) => {\n  /**\n   * Get all SpaceX Dragon Capsules\n   */\n  const [first] = await test.step(\"get all capsules\", async () => {\n    const response = await request.get(`${baseUrl}/dragons`)\n    await expect(response).toBeOK()\n\n    const data = await response.json()\n    expect(data.length).toBeGreaterThan(0)\n\n    return data\n  })\n\n  /**\n   * Get a single Dragon Capsule and compare with first capsule\n   * from the `get all` endpoint\n   */\n  await test.step(\"get single dragon capsule\", async () => {\n    const response = await request.get(`${baseUrl}/dragons/${first.id}`)\n    await expect(response).toBeOK()\n\n    const capsule = await response.json()\n    expect(capsule.name).toEqual(first.name)\n  })\n\n  /**\n   * Get next SpaceX Launch\n   */\n  await test.step(\"get next launch\", async () => {\n    const response = await request.get(`${baseUrl}/launches/next`)\n    await expect(response).toBeOK()\n\n    const next = await response.json()\n    console.log(`Next SpaceX Launch: ${next.launch_date_utc}`)\n  })\n})\n",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": "import { test, expect } from \"@playwright/test\"\n\nconst baseUrl = \"https://api.example.com/v1\"\n\ntest(\"Example API Test\", async ({ request }) => {\n  /**\n   * Get all items\n   */\n  const [first] = await test.step(\"get all items\", async () => {\n    const response = await request.get(`${baseUrl}/items`)\n    await expect(response).toBeOK()\n\n    const data = await response.json()\n    expect(data.length).toBeGreaterThan(0)\n\n    return data\n  })\n\n  /**\n   * Get a single item and compare with first item\n   * from the `get all` endpoint\n   */\n  await test.step(\"get single item\", async () => {\n    const response = await request.get(`${baseUrl}/items/${first.id}`)\n    await expect(response).toBeOK()\n\n    const item = await response.json()\n    expect(item.name).toEqual(first.name)\n  })\n\n  /**\n   * Get status\n   */\n  await test.step(\"get status\", async () => {\n    const response = await request.get(`${baseUrl}/status`)\n    await expect(response).toBeOK()\n\n    const status = await response.json()\n    console.log(`Status: ${status.status}`)\n  })\n})\n",
           "created_at": "2025-07-03T13:05:20.052Z",
           "updated_at": "2025-07-03T13:06:07.573Z",
           "environmentVariables": [],
@@ -375,12 +363,12 @@
       },
       {
         "logicalId": "example-tcp-monitor",
-        "physicalId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+        "physicalId": "66666666-6666-6666-6666-666666666666",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+          "id": "66666666-6666-6666-6666-666666666666",
           "checkType": "TCP",
           "name": "Example TCP Monitor",
           "frequency": 60,
@@ -392,14 +380,14 @@
             "eu-central-1",
             "eu-west-2"
           ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "script": null,
           "created_at": "2025-02-11T21:13:59.311Z",
           "updated_at": "2025-07-07T08:48:53.308Z",
           "environmentVariables": [],
           "doubleCheck": false,
           "tags": [],
-          "sslCheckDomain": "tcpbin.com",
+          "sslCheckDomain": "tcp.example.com",
           "setupSnippetId": null,
           "tearDownSnippetId": null,
           "localSetupScript": null,
@@ -450,9 +438,9 @@
           "triggerIncident": false,
           "cacheHash": null,
           "request": {
-            "id": 4193723,
+            "id": 1000002,
             "port": 4242,
-            "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+            "checkId": "66666666-6666-6666-6666-666666666666",
             "created_at": "2025-07-07T08:48:53.306Z",
             "updated_at": null,
             "assertions": [
@@ -474,8 +462,8 @@
               }
             ],
             "ipFamily": "IPv4",
-            "hostname": "tcpbin.com",
-            "url": "tcpbin.com"
+            "hostname": "tcp.example.com",
+            "url": "tcp.example.com"
           },
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [],
@@ -484,12 +472,12 @@
       },
       {
         "logicalId": "example-url-monitor",
-        "physicalId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+        "physicalId": "77777777-7777-7777-7777-777777777777",
         "type": "check",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+          "id": "77777777-7777-7777-7777-777777777777",
           "checkType": "URL",
           "name": "Example URL Monitor",
           "frequency": 5,
@@ -501,7 +489,7 @@
             "eu-central-1",
             "eu-west-2"
           ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "script": null,
           "created_at": "2025-07-07T09:51:12.489Z",
           "updated_at": null,
@@ -559,9 +547,118 @@
           "triggerIncident": false,
           "cacheHash": null,
           "request": {
+            "id": 1000003,
+            "method": "GET",
+            "url": "https://example.com",
+            "protocol": null,
+            "port": null,
+            "body": "",
+            "bodyType": "NONE",
+            "headers": [],
+            "queryParameters": [],
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "STATUS_CODE",
+                "target": "200",
+                "property": "",
+                "comparison": "EQUALS"
+              }
+            ],
+            "basicAuth": null,
+            "checkId": "77777777-7777-7777-7777-777777777777",
+            "created_at": "2025-07-07T09:51:12.507Z",
+            "updated_at": null,
+            "followRedirects": true,
+            "skipSSL": false,
+            "ipFamily": "IPv4"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-url-monitor-qsUNfTm5",
+        "physicalId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+          "checkType": "URL",
+          "name": "Example URL Monitor",
+          "frequency": 5,
+          "frequencyOffset": 13,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": null,
+          "created_at": "2025-07-07T09:51:12.489Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "checklyhq.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 20000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
             "id": 4194121,
             "method": "GET",
-            "url": "https://url.example.com",
+            "url": "https://checklyhq.com",
             "protocol": null,
             "port": null,
             "body": "",
@@ -587,19 +684,44 @@
             "ipFamily": "IPv4"
           },
           "privateLocationAssignments": [],
-          "alertChannelSubscriptions": [],
+          "alertChannelSubscriptions": [
+            {
+              "id": 186252598,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257058,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            },
+            {
+              "id": 186256410,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257059,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            },
+            {
+              "id": 186261770,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257060,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            }
+          ],
           "heartbeat": null
         }
       },
       {
         "logicalId": "example-maintenance-window",
-        "physicalId": 15006,
+        "physicalId": 1000001,
         "type": "maintenance-window",
         "member": true,
         "pending": true,
         "payload": {
-          "id": 15006,
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "id": 1000001,
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "name": "Example Maintenance Window",
           "tags": [
             "app:webshop"
@@ -615,17 +737,17 @@
       },
       {
         "logicalId": "example-private-location",
-        "physicalId": "f08ad843-1d3a-46ab-bdf9-db8c17f7c8f4",
+        "physicalId": "88888888-8888-8888-8888-888888888888",
         "type": "private-location",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "f08ad843-1d3a-46ab-bdf9-db8c17f7c8f4",
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "id": "88888888-8888-8888-8888-888888888888",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "name": "Example Private Location",
           "slugName": "example-private-location",
           "icon": "location",
-          "queue": "https://sqs.eu-west-1.amazonaws.com/123456789/agent-bff33ed7-ce87-4a56-a745-e5418d1f5ddf-bff33ed7-ce87-4a56-a745-e5418d1f5ddf",
+          "queue": "https://queue.example.com",
           "created_at": "2025-07-07T08:46:22.270Z",
           "updated_at": null,
           "isDegraded": false,
@@ -634,17 +756,17 @@
       },
       {
         "logicalId": "example-dashboard",
-        "physicalId": 626262,
+        "physicalId": 1000002,
         "type": "dashboard",
         "member": true,
         "pending": true,
         "payload": {
-          "id": 626262,
-          "dashboardId": "c2f08062",
+          "id": 1000002,
+          "dashboardId": "example123",
           "logo": "",
           "header": "Example Dashboard",
           "customUrl": "example-dashboard",
-          "customDomain": "dash.example.company",
+          "customDomain": "dash.example.com",
           "paginate": true,
           "paginationRate": 60,
           "refreshRate": 60,
@@ -672,15 +794,15 @@
       },
       {
         "logicalId": "example-status-page",
-        "physicalId": "a239494b-cad0-43db-b5d0-80a68a0c4090",
+        "physicalId": "99999999-9999-9999-9999-999999999999",
         "type": "status-page",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "a239494b-cad0-43db-b5d0-80a68a0c4090",
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "id": "99999999-9999-9999-9999-999999999999",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "name": "Example Status Page",
-          "customDomain": "status.example.company",
+          "customDomain": "status.example.com",
           "url": "example-status-page",
           "logo": "",
           "redirectTo": null,
@@ -688,19 +810,19 @@
           "created_at": "2025-07-07T08:45:51.325Z",
           "updated_at": "2025-07-07T08:45:52.177Z",
           "defaultTheme": "AUTO",
-          "hostnameId": "88ee8dff-b643-4ded-b26f-b739151ac9be",
+          "hostnameId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
           "cards": [
             {
-              "id": "c2665c29-4bc0-4fac-9334-b39784a15aa7",
-              "statusPageId": "a239494b-cad0-43db-b5d0-80a68a0c4090",
+              "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+              "statusPageId": "99999999-9999-9999-9999-999999999999",
               "name": "Example service",
               "created_at": "2025-07-07T08:45:51.322Z",
               "updated_at": "2025-07-07T08:45:51.322Z",
               "order": 0,
               "services": [
                 {
-                  "id": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
-                  "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+                  "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                  "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                   "name": "Example service",
                   "created_at": "2025-07-07T08:45:41.709Z",
                   "updated_at": "2025-07-07T08:46:03.848Z",
@@ -713,13 +835,13 @@
       },
       {
         "logicalId": "example-status-page-service",
-        "physicalId": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
+        "physicalId": "dddddddd-dddd-dddd-dddd-dddddddddddd",
         "type": "status-page-service",
         "member": true,
         "pending": true,
         "payload": {
-          "id": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "name": "Example Service",
           "created_at": "2025-07-07T08:45:41.709Z",
           "updated_at": "2025-07-07T08:46:03.848Z"
@@ -727,12 +849,12 @@
       },
       {
         "logicalId": "example-group",
-        "physicalId": 3280003,
+        "physicalId": 1000003,
         "type": "check-group",
         "member": true,
         "pending": true,
         "payload": {
-          "id": 3280003,
+          "id": 1000003,
           "name": "Example Group",
           "concurrency": 1,
           "apiCheckDefaults": {
@@ -758,7 +880,7 @@
           "doubleCheck": false,
           "locations": [],
           "tags": [],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "created_at": "2025-07-07T09:07:40.175Z",
           "updated_at": null,
           "runtimeId": null,
@@ -767,6 +889,77 @@
           "tracing": null,
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": []
+        }
+      },
+      {
+        "logicalId": "example-email-alert-channel",
+        "physicalId": 1000012,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000012,
+          "type": "EMAIL",
+          "config": {
+            "address": "test@example.com"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:33:30.657Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": true,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-call-alert-channel",
+        "physicalId": 1000013,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000013,
+          "type": "CALL",
+          "config": {
+            "name": "Test User",
+            "number": "+311234567890"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:36:19.897Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-slack-alert-channel",
+        "physicalId": 1000014,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000014,
+          "type": "SLACK",
+          "config": {
+            "url": "https://hooks.slack.com/services/TK123456789123/12345/123456789",
+            "channel": "#general"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:38:13.983Z",
+          "updated_at": "2025-07-07T11:38:22.775Z",
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
         }
       }
     ],

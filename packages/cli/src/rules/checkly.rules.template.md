@@ -33,7 +33,7 @@ Here is an example directory tree of what that would look like:
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
-## Check Types, Monitor Types and Constructs
+## Check and Monitor Constructs
 
 ### API Check
 
@@ -43,7 +43,7 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 - When referencing environment variables always use the handlebar syntax `{{MY_ENV_VAR}}`.
 - When referencing secrets always use the handlebar syntax `{{MY_SECRET}}`.
 - If endpoints require authentication ask the user which authentication method to use and then generate a setupScript to authenticate the given requests.
-- Referenced setupScript for ApiChecks must be plain ts files and not export anything.
+- Referenced `setupScript.ts` and `teardownScript.ts` for API checks must be plain ts files and not export anything.
 - Check in the code if API endpoints require authentication.
 
 ```typescript
@@ -118,6 +118,36 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 ```typescript
 // INSERT CHECK GROUP EXAMPLE HERE //
 ```
+
+## Alert Channel Constructs
+
+- Alert channels are used to send notifications when checks and monitors fail or recover.
+- Alert channels are added to checks, monitors, and check groups constructs by adding them to the `alertChannels` array property.
+
+Here are some examples of how to create different types of alert channels. All alert are described in the [Checkly docs](https://www.checklyhq.com/docs/cli/constructs-reference/#alertchannel).
+
+### Email Alert Channel
+
+```typescript
+// INSERT EMAIL ALERT CHANNEL EXAMPLE HERE //
+```
+
+
+### Phone Call Alert Channel
+
+```typescript
+// INSERT PHONE CALL ALERT CHANNEL EXAMPLE HERE //
+```
+
+
+### Slack Alert Channel
+
+```typescript
+// INSERT SLACK ALERT CHANNEL EXAMPLE HERE //
+```
+
+
+## Supporting Constructs
 
 ### Status Page
 
