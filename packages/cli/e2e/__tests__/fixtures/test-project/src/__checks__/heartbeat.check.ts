@@ -1,7 +1,7 @@
-import { HeartbeatCheck } from 'checkly/constructs'
+import { HeartbeatMonitor } from 'checkly/constructs'
 
-const heartbeat = new HeartbeatCheck('heartbeat-check-1', {
-  name: 'Heartbeat Check',
+const heartbeat = new HeartbeatMonitor('heartbeat-monitor-1', {
+  name: 'Heartbeat Monitor',
   period: 2,
   periodUnit: 'minutes',
   grace: 30,

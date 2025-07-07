@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 
 import type { AxiosResponse } from 'axios'
-import { Check, CheckProps } from './check'
+import { RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session } from './project'
 import {
   bundlePlayWrightProject, cleanup,
@@ -13,7 +13,7 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Ref } from './ref'
 
-export interface PlaywrightCheckProps extends CheckProps {
+export interface PlaywrightCheckProps extends RuntimeCheckProps {
   playwrightConfigPath: string
   installCommand?: string
   testCommand?: string
@@ -23,7 +23,7 @@ export interface PlaywrightCheckProps extends CheckProps {
   groupName?: string
 }
 
-export class PlaywrightCheck extends Check {
+export class PlaywrightCheck extends RuntimeCheck {
   installCommand?: string
   testCommand: string
   playwrightConfigPath: string

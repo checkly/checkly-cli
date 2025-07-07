@@ -6,11 +6,12 @@ import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codeg
 import { CheckGroupCodegen, valueForCheckGroupFromId } from './check-group-codegen'
 import { EnvironmentVariable } from './environment-variable'
 import { FrequencyResource, valueForFrequency } from './frequency-codegen'
-import { HeartbeatCheckCodegen, HeartbeatCheckResource } from './heartbeat-check-codegen'
+import { HeartbeatMonitorCodegen, HeartbeatMonitorResource } from './heartbeat-monitor-codegen'
 import { valueForKeyValuePair } from './key-value-pair-codegen'
 import { MultiStepCheckCodegen, MultiStepCheckResource } from './multi-step-check-codegen'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen'
-import { TcpCheckCodegen, TcpCheckResource } from './tcp-check-codegen'
+import { TcpMonitorCodegen, TcpMonitorResource } from './tcp-monitor-codegen'
+import { UrlMonitorCodegen, UrlMonitorResource } from './url-monitor-codegen'
 import { valueForPrivateLocationFromId } from './private-location-codegen'
 import { valueForAlertChannelFromId } from './alert-channel-codegen'
 
@@ -23,11 +24,9 @@ export interface CheckResource {
   // Handled by the backend which creates the appropriate retryStrategy.
   // doubleCheck?: boolean
   shouldFail?: boolean
-  runtimeId?: string
   locations?: string[]
   tags?: string[]
   frequency?: FrequencyResource
-  environmentVariables?: EnvironmentVariable[]
   groupId?: number
   alertSettings?: AlertEscalationResource
   testOnly?: boolean
@@ -54,10 +53,6 @@ export function buildCheckProps (
 
   if (resource.shouldFail !== undefined) {
     builder.boolean('shouldFail', resource.shouldFail)
-  }
-
-  if (resource.runtimeId) {
-    builder.string('runtimeId', resource.runtimeId)
   }
 
   if (resource.locations) {
@@ -112,17 +107,6 @@ export function buildCheckProps (
 
   if (resource.frequency !== undefined) {
     builder.value('frequency', valueForFrequency(genfile, resource.frequency))
-  }
-
-  if (resource.environmentVariables) {
-    const variables = resource.environmentVariables
-    if (variables.length > 0) {
-      builder.array('environmentVariables', builder => {
-        for (const variable of variables) {
-          builder.value(valueForKeyValuePair(program, genfile, context, variable))
-        }
-      })
-    }
   }
 
   if (resource.groupId) {
@@ -184,22 +168,54 @@ export function buildCheckProps (
   }
 }
 
+export interface RuntimeCheckResource extends CheckResource {
+  runtimeId?: string
+  environmentVariables?: EnvironmentVariable[]
+}
+
+export function buildRuntimeCheckProps (
+  program: Program,
+  genfile: GeneratedFile,
+  builder: ObjectValueBuilder,
+  resource: RuntimeCheckResource,
+  context: Context,
+): void {
+  buildCheckProps(program, genfile, builder, resource, context)
+
+  if (resource.runtimeId) {
+    builder.string('runtimeId', resource.runtimeId)
+  }
+
+  if (resource.environmentVariables) {
+    const variables = resource.environmentVariables
+    if (variables.length > 0) {
+      builder.array('environmentVariables', builder => {
+        for (const variable of variables) {
+          builder.value(valueForKeyValuePair(program, genfile, context, variable))
+        }
+      })
+    }
+  }
+}
+
 export class CheckCodegen extends Codegen<CheckResource> {
   apiCheckCodegen: ApiCheckCodegen
   browserCheckCodegen: BrowserCheckCodegen
   checkGroupCodegen: CheckGroupCodegen
-  heartbeatCheckCodegen: HeartbeatCheckCodegen
+  heartbeatMonitorCodegen: HeartbeatMonitorCodegen
   multiStepCheckCodegen: MultiStepCheckCodegen
-  tcpCheckCodegen: TcpCheckCodegen
+  tcpMonitorCodegen: TcpMonitorCodegen
+  urlMonitorCodegen: UrlMonitorCodegen
 
   constructor (program: Program) {
     super(program)
     this.apiCheckCodegen = new ApiCheckCodegen(program)
     this.browserCheckCodegen = new BrowserCheckCodegen(program)
     this.checkGroupCodegen = new CheckGroupCodegen(program)
-    this.heartbeatCheckCodegen = new HeartbeatCheckCodegen(program)
+    this.heartbeatMonitorCodegen = new HeartbeatMonitorCodegen(program)
     this.multiStepCheckCodegen = new MultiStepCheckCodegen(program)
-    this.tcpCheckCodegen = new TcpCheckCodegen(program)
+    this.tcpMonitorCodegen = new TcpMonitorCodegen(program)
+    this.urlMonitorCodegen = new UrlMonitorCodegen(program)
   }
 
   describe (resource: CheckResource): string {
@@ -211,11 +227,13 @@ export class CheckCodegen extends Codegen<CheckResource> {
       case 'API':
         return this.apiCheckCodegen.describe(resource as ApiCheckResource)
       case 'TCP':
-        return this.tcpCheckCodegen.describe(resource as TcpCheckResource)
+        return this.tcpMonitorCodegen.describe(resource as TcpMonitorResource)
       case 'MULTI_STEP':
         return this.multiStepCheckCodegen.describe(resource as MultiStepCheckResource)
       case 'HEARTBEAT':
-        return this.heartbeatCheckCodegen.describe(resource as HeartbeatCheckResource)
+        return this.heartbeatMonitorCodegen.describe(resource as HeartbeatMonitorResource)
+      case 'URL':
+        return this.urlMonitorCodegen.describe(resource as UrlMonitorResource)
       default:
         throw new Error(`Unable to describe unsupported check type '${checkType}'.`)
     }
@@ -232,13 +250,16 @@ export class CheckCodegen extends Codegen<CheckResource> {
         this.apiCheckCodegen.gencode(logicalId, resource as ApiCheckResource, context)
         return
       case 'TCP':
-        this.tcpCheckCodegen.gencode(logicalId, resource as TcpCheckResource, context)
+        this.tcpMonitorCodegen.gencode(logicalId, resource as TcpMonitorResource, context)
         return
       case 'MULTI_STEP':
         this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)
         return
       case 'HEARTBEAT':
-        this.heartbeatCheckCodegen.gencode(logicalId, resource as HeartbeatCheckResource, context)
+        this.heartbeatMonitorCodegen.gencode(logicalId, resource as HeartbeatMonitorResource, context)
+        return
+      case 'URL':
+        this.urlMonitorCodegen.gencode(logicalId, resource as UrlMonitorResource, context)
         return
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)

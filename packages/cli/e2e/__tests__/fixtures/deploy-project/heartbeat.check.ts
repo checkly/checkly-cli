@@ -1,8 +1,8 @@
 /* eslint-disable */
-import { HeartbeatCheck } from 'checkly/constructs'
+import { HeartbeatMonitor } from 'checkly/constructs'
 
-new HeartbeatCheck('heartbeat-check-1', {
-  name: 'Heartbeat Check',
+new HeartbeatMonitor('heartbeat-monitor-1', {
+  name: 'Heartbeat Monitor',
   period: 30,
   periodUnit: 'seconds',
   grace: 30,

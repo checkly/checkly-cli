@@ -27,6 +27,7 @@ import { MultiStepCheck } from './multi-step-check'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment'
 import { Ref } from './ref'
 import { Session } from './project'
+import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -362,41 +363,7 @@ export class CheckGroupV1 extends Construct {
   }
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    if (this.doubleCheck !== undefined) {
-      if (this.retryStrategy) {
-        diagnostics.add(new InvalidPropertyValueDiagnostic(
-          'doubleCheck',
-          new Error('Cannot specify both "doubleCheck" and "retryStrategy".'),
-        ))
-      }
-
-      if (this.doubleCheck) {
-        diagnostics.add(new DeprecatedPropertyDiagnostic(
-          'doubleCheck',
-          new Error(
-            `To match the behavior of doubleCheck: true, please use the ` +
-            `following retryStrategy instead:` +
-            `\n\n` +
-            `  RetryStrategyBuilder.fixedStrategy({\n` +
-            `    maxRetries: 1,\n` +
-            `    baseBackoffSeconds: 0,\n`+
-            `    maxDurationSeconds: 600,\n` +
-            `    sameRegion: false,\n` +
-            `  })`,
-          ),
-        ))
-      } else {
-        diagnostics.add(new DeprecatedPropertyDiagnostic(
-          'doubleCheck',
-          new Error(
-            `To match the behavior of doubleCheck: false, please use the ` +
-            `following retryStrategy instead:` +
-            `\n\n` +
-            `  RetryStrategyBuilder.noRetries()`,
-          ),
-        ))
-      }
-    }
+    await validateDeprecatedDoubleCheck(diagnostics, this)
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
