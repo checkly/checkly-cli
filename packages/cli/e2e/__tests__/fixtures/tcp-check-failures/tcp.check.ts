@@ -1,7 +1,7 @@
 /* eslint-disable no-new */
-import { TcpCheck, TcpAssertionBuilder } from 'checkly/constructs'
+import { TcpMonitor, TcpAssertionBuilder } from 'checkly/constructs'
 
-new TcpCheck('tcp-check-dns-failure-ipv4', {
+new TcpMonitor('tcp-monitor-dns-failure-ipv4', {
   name: 'TCP check with DNS lookup failure (IPv4)',
   activated: true,
   request: {
@@ -10,7 +10,7 @@ new TcpCheck('tcp-check-dns-failure-ipv4', {
   },
 })
 
-new TcpCheck('tcp-check-dns-failure-ipv6', {
+new TcpMonitor('tcp-monitor-dns-failure-ipv6', {
   name: 'TCP check with DNS lookup failure (IPv6)',
   activated: true,
   request: {
@@ -20,7 +20,7 @@ new TcpCheck('tcp-check-dns-failure-ipv6', {
   },
 })
 
-new TcpCheck('tcp-check-connection-refused', {
+new TcpMonitor('tcp-monitor-connection-refused', {
   name: 'TCP check for connection that gets refused',
   activated: true,
   request: {
@@ -29,7 +29,7 @@ new TcpCheck('tcp-check-connection-refused', {
   },
 })
 
-new TcpCheck('tcp-check-connection-refused-2', {
+new TcpMonitor('tcp-monitor-connection-refused-2', {
   name: 'TCP check for connection that gets refused #2',
   activated: true,
   request: {
@@ -38,7 +38,7 @@ new TcpCheck('tcp-check-connection-refused-2', {
   },
 })
 
-new TcpCheck('tcp-check-timed-out', {
+new TcpMonitor('tcp-monitor-timed-out', {
   name: 'TCP check for connection that times out',
   activated: true,
   request: {
@@ -47,7 +47,7 @@ new TcpCheck('tcp-check-timed-out', {
   },
 })
 
-new TcpCheck('tcp-check-failing-assertions', {
+new TcpMonitor('tcp-monitor-failing-assertions', {
   name: 'TCP check with failing assertions',
   activated: true,
   request: {
@@ -61,7 +61,7 @@ new TcpCheck('tcp-check-failing-assertions', {
   },
 })
 
-new TcpCheck('tcp-check-wrong-ip-family', {
+new TcpMonitor('tcp-monitor-wrong-ip-family', {
   name: 'TCP check with wrong IP family',
   activated: true,
   request: {

@@ -1,10 +1,10 @@
 import { Codegen, Context } from './internal/codegen'
 import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen'
 import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
-import { TcpAssertion, TcpRequest } from './tcp-check'
+import { TcpAssertion, TcpRequest } from './tcp-monitor'
 
-export interface TcpCheckResource extends CheckResource {
+export interface TcpMonitorResource extends MonitorResource {
   checkType: 'TCP'
   request: TcpRequest
   degradedResponseTime?: number
@@ -24,15 +24,15 @@ export function valueForTcpAssertion (genfile: GeneratedFile, assertion: TcpAsse
   }
 }
 
-const construct = 'TcpCheck'
+const construct = 'TcpMonitor'
 
-export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
-  describe (resource: TcpCheckResource): string {
-    return `TCP Check: ${resource.name}`
+export class TcpMonitorCodegen extends Codegen<TcpMonitorResource> {
+  describe (resource: TcpMonitorResource): string {
+    return `TCP Monitor: ${resource.name}`
   }
 
-  gencode (logicalId: string, resource: TcpCheckResource, context: Context): void {
-    const filePath = context.filePath('resources/tcp-checks', resource.name, {
+  gencode (logicalId: string, resource: TcpMonitorResource, context: Context): void {
+    const filePath = context.filePath('resources/tcp-monitors', resource.name, {
       tags: resource.tags,
       unique: true,
     })
@@ -77,7 +77,7 @@ export class TcpCheckCodegen extends Codegen<TcpCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context)
         })
       })
     }))

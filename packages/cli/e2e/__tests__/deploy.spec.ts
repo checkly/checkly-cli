@@ -242,9 +242,9 @@ Update and Unchanged:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
-    HeartbeatCheck: heartbeat-check-1
+    HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
-    TcpCheck: tcp-check
+    TcpMonitor: tcp-monitor
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
@@ -259,10 +259,10 @@ Update and Unchanged:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
-    HeartbeatCheck: heartbeat-check-1
+    HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts
-    TcpCheck: tcp-check
+    TcpMonitor: tcp-monitor
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1

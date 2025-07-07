@@ -2,7 +2,7 @@ import * as path from 'path'
 import fs from 'node:fs/promises'
 import { existsSync } from 'fs'
 import { getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
-import { CheckProps } from '../constructs/check'
+import { CheckProps, RuntimeCheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
@@ -11,9 +11,24 @@ import { ReporterType } from '../reporters/reporter'
 import { PlaywrightConfig } from '../constructs/playwright-config'
 import { FileLoader } from '../loader'
 
-export type CheckConfigDefaults = Pick<CheckProps, 'activated' | 'muted' | 'doubleCheck'
-  | 'shouldFail' | 'runtimeId' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
-  | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'>
+export type CheckConfigDefaults =
+  Pick<CheckProps,
+  | 'activated'
+  | 'alertChannels'
+  | 'alertEscalationPolicy'
+  | 'doubleCheck'
+  | 'frequency'
+  | 'locations'
+  | 'muted'
+  | 'privateLocations'
+  | 'retryStrategy'
+  | 'shouldFail'
+  | 'tags'
+  > &
+  Pick<RuntimeCheckProps,
+  | 'environmentVariables'
+  | 'runtimeId'
+  >
 
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'

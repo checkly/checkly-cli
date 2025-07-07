@@ -1,4 +1,4 @@
-import { Check, CheckProps } from './check'
+import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
 import { DateTime } from 'luxon'
 import CheckTypes from '../constants'
@@ -24,7 +24,7 @@ export interface Heartbeat {
   graceUnit: TimeUnits
 }
 
-export interface HeartbeatCheckProps extends CheckProps {
+export interface HeartbeatMonitorProps extends MonitorProps {
   period: number
   periodUnit: TimeUnits
   grace: number
@@ -52,23 +52,19 @@ function _customPeriodGraceValidation (heartbeat: Heartbeat) {
 }
 
 /**
- * Creates a Heartbeat Check
- *
- * @remarks
- *
- * This class make use of the Heartbeat Checks endpoints.
+ * Creates a Heartbeat Monitor
  */
-export class HeartbeatCheck extends Check {
+export class HeartbeatMonitor extends Monitor {
   heartbeat: Heartbeat
 
   /**
-   * Constructs the Heartbeat Check instance
+   * Constructs the Heartbeat Monitor instance
    *
    * @param logicalId unique project-scoped resource name identification
-   * @param props heartbeat check configuration properties
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#heartbeat Read more in the docs}
+   * @param props configuration properties
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#heartbeatmonitor Read more in the docs}
    */
-  constructor (logicalId: string, props: HeartbeatCheckProps) {
+  constructor (logicalId: string, props: HeartbeatMonitorProps) {
     super(logicalId, props)
 
     _customPeriodGraceValidation(props)
@@ -90,4 +86,10 @@ export class HeartbeatCheck extends Check {
       heartbeat: this.heartbeat,
     }
   }
+}
+
+// Aliases for backwards compatibility.
+export {
+  HeartbeatMonitorProps as HeartbeatCheckProps,
+  HeartbeatMonitor as HeartbeatCheck,
 }

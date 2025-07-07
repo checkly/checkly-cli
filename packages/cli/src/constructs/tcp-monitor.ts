@@ -1,5 +1,5 @@
-import { Check, CheckProps } from './check'
-import { IPFamily } from './api-check'
+import { Monitor, MonitorProps } from './monitor'
+import { IPFamily } from './ip'
 import { Session } from './project'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 
@@ -45,7 +45,7 @@ export interface TcpRequest {
   data?: string
 }
 
-export interface TcpCheckProps extends CheckProps {
+export interface TcpMonitorProps extends MonitorProps {
   /**
    * Determines the request that the check is going to run.
    */
@@ -61,27 +61,23 @@ export interface TcpCheckProps extends CheckProps {
 }
 
 /**
- * Creates an TCP Check
- *
- * @remarks
- *
- * This class make use of the TCP Checks endpoints.
+ * Creates a TCP Monitor
  */
-export class TcpCheck extends Check {
+export class TcpMonitor extends Monitor {
   request: TcpRequest
   degradedResponseTime?: number
   maxResponseTime?: number
 
   /**
-   * Constructs the TCP Check instance
+   * Constructs the TCP Monitor instance
    *
    * @param logicalId unique project-scoped resource name identification
-   * @param props check configuration properties
+   * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#tcpcheck Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#tcpmonitor Read more in the docs}
    */
 
-  constructor (logicalId: string, props: TcpCheckProps) {
+  constructor (logicalId: string, props: TcpMonitorProps) {
     super(logicalId, props)
 
     this.request = props.request
@@ -102,4 +98,10 @@ export class TcpCheck extends Check {
       maxResponseTime: this.maxResponseTime,
     }
   }
+}
+
+// Aliases for backwards compatibility.
+export {
+  TcpMonitorProps as TcpCheckProps,
+  TcpMonitor as TcpCheck,
 }

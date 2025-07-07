@@ -5,7 +5,6 @@ import { AlertChannel, AlertChannelRef } from './alert-channel'
 import { EnvironmentVariable } from './environment-variable'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { Session } from './project'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import type { Region } from '..'
 import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
@@ -13,6 +12,9 @@ import { PrivateLocationCheckAssignment } from './private-location-check-assignm
 import { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { Diagnostics } from './diagnostics'
+import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
 
 export interface CheckProps {
   /**
@@ -30,7 +32,7 @@ export interface CheckProps {
   /**
    * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
    * randomly selected region before marking the check as failed.
-   * @deprecated Use {@link CheckProps.retryStrategy} instead.
+   * @deprecated Use {@link retryStrategy} instead.
    */
   doubleCheck?: boolean
   /**
@@ -38,10 +40,6 @@ export interface CheckProps {
    * This only applies to API Checks.
    */
   shouldFail?: boolean
-  /**
-   * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
-   */
-  runtimeId?: string
   /**
    * An array of one or more data center locations where to run this check. The supported regions are:
    * us-east-1, us-east-2, us-west-1, us-west-2, ca-central-1, sa-east-1,
@@ -66,10 +64,9 @@ export interface CheckProps {
    * How often the check should run in minutes.
    */
   frequency?: number | Frequency
-  environmentVariables?: Array<EnvironmentVariable>
   /**
    * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
-   * @deprecated Use {@link CheckProps.group} instead.
+   * @deprecated Use {@link group} instead.
    */
   groupId?: Ref
   /**
@@ -107,20 +104,17 @@ export interface CheckProps {
   triggerIncident?: IncidentTrigger
 }
 
-// This is an abstract class. It shouldn't be used directly.
 export abstract class Check extends Construct {
   name: string
   activated?: boolean
   muted?: boolean
   doubleCheck?: boolean
   shouldFail?: boolean
-  runtimeId?: string
   locations?: Array<keyof Region>
   privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number
-  environmentVariables?: Array<EnvironmentVariable>
   groupId?: Ref
   alertChannels?: Array<AlertChannel|AlertChannelRef>
   testOnly?: boolean
@@ -133,62 +127,74 @@ export abstract class Check extends Construct {
 
   static readonly __checklyType = 'check'
 
-  constructor (logicalId: string, props: CheckProps) {
+  protected constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)
-    if (props.group) {
-      Check.applyDefaultCheckGroupConfig(props, props.group.getCheckDefaults())
-    }
-    Check.applyDefaultCheckConfig(props)
+    const config = this.applyConfigDefaults(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
-    this.name = props.name
-    this.activated = props.activated
-    this.muted = props.muted
-    this.doubleCheck = props.doubleCheck
-    this.shouldFail = props.shouldFail
-    this.locations = props.locations
-    this.privateLocations = props.privateLocations
-    this.tags = props.tags
-    if (props.frequency instanceof Frequency) {
-      this.frequency = props.frequency.frequency
-      this.frequencyOffset = props.frequency.frequencyOffset
+    this.name = config.name
+    this.activated = config.activated
+    this.muted = config.muted
+    this.doubleCheck = config.doubleCheck
+    this.shouldFail = config.shouldFail
+    this.locations = config.locations
+    this.privateLocations = config.privateLocations
+    this.tags = config.tags
+    if (config.frequency instanceof Frequency) {
+      this.frequency = config.frequency.frequency
+      this.frequencyOffset = config.frequency.frequencyOffset
     } else {
-      this.frequency = props.frequency
+      this.frequency = config.frequency
     }
-    this.runtimeId = props.runtimeId
-    this.environmentVariables = props.environmentVariables ?? []
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
-    this.alertChannels = props.alertChannels ?? []
+    this.alertChannels = config.alertChannels ?? []
     // Prefer the `group` parameter, but support groupId for backwards compatibility.
-    this.groupId = props.group?.ref() ?? props.groupId
+    this.groupId = config.group?.ref() ?? config.groupId
     // alertSettings, useGlobalAlertSettings, groupId, groupOrder
 
-    this.testOnly = props.testOnly ?? false
-    this.retryStrategy = props.retryStrategy
-    this.alertSettings = props.alertEscalationPolicy
+    this.testOnly = config.testOnly ?? false
+    this.retryStrategy = config.retryStrategy
+    this.alertSettings = config.alertEscalationPolicy
     this.useGlobalAlertSettings = !this.alertSettings
-    this.runParallel = props.runParallel ?? false
-    this.triggerIncident = props.triggerIncident
+    this.runParallel = config.runParallel ?? false
+    this.triggerIncident = config.triggerIncident
     this.__checkFilePath = Session.checkFilePath
   }
 
-  private static applyDefaultCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in groupProps) {
-      const newVal: any = props[configKey] ?? groupProps[configKey]
-      props[configKey] = newVal
-    }
+  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
+    await validateDeprecatedDoubleCheck(diagnostics, this)
   }
 
-  private static applyDefaultCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.checkDefaults) {
-      return
-    }
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in Session.checkDefaults) {
-      const newVal: any = props[configKey] ?? Session.checkDefaults[configKey]
-      props[configKey] = newVal
-    }
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    await this.validateDoubleCheck(diagnostics)
+  }
+
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+    return makeConfigDefaultsGetter(
+      props.group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
+  }
+
+  protected applyConfigDefaults<T extends CheckProps> (props: T): T {
+    const config = Object.assign({}, props)
+
+    const defaults = this.configDefaultsGetter(props)
+
+    config.activated ??= defaults('activated')
+    config.alertChannels ??= defaults('alertChannels')
+    config.alertEscalationPolicy ??= defaults('alertEscalationPolicy')
+    config.doubleCheck ??= defaults('doubleCheck')
+    config.frequency ??= defaults('frequency')
+    config.locations ??= defaults('locations')
+    config.muted ??= defaults('muted')
+    config.privateLocations ??= defaults('privateLocations')
+    config.retryStrategy ??= defaults('retryStrategy')
+    config.shouldFail ??= defaults('shouldFail')
+    config.tags ??= defaults('tags')
+
+    return config
   }
 
   addSubscriptions () {
@@ -196,6 +202,7 @@ export abstract class Check extends Construct {
       return
     }
     for (const alertChannel of this.alertChannels) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const subscription = new AlertChannelSubscription(`check-alert-channel-subscription#${this.logicalId}#${alertChannel.logicalId}`, {
         alertChannelId: Ref.from(alertChannel.logicalId),
         checkId: Ref.from(this.logicalId),
@@ -214,7 +221,7 @@ export abstract class Check extends Construct {
         continue
       }
 
-      // use private location assignment for instances
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const assignment = new PrivateLocationCheckAssignment(`private-location-check-assignment#${this.logicalId}#${privateLocation.logicalId}`, {
         privateLocationId: Ref.from(privateLocation.logicalId),
         checkId: Ref.from(this.logicalId),
@@ -242,7 +249,6 @@ export abstract class Check extends Construct {
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,
-      runtimeId: this.runtimeId,
       locations: this.locations,
 
       // private-location instances are assigned with loadAllPrivateLocations()
@@ -251,8 +257,10 @@ export abstract class Check extends Construct {
       tags: this.tags,
       frequency: this.frequency,
       frequencyOffset: this.frequencyOffset,
-      groupId: this.groupId,
-      environmentVariables: this.environmentVariables,
+      // If the check does not belong to a group, we still need to send null
+      // to make sure that the group gets unassigned from any group it may
+      // already have belonged to.
+      groupId: this.groupId ?? null,
       // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
       retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
         ? null
@@ -266,6 +274,44 @@ export abstract class Check extends Construct {
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,
       triggerIncident,
+    }
+  }
+}
+
+export interface RuntimeCheckProps extends CheckProps {
+  /**
+   * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
+   */
+  runtimeId?: string
+  environmentVariables?: EnvironmentVariable[]
+}
+
+export abstract class RuntimeCheck extends Check {
+  runtimeId?: string
+  environmentVariables?: EnvironmentVariable[]
+
+  protected constructor (logicalId: string, props: RuntimeCheckProps) {
+    super(logicalId, props)
+    const config = this.applyConfigDefaults(props)
+    this.runtimeId = config.runtimeId
+    this.environmentVariables = config.environmentVariables ?? []
+  }
+
+  protected applyConfigDefaults<T extends RuntimeCheckProps> (props: T): T {
+    const config = super.applyConfigDefaults(props)
+    const defaults = this.configDefaultsGetter(props)
+
+    config.environmentVariables ??= defaults('environmentVariables')
+    config.runtimeId ??= defaults('runtimeId')
+
+    return config
+  }
+
+  synthesize () {
+    return {
+      ...super.synthesize(),
+      runtimeId: this.runtimeId,
+      environmentVariables: this.environmentVariables,
     }
   }
 }
