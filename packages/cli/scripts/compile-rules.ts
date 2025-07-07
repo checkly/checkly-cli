@@ -27,14 +27,18 @@ const EXAMPLE_CONFIGS: Record<
     exampleConfigPath:
       'resources/multi-step-checks/example-multistep-check/example-multistep-check.check.ts',
   },
-  TCP_CHECK: {
-    templateString: '// INSERT TCP CHECK EXAMPLE HERE //',
-    exampleConfigPath: 'resources/tcp-checks/example-tcp-check.check.ts',
+  TCP_MONITOR: {
+    templateString: '// INSERT TCP MONITOR EXAMPLE HERE //',
+    exampleConfigPath: 'resources/tcp-monitors/example-tcp-monitor.check.ts',
   },
-  HEARTBEAT_CHECK: {
-    templateString: '// INSERT HEARTBEAT CHECK EXAMPLE HERE //',
+  HEARTBEAT_MONITOR: {
+    templateString: '// INSERT HEARTBEAT MONITOR EXAMPLE HERE //',
     exampleConfigPath:
-      'resources/heartbeats/example-heartbeat-check.check.ts',
+      'resources/heartbeat-monitors/example-heartbeat-monitor.check.ts',
+  },
+  URL_MONITOR: {
+    templateString: '// INSERT URL MONITOR EXAMPLE HERE //',
+    exampleConfigPath: 'resources/url-monitors/example-url-monitor.check.ts',
   },
   CHECK_GROUP: {
     templateString: '// INSERT CHECK GROUP EXAMPLE HERE //',

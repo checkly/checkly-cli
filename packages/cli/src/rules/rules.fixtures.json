@@ -209,7 +209,7 @@
         }
       },
       {
-        "logicalId": "example-heartbeat-check",
+        "logicalId": "example-heartbeat-monitor",
         "physicalId": "4ee16d38-2d68-469a-ba74-445878922fe1",
         "type": "check",
         "member": true,
@@ -217,7 +217,7 @@
         "payload": {
           "id": "4ee16d38-2d68-469a-ba74-445878922fe1",
           "checkType": "HEARTBEAT",
-          "name": "Example Heartbeat Check",
+          "name": "Example Heartbeat Monitor",
           "frequency": 0,
           "frequencyOffset": 10,
           "activated": true,
@@ -374,7 +374,7 @@
         }
       },
       {
-        "logicalId": "example-tcp-check",
+        "logicalId": "example-tcp-monitor",
         "physicalId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
         "type": "check",
         "member": true,
@@ -382,7 +382,7 @@
         "payload": {
           "id": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
           "checkType": "TCP",
-          "name": "Example TCP Check",
+          "name": "Example TCP Monitor",
           "frequency": 60,
           "frequencyOffset": 512,
           "activated": true,
@@ -476,6 +476,115 @@
             "ipFamily": "IPv4",
             "hostname": "tcpbin.com",
             "url": "tcpbin.com"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-url-monitor",
+        "physicalId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+          "checkType": "URL",
+          "name": "Example URL Monitor",
+          "frequency": 5,
+          "frequencyOffset": 13,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": null,
+          "created_at": "2025-07-07T09:51:12.489Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "url.example.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 20000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 4194121,
+            "method": "GET",
+            "url": "https://url.example.com",
+            "protocol": null,
+            "port": null,
+            "body": "",
+            "bodyType": "NONE",
+            "headers": [],
+            "queryParameters": [],
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "STATUS_CODE",
+                "target": "200",
+                "property": "",
+                "comparison": "EQUALS"
+              }
+            ],
+            "basicAuth": null,
+            "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+            "created_at": "2025-07-07T09:51:12.507Z",
+            "updated_at": null,
+            "followRedirects": true,
+            "skipSSL": false,
+            "ipFamily": "IPv4"
           },
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [],

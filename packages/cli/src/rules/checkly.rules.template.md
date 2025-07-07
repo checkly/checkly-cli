@@ -33,12 +33,12 @@ Here is an example directory tree of what that would look like:
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
-## Check types and constructs
+## Check Types, Monitor Types and Constructs
 
-### API check
+### API Check
 
 - Import the `ApiCheck` construct from `checkly/constructs`.
-- Reference [the docs for API Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck) before generating any code.
+- Reference [the docs for API checks](https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck) before generating any code.
 - When adding `assertions`, always use `AssertionBuilder` class for API Checks which are [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#assertionbuilder).
 - When referencing environment variables always use the handlebar syntax `{{MY_ENV_VAR}}`.
 - When referencing secrets always use the handlebar syntax `{{MY_SECRET}}`.
@@ -57,10 +57,10 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 - Read the input credentials from env variables using `process.env`.
 - Pass auth tokens to the request object using `request.headers['key'] = AUTH_TOKEN_VALUE`.
 
-### Browser check
+### Browser Check
 
 - Import the `BrowserCheck` construct from `checkly/constructs`.
-- Reference [the docs for Browser Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck) before generating any code.
+- Reference [the docs for Browser checks](https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck) before generating any code.
 - Generate a separate `.spec.ts` file for the Playwright code referenced in the `BrowserCheck` construct.
 - Use the `code.entrypoint` property to specify the path to your Playwright test file.
 
@@ -68,10 +68,10 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 // INSERT BROWSER CHECK EXAMPLE HERE //
 ```
 
-### MultiStep check
+### MultiStep Check
 
 - Import the `MultiStepCheck` construct from `checkly/constructs`.
-- Reference [the docs for Multistep Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#multistepcheck) before generating any code.
+- Reference [the docs for Multistep checks](https://www.checklyhq.com/docs/cli/constructs-reference/#multistepcheck) before generating any code.
 - Generate a separate `.spec.ts` file for the Playwright code referenced in the `MultiStepCheck` construct.
 - Use the `code.entrypoint` property to specify the path to your Playwright test file.
 
@@ -79,23 +79,33 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 // INSERT MULTISTEP CHECK EXAMPLE HERE //
 ```
 
-### TCP check
+### TCP Monitor
 
 - Import the `TcpCheck` construct from `checkly/constructs`.
-- Reference [the docs for TCP Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpcheck) before generating any code.
-- When adding `assertions`, always use `TcpAssertionBuilder` class for TcpChecks which are [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpassertionbuilder)
+- Reference [the docs for TCP monitors](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpmonitor) before generating any code.
+- When adding `assertions`, always use `TcpAssertionBuilder` class for TCP monitors which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpassertionbuilder)
 
 ```typescript
-// INSERT TCP CHECK EXAMPLE HERE //
+// INSERT TCP MONITOR EXAMPLE HERE //
 ```
 
-### Heartbeat Check
+### URL Monitor
 
-- Import the `HeartbeatCheck` construct from `checkly/constructs`.
-- Reference [the docs for Heartbeat Checks](https://www.checklyhq.com/docs/cli/constructs-reference/#heartbeatcheck) before generating any code.
+- Import the `UrlMonitor` construct from `checkly/constructs`.
+- Reference [the docs for URL monitors](https://www.checklyhq.com/docs/cli/constructs-reference/#urlmonitor) before generating any code.
+- When adding `assertions`, always use `AssertionBuilder` class which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#assertionbuilder)
 
 ```typescript
-// INSERT HEARTBEAT CHECK EXAMPLE HERE //
+// INSERT URL MONITOR EXAMPLE HERE //
+```
+
+### Heartbeat Monitor
+
+- Import the `HeartbeatMonitor` construct from `checkly/constructs`.
+- Reference [the docs for Heartbeat monitor](https://www.checklyhq.com/docs/cli/constructs-reference/#heartbeatmonitor) before generating any code.
+
+```typescript
+// INSERT HEARTBEAT MONITOR EXAMPLE HERE //
 ```
 
 ### Check Group
