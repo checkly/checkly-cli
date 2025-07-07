@@ -81,7 +81,7 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 
 ### TCP Monitor
 
-- Import the `TcpCheck` construct from `checkly/constructs`.
+- Import the `TcpMonitor` construct from `checkly/constructs`.
 - Reference [the docs for TCP monitors](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpmonitor) before generating any code.
 - When adding `assertions`, always use `TcpAssertionBuilder` class for TCP monitors which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#tcpassertionbuilder)
 
