@@ -12,7 +12,7 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, Session } from '../constructs'
+import { Diagnostics, RuntimeCheck, Session } from '../constructs'
 import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
@@ -150,15 +150,17 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
-        if (Object.keys(testEnvVars).length) {
-          check.environmentVariables = check.environmentVariables
-            ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
-          for (const [key, value] of Object.entries(testEnvVars)) {
-            check.environmentVariables.push({
-              key,
-              value,
-              locked: true,
-            })
+        if (check instanceof RuntimeCheck) {
+          if (Object.keys(testEnvVars).length) {
+            check.environmentVariables = check.environmentVariables
+              ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
+            for (const [key, value] of Object.entries(testEnvVars)) {
+              check.environmentVariables.push({
+                key,
+                value,
+                locked: true,
+              })
+            }
           }
         }
         return true
