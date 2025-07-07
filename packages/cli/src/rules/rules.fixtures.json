@@ -94,7 +94,7 @@
         }
       },
       {
-        "logicalId": "api-check",
+        "logicalId": "example-api-check",
         "physicalId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
         "type": "check",
         "member": true,
@@ -200,115 +200,6 @@
               "id": 23951063,
               "checkId": "42d00655-bc8f-4dc4-bba6-6d6b6a0e16d1",
               "alertChannelId": 248077,
-              "activated": true,
-              "groupId": null,
-              "accountId": null
-            }
-          ],
-          "heartbeat": null
-        }
-      },
-      {
-        "logicalId": "example-tcp-check",
-        "physicalId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-        "type": "check",
-        "member": true,
-        "pending": true,
-        "payload": {
-          "id": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-          "checkType": "TCP",
-          "name": "Example TCP Check",
-          "frequency": 60,
-          "frequencyOffset": 426,
-          "activated": true,
-          "muted": false,
-          "shouldFail": false,
-          "locations": [
-            "eu-central-1",
-            "eu-west-2"
-          ],
-          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
-          "script": null,
-          "created_at": "2025-02-11T21:13:59.311Z",
-          "updated_at": "2025-02-21T17:20:28.693Z",
-          "environmentVariables": [],
-          "doubleCheck": false,
-          "tags": [],
-          "sslCheckDomain": "tcpbin.com",
-          "setupSnippetId": null,
-          "tearDownSnippetId": null,
-          "localSetupScript": null,
-          "localTearDownScript": null,
-          "alertSettings": {
-            "reminders": {
-              "amount": 0,
-              "interval": 5
-            },
-            "escalationType": "RUN_BASED",
-            "runBasedEscalation": {
-              "failedRunThreshold": 1
-            },
-            "timeBasedEscalation": {
-              "minutesFailingThreshold": 5
-            },
-            "parallelRunFailureThreshold": {
-              "enabled": false,
-              "percentage": 10
-            }
-          },
-          "useGlobalAlertSettings": true,
-          "isSample": false,
-          "degradedResponseTime": 5000,
-          "maxResponseTime": 5000,
-          "groupId": null,
-          "groupOrder": null,
-          "runtimeId": null,
-          "importedFrom": null,
-          "scriptPath": null,
-          "setupScriptPath": null,
-          "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
-          "requestCount": 0,
-          "runParallel": true,
-          "playwrightConfig": null,
-          "tracing": null,
-          "codeBundlePath": null,
-          "testCommand": null,
-          "installCommand": null,
-          "browsers": null,
-          "triggerIncident": false,
-          "cacheHash": null,
-          "request": {
-            "id": 3132837,
-            "port": 4242,
-            "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-            "created_at": "2025-02-21T17:20:28.686Z",
-            "updated_at": null,
-            "assertions": [],
-            "ipFamily": "IPv4",
-            "hostname": "tcpbin.com",
-            "url": "tcpbin.com"
-          },
-          "privateLocationAssignments": [],
-          "alertChannelSubscriptions": [
-            {
-              "id": 23951064,
-              "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-              "alertChannelId": 248077,
-              "activated": true,
-              "groupId": null,
-              "accountId": null
-            },
-            {
-              "id": 25537416,
-              "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
-              "alertChannelId": 248558,
               "activated": true,
               "groupId": null,
               "accountId": null
@@ -480,6 +371,293 @@
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [],
           "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-tcp-check",
+        "physicalId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+          "checkType": "TCP",
+          "name": "Example TCP Check",
+          "frequency": 60,
+          "frequencyOffset": 512,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": null,
+          "created_at": "2025-02-11T21:13:59.311Z",
+          "updated_at": "2025-07-07T08:48:53.308Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "tcpbin.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 5000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 4193723,
+            "port": 4242,
+            "checkId": "69591bcf-30ff-4085-8bbc-4b60942b5c43",
+            "created_at": "2025-07-07T08:48:53.306Z",
+            "updated_at": null,
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "RESPONSE_TIME",
+                "target": "200",
+                "property": "",
+                "comparison": "LESS_THAN"
+              },
+              {
+                "order": 0,
+                "regex": null,
+                "source": "RESPONSE_DATA",
+                "target": "",
+                "property": "",
+                "comparison": "IS_EMPTY"
+              }
+            ],
+            "ipFamily": "IPv4",
+            "hostname": "tcpbin.com",
+            "url": "tcpbin.com"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-maintenance-window",
+        "physicalId": 15006,
+        "type": "maintenance-window",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 15006,
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "name": "Example Maintenance Window",
+          "tags": [
+            "app:webshop"
+          ],
+          "startsAt": "2025-07-01T09:00:00.000Z",
+          "endsAt": "2025-07-01T10:00:00.000Z",
+          "repeatInterval": 1,
+          "repeatUnit": "WEEK",
+          "repeatEndsAt": "2025-08-01T00:00:00.000Z",
+          "created_at": "2025-07-07T08:43:03.466Z",
+          "updated_at": "2025-07-07T08:43:03.465Z"
+        }
+      },
+      {
+        "logicalId": "example-private-location",
+        "physicalId": "f08ad843-1d3a-46ab-bdf9-db8c17f7c8f4",
+        "type": "private-location",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "f08ad843-1d3a-46ab-bdf9-db8c17f7c8f4",
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "name": "Example Private Location",
+          "slugName": "example-private-location",
+          "icon": "location",
+          "queue": "https://sqs.eu-west-1.amazonaws.com/123456789/agent-bff33ed7-ce87-4a56-a745-e5418d1f5ddf-bff33ed7-ce87-4a56-a745-e5418d1f5ddf",
+          "created_at": "2025-07-07T08:46:22.270Z",
+          "updated_at": null,
+          "isDegraded": false,
+          "proxyUrl": null
+        }
+      },
+      {
+        "logicalId": "example-dashboard",
+        "physicalId": 626262,
+        "type": "dashboard",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 626262,
+          "dashboardId": "c2f08062",
+          "logo": "",
+          "header": "Example Dashboard",
+          "customUrl": "example-dashboard",
+          "customDomain": "dash.example.company",
+          "paginate": true,
+          "paginationRate": 60,
+          "refreshRate": 60,
+          "width": "FULL",
+          "created_at": "2025-07-07T08:44:30.193Z",
+          "updated_at": "2025-07-07T08:44:51.539Z",
+          "tags": [
+            "app:webshop"
+          ],
+          "hideTags": false,
+          "link": "",
+          "description": "Example dashboard",
+          "favicon": "",
+          "checksPerPage": 15,
+          "useTagsAndOperator": false,
+          "enableIncidents": false,
+          "expandChecks": false,
+          "showHeader": true,
+          "customCSS": "",
+          "isPrivate": false,
+          "showP99": true,
+          "showP95": true,
+          "showCheckRunLinks": false
+        }
+      },
+      {
+        "logicalId": "example-status-page",
+        "physicalId": "a239494b-cad0-43db-b5d0-80a68a0c4090",
+        "type": "status-page",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "a239494b-cad0-43db-b5d0-80a68a0c4090",
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "name": "Example Status Page",
+          "customDomain": "status.example.company",
+          "url": "example-status-page",
+          "logo": "",
+          "redirectTo": null,
+          "favicon": "",
+          "created_at": "2025-07-07T08:45:51.325Z",
+          "updated_at": "2025-07-07T08:45:52.177Z",
+          "defaultTheme": "AUTO",
+          "hostnameId": "88ee8dff-b643-4ded-b26f-b739151ac9be",
+          "cards": [
+            {
+              "id": "c2665c29-4bc0-4fac-9334-b39784a15aa7",
+              "statusPageId": "a239494b-cad0-43db-b5d0-80a68a0c4090",
+              "name": "Example service",
+              "created_at": "2025-07-07T08:45:51.322Z",
+              "updated_at": "2025-07-07T08:45:51.322Z",
+              "order": 0,
+              "services": [
+                {
+                  "id": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
+                  "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+                  "name": "Example service",
+                  "created_at": "2025-07-07T08:45:41.709Z",
+                  "updated_at": "2025-07-07T08:46:03.848Z",
+                  "order": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "logicalId": "example-status-page-service",
+        "physicalId": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
+        "type": "status-page-service",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "b986ec33-985b-4219-bb02-9ac2c80e3ed2",
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "name": "Example Service",
+          "created_at": "2025-07-07T08:45:41.709Z",
+          "updated_at": "2025-07-07T08:46:03.848Z"
+        }
+      },
+      {
+        "logicalId": "example-group",
+        "physicalId": 3280003,
+        "type": "check-group",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 3280003,
+          "name": "Example Group",
+          "concurrency": 1,
+          "apiCheckDefaults": {
+            "url": "",
+            "headers": [],
+            "basicAuth": {
+              "password": "",
+              "username": ""
+            },
+            "assertions": [],
+            "queryParameters": []
+          },
+          "browserCheckDefaults": null,
+          "alertSettings": null,
+          "environmentVariables": [],
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "activated": true,
+          "muted": false,
+          "useGlobalAlertSettings": null,
+          "doubleCheck": false,
+          "locations": [],
+          "tags": [],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "created_at": "2025-07-07T09:07:40.175Z",
+          "updated_at": null,
+          "runtimeId": null,
+          "retryStrategy": "FALLBACK",
+          "runParallel": null,
+          "tracing": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": []
         }
       }
     ],

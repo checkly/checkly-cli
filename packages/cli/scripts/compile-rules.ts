@@ -36,6 +36,36 @@ const EXAMPLE_CONFIGS: Record<
     exampleConfigPath:
       'resources/heartbeats/example-heartbeat-check.check.ts',
   },
+  CHECK_GROUP: {
+    templateString: '// INSERT CHECK GROUP EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/check-group/example-group/example-group.check.ts',
+  },
+  STATUS_PAGE: {
+    templateString: '// INSERT STATUS PAGE EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/status-pages/example-status-page.check.ts',
+  },
+  STATUS_PAGE_SERVICE: {
+    templateString: '// INSERT STATUS PAGE SERVICE EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/status-pages/services/example-service.check.ts',
+  },
+  DASHBOARD: {
+    templateString: '// INSERT DASHBOARD EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/dashboards/example-dashboard/example-dashboard.check.ts',
+  },
+  MAINTENANCE_WINDOW: {
+    templateString: '// INSERT MAINTENANCE WINDOW EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/maintenance-windows/example-maintenance-window.check.ts',
+  },
+  PRIVATE_LOCATION: {
+    templateString: '// INSERT PRIVATE LOCATION EXAMPLE HERE //',
+    exampleConfigPath:
+      'resources/private-locations/example-private-location.check.ts',
+  },
 };
 
 async function compileRules() {
