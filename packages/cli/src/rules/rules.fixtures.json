@@ -1,0 +1,969 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "changes": {
+    "resources": [
+      {
+        "logicalId": "example-browser-check",
+        "physicalId": "11111111-1111-1111-1111-111111111111",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "checkType": "BROWSER",
+          "name": "Example Browser Check",
+          "frequency": 10,
+          "frequencyOffset": 33,
+          "activated": false,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": "/**\n  * To learn more about Playwright Test visit:\n  * https://checklyhq.com/docs/browser-checks/playwright-test/\n  * https://playwright.dev/docs/writing-tests\n  */\n\nconst { expect, test } = require('@playwright/test')\n\n// Configure the Playwright Test timeout to 210 seconds,\n// ensuring that longer tests conclude before Checkly's browser check timeout of 240 seconds.\n// The default Playwright Test timeout is set at 30 seconds.\n// For additional information on timeouts, visit: https://checklyhq.com/docs/browser-checks/timeouts/\ntest.setTimeout(210000)\n\n// Set the action timeout to 10 seconds to quickly identify failing actions.\n// By default Playwright Test has no timeout for actions (e.g. clicking an element).\ntest.use({ actionTimeout: 10000 })\n\ntest('visit page and take screenshot', async ({ page }) => {\n  // Change checklyhq.com to your site's URL,\n  // or, even better, define a ENVIRONMENT_URL environment variable\n  // to reuse it across your browser checks\n  const response = await page.goto(process.env.ENVIRONMENT_URL || 'https://welcome.checklyhq.com')\n\n  // Take a screenshot\n  await page.screenshot({ path: 'screenshot.jpg' })\n\n  // Test that the response did not fail\n  expect(response.status(), 'should respond with correct status code').toBeLessThan(400)\n})\n",
+          "created_at": "2025-02-17T10:03:36.015Z",
+          "updated_at": "2025-02-17T10:10:04.498Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [
+            {
+              "id": 1000001,
+              "checkId": "11111111-1111-1111-1111-111111111111",
+              "alertChannelId": 100001,
+              "activated": true,
+              "groupId": null,
+              "accountId": null
+            }
+          ],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-api-check",
+        "physicalId": "22222222-2222-2222-2222-222222222222",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "checkType": "API",
+          "name": "Example API Check",
+          "frequency": 5,
+          "frequencyOffset": 21,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": null,
+          "created_at": "2025-07-07T11:20:14.793Z",
+          "updated_at": "2025-07-07T11:25:00.858Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "api.checklyhq.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": "// Fetch an auth token \nimport axios from 'axios'\nconst { data } = await axios.get('https://example.com/api/token')\nrequest.headers['Authorization'] = `Bearer ${data}`\n",
+          "localTearDownScript": "// Remove a created resource\nimport axios from 'axios'\nconst createdResource = JSON.parse(response.body)\nawait axios.delete(`https://example.com/v1/${createdResource.id}`)",
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 20000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 1000001,
+            "method": "GET",
+            "url": "https://api.example.com/v1/products",
+            "protocol": null,
+            "port": null,
+            "body": "",
+            "bodyType": "NONE",
+            "headers": [],
+            "queryParameters": [],
+            "assertions": [],
+            "basicAuth": {
+              "password": "",
+              "username": ""
+            },
+            "checkId": "22222222-2222-2222-2222-222222222222",
+            "created_at": "2025-07-07T11:25:00.856Z",
+            "updated_at": null,
+            "followRedirects": true,
+            "skipSSL": false,
+            "ipFamily": "IPv4"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-heartbeat-monitor",
+        "physicalId": "33333333-3333-3333-3333-333333333333",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "checkType": "HEARTBEAT",
+          "name": "Example Heartbeat Monitor",
+          "frequency": 0,
+          "frequencyOffset": 10,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": null,
+          "created_at": "2025-07-03T13:06:21.409Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": {
+            "id": "44444444-4444-4444-4444-444444444444",
+            "expression": null,
+            "period": 1,
+            "periodUnit": "hours",
+            "grace": 30,
+            "graceUnit": "minutes",
+            "alertAfter": "2025-07-03T14:06:32.122Z",
+            "checkId": "33333333-3333-3333-3333-333333333333",
+            "pingToken": "example-ping-token-placeholder"
+          }
+        }
+      },
+      {
+        "logicalId": "example-multi-step-check",
+        "physicalId": "55555555-5555-5555-5555-555555555555",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "55555555-5555-5555-5555-555555555555",
+          "checkType": "MULTI_STEP",
+          "name": "Example Multistep Check",
+          "frequency": 60,
+          "frequencyOffset": 497,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": "import { test, expect } from \"@playwright/test\"\n\nconst baseUrl = \"https://api.example.com/v1\"\n\ntest(\"Example API Test\", async ({ request }) => {\n  /**\n   * Get all items\n   */\n  const [first] = await test.step(\"get all items\", async () => {\n    const response = await request.get(`${baseUrl}/items`)\n    await expect(response).toBeOK()\n\n    const data = await response.json()\n    expect(data.length).toBeGreaterThan(0)\n\n    return data\n  })\n\n  /**\n   * Get a single item and compare with first item\n   * from the `get all` endpoint\n   */\n  await test.step(\"get single item\", async () => {\n    const response = await request.get(`${baseUrl}/items/${first.id}`)\n    await expect(response).toBeOK()\n\n    const item = await response.json()\n    expect(item.name).toEqual(first.name)\n  })\n\n  /**\n   * Get status\n   */\n  await test.step(\"get status\", async () => {\n    const response = await request.get(`${baseUrl}/status`)\n    await expect(response).toBeOK()\n\n    const status = await response.json()\n    console.log(`Status: ${status.status}`)\n  })\n})\n",
+          "created_at": "2025-07-03T13:05:20.052Z",
+          "updated_at": "2025-07-03T13:06:07.573Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": null,
+          "requestCount": 6,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-tcp-monitor",
+        "physicalId": "66666666-6666-6666-6666-666666666666",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "66666666-6666-6666-6666-666666666666",
+          "checkType": "TCP",
+          "name": "Example TCP Monitor",
+          "frequency": 60,
+          "frequencyOffset": 512,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": null,
+          "created_at": "2025-02-11T21:13:59.311Z",
+          "updated_at": "2025-07-07T08:48:53.308Z",
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "tcp.example.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 5000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 1000002,
+            "port": 4242,
+            "checkId": "66666666-6666-6666-6666-666666666666",
+            "created_at": "2025-07-07T08:48:53.306Z",
+            "updated_at": null,
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "RESPONSE_TIME",
+                "target": "200",
+                "property": "",
+                "comparison": "LESS_THAN"
+              },
+              {
+                "order": 0,
+                "regex": null,
+                "source": "RESPONSE_DATA",
+                "target": "",
+                "property": "",
+                "comparison": "IS_EMPTY"
+              }
+            ],
+            "ipFamily": "IPv4",
+            "hostname": "tcp.example.com",
+            "url": "tcp.example.com"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-url-monitor",
+        "physicalId": "77777777-7777-7777-7777-777777777777",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "77777777-7777-7777-7777-777777777777",
+          "checkType": "URL",
+          "name": "Example URL Monitor",
+          "frequency": 5,
+          "frequencyOffset": 13,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "script": null,
+          "created_at": "2025-07-07T09:51:12.489Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "url.example.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 20000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 1000003,
+            "method": "GET",
+            "url": "https://example.com",
+            "protocol": null,
+            "port": null,
+            "body": "",
+            "bodyType": "NONE",
+            "headers": [],
+            "queryParameters": [],
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "STATUS_CODE",
+                "target": "200",
+                "property": "",
+                "comparison": "EQUALS"
+              }
+            ],
+            "basicAuth": null,
+            "checkId": "77777777-7777-7777-7777-777777777777",
+            "created_at": "2025-07-07T09:51:12.507Z",
+            "updated_at": null,
+            "followRedirects": true,
+            "skipSSL": false,
+            "ipFamily": "IPv4"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-url-monitor-qsUNfTm5",
+        "physicalId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+          "checkType": "URL",
+          "name": "Example URL Monitor",
+          "frequency": 5,
+          "frequencyOffset": 13,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "eu-central-1",
+            "eu-west-2"
+          ],
+          "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640",
+          "script": null,
+          "created_at": "2025-07-07T09:51:12.489Z",
+          "updated_at": null,
+          "environmentVariables": [],
+          "doubleCheck": false,
+          "tags": [],
+          "sslCheckDomain": "checklyhq.com",
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "isSample": false,
+          "degradedResponseTime": 5000,
+          "maxResponseTime": 20000,
+          "groupId": null,
+          "groupOrder": null,
+          "runtimeId": null,
+          "importedFrom": null,
+          "scriptPath": null,
+          "setupScriptPath": null,
+          "tearDownScriptPath": null,
+          "retryStrategy": {
+            "type": "LINEAR",
+            "maxRetries": 2,
+            "sameRegion": true,
+            "baseBackoffSeconds": 60,
+            "maxDurationSeconds": 600
+          },
+          "requestCount": 0,
+          "runParallel": true,
+          "playwrightConfig": null,
+          "tracing": null,
+          "codeBundlePath": null,
+          "testCommand": null,
+          "installCommand": null,
+          "browsers": null,
+          "triggerIncident": false,
+          "cacheHash": null,
+          "request": {
+            "id": 4194121,
+            "method": "GET",
+            "url": "https://checklyhq.com",
+            "protocol": null,
+            "port": null,
+            "body": "",
+            "bodyType": "NONE",
+            "headers": [],
+            "queryParameters": [],
+            "assertions": [
+              {
+                "order": 0,
+                "regex": null,
+                "source": "STATUS_CODE",
+                "target": "200",
+                "property": "",
+                "comparison": "EQUALS"
+              }
+            ],
+            "basicAuth": null,
+            "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+            "created_at": "2025-07-07T09:51:12.507Z",
+            "updated_at": null,
+            "followRedirects": true,
+            "skipSSL": false,
+            "ipFamily": "IPv4"
+          },
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": [
+            {
+              "id": 186252598,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257058,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            },
+            {
+              "id": 186256410,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257059,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            },
+            {
+              "id": 186261770,
+              "checkId": "fd84c672-ce80-427f-b689-35f3fbfa5b51",
+              "alertChannelId": 257060,
+              "activated": true,
+              "groupId": null,
+              "accountId": "cdbdf63f-cce6-4464-823a-5e59aadee640"
+            }
+          ],
+          "heartbeat": null
+        }
+      },
+      {
+        "logicalId": "example-maintenance-window",
+        "physicalId": 1000001,
+        "type": "maintenance-window",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 1000001,
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "name": "Example Maintenance Window",
+          "tags": [
+            "app:webshop"
+          ],
+          "startsAt": "2025-07-01T09:00:00.000Z",
+          "endsAt": "2025-07-01T10:00:00.000Z",
+          "repeatInterval": 1,
+          "repeatUnit": "WEEK",
+          "repeatEndsAt": "2025-08-01T00:00:00.000Z",
+          "created_at": "2025-07-07T08:43:03.466Z",
+          "updated_at": "2025-07-07T08:43:03.465Z"
+        }
+      },
+      {
+        "logicalId": "example-private-location",
+        "physicalId": "88888888-8888-8888-8888-888888888888",
+        "type": "private-location",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "88888888-8888-8888-8888-888888888888",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "name": "Example Private Location",
+          "slugName": "example-private-location",
+          "icon": "location",
+          "queue": "https://queue.example.com",
+          "created_at": "2025-07-07T08:46:22.270Z",
+          "updated_at": null,
+          "isDegraded": false,
+          "proxyUrl": null
+        }
+      },
+      {
+        "logicalId": "example-dashboard",
+        "physicalId": 1000002,
+        "type": "dashboard",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 1000002,
+          "dashboardId": "example123",
+          "logo": "",
+          "header": "Example Dashboard",
+          "customUrl": "example-dashboard",
+          "customDomain": "dash.example.com",
+          "paginate": true,
+          "paginationRate": 60,
+          "refreshRate": 60,
+          "width": "FULL",
+          "created_at": "2025-07-07T08:44:30.193Z",
+          "updated_at": "2025-07-07T08:44:51.539Z",
+          "tags": [
+            "app:webshop"
+          ],
+          "hideTags": false,
+          "link": "",
+          "description": "Example dashboard",
+          "favicon": "",
+          "checksPerPage": 15,
+          "useTagsAndOperator": false,
+          "enableIncidents": false,
+          "expandChecks": false,
+          "showHeader": true,
+          "customCSS": "",
+          "isPrivate": false,
+          "showP99": true,
+          "showP95": true,
+          "showCheckRunLinks": false
+        }
+      },
+      {
+        "logicalId": "example-status-page",
+        "physicalId": "99999999-9999-9999-9999-999999999999",
+        "type": "status-page",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "99999999-9999-9999-9999-999999999999",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "name": "Example Status Page",
+          "customDomain": "status.example.com",
+          "url": "example-status-page",
+          "logo": "",
+          "redirectTo": null,
+          "favicon": "",
+          "created_at": "2025-07-07T08:45:51.325Z",
+          "updated_at": "2025-07-07T08:45:52.177Z",
+          "defaultTheme": "AUTO",
+          "hostnameId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          "cards": [
+            {
+              "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+              "statusPageId": "99999999-9999-9999-9999-999999999999",
+              "name": "Example service",
+              "created_at": "2025-07-07T08:45:51.322Z",
+              "updated_at": "2025-07-07T08:45:51.322Z",
+              "order": 0,
+              "services": [
+                {
+                  "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                  "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                  "name": "Example service",
+                  "created_at": "2025-07-07T08:45:41.709Z",
+                  "updated_at": "2025-07-07T08:46:03.848Z",
+                  "order": 0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "logicalId": "example-status-page-service",
+        "physicalId": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        "type": "status-page-service",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "name": "Example Service",
+          "created_at": "2025-07-07T08:45:41.709Z",
+          "updated_at": "2025-07-07T08:46:03.848Z"
+        }
+      },
+      {
+        "logicalId": "example-group",
+        "physicalId": 1000003,
+        "type": "check-group",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 1000003,
+          "name": "Example Group",
+          "concurrency": 1,
+          "apiCheckDefaults": {
+            "url": "",
+            "headers": [],
+            "basicAuth": {
+              "password": "",
+              "username": ""
+            },
+            "assertions": [],
+            "queryParameters": []
+          },
+          "browserCheckDefaults": null,
+          "alertSettings": null,
+          "environmentVariables": [],
+          "setupSnippetId": null,
+          "tearDownSnippetId": null,
+          "localSetupScript": null,
+          "localTearDownScript": null,
+          "activated": true,
+          "muted": false,
+          "useGlobalAlertSettings": null,
+          "doubleCheck": false,
+          "locations": [],
+          "tags": [],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T09:07:40.175Z",
+          "updated_at": null,
+          "runtimeId": null,
+          "retryStrategy": "FALLBACK",
+          "runParallel": null,
+          "tracing": null,
+          "privateLocationAssignments": [],
+          "alertChannelSubscriptions": []
+        }
+      },
+      {
+        "logicalId": "example-email-alert-channel",
+        "physicalId": 1000012,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000012,
+          "type": "EMAIL",
+          "config": {
+            "address": "test@example.com"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:33:30.657Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": true,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-call-alert-channel",
+        "physicalId": 1000013,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000013,
+          "type": "CALL",
+          "config": {
+            "name": "Test User",
+            "number": "+311234567890"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:36:19.897Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-slack-alert-channel",
+        "physicalId": 1000014,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000014,
+          "type": "SLACK",
+          "config": {
+            "url": "https://hooks.slack.com/services/TK123456789123/12345/123456789",
+            "channel": "#general"
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:38:13.983Z",
+          "updated_at": "2025-07-07T11:38:22.775Z",
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      }
+    ],
+    "friends": [],
+    "auxiliary": []
+  }
+}

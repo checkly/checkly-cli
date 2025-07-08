@@ -6,6 +6,7 @@ import globals from 'globals'
 export default defineConfig([
   globalIgnores([
     '**/dist/',
+    `**/gen/`,
     '**/__checks__/**/*.spec.{js,ts,mjs}',
     '**/syntax-error*',
     'examples/*',
