@@ -31,7 +31,6 @@ export default interface KeyValuePair {
   value: string
   /** 
    * Whether the value is locked and encrypted (supported by headers and environment variables).
-   * @deprecated For environment variables, use `secret` instead. 
    */
   locked?: boolean
   /** 
