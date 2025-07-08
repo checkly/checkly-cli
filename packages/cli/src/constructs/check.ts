@@ -109,8 +109,7 @@ export interface CheckProps {
    * 
    * @example
    * ```typescript
-   * frequency: Frequency.EVERY_5M  // Using frequency constant
-   * frequency: 10                   // Every 10 minutes
+   * frequency: Frequency.EVERY_5M // Every 5 minutes
    * ```
    */
   frequency?: number | Frequency
