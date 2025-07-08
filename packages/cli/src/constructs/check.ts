@@ -128,9 +128,7 @@ export interface CheckProps {
    * ```typescript
    * // Create a new check group
    * const apiGroup = new CheckGroupV2('api-group', {
-   *   name: 'API Checks',
-   *   activated: true,
-   *   locations: ['us-east-1']
+   *   name: 'API Checks'
    * })
    * 
    * // Reference an existing check group by ID
