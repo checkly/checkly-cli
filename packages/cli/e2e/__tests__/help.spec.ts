@@ -55,6 +55,7 @@ describe('help', () => {
                    project.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
+  rules            Generate a rules file to use with AI IDEs and code assistants.
   runtimes         List all supported runtimes and dependencies.
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
