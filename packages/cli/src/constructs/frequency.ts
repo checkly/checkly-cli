@@ -12,9 +12,6 @@
  * 
  * // Daily health checks (every 24 hours)
  * frequency: Frequency.EVERY_24H
- * 
- * // Custom frequency (every 45 minutes) - must be supported value
- * frequency: 45  // Not supported - use closest: 30 or 60
  * ```
  * 
  * @see {@link https://www.checklyhq.com/docs/monitoring/ | Monitoring Documentation}
