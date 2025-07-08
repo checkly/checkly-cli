@@ -33,7 +33,7 @@ const AI_IDE_CONFIGS = {
 export default class Rules extends BaseCommand {
   static hidden = false;
   static description =
-    'Generate a rules file to use with AI IDEs and code assistants.';
+    'Generate a rules file to use with AI IDEs and Copilots.';
 
   async run(): Promise<void> {
     try {
