@@ -2,17 +2,6 @@
  * Represents a check execution frequency with optional offset.
  * Use the static constants for common scheduling patterns.
  * 
- * **Supported Frequencies:**
- * - **API/TCP Checks**: 0 (seconds), 1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440 minutes
- * - **Browser/Multi-step/Playwright**: 1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440 minutes
- * - **Second Schedules** (frequency=0): 10, 20, 30 seconds only
- * - **Default**: 10 minutes for all check types
- * 
- * **Frequency Offset Validation:**
- * - For frequency=0: Must be exactly 10, 20, or 30 seconds
- * - For frequency ≤ 60 minutes: Max offset = floor(frequency × 10) seconds  
- * - For frequency > 60 minutes: Max offset = ceil(frequency ÷ 60) seconds
- * 
  * @example
  * ```typescript
  * // High-frequency monitoring (every 30 seconds) - API/TCP only
