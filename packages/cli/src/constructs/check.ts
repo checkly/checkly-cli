@@ -19,20 +19,6 @@ import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
 /**
  * Base configuration properties for all check types.
  * These properties are inherited by ApiCheck, BrowserCheck, and other check types.
- * 
- * @example
- * ```typescript
- * const commonCheckProps: Partial<CheckProps> = {
- *   frequency: Frequency.EVERY_5M,
- *   locations: ['us-east-1', 'eu-west-1'],
- *   tags: ['production', 'api'],
- *   alertChannels: [emailAlert, slackAlert],
- *   retryStrategy: RetryStrategyBuilder.fixedStrategy({
- *     maxRetries: 2,
- *     baseBackoffSeconds: 60
- *   })
- * }
- * ```
  */
 export interface CheckProps {
   /**
