@@ -28,7 +28,7 @@
  * frequency: 45  // Not supported - use closest: 30 or 60
  * ```
  * 
- * @see {@link https://www.checklyhq.com/docs/monitoring/check-frequency/ | Check Frequency Documentation}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/ | Monitoring Documentation}
  */
 export class Frequency {
   /** Run every 10 seconds */

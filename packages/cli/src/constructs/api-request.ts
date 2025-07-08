@@ -44,7 +44,7 @@ export interface Request {
   
   /** 
    * Whether to follow HTTP redirects automatically.
-   * @defaultValue false
+   * @defaultValue true
    */
   followRedirects?: boolean,
   

@@ -7,11 +7,35 @@ type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 
 export type TcpAssertion = CoreAssertion<TcpAssertionSource>
 
+/**
+ * Builder class for creating TCP monitor assertions.
+ * Provides methods to create assertions for TCP connection responses.
+ * 
+ * @example
+ * ```typescript
+ * // Response time assertions
+ * TcpAssertionBuilder.responseTime().lessThan(1000)
+ * TcpAssertionBuilder.responseTime().greaterThan(100)
+ * 
+ * // Response data assertions
+ * TcpAssertionBuilder.responseData().contains('SMTP')
+ * TcpAssertionBuilder.responseData().notContains('error')
+ * ```
+ */
 export class TcpAssertionBuilder {
+  /**
+   * Creates an assertion builder for TCP response data.
+   * @param property Optional property path for response data
+   * @returns A general assertion builder for response data content
+   */
   static responseData (property?: string) {
     return new GeneralAssertionBuilder<TcpAssertionSource>('RESPONSE_DATA', property)
   }
 
+  /**
+   * Creates an assertion builder for TCP response time.
+   * @returns A numeric assertion builder for response time in milliseconds
+   */
   static responseTime () {
     return new NumericAssertionBuilder<TcpAssertionSource>('RESPONSE_TIME')
   }

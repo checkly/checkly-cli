@@ -167,10 +167,16 @@ export interface CheckProps {
    * 
    * @example
    * ```typescript
-   * alertChannels: [
-   *   new EmailAlertChannel('email-alerts', { address: 'team@example.com' }),
-   *   new SlackAlertChannel('slack-alerts', { url: 'https://hooks.slack.com/...' })
-   * ]
+   * // Create alert channels once at the project level
+   * const emailChannel = new EmailAlertChannel('team-email', { 
+   *   address: 'team@example.com' 
+   * })
+   * const slackChannel = new SlackAlertChannel('team-slack', { 
+   *   url: 'https://hooks.slack.com/...' 
+   * })
+   * 
+   * // Reference the channels in your check
+   * alertChannels: [emailChannel, slackChannel]
    * ```
    * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels}
    */

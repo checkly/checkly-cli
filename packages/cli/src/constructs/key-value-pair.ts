@@ -4,23 +4,23 @@
  * 
  * @example
  * ```typescript
- * // HTTP header (supports locked encryption)
+ * // HTTP header
  * const header: KeyValuePair = {
  *   key: 'Authorization',
  *   value: 'Bearer {{API_TOKEN}}'
  * }
  * 
- * // Query parameter (no encryption support)
+ * // Query parameter
  * const queryParam: KeyValuePair = {
  *   key: 'version',
  *   value: 'v1'
  * }
  * 
- * // Environment variable
+ * // Environment variable (supports secret/encryption)
  * const envVar: KeyValuePair = {
  *   key: 'API_TOKEN',
  *   value: 'secret-token-value',
- *   secret: true  // For sensitive environment variables only
+ *   secret: true
  * }
  * ```
  */

@@ -64,7 +64,7 @@ export class AssertionBuilder {
 
   /**
    * Creates an assertion builder for JSON response body.
-   * @param property Optional JSON path to specific property (e.g., 'user.name')
+   * @param property Optional JSON path to specific property (e.g., '$.user.name')
    * @returns A general assertion builder for JSON body content
    */
   static jsonBody (property?: string) {

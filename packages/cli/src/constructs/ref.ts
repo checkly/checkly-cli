@@ -4,16 +4,30 @@
  * 
  * @example
  * ```typescript
- * // Create a reference to a check group
- * const groupRef = Ref.from('my-check-group')
+ * // Reference an existing check group by ID (recommended)
+ * const existingGroup = CheckGroupV2.fromId(123)
  * 
- * // Use the reference in a check
+ * // Use the group property, not groupId
  * const check = new ApiCheck('my-check', {
  *   name: 'API Check',
  *   request: { url: 'https://api.example.com', method: 'GET' },
- *   groupId: groupRef
+ *   group: existingGroup  // Use group property with CheckGroupV2
+ * })
+ * 
+ * // Or create a new group
+ * const newGroup = new CheckGroupV2('my-group', {
+ *   name: 'My Check Group',
+ *   activated: true
+ * })
+ * 
+ * const check2 = new ApiCheck('my-check-2', {
+ *   name: 'Another API Check',
+ *   request: { url: 'https://api.example.com/v2', method: 'GET' },
+ *   group: newGroup
  * })
  * ```
+ * 
+ * @internal The Ref class itself is primarily for internal use. Users should not create Ref instances directly.
  */
 export class Ref {
   /** The reference string that identifies the target construct */
