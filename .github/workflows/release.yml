@@ -44,6 +44,11 @@ jobs:
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
+      - run: npm run generate:rules --workspace packages/cli
+        env:
+          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
+          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Set version and publish prerelease for 'cli' package
@@ -104,6 +109,11 @@ jobs:
               # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
+      - run: npm run generate:rules --workspace packages/cli
+        env:
+          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
+          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
       - name: Set version and publish 'cli' package
         run: |
           npm --no-git-tag-version version ${{ github.event.release.tag_name }} --workspace packages/cli
