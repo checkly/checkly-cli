@@ -330,7 +330,7 @@ export abstract class Check extends Construct {
 
   /**
    * Creates alert channel subscriptions for this check.
-   * Links the check to its configured alert channels so notifications are sent.
+   * Links the check to its configured alert channels to send notifications.
    * Only creates subscriptions if alert channels are configured and check is not test-only.
    */
   addSubscriptions () {
