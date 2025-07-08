@@ -429,7 +429,7 @@ export interface RuntimeCheckProps extends CheckProps {
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
    * 
-   * @example "2024.09" | "2023.09"
+   * @example "2024.09"
    * @see {@link https://www.checklyhq.com/docs/runtimes/ | Runtime Documentation}
    */
   runtimeId?: string

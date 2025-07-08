@@ -11,11 +11,13 @@ enum AlertEscalationType {
  */
 export type Reminders = {
   /** 
-   * Number of reminder notifications to send (0 to disable).
+   * Number of reminder notifications to send (0 to disable, 100000 for unlimited).
    * @defaultValue 0
    * @minimum 0
    * @maximum 5
+   * @enum [0, 1, 2, 3, 4, 5, 100000]
    * @example 2  // Send 2 reminder notifications
+   * @example 100000  // Send unlimited reminder notifications
    */
   amount?: number,
   
