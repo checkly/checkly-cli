@@ -11,11 +11,20 @@ import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 import { Assertion } from './api-assertion'
 
+/**
+ * Default configuration that can be applied to API checks.
+ * Used for setting common defaults across multiple checks.
+ */
 export type ApiCheckDefaultConfig = {
+  /** Default URL for API requests */
   url?: string,
+  /** Default HTTP headers to include */
   headers?: Array<HttpHeader>
+  /** Default query parameters to include */
   queryParameters?: Array<QueryParam>
+  /** Default basic authentication credentials */
   basicAuth?: BasicAuth
+  /** Default assertions to apply */
   assertions?: Array<Assertion>
 }
 
@@ -44,20 +53,148 @@ export interface ApiCheckProps extends RuntimeCheckProps {
   tearDownScript?: Content|Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
+   * Used for performance monitoring and alerting on slow responses.
+   * 
+   * @defaultValue 10000
+   * @minimum 0
+   * @maximum 300000
+   * @example
+   * ```typescript
+   * degradedResponseTime: 2000  // Alert when API responds slower than 2 seconds
+   * ```
    */
   degradedResponseTime?: number
+  
   /**
    * The response time in milliseconds where a check should be considered failing.
+   * The check fails if the response takes longer than this threshold.
+   * 
+   * @defaultValue 20000
+   * @minimum 0  
+   * @maximum 300000
+   * @example
+   * ```typescript
+   * maxResponseTime: 5000  // Fail check if API takes longer than 5 seconds
+   * ```
    */
   maxResponseTime?: number
 }
 
 /**
- * Creates an API Check
+ * Creates an API Check to monitor HTTP endpoints and APIs.
+ * 
+ * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
+ * You can validate response status codes, response times, headers, and response body content.
  *
- * @remarks
+ * @example
+ * ```typescript
+ * // Basic API check
+ * new ApiCheck('hello-api', {
+ *   name: 'Hello API',
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/hello',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(200)
+ *     ]
+ *   }
+ * })
+ * 
+ * // Advanced API check with POST request
+ * new ApiCheck('user-api', {
+ *   name: 'User API Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   request: {
+ *     method: 'POST',
+ *     url: 'https://api.example.com/users',
+ *     headers: [{ key: 'Content-Type', value: 'application/json' }],
+ *     body: JSON.stringify({ name: 'test-user' }),
+ *     bodyType: 'JSON',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(201),
+ *       AssertionBuilder.jsonBody('$.id').isNotNull(),
+ *       AssertionBuilder.responseTime().lessThan(1000)
+ *     ]
+ *   },
+ *   maxResponseTime: 5000,
+ *   degradedResponseTime: 2000
+ * })
+ * 
+ * // Error validation check (shouldFail required for error status checks)
+ * new ApiCheck('not-found-check', {
+ *   name: 'Not Found Check',
+ *   shouldFail: true,
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/nonexistent',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(404)
+ *     ]
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
+ */
+/**
+ * Creates an API Check to monitor HTTP endpoints and APIs.
+ * 
+ * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
+ * You can validate response status codes, response times, headers, and response body content.
  *
- * This class make use of the API Checks endpoints.
+ * @example
+ * ```typescript
+ * // Basic API check
+ * new ApiCheck('hello-api', {
+ *   name: 'Hello API',
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/hello',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(200)
+ *     ]
+ *   }
+ * })
+ * 
+ * // Advanced API check with POST request
+ * new ApiCheck('user-api', {
+ *   name: 'User API Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   request: {
+ *     method: 'POST',
+ *     url: 'https://api.example.com/users',
+ *     headers: [{ key: 'Content-Type', value: 'application/json' }],
+ *     body: JSON.stringify({ name: 'test-user' }),
+ *     bodyType: 'JSON',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(201),
+ *       AssertionBuilder.jsonBody('$.id').isNotNull(),
+ *       AssertionBuilder.responseTime().lessThan(1000)
+ *     ]
+ *   },
+ *   maxResponseTime: 5000,
+ *   degradedResponseTime: 2000
+ * })
+ * 
+ * // Error validation check (shouldFail required for error status checks)
+ * new ApiCheck('not-found-check', {
+ *   name: 'Not Found Check',
+ *   shouldFail: true,
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/nonexistent',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(404)
+ *     ]
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
  */
 export class ApiCheck extends RuntimeCheck {
   readonly request: Request

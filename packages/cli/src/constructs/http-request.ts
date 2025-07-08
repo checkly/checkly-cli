@@ -1,3 +1,4 @@
+/** HTTP request methods supported by API checks */
 export type HttpRequestMethod =
   | 'get' | 'GET'
   | 'post' | 'POST'
