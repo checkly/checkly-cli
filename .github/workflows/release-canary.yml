@@ -33,11 +33,6 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: npm ci
-      - run: npm run generate:rules --workspace packages/cli
-        env:
-          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
-          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
-          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
       - run: npm version ${{ env.PR_VERSION }} --workspace packages/cli
       # Publish to npm with the additional tag if CANARY_TAG is set
       - run: |

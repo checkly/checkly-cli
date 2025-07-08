@@ -24,6 +24,13 @@ export function getDefaults () {
 }
 
 export async function validateAuthentication (): Promise<void> {
+  // This internal environment variable allows auth checks to be skipped
+  // when using e.g. debug flags that don't actually need to authenticate
+  // with the Checkly API.
+  if (process.env.CHECKLY_SKIP_AUTH === '1') {
+    return
+  }
+
   if (!config.hasValidCredentials()) {
     throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` ' +
       '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
