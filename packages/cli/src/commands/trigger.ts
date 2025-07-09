@@ -19,8 +19,8 @@ import { createReporters, ReporterType } from '../reporters/reporter'
 import { printLn } from '../reporters/util'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { Session, RetryStrategyBuilder } from '../constructs'
+import { DEFAULT_REGION } from '../helpers/constants'
 
-const DEFAULT_REGION = 'eu-central-1'
 const MAX_RETRIES = 3
 
 export default class Trigger extends AuthCommand {

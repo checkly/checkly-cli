@@ -1,13 +1,10 @@
 import { Flags, Args, ux } from '@oclif/core'
 import indentString from 'indent-string'
-import { isCI } from 'ci-info'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import {
   Events,
-  RunLocation,
-  PrivateRunLocation,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
 } from '../services/abstract-check-runner'
@@ -26,8 +23,8 @@ import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { isEntrypoint } from '../constructs/construct'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
+import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
 
-const DEFAULT_REGION = 'eu-central-1'
 const MAX_RETRIES = 3
 
 export default class Test extends AuthCommand {
@@ -155,12 +152,15 @@ export default class Test extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const location = await this.prepareRunLocation(checklyConfig.cli, {
+
+    const location = await prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
-    })
+    },
+      api,
+      config.getAccountId())
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
-    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
 
@@ -378,54 +378,6 @@ export default class Test extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
-  }
-
-  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
-    if (!reporterFlag && !cliReporters.length) {
-      return [isCI ? 'ci' : 'list']
-    }
-    return reporterFlag ? [reporterFlag] : cliReporters
-  }
-
-  async prepareRunLocation (
-    configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
-    cliFlags: { runLocation?: keyof Region, privateRunLocation?: string } = {},
-  ): Promise<RunLocation> {
-    // Command line options take precedence
-    if (cliFlags.runLocation) {
-      const { data: availableLocations } = await api.locations.getAll()
-      if (availableLocations.some(l => l.region === cliFlags.runLocation)) {
-        return { type: 'PUBLIC', region: cliFlags.runLocation }
-      }
-      throw new Error(`Unable to run checks on unsupported location "${cliFlags.runLocation}". ` +
-        `Supported locations are:\n${availableLocations.map(l => `${l.region}`).join('\n')}`)
-    } else if (cliFlags.privateRunLocation) {
-      return this.preparePrivateRunLocation(cliFlags.privateRunLocation)
-    } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-      throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
-        ` Please only specify one run location. The configured locations were' +
-        ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
-    } else if (configOptions.runLocation) {
-      return { type: 'PUBLIC', region: configOptions.runLocation }
-    } else if (configOptions.privateRunLocation) {
-      return this.preparePrivateRunLocation(configOptions.privateRunLocation)
-    } else {
-      return { type: 'PUBLIC', region: DEFAULT_REGION }
-    }
-  }
-
-  async preparePrivateRunLocation (privateLocationSlugName: string): Promise<PrivateRunLocation> {
-    try {
-      const privateLocations = await Session.getPrivateLocations()
-      const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
-      if (privateLocation) {
-        return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
-      }
-      const { data: account } = await api.accounts.get(config.getAccountId())
-      throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
-    } catch (err: any) {
-      throw new Error(`Failed to get private locations. ${err.message}.`)
-    }
   }
 
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {

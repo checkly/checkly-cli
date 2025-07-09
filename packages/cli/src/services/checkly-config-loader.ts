@@ -144,7 +144,7 @@ export async function getChecklyConfigFile (): Promise<{checklyConfig: string, f
 
 export class ConfigNotFoundError extends Error {}
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs']): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'], writeChecklyConfig: boolean = true): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config: ChecklyConfig | undefined
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
@@ -158,11 +158,9 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
     config = await Session.loadFile<ChecklyConfig>(filePath)
     break
   }
-
   if (!config) {
-    config = await handleMissingConfig(dir, filenames)
+    config = await handleMissingConfig(dir, filenames, writeChecklyConfig)
   }
-
   validateConfigFields(config, ['logicalId', 'projectName'] as const)
 
   const constructs = Session.checklyConfigFileConstructs
@@ -174,12 +172,14 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   return { config, constructs }
 }
 
-async function handleMissingConfig (dir: string, filenames: string[]): Promise<ChecklyConfig> {
+async function handleMissingConfig (dir: string, filenames: string[], shouldWriteConfig: boolean = true): Promise<ChecklyConfig> {
   const baseName = path.basename(dir)
   const playwrightConfigPath = findPlaywrightConfigPath(dir)
   if (playwrightConfigPath) {
     const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`)
-    await writeChecklyConfigFile(dir, checklyConfig)
+    if (shouldWriteConfig) {
+      await writeChecklyConfigFile(dir, checklyConfig)
+    }
     return checklyConfig
   }
   throw new ConfigNotFoundError(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
