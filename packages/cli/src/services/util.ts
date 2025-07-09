@@ -247,19 +247,20 @@ export async function loadPlaywrightProjectFiles (
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  const mode = 0o755 // Default mode for files in the archive
   if (errors.length) {
       throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
   for (const file of files) {
     const relativePath = path.relative(dir, file)
-    archive.file(file, { name: relativePath })
+    archive.file(file, { name: relativePath, mode })
   }
   // TODO: This code below should be a single glob
-  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
-  archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
-  archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles })
+  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: path.join(dir, '/') })
+    archive.glob(includePattern, { cwd: path.join(dir, '/') },  { mode })
   }
 }
 
