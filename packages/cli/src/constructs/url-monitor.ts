@@ -17,9 +17,9 @@ export interface UrlMonitorProps extends MonitorProps {
    * The response time in milliseconds where the monitor should be considered degraded.
    * Used for performance monitoring and alerting on slow responses.
    * 
-   * @defaultValue 10000
+   * @defaultValue 3000
    * @minimum 0
-   * @maximum 300000
+   * @maximum 30000
    * @example
    * ```typescript
    * degradedResponseTime: 2000  // Alert when URL responds slower than 2 seconds
@@ -31,9 +31,9 @@ export interface UrlMonitorProps extends MonitorProps {
    * The response time in milliseconds where the monitor should be considered failing.
    * The monitor fails if the response takes longer than this threshold.
    * 
-   * @defaultValue 20000
+   * @defaultValue 5000
    * @minimum 0
-   * @maximum 300000
+   * @maximum 30000
    * @example
    * ```typescript
    * maxResponseTime: 5000  // Fail monitor if URL takes longer than 5 seconds
