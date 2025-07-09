@@ -461,8 +461,8 @@ export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
 }
 
 export function getTestSessionUrl (testSessionId: string): string {
-  const { baseURL } = getDefaults()
-  return `${baseURL.replace(/api/, 'app')}/test-sessions/${testSessionId}`
+  const { baseURL, accountId } = getDefaults()
+  return `${baseURL.replace(/api/, 'app')}/accounts/${accountId}/test-sessions/${testSessionId}`
 }
 
 export function getTraceUrl (traceUrl: string): string {
