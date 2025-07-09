@@ -98,7 +98,7 @@ export interface UrlMonitorProps extends MonitorProps {
  * ```
  * 
  * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#urlmonitor | UrlMonitor API Reference}
- * @see {@link https://www.checklyhq.com/docs/monitoring/http-checks/ | HTTP Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/url-monitors/ | URL Monitors Documentation}
  */
 export class UrlMonitor extends Monitor {
   readonly request: UrlRequest
