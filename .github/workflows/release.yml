@@ -61,7 +61,7 @@ jobs:
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules
+          name: llm-rules-prerelease
           if-no-files-found: error
           path: packages/cli/dist/rules/*
       # Slack failure alert
@@ -125,7 +125,7 @@ jobs:
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules
+          name: llm-rules-release
           if-no-files-found: error
           path: packages/cli/dist/rules/*
       # Slack failure alert

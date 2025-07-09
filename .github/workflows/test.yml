@@ -46,7 +46,7 @@ jobs:
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules-${{ matrix.os }}
+          name: llm-rules-test-${{ matrix.os }}
           if-no-files-found: error
           path: packages/cli/dist/rules/*
           retention-days: 1
