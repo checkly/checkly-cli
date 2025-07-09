@@ -57,7 +57,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
    * 
    * @defaultValue 10000
    * @minimum 0
-   * @maximum 300000
+   * @maximum 30000
    * @example
    * ```typescript
    * degradedResponseTime: 2000  // Alert when API responds slower than 2 seconds
@@ -71,7 +71,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
    * 
    * @defaultValue 20000
    * @minimum 0  
-   * @maximum 300000
+   * @maximum 30000
    * @example
    * ```typescript
    * maxResponseTime: 5000  // Fail check if API takes longer than 5 seconds
