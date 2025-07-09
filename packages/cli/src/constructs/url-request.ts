@@ -13,7 +13,6 @@ export interface UrlRequest {
    * 
    * @maxLength 2048
    * @example 'https://api.example.com/health'
-   * @example 'http://localhost:3000/status'
    */
   url: string
   
