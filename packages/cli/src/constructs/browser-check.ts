@@ -91,9 +91,11 @@ export class BrowserCheck extends RuntimeCheck {
   constructor (logicalId: string, props: BrowserCheckProps) {
     super(logicalId, props)
 
-    this.code = props.code
-    this.sslCheckDomain = props.sslCheckDomain
-    this.playwrightConfig = props.playwrightConfig
+    const config = this.applyConfigDefaults(props)
+
+    this.code = config.code
+    this.sslCheckDomain = config.sslCheckDomain
+    this.playwrightConfig = config.playwrightConfig
 
     Session.registerConstruct(this)
     this.addSubscriptions()
@@ -107,6 +109,15 @@ export class BrowserCheck extends RuntimeCheck {
       props.group?.getCheckDefaults(),
       Session.checkDefaults,
     )
+  }
+
+  protected applyConfigDefaults<T extends RuntimeCheckProps & Pick<BrowserCheckProps, 'playwrightConfig'>> (props: T): T {
+    const config = super.applyConfigDefaults(props)
+    const defaults = this.configDefaultsGetter(props)
+
+    config.playwrightConfig ??= defaults("playwrightConfig")
+
+    return config
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
