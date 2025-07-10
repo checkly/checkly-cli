@@ -1,4 +1,4 @@
-const { RetryStrategyBuilder, CheckGroupV2 } = require('checkly/constructs');
+const { CheckGroup, RetryStrategyBuilder } = require('checkly/constructs');
 const { smsChannel, emailChannel } = require('../alert-channels');
 const alertChannels = [smsChannel, emailChannel];
 /*
@@ -13,11 +13,11 @@ const alertChannels = [smsChannel, emailChannel];
  * You can use either or both. In this example we show option 1.
  **/
 
-const websiteGroup = new CheckGroupV2('website-check-group-1', {
+const websiteGroup = new CheckGroup('website-check-group-1', {
   name: 'Website Group',
   activated: true,
   muted: false,
-  runtimeId: '2025.04',
+  runtimeId: '2024.09',
   locations: ['us-east-1', 'eu-west-1'],
   tags: ['mac', 'group'],
   environmentVariables: [],
