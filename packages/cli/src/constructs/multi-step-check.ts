@@ -40,8 +40,10 @@ export class MultiStepCheck extends RuntimeCheck {
   constructor (logicalId: string, props: MultiStepCheckProps) {
     super(logicalId, props)
 
-    this.code = props.code
-    this.playwrightConfig = props.playwrightConfig
+    const config = this.applyConfigDefaults(props)
+
+    this.code = config.code
+    this.playwrightConfig = config.playwrightConfig
 
     Session.registerConstruct(this)
     this.addSubscriptions()
@@ -95,6 +97,15 @@ export class MultiStepCheck extends RuntimeCheck {
       props.group?.getCheckDefaults(),
       Session.checkDefaults,
     )
+  }
+
+  protected applyConfigDefaults<T extends RuntimeCheckProps & Pick<MultiStepCheckProps, 'playwrightConfig'>> (props: T): T {
+    const config = super.applyConfigDefaults(props)
+    const defaults = this.configDefaultsGetter(props)
+
+    config.playwrightConfig ??= defaults("playwrightConfig")
+
+    return config
   }
 
   static async bundle (entry: string, runtimeId?: string) {

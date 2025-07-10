@@ -28,7 +28,9 @@ export type CheckConfigDefaults =
   Pick<RuntimeCheckProps,
   | 'environmentVariables'
   | 'runtimeId'
-  >
+  > &
+  // This is used by BrowserChecks and MultiStepChecks.
+  { playwrightConfig?: PlaywrightConfig }
 
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
