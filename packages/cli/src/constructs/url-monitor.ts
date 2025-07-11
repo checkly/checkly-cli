@@ -1,3 +1,5 @@
+import { Diagnostics } from './diagnostics'
+import { validateResponseTimes } from './internal/common-diagnostics'
 import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
 import { UrlRequest } from './url-request'
@@ -124,6 +126,15 @@ export class UrlMonitor extends Monitor {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    await validateResponseTimes(diagnostics, this, {
+      degradedResponseTime: 30_000,
+      maxResponseTime: 30_000,
+    })
   }
 
   synthesize () {

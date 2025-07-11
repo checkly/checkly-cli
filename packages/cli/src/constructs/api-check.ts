@@ -10,6 +10,7 @@ import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 import { Assertion } from './api-assertion'
+import { validateResponseTimes } from './internal/common-diagnostics'
 
 /**
  * Default configuration that can be applied to API checks.
@@ -292,6 +293,11 @@ export class ApiCheck extends RuntimeCheck {
         new Error(`Use "tearDownScript" instead.`),
       ))
     }
+
+    await validateResponseTimes(diagnostics, this, {
+      degradedResponseTime: 30_000,
+      maxResponseTime: 30_000,
+    })
   }
 
   async bundle (): Promise<ApiCheckBundle> {
