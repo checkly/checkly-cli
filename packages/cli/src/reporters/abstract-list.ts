@@ -97,9 +97,9 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(chalk.red('Unable to run checks: ') + err.message)
   }
 
-  onStreamLogs (check: any, sequenceId: SequenceId, logs: any) {
+  onStreamLogs (check: any, sequenceId: SequenceId, logs: string[] | undefined) {
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
-    const logList = logs.logs || []
+    const logList = logs || []
     if (!checkFile.logs) {
       checkFile.logs = []
     }

@@ -162,10 +162,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.CHECK_FAILED, sequenceId, check, message)
       this.emit(Events.CHECK_FINISHED, check)
     } else if (subtopic === 'stream-logs') {
-      const buffer = Buffer.from(message.data)
-      const jsonString = buffer.toString('utf-8');
-      const obj = JSON.parse(jsonString);
-      this.emit(Events.STREAM_LOGS, check, sequenceId, obj)
+      const { logs } = message
+      this.emit(Events.STREAM_LOGS, check, sequenceId, logs)
 
     }
   }

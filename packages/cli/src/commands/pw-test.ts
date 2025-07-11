@@ -83,6 +83,10 @@ export default class PwTestCommand extends AuthCommand {
     'create-check': Flags.boolean({
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
+    }),
+    'stream-logs': Flags.boolean({
+      description: 'Stream logs from the test run to the console.',
+      default: false,
     })
   }
 
@@ -104,6 +108,7 @@ export default class PwTestCommand extends AuthCommand {
       'skip-record': skipRecord,
       'test-session-name': testSessionName,
       'create-check': createCheck,
+      'stream-logs': streamLogs,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -235,6 +240,7 @@ export default class PwTestCommand extends AuthCommand {
       configDirectory,
       // TODO: ADD PROPER RETRY STRATEGY HANDLING
       null, // testRetryStrategy
+      streamLogs,
     )
 
     runner.on(Events.RUN_STARTED,
