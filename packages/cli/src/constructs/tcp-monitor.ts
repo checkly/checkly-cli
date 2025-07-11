@@ -2,6 +2,8 @@ import { Monitor, MonitorProps } from './monitor'
 import { IPFamily } from './ip'
 import { Session } from './project'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+import { Diagnostics } from './diagnostics'
+import { validateResponseTimes } from './internal/common-diagnostics'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 
@@ -147,6 +149,15 @@ export class TcpMonitor extends Monitor {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    await validateResponseTimes(diagnostics, this, {
+      degradedResponseTime: 5_000,
+      maxResponseTime: 5_000,
+    })
   }
 
   synthesize () {

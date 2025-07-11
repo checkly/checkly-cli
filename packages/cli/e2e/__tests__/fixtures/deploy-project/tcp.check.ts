@@ -9,5 +9,5 @@ new TcpMonitor('tcp-monitor', {
     port: 443,
   },
   degradedResponseTime: 5000,
-  maxResponseTime: 20000,
+  maxResponseTime: 5000,
 })
