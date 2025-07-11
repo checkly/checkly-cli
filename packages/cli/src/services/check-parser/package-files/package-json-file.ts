@@ -51,6 +51,10 @@ export class PackageJsonFile {
     return this.jsonFile.meta
   }
 
+  public get version () {
+    return this.jsonFile.data.version
+  }
+
   public get dependencies () {
     return this.jsonFile.data.dependencies
   }

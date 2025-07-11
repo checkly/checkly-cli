@@ -4,6 +4,7 @@ import { Command } from '@oclif/core'
 import { api } from '../rest/api'
 import { CommandStyle } from '../helpers/command-style'
 import { PackageFilesResolver } from '../services/check-parser/package-files/resolver'
+import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file'
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
@@ -14,6 +15,16 @@ export abstract class BaseCommand extends Command {
   static hidden = true
   fancy = true
   style = new CommandStyle(this)
+  #packageJsonLoader?: Promise<PackageJsonFile | undefined>
+
+  async loadPackageJsonOfSelf (): Promise<PackageJsonFile | undefined> {
+    if (!this.#packageJsonLoader) {
+      const resolver = new PackageFilesResolver()
+      this.#packageJsonLoader = resolver.loadPackageJsonFile(__filename)
+    }
+
+    return this.#packageJsonLoader
+  }
 
   async checkEngineCompatibility (): Promise<void> {
     const nodeVersion = process.versions.node
@@ -23,8 +34,7 @@ export abstract class BaseCommand extends Command {
       return
     }
 
-    const resolver = new PackageFilesResolver()
-    const packageJson = await resolver.loadPackageJsonFile(__filename)
+    const packageJson = await this.loadPackageJsonOfSelf()
     if (packageJson === undefined) {
       // Do nothing if there's no package.json.
       return
