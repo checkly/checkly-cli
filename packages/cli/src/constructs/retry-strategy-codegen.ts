@@ -6,22 +6,37 @@ export type RetryStrategyResource = RetryStrategy
 export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryStrategyResource | null): Value {
   genfile.namedImport('RetryStrategyBuilder', 'checkly/constructs')
 
-  function buildCommonOptions (
+  function buildBaseBackoffSecondsOption (
     options: RetryStrategyOptions,
     builder: ObjectValueBuilder,
   ): void {
     if (options.baseBackoffSeconds) {
       builder.number('baseBackoffSeconds', options.baseBackoffSeconds)
     }
+  }
 
+  function buildMaxRetriesOption (
+    options: RetryStrategyOptions,
+    builder: ObjectValueBuilder,
+  ): void {
     if (options.maxRetries) {
       builder.number('maxRetries', options.maxRetries)
     }
+  }
 
+  function buildMaxDurationSecondsOption (
+    options: RetryStrategyOptions,
+    builder: ObjectValueBuilder,
+  ): void {
     if (options.maxDurationSeconds) {
       builder.number('maxDurationSeconds', options.maxDurationSeconds)
     }
+  }
 
+  function buildSameRegionOption (
+    options: RetryStrategyOptions,
+    builder: ObjectValueBuilder,
+  ): void {
     if (options.sameRegion !== undefined) {
       builder.boolean('sameRegion', options.sameRegion)
     }
@@ -38,6 +53,16 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
         })
       }
     }
+  }
+
+  function buildCommonOptions (
+    options: RetryStrategyOptions,
+    builder: ObjectValueBuilder,
+  ): void {
+    buildBaseBackoffSecondsOption(options, builder)
+    buildMaxRetriesOption(options, builder)
+    buildMaxDurationSecondsOption(options, builder)
+    buildSameRegionOption(options, builder)
   }
 
   if (strategy === null || strategy === undefined) {
@@ -74,6 +99,16 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
         builder.call(builder => {
           builder.object(builder => {
             buildCommonOptions(strategy, builder)
+          })
+        })
+      })
+    case 'SINGLE':
+      return expr(ident('RetryStrategyBuilder'), builder => {
+        builder.member(ident('singleRetry'))
+        builder.call(builder => {
+          builder.object(builder => {
+            buildBaseBackoffSecondsOption(strategy, builder)
+            buildSameRegionOption(strategy, builder)
           })
         })
       })
