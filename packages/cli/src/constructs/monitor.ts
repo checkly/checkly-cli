@@ -7,10 +7,16 @@ import { CheckGroupV2 } from './check-group-v2'
 import { Frequency } from './frequency'
 import { IncidentTrigger } from './incident'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
-import { RetryStrategy } from './retry-strategy'
+import { RetryStrategyType, SingleRetryStrategy } from './retry-strategy'
 import { Check, CheckProps } from './check'
 import { Diagnostics } from './diagnostics'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+
+/**
+ * Retry strategies supported by monitors.
+ */
+export type MonitorRetryStrategy = SingleRetryStrategy
 
 export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
   /**
@@ -74,8 +80,19 @@ export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
   /**
    * Sets a retry policy for the monitor. Use RetryStrategyBuilder to create a
    * suitable retry strategy.
+   *
+   * Note that monitors only support a single retry.
+   *
+   * @example
+   * ```typescript
+   * // Single retry
+   * RetryStrategyBuilder.singleRetry()
+   *
+   * // No retries
+   * RetryStrategyBuilder.noRetries()
+   * ```
    */
-  retryStrategy?: RetryStrategy
+  retryStrategy?: MonitorRetryStrategy
   /**
    * Determines whether the monitor should create and resolve an incident
    * based on its alert configuration.
@@ -93,6 +110,29 @@ export abstract class Monitor extends Check {
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
     await validateRemovedDoubleCheck(diagnostics, this)
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    if (this.retryStrategy) {
+      const supported: RetryStrategyType[] = ['SINGLE', 'NO_RETRIES']
+      if (!supported.includes(this.retryStrategy.type)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'retryStrategy',
+          new Error(
+            `Monitors only support a single retry. The following options `
+            + `are available:`
+            + `\n\n`
+            + `  // Single retry\n`
+            + `  RetryStrategyBuilder.singleRetry()`
+            + `\n\n`
+            + `  // No retries\n`
+            + `  RetryStrategyBuilder.noRetries()`,
+          ),
+        ))
+      }
+    }
   }
 
   synthesize () {
