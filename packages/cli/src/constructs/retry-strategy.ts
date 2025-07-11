@@ -149,10 +149,18 @@ export class RetryStrategyBuilder {
    * A single retry will be performed.
    */
   static singleRetry (options?: SingleRetryStrategyOptions): RetryStrategy {
-    return RetryStrategyBuilder.retryStrategy('SINGLE', {
+    const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      maxRetries,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      maxDurationSeconds,
+      ...strategy
+    } = RetryStrategyBuilder.retryStrategy('SINGLE', {
       baseBackoffSeconds: options?.baseBackoffSeconds,
       sameRegion: options?.sameRegion,
     })
+
+    return strategy
   }
 
   /**
