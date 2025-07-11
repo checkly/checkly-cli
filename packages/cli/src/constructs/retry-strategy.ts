@@ -1,5 +1,5 @@
 /** Available retry strategy types */
-export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES'
+export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'SINGLE' | 'NO_RETRIES'
 
 /**
  * Configuration for check retry behavior.
@@ -15,6 +15,7 @@ export interface RetryStrategy {
    * - FIXED: Same delay for all retries
    * - LINEAR: Base value that increases linearly (baseBackoffSeconds * attempt)
    * - EXPONENTIAL: Base value that increases exponentially (baseBackoffSeconds ^ attempt)
+   * - SINGLE: The delay for the first and only retry
    * 
    * @defaultValue 60
    * @example
@@ -27,6 +28,9 @@ export interface RetryStrategy {
    * 
    * // Exponential: 5s, 25s, 125s
    * baseBackoffSeconds: 5
+   *
+   * // Single: 10s
+   * baseBackoffSeconds: 10
    * ```
    */
   baseBackoffSeconds?: number,
@@ -62,6 +66,18 @@ export interface RetryStrategy {
  * These options can be used with any retry strategy type.
  */
 export type RetryStrategyOptions = Pick<RetryStrategy, 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds' | 'sameRegion'>
+
+/**
+ * Configuration for single retry behavior.
+ */
+export interface SingleRetryStrategy extends Pick<RetryStrategy, 'baseBackoffSeconds' | 'sameRegion'> {
+  type: 'SINGLE'
+}
+
+/**
+ * Options for configuring single retry strategy behavior.
+ */
+export type SingleRetryStrategyOptions = Pick<RetryStrategyOptions, 'baseBackoffSeconds' | 'sameRegion'>
 
 /**
  * Builder class for creating retry strategies.
@@ -127,6 +143,16 @@ export class RetryStrategyBuilder {
    */
   static exponentialStrategy (options?: RetryStrategyOptions): RetryStrategy {
     return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
+  }
+
+  /**
+   * A single retry will be performed.
+   */
+  static singleRetry (options?: SingleRetryStrategyOptions): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('SINGLE', {
+      baseBackoffSeconds: options?.baseBackoffSeconds,
+      sameRegion: options?.sameRegion,
+    })
   }
 
   /**
