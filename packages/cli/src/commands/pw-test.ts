@@ -12,7 +12,7 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, Session } from '../constructs'
+import { Diagnostics, RuntimeCheck, Session } from '../constructs'
 import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
@@ -28,10 +28,9 @@ import {
   reWriteChecklyConfigFile
 } from '../helpers/write-config-helpers'
 import * as JSON5 from 'json5'
-import fs from 'node:fs/promises'
-
-const DEFAULT_REGION = 'eu-central-1'
-
+import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
+import { DEFAULT_REGION } from '../helpers/constants'
+import { cased } from '../sourcegen'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -73,9 +72,10 @@ export default class PwTestCommand extends AuthCommand {
     'config': Flags.string({
       description: commonMessages.configFile,
     }),
-    'skip-record': Flags.boolean({
+    record: Flags.boolean({
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
-      default: false,
+      default: true,
+      allowNo: true,
     }),
     'test-session-name': Flags.string({
       description: 'A name to use when storing results in Checkly',
@@ -105,7 +105,7 @@ export default class PwTestCommand extends AuthCommand {
       verbose: verboseFlag,
       reporter: reporterFlag,
       config: configFilename,
-      'skip-record': skipRecord,
+      record,
       'test-session-name': testSessionName,
       'create-check': createCheck,
       'stream-logs': streamLogs,
@@ -155,15 +155,17 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
-        if (Object.keys(testEnvVars).length) {
-          check.environmentVariables = check.environmentVariables
-            ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
-          for (const [key, value] of Object.entries(testEnvVars)) {
-            check.environmentVariables.push({
-              key,
-              value,
-              locked: true,
-            })
+        if (check instanceof RuntimeCheck) {
+          if (Object.keys(testEnvVars).length) {
+            check.environmentVariables = check.environmentVariables
+              ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
+            for (const [key, value] of Object.entries(testEnvVars)) {
+              check.environmentVariables.push({
+                key,
+                value,
+                locked: true,
+              })
+            }
           }
         }
         return true
@@ -223,7 +225,7 @@ export default class PwTestCommand extends AuthCommand {
     const ciInfo = getCiInformation()
     // TODO: ADD PROPER RETRY STRATEGY HANDLING
     // const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
-    const shouldRecord = !skipRecord
+
     const runner = new TestRunner(
       config.getAccountId(),
       projectBundle,
@@ -232,7 +234,7 @@ export default class PwTestCommand extends AuthCommand {
       location,
       timeout,
       verboseFlag,
-      shouldRecord,
+      record,
       repoInfo,
       ciInfo.environment,
       // NO NEED TO UPLOAD SNAPSHOTS FOR PLAYWRIGHT TESTS
@@ -305,13 +307,14 @@ export default class PwTestCommand extends AuthCommand {
         }
         return arg
       })
-      const packageManager = await PwTestCommand.getPackageManagerExecutable(dir)
+
       const input = parseArgs.join(' ') || ''
-      const inputLogicalId = input.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().substring(0, 50)
+      const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
+      const testCommand = await PwTestCommand.getTestCommand(dir, input)
       return {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
-        testCommand: `${packageManager} playwright test ${input}`,
+        testCommand,
         locations: [runLocation],
         frequency: 10,
       }
@@ -368,22 +371,9 @@ export default class PwTestCommand extends AuthCommand {
 
   }
 
-  private static async getPackageManagerExecutable(directoryPath: string): Promise<string| undefined> {
-    const packageManagers = [
-      { name: 'npx', lockFile: 'package-lock.json' },
-      { name: 'yarn', lockFile: 'yarn.lock' },
-      { name: 'pnpm', lockFile: 'pnpm-lock.yaml' },
-    ];
-
-    for (const pm of packageManagers) {
-      const lockFilePath = path.join(directoryPath, pm.lockFile);
-      try {
-        await fs.access(lockFilePath);
-        return pm.name;
-      } catch (error) {
-        continue;
-      }
-    }
-    return 'npx'; // Default to npx if no lock file is found
+  private static async getTestCommand(directoryPath: string, input: string): Promise<string| undefined> {
+    const packageManager = await detectPackageManager(directoryPath)
+    // Passing the input to the execCommand will return it quoted, which we want to avoid
+    return `${packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand} ${input}`
   }
 }

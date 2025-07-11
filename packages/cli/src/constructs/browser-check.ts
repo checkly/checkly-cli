@@ -1,9 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { Check, CheckProps } from './check'
+import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session, SharedFileRef } from './project'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { detectSnapshots } from '../services/snapshot-service'
@@ -11,8 +10,9 @@ import { PlaywrightConfig } from './playwright-config'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
-export interface BrowserCheckProps extends CheckProps {
+export interface BrowserCheckProps extends RuntimeCheckProps {
   /**
    * A valid piece of Node.js javascript code describing a browser interaction
    * with the Puppeteer or Playwright frameworks.
@@ -31,13 +31,52 @@ export interface BrowserCheckProps extends CheckProps {
 }
 
 /**
- * Creates a Browser Check
+ * Creates a Browser Check to monitor web applications using Playwright.
+ * 
+ * Browser checks allow you to monitor complex user interactions, page performance,
+ * and visual regressions. They run real browser scripts using Playwright to simulate
+ * user behavior and validate web application functionality.
  *
- * @remarks
- *
- * This class make use of the Browser Checks endpoints.
+ * @example
+ * ```typescript
+ * // Basic browser check with script file
+ * new BrowserCheck('login-flow', {
+ *   name: 'User Login Flow',
+ *   frequency: Frequency.EVERY_10M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   code: {
+ *     entrypoint: path.join(__dirname, 'login.spec.js')
+ *   }
+ * })
+ * 
+ * // Browser check with inline code
+ * new BrowserCheck('homepage', {
+ *   name: 'Homepage Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   code: {
+ *     content: `
+ *       const { test, expect } = require('@playwright/test')
+ *       
+ *       test('homepage loads correctly', async ({ page }) => {
+ *         await page.goto('https://example.com')
+ *         await expect(page.locator('h1')).toContainText('Welcome')
+ *         await expect(page).toHaveTitle(/Example/)
+ *       })
+ *     `
+ *   },
+ *   playwrightConfig: {
+ *     use: {
+ *       viewport: { width: 1280, height: 720 }
+ *     }
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck | BrowserCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/browser-checks/ | Browser Checks Documentation}
+ * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
-export class BrowserCheck extends Check {
+export class BrowserCheck extends RuntimeCheck {
   readonly code: Content | Entrypoint
   readonly sslCheckDomain?: string
   readonly playwrightConfig?: PlaywrightConfig
@@ -50,20 +89,35 @@ export class BrowserCheck extends Check {
    * {@link https://checklyhq.com/docs/cli/constructs-reference/#browsercheck Read more in the docs}
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
-    if (props.group) {
-      BrowserCheck.applyDefaultBrowserCheckGroupConfig(props, props.group.getBrowserCheckDefaults())
-    }
-    BrowserCheck.applyDefaultBrowserCheckConfig(props)
-
     super(logicalId, props)
 
-    this.code = props.code
-    this.sslCheckDomain = props.sslCheckDomain
-    this.playwrightConfig = props.playwrightConfig
+    const config = this.applyConfigDefaults(props)
+
+    this.code = config.code
+    this.sslCheckDomain = config.sslCheckDomain
+    this.playwrightConfig = config.playwrightConfig
 
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+    return makeConfigDefaultsGetter(
+      props.group?.getBrowserCheckDefaults(),
+      Session.browserCheckDefaults,
+      props.group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
+  }
+
+  protected applyConfigDefaults<T extends RuntimeCheckProps & Pick<BrowserCheckProps, 'playwrightConfig'>> (props: T): T {
+    const config = super.applyConfigDefaults(props)
+    const defaults = this.configDefaultsGetter(props)
+
+    config.playwrightConfig ??= defaults("playwrightConfig")
+
+    return config
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
@@ -93,25 +147,6 @@ export class BrowserCheck extends Check {
           new Error(`Unable to access entrypoint file "${entrypoint}": ${err.message}`, { cause: err }),
         ))
       }
-    }
-  }
-
-  private static applyDefaultBrowserCheckGroupConfig (props: CheckConfigDefaults, groupProps: CheckConfigDefaults) {
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in groupProps) {
-      const newVal: any = props[configKey] ?? groupProps[configKey]
-      props[configKey] = newVal
-    }
-  }
-
-  private static applyDefaultBrowserCheckConfig (props: CheckConfigDefaults) {
-    if (!Session.browserCheckDefaults) {
-      return
-    }
-    let configKey: keyof CheckConfigDefaults
-    for (configKey in Session.browserCheckDefaults) {
-      const newVal: any = props[configKey] ?? Session.browserCheckDefaults[configKey]
-      props[configKey] = newVal
     }
   }
 

@@ -107,6 +107,10 @@ function buildCheckConfigDefaults (
   if (resource.alertEscalationPolicy !== undefined) {
     builder.value('alertEscalationPolicy', valueForAlertEscalation(file, resource.alertEscalationPolicy))
   }
+
+  if (resource.playwrightConfig !== undefined) {
+    builder.value('playwrightConfig', valueForPlaywrightConfig(resource.playwrightConfig))
+  }
 }
 
 function valueForStringOrStringArray (value: string | string[]) {
@@ -162,10 +166,6 @@ more information.`))
                     builder.string(match)
                   }
                 })
-              }
-
-              if (checks.playwrightConfig !== undefined) {
-                builder.value('playwrightConfig', valueForPlaywrightConfig(checks.playwrightConfig))
               }
 
               buildCheckConfigDefaults(program, file, context, builder, checks)

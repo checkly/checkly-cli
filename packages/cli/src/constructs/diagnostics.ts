@@ -1,18 +1,42 @@
+/**
+ * Options for creating diagnostic messages.
+ */
 export interface DiagnosticOptions {
+  /** The title/summary of the diagnostic */
   title: string
+  /** Detailed message describing the diagnostic */
   message: string
 }
 
+/**
+ * Abstract base class for diagnostic messages.
+ * Diagnostics are used to report issues during validation and processing.
+ */
 export abstract class Diagnostic {
+  /** The title/summary of the diagnostic */
   title: string
+  /** Detailed message describing the diagnostic */
   message: string
 
+  /**
+   * Creates a new diagnostic instance.
+   * @param options The diagnostic configuration
+   */
   constructor (options: DiagnosticOptions) {
     this.title = options.title
     this.message = options.message
   }
 
+  /** 
+   * Determines if this diagnostic represents a fatal error.
+   * @returns true if this diagnostic is fatal and should stop processing
+   */
   abstract isFatal (): boolean
+  
+  /** 
+   * Determines if this diagnostic is benign and can be ignored.
+   * @returns true if this diagnostic is informational only
+   */
   abstract isBenign (): boolean
 }
 

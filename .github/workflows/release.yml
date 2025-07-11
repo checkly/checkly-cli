@@ -58,6 +58,12 @@ jobs:
         run: |
           npm pkg get version --workspace packages/cli
           npm pkg get version --workspace packages/create-cli
+      - name: Save LLM rules as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-rules-prerelease
+          if-no-files-found: error
+          path: packages/cli/dist/rules/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -116,6 +122,12 @@ jobs:
         run: |
           npm pkg get version --workspace packages/cli
           npm pkg get version --workspace packages/create-cli
+      - name: Save LLM rules as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-rules-release
+          if-no-files-found: error
+          path: packages/cli/dist/rules/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}

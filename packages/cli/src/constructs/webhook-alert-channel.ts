@@ -1,6 +1,6 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { HttpHeader } from './http-header'
-import { HttpRequestMethod } from './api-check'
+import { HttpRequestMethod } from './http-request'
 import { QueryParam } from './query-param'
 import { Session } from './project'
 

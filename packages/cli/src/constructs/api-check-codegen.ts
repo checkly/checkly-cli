@@ -1,11 +1,10 @@
 import { Codegen, Context, validateScript } from './internal/codegen'
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { Assertion, Request } from './api-check'
-import { buildCheckProps, CheckResource } from './check-codegen'
-import { valueForNumericAssertion, valueForGeneralAssertion } from './internal/assertion-codegen'
-import { valueForKeyValuePair } from './key-value-pair-codegen'
+import { expr, ident } from '../sourcegen'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
+import { Request } from './api-request'
+import { valueForRequest } from './api-request-codegen'
 
-export interface ApiCheckResource extends CheckResource {
+export interface ApiCheckResource extends RuntimeCheckResource {
   checkType: 'API'
   request: Request
   localSetupScript?: string
@@ -16,25 +15,6 @@ export interface ApiCheckResource extends CheckResource {
   tearDownSnippetId?: number | null
   degradedResponseTime?: number
   maxResponseTime?: number
-}
-
-export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion): Value {
-  genfile.namedImport('AssertionBuilder', 'checkly/constructs')
-
-  switch (assertion.source) {
-    case 'STATUS_CODE':
-      return valueForNumericAssertion('AssertionBuilder', 'statusCode', assertion)
-    case 'JSON_BODY':
-      return valueForGeneralAssertion('AssertionBuilder', 'jsonBody', assertion)
-    case 'HEADERS':
-      return valueForGeneralAssertion('AssertionBuilder', 'headers', assertion)
-    case 'TEXT_BODY':
-      return valueForGeneralAssertion('AssertionBuilder', 'textBody', assertion)
-    case 'RESPONSE_TIME':
-      return valueForNumericAssertion('AssertionBuilder', 'responseTime', assertion)
-    default:
-      throw new Error(`Unsupported assertion source ${assertion.source}`)
-  }
 }
 
 const construct = 'ApiCheck'
@@ -59,73 +39,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          builder.object('request', builder => {
-            builder.string('url', resource.request.url)
-            builder.string('method', resource.request.method)
-
-            if (resource.request.ipFamily) {
-              builder.string('ipFamily', resource.request.ipFamily)
-            }
-
-            if (resource.request.followRedirects === false) {
-              builder.boolean('followRedirects', resource.request.followRedirects)
-            }
-
-            if (resource.request.skipSSL === true) {
-              builder.boolean('skipSSL', resource.request.skipSSL)
-            }
-
-            if (resource.request.body !== undefined && resource.request.body !== '') {
-              builder.string('body', resource.request.body)
-            }
-
-            if (resource.request.bodyType && resource.request.bodyType !== 'NONE') {
-              builder.string('bodyType', resource.request.bodyType)
-            }
-
-            if (resource.request.headers) {
-              const headers = resource.request.headers
-              if (headers.length > 0) {
-                builder.array('headers', builder => {
-                  for (const header of headers) {
-                    builder.value(valueForKeyValuePair(this.program, file, context, header))
-                  }
-                })
-              }
-            }
-
-            if (resource.request.queryParameters) {
-              const queryParameters = resource.request.queryParameters
-              if (queryParameters.length > 0) {
-                builder.array('queryParameters', builder => {
-                  for (const param of queryParameters) {
-                    builder.value(valueForKeyValuePair(this.program, file, context, param))
-                  }
-                })
-              }
-            }
-
-            if (resource.request.basicAuth) {
-              const basicAuth = resource.request.basicAuth
-              if (basicAuth.username !== '' && basicAuth.password !== '') {
-                builder.object('basicAuth', builder => {
-                  builder.string('username', basicAuth.username)
-                  builder.string('password', basicAuth.password)
-                })
-              }
-            }
-
-            if (resource.request.assertions) {
-              const assertions = resource.request.assertions
-              if (assertions.length > 0) {
-                builder.array('assertions', builder => {
-                  for (const assertion of assertions) {
-                    builder.value(valueForAssertion(file, assertion))
-                  }
-                })
-              }
-            }
-          })
+          builder.value('request', valueForRequest(this.program, file, context, resource.request))
 
           if (resource.localSetupScript) {
             const content = resource.localSetupScript
@@ -191,7 +105,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildCheckProps(this.program, file, builder, resource, context)
+          buildRuntimeCheckProps(this.program, file, builder, resource, context)
         })
       })
     }))

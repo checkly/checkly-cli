@@ -140,4 +140,91 @@ describe('MultistepCheck', () => {
       Session.defaultRuntimeId = undefined
     }
   })
+
+  describe('playwrightConfig', () => {
+    it('should set from check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org',
+          },
+        },
+      }
+      Session.checkDefaults = {
+        ...defaults,
+      }
+      Session.browserCheckDefaults = {}
+      const browserCheck = new MultiStepCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+      })
+      Session.checkDefaults = undefined
+      Session.browserCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(defaults)
+    })
+
+    it('should set from multi step check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org',
+          },
+        },
+      }
+      Session.checkDefaults = {}
+      Session.multiStepCheckDefaults = {
+        ...defaults,
+      }
+      const browserCheck = new MultiStepCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+      })
+      Session.checkDefaults = undefined
+      Session.multiStepCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(defaults)
+    })
+
+    it('should not override with default if set', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org/foo',
+          },
+        },
+      }
+      Session.checkDefaults = {
+        ...defaults,
+      }
+      Session.browserCheckDefaults = {
+        ...defaults,
+      }
+      const custom = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org/bar',
+          }
+        }
+      }
+      const browserCheck = new MultiStepCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+        ...custom,
+      })
+      Session.checkDefaults = undefined
+      Session.browserCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(custom)
+    })
+  })
 })

@@ -3,8 +3,8 @@ import indentString from 'indent-string'
 import { DateTime } from 'luxon'
 import * as logSymbols from 'log-symbols'
 
-import { Assertion } from '../constructs/api-check'
 import { getDefaults } from '../rest/api'
+import { Assertion } from '../constructs/internal/assertion'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
@@ -176,7 +176,7 @@ const assertionComparisons: any = {
   NOT_NULL: 'is not null',
 }
 
-function formatAssertions (assertions: Array<Assertion&{ error: string, actual: any }>) {
+function formatAssertions (assertions: Array<Assertion<string>&{ error: string, actual: any }>) {
   return assertions.map(({ source, property, comparison, target, regex, error, actual }) => {
     const assertionFailed = !!error
     const humanSource = assertionSources[source] || source
@@ -461,8 +461,8 @@ export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
 }
 
 export function getTestSessionUrl (testSessionId: string): string {
-  const { baseURL } = getDefaults()
-  return `${baseURL.replace(/api/, 'app')}/test-sessions/${testSessionId}`
+  const { baseURL, accountId } = getDefaults()
+  return `${baseURL.replace(/api/, 'app')}/accounts/${accountId}/test-sessions/${testSessionId}`
 }
 
 export function getTraceUrl (traceUrl: string): string {

@@ -1,95 +1,34 @@
 import fs from 'node:fs/promises'
 
-import { Check, CheckProps } from './check'
+import { RuntimeCheck, RuntimeCheckProps } from './check'
 import { HttpHeader } from './http-header'
+import { BasicAuth, Request } from './api-request'
 import { Session, SharedFileRef } from './project'
 import { QueryParam } from './query-param'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
+import { Assertion } from './api-assertion'
 
-type AssertionSource =
-  | 'STATUS_CODE'
-  | 'JSON_BODY'
-  | 'HEADERS'
-  | 'TEXT_BODY'
-  | 'RESPONSE_TIME'
-
-export type Assertion = CoreAssertion<AssertionSource>
-
-export class AssertionBuilder {
-  static statusCode () {
-    return new NumericAssertionBuilder<AssertionSource>('STATUS_CODE')
-  }
-
-  static jsonBody (property?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('JSON_BODY', property)
-  }
-
-  static headers (property?: string, regex?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('HEADERS', property, regex)
-  }
-
-  static textBody (property?: string) {
-    return new GeneralAssertionBuilder<AssertionSource>('TEXT_BODY', property)
-  }
-
-  /** @deprecated Use responseTime() instead */
-  static responseTme () {
-    return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
-  }
-
-  static responseTime () {
-    return new NumericAssertionBuilder<AssertionSource>('RESPONSE_TIME')
-  }
-}
-
-export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'
-
-export type HttpRequestMethod =
-  | 'get' | 'GET'
-  | 'post' | 'POST'
-  | 'put' | 'PUT'
-  | 'patch' | 'PATCH'
-  | 'head' | 'HEAD'
-  | 'delete' | 'DELETE'
-  | 'options' | 'OPTIONS'
-
-export type IPFamily = 'IPv4' | 'IPv6'
-export interface BasicAuth {
-  username: string
-  password: string
-}
-
+/**
+ * Default configuration that can be applied to API checks.
+ * Used for setting common defaults across multiple checks.
+ */
 export type ApiCheckDefaultConfig = {
+  /** Default URL for API requests */
   url?: string,
+  /** Default HTTP headers to include */
   headers?: Array<HttpHeader>
+  /** Default query parameters to include */
   queryParameters?: Array<QueryParam>
+  /** Default basic authentication credentials */
   basicAuth?: BasicAuth
+  /** Default assertions to apply */
   assertions?: Array<Assertion>
 }
 
-export interface Request {
-  url: string,
-  method: HttpRequestMethod,
-  ipFamily?: IPFamily,
-  followRedirects?: boolean,
-  skipSSL?: boolean,
-  /**
-   * Check the main Checkly documentation on assertions for specific values like regular expressions
-   * and JSON path descriptors you can use in the "property" field.
-   */
-  assertions?: Array<Assertion>
-  body?: string
-  bodyType?: BodyType
-  headers?: Array<HttpHeader>
-  queryParameters?: Array<QueryParam>
-  basicAuth?: BasicAuth
-}
-
-export interface ApiCheckProps extends CheckProps {
+export interface ApiCheckProps extends RuntimeCheckProps {
   /**
    *  Determines the request that the check is going to run.
    */
@@ -114,22 +53,150 @@ export interface ApiCheckProps extends CheckProps {
   tearDownScript?: Content|Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
+   * Used for performance monitoring and alerting on slow responses.
+   * 
+   * @defaultValue 10000
+   * @minimum 0
+   * @maximum 30000
+   * @example
+   * ```typescript
+   * degradedResponseTime: 2000  // Alert when API responds slower than 2 seconds
+   * ```
    */
   degradedResponseTime?: number
+  
   /**
    * The response time in milliseconds where a check should be considered failing.
+   * The check fails if the response takes longer than this threshold.
+   * 
+   * @defaultValue 20000
+   * @minimum 0  
+   * @maximum 30000
+   * @example
+   * ```typescript
+   * maxResponseTime: 5000  // Fail check if API takes longer than 5 seconds
+   * ```
    */
   maxResponseTime?: number
 }
 
 /**
- * Creates an API Check
+ * Creates an API Check to monitor HTTP endpoints and APIs.
+ * 
+ * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
+ * You can validate response status codes, response times, headers, and response body content.
  *
- * @remarks
- *
- * This class make use of the API Checks endpoints.
+ * @example
+ * ```typescript
+ * // Basic API check
+ * new ApiCheck('hello-api', {
+ *   name: 'Hello API',
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/hello',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(200)
+ *     ]
+ *   }
+ * })
+ * 
+ * // Advanced API check with POST request
+ * new ApiCheck('user-api', {
+ *   name: 'User API Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   request: {
+ *     method: 'POST',
+ *     url: 'https://api.example.com/users',
+ *     headers: [{ key: 'Content-Type', value: 'application/json' }],
+ *     body: JSON.stringify({ name: 'test-user' }),
+ *     bodyType: 'JSON',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(201),
+ *       AssertionBuilder.jsonBody('$.id').isNotNull(),
+ *       AssertionBuilder.responseTime().lessThan(1000)
+ *     ]
+ *   },
+ *   maxResponseTime: 5000,
+ *   degradedResponseTime: 2000
+ * })
+ * 
+ * // Error validation check (shouldFail required for error status checks)
+ * new ApiCheck('not-found-check', {
+ *   name: 'Not Found Check',
+ *   shouldFail: true,
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/nonexistent',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(404)
+ *     ]
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
  */
-export class ApiCheck extends Check {
+/**
+ * Creates an API Check to monitor HTTP endpoints and APIs.
+ * 
+ * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
+ * You can validate response status codes, response times, headers, and response body content.
+ *
+ * @example
+ * ```typescript
+ * // Basic API check
+ * new ApiCheck('hello-api', {
+ *   name: 'Hello API',
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/hello',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(200)
+ *     ]
+ *   }
+ * })
+ * 
+ * // Advanced API check with POST request
+ * new ApiCheck('user-api', {
+ *   name: 'User API Check',
+ *   frequency: Frequency.EVERY_5M,
+ *   locations: ['us-east-1', 'eu-west-1'],
+ *   request: {
+ *     method: 'POST',
+ *     url: 'https://api.example.com/users',
+ *     headers: [{ key: 'Content-Type', value: 'application/json' }],
+ *     body: JSON.stringify({ name: 'test-user' }),
+ *     bodyType: 'JSON',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(201),
+ *       AssertionBuilder.jsonBody('$.id').isNotNull(),
+ *       AssertionBuilder.responseTime().lessThan(1000)
+ *     ]
+ *   },
+ *   maxResponseTime: 5000,
+ *   degradedResponseTime: 2000
+ * })
+ * 
+ * // Error validation check (shouldFail required for error status checks)
+ * new ApiCheck('not-found-check', {
+ *   name: 'Not Found Check',
+ *   shouldFail: true,
+ *   request: {
+ *     method: 'GET',
+ *     url: 'https://api.example.com/nonexistent',
+ *     assertions: [
+ *       AssertionBuilder.statusCode().equals(404)
+ *     ]
+ *   }
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
+ */
+export class ApiCheck extends RuntimeCheck {
   readonly request: Request
   readonly localSetupScript?: string
   readonly setupScript?: Content | Entrypoint

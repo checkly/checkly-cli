@@ -201,4 +201,91 @@ describe('BrowserCheck', () => {
     const bundle = await check.bundle()
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
+
+  describe('playwrightConfig', () => {
+    it('should set from check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org',
+          },
+        },
+      }
+      Session.checkDefaults = {
+        ...defaults,
+      }
+      Session.browserCheckDefaults = {}
+      const browserCheck = new BrowserCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+      })
+      Session.checkDefaults = undefined
+      Session.browserCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(defaults)
+    })
+
+    it('should set from browser check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org',
+          },
+        },
+      }
+      Session.checkDefaults = {}
+      Session.browserCheckDefaults = {
+        ...defaults,
+      }
+      const browserCheck = new BrowserCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+      })
+      Session.checkDefaults = undefined
+      Session.browserCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(defaults)
+    })
+
+    it('should not override with default if set', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const defaults = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org/foo',
+          },
+        },
+      }
+      Session.checkDefaults = {
+        ...defaults,
+      }
+      Session.browserCheckDefaults = {
+        ...defaults,
+      }
+      const custom = {
+        playwrightConfig: {
+          use: {
+            baseURL: 'https://example.org/bar',
+          }
+        }
+      }
+      const browserCheck = new BrowserCheck('test-check', {
+        name: 'Test Check',
+        code: { content: 'console.log("test check")' },
+        ...custom,
+      })
+      Session.checkDefaults = undefined
+      Session.browserCheckDefaults = undefined
+      expect(browserCheck).toMatchObject(custom)
+    })
+  })
 })

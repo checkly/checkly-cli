@@ -1,35 +1,67 @@
 import { Construct } from './construct'
 import { Session } from './project'
 
+/**
+ * Configuration properties for alert channels.
+ * These properties control when and how alerts are sent.
+ * 
+ * @example
+ * ```typescript
+ * // Alert channel with custom settings
+ * {
+ *   sendRecovery: true,      // Alert when check recovers (default)
+ *   sendFailure: true,       // Alert when check fails (default)
+ *   sendDegraded: false,     // Don't alert for degraded performance (default)
+ *   sslExpiry: true,         // Alert for SSL certificate expiration
+ *   sslExpiryThreshold: 7    // Alert 7 days before SSL expiry
+ * }
+ * ```
+ */
 export interface AlertChannelProps {
   /**
-   * Determines if an alert should be send for check recoveries.
+   * Determines if an alert should be sent for check recoveries.
+   * When a failing check starts passing again, recovery alerts notify that the issue is resolved.
    *
-   * If not given, the default is `true`.
+   * @defaultValue true
    */
   sendRecovery?: boolean
+  
   /**
-   * Determines if an alert should be send for check failures.
+   * Determines if an alert should be sent for check failures.
+   * When a check fails, failure alerts notify that there's an issue requiring attention.
    *
-   * If not given, the default is `true`.
+   * @defaultValue true
    */
   sendFailure?: boolean
+  
   /**
-   * Determines if an alert should be send when a check is degraded.
+   * Determines if an alert should be sent when a check is degraded.
+   * Degraded alerts are triggered when response times exceed the degraded threshold.
    *
-   * If not given, the default is `false`.
+   * @defaultValue false
    */
   sendDegraded?: boolean
+  
   /**
-   * Determines if an alert should be send for expiring SSL certificates.
+   * Determines if an alert should be sent for expiring SSL certificates.
+   * SSL expiry alerts help prevent certificate-related outages.
    *
-   * If not given, the default is `false`.
+   * @defaultValue false
    */
   sslExpiry?: boolean
+  
   /**
    * At what moment in time to start alerting on SSL certificates.
+   * Specifies how many days before expiration to send the first SSL alert.
    *
-   * If not given, the default is `30` (i.e. 30 days).
+   * @defaultValue 30
+   * @minimum 1
+   * @maximum 30
+   * @example
+   * ```typescript
+   * sslExpiryThreshold: 7  // Alert 7 days before SSL certificate expires
+   * sslExpiryThreshold: 30 // Alert 30 days before expiration (default)
+   * ```
    */
   sslExpiryThreshold?: number
 }
@@ -51,11 +83,38 @@ export class AlertChannelRef extends Construct {
 }
 
 /**
- * Creates an Alert Channels
+ * Base class for creating alert channels that notify when checks fail or recover.
+ * 
+ * Alert channels define how and when to send notifications when monitoring checks
+ * fail, recover, or enter a degraded state. Checkly supports multiple alert channel types
+ * including email, SMS, Slack, webhooks, and third-party integrations.
  *
- * @remarks
+ * **Plan Limitations:**
+ * - **Hobby**: Up to 50 alert channels
+ * - **Trial**: Up to 200 alert channels  
+ * - **Pay-as-you-go**: Up to 200 alert channels
+ * - **Contract**: Up to 500 alert channels
  *
- * This class make use of the Alert Channels endpoints.
+ * @example
+ * ```typescript
+ * // Email alert channel
+ * const emailAlert = new EmailAlertChannel('team-email', {
+ *   address: 'alerts@example.com',
+ *   sendFailure: true,
+ *   sendRecovery: true,
+ *   sendDegraded: false
+ * })
+ * 
+ * // Slack alert channel with SSL monitoring
+ * const slackAlert = new SlackAlertChannel('team-slack', {
+ *   url: 'https://hooks.slack.com/services/...',
+ *   sslExpiry: true,
+ *   sslExpiryThreshold: 7  // Alert 7 days before SSL expiry
+ * })
+ * ```
+ * 
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#alertchannel | AlertChannel API Reference}
+ * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels Documentation}
  */
 export abstract class AlertChannel extends Construct {
   sendRecovery?: boolean
