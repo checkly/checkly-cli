@@ -139,6 +139,7 @@ export default class PwTestCommand extends AuthCommand {
       checkMatch: checklyConfig.checks?.checkMatch,
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
+      monitorDefaults: checklyConfig.checks?.monitors,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc

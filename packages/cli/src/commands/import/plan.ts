@@ -967,6 +967,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
         checkDefaults: checklyConfig.checks,
         browserCheckDefaults: checklyConfig.checks?.browserChecks,
+        monitorDefaults: checklyConfig.checks?.monitors,
         availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
           acc[runtime.name] = runtime
           return acc

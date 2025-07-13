@@ -52,6 +52,7 @@ export default class Validate extends AuthCommand {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
+      monitorDefaults: checklyConfig.checks?.monitors,
       availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc

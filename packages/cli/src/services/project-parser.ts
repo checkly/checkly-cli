@@ -10,7 +10,7 @@ import {
   CheckFilter,
 } from '../constructs'
 import { Ref } from '../constructs/ref'
-import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
+import { CheckConfigDefaults, MonitorConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
 import type { Runtime } from '../rest/runtimes'
 import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
@@ -35,6 +35,7 @@ type ProjectParseOpts = {
   playwrightConfigPath?: string
   include?: string | string[],
   playwrightChecks?: PlaywrightSlimmedProp[]
+  monitorDefaults?: MonitorConfigDefaults
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -54,6 +55,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     ignoreDirectoriesMatch = [],
     checkDefaults = {},
     browserCheckDefaults = {},
+    monitorDefaults = {},
     availableRuntimes,
     defaultRuntimeId,
     verifyRuntimeDependencies,
@@ -79,6 +81,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.checkFilter = checkFilter
   Session.browserCheckDefaults = browserCheckDefaults
+  Session.monitorDefaults = monitorDefaults
   Session.availableRuntimes = availableRuntimes
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true

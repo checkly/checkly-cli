@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import * as api from '../rest/api'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { CheckConfigDefaults, MonitorConfigDefaults } from '../services/checkly-config-loader'
 import { Parser } from '../services/check-parser/parser'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
@@ -226,6 +226,7 @@ export class Session {
   static checkFilter?: CheckFilter
   static browserCheckDefaults?: CheckConfigDefaults
   static multiStepCheckDefaults?: CheckConfigDefaults
+  static monitorDefaults?: MonitorConfigDefaults
   static checkFilePath?: string
   static checkFileAbsolutePath?: string
   static availableRuntimes: Record<string, Runtime>
