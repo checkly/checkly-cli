@@ -231,6 +231,10 @@ export class ApiCheck extends RuntimeCheck {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `ApiCheck:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     if (this.setupScript) {
       if (!isEntrypoint(this.setupScript) && !isContent(this.setupScript)) {

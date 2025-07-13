@@ -128,6 +128,10 @@ export class UrlMonitor extends Monitor {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `UrlMonitor:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 

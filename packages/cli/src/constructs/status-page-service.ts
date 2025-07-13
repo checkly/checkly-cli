@@ -19,6 +19,10 @@ export class StatusPageServiceRef extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `StatusPageServiceRef:${this.logicalId}`
+  }
+
   synthesize () {
     return null
   }
@@ -45,6 +49,10 @@ export class StatusPageService extends Construct {
     this.name = props.name
 
     Session.registerConstruct(this)
+  }
+
+  describe (): string {
+    return `StatusPageService:${this.logicalId}`
   }
 
   static fromId (id: string) {

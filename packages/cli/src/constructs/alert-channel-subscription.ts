@@ -48,6 +48,10 @@ export class AlertChannelSubscription extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `AlertChannelSubscription:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       alertChannelId: this.alertChannelId,

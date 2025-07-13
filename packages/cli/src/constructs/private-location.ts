@@ -59,6 +59,10 @@ export class PrivateLocationRef extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `PrivateLocationRef:${this.logicalId}`
+  }
+
   synthesize () {
     return null
   }
@@ -97,6 +101,10 @@ export class PrivateLocation extends Construct {
     this.proxyUrl = props.proxyUrl
 
     Session.registerConstruct(this)
+  }
+
+  describe (): string {
+    return `PrivateLocation:${this.logicalId}`
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {

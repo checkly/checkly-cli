@@ -50,6 +50,10 @@ export class MultiStepCheck extends RuntimeCheck {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `MultiStepCheck:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     if (!isEntrypoint(this.code) && !isContent(this.code)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(

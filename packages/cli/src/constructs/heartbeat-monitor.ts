@@ -79,6 +79,10 @@ export class HeartbeatMonitor extends Monitor {
     this.addSubscriptions()
   }
 
+  describe (): string {
+    return `HeartbeatMonitor:${this.logicalId}`
+  }
+
   synthesize (): any | null {
     return {
       ...super.synthesize(),

@@ -88,6 +88,10 @@ export class Project extends Construct {
     this.logicalId = logicalId
   }
 
+  describe (): string {
+    return `Project:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     if (!this.name) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
