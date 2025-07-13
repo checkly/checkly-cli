@@ -1,4 +1,4 @@
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { CheckConfigDefaults, MonitorConfigDefaults } from '../services/checkly-config-loader'
 import { CheckGroupV1 } from './check-group-v1'
 import { Construct } from './construct'
 import { Session } from './project'
@@ -28,6 +28,11 @@ export class CheckGroupRef extends Construct {
   }
 
   public getMultiStepCheckDefaults (): CheckConfigDefaults {
+    // See the comment for getCheckDefaults(), the same applies here.
+    return {}
+  }
+
+  public getMonitorDefaults (): MonitorConfigDefaults {
     // See the comment for getCheckDefaults(), the same applies here.
     return {}
   }

@@ -12,6 +12,8 @@ import { Check, CheckProps } from './check'
 import { Diagnostics } from './diagnostics'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { Session } from './project'
 
 /**
  * Retry strategies supported by monitors.
@@ -135,6 +137,15 @@ export abstract class Monitor extends Check {
         ))
       }
     }
+  }
+
+  protected configDefaultsGetter (props: MonitorProps): ConfigDefaultsGetter {
+    return makeConfigDefaultsGetter(
+      props.group?.getMonitorDefaults(),
+      Session.monitorDefaults,
+      props.group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
   }
 
   synthesize() {

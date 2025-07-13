@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import { existsSync } from 'fs'
 import { getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
 import { CheckProps, RuntimeCheckProps } from '../constructs/check'
+import { MonitorProps } from '../constructs/monitor'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
 import { Session } from '../constructs'
 import { Construct } from '../constructs/construct'
@@ -31,6 +32,20 @@ export type CheckConfigDefaults =
   > &
   // This is used by BrowserChecks and MultiStepChecks.
   { playwrightConfig?: PlaywrightConfig }
+
+export type MonitorConfigDefaults =
+  Pick<MonitorProps,
+  | 'activated'
+  | 'alertChannels'
+  | 'alertEscalationPolicy'
+  | 'frequency'
+  | 'locations'
+  | 'muted'
+  | 'privateLocations'
+  | 'retryStrategy'
+  | 'shouldFail'
+  | 'tags'
+  >
 
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
@@ -83,6 +98,12 @@ export type ChecklyConfig = {
        */
       testMatch?: string | string[],
     },
+    /**
+     * Optional default configuration for monitors.
+     * Properties defined here take precedence over check defaults, a subset
+     * of which are also used for monitors.
+     */
+    monitors?: MonitorConfigDefaults
     /**
      * Playwright config path to be used during bundling and playwright config parsing
      */

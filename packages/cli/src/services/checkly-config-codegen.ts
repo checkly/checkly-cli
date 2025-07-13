@@ -7,7 +7,7 @@ import { valueForPlaywrightConfig } from '../constructs/playwright-config-codege
 import { valueForPrivateLocationFromId } from '../constructs/private-location-codegen'
 import { valueForRetryStrategy } from '../constructs/retry-strategy-codegen'
 import { array, decl, docComment, expr, GeneratedFile, ident, ObjectValueBuilder, Program, StringValue } from '../sourcegen'
-import { ChecklyConfig, CheckConfigDefaults } from './checkly-config-loader'
+import { ChecklyConfig, CheckConfigDefaults, MonitorConfigDefaults } from './checkly-config-loader'
 
 function buildCheckConfigDefaults (
   program: Program,
@@ -113,6 +113,16 @@ function buildCheckConfigDefaults (
   }
 }
 
+function buildMonitorConfigDefaults (
+  program: Program,
+  file: GeneratedFile,
+  context: Context,
+  builder: ObjectValueBuilder,
+  resource: MonitorConfigDefaults,
+) {
+  return buildCheckConfigDefaults(program, file, context, builder, resource)
+}
+
 function valueForStringOrStringArray (value: string | string[]) {
   if (Array.isArray(value)) {
     return array(builder => {
@@ -189,6 +199,13 @@ more information.`))
                   }
 
                   buildCheckConfigDefaults(program, file, context, builder, multiStepChecks)
+                })
+              }
+
+              if (checks.monitors !== undefined) {
+                const monitors = checks.monitors
+                builder.object('monitors', builder => {
+                  buildMonitorConfigDefaults(program, file, context, builder, monitors)
                 })
               }
             })

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll, beforeEach } from 'vitest'
 
 import { TcpMonitor, CheckGroup, TcpRequest } from '../index'
 import { Project, Session } from '../project'
@@ -9,6 +9,14 @@ const request: TcpRequest = {
 }
 
 describe('TcpMonitor', () => {
+  function clearDefaults () {
+    Session.checkDefaults = undefined
+    Session.monitorDefaults = undefined
+  }
+
+  beforeEach(clearDefaults)
+  afterAll(clearDefaults)
+
   it('should apply default check settings', () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
@@ -19,8 +27,34 @@ describe('TcpMonitor', () => {
       name: 'Test Check',
       request,
     })
-    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['default tags'] })
+  })
+
+  it('should apply default monitor settings', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.monitorDefaults = { tags: ['default tags'] }
+    const check = new TcpMonitor('test-check', {
+      name: 'Test Check',
+      request,
+    })
+    expect(check).toMatchObject({ tags: ['default tags'] })
+  })
+
+  it('should prefer monitor settings over check settings', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+    Session.checkDefaults = { tags: ['check default tags'] }
+    Session.monitorDefaults = { tags: ['monitor default tags'] }
+    const check = new TcpMonitor('test-check', {
+      name: 'Test Check',
+      request,
+    })
+    expect(check).toMatchObject({ tags: ['monitor default tags'] })
   })
 
   it('should overwrite default check settings with check-specific config', () => {
@@ -34,7 +68,6 @@ describe('TcpMonitor', () => {
       tags: ['test check'],
       request,
     })
-    Session.checkDefaults = undefined
     expect(check).toMatchObject({ tags: ['test check'] })
   })
 

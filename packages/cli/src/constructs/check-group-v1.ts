@@ -16,7 +16,7 @@ import { AlertEscalation } from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedConstructDiagnostic, DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import CheckTypes from '../constants'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { CheckConfigDefaults, MonitorConfigDefaults } from '../services/checkly-config-loader'
 import { pathToPosix } from '../services/util'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { BrowserCheck } from './browser-check'
@@ -490,6 +490,12 @@ export class CheckGroupV1 extends Construct {
   public getMultiStepCheckDefaults (): CheckConfigDefaults {
     return {
       frequency: this.multiStepChecks?.frequency,
+    }
+  }
+
+  public getMonitorDefaults (): MonitorConfigDefaults {
+    return {
+      frequency: this.frequency,
     }
   }
 
