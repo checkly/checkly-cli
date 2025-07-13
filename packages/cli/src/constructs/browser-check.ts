@@ -102,6 +102,10 @@ export class BrowserCheck extends RuntimeCheck {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `BrowserCheck:${this.logicalId}`
+  }
+
   protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
     return makeConfigDefaultsGetter(
       props.group?.getBrowserCheckDefaults(),

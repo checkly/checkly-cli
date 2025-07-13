@@ -74,6 +74,10 @@ export class MaintenanceWindow extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `MaintenanceWindow:${this.logicalId}`
+  }
+
   synthesize (): any|null {
     return {
       name: this.name,

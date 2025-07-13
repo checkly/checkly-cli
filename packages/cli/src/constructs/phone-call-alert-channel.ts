@@ -39,6 +39,10 @@ export class PhoneCallAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `PhoneCallAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

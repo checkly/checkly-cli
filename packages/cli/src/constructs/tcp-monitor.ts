@@ -151,6 +151,10 @@ export class TcpMonitor extends Monitor {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `TcpMonitor:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 

@@ -45,6 +45,10 @@ export class PagerdutyAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `PagerdutyAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

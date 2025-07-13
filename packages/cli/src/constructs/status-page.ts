@@ -88,6 +88,10 @@ export class StatusPage extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `StatusPage:${this.logicalId}`
+  }
+
   synthesize (): any|null {
     return {
       name: this.name,

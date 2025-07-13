@@ -350,6 +350,10 @@ export class CheckGroupV1 extends Construct {
     this.__addPrivateLocationGroupAssignments()
   }
 
+  describe (): string {
+    return `CheckGroupV1:${this.logicalId}`
+  }
+
   protected async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
     diagnostics.add(new DeprecatedConstructDiagnostic(
       'CheckGroup',

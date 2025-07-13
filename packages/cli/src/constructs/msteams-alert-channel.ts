@@ -115,6 +115,10 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
     this.template = props.payload ?? MSTeamsAlertChannel.DEFAULT_PAYLOAD
   }
 
+  describe (): string {
+    return `MSTeamsAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),
