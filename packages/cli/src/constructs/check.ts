@@ -9,12 +9,28 @@ import type { Region } from '..'
 import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
-import { RetryStrategy } from './retry-strategy'
+import {
+  ExponentialRetryStrategy,
+  FixedRetryStrategy,
+  LinearRetryStrategy,
+  NoRetriesRetryStrategy,
+  SingleRetryStrategy,
+} from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { Diagnostics } from './diagnostics'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
+
+/**
+ * Retry strategies supported by checks.
+ */
+export type CheckRetryStrategy =
+  | LinearRetryStrategy
+  | ExponentialRetryStrategy
+  | FixedRetryStrategy
+  | SingleRetryStrategy
+  | NoRetriesRetryStrategy
 
 /**
  * Base configuration properties for all check types.
@@ -194,7 +210,7 @@ export interface CheckProps {
    * })
    * ```
    */
-  retryStrategy?: RetryStrategy
+  retryStrategy?: CheckRetryStrategy
   
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
@@ -227,7 +243,7 @@ export abstract class Check extends Construct {
   groupId?: Ref
   alertChannels?: Array<AlertChannel|AlertChannelRef>
   testOnly?: boolean
-  retryStrategy?: RetryStrategy
+  retryStrategy?: CheckRetryStrategy
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
