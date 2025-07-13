@@ -7,7 +7,7 @@ import { CheckGroupV2 } from './check-group-v2'
 import { Frequency } from './frequency'
 import { IncidentTrigger } from './incident'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
-import { RetryStrategyType, SingleRetryStrategy } from './retry-strategy'
+import { NoRetriesRetryStrategy, RetryStrategyType, SingleRetryStrategy } from './retry-strategy'
 import { Check, CheckProps } from './check'
 import { Diagnostics } from './diagnostics'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
@@ -16,7 +16,9 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 /**
  * Retry strategies supported by monitors.
  */
-export type MonitorRetryStrategy = SingleRetryStrategy
+export type MonitorRetryStrategy =
+  | SingleRetryStrategy
+  | NoRetriesRetryStrategy
 
 export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
   /**
