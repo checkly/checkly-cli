@@ -273,6 +273,10 @@ export class Dashboard extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `Dashboard:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     if (!this.customUrl && !this.customDomain) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(

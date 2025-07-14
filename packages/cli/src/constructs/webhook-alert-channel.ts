@@ -78,6 +78,10 @@ export class WebhookAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `WebhookAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

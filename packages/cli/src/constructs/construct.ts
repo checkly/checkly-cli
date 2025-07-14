@@ -73,6 +73,11 @@ export abstract class Construct implements Validate, Bundle {
   }
 
   /**
+   * @returns A unique description of the Construct instance.
+   */
+  abstract describe (): string
+
+  /**
    * Creates a reference to this construct that can be used in other constructs.
    * 
    * @returns A reference object that can be used to link to this construct

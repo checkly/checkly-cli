@@ -77,6 +77,10 @@ export class AlertChannelRef extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `AlertChannelRef:${this.logicalId}`
+  }
+
   synthesize () {
     return null
   }

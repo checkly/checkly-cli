@@ -56,6 +56,10 @@ Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/eac
     this.url = `https://api.telegram.org/bot${props.apiKey}/sendMessage`
   }
 
+  describe (): string {
+    return `TelegramAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

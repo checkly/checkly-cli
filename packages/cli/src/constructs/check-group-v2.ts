@@ -146,6 +146,10 @@ export class CheckGroupV2 extends CheckGroupV1 {
     this.useGlobalAlertSettings = useGlobalAlertSettings
   }
 
+  describe (): string {
+    return `CheckGroupV2:${this.logicalId}`
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
     // No-op

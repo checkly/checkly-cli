@@ -52,6 +52,10 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.addPrivateLocationCheckAssignments()
   }
 
+  describe (): string {
+    return `PlaywrightCheck:${this.logicalId}`
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)

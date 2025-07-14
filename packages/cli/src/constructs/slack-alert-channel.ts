@@ -31,6 +31,10 @@ export class SlackAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `SlackAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

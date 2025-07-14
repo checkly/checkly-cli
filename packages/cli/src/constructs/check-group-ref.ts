@@ -14,6 +14,10 @@ export class CheckGroupRef extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `CheckGroupRef:${this.logicalId}`
+  }
+
   public getCheckDefaults (): CheckConfigDefaults {
     // The only value CheckGroup.getCheckDefaults() returns is frequency,
     // which exists purely for convenience, and only at CLI-level. It never

@@ -54,6 +54,10 @@ export class OpsgenieAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `OpsgenieAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),

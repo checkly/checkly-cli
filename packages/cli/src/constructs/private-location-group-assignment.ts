@@ -33,6 +33,10 @@ export class PrivateLocationGroupAssignment extends Construct {
     Session.registerConstruct(this)
   }
 
+  describe (): string {
+    return `PrivateLocationGroupAssignment:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       privateLocationId: this.privateLocationId,

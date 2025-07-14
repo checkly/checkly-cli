@@ -89,7 +89,7 @@ export class ConstructDiagnostic extends Diagnostic {
 
   constructor (construct: Construct, underlying: Diagnostic) {
     super({
-      title: `[${construct.type}:${construct.logicalId}] ${underlying.title}`,
+      title: `[${construct.describe()}] ${underlying.title}`,
       message: underlying.message,
     })
 

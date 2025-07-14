@@ -70,6 +70,10 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
     this.template = props.payload ?? IncidentioAlertChannel.DEFAULT_PAYLOAD
   }
 
+  describe (): string {
+    return `IncidentioAlertChannel:${this.logicalId}`
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),
