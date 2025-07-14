@@ -21,7 +21,7 @@ export default class TestRunner extends AbstractCheckRunner {
   updateSnapshots: boolean
   baseDirectory: string
   testRetryStrategy: RetryStrategy | null
-  streamLogs: boolean | null
+  streamLogs?: boolean
 
   constructor (
     accountId: string,
@@ -37,7 +37,7 @@ export default class TestRunner extends AbstractCheckRunner {
     updateSnapshots: boolean,
     baseDirectory: string,
     testRetryStrategy: RetryStrategy | null,
-    streamLogs: boolean | null,
+    streamLogs?: boolean,
   ) {
     super(accountId, timeout, verbose)
     this.projectBundle = projectBundle
@@ -50,7 +50,7 @@ export default class TestRunner extends AbstractCheckRunner {
     this.updateSnapshots = updateSnapshots
     this.baseDirectory = baseDirectory
     this.testRetryStrategy = testRetryStrategy
-    this.streamLogs = streamLogs
+    this.streamLogs = streamLogs ?? false
   }
 
   async scheduleChecks (
