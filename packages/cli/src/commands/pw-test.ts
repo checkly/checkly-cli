@@ -12,7 +12,7 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, RuntimeCheck, Session } from '../constructs'
+import { Diagnostics, PrivateLocation, RuntimeCheck, Session } from '../constructs'
 import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
@@ -40,7 +40,6 @@ export default class PwTestCommand extends AuthCommand {
   static flags = {
     'location': Flags.string({
       char: 'l',
-      default: DEFAULT_REGION,
       description: 'The location to run the checks at.',
     }),
     'private-location': Flags.string({
@@ -117,7 +116,7 @@ export default class PwTestCommand extends AuthCommand {
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
-    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, dir)
+    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, privateRunLocation, dir)
     if (createCheck) {
       this.style.actionStart('Creating Checkly check from Playwright test')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
@@ -129,6 +128,8 @@ export default class PwTestCommand extends AuthCommand {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
     }, api, config.getAccountId())
+
+    console.log(location)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
@@ -210,10 +211,6 @@ export default class PwTestCommand extends AuthCommand {
     })()
 
     const checkBundles = Object.values(projectBundle.data.check)
-
-    if (this.fancy) {
-      ux.action.stop()
-    }
 
     if (!checkBundles.length) {
       this.log(`Unable to find checks to run`)
@@ -300,14 +297,15 @@ export default class PwTestCommand extends AuthCommand {
     await runner.run()
     }
 
-    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, dir: string): Promise<PlaywrightSlimmedProp> {
+    static async createPlaywrightCheck (args: string[], runLocation: keyof Region,
+      privateRunLocation: PrivateLocation | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
       const parseArgs = args.map(arg => {
         if (arg.includes(' ')) {
           arg = `"${arg}"`
         }
         return arg
       })
-
+      const privateLocations = privateRunLocation ? [privateRunLocation] : []
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
@@ -315,7 +313,8 @@ export default class PwTestCommand extends AuthCommand {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
         testCommand,
-        locations: [runLocation],
+        // locations: [runLocation],
+        privateLocations,
         frequency: 10,
       }
   }
