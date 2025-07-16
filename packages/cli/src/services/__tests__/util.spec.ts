@@ -1,6 +1,7 @@
 import path from 'node:path'
-
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
+import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
 
 import { pathToPosix, isFileSync, getPlaywrightVersion } from '../util'
 
@@ -25,34 +26,31 @@ describe('util', () => {
     })
   })
 
-  describe('getPlaywrightVersion', () => {
+  describe('getPlaywrightVersion()', () => {
+    const fixturesDir = path.join(__dirname, '..', '__tests__', 'fixtures', 'playwright-json');
+    const emptyDir = path.join(__dirname, 'fixtures', 'empty');
 
-    const fixturesDir = path.resolve(__dirname, '../__tests__/fixtures/lock-files')
+    // Create empty directory for testing the "not found" case
+    beforeEach(async () => {
+      if (!fsSync.existsSync(emptyDir)) {
+        await fs.mkdir(emptyDir, { recursive: true });
+      }
+    });
 
-    const npmLockFile = path.join(fixturesDir, 'package-lock.json')
-    const pnpmLockFile = path.join(fixturesDir, 'pnpm-lock.yaml')
-    const yarnLockFile = path.join(fixturesDir, 'yarn.lock')
-
-
-    it('returns version from package-lock.json with packages', async () => {
-      const version = await getPlaywrightVersion(npmLockFile)
-      expect(version).toBe('1.52.0')
+    afterAll(async () => {
+      if (fsSync.existsSync(emptyDir)) {
+        await fs.rm(emptyDir, { recursive: true, force: true });
+      }
     })
 
-    it('returns version from pnpm-lock.yaml', async () => {
-      const version = await getPlaywrightVersion(pnpmLockFile)
-      expect(version).toBe('1.52.0')
-    })
+    it('should find version using node_modules path', async () => {
+      const version = await getPlaywrightVersion(fixturesDir);
+      expect(version).toBe('1.1.1');
+    });
 
-    it('returns version from yarn.lock', async () => {
-      const version = await getPlaywrightVersion(yarnLockFile)
-      expect(version).toBe('1.52.0')
-    })
-
-
-    it('returns undefined if lockFile is not provided', async () => {
-      const version = await getPlaywrightVersion(undefined as any)
-      expect(version).toBeUndefined()
-    })
+    it('should return undefined if playwright is not found', async () => {
+      const version = await getPlaywrightVersion(emptyDir);
+      expect(version).toBeUndefined();
+    });
   })
 })
