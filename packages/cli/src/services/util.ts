@@ -4,7 +4,6 @@ import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
-import * as yaml from 'js-yaml';
 
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
@@ -211,7 +210,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
     getPlaywrightVersion(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   ])
-  
+
   await archive.finalize()
   return new Promise((resolve, reject) => {
     output.on('close', () => {
