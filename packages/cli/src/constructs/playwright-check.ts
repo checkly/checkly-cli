@@ -99,11 +99,11 @@ export class PlaywrightCheck extends RuntimeCheck {
     let dir = ''
     try {
       const {
-        outputFile, browsers, relativePlaywrightConfigPath, cacheHash,
+        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
-      return { key, browsers, relativePlaywrightConfigPath, cacheHash }
+      return { key, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion }
     } finally {
       await cleanup(dir)
     }
@@ -131,6 +131,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       key: codeBundlePath,
       browsers,
       cacheHash,
+      playwrightVersion,
     } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
 
     return new PlaywrightCheckBundle(this, {
@@ -138,6 +139,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       codeBundlePath,
       browsers,
       cacheHash,
+      playwrightVersion,
     })
   }
 

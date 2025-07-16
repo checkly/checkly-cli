@@ -4,6 +4,8 @@ import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
+import * as yaml from 'js-yaml';
+
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
@@ -18,6 +20,7 @@ import { PlaywrightConfig } from './playwright-config'
 import { access , readFile} from 'fs/promises'
 import { createHash } from 'crypto';
 import { Session } from '../constructs'
+import semver from 'semver'
 
 export interface GitInformation {
   commitId: string
@@ -173,8 +176,15 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
+export function normalizeVersion(v?: string | undefined): string | undefined {
+  const cleaned =
+    semver.valid(semver.clean(v ?? '') || '') ??
+    semver.coerce(v ?? '')?.version;
+  return cleaned && semver.valid(cleaned) ? cleaned : undefined;
+}
+
 export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
-Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string}> {
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string, playwrightVersion: string | undefined}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await Session.loadFile(filePath)
@@ -191,9 +201,14 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
+  const lockFile = await findLockFile(dir)
+  if (!lockFile) {
+    throw new Error('No lock file found')
+  }
 
-  const [cacheHash] = await Promise.all([
-    getCacheHash(dir),
+  const [cacheHash, playwrightVersion] = await Promise.all([
+    getCacheHash(lockFile),
+    getPlaywrightVersion(lockFile),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   ])
 
@@ -203,6 +218,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
       return resolve({
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
+        playwrightVersion,
         relativePlaywrightConfigPath: path.relative(dir, filePath),
         cacheHash
       })
@@ -214,16 +230,61 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   })
 }
 
-export async function getCacheHash (dir: string): Promise<string> {
-  const lockFile = await findLockFile(dir)
-  if (!lockFile) {
-    throw new Error('No lock file found')
-  }
+export async function getCacheHash (lockFile: string): Promise<string> {
+
   const fileBuffer = await readFile(lockFile);
   const hash = createHash('sha256');
   hash.update(fileBuffer);
   return hash.digest('hex');
 
+}
+
+function getNpmPlaywrightVersion(fileContent: string): string | undefined {
+  const json = JSON.parse(fileContent);
+  const dep = json.dependencies?.['@playwright/test'] || json.packages?.['node_modules/@playwright/test'];
+  return dep?.version;
+}
+
+function getPnpmPlaywrightVersion(fileContent: string): string | undefined {
+  const doc = yaml.load(fileContent) as any;
+  const pkgs = doc?.packages || {};
+  for (const key of Object.keys(pkgs)) {
+    if (key.includes('@playwright/test')) {
+      const match = key.match(/@playwright\/test@([\d.]+)/);
+      return match?.[1];
+    }
+  }
+}
+
+function getYarnPlaywrightVersion(fileContent: string): string | undefined {
+  const match = fileContent.match(
+    new RegExp(
+      `"${'@playwright/test'.replace('/', '\\/')}@[^"]*"[^{\\n]*\\n(?:[^\\n]*\\n)*?\\s*version[:\\s"']+([\\d.]+)`,
+    ),
+  )
+  return match?.[1];
+}
+
+export async function getPlaywrightVersion(lockFile: string): Promise<string | undefined> {
+  const packageManagerMap: Record<string, (fileContent: string) => string | undefined> = {
+    'package-lock.json': getNpmPlaywrightVersion,
+    'pnpm-lock.yaml': getPnpmPlaywrightVersion,
+    'yarn.lock': getYarnPlaywrightVersion,
+  }
+
+  if (!lockFile) return;
+  const fileName = path.basename(lockFile);
+  if (!packageManagerMap[fileName]) return;
+
+  let fileContent: string;
+  try {
+    fileContent = await readFile(lockFile, 'utf-8');
+  } catch {
+    return;
+  }
+  if (!fileContent) return;
+  const version =  packageManagerMap[fileName](fileContent);
+  return normalizeVersion(version);
 }
 
 async function findLockFile(dir: string): Promise<string | null> {
