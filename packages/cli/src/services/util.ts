@@ -242,7 +242,16 @@ export async function getPlaywrightVersion(projectDir: string): Promise<string |
     const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'));
     return normalizeVersion(packageJson.version);
   } catch {
-    return undefined;
+    // If node_modules not found, fall back to checking the project's package.json
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    try {
+      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+      const version = packageJson.dependencies?.['@playwright/test'] ||
+                      packageJson.devDependencies?.['@playwright/test'];
+      return normalizeVersion(version);
+    } catch {
+      return;
+    }
   }
 }
 
