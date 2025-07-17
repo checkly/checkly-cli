@@ -6,6 +6,7 @@
 /tmp
 /yarn.lock
 node_modules
+!packages/cli/src/services/__tests__/fixtures/playwright-json/**
 .vscode
 .checkly
 .DS_Store

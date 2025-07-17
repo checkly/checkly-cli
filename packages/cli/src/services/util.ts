@@ -4,6 +4,7 @@ import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
+
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
@@ -18,6 +19,7 @@ import { PlaywrightConfig } from './playwright-config'
 import { access , readFile} from 'fs/promises'
 import { createHash } from 'crypto';
 import { Session } from '../constructs'
+import semver from 'semver'
 
 export interface GitInformation {
   commitId: string
@@ -173,8 +175,15 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
+export function normalizeVersion(v?: string | undefined): string | undefined {
+  const cleaned =
+    semver.valid(semver.clean(v ?? '') || '') ??
+    semver.coerce(v ?? '')?.version;
+  return cleaned && semver.valid(cleaned) ? cleaned : undefined;
+}
+
 export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
-Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string}> {
+Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string, playwrightVersion: string | undefined}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await Session.loadFile(filePath)
@@ -191,9 +200,14 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
+  const lockFile = await findLockFile(dir)
+  if (!lockFile) {
+    throw new Error('No lock file found')
+  }
 
-  const [cacheHash] = await Promise.all([
-    getCacheHash(dir),
+  const [cacheHash, playwrightVersion] = await Promise.all([
+    getCacheHash(lockFile),
+    getPlaywrightVersion(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
   ])
 
@@ -203,6 +217,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
       return resolve({
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
+        playwrightVersion,
         relativePlaywrightConfigPath: path.relative(dir, filePath),
         cacheHash
       })
@@ -214,16 +229,30 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   })
 }
 
-export async function getCacheHash (dir: string): Promise<string> {
-  const lockFile = await findLockFile(dir)
-  if (!lockFile) {
-    throw new Error('No lock file found')
-  }
+export async function getCacheHash (lockFile: string): Promise<string> {
   const fileBuffer = await readFile(lockFile);
   const hash = createHash('sha256');
   hash.update(fileBuffer);
   return hash.digest('hex');
+}
 
+export async function getPlaywrightVersion(projectDir: string): Promise<string | undefined> {
+  try {
+    const modulePath = path.join(projectDir, 'node_modules', '@playwright', 'test', 'package.json');
+    const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'));
+    return normalizeVersion(packageJson.version);
+  } catch {
+    // If node_modules not found, fall back to checking the project's package.json
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    try {
+      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+      const version = packageJson.dependencies?.['@playwright/test'] ||
+                      packageJson.devDependencies?.['@playwright/test'];
+      return normalizeVersion(version);
+    } catch {
+      return;
+    }
+  }
 }
 
 async function findLockFile(dir: string): Promise<string | null> {
