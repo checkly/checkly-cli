@@ -190,4 +190,25 @@ describe('ApiCheck', () => {
     const bundle = await check.bundle()
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
+
+  describe('retryStrategy', () => {
+    it('should synthesize `onlyOn`', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      const apiCheck = new ApiCheck('test-check', {
+        name: 'Test Check',
+        runtimeId: '2022.02',
+        request,
+        retryStrategy: {
+          type: 'LINEAR',
+          onlyOn: 'NETWORK_ERROR',
+        },
+      })
+      const bundle = await apiCheck.bundle()
+      const payload = bundle.synthesize()
+      expect(payload.retryStrategy?.onlyOn).toEqual('NETWORK_ERROR')
+    })
+  })
 })

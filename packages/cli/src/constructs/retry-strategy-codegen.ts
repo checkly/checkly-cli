@@ -25,6 +25,19 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     if (options.sameRegion !== undefined) {
       builder.boolean('sameRegion', options.sameRegion)
     }
+
+    if (options.onlyOn !== undefined) {
+      const onlyOn = Array.isArray(options.onlyOn) ? options.onlyOn : [options.onlyOn]
+      if (onlyOn.length === 1) {
+        builder.string('onlyOn', onlyOn[0])
+      } else {
+        builder.array('onlyOn', builder => {
+          for (const condition of onlyOn) {
+            builder.string(condition)
+          }
+        })
+      }
+    }
   }
 
   if (strategy === null || strategy === undefined) {
