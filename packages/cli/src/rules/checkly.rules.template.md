@@ -33,6 +33,10 @@ Here is an example directory tree of what that would look like:
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
+```typescript
+// INSERT CHECKLY CONFIG EXAMPLE HERE //
+```
+
 ## Check and Monitor Constructs
 
 ### API Check
