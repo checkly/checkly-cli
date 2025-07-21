@@ -1,6 +1,6 @@
 import { BaseCommand } from './baseCommand';
 import { readFile, writeFile, access, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { constants } from 'fs';
 import prompts from 'prompts';
 
@@ -36,75 +36,116 @@ export default class Rules extends BaseCommand {
     'Generate a rules file to use with AI IDEs and Copilots.';
 
   async run(): Promise<void> {
+
+    // Read the base rules file
+    const rulesContent = await this.readBaseRulesFile();
+    if (!rulesContent) {
+      this.error(`Failed to read rules file at ${BASE_RULES_FILE_PATH}`);
+    }
+
+    // In non-interactive mode, print rules to stdout and exit
+    const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY || process.env.CI || process.env.CHECKLY_NON_INTERACTIVE;
+    if (isNonInteractive) {
+      this.log(rulesContent);
+      return;
+    }
+
     try {
       // Find AI IDE config folders
-      const result = await this.findAIIDEConfigFolder();
+      const detectedConfigs = await this.findAIIDEConfigFolders();
 
-      const { configPath, ideType } = result;
-      this.log(`Found ${ideType?.rootFolder} config folder: ${configPath}`);
+      // Create options for multiselect - always include fallback option
+      const choices = [
+        ...detectedConfigs.map(config => ({
+          title: `${(Object.keys(AI_IDE_CONFIGS) as Array<keyof typeof AI_IDE_CONFIGS>).find(key => AI_IDE_CONFIGS[key] === config.ideType)} (${config.configPath})`,
+          value: config,
+          selected: false, // Auto-select detected configs
+        })),
+        {
+          title: 'Plain Markdown File (checkly.rules.md)',
+          value: {
+            ideType: AI_IDE_CONFIGS.None,
+            configPath: process.cwd(),
+          },
+          selected: false, // Always selected by default
+        },
+      ];
 
-      // Read the base rules file
-      const rulesContent = await this.readBaseRulesFile();
+      const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY || process.env.CI || process.env.CHECKLY_NON_INTERACTIVE;
 
-      // Create rules directory if it doesn't exist
-      const rulesDir = join(configPath, ideType.rulesFolder);
-      if (ideType.rulesFolder) {
-        try {
-          await mkdir(rulesDir, { recursive: true });
-        } catch {
-          // Directory might already exist, ignore error
-        }
-      }
+      // Interactive mode - show multiselect
+      const { configs: selectedConfigs } = await prompts({
+        type: 'multiselect',
+        name: 'configs',
+        message: 'Select the AI IDE configurations to generate rules for:',
+        choices,
+        min: 1, // Require at least one selection
+      });
 
-      // Determine the target file path
-      const targetPath = join(rulesDir || configPath, ideType.rulesFileName);
-
-      // Check if file already exists and ask for confirmation
-      const shouldOverwrite = await this.confirmOverwrite(targetPath);
-
-      if (!shouldOverwrite) {
+      if (!selectedConfigs || selectedConfigs.length === 0) {
         this.log('Operation cancelled.');
         return;
       }
 
-      // Save the rules file
-      await writeFile(targetPath, rulesContent, 'utf8');
 
-      this.log(`✅ Successfully saved Checkly rules file to: ${targetPath}`);
+      // Generate rules for each selected configuration
+      for (const { ideType, configPath } of selectedConfigs) {
+        try {
+          this.log(`\nGenerating rules for ${ideType.rootFolder === 'None' ? 'fallback' : ideType.rootFolder}...`);
+
+          // Create rules directory if it doesn't exist
+          const rulesDir = join(configPath, ideType.rulesFolder);
+          if (ideType.rulesFolder) {
+            try {
+              await mkdir(rulesDir, { recursive: true });
+            } catch {
+              // Directory might already exist, ignore error
+            }
+          }
+
+          // Determine the target file path
+          const targetPath = join(rulesDir || configPath, ideType.rulesFileName);
+
+          // Check if file already exists and ask for confirmation (only in interactive mode)
+          let shouldOverwrite = true;
+          if (!isNonInteractive) {
+            shouldOverwrite = await this.confirmOverwrite(targetPath);
+          }
+
+          if (!shouldOverwrite) {
+            this.log(`Skipped ${targetPath}`);
+            continue;
+          }
+
+          // Save the rules file
+          await writeFile(targetPath, rulesContent, 'utf8');
+
+          this.log(`✅ Successfully saved Checkly rules file to: ${targetPath}`);
+        } catch (error) {
+          this.error(`Failed to generate rules file for ${ideType.rootFolder}: ${error}`);
+        }
+      }
     } catch (error) {
       this.error(`Failed to generate rules file: ${error}`);
     }
   }
 
-  private async findAIIDEConfigFolder() {
-    let currentDir = process.cwd();
+  private async findAIIDEConfigFolders() {
+    const currentDir = process.cwd();
 
-    while (true) {
-      for (const ideConfig of Object.values(AI_IDE_CONFIGS)) {
-        const configPath = join(currentDir, ideConfig.rootFolder);
-        try {
-          await access(configPath, constants.F_OK);
-          return { ideType: ideConfig, configPath };
-        } catch {
-          // Folder doesn't exist, continue searching
-        }
+    const detectedAIIDEFolders = [];
+    for (const ideConfig of Object.values(AI_IDE_CONFIGS)) {
+      const configPath = join(currentDir, ideConfig.rootFolder);
+
+      try {
+        await access(configPath, constants.F_OK);
+        detectedAIIDEFolders.push({ ideType: ideConfig, configPath });
+      } catch {
+        // Folder doesn't exist, continue searching
       }
-
-      // Check if we've reached the root directory
-      const parentDir = dirname(currentDir);
-      if (parentDir === currentDir) {
-        // We've reached the root directory
-        break;
-      }
-
-      // Move up one directory
-      currentDir = parentDir;
     }
 
-    return {
-      configPath: process.cwd(),
-      ideType: AI_IDE_CONFIGS.None,
-    };
+    return detectedAIIDEFolders;
   }
 
   private async readBaseRulesFile(): Promise<string> {
