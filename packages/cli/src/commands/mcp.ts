@@ -81,10 +81,12 @@ export default class McpCommand extends AuthCommand {
       
       try {
         // Run pw-test command with stream-logs enabled using spawn to capture output
-        const checklyPath = path.join(originalCwd, 'bin', 'run')
-        const args = ['pw-test', '--stream-logs']
+        // Use the same node and checkly command that was used to run this command
+        const nodeExecutable = process.argv[0]
+        const checklyExecutable = process.argv[1]
+        const args = [checklyExecutable, 'pw-test', '--stream-logs']
         
-        const pwTestProcess = spawn(checklyPath, args, {
+        const pwTestProcess = spawn(nodeExecutable, args, {
           cwd: tempDir,
           env: { ...process.env },
           stdio: ['inherit', 'pipe', 'pipe']
