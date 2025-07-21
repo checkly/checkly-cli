@@ -80,7 +80,7 @@ export default class Bootstrap extends Command {
         createInitialBrowserCheck: false,
         website: 'https://checklyhq.com',
         installDependencies: true,
-        initializeGit: true,
+        initializeGit: false,
         shouldCopyPlaywrightConfig: true
       })
     }
