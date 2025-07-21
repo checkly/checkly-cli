@@ -25,11 +25,18 @@ export default class Bootstrap extends Command {
       char: 't',
       description: 'An optional template name',
     }),
+    'non-interactive': Flags.boolean({
+      description: 'Skip interactive prompts and use default values',
+      default: false,
+    }),
   }
 
-  async run (): Promise<void> {
+  async run(): Promise<void> {
     const { flags } = await this.parse(Bootstrap)
-    const { template } = flags
+    const { template, 'non-interactive': explicitNonInteractive } = flags
+
+    // Auto-detect non-interactive mode if no TTY is attached
+    const interactive = !(explicitNonInteractive || !process.stdin.isTTY || !process.stdout.isTTY)
 
     const onCancel = (): void => {
       this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
@@ -61,9 +68,22 @@ export default class Bootstrap extends Command {
       } catch { }
     }
 
-    const greeting = await getUserGreeting()
-
-    await header(version, greeting)
+    // Override prompts for non-interactive mode BEFORE any prompts are called
+    if (interactive) {
+      // Show interactive UI elements
+      const greeting = await getUserGreeting()
+      await header(version, greeting)
+    } else {
+      prompts.override({
+        initializeProject: true,
+        template: template || 'boilerplate-project',
+        createInitialBrowserCheck: false,
+        website: 'https://checklyhq.com',
+        installDependencies: true,
+        initializeGit: true,
+        shouldCopyPlaywrightConfig: true
+      })
+    }
 
     const projectDirectory = await getProjectDirectory({ onCancel })
 
@@ -71,12 +91,10 @@ export default class Bootstrap extends Command {
       // Init Checkly CLI for an existing project
       await installWithinProject({ projectDirectory, version, onCancel })
     } else {
-      // Create a project from the scratch using a template
       await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
       await createProject({ projectDirectory, version, onCancel })
     }
 
-    // ask and install dependencies and initialize git
     await installDependenciesAndInitGit({ projectDirectory })
 
     const playwrightConfig = getPlaywrightConfig(projectDirectory)
@@ -84,6 +102,9 @@ export default class Bootstrap extends Command {
       await copyPlaywrightConfig({ projectDirectory, playwrightConfig })
     }
 
-    await footer(projectDirectory)
+    // Show appropriate footer
+    if (interactive) {
+      await footer(projectDirectory)
+    }
   }
 }
