@@ -1,4 +1,5 @@
 import { AuthCommand } from './authCommand'
+import { Flags } from '@oclif/core'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as os from 'node:os'
@@ -31,8 +32,19 @@ export default class McpCommand extends AuthCommand {
   static hidden = false
   static description = 'Run MCP server tests with Playwright on Checkly.'
   static state = 'beta'
+  
+  static flags = {
+    verbose: Flags.boolean({
+      char: 'v',
+      description: 'Show all logs, errors, and stdout from processes',
+      default: false,
+    }),
+  }
 
   async run(): Promise<void> {
+    const { flags } = await this.parse(McpCommand)
+    const { verbose } = flags
+    
     let tempDir: string | null = null
     let pinggyUrl: string | null = null
       // Output initial "in progress" message
@@ -51,9 +63,12 @@ export default class McpCommand extends AuthCommand {
       
       // Run npm install in the temp directory
       const { execa } = await import('execa')
+      if (verbose) {
+        this.log('Installing dependencies...')
+      }
       await execa('npm', ['install'], {
         cwd: tempDir,
-        stdio: 'pipe' // Changed to pipe to suppress output
+        stdio: verbose ? 'inherit' : 'pipe' // Show output in verbose mode
       })
       
     
@@ -79,6 +94,11 @@ export default class McpCommand extends AuthCommand {
         pwTestProcess.stdout?.on('data', (data) => {
           const output = data.toString()
           
+          // In verbose mode, show all output
+          if (verbose) {
+            process.stdout.write(output)
+          }
+          
           // Parse for Pinggy URL
           const urlMatch = output.match(/🌐 PINGGY PUBLIC URL:\s*(https:\/\/[a-z0-9-]+\.a\.free\.pinggy\.link)/)
           if (urlMatch && !pinggyUrl) {
@@ -91,6 +111,11 @@ export default class McpCommand extends AuthCommand {
         // Capture stderr as well
         pwTestProcess.stderr?.on('data', (data) => {
           const output = data.toString()
+          
+          // In verbose mode, show all error output
+          if (verbose) {
+            process.stderr.write(output)
+          }
           
           // Also check stderr for URLs (pinggy might output there)
           const urlMatch = output.match(/🌐 PINGGY PUBLIC URL:\s*(https:\/\/[a-z0-9-]+\.a\.free\.pinggy\.link)/)
@@ -122,7 +147,10 @@ export default class McpCommand extends AuthCommand {
       }
       
     } catch (error) {
-      // Suppress error output to keep it clean
+      // Show errors in verbose mode
+      if (verbose && error instanceof Error) {
+        this.error(error.message)
+      }
       process.exit(1)
     } finally {
       // Clean up temp directory
