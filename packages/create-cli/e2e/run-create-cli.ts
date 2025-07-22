@@ -21,7 +21,14 @@ export async function runChecklyCreateCli (options: {
     timeout = 30000,
   } = options
 
-  const result = await execa(CHECKLY_PATH, args, {
+  // Mock TTY behavior for CI environments
+  const result = await execa('node', ['-e', `
+    // Mock isTTY properties to simulate interactive terminal
+    process.stdin.isTTY = true;
+    process.stdout.isTTY = true;
+    // Load and run the CLI
+    require('${CHECKLY_PATH.replace(/\\/g, '\\\\')}');
+  `, ...args], {
     env: {
       PATH: process.env.PATH,
       CHECKLY_CLI_VERSION: version,
