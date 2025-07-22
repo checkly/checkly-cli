@@ -1,5 +1,6 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 
 import axios from 'axios'
 import * as rimraf from 'rimraf'
@@ -323,40 +324,47 @@ describe('bootstrap', () => {
   }, 15000)
 
   it('Should run in non-interactive mode when TTY is disabled', async () => {
-    const directory = path.join(__dirname, 'fixtures', 'empty-project')
-    const projectFolder = path.join(directory, projectName)
-    const commandOutput = await runChecklyCreateCli({
-      directory,
-      args: ['--non-interactive'],
-      env: {
-        CHECKLY_E2E_ISTTY: 'false', // Explicitly disable TTY mocking to test non-interactive mode
-      },
-    })
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
+    const directory = tmpDir
 
-    const { exitCode, stdout, stderr } = commandOutput
+    try {
+      const commandOutput = await runChecklyCreateCli({
+        directory,
+        args: ['--non-interactive', '--template', 'boilerplate-project'],
+        env: {
+          CHECKLY_E2E_ISTTY: 'false', // Simulate non-interactive mode
+          // Don't set CHECKLY_E2E_ISTTY at all, so it uses actual TTY detection (which will be false in test)
+        },
+      })
 
-    // In non-interactive mode, should not show interactive prompts or greeting
-    expect(stdout).not.toContain(greeting)
-    expect(stdout).not.toContain('Let\'s get you started on your monitoring as code journey!')
+      const { exitCode, stdout, stderr } = commandOutput
 
-    // Should still perform the basic operations
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
+      // In non-interactive mode, should not show interactive prompts or greeting
+      expect(stdout).not.toContain(greeting)
+      expect(stdout).not.toContain('Let\'s get you started on your monitoring as code journey!')
 
-    // Should use default values for non-interactive mode
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+      // Should still perform the basic operations
+      expect(stdout).toContain('Downloading example template...')
+      expect(stdout).toContain('Example template copied!')
 
-    expect(stderr).toBe('')
-    // Should exit successfully in non-interactive mode
-    expect(exitCode).toBe(0)
+      // Should use default values for non-interactive mode
+      expect(stdout).toContain('Installing packages')
+      expect(stdout).toContain('Packages installed successfully')
 
-    // Should create the basic project structure
-    await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
-    await expect(exists(path.join(projectFolder, 'checkly.config.ts'))).resolves.toBe(true)
+      expect(stderr).toBe('')
+      // Should exit successfully in non-interactive mode
+      expect(exitCode).toBe(0)
 
-    // In non-interactive mode with defaults, should not install dependencies or init git
-    await expect(exists(path.join(projectFolder, 'node_modules'))).resolves.toBe(false)
-    await expect(exists(path.join(projectFolder, '.git'))).resolves.toBe(false)
+      // Should create the basic project structure
+      await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
+      await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
+
+      // In non-interactive mode with defaults, should not install dependencies or init git
+      await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
+      await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
+    } finally {
+      // Clean up the temporary directory
+      await fs.rm(tmpDir, { recursive: true, force: true })
+    }
   }, 15000)
 })

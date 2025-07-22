@@ -77,6 +77,7 @@ export default class Bootstrap extends Command {
       prompts.override({
         initializeProject: true,
         template: template || 'boilerplate-project',
+        projectDirectory: process.cwd(),
         createInitialBrowserCheck: false,
         website: 'https://checklyhq.com',
         installDependencies: true,
