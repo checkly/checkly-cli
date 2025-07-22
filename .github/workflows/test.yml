@@ -38,7 +38,14 @@ jobs:
       - run: npm ci
       - run: npm run prepack
       - run: npm run test
-      - run: npm run test:e2e
+      - run: script -qec "npm run test:e2e" /dev/null
+        if: runner.os == 'Linux'
+        env:
+          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
+          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
+      - run: winpty npm run test:e2e
+        if: runner.os == 'Windows'
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
