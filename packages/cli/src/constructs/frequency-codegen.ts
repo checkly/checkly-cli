@@ -1,11 +1,18 @@
-import { expr, GeneratedFile, ident, NumberValue, Value } from '../sourcegen'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen'
 import { Frequency } from './frequency'
 
-export type FrequencyResource = Frequency | number
+interface FrequencyLike {
+  frequency: number
+  frequencyOffset?: number
+}
+
+export type FrequencyResource = FrequencyLike | number
 
 export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyResource): Value {
   if (typeof frequency === 'number') {
-    return new NumberValue(frequency)
+    return valueForFrequency(genfile, {
+      frequency: frequency,
+    })
   }
 
   genfile.namedImport('Frequency', 'checkly/constructs')
@@ -33,8 +40,12 @@ export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyR
       continue
     }
 
-    if (frequency.frequencyOffset !== definition.frequencyOffset) {
-      continue
+    // If the definition has no offset, a random value has almost certainly
+    // been generated for it. Just ignore the offset.
+    if (definition.frequencyOffset !== undefined) {
+      if (frequency.frequencyOffset !== definition.frequencyOffset) {
+        continue
+      }
     }
 
     return expr(ident('Frequency'), builder => {
