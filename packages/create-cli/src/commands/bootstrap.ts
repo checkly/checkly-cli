@@ -36,7 +36,7 @@ export default class Bootstrap extends Command {
     const { template, 'non-interactive': explicitNonInteractive } = flags
 
     // Auto-detect non-interactive mode if no TTY is attached
-    const interactive = !(explicitNonInteractive || !process.stdin.isTTY || !process.stdout.isTTY)
+    const interactive = process.env.CHECKLY_E2E_ISTTY || !(explicitNonInteractive || !process.stdin.isTTY || !process.stdout.isTTY)
 
     const onCancel = (): void => {
       this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
@@ -55,14 +55,6 @@ export default class Bootstrap extends Command {
       } catch {
         process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')
       }
-    }
-
-    // Mock TTY for testing environments
-    if (process.env.CHECKLY_E2E_ISTTY) {
-      // @ts-ignore - Mocking TTY for testing
-      process.stdin.isTTY = true
-      // @ts-ignore - Mocking TTY for testing
-      process.stdout.isTTY = true
     }
 
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
