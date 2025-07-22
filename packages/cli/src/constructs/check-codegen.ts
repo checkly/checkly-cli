@@ -26,7 +26,8 @@ export interface CheckResource {
   shouldFail?: boolean
   locations?: string[]
   tags?: string[]
-  frequency?: FrequencyResource
+  frequency?: number | FrequencyResource
+  frequencyOffset?: number
   groupId?: number
   alertSettings?: AlertEscalationResource
   testOnly?: boolean
@@ -106,7 +107,14 @@ export function buildCheckProps (
   }
 
   if (resource.frequency !== undefined) {
-    builder.value('frequency', valueForFrequency(genfile, resource.frequency))
+    if (typeof resource.frequency === 'number') {
+      builder.value('frequency', valueForFrequency(genfile, {
+        frequency: resource.frequency,
+        frequencyOffset: resource.frequencyOffset,
+      }))
+    } else {
+      builder.value('frequency', valueForFrequency(genfile, resource.frequency))
+    }
   }
 
   if (resource.groupId) {
