@@ -57,6 +57,14 @@ export default class Bootstrap extends Command {
       }
     }
 
+    // Mock TTY for testing environments
+    if (process.env.CHECKLY_E2E_ISTTY) {
+      // @ts-ignore - Mocking TTY for testing
+      process.stdin.isTTY = true
+      // @ts-ignore - Mocking TTY for testing
+      process.stdout.isTTY = true
+    }
+
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
 
     // use latest version from NPM if it's running from the local environment or E2E
