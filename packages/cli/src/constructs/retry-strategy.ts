@@ -64,6 +64,10 @@ export interface RetryStrategy {
   /**
    * Apply the retry strategy only if the cause of the failure matches the
    * given condition. Otherwise, do not retry.
+   *
+   * The following conditions are supported:
+   * - NETWORK_ERROR: Retry only if the failure was caused by a network error.
+   *   Available with the {@link ApiCheck} and {@link UrlMonitor} constructs.
    */
   onlyOn?: RetryStrategyCondition,
 }
