@@ -57,6 +57,8 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)
     } catch (err: any) {

@@ -236,6 +236,8 @@ export class ApiCheck extends RuntimeCheck {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     if (this.setupScript) {
       if (!isEntrypoint(this.setupScript) && !isContent(this.setupScript)) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
