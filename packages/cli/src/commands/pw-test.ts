@@ -136,9 +136,6 @@ export default class PwTestCommand extends AuthCommand {
       projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       includeTestOnlyChecks: true,
-      checkMatch: checklyConfig.checks?.checkMatch,
-      ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
-      checkDefaults: checklyConfig.checks,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
@@ -150,6 +147,9 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
+        if (check.type !== 'PLAYWRIGHT') {
+          return false
+        }
         if (check instanceof RuntimeCheck) {
           if (Object.keys(testEnvVars).length) {
             check.environmentVariables = check.environmentVariables
