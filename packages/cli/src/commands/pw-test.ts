@@ -12,7 +12,7 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, RuntimeCheck, Session } from '../constructs'
+import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
 import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
@@ -147,7 +147,8 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
-        if (check.type !== 'PLAYWRIGHT') {
+        // Skip non Playwright checks
+        if (!(check instanceof PlaywrightCheck)) {
           return false
         }
         if (check instanceof RuntimeCheck) {
