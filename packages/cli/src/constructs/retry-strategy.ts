@@ -162,6 +162,7 @@ export class RetryStrategyBuilder {
       maxRetries: options?.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
       maxDurationSeconds: options?.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
       sameRegion: options?.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
+      onlyOn: options?.onlyOn,
     }
   }
 }
