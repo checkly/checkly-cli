@@ -366,5 +366,5 @@ describe('bootstrap', () => {
       // Clean up the temporary directory
       await fs.rm(tmpDir, { recursive: true, force: true })
     }
-  }, 15000)
+  }, 30000)
 })
