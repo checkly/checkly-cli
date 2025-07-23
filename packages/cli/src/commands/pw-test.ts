@@ -40,7 +40,6 @@ export default class PwTestCommand extends AuthCommand {
   static flags = {
     'location': Flags.string({
       char: 'l',
-      default: DEFAULT_REGION,
       description: 'The location to run the checks at.',
     }),
     'private-location': Flags.string({
@@ -112,7 +111,7 @@ export default class PwTestCommand extends AuthCommand {
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
-    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, dir)
+    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, privateRunLocation, dir)
     if (createCheck) {
       this.style.actionStart('Creating Checkly check from Playwright test')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
@@ -288,7 +287,7 @@ export default class PwTestCommand extends AuthCommand {
     await runner.run()
     }
 
-    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, dir: string): Promise<PlaywrightSlimmedProp> {
+    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
       const parseArgs = args.map(arg => {
         if (arg.includes(' ')) {
           arg = `"${arg}"`
@@ -298,11 +297,17 @@ export default class PwTestCommand extends AuthCommand {
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
+
+      // Use private location if provided, otherwise use public location (with default if neither is provided)
+      const locationConfig = privateRunLocation
+        ? { privateLocations: [privateRunLocation] }
+        : { locations: [runLocation || DEFAULT_REGION] }
+
       return {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
         testCommand,
-        locations: [runLocation],
+        ...locationConfig,
         frequency: 10,
       }
   }
