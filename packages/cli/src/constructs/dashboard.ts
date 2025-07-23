@@ -278,6 +278,8 @@ export class Dashboard extends Construct {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     if (!this.customUrl && !this.customDomain) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'customUrl',
