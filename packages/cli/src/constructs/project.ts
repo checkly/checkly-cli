@@ -93,6 +93,8 @@ export class Project extends Construct {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     if (!this.name) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'name',
