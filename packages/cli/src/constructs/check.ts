@@ -287,6 +287,13 @@ export abstract class Check extends Construct {
             ),
           ))
         }
+      } else {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'retryStrategy',
+          new Error(
+            `Unsupported value "${this.retryStrategy.onlyOn}" for "onlyOn".`,
+          ),
+        ))
       }
     }
   }
