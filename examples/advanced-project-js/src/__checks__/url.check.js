@@ -1,4 +1,4 @@
-import { UrlAssertionBuilder, UrlMonitor } from 'checkly/constructs'
+const { UrlAssertionBuilder, UrlMonitor } = require('checkly/constructs')
 
 new UrlMonitor('books-url-check', {
   name: 'Books URL',
