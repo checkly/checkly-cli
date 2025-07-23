@@ -12,8 +12,8 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, RuntimeCheck, Session } from '../constructs'
-import { Flags, ux } from '@oclif/core'
+import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
+import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
 import { DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, Events, SequenceId } from '../services/abstract-check-runner'
@@ -40,7 +40,6 @@ export default class PwTestCommand extends AuthCommand {
   static flags = {
     'location': Flags.string({
       char: 'l',
-      default: DEFAULT_REGION,
       description: 'The location to run the checks at.',
     }),
     'private-location': Flags.string({
@@ -112,7 +111,7 @@ export default class PwTestCommand extends AuthCommand {
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
-    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, dir)
+    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, privateRunLocation, dir)
     if (createCheck) {
       this.style.actionStart('Creating Checkly check from Playwright test')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
@@ -136,9 +135,6 @@ export default class PwTestCommand extends AuthCommand {
       projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       includeTestOnlyChecks: true,
-      checkMatch: checklyConfig.checks?.checkMatch,
-      ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
-      checkDefaults: checklyConfig.checks,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
@@ -150,6 +146,10 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
+        // Skip non Playwright checks
+        if (!(check instanceof PlaywrightCheck)) {
+          return false
+        }
         if (check instanceof RuntimeCheck) {
           if (Object.keys(testEnvVars).length) {
             check.environmentVariables = check.environmentVariables
@@ -287,7 +287,7 @@ export default class PwTestCommand extends AuthCommand {
     await runner.run()
     }
 
-    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, dir: string): Promise<PlaywrightSlimmedProp> {
+    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
       const parseArgs = args.map(arg => {
         if (arg.includes(' ')) {
           arg = `"${arg}"`
@@ -297,11 +297,17 @@ export default class PwTestCommand extends AuthCommand {
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
+
+      // Use private location if provided, otherwise use public location (with default if neither is provided)
+      const locationConfig = privateRunLocation
+        ? { privateLocations: [privateRunLocation] }
+        : { locations: [runLocation || DEFAULT_REGION] }
+
       return {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
         testCommand,
-        locations: [runLocation],
+        ...locationConfig,
         frequency: 10,
       }
   }
