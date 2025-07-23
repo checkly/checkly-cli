@@ -15,6 +15,7 @@ import { IncidentTrigger } from './incident'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { Diagnostics } from './diagnostics'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 /**
  * Base configuration properties for all check types.
@@ -274,9 +275,30 @@ export abstract class Check extends Construct {
     await validateDeprecatedDoubleCheck(diagnostics, this)
   }
 
+  protected async validateRetryStrategyOnlyOn (diagnostics: Diagnostics): Promise<void> {
+    if (this.retryStrategy?.onlyOn) {
+      if (this.retryStrategy.onlyOn === 'NETWORK_ERROR') {
+        if (!this.supportsOnlyOnNetworkErrorRetryStrategy()) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'retryStrategy',
+            new Error(
+              `Using "NETWORK_ERROR" with "onlyOn" is only supported in the ` +
+              `ApiCheck and UrlMonitor constructs.`,
+            ),
+          ))
+        }
+      }
+    }
+  }
+
+  protected supportsOnlyOnNetworkErrorRetryStrategy (): boolean {
+    return false
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateDoubleCheck(diagnostics)
+    await this.validateRetryStrategyOnlyOn(diagnostics)
   }
 
   protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
