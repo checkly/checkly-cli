@@ -298,7 +298,7 @@ export default class PwTestCommand extends AuthCommand {
     }
 
     static async createPlaywrightCheck (args: string[], runLocation: keyof Region,
-      privateRunLocation: PrivateLocation | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
+      privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
       const parseArgs = args.map(arg => {
         if (arg.includes(' ')) {
           arg = `"${arg}"`
