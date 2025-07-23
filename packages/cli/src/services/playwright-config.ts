@@ -138,8 +138,9 @@ export class PlaywrightProject {
     const testMatch = playwrightProject.testMatch ?? Array.from(playwrightConfig.testMatch)
     this.testMatch = new Set<string | RegExp>(Array.isArray(testMatch) ? testMatch : [testMatch])
 
-    if (playwrightProject.snapshotPathTemplate) {
-      this.snapshotTemplates.add(playwrightProject.snapshotPathTemplate)
+    const snapshotPathTemplate = playwrightProject.snapshotPathTemplate ?? playwrightConfig.snapshotPathTemplate
+    if (snapshotPathTemplate) {
+      this.snapshotTemplates.add(snapshotPathTemplate)
     }
 
     // Check if the project overrides the global expect field
