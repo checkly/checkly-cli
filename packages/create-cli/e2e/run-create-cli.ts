@@ -27,6 +27,7 @@ export async function runChecklyCreateCli (options: {
       CHECKLY_CLI_VERSION: version,
       CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
       CHECKLY_E2E_LOCAL_TEMPLATE_ROOT: path.join(__dirname, '../../../examples'),
+      CHECKLY_E2E_ISTTY: 'true',
       ...env,
     },
     cwd: directory ?? process.cwd(),

@@ -10,15 +10,16 @@ import * as playwright from '../actions/playwright'
 const debug = Debug('checkly:create-cli')
 const templateBaseRepo = 'checkly/checkly-cli/examples'
 
-export async function getProjectDirectory ({ onCancel }: { onCancel: () => void }): Promise<string> {
+export async function getProjectDirectory({ onCancel }: { onCancel: () => void }): Promise<string> {
   debug('Ask or detect directory name')
   const cwd = process.cwd()
 
   // if directory has a package.json, do not ask project directory and use CWD
-  const { projectDirectory } = hasPackageJsonFile(cwd)
-    ? { projectDirectory: cwd }
-    : await askProjectDirectory(onCancel)
+  if (hasPackageJsonFile(cwd)) {
+    return cwd
+  }
 
+  const { projectDirectory } = await askProjectDirectory(onCancel)
   if (!projectDirectory) {
     process.stderr.write('You must provide a valid directory name. Please try again.')
   }
@@ -26,7 +27,7 @@ export async function getProjectDirectory ({ onCancel }: { onCancel: () => void 
   return projectDirectory
 }
 
-export async function installWithinProject (
+export async function installWithinProject(
   { projectDirectory, version, onCancel }: { projectDirectory: string, version: string, onCancel: () => void }) {
   debug('Existing package.json detected')
   const { initializeProject } = await askInitializeProject(onCancel)
@@ -58,7 +59,7 @@ export async function installWithinProject (
   }
 }
 
-export async function createProject (
+export async function createProject(
   { projectDirectory, version, onCancel }: { projectDirectory: string, version: string, onCancel: () => void }) {
   const templateResponse = await askTemplate(onCancel)
 
@@ -70,7 +71,7 @@ export async function createProject (
   })
 }
 
-export async function installDependenciesAndInitGit (
+export async function installDependenciesAndInitGit(
   { projectDirectory }: { projectDirectory: string }) {
   debug('Install npm dependencies')
   await installDependencies(projectDirectory)
@@ -79,8 +80,8 @@ export async function installDependenciesAndInitGit (
   await initGit(projectDirectory)
 }
 
-export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig }:
-                                                { projectDirectory: string, playwrightConfig: string }) {
+export async function copyPlaywrightConfig({ projectDirectory, playwrightConfig }:
+  { projectDirectory: string, playwrightConfig: string }) {
   debug('Check if playwright config exists in project')
   const { shouldCopyPlaywrightConfig } = await askCopyPlaywrightProject(projectDirectory)
   if (shouldCopyPlaywrightConfig) {
