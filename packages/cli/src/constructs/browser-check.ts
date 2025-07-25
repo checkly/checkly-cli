@@ -154,6 +154,17 @@ export class BrowserCheck extends RuntimeCheck {
         ))
       }
     }
+
+    // Validate sslCheckDomain is a valid FQDN
+    if (this.sslCheckDomain !== undefined) {
+      const fqdnRegex = /^(?=.{1,253}$)(?!-)(?!.*--)([\w-]{1,63}\.)+[\w-]{2,63}$/
+      if (!fqdnRegex.test(this.sslCheckDomain)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'sslCheckDomain',
+          new Error(`Invalid FQDN "${this.sslCheckDomain}". Must be a valid fully qualified domain name (e.g., 'app.checklyhq.com').`),
+        ))
+      }
+    }
   }
 
   static async bundle (entry: string, runtimeId?: string) {
