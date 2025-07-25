@@ -21,6 +21,7 @@ export default class TestRunner extends AbstractCheckRunner {
   updateSnapshots: boolean
   baseDirectory: string
   testRetryStrategy: RetryStrategy | null
+  streamLogs?: boolean
 
   constructor (
     accountId: string,
@@ -36,6 +37,7 @@ export default class TestRunner extends AbstractCheckRunner {
     updateSnapshots: boolean,
     baseDirectory: string,
     testRetryStrategy: RetryStrategy | null,
+    streamLogs?: boolean,
   ) {
     super(accountId, timeout, verbose)
     this.projectBundle = projectBundle
@@ -48,6 +50,7 @@ export default class TestRunner extends AbstractCheckRunner {
     this.updateSnapshots = updateSnapshots
     this.baseDirectory = baseDirectory
     this.testRetryStrategy = testRetryStrategy
+    this.streamLogs = streamLogs ?? false
   }
 
   async scheduleChecks (
@@ -89,6 +92,7 @@ export default class TestRunner extends AbstractCheckRunner {
         repoInfo: this.repoInfo,
         environment: this.environment,
         shouldRecord: this.shouldRecord,
+        streamLogs: this.streamLogs,
       })
       const { testSessionId, sequenceIds } = data
       const checks = this.checkBundles.map(({ construct: check }) => ({ check, sequenceId: sequenceIds?.[check.logicalId] }))

@@ -82,6 +82,10 @@ export default class PwTestCommand extends AuthCommand {
     'create-check': Flags.boolean({
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
+    }),
+    'stream-logs': Flags.boolean({
+      description: 'Stream logs from the test run to the console.',
+      default: false,
     })
   }
 
@@ -103,6 +107,7 @@ export default class PwTestCommand extends AuthCommand {
       record,
       'test-session-name': testSessionName,
       'create-check': createCheck,
+      'stream-logs': streamLogs,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -206,6 +211,10 @@ export default class PwTestCommand extends AuthCommand {
 
     const checkBundles = Object.values(projectBundle.data.check)
 
+    if (this.fancy) {
+      ux.action.stop()
+    }
+
     if (!checkBundles.length) {
       this.log(`Unable to find checks to run`)
       return
@@ -233,6 +242,7 @@ export default class PwTestCommand extends AuthCommand {
       configDirectory,
       // TODO: ADD PROPER RETRY STRATEGY HANDLING
       null, // testRetryStrategy
+      streamLogs,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -284,6 +294,9 @@ export default class PwTestCommand extends AuthCommand {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
+    runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
+      reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+    })
     await runner.run()
     }
 
@@ -294,6 +307,7 @@ export default class PwTestCommand extends AuthCommand {
         }
         return arg
       })
+
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
