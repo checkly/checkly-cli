@@ -242,6 +242,44 @@ export class ApiCheck extends RuntimeCheck {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
+    // Validate request properties
+    if (this.request) {
+      // Validate URL length (max 2048 characters)
+      if (this.request.url && this.request.url.length > 2048) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.url',
+          new Error(`URL length must not exceed 2048 characters. Current length: ${this.request.url.length}`),
+        ))
+      }
+
+      // Validate HTTP method
+      const validMethods = ['GET', 'get', 'POST', 'post', 'PUT', 'put', 'PATCH', 'patch', 'HEAD', 'head', 'DELETE', 'delete', 'OPTIONS', 'options']
+      if (this.request.method && !validMethods.includes(this.request.method)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.method',
+          new Error(`Invalid HTTP method "${this.request.method}". Valid methods are: ${validMethods.join(', ')}`),
+        ))
+      }
+
+      // Validate body type
+      const validBodyTypes = ['JSON', 'FORM', 'RAW', 'GRAPHQL', 'NONE']
+      if (this.request.bodyType && !validBodyTypes.includes(this.request.bodyType)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.bodyType',
+          new Error(`Invalid body type "${this.request.bodyType}". Valid types are: ${validBodyTypes.join(', ')}`),
+        ))
+      }
+
+      // Validate IP family
+      const validIPFamilies = ['IPv4', 'IPv6']
+      if (this.request.ipFamily && !validIPFamilies.includes(this.request.ipFamily)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.ipFamily',
+          new Error(`Invalid IP family "${this.request.ipFamily}". Valid values are: ${validIPFamilies.join(', ')}`),
+        ))
+      }
+    }
+
     if (this.setupScript) {
       if (!isEntrypoint(this.setupScript) && !isContent(this.setupScript)) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
@@ -302,6 +340,25 @@ export class ApiCheck extends RuntimeCheck {
         'localTearDownScript',
         new Error(`Use "tearDownScript" instead.`),
       ))
+    }
+
+    // Validate response times with proper bounds
+    if (this.degradedResponseTime !== undefined) {
+      if (this.degradedResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'degradedResponseTime',
+          new Error(`The value of "degradedResponseTime" must be 0 or greater. Current value: ${this.degradedResponseTime}`),
+        ))
+      }
+    }
+
+    if (this.maxResponseTime !== undefined) {
+      if (this.maxResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'maxResponseTime',
+          new Error(`The value of "maxResponseTime" must be 0 or greater. Current value: ${this.maxResponseTime}`),
+        ))
+      }
     }
 
     await validateResponseTimes(diagnostics, this, {

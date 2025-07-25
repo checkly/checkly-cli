@@ -4,6 +4,7 @@ import { Session } from './project'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
 import { Diagnostics } from './diagnostics'
 import { validateResponseTimes } from './internal/common-diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 
@@ -157,6 +158,66 @@ export class TcpMonitor extends Monitor {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+
+    // Validate request properties
+    if (this.request) {
+      // Validate port range (1-65535)
+      if (this.request.port !== undefined) {
+        if (this.request.port < 1 || this.request.port > 65535) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'request.port',
+            new Error(`Port must be between 1 and 65535. Current value: ${this.request.port}`),
+          ))
+        }
+      }
+
+      // Validate IP family
+      const validIPFamilies = ['IPv4', 'IPv6']
+      if (this.request.ipFamily && !validIPFamilies.includes(this.request.ipFamily)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.ipFamily',
+          new Error(`Invalid IP family "${this.request.ipFamily}". Valid values are: ${validIPFamilies.join(', ')}`),
+        ))
+      }
+
+      // Validate hostname (should not contain scheme or port)
+      if (this.request.hostname) {
+        // Check for scheme
+        if (this.request.hostname.match(/^https?:\/\//i)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'request.hostname',
+            new Error(`Hostname should not include a scheme (http:// or https://). Current value: "${this.request.hostname}"`),
+          ))
+        }
+
+        // Check for port in hostname
+        if (this.request.hostname.match(/:\d+$/)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'request.hostname',
+            new Error(`Hostname should not include a port number. Use the "port" property instead. Current value: "${this.request.hostname}"`),
+          ))
+        }
+      }
+    }
+
+    // Validate response times with proper bounds
+    if (this.degradedResponseTime !== undefined) {
+      if (this.degradedResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'degradedResponseTime',
+          new Error(`The value of "degradedResponseTime" must be 0 or greater. Current value: ${this.degradedResponseTime}`),
+        ))
+      }
+    }
+
+    if (this.maxResponseTime !== undefined) {
+      if (this.maxResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'maxResponseTime',
+          new Error(`The value of "maxResponseTime" must be 0 or greater. Current value: ${this.maxResponseTime}`),
+        ))
+      }
+    }
 
     await validateResponseTimes(diagnostics, this, {
       degradedResponseTime: 5_000,

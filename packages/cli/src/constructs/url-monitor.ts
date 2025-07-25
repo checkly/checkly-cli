@@ -3,6 +3,7 @@ import { validateResponseTimes } from './internal/common-diagnostics'
 import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
 import { UrlRequest } from './url-request'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 /**
  * Configuration properties for UrlMonitor.
@@ -138,6 +139,56 @@ export class UrlMonitor extends Monitor {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+
+    // Validate request properties
+    if (this.request) {
+      // Validate URL length (max 2048 characters)
+      if (this.request.url && this.request.url.length > 2048) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.url',
+          new Error(`URL length must not exceed 2048 characters. Current length: ${this.request.url.length}`),
+        ))
+      }
+
+      // Validate URL format (must be HTTP or HTTPS)
+      if (this.request.url) {
+        const urlRegex = /^https?:\/\//i
+        if (!urlRegex.test(this.request.url)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'request.url',
+            new Error(`URL must start with http:// or https://. Current value: "${this.request.url}"`),
+          ))
+        }
+      }
+
+      // Validate IP family
+      const validIPFamilies = ['IPv4', 'IPv6']
+      if (this.request.ipFamily && !validIPFamilies.includes(this.request.ipFamily)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.ipFamily',
+          new Error(`Invalid IP family "${this.request.ipFamily}". Valid values are: ${validIPFamilies.join(', ')}`),
+        ))
+      }
+    }
+
+    // Validate response times with proper bounds
+    if (this.degradedResponseTime !== undefined) {
+      if (this.degradedResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'degradedResponseTime',
+          new Error(`The value of "degradedResponseTime" must be 0 or greater. Current value: ${this.degradedResponseTime}`),
+        ))
+      }
+    }
+
+    if (this.maxResponseTime !== undefined) {
+      if (this.maxResponseTime < 0) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'maxResponseTime',
+          new Error(`The value of "maxResponseTime" must be 0 or greater. Current value: ${this.maxResponseTime}`),
+        ))
+      }
+    }
 
     await validateResponseTimes(diagnostics, this, {
       degradedResponseTime: 30_000,

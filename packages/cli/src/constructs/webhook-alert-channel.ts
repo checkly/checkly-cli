@@ -3,6 +3,8 @@ import { HttpHeader } from './http-header'
 import { HttpRequestMethod } from './http-request'
 import { QueryParam } from './query-param'
 import { Session } from './project'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 export interface WebhookAlertChannelProps extends AlertChannelProps {
   /**
@@ -80,6 +82,39 @@ export class WebhookAlertChannel extends AlertChannel {
 
   describe (): string {
     return `WebhookAlertChannel:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    // Validate HTTP method
+    const validMethods = ['GET', 'get', 'POST', 'post', 'PUT', 'put', 'PATCH', 'patch', 'HEAD', 'head', 'DELETE', 'delete', 'OPTIONS', 'options']
+    if (this.method && !validMethods.includes(this.method)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'method',
+        new Error(`Invalid HTTP method "${this.method}". Valid methods are: ${validMethods.join(', ')}`),
+      ))
+    }
+
+    // Validate URL
+    if (this.url) {
+      const urlString = this.url instanceof URL ? this.url.toString() : this.url
+      try {
+        const parsedUrl = new URL(urlString)
+        // Only allow HTTP/HTTPS protocols for webhooks
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            'url',
+            new Error(`Invalid URL protocol: "${parsedUrl.protocol}". Webhooks must use HTTP or HTTPS.`),
+          ))
+        }
+      } catch {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'url',
+          new Error(`Invalid URL format: "${urlString}". Must be a valid URL.`),
+        ))
+      }
+    }
   }
 
   synthesize () {

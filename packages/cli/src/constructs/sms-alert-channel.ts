@@ -1,5 +1,7 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 export interface SmsAlertChannelProps extends AlertChannelProps {
   /**
@@ -39,6 +41,21 @@ export class SmsAlertChannel extends AlertChannel {
 
   describe (): string {
     return `SmsAlertChannel:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    // Validate phone number format (E.164 format)
+    if (this.phoneNumber) {
+      const phoneRegex = /^\+[1-9]\d{1,14}$/
+      if (!phoneRegex.test(this.phoneNumber)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'phoneNumber',
+          new Error(`Invalid phone number format: "${this.phoneNumber}". Must be in E.164 format (e.g., +1234567890).`),
+        ))
+      }
+    }
   }
 
   synthesize () {
