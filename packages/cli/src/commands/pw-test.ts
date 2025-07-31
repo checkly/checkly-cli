@@ -12,7 +12,7 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, PrivateLocation, RuntimeCheck, Session } from '../constructs'
+import { Diagnostics, PlaywrightCheck, PrivateLocation, RuntimeCheck, Session } from '../constructs'
 import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
@@ -129,7 +129,6 @@ export default class PwTestCommand extends AuthCommand {
       privateRunLocation,
     }, api, config.getAccountId())
 
-    console.log(location)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
@@ -142,9 +141,6 @@ export default class PwTestCommand extends AuthCommand {
       projectName: testSessionName ?? checklyConfig.projectName,
       repoUrl: checklyConfig.repoUrl,
       includeTestOnlyChecks: true,
-      checkMatch: checklyConfig.checks?.checkMatch,
-      ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
-      checkDefaults: checklyConfig.checks,
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
@@ -156,6 +152,10 @@ export default class PwTestCommand extends AuthCommand {
       include: checklyConfig.checks?.include,
       playwrightChecks: [playwrightCheck],
       checkFilter: check => {
+        // Skip non Playwright checks
+        if (!(check instanceof PlaywrightCheck)) {
+          return false
+        }
         if (check instanceof RuntimeCheck) {
           if (Object.keys(testEnvVars).length) {
             check.environmentVariables = check.environmentVariables
@@ -297,8 +297,7 @@ export default class PwTestCommand extends AuthCommand {
     await runner.run()
     }
 
-    static async createPlaywrightCheck (args: string[], runLocation: keyof Region,
-      privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
+    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
       const parseArgs = args.map(arg => {
         if (arg.includes(' ')) {
           arg = `"${arg}"`
@@ -309,12 +308,17 @@ export default class PwTestCommand extends AuthCommand {
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
+
+      // Use private location if provided, otherwise use public location (with default if neither is provided)
+      const locationConfig = privateRunLocation
+        ? { privateLocations: [privateRunLocation] }
+        : { locations: [runLocation || DEFAULT_REGION] }
+
       return {
         logicalId: `playwright-check-${inputLogicalId}`,
         name: `Playwright Test: ${input}`,
         testCommand,
-        // locations: [runLocation],
-        privateLocations,
+        ...locationConfig,
         frequency: 10,
       }
   }

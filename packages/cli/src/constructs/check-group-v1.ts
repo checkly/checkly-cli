@@ -371,6 +371,8 @@ export class CheckGroupV1 extends Construct {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     await this.onBeforeValidate(diagnostics)
 
     await this.validateDoubleCheck(diagnostics)

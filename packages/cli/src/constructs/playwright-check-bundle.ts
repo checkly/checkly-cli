@@ -7,6 +7,7 @@ export interface PlaywrightCheckBundleProps {
   codeBundlePath?: string
   browsers?: string[]
   cacheHash?: string
+  playwrightVersion?: string
 }
 
 export class PlaywrightCheckBundle implements Bundle {
@@ -15,6 +16,7 @@ export class PlaywrightCheckBundle implements Bundle {
   codeBundlePath?: string
   browsers?: string[]
   cacheHash?: string
+  playwrightVersion?: string
 
   constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckBundleProps) {
     this.playwrightCheck = playwrightCheck
@@ -22,6 +24,7 @@ export class PlaywrightCheckBundle implements Bundle {
     this.codeBundlePath = props.codeBundlePath
     this.browsers = props.browsers
     this.cacheHash = props.cacheHash
+    this.playwrightVersion = props.playwrightVersion
   }
 
   synthesize () {
@@ -31,6 +34,7 @@ export class PlaywrightCheckBundle implements Bundle {
       codeBundlePath: this.codeBundlePath,
       browsers: this.browsers,
       cacheHash: this.cacheHash,
+      playwrightVersion: this.playwrightVersion
     }
   }
 }

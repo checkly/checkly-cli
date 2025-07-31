@@ -30,9 +30,15 @@ export interface CheckGroupResource {
   locations?: string[]
   tags?: string[]
   concurrency?: number
+  // This is a virtual property that doesn't exist in the backend. However,
+  // it may be useful for advanced purposes in the CLI.
   frequency?: FrequencyResource
   environmentVariables?: EnvironmentVariable[]
+  // This is a virtual property that doesn't exist in the backend. However,
+  // it may be useful for advanced purposes in the CLI.
   browserChecks?: BrowserCheckConfigResource
+  // This is a virtual property that doesn't exist in the backend. However,
+  // it may be useful for advanced purposes in the CLI.
   multiStepChecks?: MultiStepCheckConfigResource
   alertSettings?: AlertEscalationResource | null
   useGlobalAlertSettings?: boolean | null

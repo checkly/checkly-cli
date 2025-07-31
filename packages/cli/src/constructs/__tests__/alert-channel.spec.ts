@@ -9,6 +9,10 @@ class TestAlertChannel extends AlertChannel {
     Session.registerConstruct(this)
   }
 
+  describe(): string {
+    return `TestAlertChannel:${this.logicalId}`
+  }
+
   synthesize() {
   }
 }
