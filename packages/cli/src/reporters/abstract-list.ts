@@ -20,7 +20,7 @@ export type checkFilesMap = Map<string|undefined, Map<SequenceId, {
   testResultId?: string,
   links?: TestResultsShortLinks,
   numRetries: number,
-  logs?: string[],
+  logs?: Array<{timestamp: number, message: string}>,
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -97,15 +97,43 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(chalk.red('Unable to run checks: ') + err.message)
   }
 
-  onStreamLogs (check: any, sequenceId: SequenceId, logs: string[] | undefined) {
+  onStreamLogs (check: any, sequenceId: SequenceId, logs: Array<{timestamp: number, message: string}> | undefined) {
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
     const logList = logs || []
     if (!checkFile.logs) {
       checkFile.logs = []
     }
-    // checkFile.logs.push(...logs.logs)
-    logList.forEach((log: string) => printLn(log, 2))
-    return
+    
+    // Display the check title if this is the first time we're streaming logs for this check
+    const isFirstLogBatch = checkFile.logs.length === 0
+    if (isFirstLogBatch) {
+      // For Playwright tests, we need to create a better display name
+      const displayCheck = {
+        ...check,
+        sourceFile: check.getSourceFile?.() || 'Playwright Test',
+        name: check.name || check.logicalId || 'Unknown Test'
+      }
+      printLn(formatCheckTitle(CheckStatus.RUNNING, displayCheck, { includeSourceFile: true }))
+    }
+    
+    // Format and display each log with proper indentation and timestamp handling
+    logList.forEach((logEntry) => {
+      // Format timestamp from Unix timestamp to HH:mm:ss.SSS format
+      const date = new Date(logEntry.timestamp)
+      const timestamp = date.toISOString().substring(11, 23) // HH:mm:ss.SSS format
+      const formattedLog = `[${timestamp}] ${logEntry.message}`
+      
+      // Handle logs that contain newlines by splitting and indenting each line
+      const logLines = formattedLog.split('\n')
+      logLines.forEach((line, index) => {
+        if (line.trim()) { // Only print non-empty lines
+          printLn(indentString(line, 4), 1, 0) // Always add 1 newline after each line
+        }
+      })
+    })
+    
+    // Store logs for later use if needed
+    checkFile.logs.push(...logList)
   }
 
   // Clear the summary which was printed by _printStatus from stdout
