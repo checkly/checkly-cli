@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 import indentString from 'indent-string'
+import { DateTime } from 'luxon'
 
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import { Reporter } from './reporter'
@@ -119,8 +120,7 @@ export default abstract class AbstractListReporter implements Reporter {
     // Format and display each log with proper indentation and timestamp handling
     logList.forEach((logEntry) => {
       // Format timestamp from Unix timestamp to HH:mm:ss.SSS format
-      const date = new Date(logEntry.timestamp)
-      const timestamp = date.toISOString().substring(11, 23) // HH:mm:ss.SSS format
+      const timestamp = DateTime.fromMillis(logEntry.timestamp).toFormat('HH:mm:ss.SSS')
       const formattedLog = `[${timestamp}] ${logEntry.message}`
       
       // Handle logs that contain newlines by splitting and indenting each line
