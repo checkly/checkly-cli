@@ -327,7 +327,6 @@ describe('bootstrap', () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
     const directory = tmpDir
 
-    try {
       const commandOutput = await runChecklyCreateCli({
         directory,
         args: ['--non-interactive', '--template', 'boilerplate-project'],
@@ -362,9 +361,5 @@ describe('bootstrap', () => {
       // In non-interactive mode with defaults, should not install dependencies or init git
       await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
       await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
-    } finally {
-      // Clean up the temporary directory
-      await fs.rm(tmpDir, { recursive: true, force: true })
-    }
   }, 60000)
 })
