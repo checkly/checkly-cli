@@ -132,6 +132,10 @@ export class UrlMonitor extends Monitor {
     return `UrlMonitor:${this.logicalId}`
   }
 
+  protected supportsOnlyOnNetworkErrorRetryStrategy (): boolean {
+    return true
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 

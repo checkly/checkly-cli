@@ -108,6 +108,8 @@ export class PrivateLocation extends Construct {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     if (!RE_SLUG.test(this.slugName)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'slugName',

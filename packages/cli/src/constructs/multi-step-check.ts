@@ -55,6 +55,8 @@ export class MultiStepCheck extends RuntimeCheck {
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
     if (!isEntrypoint(this.code) && !isContent(this.code)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'code',
