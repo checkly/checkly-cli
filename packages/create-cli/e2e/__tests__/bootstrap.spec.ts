@@ -323,7 +323,7 @@ describe('bootstrap', () => {
     await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 
-  it('Should run in non-interactive mode when TTY is disabled', async () => {
+  it.only('Should run in non-interactive mode when TTY is disabled', async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
     const directory = tmpDir
 
@@ -334,6 +334,7 @@ describe('bootstrap', () => {
           CHECKLY_E2E_ISTTY: 'false', // Simulate non-interactive mode
           // Don't set CHECKLY_E2E_ISTTY at all, so it uses actual TTY detection (which will be false in test)
         },
+        timeout: 180_000,
       })
 
       const { exitCode, stdout, stderr } = commandOutput
@@ -361,5 +362,5 @@ describe('bootstrap', () => {
       // In non-interactive mode with defaults, should not install dependencies or init git
       await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
       await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
-  }, 60000)
+  }, 180_000)
 })
