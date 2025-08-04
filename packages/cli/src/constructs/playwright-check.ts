@@ -1,5 +1,6 @@
 import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
+import path from 'node:path'
 
 import type { AxiosResponse } from 'axios'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
@@ -46,7 +47,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       : []
     this.testCommand = props.testCommand ?? 'npx playwright test'
     this.groupName = props.groupName
-    this.playwrightConfigPath = props.playwrightConfigPath
+    this.playwrightConfigPath = this.resolveContentFilePath(props.playwrightConfigPath)
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
@@ -134,7 +135,15 @@ export class PlaywrightCheck extends RuntimeCheck {
       browsers,
       cacheHash,
       playwrightVersion,
+      relativePlaywrightConfigPath
     } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+
+    const testCommand = PlaywrightCheck.buildTestCommand(
+      this.testCommand,
+      relativePlaywrightConfigPath,
+      this.pwProjects,
+      this.pwTags,
+    )
 
     return new PlaywrightCheckBundle(this, {
       groupId,
@@ -142,21 +151,15 @@ export class PlaywrightCheck extends RuntimeCheck {
       browsers,
       cacheHash,
       playwrightVersion,
+      testCommand,
+      installCommand: this.installCommand
     })
   }
 
   synthesize () {
-    const testCommand = PlaywrightCheck.buildTestCommand(
-      this.testCommand,
-      this.playwrightConfigPath,
-      this.pwProjects,
-      this.pwTags,
-    )
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
-      testCommand,
-      installCommand: this.installCommand,
     }
   }
 }
