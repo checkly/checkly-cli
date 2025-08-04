@@ -323,7 +323,7 @@ describe('bootstrap', () => {
     await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 
-  it.only('Should run in non-interactive mode when TTY is disabled', async () => {
+  it('Should run in non-interactive mode when TTY is disabled', async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
     const directory = tmpDir
 
