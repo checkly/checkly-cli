@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 const EXAMPLES_DIR = join(__dirname, '../gen/');
@@ -12,6 +12,11 @@ const EXAMPLE_CONFIGS: Record<
   string,
   { templateString: string; exampleConfigPath: string }
 > = {
+  CHECKLY_CONFIG: {
+    templateString: '// INSERT CHECKLY CONFIG EXAMPLE HERE //',
+    exampleConfigPath:
+      '../../../examples/boilerplate-project/checkly.config.ts',
+  },
   BROWSER_CHECK: {
     templateString: '// INSERT BROWSER CHECK EXAMPLE HERE //',
     exampleConfigPath:
