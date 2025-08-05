@@ -12,8 +12,8 @@ import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import type { Runtime } from '../rest/runtimes'
-import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
-import { Flags } from '@oclif/core'
+import { Diagnostics, PlaywrightCheck, PrivateLocation, RuntimeCheck, Session } from '../constructs'
+import { Flags, ux } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
 import { DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, Events, SequenceId } from '../services/abstract-check-runner'
@@ -82,6 +82,10 @@ export default class PwTestCommand extends AuthCommand {
     'create-check': Flags.boolean({
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
+    }),
+    'stream-logs': Flags.boolean({
+      description: 'Stream logs from the test run to the console.',
+      default: false,
     })
   }
 
@@ -103,6 +107,7 @@ export default class PwTestCommand extends AuthCommand {
       record,
       'test-session-name': testSessionName,
       'create-check': createCheck,
+      'stream-logs': streamLogs,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -123,6 +128,7 @@ export default class PwTestCommand extends AuthCommand {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
     }, api, config.getAccountId())
+
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
@@ -233,6 +239,7 @@ export default class PwTestCommand extends AuthCommand {
       configDirectory,
       // TODO: ADD PROPER RETRY STRATEGY HANDLING
       null, // testRetryStrategy
+      streamLogs,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -284,6 +291,9 @@ export default class PwTestCommand extends AuthCommand {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
+    runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
+      reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+    })
     await runner.run()
     }
 
@@ -294,6 +304,7 @@ export default class PwTestCommand extends AuthCommand {
         }
         return arg
       })
+      const privateLocations = privateRunLocation ? [privateRunLocation] : []
       const input = parseArgs.join(' ') || ''
       const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
       const testCommand = await PwTestCommand.getTestCommand(dir, input)
