@@ -36,7 +36,21 @@ export default class Bootstrap extends Command {
     const { template, 'non-interactive': explicitNonInteractive } = flags
 
     // Auto-detect non-interactive mode if no TTY is attached
-    const interactive = process.env.CHECKLY_E2E_ISTTY === "true" || !(explicitNonInteractive || !process.stdin.isTTY || !process.stdout.isTTY)
+    const interactive = (() => {
+      if (explicitNonInteractive) {
+        return false
+      }
+  
+      if (process.env.CHECKLY_E2E_ISTTY === 'true') {
+        return true
+      }
+  
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        return true
+      }
+  
+      return false
+    })()
 
     const onCancel = (): void => {
       this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
