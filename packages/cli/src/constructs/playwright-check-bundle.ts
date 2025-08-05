@@ -8,6 +8,8 @@ export interface PlaywrightCheckBundleProps {
   browsers?: string[]
   cacheHash?: string
   playwrightVersion?: string
+  installCommand?: string
+  testCommand: string
 }
 
 export class PlaywrightCheckBundle implements Bundle {
@@ -17,6 +19,8 @@ export class PlaywrightCheckBundle implements Bundle {
   browsers?: string[]
   cacheHash?: string
   playwrightVersion?: string
+  installCommand?: string
+  testCommand: string
 
   constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckBundleProps) {
     this.playwrightCheck = playwrightCheck
@@ -25,6 +29,8 @@ export class PlaywrightCheckBundle implements Bundle {
     this.browsers = props.browsers
     this.cacheHash = props.cacheHash
     this.playwrightVersion = props.playwrightVersion
+    this.installCommand = props.installCommand
+    this.testCommand = props.testCommand
   }
 
   synthesize () {
@@ -34,7 +40,9 @@ export class PlaywrightCheckBundle implements Bundle {
       codeBundlePath: this.codeBundlePath,
       browsers: this.browsers,
       cacheHash: this.cacheHash,
-      playwrightVersion: this.playwrightVersion
+      playwrightVersion: this.playwrightVersion,
+      installCommand: this.installCommand,
+      testCommand: this.testCommand
     }
   }
 }
