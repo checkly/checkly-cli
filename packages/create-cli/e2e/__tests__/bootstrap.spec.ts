@@ -359,7 +359,7 @@ describe('bootstrap', () => {
       await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
       await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
 
-      // In non-interactive mode with defaults, should not install dependencies or init git
+      // In non-interactive mode with defaults, should install dependencies but not init git
       await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
       await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
   }, 180_000)
