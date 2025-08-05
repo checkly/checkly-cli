@@ -2,7 +2,6 @@ import { Construct } from './construct'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { Session } from './project'
-import { ValidationError } from './validator-error'
 
 export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow-right' | 'arrow-small-down'
   | 'arrow-small-left' | 'arrow-small-right' | 'arrow-small-up' | 'arrow-up' | 'beaker' | 'bell' | 'bold'

@@ -1,5 +1,7 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel'
 import { Session } from './project'
+import { Diagnostics } from './diagnostics'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 export interface EmailAlertChannelProps extends AlertChannelProps {
   /**
@@ -32,6 +34,18 @@ export class EmailAlertChannel extends AlertChannel {
 
   describe (): string {
     return `EmailAlertChannel:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    // Validate email address format (simple @ check)
+    if (!this.address || !this.address.includes('@')) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'address',
+        new Error(`Invalid email address format: "${this.address}". Must contain @ symbol.`),
+      ))
+    }
   }
 
   synthesize () {

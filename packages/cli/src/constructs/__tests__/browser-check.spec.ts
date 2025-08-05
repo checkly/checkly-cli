@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 
 import { BrowserCheck, CheckGroup } from '../index'
 import { Project, Session } from '../project'
+import { Diagnostics } from '../diagnostics'
 
 const runtimes = {
   '2022.10': { name: '2022.10', default: false, stage: 'CURRENT', description: 'Main updates are Playwright 1.28.0, Node.js 16.x and Typescript support. We are also dropping support for Puppeteer', dependencies: { '@playwright/test': '1.28.0', '@opentelemetry/api': '1.0.4', '@opentelemetry/sdk-trace-base': '1.0.1', '@faker-js/faker': '5.5.3', aws4: '1.11.0', axios: '0.27.2', btoa: '1.2.1', chai: '4.3.7', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', expect: '29.3.1', 'form-data': '4.0.0', jsonwebtoken: '8.5.1', lodash: '4.17.21', mocha: '10.1.0', moment: '2.29.2', node: '16.x', otpauth: '9.0.2', playwright: '1.28.0', typescript: '4.8.4', uuid: '9.0.0' } },
@@ -286,6 +287,75 @@ describe('BrowserCheck', () => {
       Session.checkDefaults = undefined
       Session.browserCheckDefaults = undefined
       expect(browserCheck).toMatchObject(custom)
+    })
+  })
+
+  describe('validation', () => {
+    beforeEach(() => {
+      Session.project = new Project('validation-test-project', {
+        name: 'Validation Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+    })
+
+    it('should validate SSL check domain format', async () => {
+      const browserCheck = new BrowserCheck('test-browser', {
+        name: 'Test Browser',
+        code: { content: 'test' },
+        sslCheckDomain: 'invalid domain'
+      })
+
+      const diagnostics = new Diagnostics()
+      await browserCheck.validate(diagnostics)
+
+      expect(diagnostics.observations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Invalid FQDN')
+          })
+        ])
+      )
+    })
+
+    it('should accept valid SSL check domain', async () => {
+      const browserCheck = new BrowserCheck('test-browser', {
+        name: 'Test Browser',
+        code: { content: 'test' },
+        sslCheckDomain: 'app.checklyhq.com'
+      })
+
+      const diagnostics = new Diagnostics()
+      await browserCheck.validate(diagnostics)
+
+      expect(diagnostics.isFatal()).toBe(false)
+    })
+
+    it('should validate various invalid SSL check domains', async () => {
+      const invalidDomains = [
+        'domain with spaces.com', // Contains spaces
+        '',                       // Empty string
+        'example..com',          // Double dots
+        '-sub.example.com'       // Starts with hyphen
+      ]
+
+      for (const [i, domain] of invalidDomains.entries()) {
+        const browserCheck = new BrowserCheck(`test-browser-invalid-${i}`, {
+          name: 'Test Browser',
+          code: { content: 'test' },
+          sslCheckDomain: domain
+        })
+
+        const diagnostics = new Diagnostics()
+        await browserCheck.validate(diagnostics)
+
+        expect(diagnostics.observations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining('Invalid FQDN')
+            })
+          ])
+        )
+      }
     })
   })
 })
