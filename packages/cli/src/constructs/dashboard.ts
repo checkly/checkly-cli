@@ -269,6 +269,7 @@ export class Dashboard extends Construct {
     this.isPrivate = props.isPrivate
     this.showP95 = props.showP95
     this.showP99 = props.showP99
+    this.customCSS = props.customCSS
 
     Session.registerConstruct(this)
   }
