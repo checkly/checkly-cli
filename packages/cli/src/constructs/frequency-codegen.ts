@@ -11,7 +11,7 @@ export type FrequencyResource = FrequencyLike | number
 export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyResource): Value {
   if (typeof frequency === 'number') {
     return valueForFrequency(genfile, {
-      frequency: frequency,
+      frequency,
     })
   }
 

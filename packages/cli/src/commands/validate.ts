@@ -15,7 +15,7 @@ export default class Validate extends AuthCommand {
   static description = 'Validate your project.'
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),

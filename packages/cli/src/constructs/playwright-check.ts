@@ -1,6 +1,5 @@
 import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
-import path from 'node:path'
 
 import type { AxiosResponse } from 'axios'
 import { checklyStorage } from '../rest/api'
@@ -50,7 +49,7 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * @example ["chromium", "firefox"]
    * @see {@link https://playwright.dev/docs/test-projects | Playwright Projects}
    */
-  pwProjects?: string|string[]
+  pwProjects?: string | string[]
 
   /**
    * Tags to filter which tests to run using Playwright's grep functionality.
@@ -60,7 +59,7 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * @example ["@smoke", "@critical"]
    * @see {@link https://playwright.dev/docs/test-annotations#tag-tests | Playwright Test Tags}
    */
-  pwTags?: string|string[]
+  pwTags?: string | string[]
 
   /**
    * File patterns to include when bundling the test project.
@@ -69,7 +68,7 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * @example "tests/**\/*"
    * @example ["tests/**\/*", "utils/**\/*", "fixtures/**\/*"]
    */
-  include?: string|string[]
+  include?: string | string[]
 
   /**
    * Name of the check group to assign this check to.
@@ -193,7 +192,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     let dir = ''
     try {
       const {
-        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion
+        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion,
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
@@ -206,8 +205,8 @@ export class PlaywrightCheck extends RuntimeCheck {
   static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
     const { size } = await fs.stat(dir)
     const stream = createReadStream(dir)
-    stream.on('error', (err) => {
-         throw new Error(`Failed to read Playwright project file: ${err.message}`)
+    stream.on('error', err => {
+      throw new Error(`Failed to read Playwright project file: ${err.message}`)
     })
     return checklyStorage.uploadCodeBundle(stream, size)
   }
@@ -226,7 +225,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       browsers,
       cacheHash,
       playwrightVersion,
-      relativePlaywrightConfigPath
+      relativePlaywrightConfigPath,
     } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
 
     const testCommand = PlaywrightCheck.buildTestCommand(
@@ -243,7 +242,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       cacheHash,
       playwrightVersion,
       testCommand,
-      installCommand: this.installCommand
+      installCommand: this.installCommand,
     })
   }
 

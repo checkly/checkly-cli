@@ -17,7 +17,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
    * A valid piece of Node.js javascript code describing a browser interaction
    * with the Puppeteer or Playwright frameworks.
    */
-  code: Content|Entrypoint
+  code: Content | Entrypoint
   /**
    * A valid fully qualified domain name (FQDN) to check for SSL certificate
    * expiration. For example, 'app.checklyhq.com'.
@@ -27,12 +27,12 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
    * A valid playwright config object, same format and keys as you would use on
    * playwright.config.ts
    */
-  playwrightConfig?: PlaywrightConfig,
+  playwrightConfig?: PlaywrightConfig
 }
 
 /**
  * Creates a Browser Check to monitor web applications using Playwright.
- * 
+ *
  * Browser checks allow you to monitor complex user interactions, page performance,
  * and visual regressions. They run real browser scripts using Playwright to simulate
  * user behavior and validate web application functionality.
@@ -48,7 +48,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  *     entrypoint: path.join(__dirname, 'login.spec.js')
  *   }
  * })
- * 
+ *
  * // Browser check with inline code
  * new BrowserCheck('homepage', {
  *   name: 'Homepage Check',
@@ -56,7 +56,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  *   code: {
  *     content: `
  *       const { test, expect } = require('@playwright/test')
- *       
+ *
  *       test('homepage loads correctly', async ({ page }) => {
  *         await page.goto('https://example.com')
  *         await expect(page.locator('h1')).toContainText('Welcome')
@@ -71,7 +71,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  *   }
  * })
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck | BrowserCheck API Reference}
  * @see {@link https://www.checklyhq.com/docs/monitoring/browser-checks/ | Browser Checks Documentation}
  * @see {@link https://playwright.dev/ | Playwright Documentation}
@@ -119,7 +119,7 @@ export class BrowserCheck extends RuntimeCheck {
     const config = super.applyConfigDefaults(props)
     const defaults = this.configDefaultsGetter(props)
 
-    config.playwrightConfig ??= defaults("playwrightConfig")
+    config.playwrightConfig ??= defaults('playwrightConfig')
 
     return config
   }

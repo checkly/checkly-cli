@@ -23,59 +23,59 @@ export interface BasicAuth {
  */
 // Called Request instead of HttpRequest for historical reasons.
 export interface Request {
-  /** 
+  /**
    * The URL to make the request to.
    * @maxLength 2048
    * @example 'https://api.example.com/users'
    */
-  url: string,
-  
-  /** 
+  url: string
+
+  /**
    * The HTTP method to use.
    * Supported methods: GET, POST, PUT, HEAD, DELETE, PATCH
    */
-  method: HttpRequestMethod,
-  
-  /** 
+  method: HttpRequestMethod
+
+  /**
    * IP family version to use for network requests.
    * @defaultValue 'IPv4'
    */
-  ipFamily?: IPFamily,
-  
-  /** 
+  ipFamily?: IPFamily
+
+  /**
    * Whether to follow HTTP redirects automatically.
    * @defaultValue true
    */
-  followRedirects?: boolean,
-  
-  /** 
+  followRedirects?: boolean
+
+  /**
    * Whether to skip SSL certificate verification.
    * @defaultValue false
    */
-  skipSSL?: boolean,
-  
+  skipSSL?: boolean
+
   /**
    * Assertions to validate the HTTP response.
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
    */
   assertions?: Array<Assertion>
-  
+
   /** The request body content */
   body?: string
-  
-  /** 
+
+  /**
    * The type of the request body.
    * @defaultValue 'NONE'
    */
   bodyType?: BodyType
-  
+
   /** HTTP headers to include in the request */
   headers?: Array<HttpHeader>
-  
+
   /** Query parameters to include in the request URL */
   queryParameters?: Array<QueryParam>
-  
+
   /** Basic authentication credentials */
   basicAuth?: BasicAuth
 }

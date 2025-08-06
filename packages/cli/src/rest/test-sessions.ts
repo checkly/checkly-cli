@@ -4,26 +4,26 @@ import { RetryStrategy, SharedFile } from '../constructs'
 import { compressJSONPayload } from './util'
 
 type RunTestSessionRequest = {
-  name: string,
-  checkRunJobs: any[],
-  project: { logicalId: string },
+  name: string
+  checkRunJobs: any[]
+  project: { logicalId: string }
   sharedFiles?: SharedFile[]
-  runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
-  repoInfo?: GitInformation | null,
-  environment?: string | null,
-  shouldRecord: boolean,
+  runLocation: string | { type: 'PUBLIC', region: string } | { type: 'PRIVATE', slugName: string, id: string }
+  repoInfo?: GitInformation | null
+  environment?: string | null
+  shouldRecord: boolean
 }
 
 type TriggerTestSessionRequest = {
-  name: string,
-  runLocation: string|{ type: 'PUBLIC', region: string }|{ type: 'PRIVATE', slugName: string, id: string },
-  shouldRecord: boolean,
-  targetTags: string[][],
-  checkRunSuiteId: string,
-  environmentVariables: Array<{ key: string, value: string }>,
-  repoInfo: GitInformation | null,
-  environment: string | null,
-  testRetryStrategy: RetryStrategy | null,
+  name: string
+  runLocation: string | { type: 'PUBLIC', region: string } | { type: 'PRIVATE', slugName: string, id: string }
+  shouldRecord: boolean
+  targetTags: string[][]
+  checkRunSuiteId: string
+  environmentVariables: Array<{ key: string, value: string }>
+  repoInfo: GitInformation | null
+  environment: string | null
+  testRetryStrategy: RetryStrategy | null
 }
 
 export type TestResultsShortLinks = {

@@ -32,7 +32,7 @@ export default class Test extends AuthCommand {
   static hidden = false
   static description = 'Test your checks on Checkly.'
   static flags = {
-    location: Flags.string({
+    'location': Flags.string({
       char: 'l',
       description: 'The location to run the checks at.',
     }),
@@ -40,21 +40,21 @@ export default class Test extends AuthCommand {
       description: 'The private location to run checks at.',
       exclusive: ['location'],
     }),
-    grep: Flags.string({
+    'grep': Flags.string({
       char: 'g',
       description: 'Only run checks where the check name matches a regular expression.',
       default: '.*',
     }),
-    tags: Flags.string({
+    'tags': Flags.string({
       char: 't',
-      description: 'Filter the checks to be run using a comma separated list of tags.' +
-        ' Checks will only be run if they contain all of the specified tags.' +
-        ' Multiple --tags flags can be passed, in which case checks will be run if they match any of the --tags filters.' +
-        ' F.ex. `--tags production,webapp --tags production,backend` will run checks with tags (production AND webapp) OR (production AND backend).',
+      description: 'Filter the checks to be run using a comma separated list of tags.'
+        + ' Checks will only be run if they contain all of the specified tags.'
+        + ' Multiple --tags flags can be passed, in which case checks will be run if they match any of the --tags filters.'
+        + ' F.ex. `--tags production,webapp --tags production,backend` will run checks with tags (production AND webapp) OR (production AND backend).',
       multiple: true,
       required: false,
     }),
-    env: Flags.string({
+    'env': Flags.string({
       char: 'e',
       description: 'Env vars to be passed to the test run.',
       exclusive: ['env-file'],
@@ -65,29 +65,29 @@ export default class Test extends AuthCommand {
       description: 'dotenv file path to be passed. For example --env-file="./.env"',
       exclusive: ['env'],
     }),
-    list: Flags.boolean({
+    'list': Flags.boolean({
       default: false,
       description: 'list all checks but don\'t run them.',
     }),
-    timeout: Flags.integer({
+    'timeout': Flags.integer({
       default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
-    verbose: Flags.boolean({
+    'verbose': Flags.boolean({
       char: 'v',
       description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
-    reporter: Flags.string({
+    'reporter': Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
     }),
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
-    record: Flags.boolean({
+    'record': Flags.boolean({
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: false,
     }),
@@ -100,7 +100,7 @@ export default class Test extends AuthCommand {
       description: 'Update any snapshots using the actual result of this test run.',
       default: false,
     }),
-    retries: Flags.integer({
+    'retries': Flags.integer({
       description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a failing test run.`,
     }),
     'verify-runtime-dependencies': Flags.boolean({
@@ -157,8 +157,8 @@ export default class Test extends AuthCommand {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
     },
-      api,
-      config.getAccountId())
+    api,
+    config.getAccountId())
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const { data: account } = await api.accounts.get(config.getAccountId())
@@ -228,7 +228,7 @@ export default class Test extends AuthCommand {
         if (Object.keys(testEnvVars).length) {
           if (check instanceof RuntimeCheck) {
             check.environmentVariables = check.environmentVariables
-            ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
+              ?.filter((envVar: any) => !testEnvVars[envVar.key]) || []
             for (const [key, value] of Object.entries(testEnvVars)) {
               check.environmentVariables.push({
                 key,
@@ -240,7 +240,7 @@ export default class Test extends AuthCommand {
         }
 
         return true
-      }
+      },
     })
 
     this.style.actionSuccess()
@@ -369,7 +369,7 @@ export default class Test extends AuthCommand {
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
-    runner.on(Events.ERROR, (err) => {
+    runner.on(Events.ERROR, err => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
@@ -387,17 +387,17 @@ export default class Test extends AuthCommand {
     }
     return numRetries
       ? RetryStrategyBuilder.fixedStrategy({
-        maxRetries: Math.min(numRetries, MAX_RETRIES),
-        baseBackoffSeconds: 0,
-      })
+          maxRetries: Math.min(numRetries, MAX_RETRIES),
+          baseBackoffSeconds: 0,
+        })
       : null
   }
 
   private listChecks (checks: Array<Check>) {
     // Sort and print the checks in a way that's consistent with AbstractListReporter
-    const sortedCheckFiles = [...new Set(checks.map((check) => check.getSourceFile()))].sort()
+    const sortedCheckFiles = [...new Set(checks.map(check => check.getSourceFile()))].sort()
     const sortedChecks = checks.sort((a, b) => a.name.localeCompare(b.name))
-    const checkFilesMap: Map<string, Array<Check>> = new Map(sortedCheckFiles.map((file) => [file!, []]))
+    const checkFilesMap: Map<string, Array<Check>> = new Map(sortedCheckFiles.map(file => [file!, []]))
     sortedChecks.forEach(check => {
       checkFilesMap.get(check.getSourceFile()!)!.push(check)
     })

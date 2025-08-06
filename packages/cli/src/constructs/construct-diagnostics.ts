@@ -8,9 +8,9 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
     super({
       title: `Invalid property value`,
       message:
-        `The value provided for property "${property}" is not valid.` +
-        `\n\n` +
-        `Reason: ${error.message}`,
+        `The value provided for property "${property}" is not valid.`
+        + `\n\n`
+        + `Reason: ${error.message}`,
       error,
     })
 
@@ -25,9 +25,9 @@ export class DeprecatedPropertyDiagnostic extends WarningDiagnostic {
     super({
       title: `Use of deprecated property`,
       message:
-        `Property "${property}" is deprecated and will eventually be removed.` +
-        `\n\n` +
-        `Hint: ${error.message}`,
+        `Property "${property}" is deprecated and will eventually be removed.`
+        + `\n\n`
+        + `Hint: ${error.message}`,
     })
 
     this.property = property
@@ -41,9 +41,9 @@ export class RemovedPropertyDiagnostic extends ErrorDiagnostic {
     super({
       title: `Use of removed property`,
       message:
-        `Property "${property}" has been removed.` +
-        `\n\n` +
-        `Hint: ${error.message}`,
+        `Property "${property}" has been removed.`
+        + `\n\n`
+        + `Hint: ${error.message}`,
       error,
     })
 
@@ -58,9 +58,9 @@ export class DeprecatedConstructDiagnostic extends WarningDiagnostic {
     super({
       title: `Use of deprecated Construct`,
       message:
-        `Construct "${construct}" is deprecated and will eventually be removed.` +
-        `\n\n` +
-        `Hint: ${error.message}`,
+        `Construct "${construct}" is deprecated and will eventually be removed.`
+        + `\n\n`
+        + `Hint: ${error.message}`,
     })
 
     this.construct = construct
@@ -74,9 +74,9 @@ export class UnsupportedRuntimeFeatureDiagnostic extends ErrorDiagnostic {
     super({
       title: `Use of unsupported runtime feature`,
       message:
-        `Runtime "${runtimeId}" does not support the requested feature.` +
-        `\n\n` +
-        `Missing feature: ${error.message}`,
+        `Runtime "${runtimeId}" does not support the requested feature.`
+        + `\n\n`
+        + `Missing feature: ${error.message}`,
       error,
     })
 

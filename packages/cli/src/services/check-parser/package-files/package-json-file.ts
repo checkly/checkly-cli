@@ -140,7 +140,7 @@ function updateDependencies (
   newDependencies: Record<string, string> = {},
 ): { dependencies: Record<string, string>, changed: boolean } {
   const result = {
-    dependencies: {...oldDependencies},
+    dependencies: { ...oldDependencies },
     changed: false,
   }
 

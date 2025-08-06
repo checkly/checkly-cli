@@ -1,1 +1,1 @@
-export const  DEFAULT_REGION = 'eu-central-1'
+export const DEFAULT_REGION = 'eu-central-1'

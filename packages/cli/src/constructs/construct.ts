@@ -29,7 +29,7 @@ export interface Bundle {
  * Provides the contract for validating construct configuration and reporting issues.
  */
 export interface Validate {
-  /** 
+  /**
    * Validates the construct, reporting any issues via the provided diagnostics.
    * @param diagnostics The diagnostics instance to add any validation issues to
    */
@@ -39,7 +39,7 @@ export interface Validate {
 /**
  * Abstract base class for all constructs in the Checkly CLI system.
  * Provides common functionality for validation, bundling, and resource management.
- * 
+ *
  * This class is extended by all built-in constructs like ApiCheck, BrowserCheck, etc.
  * It should not be extended directly by user code.
  */
@@ -49,7 +49,7 @@ export abstract class Construct implements Validate, Bundle {
   /** Unique logical identifier within the project scope */
   logicalId: string
   /** Physical identifier from the Checkly API (if exists) */
-  physicalId?: string|number
+  physicalId?: string | number
   /** Whether this construct is a member of the project */
   member: boolean
   /** Absolute path to the check file that created this construct */
@@ -57,13 +57,13 @@ export abstract class Construct implements Validate, Bundle {
 
   /**
    * Creates a new construct instance.
-   * 
+   *
    * @param type The type identifier for this construct
    * @param logicalId Unique logical identifier within the project scope
    * @param physicalId Optional physical identifier from the Checkly API
    * @param member Whether this construct is a member of the project
    */
-  constructor (type: string, logicalId: string, physicalId?: string|number, member?: boolean) {
+  constructor (type: string, logicalId: string, physicalId?: string | number, member?: boolean) {
     this.logicalId = logicalId
     this.type = type
     this.physicalId = physicalId
@@ -79,7 +79,7 @@ export abstract class Construct implements Validate, Bundle {
 
   /**
    * Creates a reference to this construct that can be used in other constructs.
-   * 
+   *
    * @returns A reference object that can be used to link to this construct
    */
   ref () {
@@ -89,7 +89,7 @@ export abstract class Construct implements Validate, Bundle {
   /**
    * Determines whether this construct is allowed to be referenced in checkly.config.ts.
    * Most constructs should not be directly referenced in the config file.
-   * 
+   *
    * @returns true if this construct can be used in checkly.config.ts, false otherwise
    */
   allowInChecklyConfig () {
@@ -99,7 +99,7 @@ export abstract class Construct implements Validate, Bundle {
   /**
    * Resolves a content file path relative to the check file that created this construct.
    * If the path is already absolute, returns it as-is.
-   * 
+   *
    * @param contentPath The relative or absolute path to resolve
    * @returns The absolute path to the content file
    * @throws Error if checkFileAbsolutePath is not set and a relative path is provided
@@ -123,7 +123,7 @@ export abstract class Construct implements Validate, Bundle {
    * @param diagnostics The Diagnostics instance that any issues should be added to.
    * @returns A Promise that resolves when validation is complete.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, require-await
   async validate (diagnostics: Diagnostics): Promise<void> {
     return
   }
@@ -138,6 +138,7 @@ export abstract class Construct implements Validate, Bundle {
    *
    * @returns A Promise that resolves to the bundled representation of the Construct.
    */
+  // eslint-disable-next-line require-await
   async bundle (): Promise<Bundle> {
     return this
   }
@@ -145,7 +146,7 @@ export abstract class Construct implements Validate, Bundle {
   /**
    * Synthesizes the construct into its deployable representation.
    * This method must be implemented by all concrete construct classes.
-   * 
+   *
    * @returns The synthesized representation of the construct, or null if not applicable
    */
   abstract synthesize (): any | null
@@ -162,7 +163,7 @@ export interface Entrypoint {
 
 /**
  * Type guard to check if a value is an Entrypoint object.
- * 
+ *
  * @param value The value to check
  * @returns true if the value is an Entrypoint, false otherwise
  */
@@ -181,7 +182,7 @@ export interface Content {
 
 /**
  * Type guard to check if a value is a Content object.
- * 
+ *
  * @param value The value to check
  * @returns true if the value is a Content, false otherwise
  */

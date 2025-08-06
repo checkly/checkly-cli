@@ -44,15 +44,15 @@ class PackageFilesCache {
   }
 
   async packageJson (filePath: string): Promise<PackageJsonFile | undefined> {
-    return this.#packageJsonCache.load(filePath)
+    return await this.#packageJsonCache.load(filePath)
   }
 
   async tsconfigJson (filePath: string): Promise<TSConfigFile | undefined> {
-    return this.#tsconfigJsonCache.load(filePath)
+    return await this.#tsconfigJsonCache.load(filePath)
   }
 
   async jsconfigJson (filePath: string): Promise<JSConfigFile | undefined> {
-    return this.#jsconfigJsonCache.load(filePath)
+    return await this.#jsconfigJsonCache.load(filePath)
   }
 }
 
@@ -122,14 +122,14 @@ type RelativePathLocalDependency = {
 }
 
 type LocalDependency =
-  TSConfigFileLocalDependency |
-  TSConfigResolvedPathLocalDependency |
-  TSConfigBaseUrlRelativePathLocalDependency |
-  RelativePathLocalDependency
+  TSConfigFileLocalDependency
+  | TSConfigResolvedPathLocalDependency
+  | TSConfigBaseUrlRelativePathLocalDependency
+  | RelativePathLocalDependency
 
 type MissingDependency = {
-  importPath: string,
-  filePath: string,
+  importPath: string
+  filePath: string
 }
 
 type ExternalDependency = {
@@ -137,9 +137,9 @@ type ExternalDependency = {
 }
 
 export type Dependencies = {
-  external: ExternalDependency[],
-  missing: MissingDependency[],
-  local: LocalDependency[],
+  external: ExternalDependency[]
+  missing: MissingDependency[]
+  local: LocalDependency[]
 }
 
 export interface WalkUpOptions {
@@ -147,7 +147,11 @@ export interface WalkUpOptions {
   isDir?: boolean
 }
 
-async function walkUp (filePath: string, find: (dirPath: string) => Promise<boolean>, options?: WalkUpOptions): Promise<boolean> {
+async function walkUp (
+  filePath: string,
+  find: (dirPath: string) => Promise<boolean>,
+  options?: WalkUpOptions,
+): Promise<boolean> {
   let currentPath = filePath
 
   if (options?.isDir === true) {

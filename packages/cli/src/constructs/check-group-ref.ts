@@ -9,7 +9,7 @@ import { Session } from './project'
  * References link existing resources to a project without managing them.
  */
 export class CheckGroupRef extends Construct {
-  constructor (logicalId: string, physicalId: string|number) {
+  constructor (logicalId: string, physicalId: string | number) {
     super(CheckGroupV1.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }

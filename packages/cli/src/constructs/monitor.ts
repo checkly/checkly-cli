@@ -59,7 +59,7 @@ export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
    * See https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/#alert-channels
    * to learn more about alert channels.
    */
-  alertChannels?: (AlertChannel | AlertChannelRef)[],
+  alertChannels?: (AlertChannel | AlertChannelRef)[]
   /**
    * Determines the alert escalation policy for the monitor.
    */
@@ -95,7 +95,7 @@ export abstract class Monitor extends Check {
     await validateRemovedDoubleCheck(diagnostics, this)
   }
 
-  synthesize() {
+  synthesize () {
     return {
       ...super.synthesize(),
       doubleCheck: false,

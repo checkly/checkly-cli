@@ -18,7 +18,7 @@ import { validateResponseTimes } from './internal/common-diagnostics'
  */
 export type ApiCheckDefaultConfig = {
   /** Default URL for API requests */
-  url?: string,
+  url?: string
   /** Default HTTP headers to include */
   headers?: Array<HttpHeader>
   /** Default query parameters to include */
@@ -42,7 +42,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
   /**
    * A valid piece of Node.js code to run in the setup phase.
    */
-  setupScript?: Content|Entrypoint
+  setupScript?: Content | Entrypoint
   /**
    * A valid piece of Node.js code to run in the teardown phase.
    * @deprecated use the "tearDownScript" property instead
@@ -51,11 +51,11 @@ export interface ApiCheckProps extends RuntimeCheckProps {
   /**
    * A valid piece of Node.js code to run in the teardown phase.
    */
-  tearDownScript?: Content|Entrypoint
+  tearDownScript?: Content | Entrypoint
   /**
    * The response time in milliseconds where a check should be considered degraded.
    * Used for performance monitoring and alerting on slow responses.
-   * 
+   *
    * @defaultValue 10000
    * @minimum 0
    * @maximum 30000
@@ -65,13 +65,13 @@ export interface ApiCheckProps extends RuntimeCheckProps {
    * ```
    */
   degradedResponseTime?: number
-  
+
   /**
    * The response time in milliseconds where a check should be considered failing.
    * The check fails if the response takes longer than this threshold.
-   * 
+   *
    * @defaultValue 20000
-   * @minimum 0  
+   * @minimum 0
    * @maximum 30000
    * @example
    * ```typescript
@@ -83,7 +83,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
 
 /**
  * Creates an API Check to monitor HTTP endpoints and APIs.
- * 
+ *
  * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
  * You can validate response status codes, response times, headers, and response body content.
  *
@@ -100,7 +100,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *     ]
  *   }
  * })
- * 
+ *
  * // Advanced API check with POST request
  * new ApiCheck('user-api', {
  *   name: 'User API Check',
@@ -121,7 +121,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *   maxResponseTime: 5000,
  *   degradedResponseTime: 2000
  * })
- * 
+ *
  * // Error validation check (shouldFail required for error status checks)
  * new ApiCheck('not-found-check', {
  *   name: 'Not Found Check',
@@ -135,13 +135,13 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *   }
  * })
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
  * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
  */
 /**
  * Creates an API Check to monitor HTTP endpoints and APIs.
- * 
+ *
  * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
  * You can validate response status codes, response times, headers, and response body content.
  *
@@ -158,7 +158,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *     ]
  *   }
  * })
- * 
+ *
  * // Advanced API check with POST request
  * new ApiCheck('user-api', {
  *   name: 'User API Check',
@@ -179,7 +179,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *   maxResponseTime: 5000,
  *   degradedResponseTime: 2000
  * })
- * 
+ *
  * // Error validation check (shouldFail required for error status checks)
  * new ApiCheck('not-found-check', {
  *   name: 'Not Found Check',
@@ -193,7 +193,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  *   }
  * })
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
  * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
  */

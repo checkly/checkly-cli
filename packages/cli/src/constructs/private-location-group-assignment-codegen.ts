@@ -6,6 +6,7 @@ export interface PrivateLocationGroupAssignmentResource {
 }
 
 export class PrivateLocationGroupAssignmentCodegen extends Codegen<PrivateLocationGroupAssignmentResource> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   describe (resource: PrivateLocationGroupAssignmentResource): string {
     return 'Private Location Group Assignment'
   }

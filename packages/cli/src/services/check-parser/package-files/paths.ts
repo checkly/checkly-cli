@@ -1,5 +1,3 @@
-import path from 'node:path'
-
 type Paths = Record<string, Array<string>>
 
 class TargetPathSpec {
@@ -48,8 +46,8 @@ class TargetPathSpec {
 }
 
 export type TargetPathResult = {
-  spec: TargetPathSpec,
-  path: string,
+  spec: TargetPathSpec
+  path: string
 }
 
 class PathMatchResult {
@@ -174,12 +172,12 @@ class SourcePathSpec {
 }
 
 type SourcePathSpecMatcher = {
-  spec: SourcePathSpec,
-  matcher: PathMatcher,
+  spec: SourcePathSpec
+  matcher: PathMatcher
 }
 
 export type SourcePathResult = {
-  spec: SourcePathSpec,
+  spec: SourcePathSpec
   path: string
 }
 

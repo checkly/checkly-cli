@@ -1,12 +1,12 @@
 export type CaseFormat =
-  'identity' |
-  'camelCase' |
-  'PascalCase' |
-  'Train-Case' |
-  'snake_case' |
-  'SCREAMING_SNAKE_CASE' |
-  'kebab-case' |
-  'SCREAMING-KEBAB-CASE'
+  'identity'
+  | 'camelCase'
+  | 'PascalCase'
+  | 'Train-Case'
+  | 'snake_case'
+  | 'SCREAMING_SNAKE_CASE'
+  | 'kebab-case'
+  | 'SCREAMING-KEBAB-CASE'
 
 export function camelCase (value: string): string {
   return wordify(value).map((word, index) => {

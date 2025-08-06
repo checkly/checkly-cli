@@ -14,14 +14,14 @@ import { ExecaReturnValue } from 'execa'
 
 const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 
-function cleanupProjects() {
+function cleanupProjects () {
   rimraf.sync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
   rimraf.windowsSync(`${path.join(__dirname, 'fixtures', 'empty-project', E2E_PROJECT_PREFIX)}*`, { glob: true })
   rimraf.sync(path.join(__dirname, 'fixtures', 'playwright-project', '__checks__'), { glob: true })
   rimraf.sync(path.join(__dirname, 'fixtures', 'playwright-project', 'checkly.config.ts'), { glob: true })
 }
 
-function expectVersionAndName({
+function expectVersionAndName ({
   commandOutput,
   version,
   latestVersion,
@@ -39,7 +39,7 @@ function expectVersionAndName({
   expect(commandOutput.stdout).toContain(`${greeting} Let's get you started on your monitoring as code journey!`)
 }
 
-function expectCompleteCreation({
+function expectCompleteCreation ({
   commandOutput,
   projectFolder,
 }: {
@@ -59,7 +59,7 @@ function expectCompleteCreation({
          - Join the Checkly Slack community at https://checklyhq.com/slack`)
 }
 
-async function exists(filePath: string): Promise<boolean> {
+async function exists (filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath, fs.constants.R_OK)
     return true
@@ -189,8 +189,8 @@ describe('bootstrap', () => {
     const { exitCode, stdout, stderr } = commandOutput
 
     expect(stderr)
-      .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
-        'Please, remove them and try again.')
+      .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". '
+        + 'Please, remove them and try again.')
 
     expect(stdout).not.toContain('Downloading example template...')
     expect(stdout).not.toContain('Example template copied!')
@@ -327,40 +327,40 @@ describe('bootstrap', () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
     const directory = tmpDir
 
-      const commandOutput = await runChecklyCreateCli({
-        directory,
-        args: ['--non-interactive', '--template', 'boilerplate-project'],
-        env: {
-          CHECKLY_E2E_ISTTY: 'false', // Simulate non-interactive mode
-          // Don't set CHECKLY_E2E_ISTTY at all, so it uses actual TTY detection (which will be false in test)
-        },
-        timeout: 180_000,
-      })
+    const commandOutput = await runChecklyCreateCli({
+      directory,
+      args: ['--non-interactive', '--template', 'boilerplate-project'],
+      env: {
+        CHECKLY_E2E_ISTTY: 'false', // Simulate non-interactive mode
+        // Don't set CHECKLY_E2E_ISTTY at all, so it uses actual TTY detection (which will be false in test)
+      },
+      timeout: 180_000,
+    })
 
-      const { exitCode, stdout, stderr } = commandOutput
+    const { exitCode, stdout, stderr } = commandOutput
 
-      // In non-interactive mode, should not show interactive prompts or greeting
-      expect(stdout).not.toContain(greeting)
-      expect(stdout).not.toContain('Let\'s get you started on your monitoring as code journey!')
+    // In non-interactive mode, should not show interactive prompts or greeting
+    expect(stdout).not.toContain(greeting)
+    expect(stdout).not.toContain('Let\'s get you started on your monitoring as code journey!')
 
-      // Should still perform the basic operations
-      expect(stdout).toContain('Downloading example template...')
-      expect(stdout).toContain('Example template copied!')
+    // Should still perform the basic operations
+    expect(stdout).toContain('Downloading example template...')
+    expect(stdout).toContain('Example template copied!')
 
-      // Should use default values for non-interactive mode
-      expect(stdout).toContain('Installing packages')
-      expect(stdout).toContain('Packages installed successfully')
+    // Should use default values for non-interactive mode
+    expect(stdout).toContain('Installing packages')
+    expect(stdout).toContain('Packages installed successfully')
 
-      expect(stderr).toBe('')
-      // Should exit successfully in non-interactive mode
-      expect(exitCode).toBe(0)
+    expect(stderr).toBe('')
+    // Should exit successfully in non-interactive mode
+    expect(exitCode).toBe(0)
 
-      // Should create the basic project structure
-      await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
-      await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
+    // Should create the basic project structure
+    await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
+    await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
 
-      // In non-interactive mode with defaults, should install dependencies but not init git
-      await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
-      await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
+    // In non-interactive mode with defaults, should install dependencies but not init git
+    await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(true)
+    await expect(exists(path.join(directory, '.git'))).resolves.toBe(false)
   }, 180_000)
 })

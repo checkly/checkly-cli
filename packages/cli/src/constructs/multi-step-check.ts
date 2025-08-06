@@ -15,7 +15,7 @@ export interface MultiStepCheckProps extends RuntimeCheckProps {
    * A valid piece of Node.js javascript code describing a multi-step interaction
    * with the Puppeteer or Playwright frameworks.
    */
-  code: Content|Entrypoint,
+  code: Content | Entrypoint
   playwrightConfig?: PlaywrightConfig
 }
 
@@ -109,7 +109,7 @@ export class MultiStepCheck extends RuntimeCheck {
     const config = super.applyConfigDefaults(props)
     const defaults = this.configDefaultsGetter(props)
 
-    config.playwrightConfig ??= defaults("playwrightConfig")
+    config.playwrightConfig ??= defaults('playwrightConfig')
 
     return config
   }

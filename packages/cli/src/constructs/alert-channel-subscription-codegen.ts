@@ -7,6 +7,7 @@ export interface AlertChannelSubscriptionResource {
 }
 
 export class AlertChannelSubscriptionCodegen extends Codegen<AlertChannelSubscriptionResource> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   describe (resource: AlertChannelSubscriptionResource): string {
     return 'Alert Channel Subscription'
   }

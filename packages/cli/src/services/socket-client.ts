@@ -6,10 +6,10 @@ import { httpsOverHttp, httpsOverHttps } from 'tunnel'
 
 const isHttps = (protocol: string) => protocol.startsWith('https')
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 async function backOffConnect (url: string, options: mqtt.IClientOptions, retryCount = 0):
-    Promise<mqtt.MqttClient> {
+Promise<mqtt.MqttClient> {
   try {
     return mqtt.connectAsync(url, options, false)
   } catch (error) {

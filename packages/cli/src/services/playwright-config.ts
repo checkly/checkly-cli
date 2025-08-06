@@ -1,10 +1,10 @@
 import * as path from 'node:path'
 
-function toAbsolutePath(dir: string, file: string) {
+function toAbsolutePath (dir: string, file: string) {
   return path.resolve(dir, file)
 }
 
-function parseBrowsers(config: any) {
+function parseBrowsers (config: any) {
   const browsers = new Set<string>()
   const browserKeywords = ['browserName', 'defaultBrowserType', 'channel']
   for (const browserKeyword of browserKeywords) {
@@ -15,21 +15,21 @@ function parseBrowsers(config: any) {
   return browsers
 }
 
-function buildSnapshotTemplates(config: PlaywrightConfig|PlaywrightProject, filePath: string) {
+function buildSnapshotTemplates (config: PlaywrightConfig | PlaywrightProject, filePath: string) {
   const fileRelativePath = path.relative(config.testDir, filePath)
   const parsed = path.parse(fileRelativePath)
   return Array.from(config.snapshotTemplates).map(template => {
     return template
-            .replace(/\{(.)?testDir\}/g, '$1' + config.testDir)
-            .replace(/\{(.)?snapshotDir\}/g, '$1' + config.snapshotDir)
-            .replace(/\{(.)?testFileDir\}/g, '$1' + parsed.dir)
-            .replace(/\{(.)?platform\}/g, '$1' + config.platform)
-            .replace(/\{(.)?projectName\}/g, config.projectName)
-            .replace(/\{(.)?testName\}/g, '$1' + '*')
-            .replace(/\{(.)?testFileName\}/g, '$1' + parsed.base)
-            .replace(/\{(.)?testFilePath\}/g, '$1' + fileRelativePath)
-            .replace(/\{(.)?arg\}/g, '$1' + '*')
-            .replace(/\{(.)?ext\}/g, '$1' +  '.*');
+      .replace(/\{(.)?testDir\}/g, '$1' + config.testDir)
+      .replace(/\{(.)?snapshotDir\}/g, '$1' + config.snapshotDir)
+      .replace(/\{(.)?testFileDir\}/g, '$1' + parsed.dir)
+      .replace(/\{(.)?platform\}/g, '$1' + config.platform)
+      .replace(/\{(.)?projectName\}/g, config.projectName)
+      .replace(/\{(.)?testName\}/g, '$1' + '*')
+      .replace(/\{(.)?testFileName\}/g, '$1' + parsed.base)
+      .replace(/\{(.)?testFilePath\}/g, '$1' + fileRelativePath)
+      .replace(/\{(.)?arg\}/g, '$1' + '*')
+      .replace(/\{(.)?ext\}/g, '$1' + '.*')
   })
 }
 
@@ -47,7 +47,7 @@ export class PlaywrightConfig {
   projects?: PlaywrightProject[]
   files: Set<string>
 
-  constructor(filePath: string, playwrightConfig: any) {
+  constructor (filePath: string, playwrightConfig: any) {
     const dir = path.dirname(filePath)
     this.projectName = ''
     this.platform = 'linux'
@@ -83,7 +83,7 @@ export class PlaywrightConfig {
       this.snapshotTemplates.add(expect.toMatchAriaSnapshot.pathTemplate)
     }
     if (this.snapshotTemplates.size === 0) {
-      this.snapshotTemplates.add(DEFAULT_SNAPSHOT_TEMPLATE);
+      this.snapshotTemplates.add(DEFAULT_SNAPSHOT_TEMPLATE)
     }
 
     this.browsers = parseBrowsers(playwrightConfig)
@@ -93,13 +93,13 @@ export class PlaywrightConfig {
     }
   }
 
-  getFiles() {
+  getFiles () {
     const files = new Set<string>(this.files)
     this.projects?.forEach(project => project.files.forEach(file => files.add(file)))
     return Array.from(files)
   }
 
-  getBrowsers() {
+  getBrowsers () {
     const browsers = new Set<string>(this.browsers)
     this.projects?.forEach(project => project.browsers.forEach(browser => browsers.add(browser)))
     if (browsers.size === 0) {
@@ -109,11 +109,11 @@ export class PlaywrightConfig {
     return Array.from(browsers)
   }
 
-  addFiles(...files: string[]) {
+  addFiles (...files: string[]) {
     files.forEach(this.files.add, this.files)
   }
 
-  getSnapshotPath(filePath: string) {
+  getSnapshotPath (filePath: string) {
     return buildSnapshotTemplates(this, filePath)
   }
 }
@@ -128,11 +128,13 @@ export class PlaywrightProject {
   files: Set<string>
   snapshotTemplates: Set<string>
   browsers: Set<string>
-  constructor(dir: string, playwrightConfig: any, playwrightProject: any) {
+  constructor (dir: string, playwrightConfig: any, playwrightProject: any) {
     this.projectName = playwrightProject.name
     this.platform = 'linux'
-    this.testDir = playwrightProject.testDir ?  toAbsolutePath(dir, playwrightProject.testDir): playwrightConfig.testDir
-    this.snapshotDir = playwrightProject.snapshotDir ? toAbsolutePath(dir, playwrightProject.snapshotDir):  (playwrightConfig.snapshotDir ?? this.testDir)
+    this.testDir = playwrightProject.testDir ? toAbsolutePath(dir, playwrightProject.testDir) : playwrightConfig.testDir
+    this.snapshotDir = playwrightProject.snapshotDir
+      ? toAbsolutePath(dir, playwrightProject.snapshotDir)
+      : (playwrightConfig.snapshotDir ?? this.testDir)
     this.files = new Set<string>()
     this.snapshotTemplates = new Set<string>()
     const testMatch = playwrightProject.testMatch ?? Array.from(playwrightConfig.testMatch)
@@ -152,17 +154,17 @@ export class PlaywrightProject {
       this.snapshotTemplates.add(expect.toMatchAriaSnapshot.pathTemplate)
     }
     if (this.snapshotTemplates.size === 0) {
-      this.snapshotTemplates.add(DEFAULT_SNAPSHOT_TEMPLATE);
+      this.snapshotTemplates.add(DEFAULT_SNAPSHOT_TEMPLATE)
     }
 
     this.browsers = parseBrowsers(playwrightProject)
   }
 
-  getSnapshotPath(filePath: string) {
+  getSnapshotPath (filePath: string) {
     return buildSnapshotTemplates(this, filePath)
   }
 
-  addFiles(...files: string[]){
+  addFiles (...files: string[]) {
     files.forEach(this.files.add, this.files)
   }
 }

@@ -12,18 +12,18 @@ export interface Project {
 type ProjectResponse = Project & { id: string, created_at: string }
 
 export interface Change {
-  logicalId: string,
-  physicalId?: string|number,
-  type: string,
+  logicalId: string
+  physicalId?: string | number
+  type: string
   action: string
 }
 
 export interface ResourceSync {
-  logicalId: string,
-  physicalId?: string|number,
-  type: string,
-  member: boolean,
-  payload: any,
+  logicalId: string
+  physicalId?: string | number
+  type: string
+  member: boolean
+  payload: any
 }
 
 export interface AlertChannelFriendResource {
@@ -51,22 +51,22 @@ export interface StatusPageServiceFriendResource {
 }
 
 export type FriendResourceSync =
-  AlertChannelFriendResource |
-  CheckGroupFriendResource |
-  PrivateLocationFriendResource |
-  StatusPageServiceFriendResource
+  AlertChannelFriendResource
+  | CheckGroupFriendResource
+  | PrivateLocationFriendResource
+  | StatusPageServiceFriendResource
 
 export interface AuxiliaryResourceSync {
-  physicalId?: string|number
+  physicalId?: string | number
   type: string
   payload: any
 }
 
 export interface ProjectSync {
-  project: Project,
+  project: Project
   sharedFiles?: SharedFile[]
-  resources: Array<ResourceSync>,
-  repoInfo: GitInformation|null,
+  resources: Array<ResourceSync>
+  repoInfo: GitInformation | null
 }
 
 export interface ProjectDeployResponse {
@@ -164,7 +164,7 @@ class Projects {
       filters: options?.filters,
       friends: options?.friends,
     }
-    return this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`, payload, {
+    return await this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`, payload, {
       params: {
         preview: options?.preview ?? false,
       },

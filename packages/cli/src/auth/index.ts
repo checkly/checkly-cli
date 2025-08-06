@@ -58,8 +58,8 @@ export class AuthContext {
     await this.#fetchAccessToken()
 
     if (!this.#accessToken || !this.#idToken) {
-      throw new Error('There was an unexpected error retrieving Auth0 token. Please try again or contact ' +
-          'support@checklyhq.com if this problem persists')
+      throw new Error('There was an unexpected error retrieving Auth0 token. Please try again or contact '
+        + 'support@checklyhq.com if this problem persists')
     }
 
     const { name } = jwtDecode<any>(this.#idToken)
@@ -178,9 +178,9 @@ export class AuthContext {
 
       server.listen(4242).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
-          reject(new Error('Unable to start a local server on port 4242.' +
-            ' Please check that `checkly login` isn\'t already running in a separate tab.' +
-            ' On OS X and Linux, you can run `lsof -i :4242` to see which process is blocking the port.'))
+          reject(new Error('Unable to start a local server on port 4242.'
+            + ' Please check that `checkly login` isn\'t already running in a separate tab.'
+            + ' On OS X and Linux, you can run `lsof -i :4242` to see which process is blocking the port.'))
         } else {
           reject(err)
         }

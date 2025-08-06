@@ -2,7 +2,6 @@ import { Construct } from './construct'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { Session } from './project'
-import { ValidationError } from './validator-error'
 
 export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow-right' | 'arrow-small-down'
   | 'arrow-small-left' | 'arrow-small-right' | 'arrow-small-up' | 'arrow-up' | 'beaker' | 'bell' | 'bold'
@@ -54,7 +53,7 @@ export interface PrivateLocationProps {
  * References link existing resources to a project without managing them.
  */
 export class PrivateLocationRef extends Construct {
-  constructor (logicalId: string, physicalId: string|number) {
+  constructor (logicalId: string, physicalId: string | number) {
     super(PrivateLocation.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
@@ -126,7 +125,7 @@ export class PrivateLocation extends Construct {
     return true
   }
 
-  synthesize (): any|null {
+  synthesize (): any | null {
     return {
       name: this.name,
       slugName: this.slugName,

@@ -29,9 +29,9 @@ export default class SyncPlaywright extends BaseCommand {
 
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
-      return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is ' +
-          'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
-          'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
+      return this.handleError('Unable to automatically sync your config file. This can happen if your Checkly config is '
+        + 'built using helper functions or other JS/TS features. You can still manually set Playwright config values in '
+        + 'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
     }
 
     const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()

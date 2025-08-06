@@ -42,8 +42,8 @@ export default class TriggerRunner extends AbstractCheckRunner {
   async scheduleChecks (
     checkRunSuiteId: string,
   ): Promise<{
-    testSessionId?: string,
-    checks: Array<{ check: any, sequenceId: SequenceId }>,
+    testSessionId?: string
+    checks: Array<{ check: any, sequenceId: SequenceId }>
   }> {
     try {
       const { data } = await testSessions.trigger({
@@ -62,9 +62,9 @@ export default class TriggerRunner extends AbstractCheckRunner {
         testSessionId,
         sequenceIds,
       }: {
-        checks: Array<any>,
-        testSessionId: string,
-        testResultIds: Record<string, string>,
+        checks: Array<any>
+        testSessionId: string
+        testResultIds: Record<string, string>
         sequenceIds: Record<string, SequenceId>
       } = data
       if (!checks.length) {

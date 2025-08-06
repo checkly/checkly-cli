@@ -29,7 +29,7 @@ function unsafeQuoteArg (arg: string) {
     return arg
   }
 
-  return `'${arg.replaceAll(`'`, `'"'"'`)}'`;
+  return `'${arg.replaceAll(`'`, `'"'"'`)}'`
 }
 
 export interface PackageManager {
@@ -64,7 +64,7 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
   }
 
   async detectLockfile (dir: string): Promise<void> {
-    return accessR(path.join(dir, 'package-lock.json'))
+    return await accessR(path.join(dir, 'package-lock.json'))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -93,6 +93,7 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
+  // eslint-disable-next-line require-await
   async detectLockfile (): Promise<void> {
     throw new NotDetectedError()
   }
@@ -124,7 +125,7 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
   }
 
   async detectLockfile (dir: string): Promise<void> {
-    return accessR(path.join(dir, 'pnpm-lock.yaml'))
+    return await accessR(path.join(dir, 'pnpm-lock.yaml'))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -154,7 +155,7 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
   }
 
   async detectLockfile (dir: string): Promise<void> {
-    return accessR(path.join(dir, 'yarn.lock'))
+    return await accessR(path.join(dir, 'yarn.lock'))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -184,7 +185,7 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
   }
 
   async detectLockfile (dir: string): Promise<void> {
-    return accessR(path.join(dir, 'deno.lock'))
+    return await accessR(path.join(dir, 'deno.lock'))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -214,7 +215,7 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
   }
 
   async detectLockfile (dir: string): Promise<void> {
-    return accessR(path.join(dir, 'bun.lockb'))
+    return await accessR(path.join(dir, 'bun.lockb'))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -273,6 +274,7 @@ export class PathLookup {
     }
   }
 
+  // eslint-disable-next-line require-await
   async detectPresence (executable: string): Promise<void> {
     const foundPath = this.lookupPath(executable)
     if (foundPath === undefined) {
@@ -335,7 +337,10 @@ export interface DetectPackageManagerOptions {
   detectors?: PackageManagerDetector[]
 }
 
-export async function detectPackageManager (dir: string, options?: DetectPackageManagerOptions): Promise<PackageManager> {
+export async function detectPackageManager (
+  dir: string,
+  options?: DetectPackageManagerOptions,
+): Promise<PackageManager> {
   const detectors = options?.detectors ?? knownPackageManagers
 
   // Try user agent first.

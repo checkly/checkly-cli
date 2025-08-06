@@ -16,24 +16,24 @@ import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
 
 type ProjectParseOpts = {
-  directory: string,
-  projectLogicalId: string,
-  projectName: string,
-  repoUrl?: string,
-  checkMatch?: string | string[],
-  checkFilter?: CheckFilter,
-  includeTestOnlyChecks?: boolean,
-  browserCheckMatch?: string | string[],
-  multiStepCheckMatch?: string | string[],
-  ignoreDirectoriesMatch?: string[],
-  checkDefaults?: CheckConfigDefaults,
-  browserCheckDefaults?: CheckConfigDefaults,
-  availableRuntimes: Record<string, Runtime>,
-  defaultRuntimeId: string,
-  verifyRuntimeDependencies?: boolean,
-  checklyConfigConstructs?: Construct[],
+  directory: string
+  projectLogicalId: string
+  projectName: string
+  repoUrl?: string
+  checkMatch?: string | string[]
+  checkFilter?: CheckFilter
+  includeTestOnlyChecks?: boolean
+  browserCheckMatch?: string | string[]
+  multiStepCheckMatch?: string | string[]
+  ignoreDirectoriesMatch?: string[]
+  checkDefaults?: CheckConfigDefaults
+  browserCheckDefaults?: CheckConfigDefaults
+  availableRuntimes: Record<string, Runtime>
+  defaultRuntimeId: string
+  verifyRuntimeDependencies?: boolean
+  checklyConfigConstructs?: Construct[]
   playwrightConfigPath?: string
-  include?: string | string[],
+  include?: string | string[]
   playwrightChecks?: PlaywrightSlimmedProp[]
 }
 
@@ -72,7 +72,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   }
 
   checklyConfigConstructs?.forEach(
-    (construct) => project.addResource(construct.type, construct.logicalId, construct),
+    construct => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
   Session.basePath = directory
@@ -114,6 +114,7 @@ function resetCheckFilePaths () {
   Session.checkFileAbsolutePath = undefined
 }
 
+// eslint-disable-next-line require-await
 async function loadPlaywrightChecks (
   directory: string,
   playwrightChecks?: PlaywrightSlimmedProp[],
@@ -173,7 +174,7 @@ async function loadAllCheckFiles (
 function getExistingEntrypoints (project: Project): Set<string> {
   const files = new Set<string>()
 
-  Object.values(project.data.check).forEach((check) => {
+  Object.values(project.data.check).forEach(check => {
     if (check instanceof BrowserCheck && isEntrypoint(check.code)) {
       const absoluteEntrypoint = check.resolveContentFilePath(check.code.entrypoint)
       const relativeEntrypoint = Session.relativePosixPath(absoluteEntrypoint)
@@ -270,7 +271,7 @@ async function loadAllPrivateLocationsSlugNames (
    * This logic allow as to get the private-location id searching by slug names and make use
    * of PrivateLocation.fromId() under the hood.
    */
-  const resourcesWithSlugNames: Array<Check|CheckGroup> =
+  const resourcesWithSlugNames: Array<Check | CheckGroup> =
     [...Object.values(project.data.check), ...Object.values(project.data['check-group'])]
       .filter(g => g.privateLocations?.some(pl => typeof pl === 'string'))
 
@@ -307,6 +308,7 @@ async function loadAllPrivateLocationsSlugNames (
       }
 
       // create the private-location/check assignment
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const assignment = resource instanceof Check
         ? new PrivateLocationCheckAssignment(`private-location-check-assignment#${resource.logicalId}#${privateLocationLogicalId}`, {
           privateLocationId: Ref.from(privateLocationLogicalId),

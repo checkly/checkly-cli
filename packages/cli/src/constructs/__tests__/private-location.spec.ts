@@ -13,7 +13,7 @@ describe('PrivateLocation', () => {
     const add = () => {
       new PrivateLocation('foo', {
         name: 'Test',
-        slugName: 'test'
+        slugName: 'test',
       })
     }
 

@@ -6,4 +6,3 @@ export {
   CheckGroupV1 as CheckGroup,
   CheckGroupV1Props as CheckGroupProps,
 } from './check-group-v1'
-
