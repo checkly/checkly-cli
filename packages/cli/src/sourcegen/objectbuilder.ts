@@ -15,7 +15,10 @@ export interface ObjectValueBuilderOptions extends ObjectValueOptions {
   implicitOrderStep?: number
 }
 
-export function object (build: (builder: ObjectValueBuilder) => void, options?: ObjectValueBuilderOptions): ObjectValue {
+export function object (
+  build: (builder: ObjectValueBuilder) => void,
+  options?: ObjectValueBuilderOptions,
+): ObjectValue {
   const builder = new ObjectValueBuilder(options)
   build(builder)
   return builder.build()

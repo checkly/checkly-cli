@@ -20,7 +20,7 @@ async function cleanupProjects (projectLogicalId?: string) {
     baseURL,
     headers: {
       'x-checkly-account': accountId,
-      Authorization: `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
   })
   const projectsApi = new Projects(api)
@@ -31,8 +31,8 @@ async function cleanupProjects (projectLogicalId?: string) {
   const { data: projects } = await projectsApi.getAll()
   for (const project of projects) {
     // Also delete any old projects that may have been missed in previous e2e tests
-    const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-') &&
-      DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 20 }))
+    const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-')
+      && DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 20 }))
     if (leftoverE2eProject) {
       await projectsApi.deleteProject(project.logicalId)
     }
@@ -47,7 +47,7 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
     baseURL,
     headers: {
       'x-checkly-account': accountId,
-      Authorization: `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
   })
   // PL endpoint doesn't have pagination
@@ -179,7 +179,7 @@ describe('deploy', () => {
       },
     })
     expect(stdout).toContain(
-`Create:
+      `Create:
     ApiCheck: not-testonly-default-check
     ApiCheck: not-testonly-false-check
 
@@ -209,7 +209,7 @@ Skip (testOnly):
     // Moving the check to testOnly causes it to be deleted.
     // The check should only be listed under "Delete" and not "Skip".
     expect(stdout).toContain(
-`Delete:
+      `Delete:
     Check: testonly-true-check
 
 Update and Unchanged:
@@ -238,7 +238,7 @@ Update and Unchanged:
     expect(resultOne.status).toBe(0)
     expect(resultTwo.status).toBe(0)
     expect(resultOne.stdout).toContain(
-`Create:
+      `Create:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
@@ -256,7 +256,7 @@ Update and Unchanged:
     StatusPageService: foo-service
 `)
     expect(resultTwo.stdout).toContain(
-`Create:
+      `Create:
     ApiCheck: api-check
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger

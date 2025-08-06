@@ -1,7 +1,7 @@
 /**
  * Represents a key-value pair used in various Checkly constructs.
  * This interface is used by HTTP headers, query parameters, and environment variables.
- * 
+ *
  * @example
  * ```typescript
  * // HTTP header
@@ -9,13 +9,13 @@
  *   key: 'Authorization',
  *   value: 'Bearer {{API_TOKEN}}'
  * }
- * 
+ *
  * // Query parameter
  * const queryParam: KeyValuePair = {
  *   key: 'version',
  *   value: 'v1'
  * }
- * 
+ *
  * // Environment variable (supports secret/encryption)
  * const envVar: KeyValuePair = {
  *   key: 'API_TOKEN',
@@ -29,11 +29,11 @@ export default interface KeyValuePair {
   key: string
   /** The value associated with the key */
   value: string
-  /** 
+  /**
    * Whether the value is locked and encrypted (supported by headers and environment variables).
    */
   locked?: boolean
-  /** 
+  /**
    * Whether the value should be treated as sensitive/secret (environment variables only).
    * Not supported for HTTP headers or query parameters.
    */

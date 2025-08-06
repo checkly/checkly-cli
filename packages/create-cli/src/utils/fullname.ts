@@ -10,7 +10,7 @@ const environmentVariables = [
 
 function checkEnv () {
   const { env } = process
-  const variableName = environmentVariables.find((variable) => env[variable])
+  const variableName = environmentVariables.find(variable => env[variable])
   const fullName = variableName && env[variableName]
 
   if (!fullName) {
@@ -95,9 +95,13 @@ function fallback () {
 export async function getFullName () {
   try {
     return await checkEnv()
-  } catch {}
+  } catch {
+    // No-op
+  }
 
   try {
     return await fallback()
-  } catch {}
+  } catch {
+    // No-op
+  }
 }

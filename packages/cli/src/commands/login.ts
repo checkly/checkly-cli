@@ -29,8 +29,8 @@ export default class Login extends BaseCommand {
 
   private _checkExistingCredentials = async () => {
     if (config.hasEnvVarsConfigured()) {
-      this.warn('`CHECKLY_API_KEY` ' +
-      'or `CHECKLY_ACCOUNT_ID` environment variables are configured. You must delete them to use `npx checkly login`.')
+      this.warn('`CHECKLY_API_KEY` '
+        + 'or `CHECKLY_ACCOUNT_ID` environment variables are configured. You must delete them to use `npx checkly login`.')
       this.exit(0)
     }
 

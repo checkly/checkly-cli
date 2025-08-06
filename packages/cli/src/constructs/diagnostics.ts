@@ -27,13 +27,13 @@ export abstract class Diagnostic {
     this.message = options.message
   }
 
-  /** 
+  /**
    * Determines if this diagnostic represents a fatal error.
    * @returns true if this diagnostic is fatal and should stop processing
    */
   abstract isFatal (): boolean
-  
-  /** 
+
+  /**
    * Determines if this diagnostic is benign and can be ignored.
    * @returns true if this diagnostic is informational only
    */

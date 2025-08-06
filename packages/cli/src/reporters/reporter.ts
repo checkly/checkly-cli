@@ -7,12 +7,12 @@ import ListReporter from './list'
 import JsonReporter from './json'
 
 export interface Reporter {
-  onBegin(checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void;
-  onCheckInProgress(check: any, sequenceId: SequenceId): void;
-  onCheckAttemptResult(sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks): void;
-  onCheckEnd(sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks): void;
-  onEnd(): void;
-  onError(err: Error): void,
+  onBegin(checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void
+  onCheckInProgress(check: any, sequenceId: SequenceId): void
+  onCheckAttemptResult(sequenceId: SequenceId, checkResult: any, links?: TestResultsShortLinks): void
+  onCheckEnd(sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks): void
+  onEnd(): void
+  onError(err: Error): void
   onSchedulingDelayExceeded(): void
 }
 

@@ -43,14 +43,14 @@ type BrowserCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string | string[],
+  testMatch: string | string[]
 }
 
 type MultiStepCheckConfig = CheckConfigDefaults & {
   /**
    * Glob pattern to include multiple files, i.e. all `.spec.ts` files
    */
-  testMatch: string | string[],
+  testMatch: string | string[]
 }
 
 export interface CheckGroupV1Props {
@@ -181,7 +181,7 @@ export interface CheckGroupV1Props {
    * Currently only the following settings have an effect:
    * - {@link BrowserCheckConfig.frequency}
    */
-  browserChecks?: BrowserCheckConfig,
+  browserChecks?: BrowserCheckConfig
 
   /**
    * This optional setting can be used to provide CLI-level defaults for
@@ -193,7 +193,7 @@ export interface CheckGroupV1Props {
    * Currently only the following settings have an effect:
    * - {@link MultiStepCheckConfig.frequency}
    */
-  multiStepChecks?: MultiStepCheckConfig,
+  multiStepChecks?: MultiStepCheckConfig
 
   /**
    * If set, all checks in the group will use the group's alert escalation
@@ -202,7 +202,7 @@ export interface CheckGroupV1Props {
    * If not set, all checks in the group will use the global alert escalation
    * policy.
    */
-  alertEscalationPolicy?: AlertEscalation,
+  alertEscalationPolicy?: AlertEscalation
 
   /**
    * A valid piece of Node.js code to run in the setup phase of an API check
@@ -287,12 +287,12 @@ export class CheckGroupV1 extends Construct {
   doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
+  privateLocations?: Array<string | PrivateLocation | PrivateLocationRef>
   tags?: Array<string>
   concurrency?: number
   frequency?: number | Frequency
   environmentVariables?: Array<EnvironmentVariable>
-  alertChannels?: Array<AlertChannel|AlertChannelRef>
+  alertChannels?: Array<AlertChannel | AlertChannelRef>
   localSetupScript?: string
   localTearDownScript?: string
   apiCheckDefaults: ApiCheckDefaultConfig
@@ -354,14 +354,15 @@ export class CheckGroupV1 extends Construct {
     return `CheckGroupV1:${this.logicalId}`
   }
 
+  // eslint-disable-next-line require-await
   protected async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
     diagnostics.add(new DeprecatedConstructDiagnostic(
       'CheckGroup',
       new Error(
-        `Please update to CheckGroupV2 which has more intuitive behavior.` +
-        `\n\n` +
-        `For more information, please see:\n` +
-        `  https://feedback.checklyhq.com/changelog/checkly-groups-update-organize-checks-your-way`,
+        `Please update to CheckGroupV2 which has more intuitive behavior.`
+        + `\n\n`
+        + `For more information, please see:\n`
+        + `  https://feedback.checklyhq.com/changelog/checkly-groups-update-organize-checks-your-way`,
       ),
     ))
   }
@@ -414,7 +415,7 @@ export class CheckGroupV1 extends Construct {
 
   private __addChecks (
     fileAbsolutePath: string,
-    testMatch: string|string[],
+    testMatch: string | string[],
     checkType: typeof CheckTypes.BROWSER | typeof CheckTypes.MULTI_STEP,
   ) {
     const parent = path.dirname(fileAbsolutePath)

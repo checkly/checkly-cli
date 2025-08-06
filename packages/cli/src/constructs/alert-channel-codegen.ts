@@ -10,13 +10,13 @@ import { SmsAlertChannelCodegen } from './sms-alert-channel-codegen'
 import { WebhookAlertChannelCodegen } from './webhook-alert-channel-codegen'
 
 export type AlertChannelType =
-  'CALL' |
-  'EMAIL' |
-  'OPSGENIE' |
-  'PAGERDUTY' |
-  'SLACK' |
-  'SMS' |
-  'WEBHOOK'
+  'CALL'
+  | 'EMAIL'
+  | 'OPSGENIE'
+  | 'PAGERDUTY'
+  | 'SLACK'
+  | 'SMS'
+  | 'WEBHOOK'
 
 export interface AlertChannelResource {
   id: number

@@ -3,7 +3,7 @@ import { expr, ident } from '../sourcegen'
 
 export interface MaintenanceWindowResource {
   name: string
-  tags: Array<string>,
+  tags: Array<string>
   startsAt: string
   endsAt: string
   repeatInterval?: number | null

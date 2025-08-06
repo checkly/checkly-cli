@@ -32,8 +32,8 @@ export async function validateAuthentication (): Promise<void> {
   }
 
   if (!config.hasValidCredentials()) {
-    throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` ' +
-      '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
+    throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` '
+      + '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
   }
 
   const accountId = config.getAccountId()
@@ -44,8 +44,8 @@ export async function validateAuthentication (): Promise<void> {
     await accounts.get(accountId)
   } catch (err: any) {
     if (err.response?.status === 401) {
-      throw new Error(`Authentication failed with account id "${accountId}" ` +
-        `and API key "...${apiKey?.slice(-4)}"`)
+      throw new Error(`Authentication failed with account id "${accountId}" `
+        + `and API key "...${apiKey?.slice(-4)}"`)
     } else if (!err.response) {
       // The request was made but no response was received. This may be due to an internet connection issue.
       throw new Error(`Encountered an error connecting to Checkly. Please check that the internet connection is working. ${err.message}`)
@@ -72,8 +72,8 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
 
 export function responseErrorInterceptor (error: any) {
   if (error.response?.status === 408) {
-    throw new Error('Encountered an error connecting to Checkly. ' +
-      'This can be triggered by a slow internet connection or a network with high packet loss.')
+    throw new Error('Encountered an error connecting to Checkly. '
+      + 'This can be triggered by a slow internet connection or a network with high packet loss.')
   }
   throw error
 }

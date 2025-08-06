@@ -4,7 +4,7 @@ import {
   getDefaultChecklyConfig,
   getEnvs,
   getGitInformation,
-  splitConfigFilePath, writeChecklyConfigFile
+  splitConfigFilePath, writeChecklyConfigFile,
 } from '../services/util'
 import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader'
 import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags } from '../helpers/test-helper'
@@ -25,7 +25,7 @@ import * as recast from 'recast'
 import {
   addItemToArray, addOrReplaceItem,
   findPropertyByName,
-  reWriteChecklyConfigFile
+  reWriteChecklyConfigFile,
 } from '../helpers/write-config-helpers'
 import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
@@ -46,7 +46,7 @@ export default class PwTestCommand extends AuthCommand {
       description: 'The private location to run checks at.',
       exclusive: ['location'],
     }),
-    env: Flags.string({
+    'env': Flags.string({
       char: 'e',
       description: 'Env vars to be passed to the test run.',
       exclusive: ['env-file'],
@@ -71,7 +71,7 @@ export default class PwTestCommand extends AuthCommand {
     'config': Flags.string({
       description: commonMessages.configFile,
     }),
-    record: Flags.boolean({
+    'record': Flags.boolean({
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
       default: true,
       allowNo: true,
@@ -82,10 +82,10 @@ export default class PwTestCommand extends AuthCommand {
     'create-check': Flags.boolean({
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
-    })
+    }),
   }
 
-  async run(): Promise<void> {
+  async run (): Promise<void> {
     this.style.actionStart('Parsing your Playwright project')
 
     const { checklyFlags, playwrightFlags } = splitChecklyAndPlaywrightFlags(this.argv)
@@ -111,13 +111,17 @@ export default class PwTestCommand extends AuthCommand {
     } = await loadChecklyConfig(configDirectory, configFilenames, false)
     const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
-    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(playwrightFlags, runLocation as keyof Region, privateRunLocation, dir)
+    const playwrightCheck = await PwTestCommand.createPlaywrightCheck(
+      playwrightFlags,
+      runLocation as keyof Region,
+      privateRunLocation,
+      dir,
+    )
     if (createCheck) {
       this.style.actionStart('Creating Checkly check from Playwright test')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
       return
     }
-
 
     const location = await prepareRunLocation(checklyConfig.cli, {
       runLocation: runLocation as keyof Region,
@@ -127,7 +131,6 @@ export default class PwTestCommand extends AuthCommand {
     const { data: account } = await api.accounts.get(config.getAccountId())
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)
-
 
     const project = await parseProject({
       directory: configDirectory,
@@ -164,7 +167,7 @@ export default class PwTestCommand extends AuthCommand {
           }
         }
         return true
-      }
+      },
     })
 
     this.style.actionSuccess()
@@ -280,36 +283,41 @@ export default class PwTestCommand extends AuthCommand {
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
-    runner.on(Events.ERROR, (err) => {
+    runner.on(Events.ERROR, err => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
     await runner.run()
-    }
+  }
 
-    static async createPlaywrightCheck(args: string[], runLocation: keyof Region, privateRunLocation: string | undefined, dir: string): Promise<PlaywrightSlimmedProp> {
-      const parseArgs = args.map(arg => {
-        if (arg.includes(' ')) {
-          arg = `"${arg}"`
-        }
-        return arg
-      })
-      const input = parseArgs.join(' ') || ''
-      const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
-      const testCommand = await PwTestCommand.getTestCommand(dir, input)
-
-      // Use private location if provided, otherwise use public location (with default if neither is provided)
-      const locationConfig = privateRunLocation
-        ? { privateLocations: [privateRunLocation] }
-        : { locations: [runLocation || DEFAULT_REGION] }
-
-      return {
-        logicalId: `playwright-check-${inputLogicalId}`,
-        name: `Playwright Test: ${input}`,
-        testCommand,
-        ...locationConfig,
-        frequency: 10,
+  static async createPlaywrightCheck (
+    args: string[],
+    runLocation: keyof Region,
+    privateRunLocation: string | undefined,
+    dir: string,
+  ): Promise<PlaywrightSlimmedProp> {
+    const parseArgs = args.map(arg => {
+      if (arg.includes(' ')) {
+        arg = `"${arg}"`
       }
+      return arg
+    })
+    const input = parseArgs.join(' ') || ''
+    const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
+    const testCommand = await PwTestCommand.getTestCommand(dir, input)
+
+    // Use private location if provided, otherwise use public location (with default if neither is provided)
+    const locationConfig = privateRunLocation
+      ? { privateLocations: [privateRunLocation] }
+      : { locations: [runLocation || DEFAULT_REGION] }
+
+    return {
+      logicalId: `playwright-check-${inputLogicalId}`,
+      name: `Playwright Test: ${input}`,
+      testCommand,
+      ...locationConfig,
+      frequency: 10,
+    }
   }
 
   private getConfigPath (playwrightFlags: string[]) {
@@ -337,22 +345,22 @@ export default class PwTestCommand extends AuthCommand {
     const checklyAst = recast.parse(configFile.checklyConfig)
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
-      this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is ' +
-        'built using helper functions or other JS/TS features. You can still manually set Playwright config values in ' +
-        'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
+      this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is '
+      + 'built using helper functions or other JS/TS features. You can still manually set Playwright config values in '
+      + 'your Checkly config: https://www.checklyhq.com/docs/cli/constructs-reference/#project')
 
       return
     }
-    const b = recast.types.builders;
+    const b = recast.types.builders
     const playwrightPropertyNode = b.property(
       'init',
       b.identifier('playwrightConfigPath'),
-      b.stringLiteral(playwrightConfigPath)
-    );
+      b.stringLiteral(playwrightConfigPath),
+    )
 
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
     const playwrightCheckAst = recast.parse(playwrightCheckString)
-    const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init;
+    const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init
     addOrReplaceItem(checksAst.value, playwrightPropertyNode, 'playwrightConfigPath')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code
@@ -360,10 +368,9 @@ export default class PwTestCommand extends AuthCommand {
     await reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, writeDir)
     this.style.actionSuccess()
     return
-
   }
 
-  private static async getTestCommand(directoryPath: string, input: string): Promise<string| undefined> {
+  private static async getTestCommand (directoryPath: string, input: string): Promise<string | undefined> {
     const packageManager = await detectPackageManager(directoryPath)
     // Passing the input to the execCommand will return it quoted, which we want to avoid
     return `${packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand} ${input}`

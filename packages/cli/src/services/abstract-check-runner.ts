@@ -18,17 +18,17 @@ export enum Events {
   RUN_STARTED = 'RUN_STARTED',
   RUN_FINISHED = 'RUN_FINISHED',
   ERROR = 'ERROR',
-  MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED'
+  MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
 }
 
 export type PrivateRunLocation = {
-  type: 'PRIVATE',
-  id: string,
-  slugName: string,
+  type: 'PRIVATE'
+  id: string
+  slugName: string
 }
 export type PublicRunLocation = {
-  type: 'PUBLIC',
-  region: keyof Region,
+  type: 'PUBLIC'
+  region: keyof Region
 }
 export type RunLocation = PublicRunLocation | PrivateRunLocation
 
@@ -65,11 +65,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     this.accountId = accountId
   }
 
-  abstract scheduleChecks (checkRunSuiteId: string):
-    Promise<{
-      testSessionId?: string,
-      checks: Array<{ check: any, sequenceId: SequenceId }>,
-    }>
+  abstract scheduleChecks (checkRunSuiteId: string): Promise<{
+    testSessionId?: string
+    checks: Array<{ check: any, sequenceId: SequenceId }>
+  }>
 
   async run () {
     let socketClient = null
@@ -115,10 +114,11 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private async configureResultListener (checkRunSuiteId: string, socketClient: MqttClient): Promise<void> {
-    socketClient.on('message', (topic: string, rawMessage: string|Buffer) => {
+    socketClient.on('message', (topic: string, rawMessage: string | Buffer) => {
       const message = JSON.parse(rawMessage.toString('utf8'))
       const topicComponents = topic.split('/')
       const sequenceId = topicComponents[4]
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const checkRunId = topicComponents[5]
       const subtopic = topicComponents[6]
 
@@ -183,7 +183,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     if (numChecks === 0) {
       return Promise.resolve()
     }
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.on(Events.CHECK_FINISHED, () => {
         finishedCheckCount++
         if (finishedCheckCount === numChecks) resolve()
@@ -244,7 +244,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     this.timeouts.delete(timeoutKey)
   }
 
-  private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks|undefined> {
+  private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks | undefined> {
     try {
       if (!this.testSessionId) {
         return
@@ -252,6 +252,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       const { data: links } = await testSessions.getResultShortLinks(this.testSessionId, testResultId)
       return links
     } catch {
+      // No-op
     }
   }
 }

@@ -98,7 +98,7 @@ describe('test', { timeout: 45000 }, () => {
       directory: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
     })
     expect(result.stderr.replace(/(\n {4})/gm, ''))
-      .toContain("Error: Resource of type 'check-group' with logical id 'my-check-group' already exists.")
+      .toContain('Error: Resource of type \'check-group\' with logical id \'my-check-group\' already exists.')
     expect(result.status).toBe(1)
   })
 
@@ -121,6 +121,7 @@ describe('test', { timeout: 45000 }, () => {
     try {
       fs.unlinkSync(reportFilename)
     } catch {
+      // No-op
     }
     const result = await runChecklyCli({
       args: ['test', '--record', '--reporter', 'github'],

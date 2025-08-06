@@ -40,8 +40,8 @@ function _customPeriodGraceValidation (heartbeat: Heartbeat) {
   const MIN_PERIOD_SECONDS = 30
 
   if (
-    addedTimePeriod.diff(now, 'days').days > MAX_PERIOD_GRACE_DAYS ||
-    addedTimePeriod.diff(now, 'seconds').seconds < MIN_PERIOD_SECONDS
+    addedTimePeriod.diff(now, 'days').days > MAX_PERIOD_GRACE_DAYS
+    || addedTimePeriod.diff(now, 'seconds').seconds < MIN_PERIOD_SECONDS
   ) {
     throw new Error('Period must be between 30 seconds and 365 days.')
   }

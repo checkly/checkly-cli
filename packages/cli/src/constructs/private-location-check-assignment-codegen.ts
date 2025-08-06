@@ -6,6 +6,7 @@ export interface PrivateLocationCheckAssignmentResource {
 }
 
 export class PrivateLocationCheckAssignmentCodegen extends Codegen<PrivateLocationCheckAssignmentResource> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   describe (resource: PrivateLocationCheckAssignmentResource): string {
     return 'Private Location Check Assignment'
   }

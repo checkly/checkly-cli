@@ -24,40 +24,40 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 export interface CheckProps {
   /**
    * The display name of the check. This will be shown in the Checkly dashboard.
-   * 
+   *
    * @example "User API Health Check"
    */
   name: string
-  
+
   /**
    * Determines whether the check will run periodically after being deployed.
    * Set to `false` to pause a check without deleting it.
-   * 
+   *
    * @defaultValue true
    */
   activated?: boolean
-  
+
   /**
    * Determines if any notifications will be sent out when a check fails and/or recovers.
    * Useful for temporarily silencing alerts during maintenance.
-   * 
+   *
    * @defaultValue false
    */
   muted?: boolean
-  
+
   /**
    * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
    * randomly selected region before marking the check as failed.
    * @deprecated Use {@link retryStrategy} instead.
    */
   doubleCheck?: boolean
-  
+
   /**
-   * Allows to invert the behaviour of when a check is considered to fail. 
+   * Allows to invert the behaviour of when a check is considered to fail.
    * Useful for validating error status codes like 404 or 500.
-   * This only applies to API Checks. When set to true, the check passes when 
+   * This only applies to API Checks. When set to true, the check passes when
    * it would normally fail, and fails when it would normally pass.
-   * 
+   *
    * @defaultValue false
    * @example
    * ```typescript
@@ -71,43 +71,43 @@ export interface CheckProps {
    * ```
    */
   shouldFail?: boolean
-  
+
   /**
    * An array of one or more data center locations where to run this check.
-   * 
+   *
    * @example ['us-east-1', 'eu-west-1', 'ap-southeast-1']
    * @see {@link https://www.checklyhq.com/docs/monitoring/global-locations/ | Global Locations}
    */
   locations?: Array<keyof Region>
-  
+
   /**
    * An array of one or more private locations where to run the check.
    * PrivateLocation instances or slug name strings are allowed.
    *
    * `string` slug names are **only** allowed for private locations that **not** belong to the project. Use
    * PrivateLocation instances references for private locations created within the project.
-   * 
+   *
    * @example
    * ```typescript
    * // Using private location instances
    * privateLocations: [myPrivateLocation, anotherPrivateLocation]
-   * 
+   *
    * // Using existing private location slugs
    * privateLocations: ['my-datacenter-1', 'office-location']
    * ```
    */
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
-  
+  privateLocations?: Array<string | PrivateLocation | PrivateLocationRef>
+
   /**
    * Tags for organizing and filtering checks in the dashboard.
-   * 
+   *
    * @example ['production', 'api', 'critical']
    */
   tags?: Array<string>
-  
+
   /**
    * How often the check should run. Can be specified in minutes or using Frequency constants.
-   * 
+   *
    * @example
    * ```typescript
    * frequency: Frequency.EVERY_5M // Every 5 minutes
@@ -119,52 +119,52 @@ export interface CheckProps {
    * @deprecated Use {@link group} instead.
    */
   groupId?: Ref
-  
+
   /**
    * The CheckGroup that this check is part of.
    * Groups allow you to organize related checks and apply common settings.
-   * 
+   *
    * @example
    * ```typescript
    * // Create a new check group
    * const apiGroup = new CheckGroupV2('api-group', {
    *   name: 'API Checks'
    * })
-   * 
+   *
    * // Reference an existing check group by ID
    * const existingGroup = CheckGroupV2.fromId(123)
-   * 
+   *
    * // Use in check configuration
    * group: apiGroup  // or existingGroup
    * ```
    */
   group?: CheckGroupV1 | CheckGroupV2 | CheckGroupRef
-  
+
   /**
    * List of alert channels to notify when the check fails or recovers.
    * If you don't set at least one, we won't be able to alert you in case something goes wrong with your check.
-   * 
+   *
    * @example
    * ```typescript
    * // Create alert channels once at the project level
-   * const emailChannel = new EmailAlertChannel('team-email', { 
-   *   address: 'team@example.com' 
+   * const emailChannel = new EmailAlertChannel('team-email', {
+   *   address: 'team@example.com'
    * })
-   * const slackChannel = new SlackAlertChannel('team-slack', { 
-   *   url: 'https://hooks.slack.com/...' 
+   * const slackChannel = new SlackAlertChannel('team-slack', {
+   *   url: 'https://hooks.slack.com/...'
    * })
-   * 
+   *
    * // Reference the channels in your check
    * alertChannels: [emailChannel, slackChannel]
    * ```
    * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels}
    */
-  alertChannels?: Array<AlertChannel|AlertChannelRef>,
-  
+  alertChannels?: Array<AlertChannel | AlertChannelRef>
+
   /**
    * Determines the alert escalation policy for that particular check.
    * Controls when and how alerts are escalated based on failure patterns.
-   * 
+   *
    * @example
    * ```typescript
    * alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(3, {
@@ -174,18 +174,18 @@ export interface CheckProps {
    * ```
    */
   alertEscalationPolicy?: AlertEscalation
-  
+
   /**
    * Determines if the check is available only when 'test' runs (not included when 'deploy' is executed).
    * Useful for development and testing scenarios.
-   * 
+   *
    * @defaultValue false
    */
   testOnly?: boolean
-  
+
   /**
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
-   * 
+   *
    * @example
    * ```typescript
    * retryStrategy: RetryStrategyBuilder.fixedStrategy({
@@ -196,19 +196,19 @@ export interface CheckProps {
    * ```
    */
   retryStrategy?: RetryStrategy
-  
+
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
-   * 
+   *
    * @defaultValue false (round-robin)
    * @see {@link https://www.checklyhq.com/docs/monitoring/global-locations/ | Scheduling Strategies}
    */
   runParallel?: boolean
-  
+
   /**
    * Determines whether the check should create and resolve an incident based on its alert configuration.
    * Useful for status page automation.
-   * 
+   *
    * @see {@link https://www.checklyhq.com/docs/status-pages/incidents/#incident-automation | Incident Automation}
    */
   triggerIncident?: IncidentTrigger
@@ -221,12 +221,12 @@ export abstract class Check extends Construct {
   doubleCheck?: boolean
   shouldFail?: boolean
   locations?: Array<keyof Region>
-  privateLocations?: Array<string|PrivateLocation|PrivateLocationRef>
+  privateLocations?: Array<string | PrivateLocation | PrivateLocationRef>
   tags?: Array<string>
   frequency?: number
   frequencyOffset?: number
   groupId?: Ref
-  alertChannels?: Array<AlertChannel|AlertChannelRef>
+  alertChannels?: Array<AlertChannel | AlertChannelRef>
   testOnly?: boolean
   retryStrategy?: RetryStrategy
   alertSettings?: AlertEscalation
@@ -275,6 +275,7 @@ export abstract class Check extends Construct {
     await validateDeprecatedDoubleCheck(diagnostics, this)
   }
 
+  // eslint-disable-next-line require-await
   protected async validateRetryStrategyOnlyOn (diagnostics: Diagnostics): Promise<void> {
     if (this.retryStrategy?.onlyOn) {
       if (this.retryStrategy.onlyOn === 'NETWORK_ERROR') {
@@ -282,8 +283,8 @@ export abstract class Check extends Construct {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
             'retryStrategy',
             new Error(
-              `Using "NETWORK_ERROR" with "onlyOn" is only supported in the ` +
-              `ApiCheck and UrlMonitor constructs.`,
+              `Using "NETWORK_ERROR" with "onlyOn" is only supported in the `
+              + `ApiCheck and UrlMonitor constructs.`,
             ),
           ))
         }
@@ -380,7 +381,7 @@ export abstract class Check extends Construct {
   /**
    * Gets the source file path where this check was defined.
    * Used for filtering and debugging purposes.
-   * 
+   *
    * @returns The absolute path to the check file, or undefined if not set
    */
   getSourceFile () {
@@ -435,16 +436,16 @@ export abstract class Check extends Construct {
 export interface RuntimeCheckProps extends CheckProps {
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
-   * 
+   *
    * @example "2024.09"
    * @see {@link https://www.checklyhq.com/docs/runtimes/ | Runtime Documentation}
    */
   runtimeId?: string
-  
+
   /**
    * Environment variables available to the check script.
    * Maximum of 50 environment variables per check.
-   * 
+   *
    * @maxItems 50
    * @example
    * ```typescript

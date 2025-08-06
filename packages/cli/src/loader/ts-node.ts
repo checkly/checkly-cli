@@ -44,7 +44,7 @@ export class FailedTSNodeFileLoaderState extends FileLoader {
     this.error = error
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, require-await
   async loadFile<T = unknown> (filePath: string): Promise<T> {
     throw new UnsupportedFileLoaderError('TSNodeFileLoader is not supported', {
       cause: this.error,
@@ -60,6 +60,7 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
     this.service = service
   }
 
+  // eslint-disable-next-line require-await
   async loadFile<T = unknown> (filePath: string): Promise<T> {
     try {
       this.service.enabled(true)
@@ -94,6 +95,6 @@ export class TSNodeFileLoader extends FileLoader {
   }
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
-    return TSNodeFileLoader.state.loadFile<T>(filePath)
+    return await TSNodeFileLoader.state.loadFile<T>(filePath)
   }
 }

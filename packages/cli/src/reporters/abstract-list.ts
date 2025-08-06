@@ -12,14 +12,14 @@ import { testSessions } from '../rest/api'
 // This lets us print a structured list of the checks.
 // Map remembers the original insertion order, so each time we print the summary will be consistent.
 // Note that in the case of `checkly trigger`, the file will be `undefined`!
-export type checkFilesMap = Map<string|undefined, Map<SequenceId, {
-  check?: Check,
-  result?: any,
-  titleString: string,
-  checkStatus?: CheckStatus,
-  testResultId?: string,
-  links?: TestResultsShortLinks,
-  numRetries: number,
+export type checkFilesMap = Map<string | undefined, Map<SequenceId, {
+  check?: Check
+  result?: any
+  titleString: string
+  checkStatus?: CheckStatus
+  testResultId?: string
+  links?: TestResultsShortLinks
+  numRetries: number
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -46,7 +46,7 @@ export default abstract class AbstractListReporter implements Reporter {
     // For `checkly trigger`, getSourceFile() is not defined so we use optional chaining.
     const sortedCheckFiles = [...new Set(checks.map(({ check }) => check.getSourceFile?.()))].sort()
     const sortedChecks = checks.sort(({ check: a }, { check: b }) => a.name.localeCompare(b.name))
-    this.checkFilesMap = new Map(sortedCheckFiles.map((file) => [file, new Map()]))
+    this.checkFilesMap = new Map(sortedCheckFiles.map(file => [file, new Map()]))
     sortedChecks.forEach(({ check, sequenceId }) => {
       const fileMap = this.checkFilesMap!.get(check.getSourceFile?.())!
       fileMap.set(sequenceId, {
@@ -68,13 +68,18 @@ export default abstract class AbstractListReporter implements Reporter {
     checkFile.checkStatus = CheckStatus.RUNNING
   }
 
-  abstract onEnd(): void
+  abstract onEnd (): void
 
   onSchedulingDelayExceeded () {
     this._isSchedulingDelayExceeded = true
   }
 
-  onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks | undefined): void {
+  onCheckAttemptResult (
+    sequenceId: string,
+    checkResult: any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    links?: TestResultsShortLinks | undefined,
+  ): void {
     const checkFile = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
     checkFile.checkStatus = CheckStatus.RETRIED
     checkFile.titleString = formatCheckTitle(CheckStatus.RETRIED, checkResult)
@@ -103,7 +108,7 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(this._clearString)
   }
 
-  _printSummary (opts: { skipCheckCount?: boolean} = {}) {
+  _printSummary (opts: { skipCheckCount?: boolean } = {}) {
     const counts = { numFailed: 0, numPassed: 0, numDegraded: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
@@ -111,7 +116,7 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
       if (sourceFile) status.push(sourceFile)
-      for (const [_, { titleString, result, checkStatus }] of checkMap.entries()) {
+      for (const [, { titleString, result, checkStatus }] of checkMap.entries()) {
         if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
         } else if (checkStatus === CheckStatus.RETRIED) {
@@ -159,7 +164,7 @@ export default abstract class AbstractListReporter implements Reporter {
     const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
-      for (const [_, { result }] of checkMap.entries()) {
+      for (const [, { result }] of checkMap.entries()) {
         if (!result) {
           counts.numPending++
         } else if (result.hasFailures) {

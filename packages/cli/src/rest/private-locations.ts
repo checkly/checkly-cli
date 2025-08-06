@@ -1,8 +1,8 @@
 import type { AxiosInstance } from 'axios'
 
 export interface PrivateLocationApi {
-  id: string,
-  slugName: string,
+  id: string
+  slugName: string
 }
 
 export default class PrivateLocations {

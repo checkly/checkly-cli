@@ -12,54 +12,54 @@ export type RetryStrategyCondition = 'NETWORK_ERROR'
  */
 export interface RetryStrategy {
   /** The retry strategy type */
-  type: RetryStrategyType,
-  
+  type: RetryStrategyType
+
   /**
    * The number of seconds to wait before the first retry attempt.
    * This value is used differently based on the retry strategy type:
    * - FIXED: Same delay for all retries
    * - LINEAR: Base value that increases linearly (baseBackoffSeconds * attempt)
    * - EXPONENTIAL: Base value that increases exponentially (baseBackoffSeconds ^ attempt)
-   * 
+   *
    * @defaultValue 60
    * @example
    * ```typescript
    * // Fixed: 30s, 30s, 30s
    * baseBackoffSeconds: 30
-   * 
+   *
    * // Linear: 10s, 20s, 30s
    * baseBackoffSeconds: 10
-   * 
+   *
    * // Exponential: 5s, 25s, 125s
    * baseBackoffSeconds: 5
    * ```
    */
-  baseBackoffSeconds?: number,
-  
+  baseBackoffSeconds?: number
+
   /**
    * The maximum number of attempts to retry the check.
    * Value must be between 1 and 10.
-   * 
+   *
    * @defaultValue 2
    */
-  maxRetries?: number,
-  
+  maxRetries?: number
+
   /**
    * The total amount of time to continue retrying the check.
    * Maximum value is 600 seconds (10 minutes).
    * If retries would exceed this duration, they are stopped early.
-   * 
+   *
    * @defaultValue 600
    */
-  maxDurationSeconds?: number,
-  
+  maxDurationSeconds?: number
+
   /**
    * Whether retries should be run in the same region as the initial check run.
    * If false, retries use a randomly selected region for better fault tolerance.
-   * 
+   *
    * @defaultValue true
    */
-  sameRegion?: boolean,
+  sameRegion?: boolean
 
   /**
    * Apply the retry strategy only if the cause of the failure matches the
@@ -69,7 +69,7 @@ export interface RetryStrategy {
    * - NETWORK_ERROR: Retry only if the failure was caused by a network error.
    *   Available with the {@link ApiCheck} and {@link UrlMonitor} constructs.
    */
-  onlyOn?: RetryStrategyCondition,
+  onlyOn?: RetryStrategyCondition
 }
 
 /**
@@ -82,7 +82,7 @@ export type RetryStrategyOptions = Omit<RetryStrategy, 'type'>
  * Builder class for creating retry strategies.
  * Provides convenient methods to create different types of retry strategies.
  * Retry strategies control how and when to retry failed checks before marking them as failed.
- * 
+ *
  * @example
  * ```typescript
  * // Fixed retry strategy - same delay between retries (60s, 60s, 60s)
@@ -91,20 +91,20 @@ export type RetryStrategyOptions = Omit<RetryStrategy, 'type'>
  *   baseBackoffSeconds: 60,
  *   sameRegion: false
  * })
- * 
+ *
  * // Linear retry strategy - increasing delay (10s, 20s, 30s)
  * const linearRetry = RetryStrategyBuilder.linearStrategy({
  *   maxRetries: 3,
  *   baseBackoffSeconds: 10,
  *   maxDurationSeconds: 600
  * })
- * 
+ *
  * // Exponential retry strategy - exponential backoff (10s, 100s, 1000s)
  * const exponentialRetry = RetryStrategyBuilder.exponentialStrategy({
  *   maxRetries: 3,
  *   baseBackoffSeconds: 10
  * })
- * 
+ *
  * // No retries - fail immediately
  * const noRetries = RetryStrategyBuilder.noRetries()
  *
@@ -116,7 +116,7 @@ export type RetryStrategyOptions = Omit<RetryStrategy, 'type'>
  *   onlyOn: 'NETWORK_ERROR'
  * })
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/retries/ | Retry Strategies Documentation}
  */
 export class RetryStrategyBuilder {

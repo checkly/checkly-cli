@@ -2,7 +2,9 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export type ConfigDefaultsGetter = <K extends keyof CheckConfigDefaults> (key: K) => CheckConfigDefaults[K]
 
-export function makeConfigDefaultsGetter (...defaults: (Partial<CheckConfigDefaults> | undefined)[]): ConfigDefaultsGetter {
+export function makeConfigDefaultsGetter (
+  ...defaults: (Partial<CheckConfigDefaults> | undefined)[]
+): ConfigDefaultsGetter {
   const ok = defaults.filter(value => value !== undefined)
 
   function get<K extends keyof CheckConfigDefaults> (key: K): CheckConfigDefaults[K] {

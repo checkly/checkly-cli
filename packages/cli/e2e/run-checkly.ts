@@ -5,14 +5,14 @@ import type { Account } from '../src/rest/accounts'
 const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
 export function runChecklyCli (options: {
-  directory?: string,
-  args?: string[],
-  apiKey?: string,
-  accountId?: string,
-  env?: object,
-  cliVersion?: string,
-  promptsInjection?: (string | boolean | Account)[],
-  timeout?: number,
+  directory?: string
+  args?: string[]
+  apiKey?: string
+  accountId?: string
+  env?: object
+  cliVersion?: string
+  promptsInjection?: (string | boolean | Account)[]
+  timeout?: number
 }) {
   const {
     directory,
@@ -24,7 +24,7 @@ export function runChecklyCli (options: {
     promptsInjection = [],
     timeout = 30000,
   } = options
-  return new Promise<{ status: number|null, stdout: string, stderr: string }>((resolve) => {
+  return new Promise<{ status: number | null, stdout: string, stderr: string }>(resolve => {
     let stdout = ''
     let stderr = ''
     const child = childProcess.spawn(CHECKLY_PATH, args, {
@@ -54,18 +54,18 @@ export function runChecklyCli (options: {
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       stdout += data
     })
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       stderr += data
     })
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       clearTimeout(processTimeout)
       resolve({ status: code, stdout, stderr })
     })
-    child.on('exit', (code) => {
+    child.on('exit', code => {
       clearTimeout(processTimeout)
       resolve({ status: code, stdout, stderr })
     })

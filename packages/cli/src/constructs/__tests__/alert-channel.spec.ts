@@ -4,16 +4,16 @@ import { AlertChannel, AlertChannelProps } from '../index'
 import { Project, Session } from '../project'
 
 class TestAlertChannel extends AlertChannel {
-  constructor(logicalId: string, props: AlertChannelProps) {
+  constructor (logicalId: string, props: AlertChannelProps) {
     super(logicalId, props)
     Session.registerConstruct(this)
   }
 
-  describe(): string {
+  describe (): string {
     return `TestAlertChannel:${this.logicalId}`
   }
 
-  synthesize() {
+  synthesize () {
   }
 }
 

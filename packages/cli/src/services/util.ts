@@ -16,8 +16,8 @@ import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
-import { access , readFile} from 'fs/promises'
-import { createHash } from 'crypto';
+import { access, readFile } from 'fs/promises'
+import { createHash } from 'crypto'
 import { Session } from '../constructs'
 import semver from 'semver'
 
@@ -93,14 +93,14 @@ export function isFileSync (path: string): boolean {
   try {
     result = fsSync.existsSync(path)
   } catch (err: any) {
-    throw new Error(`Error parsing the file path: ${path}`)
+    throw new Error(`Error parsing file path '${path}': ${err}`)
   }
   return result
 }
 /**
  * @param repoUrl default repoURL the user can set in their project config.
  */
-export function getGitInformation (repoUrl?: string): GitInformation|null {
+export function getGitInformation (repoUrl?: string): GitInformation | null {
   const repositoryInfo = gitRepoInfo()
 
   if (!process.env.CHECKLY_REPO_SHA && !process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
@@ -114,9 +114,9 @@ export function getGitInformation (repoUrl?: string): GitInformation|null {
     repoUrl: process.env.CHECKLY_REPO_URL ?? process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
     branchName: process.env.CHECKLY_REPO_BRANCH ?? process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
     commitOwner: process.env.CHECKLY_REPO_COMMIT_OWNER ?? process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
-    commitMessage: process.env.CHECKLY_REPO_COMMIT_MESSAGE ??
-      process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE ??
-      repositoryInfo.commitMessage,
+    commitMessage: process.env.CHECKLY_REPO_COMMIT_MESSAGE
+      ?? process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE
+      ?? repositoryInfo.commitMessage,
   }
 }
 
@@ -129,12 +129,12 @@ export function getCiInformation (): CiInformation {
 export function escapeValue (value: string | undefined) {
   return value
     ? value
-      .replace(/\n/g, '\\n') // combine newlines (unix) into one line
-      .replace(/\r/g, '\\r') // combine newlines (windows) into one line
+        .replace(/\n/g, '\\n') // combine newlines (unix) into one line
+        .replace(/\r/g, '\\r') // combine newlines (windows) into one line
     : ''
 }
 
-export async function getEnvs (envFile: string|undefined, envArgs: Array<string>) {
+export async function getEnvs (envFile: string | undefined, envArgs: Array<string>) {
   if (envFile) {
     const envsString = await fs.readFile(envFile, { encoding: 'utf8' })
     return parse(envsString)
@@ -175,15 +175,23 @@ export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) 
   return axiosConfig
 }
 
-export function normalizeVersion(v?: string | undefined): string | undefined {
+export function normalizeVersion (v?: string | undefined): string | undefined {
   const cleaned =
-    semver.valid(semver.clean(v ?? '') || '') ??
-    semver.coerce(v ?? '')?.version;
-  return cleaned && semver.valid(cleaned) ? cleaned : undefined;
+    semver.valid(semver.clean(v ?? '') || '')
+    ?? semver.coerce(v ?? '')?.version
+  return cleaned && semver.valid(cleaned) ? cleaned : undefined
 }
 
-export async function bundlePlayWrightProject (playwrightConfig: string, include: string[]):
-Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: string, cacheHash: string, playwrightVersion: string | undefined}> {
+export async function bundlePlayWrightProject (
+  playwrightConfig: string,
+  include: string[],
+): Promise<{
+  outputFile: string
+  browsers: string[]
+  relativePlaywrightConfigPath: string
+  cacheHash: string
+  playwrightVersion: string | undefined
+}> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
   const pwtConfig = await Session.loadFile(filePath)
@@ -208,7 +216,7 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
   const [cacheHash, playwrightVersion] = await Promise.all([
     getCacheHash(lockFile),
     getPlaywrightVersion(dir),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive)
+    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
   ])
 
   await archive.finalize()
@@ -219,55 +227,55 @@ Promise<{outputFile: string, browsers: string[], relativePlaywrightConfigPath: s
         browsers: pwConfigParsed.getBrowsers(),
         playwrightVersion,
         relativePlaywrightConfigPath: path.relative(dir, filePath),
-        cacheHash
+        cacheHash,
       })
     })
 
-    output.on('error', (err) => {
+    output.on('error', err => {
       return reject(err)
     })
   })
 }
 
 export async function getCacheHash (lockFile: string): Promise<string> {
-  const fileBuffer = await readFile(lockFile);
-  const hash = createHash('sha256');
-  hash.update(fileBuffer);
-  return hash.digest('hex');
+  const fileBuffer = await readFile(lockFile)
+  const hash = createHash('sha256')
+  hash.update(fileBuffer)
+  return hash.digest('hex')
 }
 
-export async function getPlaywrightVersion(projectDir: string): Promise<string | undefined> {
+export async function getPlaywrightVersion (projectDir: string): Promise<string | undefined> {
   try {
-    const modulePath = path.join(projectDir, 'node_modules', '@playwright', 'test', 'package.json');
-    const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'));
-    return normalizeVersion(packageJson.version);
+    const modulePath = path.join(projectDir, 'node_modules', '@playwright', 'test', 'package.json')
+    const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'))
+    return normalizeVersion(packageJson.version)
   } catch {
     // If node_modules not found, fall back to checking the project's package.json
-    const packageJsonPath = path.join(projectDir, 'package.json');
+    const packageJsonPath = path.join(projectDir, 'package.json')
     try {
-      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
-      const version = packageJson.dependencies?.['@playwright/test'] ||
-                      packageJson.devDependencies?.['@playwright/test'];
-      return normalizeVersion(version);
+      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'))
+      const version = packageJson.dependencies?.['@playwright/test']
+        || packageJson.devDependencies?.['@playwright/test']
+      return normalizeVersion(version)
     } catch {
-      return;
+      return
     }
   }
 }
 
-async function findLockFile(dir: string): Promise<string | null> {
-  const lockFiles = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"];
+async function findLockFile (dir: string): Promise<string | null> {
+  const lockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock']
 
   for (const lockFile of lockFiles) {
-    const filePath = path.join(dir, lockFile);
+    const filePath = path.join(dir, lockFile)
     try {
-      await access(filePath);
-      return filePath;
+      await access(filePath)
+      return filePath
     } catch {
       // Ignore errors, just check the next file
     }
   }
-  return null; // Return null if no lock file is found
+  return null // Return null if no lock file is found
 }
 
 export async function loadPlaywrightProjectFiles (
@@ -278,7 +286,7 @@ export async function loadPlaywrightProjectFiles (
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   const mode = 0o755 // Default mode for files in the archive
   if (errors.length) {
-      throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
+    throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
   for (const file of files) {
     const relativePath = path.relative(dir, file)
@@ -289,12 +297,12 @@ export async function loadPlaywrightProjectFiles (
   archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: path.join(dir, '/') },  { mode })
+    archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
   }
 }
 
 export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
-  Promise<string[]> {
+Promise<string[]> {
   const files = await findFilesWithPattern(directory, '**/*.{js,ts,mjs}', ignorePattern)
   return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
 }
@@ -302,7 +310,7 @@ export async function findRegexFiles (directory: string, regex: RegExp, ignorePa
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
-  ignorePattern: string[]
+  ignorePattern: string[],
 ): Promise<string[]> {
   // The files are sorted to make sure that the processing order is deterministic.
   const files = await glob(pattern, {
@@ -321,7 +329,11 @@ export function cleanup (dir: string) {
   return fs.rm(dir, { recursive: true, force: true })
 }
 
-export function getDefaultChecklyConfig (directoryName: string, playwrightConfigPath: string, playwrightCheck: PlaywrightSlimmedProp | null = null): ChecklyConfig {
+export function getDefaultChecklyConfig (
+  directoryName: string,
+  playwrightConfigPath: string,
+  playwrightCheck: PlaywrightSlimmedProp | null = null,
+): ChecklyConfig {
   const check = playwrightCheck || {
     logicalId: directoryName,
     name: directoryName,

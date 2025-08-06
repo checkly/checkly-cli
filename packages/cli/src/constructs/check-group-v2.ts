@@ -63,7 +63,7 @@ export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalat
    *
    * If not set, individual check settings are used.
    */
-  alertEscalationPolicy?: AlertEscalation | 'global',
+  alertEscalationPolicy?: AlertEscalation | 'global'
 
   /**
    * Sets a retry policy for the group. Use {@link RetryStrategyBuilder} to
@@ -159,7 +159,7 @@ export class CheckGroupV2 extends CheckGroupV1 {
     await validateRemovedDoubleCheck(diagnostics, this)
   }
 
-  synthesize() {
+  synthesize () {
     return {
       ...super.synthesize(),
       doubleCheck: undefined,

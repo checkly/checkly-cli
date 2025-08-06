@@ -9,7 +9,6 @@ import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle'
 import { pullSnapshots } from '../services/snapshot-service'
 import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
 
-
 export default class TestRunner extends AbstractCheckRunner {
   projectBundle: ProjectBundle
   checkBundles: ResourceDataBundle<Check>[]
@@ -53,8 +52,8 @@ export default class TestRunner extends AbstractCheckRunner {
   async scheduleChecks (
     checkRunSuiteId: string,
   ): Promise<{
-    testSessionId?: string,
-    checks: Array<{ check: any, sequenceId: SequenceId }>,
+    testSessionId?: string
+    checks: Array<{ check: any, sequenceId: SequenceId }>
   }> {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
       // Playwright checks lazy load groups so they're only present in the
@@ -91,7 +90,9 @@ export default class TestRunner extends AbstractCheckRunner {
         shouldRecord: this.shouldRecord,
       })
       const { testSessionId, sequenceIds } = data
-      const checks = this.checkBundles.map(({ construct: check }) => ({ check, sequenceId: sequenceIds?.[check.logicalId] }))
+      const checks = this.checkBundles.map(({ construct: check }) => {
+        return { check, sequenceId: sequenceIds?.[check.logicalId] }
+      })
       return { testSessionId, checks }
     } catch (err: any) {
       throw new Error(err.response?.data?.message ?? err.response?.data?.error ?? err.message)

@@ -24,32 +24,32 @@ export type CheckConfigDefaults =
   | 'retryStrategy'
   | 'shouldFail'
   | 'tags'
-  > &
-  Pick<RuntimeCheckProps,
+  >
+  & Pick<RuntimeCheckProps,
   | 'environmentVariables'
   | 'runtimeId'
-  > &
+  >
   // This is used by BrowserChecks and MultiStepChecks.
-  { playwrightConfig?: PlaywrightConfig }
+  & { playwrightConfig?: PlaywrightConfig }
 
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'
-  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'groupName' | 'runParallel'> & {logicalId: string}
+  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'groupName' | 'runParallel'> & { logicalId: string }
 
 export type ChecklyConfig = {
   /**
    * Friendly name for your project.
    */
-  projectName: string,
+  projectName: string
   /**
    * Unique project identifier.
    */
-  logicalId: string,
+  logicalId: string
   /**
    * Git repository URL.
    */
-  repoUrl?: string,
+  repoUrl?: string
   /**
    * Checks default configuration properties.
    */
@@ -57,13 +57,13 @@ export type ChecklyConfig = {
     /**
      * Glob pattern where the CLI looks for files containing Check constructs, i.e. all `.checks.ts` files
      */
-    checkMatch?: string | string[],
+    checkMatch?: string | string[]
     /**
      * List of glob patterns with directories to ignore.
      */
-    ignoreDirectoriesMatch?: string[],
+    ignoreDirectoriesMatch?: string[]
 
-    playwrightConfig?: PlaywrightConfig,
+    playwrightConfig?: PlaywrightConfig
 
     /**
      * Browser checks default configuration properties.
@@ -72,8 +72,8 @@ export type ChecklyConfig = {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
-      testMatch?: string | string[],
-    },
+      testMatch?: string | string[]
+    }
     /**
      * Multistep checks default configuration properties.
      */
@@ -81,32 +81,32 @@ export type ChecklyConfig = {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
-      testMatch?: string | string[],
-    },
+      testMatch?: string | string[]
+    }
     /**
      * Playwright config path to be used during bundling and playwright config parsing
      */
-    playwrightConfigPath?: string,
+    playwrightConfigPath?: string
 
     /**
      * Extra files to be included into the playwright bundle
      */
-    include?: string | string[],
+    include?: string | string[]
     /**
      * List of playwright checks that use the defined playwright config path
      */
     playwrightChecks?: PlaywrightSlimmedProp[]
-  },
+  }
   /**
    * CLI default configuration properties.
    */
   cli?: {
-    runLocation?: keyof Region,
-    privateRunLocation?: string,
-    verbose?: boolean,
-    reporters?: ReporterType[],
-    retries?: number,
-    loader?: FileLoader,
+    runLocation?: keyof Region
+    privateRunLocation?: string
+    verbose?: boolean
+    reporters?: ReporterType[]
+    retries?: number
+    loader?: FileLoader
   }
 }
 
@@ -114,7 +114,7 @@ function isString (obj: any) {
   return (Object.prototype.toString.call(obj) === '[object String]')
 }
 
-export async function getChecklyConfigFile (): Promise<{checklyConfig: string, fileName: string} | undefined> {
+export async function getChecklyConfigFile (): Promise<{ checklyConfig: string, fileName: string } | undefined> {
   const filenames = [
     'checkly.config.ts',
     'checkly.config.mts',
@@ -174,7 +174,11 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
   return { config, constructs }
 }
 
-async function handleMissingConfig (dir: string, filenames: string[], shouldWriteConfig: boolean = true): Promise<ChecklyConfig> {
+async function handleMissingConfig (
+  dir: string,
+  filenames: string[],
+  shouldWriteConfig: boolean = true,
+): Promise<ChecklyConfig> {
   const baseName = path.basename(dir)
   const playwrightConfigPath = findPlaywrightConfigPath(dir)
   if (playwrightConfigPath) {

@@ -10,26 +10,26 @@ export interface UrlRequest {
   /**
    * The URL to monitor.
    * Must be a valid HTTP or HTTPS URL.
-   * 
+   *
    * @maxLength 2048
    * @example 'https://api.example.com/health'
    */
   url: string
-  
+
   /**
    * IP family version to use for the connection.
    * Useful when you need to specifically test IPv4 or IPv6 connectivity.
-   * 
+   *
    * @defaultValue 'IPv4'
    * @example 'IPv6'  // Force IPv6 connection
    */
   ipFamily?: IPFamily
-  
+
   /**
    * Whether to follow HTTP redirects automatically.
    * When true, the monitor will follow redirect responses (3xx status codes).
    * When false, a redirect will be treated as the final response.
-   * 
+   *
    * @defaultValue true
    * @example
    * ```typescript
@@ -38,11 +38,11 @@ export interface UrlRequest {
    * ```
    */
   followRedirects?: boolean
-  
+
   /**
    * Whether to skip SSL certificate verification.
    * Only use this for testing purposes or for internal endpoints with self-signed certificates.
-   * 
+   *
    * @defaultValue false
    * @example
    * ```typescript
@@ -51,12 +51,12 @@ export interface UrlRequest {
    * ```
    */
   skipSSL?: boolean
-  
+
   /**
    * Assertions to validate the HTTP response.
    * URL monitors only support status code assertions.
    * For more complex assertions (headers, body content), use ApiCheck.
-   * 
+   *
    * @example
    * ```typescript
    * assertions: [

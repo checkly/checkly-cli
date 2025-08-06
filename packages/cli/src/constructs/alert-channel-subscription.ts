@@ -3,20 +3,20 @@ import { Construct } from './construct'
 import { Session } from './project'
 
 export interface AlertChannelSubscriptionProps {
-    alertChannelId: Ref
-    /**
-     * You can either pass a checkId or a groupId, but not both.
-     */
-    checkId?: Ref
-    /**
-     * You can either pass a groupId or a checkId, but not both.
-     */
-    groupId?: Ref
-    /**
-     *  Determines if the suscription active or not.
-     */
-    activated: boolean
-  }
+  alertChannelId: Ref
+  /**
+   * You can either pass a checkId or a groupId, but not both.
+   */
+  checkId?: Ref
+  /**
+   * You can either pass a groupId or a checkId, but not both.
+   */
+  groupId?: Ref
+  /**
+   * Determines if the suscription active or not.
+   */
+  activated: boolean
+}
 
 /**
  * Creates an Alert Channel Subscription

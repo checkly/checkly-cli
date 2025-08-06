@@ -19,7 +19,7 @@ export interface Assertion<Source extends string> {
   property: string
   comparison: string
   target: string
-  regex: string|null
+  regex: string | null
 }
 
 export class NumericAssertionBuilder<Source extends string> {
@@ -68,11 +68,11 @@ export class GeneralAssertionBuilder<Source extends string> {
     this.regex = regex
   }
 
-  equals (target: string|number|boolean): Assertion<Source> {
+  equals (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('EQUALS', target)
   }
 
-  notEquals (target: string|number|boolean): Assertion<Source> {
+  notEquals (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('NOT_EQUALS', target)
   }
 
@@ -84,11 +84,11 @@ export class GeneralAssertionBuilder<Source extends string> {
     return this._toAssertion('NOT_HAS_KEY', target)
   }
 
-  hasValue (target: string|number|boolean): Assertion<Source> {
+  hasValue (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('HAS_VALUE', target)
   }
 
-  notHasValue (target: string|number|boolean): Assertion<Source> {
+  notHasValue (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('NOT_HAS_VALUE', target)
   }
 
@@ -100,11 +100,11 @@ export class GeneralAssertionBuilder<Source extends string> {
     return this._toAssertion('NOT_EMPTY')
   }
 
-  lessThan (target: string|number|boolean): Assertion<Source> {
+  lessThan (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('LESS_THAN', target)
   }
 
-  greaterThan (target: string|number|boolean): Assertion<Source> {
+  greaterThan (target: string | number | boolean): Assertion<Source> {
     return this._toAssertion('GREATER_THAN', target)
   }
 
@@ -125,7 +125,7 @@ export class GeneralAssertionBuilder<Source extends string> {
   }
 
   /** @private */
-  private _toAssertion (comparison: Comparison, target?: string|number|boolean): Assertion<Source> {
+  private _toAssertion (comparison: Comparison, target?: string | number | boolean): Assertion<Source> {
     return {
       source: this.source,
       comparison,

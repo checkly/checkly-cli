@@ -21,7 +21,7 @@ export default class Bootstrap extends Command {
   static description = 'Bootstrap a Checkly project'
 
   static flags = {
-    template: Flags.string({
+    'template': Flags.string({
       char: 't',
       description: 'An optional template name',
     }),
@@ -31,7 +31,7 @@ export default class Bootstrap extends Command {
     }),
   }
 
-  async run(): Promise<void> {
+  async run (): Promise<void> {
     const { flags } = await this.parse(Bootstrap)
     const { template, 'non-interactive': explicitNonInteractive } = flags
 
@@ -40,15 +40,15 @@ export default class Bootstrap extends Command {
       if (explicitNonInteractive) {
         return false
       }
-  
+
       if (process.env.CHECKLY_E2E_ISTTY === 'true') {
         return true
       }
-  
+
       if (process.stdin.isTTY && process.stdout.isTTY) {
         return true
       }
-  
+
       return false
     })()
 
@@ -79,7 +79,9 @@ export default class Bootstrap extends Command {
         const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
         this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
         version = packageInformation.version
-      } catch { }
+      } catch {
+        // No-op
+      }
     }
 
     // Override prompts for non-interactive mode BEFORE any prompts are called
@@ -96,7 +98,7 @@ export default class Bootstrap extends Command {
         website: 'https://checklyhq.com',
         installDependencies: true,
         initializeGit: false,
-        shouldCopyPlaywrightConfig: true
+        shouldCopyPlaywrightConfig: true,
       })
     }
 

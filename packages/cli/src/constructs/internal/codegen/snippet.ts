@@ -1,4 +1,4 @@
-import { Parser } from "../../../services/check-parser/parser"
+import { Parser } from '../../../services/check-parser/parser'
 
 export class UnsupportedScriptError extends Error {}
 
@@ -46,7 +46,7 @@ const SNIPPET_PATH_PREFIX = './snippets/'
 export function parseSnippetDependencies (content: string): string[] {
   const {
     module: { dependencies },
-    error
+    error,
   } = Parser.parseDependencies('__placeholder.ts', content)
 
   if (error) {

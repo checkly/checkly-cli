@@ -42,7 +42,7 @@ export class PlaywrightCheckBundle implements Bundle {
       cacheHash: this.cacheHash,
       playwrightVersion: this.playwrightVersion,
       installCommand: this.installCommand,
-      testCommand: this.testCommand
+      testCommand: this.testCommand,
     }
   }
 }

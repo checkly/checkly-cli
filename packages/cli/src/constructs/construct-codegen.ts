@@ -14,17 +14,17 @@ import { StatusPageServiceCodegen } from './status-page-service-codegen'
 import { StatusPageCodegen } from './status-page-codegen'
 
 export type ResourceType =
-  'alert-channel-subscription' |
-  'alert-channel' |
-  'check-group' |
-  'check' |
-  'dashboard' |
-  'maintenance-window' |
-  'private-location-check-assignment' |
-  'private-location-group-assignment' |
-  'private-location' |
-  'status-page' |
-  'status-page-service'
+  'alert-channel-subscription'
+  | 'alert-channel'
+  | 'check-group'
+  | 'check'
+  | 'dashboard'
+  | 'maintenance-window'
+  | 'private-location-check-assignment'
+  | 'private-location-group-assignment'
+  | 'private-location'
+  | 'status-page'
+  | 'status-page-service'
 
 interface Resource {
   type: ResourceType
@@ -36,8 +36,8 @@ const resourceOrder: Record<ResourceType, number> = {
   'alert-channel-subscription': 800,
   'alert-channel': 810,
   'check-group': 700,
-  check: 600,
-  dashboard: 0,
+  'check': 600,
+  'dashboard': 0,
   'maintenance-window': 0,
   'private-location-check-assignment': 900,
   'private-location-group-assignment': 900,
@@ -86,8 +86,8 @@ export class ConstructCodegen extends Codegen<Resource> {
       'alert-channel-subscription': this.alertChannelSubscriptionCodegen,
       'alert-channel': this.alertChannelCodegen,
       'check-group': this.checkGroupCodegen,
-      check: this.checkCodegen,
-      dashboard: this.dashboardCodegen,
+      'check': this.checkCodegen,
+      'dashboard': this.dashboardCodegen,
       'maintenance-window': this.maintenanceWindowCodegen,
       'private-location-check-assignment': this.privateLocationCheckAssignmentCodegen,
       'private-location-group-assignment': this.privateLocationGroupAssignmentCodegen,

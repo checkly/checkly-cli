@@ -44,7 +44,7 @@ function handleError (copySpinner: ora.Ora, message: string | unknown) {
   process.exit(1)
 }
 
-function getChecklyConfigFile (): {checklyConfig: string, fileName: string} | undefined {
+function getChecklyConfigFile (): { checklyConfig: string, fileName: string } | undefined {
   const filenames = [
     'checkly.config.ts',
     'checkly.config.mts',

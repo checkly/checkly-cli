@@ -12,13 +12,13 @@ export type TcpAssertion = CoreAssertion<TcpAssertionSource>
 /**
  * Builder class for creating TCP monitor assertions.
  * Provides methods to create assertions for TCP connection responses.
- * 
+ *
  * @example
  * ```typescript
  * // Response time assertions
  * TcpAssertionBuilder.responseTime().lessThan(1000)
  * TcpAssertionBuilder.responseTime().greaterThan(100)
- * 
+ *
  * // Response data assertions
  * TcpAssertionBuilder.responseData().contains('SMTP')
  * TcpAssertionBuilder.responseData().notContains('error')
@@ -51,38 +51,38 @@ export interface TcpRequest {
   /**
    * The hostname the connection should be made to.
    * Do not include a scheme or a port in the hostname.
-   * 
+   *
    * @example 'api.example.com' | '192.168.1.1'
    */
   hostname: string
-  
+
   /**
    * The port the connection should be made to.
-   * 
+   *
    * @minimum 1
    * @maximum 65535
    * @example 443 | 80 | 22 | 3306
    */
   port: number
-  
+
   /**
    * Assertions to validate the TCP response.
    * Check the main Checkly documentation on TCP assertions for specific values
    * that you can use in the "property" field.
    */
   assertions?: Array<TcpAssertion>
-  
+
   /**
    * The IP family to use for the connection.
-   * 
+   *
    * @defaultValue 'IPv4'
    */
   ipFamily?: IPFamily
-  
+
   /**
    * The data to send to the target host after connection is established.
    * Used for protocol-specific handshakes or commands.
-   * 
+   *
    * @example 'GET / HTTP/1.1\r\nHost: example.com\r\n\r\n'
    */
   data?: string
@@ -96,7 +96,7 @@ export interface TcpMonitorProps extends MonitorProps {
   /**
    * The response time in milliseconds where a check should be considered degraded.
    * TCP checks have lower thresholds than HTTP checks due to protocol differences.
-   * 
+   *
    * @defaultValue 4000
    * @minimum 0
    * @maximum 5000
@@ -106,11 +106,11 @@ export interface TcpMonitorProps extends MonitorProps {
    * ```
    */
   degradedResponseTime?: number
-  
+
   /**
    * The response time in milliseconds where a check should be considered failing.
    * Maximum allowed value is lower for TCP checks compared to HTTP checks.
-   * 
+   *
    * @defaultValue 5000
    * @minimum 0
    * @maximum 5000

@@ -1,6 +1,6 @@
 import prompts from 'prompts'
 import * as api from '../../rest/api'
-import { Flags, Args, ux } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 
 export default class EnvAdd extends AuthCommand {

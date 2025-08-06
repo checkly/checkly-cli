@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 
@@ -27,30 +27,30 @@ describe('util', () => {
   })
 
   describe('getPlaywrightVersion()', () => {
-    const fixturesDir = path.join(__dirname, '..', '__tests__', 'fixtures', 'playwright-json');
-    const emptyDir = path.join(__dirname, 'fixtures', 'empty');
+    const fixturesDir = path.join(__dirname, '..', '__tests__', 'fixtures', 'playwright-json')
+    const emptyDir = path.join(__dirname, 'fixtures', 'empty')
 
     // Create empty directory for testing the "not found" case
     beforeEach(async () => {
       if (!fsSync.existsSync(emptyDir)) {
-        await fs.mkdir(emptyDir, { recursive: true });
+        await fs.mkdir(emptyDir, { recursive: true })
       }
-    });
+    })
 
     afterAll(async () => {
       if (fsSync.existsSync(emptyDir)) {
-        await fs.rm(emptyDir, { recursive: true, force: true });
+        await fs.rm(emptyDir, { recursive: true, force: true })
       }
     })
 
     it('should find version using node_modules path', async () => {
-      const version = await getPlaywrightVersion(fixturesDir);
-      expect(version).toBe('1.1.1');
-    });
+      const version = await getPlaywrightVersion(fixturesDir)
+      expect(version).toBe('1.1.1')
+    })
 
     it('should return undefined if playwright is not found', async () => {
-      const version = await getPlaywrightVersion(emptyDir);
-      expect(version).toBeUndefined();
-    });
+      const version = await getPlaywrightVersion(emptyDir)
+      expect(version).toBeUndefined()
+    })
   })
 })

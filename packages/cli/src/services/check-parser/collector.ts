@@ -1,13 +1,13 @@
 import { DependencyParseError } from './errors'
 
 export type UnsupportedNpmDependencies = {
-  file: string;
-  unsupportedDependencies: string[];
+  file: string
+  unsupportedDependencies: string[]
 }
 
 export type ParseError = {
-  file: string;
-  error: string;
+  file: string
+  error: string
 }
 
 export class Collector {

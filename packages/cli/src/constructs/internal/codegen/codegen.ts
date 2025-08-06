@@ -8,7 +8,14 @@ export abstract class Codegen<T> {
     this.program = program
   }
 
-  prepare (logicalId: string, resource: T, context: Context): void {
+  prepare (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    logicalId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    resource: T,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    context: Context,
+  ): void {
     // No-op
   }
 

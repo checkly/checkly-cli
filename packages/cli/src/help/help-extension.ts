@@ -22,7 +22,7 @@ export default class ChecklyHelpClass extends Help {
         .filter(c => !c.id.includes(':'))
         .map(c => [c.id, this.summary(c)])
         .concat(topics.map(t => [t.name, t.description]))
-        .sort(([a, x], [b, y]) => (a! < b!) ? -1 : 1)
+        .sort(([a], [b]) => (a! < b!) ? -1 : 1)
 
     const reder = (commands: (string | undefined)[][]) =>
       this.renderList(commands, {
@@ -31,9 +31,9 @@ export default class ChecklyHelpClass extends Help {
         indentation: 2,
       })
 
-    return this.section('CORE COMMANDS', reder(formatCommandsWithoutTopics(coreCommands))) +
-      '\n' + '\n' +
-      this.section('ADDITIONAL COMMANDS', reder(formatCommandsWithTopics(additionalCommands)))
+    return this.section('CORE COMMANDS', reder(formatCommandsWithoutTopics(coreCommands)))
+      + '\n' + '\n'
+      + this.section('ADDITIONAL COMMANDS', reder(formatCommandsWithTopics(additionalCommands)))
   }
 
   public showRootHelp (): Promise<void> {
@@ -55,7 +55,7 @@ export default class ChecklyHelpClass extends Help {
     }
 
     this.log(this.section('ENVIRONMENT VARIABLES',
-    `Running the CLI from your CI pipeline will need to export variables in the shell:\n
+      `Running the CLI from your CI pipeline will need to export variables in the shell:\n
   CHECKLY_ACCOUNT_ID    Checkly account ID.
   CHECKLY_API_KEY       Checkly User API Key.
     `))
