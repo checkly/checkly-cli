@@ -69,7 +69,7 @@ export function formatCheckTitle (
 
 export function formatCheckResult (checkResult: any) {
   const result = []
-  if (checkResult.checkType === 'API') {
+  if (checkResult.checkType === 'API' || checkResult.checkType === 'URL') {
     // Order should follow the check lifecycle (response, then assertions)
     if (checkResult.checkRunData?.requestError) {
       result.push([
