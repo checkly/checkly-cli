@@ -28,7 +28,7 @@ export default class Destroy extends AuthCommand {
     const { force, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     if (!force) {
       const { projectName } = await prompts({
         name: 'projectName',

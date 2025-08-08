@@ -953,7 +953,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     let project: Project
     try {
-      const { data: account } = await api.accounts.get(config.getAccountId())
+      const account = this.account
       const { data: availableRuntimes } = await api.runtimes.getAll()
 
       project = await parseProject({

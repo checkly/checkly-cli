@@ -221,8 +221,7 @@ export default class Trigger extends AuthCommand {
       if (privateLocation) {
         return { type: 'PRIVATE', id: privateLocation.id, slugName: privateLocationSlugName }
       }
-      const { data: account } = await api.accounts.get(config.getAccountId())
-      throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
+      throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${this.account.name}".`)
     } catch (err: any) {
       throw new Error(`Failed to get private locations. ${err.message}.`)
     }

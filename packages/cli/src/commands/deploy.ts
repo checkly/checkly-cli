@@ -93,7 +93,7 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
