@@ -1,5 +1,4 @@
 import * as api from '../rest/api'
-import config from '../services/config'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -39,7 +38,7 @@ export default class Validate extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,

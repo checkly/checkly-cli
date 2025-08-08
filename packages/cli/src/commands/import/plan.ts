@@ -32,7 +32,6 @@ import { PackageJsonFile } from '../../services/check-parser/package-files/packa
 import { detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
 import { parseProject } from '../../services/project-parser'
 import { Runtime } from '../../rest/runtimes'
-import config from '../../services/config'
 import { ConstructExport, Project, Session } from '../../constructs/project'
 import { Diagnostics } from '../../constructs'
 
@@ -953,7 +952,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     let project: Project
     try {
-      const { data: account } = await api.accounts.get(config.getAccountId())
+      const account = this.account
       const { data: availableRuntimes } = await api.runtimes.getAll()
 
       project = await parseProject({

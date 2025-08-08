@@ -1,7 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
-import config from '../services/config'
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
@@ -93,7 +92,7 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,

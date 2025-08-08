@@ -2,7 +2,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { name as CIname } from 'ci-info'
 import config from '../services/config'
 import { assignProxy } from '../services/util'
-import Accounts from './accounts'
+import Accounts, { Account } from './accounts'
 import Users from './users'
 import Projects from './projects'
 import Assets from './assets'
@@ -23,7 +23,7 @@ export function getDefaults () {
   return { baseURL, accountId, Authorization, apiKey }
 }
 
-export async function validateAuthentication (): Promise<void> {
+export async function validateAuthentication (): Promise<Account | undefined> {
   // This internal environment variable allows auth checks to be skipped
   // when using e.g. debug flags that don't actually need to authenticate
   // with the Checkly API.
@@ -41,7 +41,8 @@ export async function validateAuthentication (): Promise<void> {
 
   try {
     // check if credentials works
-    await accounts.get(accountId)
+    const resp = await accounts.get(accountId)
+    return resp.data
   } catch (err: any) {
     if (err.response?.status === 401) {
       throw new Error(`Authentication failed with account id "${accountId}" `

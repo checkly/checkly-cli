@@ -3,7 +3,6 @@ import * as api from '../rest/api'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { AuthCommand } from './authCommand'
 import prompts from 'prompts'
-import config from '../services/config'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 
@@ -28,7 +27,7 @@ export default class Destroy extends AuthCommand {
     const { force, config: configFilename } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     if (!force) {
       const { projectName } = await prompts({
         name: 'projectName',

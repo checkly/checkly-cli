@@ -161,7 +161,7 @@ export default class Test extends AuthCommand {
     config.getAccountId())
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: availableRuntimes } = await api.runtimes.getAll()
 
     const project = await parseProject({

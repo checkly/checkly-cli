@@ -128,7 +128,7 @@ export default class PwTestCommand extends AuthCommand {
       privateRunLocation,
     }, api, config.getAccountId())
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: availableRuntimes } = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)
 
