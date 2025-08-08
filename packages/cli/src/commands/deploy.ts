@@ -1,7 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
-import config from '../services/config'
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'

@@ -1,5 +1,4 @@
 import * as api from '../rest/api'
-import config from '../services/config'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'

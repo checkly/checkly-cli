@@ -3,7 +3,6 @@ import * as api from '../rest/api'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { AuthCommand } from './authCommand'
 import prompts from 'prompts'
-import config from '../services/config'
 import { splitConfigFilePath } from '../services/util'
 import commonMessages from '../messages/common-messages'
 
