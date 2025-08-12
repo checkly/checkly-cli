@@ -40,16 +40,12 @@ export default class EnvRm extends AuthCommand {
       }
     }
 
-    // try to delete env variable catch 404 if env variable does not exist
     try {
       await api.environmentVariables.delete(envVariableKey)
-      this.log(`Environment variable ${envVariableKey} deleted.`)
+      this.style.shortSuccess(`Environment variable "${envVariableKey}" deleted.`)
     } catch (err: any) {
-      if (err?.response?.status === 404) {
-        throw new Error(`Environment variable ${envVariableKey} does not exist.`)
-      } else {
-        throw new Error(`Failed to delete environment variable. ${err.message}`)
-      }
+      this.style.longError(`Your environment variable could not be removed.`, err)
+      this.exit(1)
     }
   }
 }

@@ -13,6 +13,7 @@ import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
 import ChecklyStorage from './checkly-storage'
+import { handleErrorResponse, UnauthorizedError } from './errors'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -44,15 +45,12 @@ export async function validateAuthentication (): Promise<Account | undefined> {
     const resp = await accounts.get(accountId)
     return resp.data
   } catch (err: any) {
-    if (err.response?.status === 401) {
+    if (err instanceof UnauthorizedError) {
       throw new Error(`Authentication failed with account id "${accountId}" `
         + `and API key "...${apiKey?.slice(-4)}"`)
-    } else if (!err.response) {
-      // The request was made but no response was received. This may be due to an internet connection issue.
-      throw new Error(`Encountered an error connecting to Checkly. Please check that the internet connection is working. ${err.message}`)
-    } else {
-      throw new Error(`Encountered an unexpected error connecting to Checkly: ${err.message}`)
     }
+
+    throw err
   }
 }
 
@@ -72,11 +70,7 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
 }
 
 export function responseErrorInterceptor (error: any) {
-  if (error.response?.status === 408) {
-    throw new Error('Encountered an error connecting to Checkly. '
-      + 'This can be triggered by a slow internet connection or a network with high packet loss.')
-  }
-  throw error
+  handleErrorResponse(error)
 }
 
 function init (): AxiosInstance {

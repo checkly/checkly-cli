@@ -38,7 +38,7 @@ describe('checkly env add', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
-    expect(result.stdout).toContain(`Environment variable testenvvars-${executionId} added.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvars-${executionId}" added.`)
   })
 
   it('should add a new locked env variable called testenvvars', async () => {
@@ -48,7 +48,7 @@ describe('checkly env add', () => {
       accountId: config.get('accountId'),
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
-    expect(result.stdout).toContain(`Environment variable testenvvarslocked-${executionId} added.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvarslocked-${executionId}" added.`)
   })
 
   it('should add fail because env variable called testenvvars exists', async () => {
@@ -66,6 +66,6 @@ describe('checkly env add', () => {
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
       timeout: 10000,
     })
-    expect(result.stderr).toContain(`Environment variable testenvvarslocked-${executionId} already exists.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvarslocked-${executionId}" already exists.`)
   })
 })
