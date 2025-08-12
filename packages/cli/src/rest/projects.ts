@@ -119,9 +119,10 @@ class Projects {
     return this.api.get<Array<ProjectResponse>>('/next/projects')
   }
 
-  async get (id: string) {
+  async get (logicalId: string) {
     try {
-      return await this.api.get<ProjectResponse>(`/next/projects/${id}`)
+      const logicalIdParam = encodeURIComponent(logicalId)
+      return await this.api.get<ProjectResponse>(`/next/projects/${logicalIdParam}`)
     } catch (err) {
       if (isAxiosError(err)) {
         if (err.response?.status === 404) {
@@ -139,7 +140,8 @@ class Projects {
 
   async deleteProject (logicalId: string) {
     try {
-      return await this.api.delete(`/next/projects/${logicalId}`)
+      const logicalIdParam = encodeURIComponent(logicalId)
+      return await this.api.delete(`/next/projects/${logicalIdParam}`)
     } catch (err) {
       if (isAxiosError(err)) {
         if (err.response?.status === 404) {
@@ -164,7 +166,8 @@ class Projects {
       filters: options?.filters,
       friends: options?.friends,
     }
-    return await this.api.post<ImportPlan>(`/next/projects/${logicalId}/imports`, payload, {
+    const logicalIdParam = encodeURIComponent(logicalId)
+    return await this.api.post<ImportPlan>(`/next/projects/${logicalIdParam}/imports`, payload, {
       params: {
         preview: options?.preview ?? false,
       },
@@ -173,7 +176,8 @@ class Projects {
 
   async findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {
     try {
-      return await this.api.get<ImportPlan[]>(`/next/projects/${logicalId}/imports`, {
+      const logicalIdParam = encodeURIComponent(logicalId)
+      return await this.api.get<ImportPlan[]>(`/next/projects/${logicalIdParam}/imports`, {
         params: {
           onlyUnapplied,
           onlyUncommitted,
