@@ -36,6 +36,6 @@ describe('checkly env update', () => {
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
     // expect that 'testenvvarsUpdate' is in the output
-    expect(result.stdout).toContain(`Environment variable testenvvarsUpdate-${executionId} updated.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvarsUpdate-${executionId}" updated.`)
   })
 })

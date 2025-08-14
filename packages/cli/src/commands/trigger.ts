@@ -6,7 +6,7 @@ import { AuthCommand } from './authCommand'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
 import type { Region } from '..'
-import TriggerRunner, { NoMatchingChecksError } from '../services/trigger-runner'
+import TriggerRunner from '../services/trigger-runner'
 import {
   RunLocation,
   Events,
@@ -17,7 +17,7 @@ import {
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import { printLn } from '../reporters/util'
-import { TestResultsShortLinks } from '../rest/test-sessions'
+import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions'
 import { Session, RetryStrategyBuilder } from '../constructs'
 import { DEFAULT_REGION } from '../helpers/constants'
 

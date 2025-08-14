@@ -1,7 +1,8 @@
-import { isAxiosError, type AxiosInstance } from 'axios'
+import { type AxiosInstance } from 'axios'
 import type { GitInformation } from '../services/util'
 import { compressJSONPayload } from './util'
 import { SharedFile } from '../constructs'
+import { ConflictError, ForbiddenError, NotFoundError } from './errors'
 
 export interface Project {
   name: string
@@ -107,7 +108,46 @@ export interface ImportPlan {
   changes?: ImportPlanChanges
 }
 
-export class ProjectNotFoundError extends Error {}
+export class ProjectNotFoundError extends Error {
+  logicalId: string
+
+  constructor (logicalId: string, options?: ErrorOptions) {
+    super(`Project "${logicalId}" does not exist.`, options)
+    this.name = 'ProjectNotFoundError'
+    this.logicalId = logicalId
+  }
+}
+
+export class ProjectAlreadyExistsError extends Error {
+  logicalId: string
+
+  constructor (logicalId: string, options?: ErrorOptions) {
+    super(`You are already using the logicalId "${logicalId}" for a different project.`, options)
+    this.name = 'ProjectAlreadyExistsError'
+    this.logicalId = logicalId
+  }
+}
+
+export class NoImportableResourcesFoundError extends Error {
+  constructor (options?: ErrorOptions) {
+    super(`No importable resources were found.`, options)
+    this.name = 'NoImportableResourcesFoundError'
+  }
+}
+
+export class ImportPlanNotFoundError extends Error {
+  constructor (options?: ErrorOptions) {
+    super(`Import plan does not exist.`, options)
+    this.name = 'ImportPlanNotFoundError'
+  }
+}
+
+export class InvalidImportPlanStateError extends Error {
+  constructor (options?: ErrorOptions) {
+    super(`Invalid state for import plan.`, options)
+    this.name = 'InvalidImportPlanStateError'
+  }
+}
 
 class Projects {
   api: AxiosInstance
@@ -119,34 +159,47 @@ class Projects {
     return this.api.get<Array<ProjectResponse>>('/next/projects')
   }
 
+  /**
+   * @throws {ProjectNotFoundError} If the project does not exist.
+   */
   async get (logicalId: string) {
     try {
       const logicalIdParam = encodeURIComponent(logicalId)
       return await this.api.get<ProjectResponse>(`/next/projects/${logicalIdParam}`)
     } catch (err) {
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          throw new ProjectNotFoundError()
-        }
+      if (err instanceof NotFoundError) {
+        throw new ProjectNotFoundError(logicalId)
       }
 
       throw err
     }
   }
 
-  create (project: Project) {
-    return this.api.post('/next/projects', project)
+  /**
+   * @throws {ProjectAlreadyExistsError} If the project already exists.
+   */
+  async create (project: Project) {
+    try {
+      return await this.api.post('/next/projects', project)
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        throw new ProjectAlreadyExistsError(project.logicalId)
+      }
+
+      throw err
+    }
   }
 
+  /**
+   * @throws {ProjectNotFoundError} If the project does not exist.
+   */
   async deleteProject (logicalId: string) {
     try {
       const logicalIdParam = encodeURIComponent(logicalId)
       return await this.api.delete(`/next/projects/${logicalIdParam}`)
     } catch (err) {
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          throw new ProjectNotFoundError()
-        }
+      if (err instanceof NotFoundError) {
+        throw new ProjectNotFoundError(logicalId)
       }
 
       throw err
@@ -161,19 +214,38 @@ class Projects {
     )
   }
 
+  /**
+   * @throws {ProjectNotFoundError} If the project does not exist.
+   * @throws {NoImportableResourcesFoundError} If no importable resources were found.
+   */
   async createImportPlan (logicalId: string, options?: ImportPlanOptions) {
     const payload = {
       filters: options?.filters,
       friends: options?.friends,
     }
-    const logicalIdParam = encodeURIComponent(logicalId)
-    return await this.api.post<ImportPlan>(`/next/projects/${logicalIdParam}/imports`, payload, {
-      params: {
-        preview: options?.preview ?? false,
-      },
-    })
+    try {
+      const logicalIdParam = encodeURIComponent(logicalId)
+      return await this.api.post<ImportPlan>(`/next/projects/${logicalIdParam}/imports`, payload, {
+        params: {
+          preview: options?.preview ?? false,
+        },
+      })
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        if (/No importable resources were found/i.test(err.data.message)) {
+          throw new NoImportableResourcesFoundError()
+        }
+
+        throw new ProjectNotFoundError(logicalId)
+      }
+
+      throw err
+    }
   }
 
+  /**
+   * @throws {ProjectNotFoundError} If the project does not exist.
+   */
   async findImportPlans (logicalId: string, { onlyUnapplied = false, onlyUncommitted = false } = {}) {
     try {
       const logicalIdParam = encodeURIComponent(logicalId)
@@ -184,10 +256,8 @@ class Projects {
         },
       })
     } catch (err) {
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          throw new ProjectNotFoundError()
-        }
+      if (err instanceof NotFoundError) {
+        throw new ProjectNotFoundError(logicalId)
       }
 
       throw err
@@ -203,16 +273,64 @@ class Projects {
     })
   }
 
-  cancelImportPlan (importPlanId: string) {
-    return this.api.delete<void>(`/next/projects/imports/${importPlanId}`)
+  /**
+   * @throws {ImportPlanNotFoundError} If the import plan does not exist.
+   * @throws {InvalidImportPlanStateError} If the operation is performed out of order.
+   */
+  async cancelImportPlan (importPlanId: string) {
+    try {
+      return await this.api.delete<void>(`/next/projects/imports/${importPlanId}`)
+    } catch (err) {
+      if (err instanceof ForbiddenError) {
+        throw new InvalidImportPlanStateError()
+      }
+
+      if (err instanceof NotFoundError) {
+        throw new ImportPlanNotFoundError()
+      }
+
+      throw err
+    }
   }
 
-  applyImportPlan (importPlanId: string) {
-    return this.api.post<void>(`/next/projects/imports/${importPlanId}/apply`)
+  /**
+   * @throws {ImportPlanNotFoundError} If the import plan does not exist.
+   * @throws {InvalidImportPlanStateError} If the operation is performed out of order.
+   */
+  async applyImportPlan (importPlanId: string) {
+    try {
+      return await this.api.post<void>(`/next/projects/imports/${importPlanId}/apply`)
+    } catch (err) {
+      if (err instanceof ForbiddenError) {
+        throw new InvalidImportPlanStateError()
+      }
+
+      if (err instanceof NotFoundError) {
+        throw new ImportPlanNotFoundError()
+      }
+
+      throw err
+    }
   }
 
-  commitImportPlan (importPlanId: string) {
-    return this.api.post<void>(`/next/projects/imports/${importPlanId}/commit`)
+  /**
+   * @throws {ImportPlanNotFoundError} If the import plan does not exist.
+   * @throws {InvalidImportPlanStateError} If the operation is performed out of order.
+   */
+  async commitImportPlan (importPlanId: string) {
+    try {
+      return await this.api.post<void>(`/next/projects/imports/${importPlanId}/commit`)
+    } catch (err) {
+      if (err instanceof ForbiddenError) {
+        throw new InvalidImportPlanStateError()
+      }
+
+      if (err instanceof NotFoundError) {
+        throw new ImportPlanNotFoundError()
+      }
+
+      throw err
+    }
   }
 }
 

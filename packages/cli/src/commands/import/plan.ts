@@ -5,7 +5,6 @@ import { setTimeout } from 'node:timers/promises'
 import { Args, Flags } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
-import { isAxiosError } from 'axios'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
 
@@ -14,7 +13,7 @@ import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync } from '../../rest/projects'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects'
 import { cased, Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
@@ -591,20 +590,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         try {
           this.style.actionStart('Creating project')
 
-          try {
-            await api.projects.create({
-              name: projectName,
-              logicalId,
-            })
-          } catch (err) {
-            if (isAxiosError(err)) {
-              if (err.response?.status === 409) {
-                throw new Error(`You are already using the same identifier for a different project.`)
-              }
-            }
-
-            throw err
-          }
+          await api.projects.create({
+            name: projectName,
+            logicalId,
+          })
 
           this.style.actionSuccess()
         } catch (err) {
@@ -1042,14 +1031,14 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     } catch (err) {
       this.style.actionFailure()
 
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          const message = err.response?.data.message
-          if (message) {
-            this.style.fatal(message)
-            return
-          }
-        }
+      if (err instanceof NoImportableResourcesFoundError) {
+        this.style.fatal(err.message)
+        return
+      }
+
+      if (err instanceof ProjectNotFoundError) {
+        this.style.fatal(err.message)
+        return
       }
 
       throw err
@@ -1113,10 +1102,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           } catch (err) {
             this.style.actionFailure()
 
-            if (isAxiosError(err)) {
-              if (err.response?.status === 404) {
-                return []
-              }
+            if (err instanceof NoImportableResourcesFoundError) {
+              return []
             }
 
             throw err

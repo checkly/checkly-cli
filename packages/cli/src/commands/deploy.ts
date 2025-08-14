@@ -212,11 +212,8 @@ export default class Deploy extends AuthCommand {
         })
       }
     } catch (err: any) {
-      if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy your project due to wrong configuration. ${err.response.data?.message}`)
-      } else {
-        throw new Error(`Failed to deploy your project. ${err.message}`)
-      }
+      this.style.longError(`Your project could not be deployed.`, err)
+      this.exit(1)
     }
   }
 

@@ -43,11 +43,8 @@ export default class Destroy extends AuthCommand {
       await api.projects.deleteProject(checklyConfig.logicalId)
       this.log(`All resources associated with project "${checklyConfig.projectName}" have been successfully deleted.`)
     } catch (err: any) {
-      if (err?.response?.status === 400) {
-        throw new Error(`Failed to destroy your project: ${err.response.data?.message}`)
-      } else {
-        throw new Error(`Failed to destroy your project. ${err.message}`)
-      }
+      this.style.longError(`Your project could not be destroyed.`, err)
+      this.exit(1)
     }
   }
 }

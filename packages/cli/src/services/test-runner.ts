@@ -75,28 +75,24 @@ export default class TestRunner extends AbstractCheckRunner {
         filePath: check.getSourceFile(),
       }
     })
-    try {
-      if (!checkRunJobs.length) {
-        throw new Error('Unable to find checks to run.')
-      }
-      const { data } = await testSessions.run({
-        name: this.projectBundle.project.name,
-        checkRunJobs,
-        project: { logicalId: this.projectBundle.project.logicalId },
-        sharedFiles: this.sharedFiles,
-        runLocation: this.location,
-        repoInfo: this.repoInfo,
-        environment: this.environment,
-        shouldRecord: this.shouldRecord,
-      })
-      const { testSessionId, sequenceIds } = data
-      const checks = this.checkBundles.map(({ construct: check }) => {
-        return { check, sequenceId: sequenceIds?.[check.logicalId] }
-      })
-      return { testSessionId, checks }
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message ?? err.response?.data?.error ?? err.message)
+    if (!checkRunJobs.length) {
+      throw new Error('Unable to find checks to run.')
     }
+    const { data } = await testSessions.run({
+      name: this.projectBundle.project.name,
+      checkRunJobs,
+      project: { logicalId: this.projectBundle.project.logicalId },
+      sharedFiles: this.sharedFiles,
+      runLocation: this.location,
+      repoInfo: this.repoInfo,
+      environment: this.environment,
+      shouldRecord: this.shouldRecord,
+    })
+    const { testSessionId, sequenceIds } = data
+    const checks = this.checkBundles.map(({ construct: check }) => {
+      return { check, sequenceId: sequenceIds?.[check.logicalId] }
+    })
+    return { testSessionId, checks }
   }
 
   async processCheckResult (result: any) {
