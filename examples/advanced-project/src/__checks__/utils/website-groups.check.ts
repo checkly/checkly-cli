@@ -6,10 +6,19 @@ export const syntheticGroup = new CheckGroupV2('check-group-1', {
   muted: false,
   frequency: Frequency.EVERY_15M,
   locations: ['us-east-1', 'eu-west-1'],
-  tags: ['api-group'],
+  tags: ['synthetics'],
   concurrency: 10,
   browserChecks: {
     frequency: Frequency.EVERY_30M,
     testMatch: '**/__checks__/synthetics/*.spec.ts'
   }
+})
+
+export const uptimeGroup = new CheckGroupV2('check-group-2', {
+  name: 'Uptime Monitors Group',
+  muted: false,
+  frequency: Frequency.EVERY_15M,
+  locations: ['us-east-1', 'eu-west-1'],
+  tags: ['uptime'],
+  concurrency: 10
 })
