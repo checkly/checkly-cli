@@ -1,14 +1,12 @@
 import * as path from 'path'
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
-import { websiteGroup } from './website-group.check'
 
 new ApiCheck('books-api-check-1', {
   name: 'Books API',
-  group: websiteGroup,
   degradedResponseTime: 10000,
   maxResponseTime: 20000,
   setupScript: {
-    entrypoint: path.join(__dirname, './utils/setup.ts')
+    entrypoint: path.join(__dirname, '../utils/setup.ts')
   },
   request: {
     url: 'https://danube-web.shop/api/books',
