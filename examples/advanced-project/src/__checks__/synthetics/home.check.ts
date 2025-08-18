@@ -1,7 +1,7 @@
 import * as path from 'path'
 import { BrowserCheck } from 'checkly/constructs'
 import { smsChannel, emailChannel } from '../utils/alert-channels.ts'
-
+import { syntheticGroup } from '../utils/website-groups.check.ts'
 const alertChannels = [smsChannel, emailChannel]
 
 /*
@@ -13,6 +13,7 @@ const alertChannels = [smsChannel, emailChannel]
 // We can define multiple checks in a single *.check.ts file.
 new BrowserCheck('homepage-browser-check', {
   name: 'Home page',
+  group: syntheticGroup,
   alertChannels,
   code: {
     entrypoint: path.join(__dirname, 'homepage.spec.ts')

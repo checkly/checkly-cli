@@ -1,6 +1,6 @@
 import { CheckGroupV2, Frequency } from 'checkly/constructs'
 
-const group = new CheckGroupV2('check-group-1', {
+export const syntheticGroup = new CheckGroupV2('check-group-1', {
   name: 'Synthetic Monitors Group',
   activated: true,
   muted: false,
