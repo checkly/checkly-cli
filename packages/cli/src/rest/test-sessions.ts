@@ -14,6 +14,7 @@ type RunTestSessionRequest = {
   repoInfo?: GitInformation | null
   environment?: string | null
   shouldRecord: boolean
+  streamLogs?: boolean
 }
 
 type TriggerTestSessionRequest = {
