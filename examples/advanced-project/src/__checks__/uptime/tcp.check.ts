@@ -9,7 +9,7 @@ new TcpMonitor('hello-tcp-1', {
   name: 'TCPbin Monitor',
   activated: true,
   group: uptimeGroup,
-  maxResponseTime: 5000,
+  maxResponseTime: 5000, //milliseconds
   degradedResponseTime: 4000,
   request: {
     hostname: 'tcpbin.com',
