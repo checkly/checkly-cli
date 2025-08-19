@@ -1,8 +1,8 @@
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
-import { FileMatch } from './match';
+import { FileMatch } from './match'
 
 interface JitiExports {
-  createJiti (id: string, userOptions?: any): Jiti;
+  createJiti (id: string, userOptions?: any): Jiti
 }
 
 interface Jiti {
@@ -40,7 +40,7 @@ export class FailedJitiFileLoaderState extends FileLoader {
     this.error = error
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, require-await
   async loadFile<T = unknown> (filePath: string): Promise<T> {
     throw new UnsupportedFileLoaderError('JitiFileLoader is not supported', {
       cause: this.error,
@@ -75,6 +75,6 @@ export class JitiFileLoader extends FileLoader {
   }
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
-    return JitiFileLoader.state.loadFile<T>(filePath)
+    return await JitiFileLoader.state.loadFile<T>(filePath)
   }
 }

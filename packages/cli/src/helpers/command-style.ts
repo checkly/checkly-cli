@@ -5,9 +5,14 @@ import { BaseCommand } from '../commands/baseCommand'
 import { wrap } from './wrap'
 import logSymbols from 'log-symbols'
 
-const wrapOptions = {
+const textWrapOptions = {
   prefix: '  ',
   length: 78,
+}
+
+const errorWrapOptions = {
+  ...textWrapOptions,
+  length: Infinity,
 }
 
 export class CommandStyle {
@@ -38,14 +43,14 @@ export class CommandStyle {
   }
 
   comment (message: string) {
-    this.c.log(chalk.cyan(wrap(message, { ...wrapOptions, prefix: '// ' })))
+    this.c.log(chalk.cyan(wrap(message, { ...textWrapOptions, prefix: '// ' })))
     this.c.log()
   }
 
   longSuccess (title: string, message: string) {
     this.c.log(`${logSymbols.success} ${title}`)
     this.c.log()
-    this.c.log(wrap(message, wrapOptions))
+    this.c.log(wrap(message, textWrapOptions))
     this.c.log()
   }
 
@@ -57,7 +62,7 @@ export class CommandStyle {
   longInfo (title: string, message: string) {
     this.c.log(`${logSymbols.info} ${title}`)
     this.c.log()
-    this.c.log(wrap(message, wrapOptions))
+    this.c.log(wrap(message, textWrapOptions))
     this.c.log()
   }
 
@@ -66,10 +71,10 @@ export class CommandStyle {
     this.c.log()
   }
 
-  longWarning (title: string, message: string) {
+  longWarning (title: string, message: string | Error) {
     this.c.log(`${logSymbols.warning} ${title}`)
     this.c.log()
-    this.c.log(chalk.yellow(wrap(message, wrapOptions)))
+    this.c.log(chalk.yellow(this.#formatDescription(message)))
     this.c.log()
   }
 
@@ -78,10 +83,10 @@ export class CommandStyle {
     this.c.log()
   }
 
-  longError (title: string, message: string) {
+  longError (title: string, message: string | Error) {
     this.c.log(`${logSymbols.error} ${title}`)
     this.c.log()
-    this.c.log(chalk.red(wrap(message, wrapOptions)))
+    this.c.log(chalk.red(this.#formatDescription(message)))
     this.c.log()
   }
 
@@ -93,5 +98,15 @@ export class CommandStyle {
   fatal (message: string) {
     this.c.log(chalk.red(message))
     this.c.log()
+  }
+
+  #formatDescription (description: string | Error) {
+    if (typeof description === 'string') {
+      return wrap(description, textWrapOptions)
+    }
+
+    const { message } = description
+
+    return wrap(message, errorWrapOptions)
   }
 }

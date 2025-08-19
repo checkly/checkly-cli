@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { cased } from "../case"
+import { cased } from '../case'
 
 describe('cased', () => {
   it('kebab-case: should produce a properly cased ASCII string', () => {

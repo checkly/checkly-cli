@@ -21,15 +21,36 @@ export default class Bootstrap extends Command {
   static description = 'Bootstrap a Checkly project'
 
   static flags = {
-    template: Flags.string({
+    'template': Flags.string({
       char: 't',
       description: 'An optional template name',
+    }),
+    'non-interactive': Flags.boolean({
+      description: 'Skip interactive prompts and use default values',
+      default: false,
     }),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Bootstrap)
-    const { template } = flags
+    const { template, 'non-interactive': explicitNonInteractive } = flags
+
+    // Auto-detect non-interactive mode if no TTY is attached
+    const interactive = (() => {
+      if (explicitNonInteractive) {
+        return false
+      }
+
+      if (process.env.CHECKLY_E2E_ISTTY === 'true') {
+        return true
+      }
+
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        return true
+      }
+
+      return false
+    })()
 
     const onCancel = (): void => {
       this.error(chalk.dim('Bailing, hope to see you again soon!\n'))
@@ -58,12 +79,28 @@ export default class Bootstrap extends Command {
         const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
         this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
         version = packageInformation.version
-      } catch { }
+      } catch {
+        // No-op
+      }
     }
 
-    const greeting = await getUserGreeting()
-
-    await header(version, greeting)
+    // Override prompts for non-interactive mode BEFORE any prompts are called
+    if (interactive) {
+      // Show interactive UI elements
+      const greeting = await getUserGreeting()
+      await header(version, greeting)
+    } else {
+      prompts.override({
+        initializeProject: true,
+        template: template || 'boilerplate-project',
+        projectDirectory: process.cwd(),
+        createInitialBrowserCheck: false,
+        website: 'https://checklyhq.com',
+        installDependencies: true,
+        initializeGit: false,
+        shouldCopyPlaywrightConfig: true,
+      })
+    }
 
     const projectDirectory = await getProjectDirectory({ onCancel })
 
@@ -71,12 +108,10 @@ export default class Bootstrap extends Command {
       // Init Checkly CLI for an existing project
       await installWithinProject({ projectDirectory, version, onCancel })
     } else {
-      // Create a project from the scratch using a template
       await hint('Cool.', `Your project will be created in the directory "${projectDirectory}"`)
       await createProject({ projectDirectory, version, onCancel })
     }
 
-    // ask and install dependencies and initialize git
     await installDependenciesAndInitGit({ projectDirectory })
 
     const playwrightConfig = getPlaywrightConfig(projectDirectory)
@@ -84,6 +119,9 @@ export default class Bootstrap extends Command {
       await copyPlaywrightConfig({ projectDirectory, playwrightConfig })
     }
 
-    await footer(projectDirectory)
+    // Show appropriate footer
+    if (interactive) {
+      await footer(projectDirectory)
+    }
   }
 }

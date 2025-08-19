@@ -4,10 +4,10 @@ import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import { loadFile } from './fileloader'
 
 export interface PackageJson {
-  name: string;
+  name: string
   devDependencies: {
-    [key: string]: string;
-  };
+    [key: string]: string
+  }
 }
 
 export function hasPackageJsonFile (dirPath: string) {
@@ -30,8 +30,8 @@ export function loadPlaywrightConfig (playwrightConfigPath: string) {
   if (/\.[mc]?(js|ts)$/.test(playwrightConfigPath)) {
     return loadFile(playwrightConfigPath)
   } else {
-    throw new Error('Unable to load the config file. ' +
-    `Please use a .js, .mjs, .cjs, .ts, .mts or .cts file instead.\n${playwrightConfigPath}`)
+    throw new Error('Unable to load the config file. '
+      + `Please use a .js, .mjs, .cjs, .ts, .mts or .cts file instead.\n${playwrightConfigPath}`)
   }
 }
 
@@ -54,8 +54,8 @@ export function hasGitDir (dirPath: string) {
 export function checkFilesToKeep (filesToKeep: string[], dirPath: string) {
   if (filesToKeep.some(file =>
     fs.existsSync(path.join(dirPath, file)))) {
-    process.stderr.write('It looks like you already have "__checks__" folder or "checkly.config.ts". ' +
-      'Please, remove them and try again.' + '\n')
+    process.stderr.write('It looks like you already have "__checks__" folder or "checkly.config.ts". '
+      + 'Please, remove them and try again.' + '\n')
     process.exit(1)
   }
 }

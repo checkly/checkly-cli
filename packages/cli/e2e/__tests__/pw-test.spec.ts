@@ -8,7 +8,7 @@ import { runChecklyCli } from '../run-checkly'
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
 
 describe('pw-test', { timeout: 45000 }, () => {
-  afterEach(async() => {
+  afterEach(() => {
     const configPath = path.join(__dirname, 'fixtures', 'test-pwt-native')
     fs.copyFileSync(path.join(configPath, 'checkly.config.original.ts'), path.join(configPath, 'checkly.config.ts'))
   })

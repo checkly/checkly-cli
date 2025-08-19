@@ -17,13 +17,13 @@ export async function prepareRunLocation (
     if (availableLocations.some((l: { region: string | undefined }) => l.region === cliFlags.runLocation)) {
       return { type: 'PUBLIC', region: cliFlags.runLocation }
     }
-    throw new Error(`Unable to run checks on unsupported location "${cliFlags.runLocation}". ` +
-      `Supported locations are:\n${availableLocations.map((l: { region: any }) => `${l.region}`).join('\n')}`)
+    throw new Error(`Unable to run checks on unsupported location "${cliFlags.runLocation}". `
+      + `Supported locations are:\n${availableLocations.map((l: { region: any }) => `${l.region}`).join('\n')}`)
   } else if (cliFlags.privateRunLocation) {
     return preparePrivateRunLocation(cliFlags.privateRunLocation, api, accountId)
   } else if (configOptions.runLocation && configOptions.privateRunLocation) {
-    throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.' +
-      ` Please only specify one run location. The configured locations were' +
+    throw new Error('Both runLocation and privateRunLocation fields were set in your Checkly config file.'
+      + ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
   } else if (configOptions.runLocation) {
     return { type: 'PUBLIC', region: configOptions.runLocation }
@@ -34,7 +34,11 @@ export async function prepareRunLocation (
   }
 }
 
-export async function preparePrivateRunLocation (privateLocationSlugName: string, api: any, accountId: string): Promise<PrivateRunLocation> {
+export async function preparePrivateRunLocation (
+  privateLocationSlugName: string,
+  api: any,
+  accountId: string,
+): Promise<PrivateRunLocation> {
   try {
     const privateLocations = await Session.getPrivateLocations()
     const privateLocation = privateLocations.find(({ slugName }) => slugName === privateLocationSlugName)
@@ -55,16 +59,16 @@ export function prepareReportersTypes (reporterFlag: ReporterType, cliReporters:
   return reporterFlag ? [reporterFlag] : cliReporters
 }
 
-export function splitChecklyAndPlaywrightFlags(args: string[]) {
-  const separatorIndex = args.indexOf('--');
-  let checklyFlags: string[] = [];
-  let playwrightFlags: string[] = [];
+export function splitChecklyAndPlaywrightFlags (args: string[]) {
+  const separatorIndex = args.indexOf('--')
+  let checklyFlags: string[] = []
+  let playwrightFlags: string[] = []
 
   if (separatorIndex !== -1) {
-    checklyFlags = args.slice(0, separatorIndex);
-    playwrightFlags = args.slice(separatorIndex + 1);
+    checklyFlags = args.slice(0, separatorIndex)
+    playwrightFlags = args.slice(separatorIndex + 1)
   } else {
-    checklyFlags = args;
+    checklyFlags = args
   }
   return { checklyFlags, playwrightFlags }
 }

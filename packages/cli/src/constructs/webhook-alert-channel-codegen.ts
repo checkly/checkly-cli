@@ -10,9 +10,9 @@ import { TelegramAlertChannelCodegen } from './telegram-alert-channel-codegen'
 import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
 
 export type WebhookType =
-  'WEBHOOK_INCIDENTIO' |
-  'WEBHOOK_TELEGRAM' |
-  'WEBHOOK_MSTEAMS'
+  'WEBHOOK_INCIDENTIO'
+  | 'WEBHOOK_TELEGRAM'
+  | 'WEBHOOK_MSTEAMS'
 
 export interface WebhookAlertChannelResourceConfig {
   name: string

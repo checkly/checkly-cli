@@ -69,7 +69,7 @@ export function formatCheckTitle (
 
 export function formatCheckResult (checkResult: any) {
   const result = []
-  if (checkResult.checkType === 'API') {
+  if (checkResult.checkType === 'API' || checkResult.checkType === 'URL') {
     // Order should follow the check lifecycle (response, then assertions)
     if (checkResult.checkRunData?.requestError) {
       result.push([
@@ -108,7 +108,8 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-  } if (checkResult.checkType === 'TCP') {
+  }
+  if (checkResult.checkType === 'TCP') {
     if (checkResult.checkRunData?.requestError) {
       result.push([
         formatSectionTitle('Request Error'),
@@ -176,7 +177,7 @@ const assertionComparisons: any = {
   NOT_NULL: 'is not null',
 }
 
-function formatAssertions (assertions: Array<Assertion<string>&{ error: string, actual: any }>) {
+function formatAssertions (assertions: Array<Assertion<string> & { error: string, actual: any }>) {
   return assertions.map(({ source, property, comparison, target, regex, error, actual }) => {
     const assertionFailed = !!error
     const humanSource = assertionSources[source] || source
@@ -263,9 +264,9 @@ interface DNSLookupFailureError {
 }
 
 function isDNSLookupFailureError (error: any): error is DNSLookupFailureError {
-  return error.code === 'ENOTFOUND' &&
-    typeof error.syscall === 'string' &&
-    typeof error.hostname === 'string'
+  return error.code === 'ENOTFOUND'
+    && typeof error.syscall === 'string'
+    && typeof error.hostname === 'string'
 }
 
 // Connection attempt to a port that isn't open:
@@ -287,11 +288,11 @@ interface ConnectionRefusedError {
 }
 
 function isConnectionRefusedError (error: any): error is ConnectionRefusedError {
-  return error.code === 'ECONNREFUSED' &&
-    typeof error.syscall === 'string' &&
-    typeof error.address === 'string' &&
-    typeof error.port === 'number' &&
-    typeof (error.errno ?? 0) === 'number'
+  return error.code === 'ECONNREFUSED'
+    && typeof error.syscall === 'string'
+    && typeof error.address === 'string'
+    && typeof error.port === 'number'
+    && typeof (error.errno ?? 0) === 'number'
 }
 
 // Connection kept open after data exchange and it timed out:
@@ -308,9 +309,9 @@ interface SocketTimeoutError {
 }
 
 function isSocketTimeoutError (error: any): error is SocketTimeoutError {
-  return error.code === 'SOCKET_TIMEOUT' &&
-    typeof error.address === 'string' &&
-    typeof error.port === 'number'
+  return error.code === 'SOCKET_TIMEOUT'
+    && typeof error.address === 'string'
+    && typeof error.port === 'number'
 }
 
 // Invalid IP address (e.g. IPv4-only hostname when IPFamily is IPv6)
@@ -393,7 +394,7 @@ function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) 
     const [firstLine, ...remainingLines] = msg.split('\n')
     return [
       `${timestamp} ${level.padEnd(5, ' ')} ${format(firstLine)}`,
-      ...remainingLines.map((line) => format(line)),
+      ...remainingLines.map(line => format(line)),
     ]
   }).join('\n')
 }

@@ -5,7 +5,6 @@ import { setTimeout } from 'node:timers/promises'
 import { Args, Flags } from '@oclif/core'
 import prompts from 'prompts'
 import chalk from 'chalk'
-import { isAxiosError } from 'axios'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
 
@@ -14,7 +13,7 @@ import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
 import { splitConfigFilePath } from '../../services/util'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync } from '../../rest/projects'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects'
 import { cased, Comment, docComment, Program } from '../../sourcegen'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
 import { Context } from '../../constructs/internal/codegen'
@@ -32,7 +31,6 @@ import { PackageJsonFile } from '../../services/check-parser/package-files/packa
 import { detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
 import { parseProject } from '../../services/project-parser'
 import { Runtime } from '../../rest/runtimes'
-import config from '../../services/config'
 import { ConstructExport, Project, Session } from '../../constructs/project'
 import { Diagnostics } from '../../constructs'
 
@@ -97,15 +95,15 @@ the next deploy. You should only commit your plan once you are sure that all
 future deployments include the imported resources.`
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
-    root: Flags.string({
+    'root': Flags.string({
       description: 'The root folder in which to write generated code files.',
       default: '__checks__',
     }),
-    preview: Flags.boolean({
+    'preview': Flags.boolean({
       description: 'Preview generated code without creating an actual import plan.',
       default: false,
     }),
@@ -220,9 +218,9 @@ future deployments include the imported resources.`
 
       this.style.longSuccess(
         `Debug import plan has been created!`,
-        `You can find the generated code under the following directory:` +
-        `\n\n` +
-        `  ${chalk.green(rootDirectory)}`
+        `You can find the generated code under the following directory:`
+        + `\n\n`
+        + `  ${chalk.green(rootDirectory)}`,
       )
 
       return
@@ -232,8 +230,8 @@ future deployments include the imported resources.`
       `You are about to import resources from your Checkly account.`,
     )
     this.style.comment(
-      `Please make sure to commit any unsaved changes to avoid having any ` +
-      `local changes get overwritten by generated code.`,
+      `Please make sure to commit any unsaved changes to avoid having any `
+      + `local changes get overwritten by generated code.`,
     )
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -471,9 +469,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   #outputConfigSection (options: {
-    title: string,
-    step: [number, number],
-    description: string,
+    title: string
+    step: [number, number]
+    description: string
   }) {
     const { title, step: [step, totalSteps], description } = options
     this.log(`  ${title} ${chalk.grey(`(step ${step}/${totalSteps})`)}`)
@@ -505,8 +503,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       }
 
       this.style.comment(
-        `Sorry, but a project name is absolutely required. ` +
-        `You can also press ESC to cancel and exit.`,
+        `Sorry, but a project name is absolutely required. `
+        + `You can also press ESC to cancel and exit.`,
       )
     }
   }
@@ -514,11 +512,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   async #askLogicalId (suggested: string, step: [number, number]): Promise<string> {
     this.#outputConfigSection({
       title: `Set up a unique project identifier`,
-      description: `The identifier given here uniquely identifies your ` +
-        `project among any other Checkly projects you may have. You will ` +
-        `not be able to change the identifier later without recreating the ` +
-        `project. Please choose a value you'll be comfortable with ` +
-        `long term.`,
+      description: `The identifier given here uniquely identifies your `
+        + `project among any other Checkly projects you may have. You will `
+        + `not be able to change the identifier later without recreating the `
+        + `project. Please choose a value you'll be comfortable with `
+        + `long term.`,
       step,
     })
 
@@ -528,10 +526,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         type: 'text',
         message: 'How would you like your project to be identified?',
         initial: suggested,
-        validate: (input) => {
+        validate: input => {
           if (!/^[A-Za-z0-9_\-/#.]+$/.test(input)) {
-            return `Please only use ASCII letters, numbers, and the ` +
-              `symbols _, -, /, #, and .`
+            return `Please only use ASCII letters, numbers, and the `
+              + `symbols _, -, /, #, and .`
           }
 
           return true
@@ -548,8 +546,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       }
 
       this.style.comment(
-        `Sorry, but a project identifier is absolutely required. ` +
-        `You can also press ESC to cancel and exit.`,
+        `Sorry, but a project identifier is absolutely required. `
+        + `You can also press ESC to cancel and exit.`,
       )
     }
   }
@@ -557,8 +555,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   async #interactiveCreateConfig (configDirectory: string): Promise<ChecklyConfig> {
     this.style.shortWarning(`Unable to find an existing Checkly configuration file.`)
     this.style.comment(
-      `Setting up Checkly for the first time? No worries, we'll walk you ` +
-      `through the process.`,
+      `Setting up Checkly for the first time? No worries, we'll walk you `
+      + `through the process.`,
     )
 
     const choices: prompts.Choice[] = [{
@@ -592,20 +590,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         try {
           this.style.actionStart('Creating project')
 
-          try {
-            await api.projects.create({
-              name: projectName,
-              logicalId,
-            })
-          } catch (err) {
-            if (isAxiosError(err)) {
-              if (err.response?.status === 409) {
-                throw new Error(`You are already using the same identifier for a different project.`)
-              }
-            }
-
-            throw err
-          }
+          await api.projects.create({
+            name: projectName,
+            logicalId,
+          })
 
           this.style.actionSuccess()
         } catch (err) {
@@ -799,10 +787,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           }
 
           this.style.comment(
-            `Uh oh. Looks like that didn't quite work as expected.` +
-            `\n\n` +
-            `You can still continue the import process and install ` +
-            `dependencies later by yourself.`,
+            `Uh oh. Looks like that didn't quite work as expected.`
+            + `\n\n`
+            + `You can still continue the import process and install `
+            + `dependencies later by yourself.`,
           )
 
           const { action } = await prompts({
@@ -814,7 +802,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
           if (action) {
             this.style.comment(
-              `Great, let's proceed to the next step.`
+              `Great, let's proceed to the next step.`,
             )
             await setTimeout(200)
           } else {
@@ -828,7 +816,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         const packageManagersByName = Object.fromEntries(
           knownPackageManagers.map(packageManager => {
             return [packageManager.name, packageManager]
-          })
+          }),
         )
 
         const choices = knownPackageManagers.map(packageManager => ({
@@ -855,11 +843,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
         if (action === 'other') {
           this.style.comment(
-            `Alright. If possible, let us know which package manager you ` +
-            `use and we may be able to support it in the future.` +
-            `\n\n` +
-            `You can still continue the import process and install ` +
-            `dependencies later by yourself.`,
+            `Alright. If possible, let us know which package manager you `
+            + `use and we may be able to support it in the future.`
+            + `\n\n`
+            + `You can still continue the import process and install `
+            + `dependencies later by yourself.`,
           )
 
           const { action } = await prompts({
@@ -871,7 +859,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
           if (action) {
             this.style.comment(
-              `Great, let's proceed to the next step.`
+              `Great, let's proceed to the next step.`,
             )
             await setTimeout(200)
             break
@@ -889,10 +877,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       }
       case 'later': {
         this.style.comment(
-          `Ok, but make sure to perform the appropriate actions to install ` +
-          `dependencies once you've completed the setup.` +
-          `\n\n` +
-          `If you do not, the Checkly CLI will not function as intended.`,
+          `Ok, but make sure to perform the appropriate actions to install `
+          + `dependencies once you've completed the setup.`
+          + `\n\n`
+          + `If you do not, the Checkly CLI will not function as intended.`,
         )
         await setTimeout(200)
         break
@@ -953,7 +941,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     let project: Project
     try {
-      const { data: account } = await api.accounts.get(config.getAccountId())
+      const account = this.account
       const { data: availableRuntimes } = await api.runtimes.getAll()
 
       project = await parseProject({
@@ -1043,14 +1031,14 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     } catch (err) {
       this.style.actionFailure()
 
-      if (isAxiosError(err)) {
-        if (err.response?.status === 404) {
-          const message = err.response?.data.message
-          if (message) {
-            this.style.fatal(message)
-            return
-          }
-        }
+      if (err instanceof NoImportableResourcesFoundError) {
+        this.style.fatal(err.message)
+        return
+      }
+
+      if (err instanceof ProjectNotFoundError) {
+        this.style.fatal(err.message)
+        return
       }
 
       throw err
@@ -1064,7 +1052,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }, {
       title: `Let me choose resources manually`,
       value: 'choose',
-      description: 'You will be presented with options.'
+      description: 'You will be presented with options.',
     }, {
       title: 'Cancel and exit',
       value: 'exit',
@@ -1114,10 +1102,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           } catch (err) {
             this.style.actionFailure()
 
-            if (isAxiosError(err)) {
-              if (err.response?.status === 404) {
-                return []
-              }
+            if (err instanceof NoImportableResourcesFoundError) {
+              return []
             }
 
             throw err
@@ -1265,10 +1251,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             for (const snippetFile of snippetFiles) {
               const localSnippetFile = program.generatedSupportFile(`snippets/snippets/${snippetFile.basename}`)
               localSnippetFile.header(docComment(
-                `This file has been generated to help resolve cross-snippet imports.\n` +
-                `\n` +
-                `We recommend rewriting your imports to not reference this file, after which\n` +
-                `you may remove it.`,
+                `This file has been generated to help resolve cross-snippet imports.\n`
+                + `\n`
+                + `We recommend rewriting your imports to not reference this file, after which\n`
+                + `you may remove it.`,
               ))
               localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
             }
@@ -1511,11 +1497,11 @@ interface GenerateCodeResult {
   failures: FailedResource[]
 }
 
-function previewComment(): Comment {
+function previewComment (): Comment {
   return docComment(
-    'This Checkly construct file has been generated for preview purposes only.' +
-    '\n\n' +
-    'Deploying this file will create duplicate resources.',
+    'This Checkly construct file has been generated for preview purposes only.'
+    + '\n\n'
+    + 'Deploying this file will create duplicate resources.',
   )
 }
 
@@ -1523,7 +1509,7 @@ class InvalidResourceIdentifierError extends Error {}
 
 function parseFilter (spec: string): ImportPlanFilter {
   const filter: ImportPlanFilter = {
-    type: 'include'
+    type: 'include',
   }
 
   if (spec.startsWith('!')) {

@@ -5,8 +5,8 @@ import { JsonSourceFile } from './json-source-file'
 import { PathResolver, ResolveResult } from './paths'
 
 type Module =
-  'none' | 'commonjs' | 'amd' | 'system' | 'es6' | 'es2015' | 'es2020' |
-  'es2022' | 'esnext' | 'node16' | 'nodenext' | 'preserve'
+  'none' | 'commonjs' | 'amd' | 'system' | 'es6' | 'es2015' | 'es2020'
+  | 'es2022' | 'esnext' | 'node16' | 'nodenext' | 'preserve'
 
 type ModuleResolution =
   'classic' | 'node10' | 'node' | 'node16' | 'nodenext' | 'bundler'

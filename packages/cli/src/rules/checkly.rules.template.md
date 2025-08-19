@@ -93,7 +93,7 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 
 - Import the `UrlMonitor` construct from `checkly/constructs`.
 - Reference [the docs for URL monitors](https://www.checklyhq.com/docs/cli/constructs-reference/#urlmonitor) before generating any code.
-- When adding `assertions`, always use `AssertionBuilder` class which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#assertionbuilder)
+- When adding `assertions`, always use `UrlAssertionBuilder` class which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#urlassertionbuilder)
 
 ```typescript
 // INSERT URL MONITOR EXAMPLE HERE //

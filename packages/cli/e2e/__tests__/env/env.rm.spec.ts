@@ -39,7 +39,7 @@ describe('checkly env rm', () => {
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
     // expect that 'testenvvars' is in the output
-    expect(result.stdout).toContain(`Environment variable testenvvarsrm-${executionId} deleted.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" deleted.`)
   })
 
   it('should ask for permision to remove the testenvvarsrm env variable', async () => {
@@ -63,6 +63,6 @@ describe('checkly env rm', () => {
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
     })
     // expect that 'testenvvars' does not exist
-    expect(result.stderr).toContain(`Environment variable testenvvarsrm-${executionId} does not exist.`)
+    expect(result.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" does not exist.`)
   })
 })

@@ -7,6 +7,7 @@ type RetryStrategyProps = {
   retryStrategy?: RetryStrategy
 }
 
+// eslint-disable-next-line require-await
 async function validateDoubleCheck (
   diagnostics: Diagnostics,
   kind: new (property: string, error: Error) => Diagnostic,
@@ -17,25 +18,25 @@ async function validateDoubleCheck (
       diagnostics.add(new kind(
         'doubleCheck',
         new Error(
-          `To match the behavior of doubleCheck: true, please use the ` +
-          `following retryStrategy instead:` +
-          `\n\n` +
-          `  RetryStrategyBuilder.fixedStrategy({\n` +
-          `    maxRetries: 1,\n` +
-          `    baseBackoffSeconds: 0,\n`+
-          `    maxDurationSeconds: 600,\n` +
-          `    sameRegion: false,\n` +
-          `  })`,
+          `To match the behavior of doubleCheck: true, please use the `
+          + `following retryStrategy instead:`
+          + `\n\n`
+          + `  RetryStrategyBuilder.fixedStrategy({\n`
+          + `    maxRetries: 1,\n`
+          + `    baseBackoffSeconds: 0,\n`
+          + `    maxDurationSeconds: 600,\n`
+          + `    sameRegion: false,\n`
+          + `  })`,
         ),
       ))
     } else {
       diagnostics.add(new kind(
         'doubleCheck',
         new Error(
-          `To match the behavior of doubleCheck: false, please use the ` +
-          `following retryStrategy instead:` +
-          `\n\n` +
-          `  RetryStrategyBuilder.noRetries()`,
+          `To match the behavior of doubleCheck: false, please use the `
+          + `following retryStrategy instead:`
+          + `\n\n`
+          + `  RetryStrategyBuilder.noRetries()`,
         ),
       ))
     }
@@ -69,7 +70,12 @@ type ResponseTimeLimits = {
   maxResponseTime: number
 }
 
-export async function validateResponseTimes (diagnostics: Diagnostics, props: ResponseTimeProps, limits: ResponseTimeLimits) {
+// eslint-disable-next-line require-await
+export async function validateResponseTimes (
+  diagnostics: Diagnostics,
+  props: ResponseTimeProps,
+  limits: ResponseTimeLimits,
+): Promise<void> {
   if (props.degradedResponseTime !== undefined) {
     const value = props.degradedResponseTime
     const limit = limits.degradedResponseTime
@@ -77,9 +83,9 @@ export async function validateResponseTimes (diagnostics: Diagnostics, props: Re
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'degradedResponseTime',
         new Error(
-          `The value of "degradedResponseTime" must be ${limit} or lower.` +
-          `\n\n` +
-          `The current value is ${value}.`
+          `The value of "degradedResponseTime" must be ${limit} or lower.`
+          + `\n\n`
+          + `The current value is ${value}.`,
         ),
       ))
     }
@@ -92,9 +98,9 @@ export async function validateResponseTimes (diagnostics: Diagnostics, props: Re
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'maxResponseTime',
         new Error(
-          `The value of "maxResponseTime" must be ${limit} or lower.` +
-          `\n\n` +
-          `The current value is ${value}.`
+          `The value of "maxResponseTime" must be ${limit} or lower.`
+          + `\n\n`
+          + `The current value is ${value}.`,
         ),
       ))
     }

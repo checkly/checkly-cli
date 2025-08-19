@@ -2,27 +2,118 @@ import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 
 import type { AxiosResponse } from 'axios'
-import { RuntimeCheck, RuntimeCheckProps } from './check'
-import { Session } from './project'
+import { checklyStorage } from '../rest/api'
 import {
   bundlePlayWrightProject, cleanup,
 } from '../services/util'
-import { checklyStorage } from '../rest/api'
-import { Diagnostics } from './diagnostics'
+import { RuntimeCheck, RuntimeCheckProps } from './check'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
+import { Session } from './project'
 import { Ref } from './ref'
 
 export interface PlaywrightCheckProps extends RuntimeCheckProps {
+  /**
+   * Path to the Playwright configuration file (playwright.config.js/ts).
+   * This file defines test settings, browser configurations, and project structure.
+   *
+   * @example "playwright.config.ts"
+   */
   playwrightConfigPath: string
+
+  /**
+   * Command to install dependencies before running tests.
+   * Useful for ensuring test dependencies are available in the runtime environment.
+   *
+   * @example "npm ci"
+   * @example "yarn install --frozen-lockfile"
+   */
   installCommand?: string
+
+  /**
+   * Command to execute Playwright tests.
+   * The check will automatically append configuration, project, and tag arguments.
+   *
+   * @defaultValue "npx playwright test"
+   * @example "npx playwright test --grep@checkly --config=playwright.foo.config.ts"
+   * @example "yarn playwright test"
+   */
   testCommand?: string
-  pwProjects?: string|string[]
-  pwTags?: string|string[]
-  include?: string|string[]
+
+  /**
+   * Specific Playwright projects to run from your configuration.
+   * Projects let you run tests in different browsers or with different settings.
+   *
+   * @example "chromium"
+   * @example ["chromium", "firefox"]
+   * @see {@link https://playwright.dev/docs/test-projects | Playwright Projects}
+   */
+  pwProjects?: string | string[]
+
+  /**
+   * Tags to filter which tests to run using Playwright's grep functionality.
+   * Tests matching any of these tags will be executed.
+   *
+   * @example "@smoke"
+   * @example ["@smoke", "@critical"]
+   * @see {@link https://playwright.dev/docs/test-annotations#tag-tests | Playwright Test Tags}
+   */
+  pwTags?: string | string[]
+
+  /**
+   * File patterns to include when bundling the test project.
+   * Use this to include test files, utilities, and other assets.
+   *
+   * @example "tests/**\/*"
+   * @example ["tests/**\/*", "utils/**\/*", "fixtures/**\/*"]
+   */
+  include?: string | string[]
+
+  /**
+   * Name of the check group to assign this check to.
+   * The group must exist in your project configuration.
+   *
+   * @example "E2E Tests"
+   * @example "Critical User Flows"
+   */
   groupName?: string
 }
 
+/**
+ * Creates a Playwright Check to run end-to-end tests using Playwright Test.
+ *
+ * Playwright check suites allow you to monitor complex user interactions and workflows
+ * by running your existing Playwright test suites as monitoring checks. They support
+ * multiple browsers, test filtering, and custom test commands.
+ *
+ * @example
+ * ```typescript
+ * // Basic Playwright check
+ * new PlaywrightCheck('e2e-login', {
+ *   name: 'Login Flow E2E Test',
+ *   playwrightConfigPath: '../playwright.config.js',
+ *   frequency: Frequency.EVERY_10M,
+ *   locations: ['us-east-1', 'eu-west-1']
+ * })
+ *
+ * // Advanced check with projects and tags
+ * new PlaywrightCheck('critical-flows', {
+ *   name: 'Critical User Flows',
+ *   playwrightConfigPath: '../playwright.config.js',
+ *   installCommand: 'npm ci',
+ *   pwProjects: ['chromium', 'firefox'],
+ *   pwTags: ['@smoke', '@critical'],
+ *   include: ['tests/**\/*', 'utils/**\/*'],
+ *   groupName: 'E2E Tests',
+ *   frequency: Frequency.EVERY_5M
+ * })
+ * ```
+ *
+ * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#playwrightcheck | PlaywrightCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/playwright-checks/ | Playwright Checks Documentation}
+ * @see {@link https://playwright.dev/ | Playwright Documentation}
+ */
 export class PlaywrightCheck extends RuntimeCheck {
   installCommand?: string
   testCommand: string
@@ -46,7 +137,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       : []
     this.testCommand = props.testCommand ?? 'npx playwright test'
     this.groupName = props.groupName
-    this.playwrightConfigPath = props.playwrightConfigPath
+    this.playwrightConfigPath = this.resolveContentFilePath(props.playwrightConfigPath)
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
@@ -101,7 +192,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     let dir = ''
     try {
       const {
-        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion
+        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion,
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
@@ -114,8 +205,8 @@ export class PlaywrightCheck extends RuntimeCheck {
   static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
     const { size } = await fs.stat(dir)
     const stream = createReadStream(dir)
-    stream.on('error', (err) => {
-         throw new Error(`Failed to read Playwright project file: ${err.message}`)
+    stream.on('error', err => {
+      throw new Error(`Failed to read Playwright project file: ${err.message}`)
     })
     return checklyStorage.uploadCodeBundle(stream, size)
   }
@@ -134,7 +225,15 @@ export class PlaywrightCheck extends RuntimeCheck {
       browsers,
       cacheHash,
       playwrightVersion,
+      relativePlaywrightConfigPath,
     } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+
+    const testCommand = PlaywrightCheck.buildTestCommand(
+      this.testCommand,
+      relativePlaywrightConfigPath,
+      this.pwProjects,
+      this.pwTags,
+    )
 
     return new PlaywrightCheckBundle(this, {
       groupId,
@@ -142,21 +241,15 @@ export class PlaywrightCheck extends RuntimeCheck {
       browsers,
       cacheHash,
       playwrightVersion,
+      testCommand,
+      installCommand: this.installCommand,
     })
   }
 
   synthesize () {
-    const testCommand = PlaywrightCheck.buildTestCommand(
-      this.testCommand,
-      this.playwrightConfigPath,
-      this.pwProjects,
-      this.pwTags,
-    )
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
-      testCommand,
-      installCommand: this.installCommand,
     }
   }
 }

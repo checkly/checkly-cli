@@ -23,7 +23,7 @@ export abstract class BaseCommand extends Command {
       this.#packageJsonLoader = resolver.loadPackageJsonFile(__filename)
     }
 
-    return this.#packageJsonLoader
+    return await this.#packageJsonLoader
   }
 
   async checkEngineCompatibility (): Promise<void> {
@@ -52,14 +52,14 @@ export abstract class BaseCommand extends Command {
 
     this.style.longWarning(
       `Unsupported Node version`,
-      `You are using Node v${nodeVersion}, which is not compatible with ` +
-      `the Checkly CLI. While you may continue to use the CLI, please be ` +
-      `advised that some functionality may not function correctly. Please ` +
-      `update to a newer version as soon as possible.` +
-      `\n\n` +
-      `We currently support the following versions:` +
-      `\n\n` +
-      `  ${requirements}`,
+      `You are using Node v${nodeVersion}, which is not compatible with `
+      + `the Checkly CLI. While you may continue to use the CLI, please be `
+      + `advised that some functionality may not function correctly. Please `
+      + `update to a newer version as soon as possible.`
+      + `\n\n`
+      + `We currently support the following versions:`
+      + `\n\n`
+      + `  ${requirements}`,
     )
   }
 
@@ -74,7 +74,9 @@ export abstract class BaseCommand extends Command {
         const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
         this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'. If you wish to test with a different version, please pass the CHECKLY_CLI_VERSION environment variable.\n`)
         version = packageInformation.version
-      } catch { }
+      } catch {
+        // No-op
+      }
     }
 
     api.defaults.headers['x-checkly-cli-version'] = version
@@ -100,7 +102,7 @@ export abstract class BaseCommand extends Command {
     await this.exit(0)
   }
 
-  protected catch (err: Error & {exitCode?: number}): Promise<any> {
+  protected catch (err: Error & { exitCode?: number }): Promise<any> {
     // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)
   }

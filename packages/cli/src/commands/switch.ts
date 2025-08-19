@@ -29,7 +29,7 @@ export default class Switch extends AuthCommand {
         const { data: account } = await api.accounts.get(accountId)
         config.data.set('accountId', account.id)
         this.log(`Account switched to ${chalk.bold.cyan(accountId)}`)
-      } catch (e) {
+      } catch {
         throw new Error(`Failed to find an account corresponding to account id ${accountId}`)
       }
       this.exit(0)
@@ -40,8 +40,8 @@ export default class Switch extends AuthCommand {
 
       if (accounts.length === 1) {
         this.warn(
-          'Your user is only a member of one account: ' +
-            chalk.bold.cyan(accounts[0].name),
+          'Your user is only a member of one account: '
+          + chalk.bold.cyan(accounts[0].name),
         )
         this.exit(0)
       }

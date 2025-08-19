@@ -8,8 +8,8 @@ vi.mock('../../rest/api', () => ({
     baseURL: 'https://api.checklyhq.com',
     accountId: 'test-account-123',
     Authorization: 'Bearer test-key',
-    apiKey: 'test-key'
-  })
+    apiKey: 'test-key',
+  }),
 }))
 
 const testSessionId = '0c4c64b3-79c5-44a6-ae07-b580ce73f328'

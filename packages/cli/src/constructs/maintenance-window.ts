@@ -11,7 +11,7 @@ export interface MaintenanceWindowProps {
   /**
    * A list of one or more tags that filter which checks are affected by the maintenance window.
    */
-  tags: Array<string>,
+  tags: Array<string>
   /**
    * The start date and time of the maintenance window in ISO 8601 format, "YYYY-MM-DDTHH:mm:ss.sssZ" as returned by
    * `new Date()`
@@ -78,7 +78,7 @@ export class MaintenanceWindow extends Construct {
     return `MaintenanceWindow:${this.logicalId}`
   }
 
-  synthesize (): any|null {
+  synthesize (): any | null {
     return {
       name: this.name,
       tags: this.tags,

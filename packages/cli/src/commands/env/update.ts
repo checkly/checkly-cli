@@ -1,6 +1,6 @@
 import prompts from 'prompts'
 import * as api from '../../rest/api'
-import { Flags, Args, ux } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 
 export default class EnvUpdate extends AuthCommand {
@@ -54,20 +54,13 @@ export default class EnvUpdate extends AuthCommand {
     }
     try {
       await api.environmentVariables.update(envVariableName, envValue, locked, secret)
-      this.log(secret
-        ? `Secret environment variable ${envVariableName} updated.`
-        : `Environment variable ${envVariableName} updated.`,
+      this.style.shortSuccess(secret
+        ? `Secret environment variable "${envVariableName}" updated.`
+        : `Environment variable "${envVariableName}" updated.`,
       )
     } catch (err: any) {
-      if (err?.response?.status === 400 && err?.response?.data?.message) {
-        throw new Error(err.response.data.message)
-      }
-
-      if (err?.response?.status === 404) {
-        throw new Error(`Environment variable ${envVariableName} not found.`)
-      }
-
-      throw err
+      this.style.longError(`Your environment variable could not be updated.`, err)
+      this.exit(1)
     }
   }
 }

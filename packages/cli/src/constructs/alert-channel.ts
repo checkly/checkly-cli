@@ -4,7 +4,7 @@ import { Session } from './project'
 /**
  * Configuration properties for alert channels.
  * These properties control when and how alerts are sent.
- * 
+ *
  * @example
  * ```typescript
  * // Alert channel with custom settings
@@ -25,7 +25,7 @@ export interface AlertChannelProps {
    * @defaultValue true
    */
   sendRecovery?: boolean
-  
+
   /**
    * Determines if an alert should be sent for check failures.
    * When a check fails, failure alerts notify that there's an issue requiring attention.
@@ -33,7 +33,7 @@ export interface AlertChannelProps {
    * @defaultValue true
    */
   sendFailure?: boolean
-  
+
   /**
    * Determines if an alert should be sent when a check is degraded.
    * Degraded alerts are triggered when response times exceed the degraded threshold.
@@ -41,7 +41,7 @@ export interface AlertChannelProps {
    * @defaultValue false
    */
   sendDegraded?: boolean
-  
+
   /**
    * Determines if an alert should be sent for expiring SSL certificates.
    * SSL expiry alerts help prevent certificate-related outages.
@@ -49,7 +49,7 @@ export interface AlertChannelProps {
    * @defaultValue false
    */
   sslExpiry?: boolean
-  
+
   /**
    * At what moment in time to start alerting on SSL certificates.
    * Specifies how many days before expiration to send the first SSL alert.
@@ -72,7 +72,7 @@ export interface AlertChannelProps {
  * References link existing resources to a project without managing them.
  */
 export class AlertChannelRef extends Construct {
-  constructor (logicalId: string, physicalId: string|number) {
+  constructor (logicalId: string, physicalId: string | number) {
     super(AlertChannel.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
@@ -88,14 +88,14 @@ export class AlertChannelRef extends Construct {
 
 /**
  * Base class for creating alert channels that notify when checks fail or recover.
- * 
+ *
  * Alert channels define how and when to send notifications when monitoring checks
  * fail, recover, or enter a degraded state. Checkly supports multiple alert channel types
  * including email, SMS, Slack, webhooks, and third-party integrations.
  *
  * **Plan Limitations:**
  * - **Hobby**: Up to 50 alert channels
- * - **Trial**: Up to 200 alert channels  
+ * - **Trial**: Up to 200 alert channels
  * - **Pay-as-you-go**: Up to 200 alert channels
  * - **Contract**: Up to 500 alert channels
  *
@@ -108,7 +108,7 @@ export class AlertChannelRef extends Construct {
  *   sendRecovery: true,
  *   sendDegraded: false
  * })
- * 
+ *
  * // Slack alert channel with SSL monitoring
  * const slackAlert = new SlackAlertChannel('team-slack', {
  *   url: 'https://hooks.slack.com/services/...',
@@ -116,7 +116,7 @@ export class AlertChannelRef extends Construct {
  *   sslExpiryThreshold: 7  // Alert 7 days before SSL expiry
  * })
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#alertchannel | AlertChannel API Reference}
  * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels Documentation}
  */
@@ -144,7 +144,7 @@ export abstract class AlertChannel extends Construct {
     this.sslExpiryThreshold = props.sslExpiryThreshold
   }
 
-  static fromId (id: string|number) {
+  static fromId (id: string | number) {
     return new AlertChannelRef(`alert-channel-${id}`, id)
   }
 
@@ -152,7 +152,7 @@ export abstract class AlertChannel extends Construct {
     return true
   }
 
-  synthesize (): any|null {
+  synthesize (): any | null {
     return {
       sendRecovery: this.sendRecovery,
       sendFailure: this.sendFailure,

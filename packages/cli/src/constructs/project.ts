@@ -37,7 +37,7 @@ export interface ProjectProps {
 }
 
 export type Resources = {
-  check: Check
+  'check': Check
   'check-group': CheckGroup
   'alert-channel': AlertChannel
   'alert-channel-subscription': AlertChannelSubscription
@@ -45,7 +45,7 @@ export type Resources = {
   'private-location': PrivateLocation
   'private-location-check-assignment': PrivateLocationCheckAssignment
   'private-location-group-assignment': PrivateLocationGroupAssignment
-  dashboard: Dashboard
+  'dashboard': Dashboard
   'status-page': StatusPage
   'status-page-service': StatusPageService
 }
@@ -60,7 +60,7 @@ export class Project extends Construct {
   logicalId: string
   testOnlyAllowed = false
   data: ProjectData = {
-    check: {},
+    'check': {},
     'check-group': {},
     'alert-channel': {},
     'alert-channel-subscription': {},
@@ -68,7 +68,7 @@ export class Project extends Construct {
     'private-location': {},
     'private-location-check-assignment': {},
     'private-location-group-assignment': {},
-    dashboard: {},
+    'dashboard': {},
     'status-page': {},
     'status-page-service': {},
   }
@@ -111,7 +111,7 @@ export class Project extends Construct {
           await construct.validate(diagnostics)
           return diagnostics
         })
-      })
+      }),
     )
 
     diagnostics.extend(...constructDiagnostics)
@@ -158,7 +158,7 @@ export class Project extends Construct {
             bundle,
           }
         })
-      })
+      }),
     )
 
     const dataBundle = Object.fromEntries(
@@ -168,7 +168,7 @@ export class Project extends Construct {
     ) as ProjectDataBundle
 
     for (const constructBundle of constructBundles) {
-      const { construct: { type, logicalId } } = constructBundle 
+      const { construct: { type, logicalId } } = constructBundle
       dataBundle[type as keyof ProjectDataBundle][logicalId] = constructBundle
     }
 
@@ -226,6 +226,7 @@ export class Session {
     new JitiFileLoader(),
     new TSNodeFileLoader(),
   )
+
   static project?: Project
   static basePath?: string
   static checkDefaults?: CheckConfigDefaults

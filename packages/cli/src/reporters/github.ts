@@ -63,8 +63,8 @@ export class GithubMdBuilder {
       this.tableHeaders = this.tableHeaders.concat(this.extraTableHeadersWithLinks)
     }
 
-    for (const [_, checkMap] of this.checkFilesMap.entries()) {
-      for (const [_, { result, testResultId }] of checkMap.entries()) {
+    for (const [, checkMap] of this.checkFilesMap.entries()) {
+      for (const [, { result, testResultId }] of checkMap.entries()) {
         const checkStatus = resultToCheckStatus(result)
         const tableRow: Array<string> = [
           `${checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'}`,
@@ -83,11 +83,11 @@ export class GithubMdBuilder {
       }
     }
 
-    let markdown = this.header + '\n' +
-    this.subHeader.join('\n') + '\n' +
-    this.tableSeparator + this.tableHeaders.join('|') + this.tableSeparator + '\n' +
-    this.tableSeparatorFiller.repeat(this.tableHeaders.length) + this.tableSeparator + '\n' +
-    this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
+    let markdown = this.header + '\n'
+      + this.subHeader.join('\n') + '\n'
+      + this.tableSeparator + this.tableHeaders.join('|') + this.tableSeparator + '\n'
+      + this.tableSeparatorFiller.repeat(this.tableHeaders.length) + this.tableSeparator + '\n'
+      + this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
 
     if (!this.testSessionId) {
       markdown = markdown + `> Tip: ${commonMessages.inlineTips.useRecordFlag}`

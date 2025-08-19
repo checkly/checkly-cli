@@ -9,7 +9,7 @@ import { DashboardBundle } from './dashboard-bundle'
 /**
  * Configuration properties for dashboards.
  * Dashboards provide a public status page showing the health of your checks.
- * 
+ *
  * @example
  * ```typescript
  * const dashboard = new Dashboard('status-dashboard', {
@@ -27,179 +27,179 @@ export interface DashboardProps {
   /**
    * A list of one or more tags that filter what checks will be shown in the dashboard.
    * All checks are included if no tag is specified.
-   * 
+   *
    * @example ['production', 'api', 'critical']
    */
   tags?: Array<string>
-  
+
   /**
    * A subdomain name under "checklyhq.com". Needs to be unique across all users.
    * This is required if 'customDomain' is not specified.
-   * 
+   *
    * @example 'my-company-status' // Creates https://my-company-status.checklyhq.com
    */
   customUrl?: string
-  
+
   /**
    * A custom user domain, e.g. "status.example.com". See the docs on updating your DNS and SSL usage.
    * This is required if 'customUrl' is not specified.
-   * 
+   *
    * @example 'status.example.com'
    * @see {@link https://www.checklyhq.com/docs/dashboards/custom-domains/ | Custom Domain Setup}
    */
   customDomain?: string
-  
+
   /**
    * A URL pointing to an image file for the dashboard logo.
-   * 
+   *
    * @example 'https://example.com/logo.png'
    */
   logo?: string
-  
+
   /**
    * A URL pointing to an image file used as dashboard favicon.
-   * 
+   *
    * @example 'https://example.com/favicon.ico'
    */
   favicon?: string
-  
+
   /**
    * A URL link to redirect when dashboard logo is clicked on.
-   * 
+   *
    * @example 'https://example.com'
    */
   link?: string
-  
+
   /**
    * A piece of text displayed at the top of your dashboard.
-   * 
+   *
    * @example 'My Company Service Status'
    */
   header?: string
-  
+
   /**
    * A piece of text displayed below the header or title of your dashboard.
-   * 
+   *
    * @example 'Real-time status of our services and APIs'
    */
   description?: string
-  
+
   /**
    * Determines whether to use the full screen or focus in the center.
-   * 
+   *
    * @defaultValue 'FULL'
    */
-  width?: 'FULL'|'960PX'
-  
+  width?: 'FULL' | '960PX'
+
   /**
    * How often to refresh the dashboard in seconds.
-   * 
+   *
    * @defaultValue 60
    */
-  refreshRate?: 60|300|600
-  
+  refreshRate?: 60 | 300 | 600
+
   /**
    * Determines if pagination is on or off.
    * When enabled, checks are split across multiple pages.
-   * 
+   *
    * @defaultValue true
    */
   paginate?: boolean
-  
+
   /**
    * How often to trigger pagination in seconds.
    * Controls how frequently the dashboard cycles through pages.
-   * 
+   *
    * @defaultValue 60
    */
-  paginationRate?: 30|60|300
-  
+  paginationRate?: 30 | 60 | 300
+
   /**
    * Number of checks displayed per page.
-   * 
+   *
    * @defaultValue 15
    * @minimum 1
    * @maximum 20
    */
   checksPerPage?: number
-  
+
   /**
    * When to use AND operator for tags lookup.
    * If true, checks must have ALL specified tags. If false, checks with ANY specified tag are shown.
-   * 
+   *
    * @defaultValue false
    */
   useTagsAndOperator?: boolean
-  
+
   /**
    * Show or hide the tags on the dashboard.
-   * 
+   *
    * @defaultValue false
    */
   hideTags?: boolean
-  
+
   /**
    * Enable or disable incidents on the dashboard.
    * Allows manual incident creation and management on the status page.
-   * 
+   *
    * @defaultValue false
    * @remarks Only paid accounts can enable this feature
    * @see {@link https://www.checklyhq.com/docs/dashboards/incidents/ | Dashboard Incidents}
    */
   enableIncidents?: boolean
-  
+
   /**
    * Expand or collapse checks on the dashboard.
-   * 
+   *
    * @defaultValue false
    */
   expandChecks?: boolean
-  
+
   /**
    * Show or hide header and description on the dashboard.
-   * 
+   *
    * @defaultValue true
    */
   showHeader?: boolean
-  
+
   /**
    * Custom CSS to be applied to the dashboard.
    * Allows customization of the dashboard appearance with your own styling.
-   * 
+   *
    * @example
    * ```typescript
    * // Using external CSS file
    * customCSS: { entrypoint: './dashboard.css' }
-   * 
+   *
    * // Using inline CSS
-   * customCSS: { 
-   *   content: '.header { background: #blue; }' 
+   * customCSS: {
+   *   content: '.header { background: #blue; }'
    * }
    * ```
    */
-  customCSS?: Content|Entrypoint
-  
+  customCSS?: Content | Entrypoint
+
   /**
    * Determines if the dashboard is public or private.
    * Private dashboards require authentication to view.
-   * 
+   *
    * @defaultValue false
    * @remarks Only paid accounts can enable this feature
    */
   isPrivate?: boolean
-  
+
   /**
    * Show or hide the P95 stats on the dashboard.
    * P95 represents the 95th percentile response time.
-   * 
+   *
    * @defaultValue true
    */
   showP95?: boolean
-  
+
   /**
    * Show or hide the P99 stats on the dashboard.
    * P99 represents the 99th percentile response time.
-   * 
+   *
    * @defaultValue true
    */
   showP99?: boolean
@@ -221,10 +221,10 @@ export class Dashboard extends Construct {
   readonly link?: string
   readonly header?: string
   readonly description?: string
-  readonly width?: 'FULL'|'960PX'
-  readonly refreshRate?: 60|300|600
+  readonly width?: 'FULL' | '960PX'
+  readonly refreshRate?: 60 | 300 | 600
   readonly paginate?: boolean
-  readonly paginationRate?: 30|60|300
+  readonly paginationRate?: 30 | 60 | 300
   readonly checksPerPage?: number
   readonly useTagsAndOperator?: boolean
   readonly hideTags?: boolean
@@ -269,6 +269,7 @@ export class Dashboard extends Construct {
     this.isPrivate = props.isPrivate
     this.showP95 = props.showP95
     this.showP99 = props.showP99
+    this.customCSS = props.customCSS
 
     Session.registerConstruct(this)
   }
@@ -335,7 +336,7 @@ export class Dashboard extends Construct {
     })
   }
 
-  synthesize (): any|null {
+  synthesize (): any | null {
     return {
       tags: this.tags,
       customUrl: this.customUrl,

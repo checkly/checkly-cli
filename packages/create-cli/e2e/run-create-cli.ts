@@ -5,12 +5,12 @@ import execa from 'execa'
 const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
 export async function runChecklyCreateCli (options: {
-  directory?: string,
-  args?: string[],
-  env?: object,
-  version?: string,
-  promptsInjection?: (string | boolean | object)[],
-  timeout?: number,
+  directory?: string
+  args?: string[]
+  env?: object
+  version?: string
+  promptsInjection?: (string | boolean | object)[]
+  timeout?: number
 }) {
   const {
     directory,
@@ -27,6 +27,7 @@ export async function runChecklyCreateCli (options: {
       CHECKLY_CLI_VERSION: version,
       CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
       CHECKLY_E2E_LOCAL_TEMPLATE_ROOT: path.join(__dirname, '../../../examples'),
+      CHECKLY_E2E_ISTTY: 'true',
       ...env,
     },
     cwd: directory ?? process.cwd(),

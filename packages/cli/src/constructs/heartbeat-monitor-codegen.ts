@@ -5,7 +5,7 @@ import { Heartbeat } from './heartbeat-monitor'
 
 export interface HeartbeatMonitorResource extends MonitorResource {
   checkType: 'HEARTBEAT'
-  heartbeat: Heartbeat,
+  heartbeat: Heartbeat
 }
 
 export class HeartbeatMonitorCodegen extends Codegen<HeartbeatMonitorResource> {

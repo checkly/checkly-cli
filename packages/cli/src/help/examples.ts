@@ -1,5 +1,5 @@
 type Example = {
-  description: string,
+  description: string
   command: string
 }
 

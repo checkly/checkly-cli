@@ -92,7 +92,7 @@ export class StatusPage extends Construct {
     return `StatusPage:${this.logicalId}`
   }
 
-  synthesize (): any|null {
+  synthesize (): any | null {
     return {
       name: this.name,
       url: this.url,
@@ -105,7 +105,7 @@ export class StatusPage extends Construct {
         name: card.name,
         services: card
           .services
-          ?.map((service) => Ref.from(service.logicalId)),
+          ?.map(service => Ref.from(service.logicalId)),
       })),
     }
   }

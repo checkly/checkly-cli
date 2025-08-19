@@ -7,8 +7,8 @@ import { checklyStorage } from '../rest/api'
 import { findFilesRecursively, pathToPosix } from './util'
 
 export interface Snapshot {
-  key: string,
-  path: string,
+  key: string
+  path: string
 }
 
 export async function pullSnapshots (basePath: string, snapshots?: Snapshot[] | null) {

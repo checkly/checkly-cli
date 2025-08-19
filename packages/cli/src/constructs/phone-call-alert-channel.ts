@@ -9,7 +9,7 @@ export interface PhoneCallAlertChannelProps extends AlertChannelProps {
   /**
    * The name of the alert channel.
    */
-  name?: string;
+  name?: string
 }
 
 /**

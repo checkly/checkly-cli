@@ -1,7 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
-import config from '../services/config'
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
@@ -33,12 +32,12 @@ export default class Deploy extends AuthCommand {
   static description = 'Deploy your project to your Checkly account.'
 
   static flags = {
-    preview: Flags.boolean({
+    'preview': Flags.boolean({
       char: 'p',
       description: 'Show a preview of the changes made by the deploy command.',
       default: false,
     }),
-    output: Flags.boolean({
+    'output': Flags.boolean({
       char: 'o',
       description: 'Shows the changes made after the deploy command.',
       default: false,
@@ -48,12 +47,12 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
-    force: Flags.boolean({
+    'force': Flags.boolean({
       char: 'f',
       description: commonMessages.forceMode,
       default: false,
     }),
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
@@ -93,7 +92,7 @@ export default class Deploy extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
-    const { data: account } = await api.accounts.get(config.getAccountId())
+    const account = this.account
     const { data: avilableRuntimes } = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
@@ -204,20 +203,17 @@ export default class Deploy extends AuthCommand {
 
         // Print the ping URL for heartbeat checks.
         const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
-        const heartbeatCheckIds = data.diff.filter((check) => heartbeatLogicalIds.includes(check.logicalId))
+        const heartbeatCheckIds = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
           .map(check => check?.physicalId)
 
-        heartbeatCheckIds.forEach(async (id) => {
+        heartbeatCheckIds.forEach(async id => {
           const { data: { pingUrl, name } } = await api.heartbeatCheck.get(id as string)
           this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
         })
       }
     } catch (err: any) {
-      if (err?.response?.status === 400) {
-        throw new Error(`Failed to deploy your project due to wrong configuration. ${err.response.data?.message}`)
-      } else {
-        throw new Error(`Failed to deploy your project. ${err.message}`)
-      }
+      this.style.longError(`Your project could not be deployed.`, err)
+      this.exit(1)
     }
   }
 
@@ -262,7 +258,7 @@ export default class Deploy extends AuthCommand {
       // In this case, the check will be included in both `deleting` and `skipping`.
       // To avoid displaying the check twice, we detect this case and only show the check in `deleting`.
       // This implementation is O(n^2), but could be sped up with a map or set.
-      .filter((skip) =>
+      .filter(skip =>
         !deleting.find(
           deletion => deletion.logicalId === skip.logicalId && deletion.resourceType === skip.resourceType,
         ),
@@ -270,8 +266,8 @@ export default class Deploy extends AuthCommand {
 
     // Having some order will make the output easier to read.
     const compareEntries = (a: any, b: any) =>
-      a.resourceType.localeCompare(b.resourceType) ||
-      a.logicalId.localeCompare(b.logicalId)
+      a.resourceType.localeCompare(b.resourceType)
+      || a.logicalId.localeCompare(b.logicalId)
 
     // filter resources without contructs that are created dynamically
     // on the flight (i.e. a non project member private-location)

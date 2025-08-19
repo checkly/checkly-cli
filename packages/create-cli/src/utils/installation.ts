@@ -15,10 +15,11 @@ export async function getProjectDirectory ({ onCancel }: { onCancel: () => void 
   const cwd = process.cwd()
 
   // if directory has a package.json, do not ask project directory and use CWD
-  const { projectDirectory } = hasPackageJsonFile(cwd)
-    ? { projectDirectory: cwd }
-    : await askProjectDirectory(onCancel)
+  if (hasPackageJsonFile(cwd)) {
+    return cwd
+  }
 
+  const { projectDirectory } = await askProjectDirectory(onCancel)
   if (!projectDirectory) {
     process.stderr.write('You must provide a valid directory name. Please try again.')
   }
@@ -80,7 +81,7 @@ export async function installDependenciesAndInitGit (
 }
 
 export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig }:
-                                                { projectDirectory: string, playwrightConfig: string }) {
+{ projectDirectory: string, playwrightConfig: string }) {
   debug('Check if playwright config exists in project')
   const { shouldCopyPlaywrightConfig } = await askCopyPlaywrightProject(projectDirectory)
   if (shouldCopyPlaywrightConfig) {

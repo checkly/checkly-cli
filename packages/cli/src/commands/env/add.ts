@@ -1,6 +1,6 @@
 import prompts from 'prompts'
 import * as api from '../../rest/api'
-import { Flags, Args, ux } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 
 export default class EnvAdd extends AuthCommand {
@@ -54,15 +54,13 @@ export default class EnvAdd extends AuthCommand {
     }
     try {
       await api.environmentVariables.add(envVariableName, envValue, locked, secret)
-      this.log(secret
-        ? `Secret environment variable ${envVariableName} added.`
-        : `Environment variable ${envVariableName} added.`,
+      this.style.shortSuccess(secret
+        ? `Secret environment variable "${envVariableName}" added.`
+        : `Environment variable "${envVariableName}" added.`,
       )
     } catch (err: any) {
-      if (err?.response?.status === 409) {
-        throw new Error(`Environment variable ${envVariableName} already exists.`)
-      }
-      throw err
+      this.style.longError(`Your environment variable could not be added.`, err)
+      this.exit(1)
     }
   }
 }

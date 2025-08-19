@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import path, { resolve } from 'node:path'
+import path from 'node:path'
 import url from 'node:url'
 
 import * as acorn from 'acorn'
@@ -16,10 +16,11 @@ import { findFilesWithPattern, pathToPosix } from '../util'
 
 // Our custom configuration to handle walking errors
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ignore = (_node: any, _st: any, _c: any) => {}
 
 type Module = {
-  dependencies: Array<string>,
+  dependencies: Array<string>
 }
 
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
@@ -45,7 +46,12 @@ const supportedBuiltinModules = [
   'node:zlib',
 ]
 
-async function validateEntrypoint (entrypoint: string): Promise<{extension: SupportedFileExtension, content: string}> {
+async function validateEntrypoint (
+  entrypoint: string,
+): Promise<{
+  extension: SupportedFileExtension
+  content: string
+}> {
   const extension = path.extname(entrypoint)
   if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
     throw new Error(`Unsupported file extension for ${entrypoint}`)
@@ -70,7 +76,7 @@ function getTsParser (): any {
     const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
     // Our custom configuration to handle walking errors
 
-    Object.values(AST_NODE_TYPES).forEach((astType) => {
+    Object.values(AST_NODE_TYPES).forEach(astType => {
       // Only handle the TS specific ones
       if (!astType.startsWith('TS')) {
         return
@@ -135,7 +141,7 @@ export class Parser {
   }
 
   async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
-    Promise<{ files: string[], errors: string[] }> {
+  Promise<{ files: string[], errors: string[] }> {
     const files = new Set(await this.getFilesFromPaths(playwrightConfig))
     files.add(playwrightConfig.configFilePath)
     const errors = new Set<string>()
@@ -162,8 +168,8 @@ export class Parser {
         errors.add(item.filePath)
         continue
       }
-      const resolvedDependencies = cache?.resolvedDependencies ??
-        await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+      const resolvedDependencies = cache?.resolvedDependencies
+        ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       for (const dep of resolvedDependencies.missing) {
         missingFiles.add(pathToPosix(dep.filePath))
@@ -186,7 +192,7 @@ export class Parser {
     return { files: Array.from(resultFileSet), errors: Array.from(errors) }
   }
 
-  private async collectFiles(cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
+  private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
     let files = cache.get(testDir)
     if (!files) {
       files = await findFilesWithPattern(testDir, '**/*.{js,ts,mjs}', ignoredFiles)
@@ -219,40 +225,44 @@ export class Parser {
     return playwrightConfig.getFiles()
   }
 
-  createFileMatcher(patterns: (string | RegExp)[]): (filePath: string) => boolean {
-    const reList: RegExp[] = [];
-    const filePatterns: string[] = [];
+  createFileMatcher (patterns: (string | RegExp)[]): (filePath: string) => boolean {
+    const reList: RegExp[] = []
+    const filePatterns: string[] = []
     for (const pattern of patterns) {
       if (pattern instanceof RegExp) {
-        reList.push(pattern);
+        reList.push(pattern)
       } else {
-        if (!pattern.startsWith('**/'))
-          filePatterns.push('**/' + pattern);
-        else
-          filePatterns.push(pattern);
+        if (!pattern.startsWith('**/')) {
+          filePatterns.push('**/' + pattern)
+        } else {
+          filePatterns.push(pattern)
+        }
       }
     }
     return (filePath: string) => {
       for (const re of reList) {
-        re.lastIndex = 0;
-        if (re.test(filePath))
-          return true;
+        re.lastIndex = 0
+        if (re.test(filePath)) {
+          return true
+        }
       }
       // Windows might still receive unix style paths from Cygwin or Git Bash.
       // Check against the file url as well.
       if (path.sep === '\\') {
-        const fileURL = url.pathToFileURL(filePath).href;
+        const fileURL = url.pathToFileURL(filePath).href
         for (const re of reList) {
-          re.lastIndex = 0;
-          if (re.test(fileURL))
-            return true;
+          re.lastIndex = 0
+          if (re.test(fileURL)) {
+            return true
+          }
         }
       }
       for (const pattern of filePatterns) {
-        if (minimatch(filePath, pattern, { nocase: true, dot: true }))
-          return true;
+        if (minimatch(filePath, pattern, { nocase: true, dot: true })) {
+          return true
+        }
       }
-      return false;
+      return false
     }
   }
 
@@ -266,7 +276,7 @@ export class Parser {
   * In this implementation, we use breadth first search.
   */
     const collector = new Collector(entrypoint, content)
-    const bfsQueue: [{filePath: string, content: string}] = [{ filePath: entrypoint, content }]
+    const bfsQueue: [{ filePath: string, content: string }] = [{ filePath: entrypoint, content }]
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
     // We can add a not-null assertion operator (!).
@@ -292,8 +302,8 @@ export class Parser {
         continue
       }
 
-      const resolvedDependencies = cache?.resolvedDependencies ??
-        await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
+      const resolvedDependencies = cache?.resolvedDependencies
+        ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       this.cache.set(item.filePath, { module, resolvedDependencies })
 
@@ -437,10 +447,10 @@ export class Parser {
     } else if (node.callee.type === 'MemberExpression') {
     // Handle calls to `module.require('dependency')`
       const { object, property } = node.callee
-      return object.type === 'Identifier' &&
-      object.name === 'module' &&
-      property.type === 'Identifier' &&
-      property.name === 'require'
+      return object.type === 'Identifier'
+        && object.name === 'module'
+        && property.type === 'Identifier'
+        && property.name === 'require'
     } else {
       return false
     }

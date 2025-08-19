@@ -22,32 +22,32 @@ export type Assertion = CoreAssertion<ApiAssertionSource>
 /**
  * Builder class for creating API check assertions.
  * Provides convenient methods to create assertions for different parts of HTTP responses.
- * 
+ *
  * @example
  * ```typescript
  * // Status code assertions
  * AssertionBuilder.statusCode().equals(200)
  * AssertionBuilder.statusCode().greaterThan(199)
  * AssertionBuilder.statusCode().lessThan(300)
- * 
+ *
  * // JSON body assertions using JSONPath
  * AssertionBuilder.jsonBody('$.user.name').equals('John')
  * AssertionBuilder.jsonBody('$.users.length').equals(5)
  * AssertionBuilder.jsonBody('$.data[0].id').isNotNull()
- * 
+ *
  * // Header assertions
  * AssertionBuilder.headers('content-type').contains('application/json')
  * AssertionBuilder.headers('x-rate-limit-remaining').greaterThan(0)
- * 
+ *
  * // Text body assertions
  * AssertionBuilder.textBody().contains('Welcome to our API')
  * AssertionBuilder.textBody().notContains('error')
- * 
+ *
  * // Response time assertions
  * AssertionBuilder.responseTime().lessThan(1000)
  * AssertionBuilder.responseTime().greaterThan(100)
  * ```
- * 
+ *
  * @see {@link https://jsonpath.com/ | JSONPath Online Evaluator}
  * @see {@link https://www.checklyhq.com/docs/api-checks/assertions/ | API Check Assertions}
  */

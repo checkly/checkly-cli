@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { PackageJsonFile } from '../package-json-file'
 
 describe('package.json file', () => {
-  it('should upsert devDependencies (general use)', async () => {
+  it('should upsert devDependencies (general use)', () => {
     const testFile = PackageJsonFile.make('package.json', {
       name: 'foo',
       version: '1.0.0',
@@ -35,7 +35,7 @@ describe('package.json file', () => {
     })
   })
 
-  it('should upsert devDependencies if newer', async () => {
+  it('should upsert devDependencies if newer', () => {
     const testFile = PackageJsonFile.make('package.json', {
       name: 'foo',
       version: '1.0.0',
@@ -50,7 +50,7 @@ describe('package.json file', () => {
     })
   })
 
-  it('should not upsert devDependencies if older', async () => {
+  it('should not upsert devDependencies if older', () => {
     const testFile = PackageJsonFile.make('package.json', {
       name: 'foo',
       version: '1.0.0',
@@ -65,7 +65,7 @@ describe('package.json file', () => {
     })
   })
 
-  it('should not upsert devDependencies if equal', async () => {
+  it('should not upsert devDependencies if equal', () => {
     const testFile = PackageJsonFile.make('package.json', {
       name: 'foo',
       version: '1.0.0',

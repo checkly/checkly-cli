@@ -1,19 +1,19 @@
 /**
  * Represents a check execution frequency with optional offset.
  * Use the static constants for common scheduling patterns.
- * 
+ *
  * @example
  * ```typescript
  * // High-frequency monitoring (every 30 seconds) - API/TCP only
  * frequency: Frequency.EVERY_30S
- * 
+ *
  * // Standard API monitoring (every 5 minutes)
  * frequency: Frequency.EVERY_5M
- * 
+ *
  * // Daily health checks (every 24 hours)
  * frequency: Frequency.EVERY_24H
  * ```
- * 
+ *
  * @see {@link https://www.checklyhq.com/docs/monitoring/ | Monitoring Documentation}
  */
 export class Frequency {
@@ -54,11 +54,11 @@ export class Frequency {
   frequency: number
   /** The frequency offset in seconds (used for sub-minute frequencies) */
   frequencyOffset?: number
-  
+
   /**
    * Creates a new frequency instance.
    * Use the static constants instead of creating instances directly.
-   * 
+   *
    * @param frequency The frequency in minutes, or 0 for second-based frequencies
    * @param frequencyOffset The frequency offset in seconds (for sub-minute frequencies)
    */
