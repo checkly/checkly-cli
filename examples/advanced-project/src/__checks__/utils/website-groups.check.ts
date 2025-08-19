@@ -10,7 +10,7 @@ export const syntheticGroup = new CheckGroupV2('check-group-1', {
   concurrency: 10,
   browserChecks: {
     frequency: Frequency.EVERY_30M,
-    testMatch: '**/__checks__/synthetics/*.spec.ts'
+    testMatch: '../synthetics/*.spec.ts'
   }
 })
 
