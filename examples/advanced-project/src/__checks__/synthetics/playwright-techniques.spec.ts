@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 // In this series of checks, we'll demonstrate some more advanced techniques
-// for testing your web page with Playwright. None of the examples here are
-// specific to Playwright running on Checkly.
+// for testing your web page with Playwright. All of these techniques can be
+// used wherever you use Playwright.
 
 test('Book details with request interception', async ({ page }) => {
   // Here we want to check the content of a book's details, but the stock
