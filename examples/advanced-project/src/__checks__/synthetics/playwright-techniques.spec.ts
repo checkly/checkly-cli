@@ -41,4 +41,3 @@ test('Accessibility issues', async ({ page }) => {
   const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
   expect(accessibilityScanResults.violations).toHaveLength(8); // ideally we'd find zero issues
 });
-
