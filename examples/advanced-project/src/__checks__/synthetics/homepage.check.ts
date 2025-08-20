@@ -6,7 +6,6 @@ import { syntheticGroup } from '../utils/website-groups.check.ts'
 // configuration file. Most settings for these checks are defined in the
 // check group, in /utils/website-groups.check.ts
 
-// We can define multiple checks in a single *.check.ts file.
 new BrowserCheck('browse-and-search-check', {
   name: 'Browse and Search',
   group: syntheticGroup,

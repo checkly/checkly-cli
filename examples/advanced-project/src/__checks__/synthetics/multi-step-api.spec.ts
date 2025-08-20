@@ -2,8 +2,7 @@ import { test, expect } from '@playwright/test'
 
 // Multistep checks let you make multiple API calls in sequence. Rather than
 // a simple API check configuration, multistep checks use Playwright allowing
-// chained API requests, and more complex assertions about the responses.
-// Read more at: https://www.checklyhq.com/docs/multistep-checks/
+// chained API requests. Read more at: https://www.checklyhq.com/docs/multistep-checks/
 
 // Note: in this demo there is no *.check.ts file that configures this check.
 // as a result its logical ID will just be this check's file name.
