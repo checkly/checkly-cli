@@ -6,6 +6,14 @@ import {
   WebhookAlertChannel
 } from 'checkly/constructs'
 
+// This utility file defines the settings for our alert channels. 
+// Not every channel is used in the rest of this demo project.
+// Note that here we've created one channel per type, but you can
+// create multiple channels of a type:
+// e.g. "prodEmailChannel" "frontendTeamEmailChannel" etc.
+// See all the options at https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/
+
+
 const sendDefaults = {
   sendFailure: true,
   sendRecovery: true,

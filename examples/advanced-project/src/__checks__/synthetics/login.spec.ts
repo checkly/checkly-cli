@@ -1,15 +1,16 @@
 import { test } from '@playwright/test'
 
+// This check logs in as a user would, by clicking and entering text on your web page. 
+
 test('login', async ({ page }) => {
-  // navigate to our target web page
-  await page.goto('')
-
-  // click on the login button and go through the login procedure
-  await page.click('#login')
-  await page.fill('#n-email', 'user@email.com')
-  await page.fill('#n-password2', 'supersecure1')
-  await page.click('#goto-signin-btn')
-
-  // wait until the login confirmation message is shown
-  // todo
+  // See Checkly's documentation on secrets and variables: https://www.checklyhq.com/docs/browser-checks/variables/
+  const password = process.env.WEB_SHOP_PASSWORD || 'defaultPwd';
+  await page.goto('http://danube-web.shop/');
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.getByRole('textbox', { name: 'Email' }).click();
+  await page.getByRole('textbox', { name: 'Email' }).fill('rex@harrison.com');
+  await page.getByRole('textbox', { name: 'Password' }).click();
+  await page.getByRole('textbox', { name: 'Password' }).fill(password);
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  // Once login is successful to your site, add assertions to check the response
 })

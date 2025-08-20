@@ -1,29 +1,24 @@
 import * as path from 'path'
 import { BrowserCheck } from 'checkly/constructs'
-import { smsChannel, emailChannel } from '../utils/alert-channels.ts'
 import { syntheticGroup } from '../utils/website-groups.check.ts'
-const alertChannels = [smsChannel, emailChannel]
 
-/*
-* In this example, we bundle all basic checks needed to check the Checkly homepage. We explicitly define the Browser
-* check here, instead of using a default based on a .spec.js file. This allows us to override the check configuration.
-* We can also add more checks into one file, in this case to cover a specific API call needed to hydrate the homepage.
-*/
+// In this example, we configure two checks for our homepage in a single
+// configuration file. Most settings for these checks are defined in the
+// check group, in /utils/website-groups.check.ts
 
 // We can define multiple checks in a single *.check.ts file.
-new BrowserCheck('homepage-browser-check', {
-  name: 'Home page',
+new BrowserCheck('browse-and-search-check', {
+  name: 'Browse and Search',
   group: syntheticGroup,
-  alertChannels,
   code: {
-    entrypoint: path.join(__dirname, 'homepage.spec.ts')
+    entrypoint: path.join(__dirname, 'browse-and-search.spec.ts')
   },
   runParallel: true,
 })
 
 new BrowserCheck('login-browser-check', {
-  name: 'Login Check',
-  alertChannels,
+  name: 'Login',
+  group: syntheticGroup,
   code: {
     entrypoint: path.join(__dirname, 'login.spec.ts')
   },
