@@ -21,17 +21,14 @@ test('Book details with request interception', async ({ page }) => {
   await expect(page.locator('#app-content')).toContainText("Left in stock: 0");
 });
 
-// The next test is a visual regression test that will compare an existing
-// screenshot to a current screenshot. As there's no screenshot stored for
-// this test yet, this check is commented out. To use it, uncomment the test
-// and run `npx checkly test --update-snapshots` to store a "known good" screenshot.
-
-/* test('Visual Regression Testing', async ({ page }) => {
-   await page.goto('https://danube-web.shop/')
-   await expect(page).toHaveScreenshot({ maxDiffPixelRatio: 0.2 })
-   await expect(page).toHaveScreenshot({ maxDiffPixels: 1000 })
-   await expect(page).toHaveScreenshot({ threshold: 0.2 })
-}); */
+test('Visual Regression Testing', async ({ page }) => {
+  // This visual regression check that will compare a saved screenshot to a
+  // current screenshot. To store an initial screenshot, run `npx checkly test --update-snapshots`
+  await page.goto('https://danube-web.shop/')
+  await expect(page).toHaveScreenshot({ maxDiffPixelRatio: 0.2 })
+  await expect(page).toHaveScreenshot({ maxDiffPixels: 1000 })
+  await expect(page).toHaveScreenshot({ threshold: 0.2 })
+});
 
 test('Accessibility issues', async ({ page }) => {
   // this check uses the Axe library to perform accessibility testing on our site.
