@@ -24,7 +24,7 @@ const config = defineConfig({
     /** The Checkly Runtime identifier, determining npm packages and the Node.js version available at runtime.
      * See https://www.checklyhq.com/docs/cli/npm-packages/
      */
-    runtimeId: '2024.09',
+    runtimeId: '2025.04',
     /* Failed check runs will be retried before triggering alerts */
     retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
     /* All checks will have this alert escalation policy defined */
