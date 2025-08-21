@@ -4,8 +4,6 @@ import { test, expect } from '@playwright/test'
 // a simple API check configuration, multistep checks use Playwright allowing
 // chained API requests. Read more at: https://www.checklyhq.com/docs/multistep-checks/
 
-// Note: in this demo there is no *.check.ts file that configures this check.
-// as a result its logical ID will just be this check's file name.
 
 const baseUrl = 'https://api.spacexdata.com/v3'
 

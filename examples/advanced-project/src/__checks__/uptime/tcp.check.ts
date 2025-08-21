@@ -1,8 +1,9 @@
 import { TcpMonitor, TcpAssertionBuilder } from 'checkly/constructs'
 import { uptimeGroup } from '../utils/website-groups.check.ts' 
 
-// TCP Monitors are similar to API monitors, for endpoints that don't accept
-// HTTP requests. Unlike URL monitors, read more: https://www.checklyhq.com/docs/tcp-monitors/
+// TCP monitors check if a TCP connection to a given host and port can be established.
+// They’re useful for monitoring databases, message queues, or any service that doesn’t use HTTP.
+// Read more: https://www.checklyhq.com/docs/tcp-monitors/
 
 new TcpMonitor('hello-tcp-1', {
   name: 'TCPbin Monitor',

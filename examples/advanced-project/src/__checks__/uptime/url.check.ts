@@ -9,6 +9,7 @@ import { uptimeGroup } from '../utils/website-groups.check.ts'
 new UrlMonitor('homepage-url-check', {
   name: 'Homepage URL Monitor',
   activated: true,
+  group: uptimeGroup,
   maxResponseTime: 10000, // milliseconds
   degradedResponseTime: 5000,
   request: {
