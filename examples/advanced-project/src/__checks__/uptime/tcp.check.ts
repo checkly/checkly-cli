@@ -1,5 +1,5 @@
 import { TcpMonitor, TcpAssertionBuilder } from 'checkly/constructs'
-import { uptimeGroup } from '../utils/website-groups.check.ts' 
+import { uptimeGroup } from '../utils/website-groups.check' 
 
 // TCP monitors check if a TCP connection to a given host and port can be established.
 // They’re useful for monitoring databases, message queues, or any service that doesn’t use HTTP.

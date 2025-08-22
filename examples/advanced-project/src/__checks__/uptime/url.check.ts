@@ -1,5 +1,5 @@
 import { UrlAssertionBuilder, UrlMonitor } from 'checkly/constructs'
-import { uptimeGroup } from '../utils/website-groups.check.ts' 
+import { uptimeGroup } from '../utils/website-groups.check' 
 
 
 // URL Monitors are the simplest and most efficient uptime monitors, they only

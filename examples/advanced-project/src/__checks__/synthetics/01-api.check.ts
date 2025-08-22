@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
-import { syntheticGroup } from '../utils/website-groups.check.ts'
+import { syntheticGroup } from '../utils/website-groups.check'
 
 // API checks work by sending an HTTP request to a URL endpoint. Read more at:
 // https://www.checklyhq.com/docs/api-checks/

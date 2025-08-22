@@ -1,5 +1,5 @@
 import { CheckGroupV2, Frequency, AlertEscalationBuilder } from 'checkly/constructs'
-import { smsChannel, emailChannel } from './alert-channels.ts'
+import { smsChannel, emailChannel } from './alert-channels'
 
 // This file defines two groups, one for synthetics monitors and one for uptime
 // monitors. Read more about group configuration at: https://www.checklyhq.com/docs/groups/

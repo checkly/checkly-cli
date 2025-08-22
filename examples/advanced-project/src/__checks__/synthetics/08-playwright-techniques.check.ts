@@ -1,6 +1,6 @@
 import * as path from 'path'
 import { BrowserCheck } from 'checkly/constructs'
-import { syntheticGroup } from '../utils/website-groups.check.ts'
+import { syntheticGroup } from '../utils/website-groups.check'
 
 // Even though there are multiple test() function calls in the .spec
 // file, they will all run and report as a single Checkly monitor. 
