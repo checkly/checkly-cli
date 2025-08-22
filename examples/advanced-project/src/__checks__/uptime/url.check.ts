@@ -30,10 +30,10 @@ const sitemapUrls = [
     'https://danube-web.shop/category?string=economics'
 ]
 
-// Create paths and friendly names for each monitor
 sitemapUrls.forEach((url, index) => {
+  // Create paths and friendly names for each monitor
   const urlPath = new URL(url).pathname.replace(/\//g, '-').replace(/^-+|-+$/g, '') || 'root'
-  const monitorId = `checkly-${urlPath}-1`
+  const monitorId = `checkly-${urlPath}`
   const monitorName = `${urlPath.replace(/-/g, ' ')} URL monitor`
 
 // Create each monitor

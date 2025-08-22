@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
-// This check browses and searches on the home page. This browser check is
-// written in Playwright. To get familiar with Playwright, check out https://www.checklyhq.com/learn/playwright/ 
+// Source code for a browser check using Playwright Test. Find more Playwright information at 
+// https://www.checklyhq.com/learn/playwright/ 
 
 // This environment variable is set in the group configuration in /utils/website-groups.check.ts
 const searchString: string = process.env.authorName || "Herman Moulson"

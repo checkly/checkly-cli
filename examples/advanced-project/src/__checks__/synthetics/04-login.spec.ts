@@ -8,7 +8,7 @@ test('login', async ({ page }) => {
   await page.goto('http://danube-web.shop/');
   await page.getByRole('button', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Email' }).click();
-  await page.getByRole('textbox', { name: 'Email' }).fill('rex@harrison.com');
+  await page.getByRole('textbox', { name: 'Email' }).fill('testUser@email.com');
   await page.getByRole('textbox', { name: 'Password' }).click();
   await page.getByRole('textbox', { name: 'Password' }).fill(password);
   await page.getByRole('button', { name: 'Sign In' }).click();
