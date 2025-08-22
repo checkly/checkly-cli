@@ -2,7 +2,7 @@ import * as path from 'path'
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs'
 import { syntheticGroup } from '../utils/website-groups.check'
 
-// API checks work by sending an HTTP request to a URL endpoint. Read more at:
+// API checks send an HTTP request to a URL endpoint and validate the response. Read more at:
 // https://www.checklyhq.com/docs/api-checks/
 
 new ApiCheck('books-api-check-1', {

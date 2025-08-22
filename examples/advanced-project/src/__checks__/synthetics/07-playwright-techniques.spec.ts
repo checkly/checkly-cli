@@ -16,13 +16,13 @@ test('Book details with request interception', async ({ page }) => {
     await route.fulfill({ response, json }); // return the modified JSON
   });
   await page.goto('https://danube-web.shop/books/23');
-  //Removed for brevity: checks of the book's title, genre, etc.
+  // Removed for brevity: checks of the book's title, genre, etc.
   await expect(page.getByRole('button', { name: 'Add to cart' })).toBeVisible();
   await expect(page.locator('#app-content')).toContainText("Left in stock: 0");
 });
 
 test('Visual Regression Testing', async ({ page }) => {
-  // This visual regression check that will compare a saved screenshot to a
+  // A visual regression check that will compare a saved screenshot to a
   // current screenshot. To store an initial screenshot, run `npx checkly test --update-snapshots`
   await page.goto('https://danube-web.shop/')
   await expect(page).toHaveScreenshot({ maxDiffPixelRatio: 0.2 })
@@ -31,7 +31,7 @@ test('Visual Regression Testing', async ({ page }) => {
 });
 
 test('Accessibility issues', async ({ page }) => {
-  // this check uses the Axe library to perform accessibility testing on our site.
+  // This check uses the Axe library to perform accessibility testing on our site.
   // axe-core is part of the Checkly runtime as of the 2024.02 version.
   // read about it here: https://www.checklyhq.com/blog/integrating-accessibility-checks-in-playwright-tes/
   await page.goto('https://danube-web.shop/');
