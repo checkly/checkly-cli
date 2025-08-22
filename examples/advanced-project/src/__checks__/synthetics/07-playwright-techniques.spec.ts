@@ -22,7 +22,7 @@ test('Book details with request interception', async ({ page }) => {
 });
 
 test('Visual Regression Testing', async ({ page }) => {
-  // This visual regression check that will compare a saved screenshot to a
+  // A visual regression check that will compare a saved screenshot to a
   // current screenshot. To store an initial screenshot, run `npx checkly test --update-snapshots`
   await page.goto('https://danube-web.shop/')
   await expect(page).toHaveScreenshot({ maxDiffPixelRatio: 0.2 })
