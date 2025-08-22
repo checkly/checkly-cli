@@ -31,7 +31,7 @@ test('Visual Regression Testing', async ({ page }) => {
 });
 
 test('Accessibility issues', async ({ page }) => {
-  // this check uses the Axe library to perform accessibility testing on our site.
+  // This check uses the Axe library to perform accessibility testing on our site.
   // axe-core is part of the Checkly runtime as of the 2024.02 version.
   // read about it here: https://www.checklyhq.com/blog/integrating-accessibility-checks-in-playwright-tes/
   await page.goto('https://danube-web.shop/');
