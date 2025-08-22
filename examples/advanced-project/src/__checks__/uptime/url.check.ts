@@ -1,5 +1,5 @@
 import { UrlAssertionBuilder, UrlMonitor } from 'checkly/constructs'
-import { uptimeGroup } from '../utils/website-groups.check' 
+import { uptimeGroup } from '../utils/website-groups.check'
 
 
 // URL Monitors are the simplest and most efficient uptime monitors, they only
@@ -26,8 +26,8 @@ new UrlMonitor('homepage-url-check', {
 // Here we're using a short array of URLS, but this example can be extended
 // by parsing a sitemap or JSON file and adding every URL to an array.
 const sitemapUrls = [
-    'https://danube-web.shop/books/2',
-    'https://danube-web.shop/category?string=economics'
+  'https://danube-web.shop/books/2',
+  'https://danube-web.shop/category?string=economics'
 ]
 
 sitemapUrls.forEach((url, index) => {
@@ -36,7 +36,7 @@ sitemapUrls.forEach((url, index) => {
   const monitorId = `checkly-${urlPath}`
   const monitorName = `${urlPath.replace(/-/g, ' ')} URL monitor`
 
-// Create each monitor
+  // Create each monitor
   new UrlMonitor(monitorId, {
     name: monitorName,
     activated: true,
