@@ -14,7 +14,7 @@ export const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
   // By setting an alertEscalationPolicy, these settings will override those on individual checks
   alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(
     2, // Alert after 2 consecutive failures
-    { interval: 5, amount: 2 }, // Send 2 reminders, 5 minutes apart
+    { amount: 2, interval: 5 }, // Send 2 reminders, 5 minutes apart
     { enabled: true, percentage: 50 } // Alert if 50% of parallel runs fail
   ),
   alertChannels: [emailChannel, smsChannel],
