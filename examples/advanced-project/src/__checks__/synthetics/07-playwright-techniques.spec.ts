@@ -16,7 +16,7 @@ test('Book details with request interception', async ({ page }) => {
     await route.fulfill({ response, json }); // return the modified JSON
   });
   await page.goto('https://danube-web.shop/books/23');
-  //Removed for brevity: checks of the book's title, genre, etc.
+  // Removed for brevity: checks of the book's title, genre, etc.
   await expect(page.getByRole('button', { name: 'Add to cart' })).toBeVisible();
   await expect(page.locator('#app-content')).toContainText("Left in stock: 0");
 });
