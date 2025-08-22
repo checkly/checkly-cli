@@ -15,4 +15,3 @@ new BrowserCheck('playwright-techniques', {
   },
   runParallel: true,
 })
-

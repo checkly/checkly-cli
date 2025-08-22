@@ -16,4 +16,3 @@ test('webshop homepage', async ({ page }) => {
   await page.getByRole('button', { name: 'Search' }).click();
   await expect(page.getByText('Haben oder haben')).toBeVisible();
 })
-
