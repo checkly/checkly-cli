@@ -26,7 +26,6 @@ export const uptimeGroup = new CheckGroupV2('check-group-uptime', {
   name: 'Uptime Monitors Group',
   muted: false,
   frequency: Frequency.EVERY_15M,
-  locations: ['us-east-1', 'eu-west-1'],
   tags: ['uptime'],
   concurrency: 10
 })
