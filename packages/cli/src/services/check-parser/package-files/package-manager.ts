@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { lineage } from './walk'
+
 export class Runnable {
   executable: string
   args: string[]
@@ -44,7 +46,8 @@ export abstract class PackageManagerDetector {
   abstract get name (): string
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
-  abstract detectLockfile (dir: string): Promise<void>
+  abstract get representativeLockfile (): string | undefined
+  abstract detectLockfile (dir: string): Promise<string>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
   abstract execCommand (args: string[]): Runnable
@@ -63,8 +66,12 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
     return false
   }
 
-  async detectLockfile (dir: string): Promise<void> {
-    return await accessR(path.join(dir, 'package-lock.json'))
+  get representativeLockfile (): string {
+    return 'package-lock.json'
+  }
+
+  async detectLockfile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -93,8 +100,12 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
+  get representativeLockfile (): undefined {
+    return
+  }
+
   // eslint-disable-next-line require-await
-  async detectLockfile (): Promise<void> {
+  async detectLockfile (): Promise<string> {
     throw new NotDetectedError()
   }
 
@@ -124,8 +135,12 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  async detectLockfile (dir: string): Promise<void> {
-    return await accessR(path.join(dir, 'pnpm-lock.yaml'))
+  get representativeLockfile (): string {
+    return 'pnpm-lock.yaml'
+  }
+
+  async detectLockfile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -154,8 +169,12 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  async detectLockfile (dir: string): Promise<void> {
-    return await accessR(path.join(dir, 'yarn.lock'))
+  get representativeLockfile (): string {
+    return 'yarn.lock'
+  }
+
+  async detectLockfile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -184,8 +203,12 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
     return process.versions.deno !== undefined
   }
 
-  async detectLockfile (dir: string): Promise<void> {
-    return await accessR(path.join(dir, 'deno.lock'))
+  get representativeLockfile (): string {
+    return 'deno.lock'
+  }
+
+  async detectLockfile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -214,8 +237,12 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return process.versions.bun !== undefined
   }
 
-  async detectLockfile (dir: string): Promise<void> {
-    return await accessR(path.join(dir, 'bun.lockb'))
+  get representativeLockfile (): string {
+    return 'bun.lockb'
+  }
+
+  async detectLockfile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -231,17 +258,19 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
   }
 }
 
-async function accessR (filePath: string): Promise<void> {
+async function accessR (filePath: string): Promise<string> {
   try {
     await fs.access(filePath, fs.constants.R_OK)
+    return filePath
   } catch {
     throw new NotDetectedError()
   }
 }
 
-async function accessX (filePath: string): Promise<void> {
+async function accessX (filePath: string): Promise<string> {
   try {
     await fs.access(filePath, fs.constants.X_OK)
+    return filePath
   } catch {
     throw new NotDetectedError()
   }
@@ -333,13 +362,13 @@ export const knownPackageManagers: PackageManagerDetector[] = [
   npmDetector,
 ]
 
-export interface DetectPackageManagerOptions {
+export interface DetectOptions {
   detectors?: PackageManagerDetector[]
 }
 
 export async function detectPackageManager (
   dir: string,
-  options?: DetectPackageManagerOptions,
+  options?: DetectOptions,
 ): Promise<PackageManager> {
   const detectors = options?.detectors ?? knownPackageManagers
 
@@ -362,10 +391,11 @@ export async function detectPackageManager (
 
   // Next, try to find a lockfile.
   try {
-    return await Promise.any(detectors.map(async detector => {
-      await detector.detectLockfile(dir)
-      return detector
-    }))
+    const { packageManager } = await detectNearestLockfile(dir, {
+      detectors,
+    })
+
+    return packageManager
   } catch {
     // Nothing detected.
   }
@@ -386,4 +416,62 @@ export async function detectPackageManager (
 
   // If all else fails, just assume npm.
   return npmDetector
+}
+
+export interface NearestLockFile {
+  packageManager: PackageManager
+  lockfile: string
+}
+
+export class NoLockfileFoundError extends Error {
+  searchPaths: string[]
+  lockfiles: string[]
+
+  constructor (searchPaths: string[], lockfiles: string[], options?: ErrorOptions) {
+    const message = `Unable to detect a lockfile in any of the following paths:`
+      + `\n\n`
+      + `${searchPaths.map(searchPath => `  ${searchPath}`).join('\n')}`
+      + `\n\n`
+      + `Lockfiles we looked for:`
+      + `\n\n`
+      + `${lockfiles.map(lockfile => `  ${lockfile}`).join('\n')}`
+    super(message, options)
+    this.name = 'NoLockfileFoundError'
+    this.searchPaths = searchPaths
+    this.lockfiles = lockfiles
+  }
+}
+
+export async function detectNearestLockfile (
+  dir: string,
+  options?: DetectOptions,
+): Promise<NearestLockFile> {
+  const detectors = options?.detectors ?? knownPackageManagers
+
+  const searchPaths: string[] = []
+
+  // Next, try to find a lockfile.
+  for (const searchPath of lineage(dir)) {
+    try {
+      searchPaths.push(searchPath)
+
+      // Assume that only a single kind of lockfile exists, which means the
+      // resolve order does not matter.
+      return await Promise.any(detectors.map(async detector => {
+        const lockfile = await detector.detectLockfile(searchPath)
+        return {
+          packageManager: detector,
+          lockfile,
+        }
+      }))
+    } catch {
+      // Nothing detected.
+    }
+  }
+
+  const lockfiles = detectors.reduce<string[]>((acc, detector) => {
+    return acc.concat(detector.representativeLockfile ?? [])
+  }, [])
+
+  throw new NoLockfileFoundError(searchPaths, lockfiles)
 }

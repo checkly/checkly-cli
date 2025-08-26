@@ -16,10 +16,11 @@ import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
 import { Parser } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
-import { access, readFile } from 'fs/promises'
+import { readFile } from 'fs/promises'
 import { createHash } from 'crypto'
 import { Session } from '../constructs'
 import semver from 'semver'
+import { detectNearestLockfile } from './check-parser/package-files/package-manager'
 
 export interface GitInformation {
   commitId: string
@@ -208,13 +209,10 @@ export async function bundlePlayWrightProject (
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
-  const lockFile = await findLockFile(dir)
-  if (!lockFile) {
-    throw new Error('No lock file found')
-  }
+  const { lockfile } = await detectNearestLockfile(dir)
 
   const [cacheHash, playwrightVersion] = await Promise.all([
-    getCacheHash(lockFile),
+    getCacheHash(lockfile),
     getPlaywrightVersion(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
   ])
@@ -261,21 +259,6 @@ export async function getPlaywrightVersion (projectDir: string): Promise<string 
       return
     }
   }
-}
-
-async function findLockFile (dir: string): Promise<string | null> {
-  const lockFiles = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock']
-
-  for (const lockFile of lockFiles) {
-    const filePath = path.join(dir, lockFile)
-    try {
-      await access(filePath)
-      return filePath
-    } catch {
-      // Ignore errors, just check the next file
-    }
-  }
-  return null // Return null if no lock file is found
 }
 
 export async function loadPlaywrightProjectFiles (
