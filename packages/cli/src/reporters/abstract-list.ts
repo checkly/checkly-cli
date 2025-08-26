@@ -21,7 +21,7 @@ export type checkFilesMap = Map<string | undefined, Map<SequenceId, {
   testResultId?: string
   links?: TestResultsShortLinks
   numRetries: number
-  logs?: Array<{ timestamp: number, message: string }>
+  hasStreamedLogs?: boolean
 }>>
 
 export default abstract class AbstractListReporter implements Reporter {
@@ -106,12 +106,10 @@ export default abstract class AbstractListReporter implements Reporter {
   onStreamLogs (check: any, sequenceId: SequenceId, logs: Array<{ timestamp: number, message: string }> | undefined) {
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
     const logList = logs || []
-    if (!checkFile.logs) {
-      checkFile.logs = []
-    }
 
     // Display the check title if this is the first time we're streaming logs for this check
-    const isFirstLogBatch = checkFile.logs.length === 0
+    const isFirstLogBatch = !checkFile.hasStreamedLogs
+    checkFile.hasStreamedLogs = true
     if (isFirstLogBatch) {
       // For Playwright tests, we need to create a better display name
       const displayCheck = {
@@ -126,19 +124,14 @@ export default abstract class AbstractListReporter implements Reporter {
     logList.forEach(logEntry => {
       // Format timestamp from Unix timestamp to HH:mm:ss.SSS format
       const timestamp = DateTime.fromMillis(logEntry.timestamp).toFormat('HH:mm:ss.SSS')
-      const formattedLog = `[${timestamp}] ${logEntry.message}`
-
-      // Handle logs that contain newlines by splitting and indenting each line
-      const logLines = formattedLog.split('\n')
-      logLines.forEach((line, index) => {
-        if (line.trim()) { // Only print non-empty lines
-          printLn(indentString(line, 4), 1, 0) // Always add 1 newline after each line
-        }
+      // Handle logs that contain newlines by splitting and prefixing each line with timestamp
+      const messageLines = logEntry.message.split('\n')
+      messageLines.forEach(line => {
+        // Each line gets its own timestamp for clarity
+        const formattedLine = `[${timestamp}] ${line}`
+        printLn(indentString(formattedLine, 4))
       })
     })
-
-    // Store logs for later use if needed
-    checkFile.logs.push(...logList)
   }
 
   // Clear the summary which was printed by _printStatus from stdout

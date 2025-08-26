@@ -20,7 +20,7 @@ export default class TestRunner extends AbstractCheckRunner {
   updateSnapshots: boolean
   baseDirectory: string
   testRetryStrategy: RetryStrategy | null
-  streamLogs?: boolean
+  streamLogs: boolean
 
   constructor (
     accountId: string,

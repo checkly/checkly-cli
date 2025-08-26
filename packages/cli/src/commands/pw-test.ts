@@ -312,7 +312,6 @@ export default class PwTestCommand extends AuthCommand {
       }
       return arg
     })
-    const privateLocations = privateRunLocation ? [privateRunLocation] : []
     const input = parseArgs.join(' ') || ''
     const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
     const testCommand = await PwTestCommand.getTestCommand(dir, input)
