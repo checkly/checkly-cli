@@ -9,7 +9,7 @@ export const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
   activated: true,
   muted: false,
   frequency: Frequency.EVERY_15M,
-  locations: ['us-east-1', 'eu-central-1'],
+  locations: ['us-east-1', 'us-west-1'],
   tags: ['synthetics'],
   // By setting an alertEscalationPolicy, these settings will override those on individual checks
   alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(
