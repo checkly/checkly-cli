@@ -83,6 +83,10 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
     }),
+    'stream-logs': Flags.boolean({
+      description: 'Stream logs from the test run to the console.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -103,6 +107,7 @@ export default class PwTestCommand extends AuthCommand {
       record,
       'test-session-name': testSessionName,
       'create-check': createCheck,
+      'stream-logs': streamLogs,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -127,6 +132,7 @@ export default class PwTestCommand extends AuthCommand {
       runLocation: runLocation as keyof Region,
       privateRunLocation,
     }, api, config.getAccountId())
+
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const account = this.account
     const { data: availableRuntimes } = await api.runtimes.getAll()
@@ -236,6 +242,7 @@ export default class PwTestCommand extends AuthCommand {
       configDirectory,
       // TODO: ADD PROPER RETRY STRATEGY HANDLING
       null, // testRetryStrategy
+      streamLogs,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -286,6 +293,9 @@ export default class PwTestCommand extends AuthCommand {
     runner.on(Events.ERROR, err => {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
+    })
+    runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
+      reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
     })
     await runner.run()
   }
