@@ -8,6 +8,7 @@ import { isBuiltinPath, isLocalPath, PathResult } from './paths'
 import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
 import { LookupContext } from './lookup'
+import { walkUp, WalkUpOptions } from './walk'
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
@@ -140,48 +141,6 @@ export type Dependencies = {
   external: ExternalDependency[]
   missing: MissingDependency[]
   local: LocalDependency[]
-}
-
-export interface WalkUpOptions {
-  root?: string
-  isDir?: boolean
-}
-
-async function walkUp (
-  filePath: string,
-  find: (dirPath: string) => Promise<boolean>,
-  options?: WalkUpOptions,
-): Promise<boolean> {
-  let currentPath = filePath
-
-  if (options?.isDir === true) {
-    // To keep things simple, just add a dummy component.
-    currentPath = path.join(currentPath, 'z')
-  }
-
-  while (true) {
-    const prevPath = currentPath
-
-    currentPath = path.dirname(prevPath)
-
-    // Bail out if we reach root.
-    if (prevPath === currentPath) {
-      break
-    }
-
-    const found = await find(currentPath)
-    if (found) {
-      return true
-    }
-
-    // Stop if we reach the user-specified root directory.
-    // TODO: I don't like a string comparison for this but it'll do for now.
-    if (currentPath === options?.root) {
-      break
-    }
-  }
-
-  return false
 }
 
 export class PackageFilesResolver {
