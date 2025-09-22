@@ -110,11 +110,12 @@ export default class PwTestCommand extends AuthCommand {
       'stream-logs': streamLogs,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+    const pwPathFlag = this.getConfigPath(playwrightFlags)
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
-    } = await loadChecklyConfig(configDirectory, configFilenames, false)
-    const playwrightConfigPath = this.getConfigPath(playwrightFlags) ?? checklyConfig.checks?.playwrightConfigPath
+    } = await loadChecklyConfig(configDirectory, configFilenames, false, pwPathFlag)
+    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
     const dir = path.dirname(playwrightConfigPath || '.')
     const playwrightCheck = await PwTestCommand.createPlaywrightCheck(
       playwrightFlags,

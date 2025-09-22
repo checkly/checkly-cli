@@ -146,7 +146,7 @@ export async function getChecklyConfigFile (): Promise<{ checklyConfig: string, 
 
 export class ConfigNotFoundError extends Error {}
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'], writeChecklyConfig: boolean = true): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'], writeChecklyConfig: boolean = true, playwrightConfigPath?: string): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   let config: ChecklyConfig | undefined
   Session.loadingChecklyConfigFile = true
   Session.checklyConfigFileConstructs = []
@@ -161,7 +161,7 @@ export async function loadChecklyConfig (dir: string, filenames = ['checkly.conf
     break
   }
   if (!config) {
-    config = await handleMissingConfig(dir, filenames, writeChecklyConfig)
+    config = await handleMissingConfig(dir, filenames, writeChecklyConfig, playwrightConfigPath)
   }
   validateConfigFields(config, ['logicalId', 'projectName'] as const)
 
@@ -178,9 +178,10 @@ async function handleMissingConfig (
   dir: string,
   filenames: string[],
   shouldWriteConfig: boolean = true,
+  pwPath?: string,
 ): Promise<ChecklyConfig> {
   const baseName = path.basename(dir)
-  const playwrightConfigPath = findPlaywrightConfigPath(dir)
+  const playwrightConfigPath = pwPath ?? findPlaywrightConfigPath(dir)
   if (playwrightConfigPath) {
     const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`)
     if (shouldWriteConfig) {
