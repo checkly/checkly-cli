@@ -20,7 +20,12 @@ import { readFile } from 'fs/promises'
 import { createHash } from 'crypto'
 import { Session } from '../constructs'
 import semver from 'semver'
-import { detectNearestLockfile } from './check-parser/package-files/package-manager'
+import {
+  detectNearestLockfile,
+  NpmDetector,
+  PNpmDetector,
+  YarnDetector,
+} from './check-parser/package-files/package-manager'
 
 export interface GitInformation {
   commitId: string
@@ -195,6 +200,10 @@ export async function bundlePlayWrightProject (
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
+  const supportedDetectors = [new NpmDetector(), new YarnDetector(), new PNpmDetector()]
+  const { lockfile } = await detectNearestLockfile(dir, { detectors: supportedDetectors, root: Session.basePath })
+
+  // No need of loading everything if there is no lockfile
   const pwtConfig = await Session.loadFile(filePath)
   const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
   const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
@@ -209,12 +218,10 @@ export async function bundlePlayWrightProject (
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
-  const { lockfile } = await detectNearestLockfile(dir)
-
   const [cacheHash, playwrightVersion] = await Promise.all([
     getCacheHash(lockfile),
     getPlaywrightVersion(dir),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
+    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive, lockfile),
   ])
 
   await archive.finalize()
@@ -263,8 +270,8 @@ export async function getPlaywrightVersion (projectDir: string): Promise<string 
 
 export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
+  lockFile: string,
 ) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   const mode = 0o755 // Default mode for files in the archive
@@ -275,10 +282,10 @@ export async function loadPlaywrightProjectFiles (
     const relativePath = path.relative(dir, file)
     archive.file(file, { name: relativePath, mode })
   }
-  // TODO: This code below should be a single glob
-  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
-  archive.glob('**/pnpm*.yaml', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
-  archive.glob('**/yarn.lock', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  const lockFileDirName = path.dirname(lockFile)
+  archive.file(lockFile, { name: path.basename(lockFile), mode })
+  archive.file(path.join(lockFileDirName, 'package.json'), { name: 'package.json', mode })
+
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
   }
