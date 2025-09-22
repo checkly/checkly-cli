@@ -125,6 +125,11 @@ async function loadPlaywrightChecks (
     return
   }
 
+  // Resolve the playwrightConfigPath relative to the project directory
+  const resolvedPlaywrightConfigPath = path.isAbsolute(playwrightConfigPath)
+    ? playwrightConfigPath
+    : path.resolve(directory, playwrightConfigPath)
+
   if (playwrightChecks?.length) {
     try {
       setCheckFilePaths(playwrightConfigPath, directory)
@@ -132,7 +137,7 @@ async function loadPlaywrightChecks (
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
           ...playwrightCheckProps,
-          playwrightConfigPath,
+          playwrightConfigPath: resolvedPlaywrightConfigPath,
           include,
         })
       }
@@ -142,11 +147,11 @@ async function loadPlaywrightChecks (
   } else {
     try {
       setCheckFilePaths(playwrightConfigPath, directory)
-      const basePath = path.basename(playwrightConfigPath)
+      const basePath = path.basename(resolvedPlaywrightConfigPath)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const playwrightCheck = new PlaywrightCheck(basePath, {
         name: basePath,
-        playwrightConfigPath,
+        playwrightConfigPath: resolvedPlaywrightConfigPath,
         include,
       })
     } finally {
