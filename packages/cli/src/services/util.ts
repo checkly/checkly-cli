@@ -272,6 +272,7 @@ export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
   lockFile: string,
 ) {
+  const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   const mode = 0o755 // Default mode for files in the archive
@@ -285,7 +286,8 @@ export async function loadPlaywrightProjectFiles (
   const lockFileDirName = path.dirname(lockFile)
   archive.file(lockFile, { name: path.basename(lockFile), mode })
   archive.file(path.join(lockFileDirName, 'package.json'), { name: 'package.json', mode })
-
+  // handle workspaces
+  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
   }

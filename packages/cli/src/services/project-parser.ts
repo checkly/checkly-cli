@@ -126,9 +126,7 @@ async function loadPlaywrightChecks (
   }
 
   // Resolve the playwrightConfigPath relative to the project directory
-  const resolvedPlaywrightConfigPath = path.isAbsolute(playwrightConfigPath)
-    ? playwrightConfigPath
-    : path.resolve(directory, playwrightConfigPath)
+  const resolvedPlaywrightConfigPath = path.resolve(directory, playwrightConfigPath)
 
   if (playwrightChecks?.length) {
     try {
