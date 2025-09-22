@@ -287,7 +287,7 @@ export async function loadPlaywrightProjectFiles (
   archive.file(lockFile, { name: path.basename(lockFile), mode })
   archive.file(path.join(lockFileDirName, 'package.json'), { name: 'package.json', mode })
   // handle workspaces
-  archive.glob('**/package*.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  archive.glob('**/package.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
   }
