@@ -40,7 +40,12 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     if (options.sameRegion !== undefined) {
       builder.boolean('sameRegion', options.sameRegion)
     }
+  }
 
+  function buildOnlyOnOption (
+    options: RetryStrategyOptions,
+    builder: ObjectValueBuilder,
+  ): void {
     if (options.onlyOn !== undefined) {
       const onlyOn = Array.isArray(options.onlyOn) ? options.onlyOn : [options.onlyOn]
       if (onlyOn.length === 1) {
@@ -63,6 +68,7 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     buildMaxRetriesOption(options, builder)
     buildMaxDurationSecondsOption(options, builder)
     buildSameRegionOption(options, builder)
+    buildOnlyOnOption(options, builder)
   }
 
   if (strategy === null || strategy === undefined) {
@@ -109,6 +115,7 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
           builder.object(builder => {
             buildBaseBackoffSecondsOption(strategy, builder)
             buildSameRegionOption(strategy, builder)
+            buildOnlyOnOption(strategy, builder)
           })
         })
       })

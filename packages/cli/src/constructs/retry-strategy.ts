@@ -127,14 +127,14 @@ export type FixedRetryStrategyOptions = RetryStrategyOptions
 /**
  * Configuration for single retry retry strategies.
  */
-export interface SingleRetryRetryStrategy extends Pick<RetryStrategy, 'type' | 'baseBackoffSeconds' | 'sameRegion'> {
+export interface SingleRetryRetryStrategy extends Pick<RetryStrategy, 'type' | 'baseBackoffSeconds' | 'sameRegion' | 'onlyOn'> {
   type: 'SINGLE_RETRY'
 }
 
 /**
  * Options for configuring single retry retry strategy behavior.
  */
-export type SingleRetryRetryStrategyOptions = Pick<RetryStrategyOptions, 'baseBackoffSeconds' | 'sameRegion'>
+export type SingleRetryRetryStrategyOptions = Pick<RetryStrategyOptions, 'baseBackoffSeconds' | 'sameRegion' | 'onlyOn'>
 
 /**
  * Configuration for no retry retry strategies.
@@ -230,11 +230,12 @@ export class RetryStrategyBuilder {
    * A single retry will be performed.
    */
   static singleRetry (options?: SingleRetryRetryStrategyOptions): SingleRetryRetryStrategy {
-    const { baseBackoffSeconds, sameRegion } = RetryStrategyBuilder.defaults(options)
+    const { baseBackoffSeconds, sameRegion, onlyOn } = RetryStrategyBuilder.defaults(options)
     return {
       type: 'SINGLE_RETRY',
       baseBackoffSeconds,
       sameRegion,
+      onlyOn,
     }
   }
 

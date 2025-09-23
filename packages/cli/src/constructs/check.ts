@@ -14,6 +14,7 @@ import {
   FixedRetryStrategy,
   LinearRetryStrategy,
   NoRetriesRetryStrategy,
+  RetryStrategy,
   SingleRetryRetryStrategy,
 } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
@@ -293,8 +294,9 @@ export abstract class Check extends Construct {
 
   // eslint-disable-next-line require-await
   protected async validateRetryStrategyOnlyOn (diagnostics: Diagnostics): Promise<void> {
-    if (this.retryStrategy?.onlyOn) {
-      if (this.retryStrategy.onlyOn === 'NETWORK_ERROR') {
+    if (this.retryStrategy) {
+      const retryStrategy = this.retryStrategy as RetryStrategy
+      if (retryStrategy.onlyOn === 'NETWORK_ERROR') {
         if (!this.supportsOnlyOnNetworkErrorRetryStrategy()) {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
             'retryStrategy',
@@ -308,7 +310,7 @@ export abstract class Check extends Construct {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'retryStrategy',
           new Error(
-            `Unsupported value "${this.retryStrategy.onlyOn}" for "onlyOn".`,
+            `Unsupported value "${retryStrategy.onlyOn}" for "onlyOn".`,
           ),
         ))
       }
