@@ -102,7 +102,7 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
           })
         })
       })
-    case 'SINGLE':
+    case 'SINGLE_RETRY':
       return expr(ident('RetryStrategyBuilder'), builder => {
         builder.member(ident('singleRetry'))
         builder.call(builder => {

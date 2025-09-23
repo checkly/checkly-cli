@@ -14,7 +14,7 @@ import {
   FixedRetryStrategy,
   LinearRetryStrategy,
   NoRetriesRetryStrategy,
-  SingleRetryStrategy,
+  SingleRetryRetryStrategy,
 } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
@@ -30,7 +30,7 @@ export type CheckRetryStrategy =
   | LinearRetryStrategy
   | ExponentialRetryStrategy
   | FixedRetryStrategy
-  | SingleRetryStrategy
+  | SingleRetryRetryStrategy
   | NoRetriesRetryStrategy
 
 /**
