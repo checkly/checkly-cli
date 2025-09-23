@@ -364,6 +364,7 @@ export const knownPackageManagers: PackageManagerDetector[] = [
 
 export interface DetectOptions {
   detectors?: PackageManagerDetector[]
+  root?: string
 }
 
 export async function detectPackageManager (
@@ -393,6 +394,7 @@ export async function detectPackageManager (
   try {
     const { packageManager } = await detectNearestLockfile(dir, {
       detectors,
+      root: options?.root,
     })
 
     return packageManager
@@ -451,7 +453,7 @@ export async function detectNearestLockfile (
   const searchPaths: string[] = []
 
   // Next, try to find a lockfile.
-  for (const searchPath of lineage(dir)) {
+  for (const searchPath of lineage(dir, { root: options?.root })) {
     try {
       searchPaths.push(searchPath)
 
