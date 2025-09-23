@@ -196,7 +196,7 @@ export async function bundlePlayWrightProject (
   browsers: string[]
   relativePlaywrightConfigPath: string
   cacheHash: string
-  playwrightVersion: string | undefined
+  playwrightVersion: string
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
@@ -218,14 +218,8 @@ export async function bundlePlayWrightProject (
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
-  const { lockfile } = await detectNearestLockfile(dir)
 
-  let playwrightVersion: string | undefined
-  try {
-    playwrightVersion = await getPlaywrightVersion(lockfile)
-  } catch (error) {
-    playwrightVersion = undefined
-  }
+  const playwrightVersion = getPlaywrightVersionFromPackage(dir)
 
   const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
@@ -257,76 +251,24 @@ export async function getCacheHash (lockFile: string): Promise<string> {
   return hash.digest('hex')
 }
 
-export function getPlaywrightVersionFromNpmLock (lockfileContent: string): string | undefined {
-  const lockfileData = JSON.parse(lockfileContent)
+export function getPlaywrightVersionFromPackage (cwd: string): string {
+  try {
+    const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const playwrightPkg = require(playwrightPath)
+    const version = normalizeVersion(playwrightPkg.version)
 
-  // npm v2+ uses packages field
-  const playwrightEntry = lockfileData?.packages?.['node_modules/@playwright/test']
-  if (playwrightEntry?.version) {
-    return normalizeVersion(playwrightEntry.version)
-  }
+    if (!version) {
+      throw new Error('Invalid version found in @playwright/test package.json')
+    }
 
-  // npm v1 uses dependencies field
-  if (lockfileData?.dependencies?.['@playwright/test']?.version) {
-    return normalizeVersion(lockfileData.dependencies['@playwright/test'].version)
-  }
-
-  return undefined
-}
-
-export function getPlaywrightVersionFromYarnLock (lockfileContent: string): string | undefined {
-  // For yarn v1, look for "@playwright/test@" pattern
-  const yarnV1Pattern = /"@playwright\/test@[^"]*":\s*\n\s*version\s+"([^"]+)"/
-  const yarnV1Match = lockfileContent.match(yarnV1Pattern)
-  if (yarnV1Match) {
-    return normalizeVersion(yarnV1Match[1])
-  }
-
-  // For yarn v2, look for "@playwright/test@npm:" pattern
-  const yarnV2Pattern = /"@playwright\/test@npm:[^"]*":\s*\n\s*version:\s*([^\s]+)/
-  const yarnV2Match = lockfileContent.match(yarnV2Pattern)
-  if (yarnV2Match) {
-    return normalizeVersion(yarnV2Match[1])
-  }
-
-  return undefined
-}
-
-export function getPlaywrightVersionFromPnpmLock (lockfileContent: string): string | undefined {
-  // Look for /@playwright/test@version pattern in pnpm lockfile
-  const pnpmPattern = /\/@playwright\/test@([^:]+):/
-  const match = lockfileContent.match(pnpmPattern)
-  if (match) {
-    return normalizeVersion(match[1])
-  }
-
-  // Alternative pattern: devDependencies section
-  const devDepsPattern = /@playwright\/test[^:]*:\s*specifier:\s*[^\n]*\s*version:\s*([^\s]+)/
-  const devDepsMatch = lockfileContent.match(devDepsPattern)
-  if (devDepsMatch) {
-    return normalizeVersion(devDepsMatch[1])
-  }
-
-  return undefined
-}
-
-export async function getPlaywrightVersion (lockFile: string): Promise<string | undefined> {
-  const lockfileContent = await readFile(lockFile, 'utf-8')
-  const lockfileName = path.basename(lockFile)
-
-  switch (lockfileName) {
-    case 'package-lock.json':
-      return getPlaywrightVersionFromNpmLock(lockfileContent)
-
-    case 'yarn.lock':
-      return getPlaywrightVersionFromYarnLock(lockfileContent)
-
-    case 'pnpm-lock.yaml':
-    case 'pnpm-lock.yml':
-      return getPlaywrightVersionFromPnpmLock(lockfileContent)
-
-    default:
-      throw new Error(`Unsupported lockfile format: ${lockfileName}`)
+    return version
+  } catch (error) {
+    // @ts-ignore
+    if (error instanceof Error && error.code === 'MODULE_NOT_FOUND') {
+      throw new Error('Could not find @playwright/test package. Make sure it is installed.')
+    }
+    throw error
   }
 }
 
