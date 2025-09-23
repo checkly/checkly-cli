@@ -211,9 +211,16 @@ export async function bundlePlayWrightProject (
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
   const { lockfile } = await detectNearestLockfile(dir)
 
-  const [cacheHash, playwrightVersion] = await Promise.all([
+  let playwrightVersion: string | undefined
+  try {
+    playwrightVersion = await getPlaywrightVersion(lockfile)
+  } catch (error) {
+    console.warn(`Could not determine Playwright version from lockfile: ${error}`)
+    playwrightVersion = undefined
+  }
+
+  const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
-    getPlaywrightVersion(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
   ])
 
@@ -242,22 +249,76 @@ export async function getCacheHash (lockFile: string): Promise<string> {
   return hash.digest('hex')
 }
 
-export async function getPlaywrightVersion (projectDir: string): Promise<string | undefined> {
-  try {
-    const modulePath = path.join(projectDir, 'node_modules', '@playwright', 'test', 'package.json')
-    const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'))
-    return normalizeVersion(packageJson.version)
-  } catch {
-    // If node_modules not found, fall back to checking the project's package.json
-    const packageJsonPath = path.join(projectDir, 'package.json')
-    try {
-      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'))
-      const version = packageJson.dependencies?.['@playwright/test']
-        || packageJson.devDependencies?.['@playwright/test']
-      return normalizeVersion(version)
-    } catch {
-      return
-    }
+export function getPlaywrightVersionFromNpmLock (lockfileContent: string): string | undefined {
+  const lockfileData = JSON.parse(lockfileContent)
+
+  // npm v2+ uses packages field
+  const playwrightEntry = lockfileData?.packages?.['node_modules/@playwright/test']
+  if (playwrightEntry?.version) {
+    return normalizeVersion(playwrightEntry.version)
+  }
+
+  // npm v1 uses dependencies field
+  if (lockfileData?.dependencies?.['@playwright/test']?.version) {
+    return normalizeVersion(lockfileData.dependencies['@playwright/test'].version)
+  }
+
+  return undefined
+}
+
+export function getPlaywrightVersionFromYarnLock (lockfileContent: string): string | undefined {
+  // For yarn v1, look for "@playwright/test@" pattern
+  const yarnV1Pattern = /"@playwright\/test@[^"]*":\s*\n\s*version\s+"([^"]+)"/
+  const yarnV1Match = lockfileContent.match(yarnV1Pattern)
+  if (yarnV1Match) {
+    return normalizeVersion(yarnV1Match[1])
+  }
+
+  // For yarn v2, look for "@playwright/test@npm:" pattern
+  const yarnV2Pattern = /"@playwright\/test@npm:[^"]*":\s*\n\s*version:\s*([^\s]+)/
+  const yarnV2Match = lockfileContent.match(yarnV2Pattern)
+  if (yarnV2Match) {
+    return normalizeVersion(yarnV2Match[1])
+  }
+
+  return undefined
+}
+
+export function getPlaywrightVersionFromPnpmLock (lockfileContent: string): string | undefined {
+  // Look for /@playwright/test@version pattern in pnpm lockfile
+  const pnpmPattern = /\/@playwright\/test@([^:]+):/
+  const match = lockfileContent.match(pnpmPattern)
+  if (match) {
+    return normalizeVersion(match[1])
+  }
+
+  // Alternative pattern: devDependencies section
+  const devDepsPattern = /@playwright\/test[^:]*:\s*specifier:\s*[^\n]*\s*version:\s*([^\s]+)/
+  const devDepsMatch = lockfileContent.match(devDepsPattern)
+  if (devDepsMatch) {
+    return normalizeVersion(devDepsMatch[1])
+  }
+
+  return undefined
+}
+
+export async function getPlaywrightVersion (lockFile: string): Promise<string | undefined> {
+  const lockfileContent = await readFile(lockFile, 'utf-8')
+  const lockfileName = path.basename(lockFile)
+
+  switch (lockfileName) {
+    case 'package-lock.json':
+      return getPlaywrightVersionFromNpmLock(lockfileContent)
+
+    case 'yarn.lock':
+      return getPlaywrightVersionFromYarnLock(lockfileContent)
+
+    case 'pnpm-lock.yaml':
+    case 'pnpm-lock.yml':
+      return getPlaywrightVersionFromPnpmLock(lockfileContent)
+
+    default:
+      throw new Error(`Unsupported lockfile format: ${lockfileName}`)
   }
 }
 
