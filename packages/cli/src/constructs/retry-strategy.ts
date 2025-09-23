@@ -23,7 +23,7 @@ export interface RetryStrategy {
   /**
    * The number of seconds to wait before the first retry attempt.
    * This value is used differently based on the retry strategy type:
-   * - FIXED: Same delay f'or all retries
+   * - FIXED: Same delay for all retries
    * - LINEAR: Base value that increases linearly (baseBackoffSeconds * attempt)
    * - EXPONENTIAL: Base value that increases exponentially (baseBackoffSeconds ^ attempt)
    * - SINGLE_RETRY: The delay for the first and only retry
