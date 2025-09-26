@@ -124,8 +124,9 @@ export default class PwTestCommand extends AuthCommand {
       dir,
     )
     if (createCheck) {
-      this.style.actionStart('Creating Checkly check from Playwright test')
+      this.style.actionStart('Adding check with specified options to the Checkly config file')
       await this.createPlaywrightCheck(playwrightCheck, playwrightConfigPath)
+      this.style.shortInfo('Next: Run npx checkly deploy to deploy it.')
       return
     }
 
@@ -347,7 +348,7 @@ export default class PwTestCommand extends AuthCommand {
     const configFile = await getChecklyConfigFile()
     if (!configFile) {
       this.style.shortWarning('No Checkly config file found')
-      this.style.shortInfo('Creating a default checkly config file.')
+      this.style.shortInfo('Creating a checkly config file.')
       const checklyConfig = getDefaultChecklyConfig(baseName, `./${path.relative(dir, playwrightConfigPath)}`, playwrightCheck)
       await writeChecklyConfigFile(dir, checklyConfig)
       this.style.actionSuccess()
