@@ -296,23 +296,25 @@ export abstract class Check extends Construct {
   protected async validateRetryStrategyOnlyOn (diagnostics: Diagnostics): Promise<void> {
     if (this.retryStrategy) {
       const retryStrategy = this.retryStrategy as RetryStrategy
-      if (retryStrategy.onlyOn === 'NETWORK_ERROR') {
-        if (!this.supportsOnlyOnNetworkErrorRetryStrategy()) {
+      if (retryStrategy.onlyOn) {
+        if (retryStrategy.onlyOn === 'NETWORK_ERROR') {
+          if (!this.supportsOnlyOnNetworkErrorRetryStrategy()) {
+            diagnostics.add(new InvalidPropertyValueDiagnostic(
+              'retryStrategy',
+              new Error(
+                `Using "NETWORK_ERROR" with "onlyOn" is only supported in the `
+                + `ApiCheck and UrlMonitor constructs.`,
+              ),
+            ))
+          }
+        } else {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
             'retryStrategy',
             new Error(
-              `Using "NETWORK_ERROR" with "onlyOn" is only supported in the `
-              + `ApiCheck and UrlMonitor constructs.`,
+              `Unsupported value "${retryStrategy.onlyOn}" for "onlyOn".`,
             ),
           ))
         }
-      } else {
-        diagnostics.add(new InvalidPropertyValueDiagnostic(
-          'retryStrategy',
-          new Error(
-            `Unsupported value "${retryStrategy.onlyOn}" for "onlyOn".`,
-          ),
-        ))
       }
     }
   }
