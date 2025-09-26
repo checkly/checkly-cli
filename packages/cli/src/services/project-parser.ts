@@ -114,6 +114,17 @@ function resetCheckFilePaths () {
   Session.checkFileAbsolutePath = undefined
 }
 
+function resolveGroupNameToGroupRef (groupName?: string) {
+  if (!groupName || !Session.project) {
+    return undefined
+  }
+
+  // Find group by name and return a Ref
+  const groups = Session.project.data['check-group'] || {}
+  const group = Object.values(groups).find(g => g.name === groupName)
+  return group ? group.ref() : undefined
+}
+
 // eslint-disable-next-line require-await
 async function loadPlaywrightChecks (
   directory: string,
@@ -132,9 +143,23 @@ async function loadPlaywrightChecks (
     try {
       setCheckFilePaths(playwrightConfigPath, directory)
       for (const playwrightCheckProps of playwrightChecks) {
+        // Handle both string groupLogicalId and legacy groupName conversion
+        const props = { ...playwrightCheckProps } as any
+
+        // Convert string groupLogicalId to Ref and assign to groupId
+        if (props.groupLogicalId && typeof props.groupLogicalId === 'string') {
+          props.groupId = Ref.from(props.groupLogicalId)
+          delete props.groupLogicalId // Remove to avoid property conflicts
+        }
+
+        // For backwards compatibility, convert groupName to groupId if present and groupId is not already set
+        if (props.groupName && !props.groupId) {
+          props.groupId = resolveGroupNameToGroupRef(props.groupName)
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
-          ...playwrightCheckProps,
+          ...props,
           playwrightConfigPath: resolvedPlaywrightConfigPath,
           include,
         })
