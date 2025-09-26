@@ -1,9 +1,11 @@
 import path from 'node:path'
-import { describe, it, expect, beforeEach, afterAll } from 'vitest'
-import fs from 'node:fs/promises'
-import fsSync from 'node:fs'
+import { describe, it, expect } from 'vitest'
 
-import { pathToPosix, isFileSync, getPlaywrightVersion } from '../util'
+import {
+  pathToPosix,
+  isFileSync,
+  getPlaywrightVersionFromPackage,
+} from '../util'
 
 describe('util', () => {
   describe('pathToPosix()', () => {
@@ -17,6 +19,7 @@ describe('util', () => {
         .toEqual('src/__checks__/my_check.spec.ts')
     })
   })
+
   describe('isFileSync()', () => {
     it('should determine if a file is present at a given path', () => {
       expect(isFileSync(path.join(__dirname, '/fixtures/this-is-a-file.ts'))).toBeTruthy()
@@ -26,31 +29,21 @@ describe('util', () => {
     })
   })
 
-  describe('getPlaywrightVersion()', () => {
-    const fixturesDir = path.join(__dirname, '..', '__tests__', 'fixtures', 'playwright-json')
-    const emptyDir = path.join(__dirname, 'fixtures', 'empty')
-
-    // Create empty directory for testing the "not found" case
-    beforeEach(async () => {
-      if (!fsSync.existsSync(emptyDir)) {
-        await fs.mkdir(emptyDir, { recursive: true })
-      }
+  describe('getPlaywrightVersionFromPackage()', () => {
+    it('should throw error when playwright package is not found', () => {
+      // Use a directory that doesn't have playwright installed
+      const nonExistentDir = '/tmp/non-existent-dir'
+      expect(() => getPlaywrightVersionFromPackage(nonExistentDir))
+        .toThrow('Could not find @playwright/test package. Make sure it is installed.')
     })
 
-    afterAll(async () => {
-      if (fsSync.existsSync(emptyDir)) {
-        await fs.rm(emptyDir, { recursive: true, force: true })
-      }
-    })
+    it('should get version from installed playwright package', () => {
+      // Use the current working directory which should have playwright installed
+      const currentDir = process.cwd()
+      const version = getPlaywrightVersionFromPackage(currentDir)
 
-    it('should find version using node_modules path', async () => {
-      const version = await getPlaywrightVersion(fixturesDir)
-      expect(version).toBe('1.1.1')
-    })
-
-    it('should return undefined if playwright is not found', async () => {
-      const version = await getPlaywrightVersion(emptyDir)
-      expect(version).toBeUndefined()
+      // Should return a valid semver version
+      expect(version).toMatch(/^\d+\.\d+\.\d+/)
     })
   })
 })

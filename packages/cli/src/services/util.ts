@@ -196,7 +196,7 @@ export async function bundlePlayWrightProject (
   browsers: string[]
   relativePlaywrightConfigPath: string
   cacheHash: string
-  playwrightVersion: string | undefined
+  playwrightVersion: string
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
@@ -218,9 +218,11 @@ export async function bundlePlayWrightProject (
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
-  const [cacheHash, playwrightVersion] = await Promise.all([
+
+  const playwrightVersion = getPlaywrightVersionFromPackage(dir)
+
+  const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
-    getPlaywrightVersion(dir),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive, lockfile),
   ])
 
@@ -249,22 +251,24 @@ export async function getCacheHash (lockFile: string): Promise<string> {
   return hash.digest('hex')
 }
 
-export async function getPlaywrightVersion (projectDir: string): Promise<string | undefined> {
+export function getPlaywrightVersionFromPackage (cwd: string): string {
   try {
-    const modulePath = path.join(projectDir, 'node_modules', '@playwright', 'test', 'package.json')
-    const packageJson = JSON.parse(await readFile(modulePath, 'utf-8'))
-    return normalizeVersion(packageJson.version)
-  } catch {
-    // If node_modules not found, fall back to checking the project's package.json
-    const packageJsonPath = path.join(projectDir, 'package.json')
-    try {
-      const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'))
-      const version = packageJson.dependencies?.['@playwright/test']
-        || packageJson.devDependencies?.['@playwright/test']
-      return normalizeVersion(version)
-    } catch {
-      return
+    const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const playwrightPkg = require(playwrightPath)
+    const version = normalizeVersion(playwrightPkg.version)
+
+    if (!version) {
+      throw new Error('Invalid version found in @playwright/test package.json')
     }
+
+    return version
+  } catch (error) {
+    // @ts-ignore
+    if (error instanceof Error && error.code === 'MODULE_NOT_FOUND') {
+      throw new Error('Could not find @playwright/test package. Make sure it is installed.')
+    }
+    throw error
   }
 }
 
