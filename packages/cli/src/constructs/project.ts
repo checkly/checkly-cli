@@ -292,7 +292,7 @@ export class Session {
 
   static validateCreateConstruct (construct: Construct) {
     if (typeof construct.logicalId !== 'string') {
-      throw new ValidationError(`The "logicalId" of a construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
+      throw new ValidationError(`The "logicalId" of a ${construct.type} construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
     }
 
     if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
