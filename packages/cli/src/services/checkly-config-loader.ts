@@ -35,7 +35,13 @@ export type CheckConfigDefaults =
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'retryStrategy' | 'alertEscalationPolicy'
-  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'groupName' | 'runParallel'> & { logicalId: string }
+  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'groupName' | 'runParallel'>
+  & {
+    /** Unique identifier for this check */
+    logicalId: string
+    /** Group logical ID - gets converted to groupId internally */
+    groupLogicalId?: string
+  }
 
 export type ChecklyConfig = {
   /**
