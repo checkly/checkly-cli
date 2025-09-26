@@ -1,7 +1,7 @@
 import path from 'node:path'
 
 import { SourceFile } from './source-file'
-import { JsonSourceFile } from './json-source-file'
+import { JsonTextSourceFile } from './json-text-source-file'
 import { PathResolver, ResolveResult } from './paths'
 
 type Module =
@@ -66,7 +66,7 @@ export class TSConfigFile {
   static #id = 0
   readonly id = ++TSConfigFile.#id
 
-  jsonFile: JsonSourceFile<Schema>
+  jsonFile: JsonTextSourceFile<Schema>
   basePath: string
   moduleResolution: string
   baseUrl?: string
@@ -74,7 +74,7 @@ export class TSConfigFile {
 
   relatedSourceFiles: SourceFile[] = []
 
-  protected constructor (jsonFile: JsonSourceFile<Schema>) {
+  protected constructor (jsonFile: JsonTextSourceFile<Schema>) {
     this.jsonFile = jsonFile
 
     this.basePath = jsonFile.meta.dirname
@@ -93,7 +93,8 @@ export class TSConfigFile {
     return this.jsonFile.meta
   }
 
-  static loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): TSConfigFile | undefined {
+  // eslint-disable-next-line require-await
+  static async loadFromJsonTextSourceFile (jsonFile: JsonTextSourceFile<Schema>): Promise<TSConfigFile | undefined> {
     return new TSConfigFile(jsonFile)
   }
 

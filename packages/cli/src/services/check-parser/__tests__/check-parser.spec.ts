@@ -134,6 +134,18 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
+  it('should parse typescript dependencies relying on tsconfig when tsconfig has comments', async () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-json-text', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('lib', 'foo1.ts'),
+      toAbsolutePath('tsconfig.json'),
+    ])
+  })
+
   it('should parse typescript dependencies using tsconfig', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-sample-project', ...filepath)
     const parser = new Parser({
