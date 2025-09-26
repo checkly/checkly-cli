@@ -100,7 +100,8 @@ export class PackageJsonFile {
     return new PackageJsonFile(jsonFile)
   }
 
-  static loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): PackageJsonFile | undefined {
+  // eslint-disable-next-line require-await
+  static async loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): Promise<PackageJsonFile | undefined> {
     return new PackageJsonFile(jsonFile)
   }
 

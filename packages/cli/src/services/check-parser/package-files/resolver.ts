@@ -7,30 +7,48 @@ import { JSConfigFile } from './jsconfig-json-file'
 import { isBuiltinPath, isLocalPath, PathResult } from './paths'
 import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
+import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
 import { walkUp, WalkUpOptions } from './walk'
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
 
-  #jsonFileLoader<T, S> (load: (jsonFile: JsonSourceFile<S>) => T | undefined): LoadFile<T> {
+  #fileLoader<T> (load: (sourceFile: SourceFile) => Promise<T | undefined>): LoadFile<T> {
     return async filePath => {
       const sourceFile = await this.#sourceFileCache.load(filePath)
       if (sourceFile === undefined) {
         return
       }
 
-      const jsonFile = JsonSourceFile.loadFromSourceFile<S>(sourceFile)
+      return load(sourceFile)
+    }
+  }
+
+  #jsonFileLoader<T, S> (load: (jsonFile: JsonSourceFile<S>) => Promise<T | undefined>): LoadFile<T> {
+    return this.#fileLoader(async sourceFile => {
+      const jsonFile = await JsonSourceFile.loadFromSourceFile<S>(sourceFile)
       if (jsonFile === undefined) {
         return
       }
 
       return load(jsonFile)
-    }
+    })
+  }
+
+  #jsonTextFileLoader<T, S> (load: (jsonFile: JsonTextSourceFile<S>) => Promise<T | undefined>): LoadFile<T> {
+    return this.#fileLoader(async sourceFile => {
+      const jsonFile = await JsonTextSourceFile.loadFromSourceFile<S>(sourceFile)
+      if (jsonFile === undefined) {
+        return
+      }
+
+      return load(jsonFile)
+    })
   }
 
   #packageJsonCache = new FileLoader(this.#jsonFileLoader(PackageJsonFile.loadFromJsonSourceFile))
-  #tsconfigJsonCache = new FileLoader(this.#jsonFileLoader(TSConfigFile.loadFromJsonSourceFile))
+  #tsconfigJsonCache = new FileLoader(this.#jsonTextFileLoader(TSConfigFile.loadFromJsonTextSourceFile))
   #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(JSConfigFile.loadFromJsonSourceFile))
 
   async sourceFile (filePath: string, context: LookupContext): Promise<SourceFile | undefined> {
