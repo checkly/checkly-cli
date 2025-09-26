@@ -6,6 +6,7 @@ import { EventEmitter } from 'node:events'
 import type { MqttClient } from 'mqtt'
 import type { Region } from '..'
 import { TestResultsShortLinks } from '../rest/test-sessions'
+import { PlaywrightCheck } from '../constructs'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -200,9 +201,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.timeouts.set(sequenceId, setTimeout(() => {
         this.timeouts.delete(sequenceId)
         let errorMessage = `Reached timeout of ${this.timeout} seconds waiting for check result.`
-        // Checkly should always report a result within 240s.
-        // If the default timeout was used, we should point the user to the status page and support email.
-        if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+        // Playwright checks can take longer.
+        // We should point the user to the --timeout flag in that case.
+        if (check instanceof PlaywrightCheck) {
+          errorMessage += ' Use a custom timeout with --timeout'
+        } else if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+          // Checkly should always report a result within 240s.
+          // If the default timeout was used, we should point the user to the status page and support email.
           errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
         }
         this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
