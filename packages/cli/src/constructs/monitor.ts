@@ -7,26 +7,10 @@ import { CheckGroupV2 } from './check-group-v2'
 import { Frequency } from './frequency'
 import { IncidentTrigger } from './incident'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
-import {
-  ExponentialRetryStrategy,
-  FixedRetryStrategy,
-  LinearRetryStrategy,
-  NoRetriesRetryStrategy,
-  SingleRetryRetryStrategy,
-} from './retry-strategy'
+import { RetryStrategy } from './retry-strategy'
 import { Check, CheckProps } from './check'
 import { Diagnostics } from './diagnostics'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
-
-/**
- * Retry strategies supported by monitors.
- */
-export type MonitorRetryStrategy =
-  | LinearRetryStrategy
-  | ExponentialRetryStrategy
-  | FixedRetryStrategy
-  | SingleRetryRetryStrategy
-  | NoRetriesRetryStrategy
 
 export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
   /**
@@ -90,17 +74,8 @@ export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
   /**
    * Sets a retry policy for the monitor. Use RetryStrategyBuilder to create a
    * suitable retry strategy.
-   *
-   * @example
-   * ```typescript
-   * // Single retry
-   * RetryStrategyBuilder.singleRetry()
-   *
-   * // No retries
-   * RetryStrategyBuilder.noRetries()
-   * ```
    */
-  retryStrategy?: MonitorRetryStrategy
+  retryStrategy?: RetryStrategy
   /**
    * Determines whether the monitor should create and resolve an incident
    * based on its alert configuration.

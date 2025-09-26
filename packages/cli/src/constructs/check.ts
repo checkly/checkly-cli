@@ -9,30 +9,13 @@ import type { Region } from '..'
 import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group'
 import { PrivateLocation, PrivateLocationRef } from './private-location'
 import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
-import {
-  ExponentialRetryStrategy,
-  FixedRetryStrategy,
-  LinearRetryStrategy,
-  NoRetriesRetryStrategy,
-  RetryStrategy,
-  SingleRetryRetryStrategy,
-} from './retry-strategy'
+import { RetryStrategy } from './retry-strategy'
 import { AlertEscalation } from './alert-escalation-policy'
 import { IncidentTrigger } from './incident'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { Diagnostics } from './diagnostics'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-
-/**
- * Retry strategies supported by checks.
- */
-export type CheckRetryStrategy =
-  | LinearRetryStrategy
-  | ExponentialRetryStrategy
-  | FixedRetryStrategy
-  | SingleRetryRetryStrategy
-  | NoRetriesRetryStrategy
 
 /**
  * Base configuration properties for all check types.
@@ -212,7 +195,7 @@ export interface CheckProps {
    * })
    * ```
    */
-  retryStrategy?: CheckRetryStrategy
+  retryStrategy?: RetryStrategy
 
   /**
    * Determines whether the check should run on all selected locations in parallel or round-robin.
@@ -245,7 +228,7 @@ export abstract class Check extends Construct {
   groupId?: Ref
   alertChannels?: Array<AlertChannel | AlertChannelRef>
   testOnly?: boolean
-  retryStrategy?: CheckRetryStrategy
+  retryStrategy?: RetryStrategy
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
@@ -294,9 +277,8 @@ export abstract class Check extends Construct {
 
   // eslint-disable-next-line require-await
   protected async validateRetryStrategyOnlyOn (diagnostics: Diagnostics): Promise<void> {
-    if (this.retryStrategy) {
-      const retryStrategy = this.retryStrategy as RetryStrategy
-      if (retryStrategy.onlyOn === 'NETWORK_ERROR') {
+    if (this.retryStrategy?.onlyOn) {
+      if (this.retryStrategy.onlyOn === 'NETWORK_ERROR') {
         if (!this.supportsOnlyOnNetworkErrorRetryStrategy()) {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
             'retryStrategy',
@@ -310,7 +292,7 @@ export abstract class Check extends Construct {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'retryStrategy',
           new Error(
-            `Unsupported value "${retryStrategy.onlyOn}" for "onlyOn".`,
+            `Unsupported value "${this.retryStrategy.onlyOn}" for "onlyOn".`,
           ),
         ))
       }

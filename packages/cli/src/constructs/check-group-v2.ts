@@ -1,6 +1,7 @@
 import { PrivateLocation, PrivateLocationRef } from './private-location'
 import type { Region } from '..'
 import {
+  type RetryStrategy,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type RetryStrategyBuilder, // Used for @links in comments.
 } from './retry-strategy'
@@ -10,7 +11,7 @@ import {
   type AlertEscalationBuilder, // Used for @links in comments.
 } from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
-import { CheckGroupV1, CheckGroupV1Props, GroupRetryStrategy } from './check-group-v1'
+import { CheckGroupV1, CheckGroupV1Props } from './check-group-v1'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
 
 export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalationPolicy'> {
@@ -72,7 +73,7 @@ export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalat
    *
    * If not set, individual check settings are used.
    */
-  retryStrategy?: GroupRetryStrategy
+  retryStrategy?: RetryStrategy
 
   /**
    * Determines whether the checks in the group should run on all selected

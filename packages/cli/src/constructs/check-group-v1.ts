@@ -9,6 +9,7 @@ import { ApiCheckDefaultConfig } from './api-check'
 import type { Region } from '..'
 import { type Frequency } from './frequency'
 import {
+  type RetryStrategy,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type RetryStrategyBuilder, // Used for @links in comments.
 } from './retry-strategy'
@@ -27,8 +28,6 @@ import { PrivateLocationGroupAssignment } from './private-location-group-assignm
 import { Ref } from './ref'
 import { Session } from './project'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
-import { CheckRetryStrategy } from './check'
-import { MonitorRetryStrategy } from './monitor'
 
 const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
   headers: [],
@@ -53,13 +52,6 @@ type MultiStepCheckConfig = CheckConfigDefaults & {
    */
   testMatch: string | string[]
 }
-
-/**
- * Retry strategies supported by groups.
- */
-export type GroupRetryStrategy =
-  | CheckRetryStrategy
-  | MonitorRetryStrategy
 
 export interface CheckGroupV1Props {
   /**
@@ -244,7 +236,7 @@ export interface CheckGroupV1Props {
    *
    * If not set, retries are disabled for all checks in the group.
    */
-  retryStrategy?: GroupRetryStrategy
+  retryStrategy?: RetryStrategy
 
   /**
    * Determines whether the checks in the group should run on all selected
@@ -306,7 +298,7 @@ export class CheckGroupV1 extends Construct {
   apiCheckDefaults: ApiCheckDefaultConfig
   browserChecks?: BrowserCheckConfig
   multiStepChecks?: MultiStepCheckConfig
-  retryStrategy?: GroupRetryStrategy
+  retryStrategy?: RetryStrategy
   runParallel?: boolean
   alertSettings?: AlertEscalation
   useGlobalAlertSettings?: boolean

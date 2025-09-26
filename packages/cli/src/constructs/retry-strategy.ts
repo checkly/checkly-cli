@@ -1,10 +1,5 @@
 /** Available retry strategy types */
-export type RetryStrategyType =
-  | 'LINEAR'
-  | 'EXPONENTIAL'
-  | 'FIXED'
-  | 'SINGLE_RETRY'
-  | 'NO_RETRIES'
+export type RetryStrategyType = 'LINEAR' | 'EXPONENTIAL' | 'FIXED' | 'NO_RETRIES'
 
 /**
  * Conditions can be used to limit when a retry strategy applies.
@@ -12,9 +7,8 @@ export type RetryStrategyType =
 export type RetryStrategyCondition = 'NETWORK_ERROR'
 
 /**
- * Configuration for check and monitor retry behavior.
- * Defines how and when to retry failed checks or monitors before marking
- * them as permanently failed.
+ * Configuration for check retry behavior.
+ * Defines how and when to retry failed checks before marking them as permanently failed.
  */
 export interface RetryStrategy {
   /** The retry strategy type */
@@ -26,7 +20,6 @@ export interface RetryStrategy {
    * - FIXED: Same delay for all retries
    * - LINEAR: Base value that increases linearly (baseBackoffSeconds * attempt)
    * - EXPONENTIAL: Base value that increases exponentially (baseBackoffSeconds ^ attempt)
-   * - SINGLE_RETRY: The delay for the first and only retry
    *
    * @defaultValue 60
    * @example
@@ -39,9 +32,6 @@ export interface RetryStrategy {
    *
    * // Exponential: 5s, 25s, 125s
    * baseBackoffSeconds: 5
-   *
-   * // Single retry: 10s
-   * baseBackoffSeconds: 10
    * ```
    */
   baseBackoffSeconds?: number
@@ -87,61 +77,6 @@ export interface RetryStrategy {
  * These options can be used with any retry strategy type.
  */
 export type RetryStrategyOptions = Omit<RetryStrategy, 'type'>
-
-/**
- * Configuration for linear retry strategies.
- */
-export interface LinearRetryStrategy extends RetryStrategy {
-  type: 'LINEAR'
-}
-
-/**
- * Options for configuring linear retry strategy behavior.
- */
-export type LinearRetryStrategyOptions = RetryStrategyOptions
-
-/**
- * Configuration for exponential retry strategies.
- */
-export interface ExponentialRetryStrategy extends RetryStrategy {
-  type: 'EXPONENTIAL'
-}
-
-/**
- * Options for configuring exponential retry strategy behavior.
- */
-export type ExponentialRetryStrategyOptions = RetryStrategyOptions
-
-/**
- * Configuration for fixed retry strategies.
- */
-export interface FixedRetryStrategy extends RetryStrategy {
-  type: 'FIXED'
-}
-
-/**
- * Options for configuring fixed retry strategy behavior.
- */
-export type FixedRetryStrategyOptions = RetryStrategyOptions
-
-/**
- * Configuration for single retry retry strategies.
- */
-export interface SingleRetryRetryStrategy extends Pick<RetryStrategy, 'type' | 'baseBackoffSeconds' | 'sameRegion' | 'onlyOn'> {
-  type: 'SINGLE_RETRY'
-}
-
-/**
- * Options for configuring single retry retry strategy behavior.
- */
-export type SingleRetryRetryStrategyOptions = Pick<RetryStrategyOptions, 'baseBackoffSeconds' | 'sameRegion' | 'onlyOn'>
-
-/**
- * Configuration for no retry retry strategies.
- */
-export interface NoRetriesRetryStrategy extends Pick<RetryStrategy, 'type'> {
-  type: 'NO_RETRIES'
-}
 
 /**
  * Builder class for creating retry strategies.
@@ -193,11 +128,8 @@ export class RetryStrategyBuilder {
   /**
    * Each retry is run with the same backoff between attempts.
    */
-  static fixedStrategy (options?: FixedRetryStrategyOptions): FixedRetryStrategy {
-    return {
-      type: 'FIXED',
-      ...RetryStrategyBuilder.defaults(options),
-    }
+  static fixedStrategy (options?: RetryStrategyOptions): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('FIXED', options)
   }
 
   /**
@@ -206,11 +138,8 @@ export class RetryStrategyBuilder {
    * The delay between retries is calculated using `baseBackoffSeconds * attempt`.
    * For example, retries will be run with a backoff of 10s, 20s, 30s, and so on.
    */
-  static linearStrategy (options?: LinearRetryStrategyOptions): LinearRetryStrategy {
-    return {
-      type: 'LINEAR',
-      ...RetryStrategyBuilder.defaults(options),
-    }
+  static linearStrategy (options?: RetryStrategyOptions): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('LINEAR', options)
   }
 
   /**
@@ -219,37 +148,20 @@ export class RetryStrategyBuilder {
    * The delay between retries is calculated using `baseBackoffSeconds ^ attempt`.
    * For example, retries will be run with a backoff of 10s, 100s, 1000s, and so on.
    */
-  static exponentialStrategy (options?: ExponentialRetryStrategyOptions): ExponentialRetryStrategy {
-    return {
-      type: 'EXPONENTIAL',
-      ...RetryStrategyBuilder.defaults(options),
-    }
-  }
-
-  /**
-   * A single retry will be performed.
-   */
-  static singleRetry (options?: SingleRetryRetryStrategyOptions): SingleRetryRetryStrategy {
-    const { baseBackoffSeconds, sameRegion, onlyOn } = RetryStrategyBuilder.defaults(options)
-    return {
-      type: 'SINGLE_RETRY',
-      baseBackoffSeconds,
-      sameRegion,
-      onlyOn,
-    }
+  static exponentialStrategy (options?: RetryStrategyOptions): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('EXPONENTIAL', options)
   }
 
   /**
    * No retries are performed.
    */
-  static noRetries (): NoRetriesRetryStrategy {
-    return {
-      type: 'NO_RETRIES',
-    }
+  static noRetries (): RetryStrategy {
+    return RetryStrategyBuilder.retryStrategy('NO_RETRIES')
   }
 
-  private static defaults (options?: RetryStrategyOptions): RetryStrategyOptions {
+  private static retryStrategy (type: RetryStrategyType, options?: RetryStrategyOptions): RetryStrategy {
     return {
+      type,
       baseBackoffSeconds: options?.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
       maxRetries: options?.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
       maxDurationSeconds: options?.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
