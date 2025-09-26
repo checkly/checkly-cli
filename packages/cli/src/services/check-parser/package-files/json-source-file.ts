@@ -16,7 +16,8 @@ export class JsonSourceFile<Schema> {
     return this.sourceFile.meta
   }
 
-  static loadFromSourceFile<Schema> (sourceFile: SourceFile): JsonSourceFile<Schema> | undefined {
+  // eslint-disable-next-line require-await
+  static async loadFromSourceFile<Schema> (sourceFile: SourceFile): Promise<JsonSourceFile<Schema> | undefined> {
     try {
       const data: Schema = JSON.parse(sourceFile.contents)
 
