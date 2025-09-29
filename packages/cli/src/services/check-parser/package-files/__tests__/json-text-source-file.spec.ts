@@ -2,7 +2,6 @@ import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 import { FileMeta, SourceFile } from '../source-file'
 import { JsonTextSourceFile } from '../json-text-source-file'
-import { beforeEach } from 'node:test'
 
 const plainJsonFixture = ''
   + `{\n`
