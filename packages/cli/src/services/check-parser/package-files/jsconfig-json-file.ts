@@ -21,7 +21,8 @@ export class JSConfigFile extends TSConfigFile {
     return path.join(dirPath, JSConfigFile.FILENAME)
   }
 
-  static loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): JSConfigFile | undefined {
+  // eslint-disable-next-line require-await
+  static async loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): Promise<JSConfigFile | undefined> {
     return new JSConfigFile(jsonFile)
   }
 }
