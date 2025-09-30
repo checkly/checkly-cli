@@ -18,6 +18,7 @@ type Schema = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   private?: boolean
+  workspaces?: string[]
 }
 
 export interface EngineSupportResult {
@@ -67,6 +68,10 @@ export class PackageJsonFile {
     return this.jsonFile.data.engines
   }
 
+  public get workspaces () {
+    return this.jsonFile.data.workspaces
+  }
+
   supportsEngine (engine: string, version: string): EngineSupportResult {
     const requirements = this.engines?.[engine]
     if (requirements === undefined) {
@@ -103,6 +108,24 @@ export class PackageJsonFile {
   // eslint-disable-next-line require-await
   static async loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): Promise<PackageJsonFile | undefined> {
     return new PackageJsonFile(jsonFile)
+  }
+
+  static async loadFromSourceFile (sourceFile: SourceFile): Promise<PackageJsonFile | undefined> {
+    const jsonSourceFile = await JsonSourceFile.loadFromSourceFile<Schema>(sourceFile)
+    if (!jsonSourceFile) {
+      return
+    }
+
+    return PackageJsonFile.loadFromJsonSourceFile(jsonSourceFile)
+  }
+
+  static async loadFromFilePath (filePath: string): Promise<PackageJsonFile | undefined> {
+    const sourceFile = await SourceFile.loadFromFilePath(filePath)
+    if (!sourceFile) {
+      return
+    }
+
+    return PackageJsonFile.loadFromSourceFile(sourceFile)
   }
 
   static filePath (dirPath: string) {
