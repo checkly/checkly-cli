@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", // Comment 
+    "module": "NodeNext",
+    /**
+     * Comment
+     */
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./lib/*"
+      ]
+    },
+  }
+}
