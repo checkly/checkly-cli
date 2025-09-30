@@ -26,4 +26,13 @@ export class JsonSourceFile<Schema> {
       // Ignore.
     }
   }
+
+  static async loadFromFilePath<Schema> (filePath: string): Promise<JsonSourceFile<Schema> | undefined> {
+    const sourceFile = await SourceFile.loadFromFilePath(filePath)
+    if (!sourceFile) {
+      return
+    }
+
+    return JsonSourceFile.loadFromSourceFile(sourceFile)
+  }
 }
