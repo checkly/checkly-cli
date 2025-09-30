@@ -3,6 +3,8 @@ import path from 'node:path'
 
 import { lineage } from './walk'
 import { shellQuote } from '../../../services/shell'
+import { PackageJsonFile } from './package-json-file'
+import { JsonSourceFile } from './json-source-file'
 
 export class Runnable {
   executable: string
@@ -22,19 +24,33 @@ export interface PackageManager {
   get name (): string
   installCommand (): Runnable
   execCommand (args: string[]): Runnable
+  lookupWorkspace (dir: string): Promise<Workspace | undefined>
 }
 
 class NotDetectedError extends Error {}
+
+export class Workspace {
+  root: string
+  packages: string[]
+
+  constructor (root: string, packages: string[]) {
+    this.root = root
+    this.packages = packages
+  }
+}
 
 export abstract class PackageManagerDetector {
   abstract get name (): string
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
   abstract get representativeLockfile (): string | undefined
+  abstract get representativeConfigFile (): string | undefined
   abstract detectLockfile (dir: string): Promise<string>
+  abstract detectConfigFile (dir: string): Promise<string>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
   abstract execCommand (args: string[]): Runnable
+  abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
 }
 
 export class NpmDetector extends PackageManagerDetector implements PackageManager {
@@ -54,8 +70,17 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
     return 'package-lock.json'
   }
 
+  get representativeConfigFile (): undefined {
+    return
+  }
+
   async detectLockfile (dir: string): Promise<string> {
     return await accessR(path.join(dir, this.representativeLockfile))
+  }
+
+  // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
+  async detectConfigFile (dir: string): Promise<string> {
+    throw new NotDetectedError()
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -68,6 +93,10 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   execCommand (args: string[]): Runnable {
     return new Runnable('npx', args)
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    return await lookupNearestPackageJsonWorkspace(dir)
   }
 }
 
@@ -88,8 +117,17 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return
   }
 
+  get representativeConfigFile (): undefined {
+    return
+  }
+
   // eslint-disable-next-line require-await
   async detectLockfile (): Promise<string> {
+    throw new NotDetectedError()
+  }
+
+  // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
+  async detectConfigFile (dir: string): Promise<string> {
     throw new NotDetectedError()
   }
 
@@ -103,6 +141,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
 
   execCommand (args: string[]): Runnable {
     return new Runnable('npx', args)
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    return await lookupNearestPackageJsonWorkspace(dir)
   }
 }
 
@@ -123,8 +165,16 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return 'pnpm-lock.yaml'
   }
 
+  get representativeConfigFile (): string {
+    return 'pnpm-workspace.yaml'
+  }
+
   async detectLockfile (dir: string): Promise<string> {
     return await accessR(path.join(dir, this.representativeLockfile))
+  }
+
+  async detectConfigFile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeConfigFile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -137,6 +187,35 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
 
   execCommand (args: string[]): Runnable {
     return new Runnable('pnpm', args)
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    const { execa } = await import('execa')
+
+    const result = await execa('pnpm', ['list', '--json', '--only-projects', '--workspace-root'], {
+      cwd: dir,
+    })
+
+    type ListOnlyProjectsOutput = {
+      path: string
+      dependencies: Record<string, { path: string }>
+    }[]
+
+    const output: ListOnlyProjectsOutput = JSON.parse(result.stdout)
+    if (!Array.isArray(output)) {
+      throw new Error(`The output of 'pnpm list' was not an array (stdout=${result.stdout}, stderr=${result.stderr})`)
+    }
+
+    if (output.length !== 1) {
+      return
+    }
+
+    const project = output[0]
+
+    return new Workspace(
+      project.path,
+      Object.values(project.dependencies).map(dep => dep.path),
+    )
   }
 }
 
@@ -157,8 +236,17 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return 'yarn.lock'
   }
 
+  get representativeConfigFile (): undefined {
+    return
+  }
+
   async detectLockfile (dir: string): Promise<string> {
     return await accessR(path.join(dir, this.representativeLockfile))
+  }
+
+  // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
+  async detectConfigFile (dir: string): Promise<string> {
+    throw new NotDetectedError()
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -171,6 +259,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 
   execCommand (args: string[]): Runnable {
     return new Runnable('yarn', args)
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    return await lookupNearestPackageJsonWorkspace(dir)
   }
 }
 
@@ -191,8 +283,16 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
     return 'deno.lock'
   }
 
+  get representativeConfigFile (): string {
+    return 'deno.json'
+  }
+
   async detectLockfile (dir: string): Promise<string> {
     return await accessR(path.join(dir, this.representativeLockfile))
+  }
+
+  async detectConfigFile (dir: string): Promise<string> {
+    return await accessR(path.join(dir, this.representativeConfigFile))
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -205,6 +305,36 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
 
   execCommand (args: string[]): Runnable {
     return new Runnable('deno', ['run', '-A', `npm:${args[0]}`, ...args.slice(1)])
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    for (const searchPath of lineage(dir)) {
+      try {
+        const configFile = await this.detectConfigFile(searchPath)
+
+        type Schema = {
+          workspace?: string[]
+        }
+
+        const jsonFile = await JsonSourceFile.loadFromFilePath<Schema>(configFile)
+        if (!jsonFile) {
+          continue
+        }
+
+        const workspaces = jsonFile.data.workspace
+        if (!workspaces) {
+          continue
+        }
+
+        const packages = workspaces.map(packagePath => {
+          return path.resolve(searchPath, packagePath)
+        })
+
+        return new Workspace(searchPath, packages)
+      } catch {
+        continue
+      }
+    }
   }
 }
 
@@ -225,8 +355,17 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return 'bun.lockb'
   }
 
+  get representativeConfigFile (): undefined {
+    return
+  }
+
   async detectLockfile (dir: string): Promise<string> {
     return await accessR(path.join(dir, this.representativeLockfile))
+  }
+
+  // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
+  async detectConfigFile (dir: string): Promise<string> {
+    throw new NotDetectedError()
   }
 
   async detectExecutable (lookup: PathLookup): Promise<void> {
@@ -239,6 +378,10 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   execCommand (args: string[]): Runnable {
     return new Runnable('bunx', args)
+  }
+
+  async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
+    return await lookupNearestPackageJsonWorkspace(dir)
   }
 }
 
@@ -386,6 +529,18 @@ export async function detectPackageManager (
     // Nothing detected.
   }
 
+  // Next, try to find a config file.
+  try {
+    const { packageManager } = await detectNearestConfigFile(dir, {
+      detectors,
+      root: options?.root,
+    })
+
+    return packageManager
+  } catch {
+    // Nothing detected.
+  }
+
   // Finally, try to find a relevant executable.
   //
   // This can generate a whole bunch of path lookups. Try one by one despite
@@ -460,4 +615,81 @@ export async function detectNearestLockfile (
   }, [])
 
   throw new NoLockfileFoundError(searchPaths, lockfiles)
+}
+
+export interface NearestConfigFile {
+  packageManager: PackageManager
+  configFile: string
+}
+
+export class NoConfigFileFoundError extends Error {
+  searchPaths: string[]
+  configFiles: string[]
+
+  constructor (searchPaths: string[], configFiles: string[], options?: ErrorOptions) {
+    const message = `Unable to detect a config file in any of the following paths:`
+      + `\n\n`
+      + `${searchPaths.map(searchPath => `  ${searchPath}`).join('\n')}`
+      + `\n\n`
+      + `Config files we looked for:`
+      + `\n\n`
+      + `${configFiles.map(lockfile => `  ${lockfile}`).join('\n')}`
+    super(message, options)
+    this.name = 'NoConfigFileFoundError'
+    this.searchPaths = searchPaths
+    this.configFiles = configFiles
+  }
+}
+
+export async function detectNearestConfigFile (
+  dir: string,
+  options?: DetectOptions,
+): Promise<NearestConfigFile> {
+  const detectors = options?.detectors ?? knownPackageManagers
+
+  const searchPaths: string[] = []
+
+  for (const searchPath of lineage(dir, { root: options?.root })) {
+    try {
+      searchPaths.push(searchPath)
+
+      // Assume that only a single kind of config file exists, which means
+      // the resolve order does not matter.
+      return await Promise.any(detectors.map(async detector => {
+        const configFile = await detector.detectConfigFile(searchPath)
+        return {
+          packageManager: detector,
+          configFile,
+        }
+      }))
+    } catch {
+      // Nothing detected.
+    }
+  }
+
+  const configFiles = detectors.reduce<string[]>((acc, detector) => {
+    return acc.concat(detector.representativeConfigFile ?? [])
+  }, [])
+
+  throw new NoConfigFileFoundError(searchPaths, configFiles)
+}
+
+async function lookupNearestPackageJsonWorkspace (dir: string): Promise<Workspace | undefined> {
+  for (const searchPath of lineage(dir)) {
+    const packageJson = await PackageJsonFile.loadFromFilePath(PackageJsonFile.filePath(searchPath))
+    if (!packageJson) {
+      continue
+    }
+
+    const workspaces = packageJson.workspaces
+    if (!workspaces) {
+      continue
+    }
+
+    const packages = workspaces.map(packagePath => {
+      return path.resolve(searchPath, packagePath)
+    })
+
+    return new Workspace(searchPath, packages)
+  }
 }
