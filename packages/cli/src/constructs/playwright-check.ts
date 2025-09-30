@@ -75,9 +75,9 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * Name of the check group to assign this check to.
    * The group must exist in your project configuration.
    *
+   * @deprecated Use {@link group} instead.
    * @example "E2E Tests"
    * @example "Critical User Flows"
-   * @deprecated Use groupId instead for better consistency
    */
   groupName?: string
 }
@@ -164,10 +164,17 @@ export class PlaywrightCheck extends RuntimeCheck {
   static #resolveGroupFromProps (props: RuntimeCheckProps) {
     const playwrightProps = props as PlaywrightCheckProps & RuntimeCheckProps
 
+    // Check the preferred 'group' property first
+    if (playwrightProps.group) {
+      return playwrightProps.group
+    }
+
+    // Fall back to deprecated groupId
     if (playwrightProps.groupId) {
       return PlaywrightCheck.#findGroupByRef(playwrightProps.groupId)
     }
 
+    // Fall back to deprecated groupName
     if (playwrightProps.groupName) {
       return PlaywrightCheck.#findGroupByName(playwrightProps.groupName)
     }
@@ -206,7 +213,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       if (!checkGroup) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'groupId',
-          new Error(`No such group with ID "${this.groupId.ref}".`),
+          new Error(`No such group with ID "${this.groupId}".`),
         ))
       }
     }
@@ -259,7 +266,16 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   async bundle (): Promise<PlaywrightCheckBundle> {
-    const groupId = this.groupId
+    // Prefer the group property (stored as this.groupId via parent Check class)
+    // Fall back to groupName lookup for backward compatibility
+    let group: Ref | undefined = this.groupId
+
+    if (!group && this.groupName) {
+      const checkGroup = PlaywrightCheck.#findGroupByName(this.groupName)
+      if (checkGroup) {
+        group = checkGroup.ref()
+      }
+    }
 
     const {
       key: codeBundlePath,
@@ -277,7 +293,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     )
 
     return new PlaywrightCheckBundle(this, {
-      groupId,
+      group,
       codeBundlePath,
       browsers,
       cacheHash,

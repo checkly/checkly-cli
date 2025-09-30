@@ -500,6 +500,10 @@ export class CheckGroupV1 extends Construct {
     }
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return {
       name: this.name,

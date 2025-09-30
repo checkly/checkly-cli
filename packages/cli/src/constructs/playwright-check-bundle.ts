@@ -3,7 +3,7 @@ import { PlaywrightCheck } from './playwright-check'
 import { Ref } from './ref'
 
 export interface PlaywrightCheckBundleProps {
-  groupId?: Ref
+  group?: Ref
   codeBundlePath?: string
   browsers?: string[]
   cacheHash?: string
@@ -14,7 +14,7 @@ export interface PlaywrightCheckBundleProps {
 
 export class PlaywrightCheckBundle implements Bundle {
   playwrightCheck: PlaywrightCheck
-  groupId?: Ref
+  group?: Ref
   codeBundlePath?: string
   browsers?: string[]
   cacheHash?: string
@@ -24,7 +24,7 @@ export class PlaywrightCheckBundle implements Bundle {
 
   constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckBundleProps) {
     this.playwrightCheck = playwrightCheck
-    this.groupId = props.groupId
+    this.group = props.group
     this.codeBundlePath = props.codeBundlePath
     this.browsers = props.browsers
     this.cacheHash = props.cacheHash
@@ -36,7 +36,7 @@ export class PlaywrightCheckBundle implements Bundle {
   synthesize () {
     return {
       ...this.playwrightCheck.synthesize(),
-      groupId: this.groupId,
+      groupId: this.group,
       codeBundlePath: this.codeBundlePath,
       browsers: this.browsers,
       cacheHash: this.cacheHash,

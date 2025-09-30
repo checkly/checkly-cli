@@ -143,23 +143,9 @@ async function loadPlaywrightChecks (
     try {
       setCheckFilePaths(playwrightConfigPath, directory)
       for (const playwrightCheckProps of playwrightChecks) {
-        // Handle both string groupLogicalId and legacy groupName conversion
-        const props = { ...playwrightCheckProps } as any
-
-        // Convert string groupLogicalId to Ref and assign to groupId
-        if (props.groupLogicalId && typeof props.groupLogicalId === 'string') {
-          props.groupId = Ref.from(props.groupLogicalId)
-          delete props.groupLogicalId // Remove to avoid property conflicts
-        }
-
-        // For backwards compatibility, convert groupName to groupId if present and groupId is not already set
-        if (props.groupName && !props.groupId) {
-          props.groupId = resolveGroupNameToGroupRef(props.groupName)
-        }
-
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
-          ...props,
+          ...playwrightCheckProps,
           playwrightConfigPath: resolvedPlaywrightConfigPath,
           include,
         })
