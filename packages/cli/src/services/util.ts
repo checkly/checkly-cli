@@ -26,6 +26,7 @@ import {
   PNpmDetector,
   YarnDetector,
 } from './check-parser/package-files/package-manager'
+import { existsSync } from 'fs'
 
 export interface GitInformation {
   commitId: string
@@ -371,4 +372,10 @@ export function getPlaywrightConfigPath (
   } else {
     throw new Error('No Playwright config path provided.')
   }
+}
+
+export function findPlaywrightConfigPath (dir: string): string | undefined {
+  return ['playwright.config.ts', 'playwright.config.js']
+    .map(file => path.resolve(dir, file))
+    .find(filePath => existsSync(filePath))
 }
