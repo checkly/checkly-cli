@@ -1,5 +1,6 @@
 import { AuthCommand } from './authCommand'
 import {
+  findPlaywrightConfigPath,
   getCiInformation,
   getDefaultChecklyConfig,
   getEnvs,
@@ -115,8 +116,20 @@ export default class PwTestCommand extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames, false, pwPathFlag)
-    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
-    const dir = path.dirname(playwrightConfigPath || '.')
+    let playwrightConfigPath = pwPathFlag ?? checklyConfig.checks?.playwrightConfigPath
+
+    if (!playwrightConfigPath) {
+      const foundPath = findPlaywrightConfigPath(configDirectory)
+      if (!foundPath) {
+        this.style.actionFailure()
+        this.style.shortError('No Playwright config found. You can specify a custom path using the playwright --config flag.')
+        this.exit(1)
+      }
+      playwrightConfigPath = `./${path.relative(configDirectory, foundPath)}`
+    }
+
+    const absoluteConfigPath = path.resolve(configDirectory, playwrightConfigPath)
+    const dir = path.dirname(absoluteConfigPath)
     const playwrightCheck = await PwTestCommand.createPlaywrightCheck(
       playwrightFlags,
       runLocation as keyof Region,
