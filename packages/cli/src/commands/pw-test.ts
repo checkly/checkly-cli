@@ -115,7 +115,9 @@ export default class PwTestCommand extends AuthCommand {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames, false, pwPathFlag)
-    const playwrightConfigPath = checklyConfig.checks?.playwrightConfigPath
+    const playwrightConfigPath = pwPathFlag
+      ? pwPathFlag
+      : checklyConfig.checks?.playwrightConfigPath ?? path.resolve('.', 'playwright.config.ts')
     const dir = path.dirname(playwrightConfigPath || '.')
     const playwrightCheck = await PwTestCommand.createPlaywrightCheck(
       playwrightFlags,
