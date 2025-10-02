@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@internal/lib1": [
+        "./lib1"
+      ],
+      "@/*": [
+        "./lib3/*"
+      ]
+    }
+  }
+}

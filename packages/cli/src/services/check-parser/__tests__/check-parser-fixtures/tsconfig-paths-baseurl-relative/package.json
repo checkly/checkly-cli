@@ -1,0 +1,10 @@
+{
+  "name": "tsconfig-paths-sample-project",
+  "dependencies": {
+    "checkly": "^4.15.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "typescript": "^5.7.2"
+  }
+}

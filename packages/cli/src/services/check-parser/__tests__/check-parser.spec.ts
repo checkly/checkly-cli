@@ -146,7 +146,7 @@ describe('dependency-parser - parser()', () => {
     ])
   })
 
-  it('should parse typescript dependencies using tsconfig', async () => {
+  it('should parse typescript dependencies using tsconfig paths', async () => {
     const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-sample-project', ...filepath)
     const parser = new Parser({
       supportedNpmModules: defaultNpmModules,
@@ -162,6 +162,26 @@ describe('dependency-parser - parser()', () => {
       toAbsolutePath('lib1', 'tsconfig.json'),
       toAbsolutePath('lib2', 'index.ts'),
       toAbsolutePath('lib3', 'foo', 'bar.ts'),
+      toAbsolutePath('tsconfig.json'),
+    ])
+  })
+
+  it('should parse typescript dependencies using tsconfig paths relative to baseUrl', async () => {
+    const toAbsolutePath = (...filepath: string[]) => path.join(__dirname, 'check-parser-fixtures', 'tsconfig-paths-baseurl-relative', ...filepath)
+    const parser = new Parser({
+      supportedNpmModules: defaultNpmModules,
+    })
+    const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+    expect(dependencies.map(d => d.filePath).sort()).toEqual([
+      toAbsolutePath('src', 'lib1', 'file1.ts'),
+      toAbsolutePath('src', 'lib1', 'file2.ts'),
+      toAbsolutePath('src', 'lib1', 'folder', 'file1.ts'),
+      toAbsolutePath('src', 'lib1', 'folder', 'file2.ts'),
+      toAbsolutePath('src', 'lib1', 'index.ts'),
+      toAbsolutePath('src', 'lib1', 'package.json'),
+      toAbsolutePath('src', 'lib1', 'tsconfig.json'),
+      toAbsolutePath('src', 'lib2', 'index.ts'),
+      toAbsolutePath('src', 'lib3', 'foo', 'bar.ts'),
       toAbsolutePath('tsconfig.json'),
     ])
   })

@@ -1,0 +1,12 @@
+{
+  "name": "@internal/lib",
+  "main": "dist/index.js",
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "prepare": "npm run clean && tsc --build"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2"
+  }
+}
