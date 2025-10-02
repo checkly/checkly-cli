@@ -294,11 +294,11 @@ export class PackageFilesResolver {
           continue
         }
 
-        const resolvedPaths = configJson.resolvePath(importPath)
+        const { root, paths: resolvedPaths } = configJson.resolvePath(importPath)
         if (resolvedPaths.length > 0) {
           let found = false
           for (const { source, target } of resolvedPaths) {
-            const relativePath = path.resolve(configJson.basePath, target.path)
+            const relativePath = path.resolve(root, target.path)
             const sourceFile = await this.cache.sourceFile(relativePath, context)
             if (sourceFile !== undefined) {
               const resolvedFiles = await this.resolveSourceFile(sourceFile, context)

@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 type Paths = Record<string, Array<string>>
 
 class TargetPathSpec {
@@ -186,7 +188,10 @@ export type PathResult = {
   target: TargetPathResult
 }
 
-export type ResolveResult = PathResult[]
+export type ResolveResult = {
+  root: string
+  paths: PathResult[]
+}
 
 export class PathResolver {
   baseUrl: string
@@ -207,19 +212,25 @@ export class PathResolver {
       if (match.ok) {
         // We can just return the first match since matchers are already
         // sorted by longest prefix.
-        return match.results.map(result => {
-          return {
-            source: {
-              spec,
-              path: importPath,
-            },
-            target: result,
-          }
-        })
+        return {
+          root: this.baseUrl,
+          paths: match.results.map(result => {
+            return {
+              source: {
+                spec,
+                path: importPath,
+              },
+              target: result,
+            }
+          }),
+        }
       }
     }
 
-    return []
+    return {
+      root: this.baseUrl,
+      paths: [],
+    }
   }
 
   static createFromPaths (baseUrl: string, paths: Paths): PathResolver {
