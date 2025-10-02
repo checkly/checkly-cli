@@ -1,7 +1,7 @@
 import * as path from 'path'
 import fs from 'node:fs/promises'
 import { existsSync } from 'fs'
-import { getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
+import { findPlaywrightConfigPath, getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
 import { CheckProps, RuntimeCheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
 import { Session } from '../constructs'
@@ -190,12 +190,6 @@ async function handleMissingConfig (
     return checklyConfig
   }
   throw new ConfigNotFoundError(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
-}
-
-function findPlaywrightConfigPath (dir: string): string | undefined {
-  return ['playwright.config.ts', 'playwright.config.js']
-    .map(file => path.resolve(dir, file))
-    .find(filePath => existsSync(filePath))
 }
 
 function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConfig)[]): void {
