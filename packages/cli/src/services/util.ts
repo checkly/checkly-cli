@@ -358,3 +358,17 @@ export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig
 
   await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
 }
+
+export function getPlaywrightConfigPath (
+  playwrightCheckProps: PlaywrightSlimmedProp,
+  playwrightConfigPath: string | undefined,
+  dir: string,
+): string {
+  if (playwrightCheckProps.playwrightConfigPath) {
+    return path.resolve(dir, playwrightCheckProps.playwrightConfigPath)
+  } else if (playwrightConfigPath) {
+    return path.resolve(dir, playwrightConfigPath)
+  } else {
+    throw new Error('No Playwright config path provided.')
+  }
+}
