@@ -18,6 +18,25 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   }
 }
 
+export class ConflictingPropertyDiagnostic extends ErrorDiagnostic {
+  property1: string
+  property2: string
+
+  constructor (property1: string, property2: string, error: Error) {
+    super({
+      title: `Conflicting property`,
+      message:
+        `Property "${property1}" cannot be set when "${property2}" is set.`
+        + `\n\n`
+        + `Hint: ${error.message}`,
+      error,
+    })
+
+    this.property1 = property1
+    this.property2 = property2
+  }
+}
+
 export class DeprecatedPropertyDiagnostic extends WarningDiagnostic {
   property: string
 

@@ -61,14 +61,14 @@ export default class TestRunner extends AbstractCheckRunner {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
       // Get the group reference - Playwright checks store it in the bundle,
       // other checks store it in the check construct (as groupId)
-      const group = bundle instanceof PlaywrightCheckBundle
-        ? bundle.group
+      const groupId = bundle instanceof PlaywrightCheckBundle
+        ? bundle.groupId
         : check.groupId
 
       return {
         ...bundle.synthesize(),
         testRetryStrategy: this.testRetryStrategy,
-        group: group ? this.projectBundle.data['check-group'][group.ref].bundle.synthesize() : undefined,
+        group: groupId ? this.projectBundle.data['check-group'][groupId.ref].bundle.synthesize() : undefined,
         sourceInfo: {
           checkRunSuiteId,
           checkRunId: uuid.v4(),

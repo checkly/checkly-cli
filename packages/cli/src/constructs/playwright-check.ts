@@ -7,7 +7,11 @@ import {
   bundlePlayWrightProject, cleanup,
 } from '../services/util'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import {
+  ConflictingPropertyDiagnostic,
+  DeprecatedPropertyDiagnostic,
+  InvalidPropertyValueDiagnostic,
+} from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
@@ -75,7 +79,9 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * Name of the check group to assign this check to.
    * The group must exist in your project configuration.
    *
-   * @deprecated Use {@link group} instead.
+   * @deprecated Use {@link group} instead. Depending on load order, group
+   * defaults may not work correctly when using {@link groupName} to attach the
+   * check to a group.
    * @example "E2E Tests"
    * @example "Critical User Flows"
    */
@@ -123,6 +129,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
+  /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
 
   constructor (logicalId: string, props: PlaywrightCheckProps) {
@@ -152,7 +159,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `PlaywrightCheck:${this.logicalId}`
   }
 
-  protected configDefaultsGetter (props: RuntimeCheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter {
     const group = PlaywrightCheck.#resolveGroupFromProps(props)
 
     return makeConfigDefaultsGetter(
@@ -161,22 +168,20 @@ export class PlaywrightCheck extends RuntimeCheck {
     )
   }
 
-  static #resolveGroupFromProps (props: RuntimeCheckProps) {
-    const playwrightProps = props as PlaywrightCheckProps & RuntimeCheckProps
-
+  static #resolveGroupFromProps (props: PlaywrightCheckProps) {
     // Check the preferred 'group' property first
-    if (playwrightProps.group) {
-      return playwrightProps.group
+    if (props.group) {
+      return props.group
     }
 
     // Fall back to deprecated groupId
-    if (playwrightProps.groupId) {
-      return PlaywrightCheck.#findGroupByRef(playwrightProps.groupId)
+    if (props.groupId) {
+      return PlaywrightCheck.#findGroupByRef(props.groupId)
     }
 
     // Fall back to deprecated groupName
-    if (playwrightProps.groupName) {
-      return PlaywrightCheck.#findGroupByName(playwrightProps.groupName)
+    if (props.groupName) {
+      return PlaywrightCheck.#findGroupByName(props.groupName)
     }
 
     return undefined
@@ -208,17 +213,23 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   #validateGroupReferences (diagnostics: Diagnostics): void {
-    if (this.groupId) {
-      const checkGroup = PlaywrightCheck.#findGroupByRef(this.groupId)
-      if (!checkGroup) {
-        diagnostics.add(new InvalidPropertyValueDiagnostic(
-          'groupId',
-          new Error(`No such group with ID "${this.groupId}".`),
+    if (this.groupName) {
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'groupName',
+        new Error(
+          `Use the "group" property instead. Depending on load order, `
+          + 'group defaults may not work correctly when using "groupName".',
+        ),
+      ))
+
+      if (this.groupId) {
+        diagnostics.add(new ConflictingPropertyDiagnostic(
+          'groupName',
+          'group',
+          new Error(`Prefer the "group" property over "groupName".`),
         ))
       }
-    }
 
-    if (this.groupName) {
       const checkGroup = PlaywrightCheck.#findGroupByName(this.groupName)
       if (!checkGroup) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
@@ -266,16 +277,11 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   async bundle (): Promise<PlaywrightCheckBundle> {
-    // Prefer the group property (stored as this.groupId via parent Check class)
-    // Fall back to groupName lookup for backward compatibility
-    let group: Ref | undefined = this.groupId
-
-    if (!group && this.groupName) {
-      const checkGroup = PlaywrightCheck.#findGroupByName(this.groupName)
-      if (checkGroup) {
-        group = checkGroup.ref()
-      }
-    }
+    // Prefer the standard groupId but fall back to the deprecated groupName
+    // if available.
+    const groupId = this.groupName && !this.groupId
+      ? PlaywrightCheck.#findGroupByName(this.groupName)?.ref()
+      : this.groupId
 
     const {
       key: codeBundlePath,
@@ -293,7 +299,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     )
 
     return new PlaywrightCheckBundle(this, {
-      group,
+      groupId,
       codeBundlePath,
       browsers,
       cacheHash,
