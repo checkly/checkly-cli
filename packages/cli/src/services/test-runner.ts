@@ -59,16 +59,16 @@ export default class TestRunner extends AbstractCheckRunner {
     checks: Array<{ check: any, sequenceId: SequenceId }>
   }> {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
-      // Playwright checks lazy load groups so they're only present in the
-      // bundle. This is a hack but for now it works.
+      // Get the group reference - Playwright checks store it in the bundle,
+      // other checks store it in the check construct (as groupId)
       const groupId = bundle instanceof PlaywrightCheckBundle
         ? bundle.groupId
         : check.groupId
+
       return {
         ...bundle.synthesize(),
         testRetryStrategy: this.testRetryStrategy,
         group: groupId ? this.projectBundle.data['check-group'][groupId.ref].bundle.synthesize() : undefined,
-        groupId: undefined,
         sourceInfo: {
           checkRunSuiteId,
           checkRunId: uuid.v4(),

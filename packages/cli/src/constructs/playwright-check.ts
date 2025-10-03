@@ -7,11 +7,16 @@ import {
   bundlePlayWrightProject, cleanup,
 } from '../services/util'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import {
+  ConflictingPropertyDiagnostic,
+  DeprecatedPropertyDiagnostic,
+  InvalidPropertyValueDiagnostic,
+} from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
 import { Ref } from './ref'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
 export interface PlaywrightCheckProps extends RuntimeCheckProps {
   /**
@@ -74,6 +79,9 @@ export interface PlaywrightCheckProps extends RuntimeCheckProps {
    * Name of the check group to assign this check to.
    * The group must exist in your project configuration.
    *
+   * @deprecated Use {@link group} instead. Depending on load order, group
+   * defaults may not work correctly when using {@link groupName} to attach the
+   * check to a group.
    * @example "E2E Tests"
    * @example "Critical User Flows"
    */
@@ -121,23 +129,27 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
+  /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
 
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
-    this.installCommand = props.installCommand
-    this.pwProjects = props.pwProjects
-      ? (Array.isArray(props.pwProjects) ? props.pwProjects : [props.pwProjects])
+
+    const config = this.applyConfigDefaults(props)
+
+    this.installCommand = config.installCommand
+    this.pwProjects = config.pwProjects
+      ? (Array.isArray(config.pwProjects) ? config.pwProjects : [config.pwProjects])
       : []
-    this.pwTags = props.pwTags
-      ? (Array.isArray(props.pwTags) ? props.pwTags : [props.pwTags])
+    this.pwTags = config.pwTags
+      ? (Array.isArray(config.pwTags) ? config.pwTags : [config.pwTags])
       : []
-    this.include = props.include
-      ? (Array.isArray(props.include) ? props.include : [props.include])
+    this.include = config.include
+      ? (Array.isArray(config.include) ? config.include : [config.include])
       : []
-    this.testCommand = props.testCommand ?? 'npx playwright test'
-    this.groupName = props.groupName
-    this.playwrightConfigPath = this.resolveContentFilePath(props.playwrightConfigPath)
+    this.testCommand = config.testCommand ?? 'npx playwright test'
+    this.groupName = config.groupName
+    this.playwrightConfigPath = this.resolveContentFilePath(config.playwrightConfigPath)
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
@@ -145,6 +157,44 @@ export class PlaywrightCheck extends RuntimeCheck {
 
   describe (): string {
     return `PlaywrightCheck:${this.logicalId}`
+  }
+
+  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter {
+    const group = PlaywrightCheck.#resolveGroupFromProps(props)
+
+    return makeConfigDefaultsGetter(
+      group?.getCheckDefaults(),
+      Session.checkDefaults,
+    )
+  }
+
+  static #resolveGroupFromProps (props: PlaywrightCheckProps) {
+    // Check the preferred 'group' property first
+    if (props.group) {
+      return props.group
+    }
+
+    // Fall back to deprecated groupId
+    if (props.groupId) {
+      return PlaywrightCheck.#findGroupByRef(props.groupId)
+    }
+
+    // Fall back to deprecated groupName
+    if (props.groupName) {
+      return PlaywrightCheck.#findGroupByName(props.groupName)
+    }
+
+    return undefined
+  }
+
+  static #findGroupByRef (groupRef: Ref | string) {
+    const ref = typeof groupRef === 'string' ? groupRef : groupRef.ref
+    return Session.project?.data?.['check-group']?.[ref]
+  }
+
+  static #findGroupByName (groupName: string) {
+    return Object.values(Session.project?.data?.['check-group'] ?? {})
+      .find(group => group.name === groupName)
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
@@ -159,8 +209,28 @@ export class PlaywrightCheck extends RuntimeCheck {
       ))
     }
 
+    this.#validateGroupReferences(diagnostics)
+  }
+
+  #validateGroupReferences (diagnostics: Diagnostics): void {
     if (this.groupName) {
-      const checkGroup = this.#findGroupByName(this.groupName)
+      diagnostics.add(new DeprecatedPropertyDiagnostic(
+        'groupName',
+        new Error(
+          `Use the "group" property instead. Depending on load order, `
+          + 'group defaults may not work correctly when using "groupName".',
+        ),
+      ))
+
+      if (this.groupId) {
+        diagnostics.add(new ConflictingPropertyDiagnostic(
+          'groupName',
+          'group',
+          new Error(`Prefer the "group" property over "groupName".`),
+        ))
+      }
+
+      const checkGroup = PlaywrightCheck.#findGroupByName(this.groupName)
       if (!checkGroup) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'groupName',
@@ -168,11 +238,6 @@ export class PlaywrightCheck extends RuntimeCheck {
         ))
       }
     }
-  }
-
-  #findGroupByName (groupName: string) {
-    return Object.values(Session.project?.data?.['check-group'] ?? {})
-      .find(group => group.name === groupName)
   }
 
   getSourceFile () {
@@ -212,13 +277,11 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   async bundle (): Promise<PlaywrightCheckBundle> {
-    let groupId: Ref | undefined
-    if (this.groupName) {
-      const checkGroup = this.#findGroupByName(this.groupName)
-      if (checkGroup) {
-        groupId = checkGroup.ref()
-      }
-    }
+    // Prefer the standard groupId but fall back to the deprecated groupName
+    // if available.
+    const groupId = this.groupName && !this.groupId
+      ? PlaywrightCheck.#findGroupByName(this.groupName)?.ref()
+      : this.groupId
 
     const {
       key: codeBundlePath,
