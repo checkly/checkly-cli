@@ -1,5 +1,3 @@
-import { resolve } from 'node:path'
-
 type Paths = Record<string, Array<string>>
 
 class TargetPathSpec {
