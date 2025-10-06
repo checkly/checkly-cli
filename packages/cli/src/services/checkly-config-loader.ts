@@ -1,6 +1,5 @@
 import * as path from 'path'
 import fs from 'node:fs/promises'
-import { existsSync } from 'fs'
 import { findPlaywrightConfigPath, getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
 import { CheckProps, RuntimeCheckProps } from '../constructs/check'
 import { PlaywrightCheckProps } from '../constructs/playwright-check'
