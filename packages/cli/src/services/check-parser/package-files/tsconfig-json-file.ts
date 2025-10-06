@@ -69,7 +69,7 @@ export class TSConfigFile {
   jsonFile: JsonTextSourceFile<Schema>
   basePath: string
   moduleResolution: string
-  baseUrl?: string
+  baseUrl: string
   pathResolver: PathResolver
 
   relatedSourceFiles: SourceFile[] = []
@@ -81,12 +81,11 @@ export class TSConfigFile {
 
     this.moduleResolution = jsonFile.data.compilerOptions?.moduleResolution?.toLocaleLowerCase() ?? 'unspecified'
 
-    const baseUrl = jsonFile.data.compilerOptions?.baseUrl
-    if (baseUrl !== undefined) {
-      this.baseUrl = path.resolve(this.jsonFile.meta.dirname, baseUrl)
-    }
+    this.baseUrl = jsonFile.data.compilerOptions?.baseUrl !== undefined
+      ? path.resolve(this.basePath, jsonFile.data.compilerOptions.baseUrl)
+      : this.basePath
 
-    this.pathResolver = PathResolver.createFromPaths(this.baseUrl ?? '.', jsonFile.data.compilerOptions?.paths ?? {})
+    this.pathResolver = PathResolver.createFromPaths(this.baseUrl, jsonFile.data.compilerOptions?.paths ?? {})
   }
 
   public get meta () {
