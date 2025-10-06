@@ -21,6 +21,10 @@ describe('pw-test', { timeout: 45000 }, () => {
       directory: path.join(__dirname, 'fixtures', 'test-pwt-native'),
       timeout: 120000, // 2 minutes
     })
+    if (result.status !== 0) {
+      // eslint-disable-next-line no-console
+      console.log(result)
+    }
     expect(result.status).toBe(0)
   }, 130000)
 
