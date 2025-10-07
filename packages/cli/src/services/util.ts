@@ -26,6 +26,7 @@ import {
   PNpmDetector,
   YarnDetector,
 } from './check-parser/package-files/package-manager'
+import { existsSync } from 'fs'
 
 export interface GitInformation {
   commitId: string
@@ -357,4 +358,24 @@ export async function writeChecklyConfigFile (dir: string, config: ChecklyConfig
     `import { defineConfig } from 'checkly'\n\nconst config = defineConfig(${JSON5.stringify(config, null, 2)})\n\nexport default config`
 
   await fs.writeFile(configFile, configContent, { encoding: 'utf-8' })
+}
+
+export function getPlaywrightConfigPath (
+  playwrightCheckProps: PlaywrightSlimmedProp,
+  playwrightConfigPath: string | undefined,
+  dir: string,
+): string {
+  if (playwrightCheckProps.playwrightConfigPath) {
+    return path.resolve(dir, playwrightCheckProps.playwrightConfigPath)
+  } else if (playwrightConfigPath) {
+    return path.resolve(dir, playwrightConfigPath)
+  } else {
+    throw new Error('No Playwright config path provided.')
+  }
+}
+
+export function findPlaywrightConfigPath (dir: string): string | undefined {
+  return ['playwright.config.ts', 'playwright.config.js']
+    .map(file => path.resolve(dir, file))
+    .find(filePath => existsSync(filePath))
 }

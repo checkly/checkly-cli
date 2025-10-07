@@ -1,7 +1,6 @@
 import * as path from 'path'
 import {
-  findFilesWithPattern,
-
+  findFilesWithPattern, getPlaywrightConfigPath,
   pathToPosix,
 } from './util'
 import {
@@ -121,21 +120,15 @@ async function loadPlaywrightChecks (
   playwrightConfigPath?: string,
   include?: string | string[],
 ) {
-  if (!playwrightConfigPath) {
-    return
-  }
-
-  // Resolve the playwrightConfigPath relative to the project directory
-  const resolvedPlaywrightConfigPath = path.resolve(directory, playwrightConfigPath)
-
   if (playwrightChecks?.length) {
     try {
-      setCheckFilePaths(playwrightConfigPath, directory)
       for (const playwrightCheckProps of playwrightChecks) {
+        const configPath = getPlaywrightConfigPath(playwrightCheckProps, playwrightConfigPath, directory)
+        setCheckFilePaths(configPath, directory)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
           ...playwrightCheckProps,
-          playwrightConfigPath: resolvedPlaywrightConfigPath,
+          playwrightConfigPath: configPath,
           include,
         })
       }
@@ -144,7 +137,11 @@ async function loadPlaywrightChecks (
     }
   } else {
     try {
+      if (!playwrightConfigPath) {
+        return
+      }
       setCheckFilePaths(playwrightConfigPath, directory)
+      const resolvedPlaywrightConfigPath = path.resolve(directory, playwrightConfigPath)
       const basePath = path.basename(resolvedPlaywrightConfigPath)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const playwrightCheck = new PlaywrightCheck(basePath, {
