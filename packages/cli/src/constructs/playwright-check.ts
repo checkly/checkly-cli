@@ -18,7 +18,7 @@ import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
-export interface PlaywrightCheckProps extends RuntimeCheckProps {
+export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy'> {
   /**
    * Path to the Playwright configuration file (playwright.config.js/ts).
    * This file defines test settings, browser configurations, and project structure.
@@ -199,6 +199,14 @@ export class PlaywrightCheck extends RuntimeCheck {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+
+    // Check if retryStrategy was passed (even though TypeScript should prevent it)
+    if (this.retryStrategy) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'retryStrategy',
+        new Error(`Retry strategies are not supported for Playwright checks. Playwright tests have their own built-in retry mechanism that should be configured in your playwright.config.ts file instead.`),
+      ))
+    }
 
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)

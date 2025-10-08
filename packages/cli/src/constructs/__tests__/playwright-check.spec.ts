@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { AxiosHeaders } from 'axios'
 
-import { CheckGroupV2, Diagnostics, PlaywrightCheck } from '../index'
+import { CheckGroupV2, Diagnostics, PlaywrightCheck, RetryStrategyBuilder } from '../index'
 import { Project, Session } from '../project'
 import { checklyStorage } from '../../rest/api'
 
@@ -211,6 +211,33 @@ describe('PlaywrightCheck', () => {
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
           message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
+        }),
+      ]))
+    })
+
+    it('should error if retryStrategy is set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        // @ts-expect-error - Testing runtime validation. TypeScript should prevent this at compile time.
+        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('The value provided for property "retryStrategy" is not valid.'),
+        }),
+        expect.objectContaining({
+          message: expect.stringContaining('Retry strategies are not supported for Playwright checks'),
         }),
       ]))
     })
