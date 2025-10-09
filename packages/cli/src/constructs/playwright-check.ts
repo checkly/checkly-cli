@@ -165,7 +165,11 @@ export class PlaywrightCheck extends RuntimeCheck {
 
     return makeConfigDefaultsGetter(
       group?.getCheckDefaults(),
-      Session.checkDefaults,
+      {
+        ...Session.checkDefaults,
+        // Override retryStrategy from checkly.config.ts as is not supported for Playwright checks
+        retryStrategy: undefined,
+      },
     )
   }
 
