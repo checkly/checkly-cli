@@ -312,7 +312,7 @@ export async function findFilesWithPattern (
   // The files are sorted to make sure that the processing order is deterministic.
   const files = await glob(pattern, {
     nodir: true,
-    cwd: directory,
+    cwd: path.resolve(directory),
     ignore: ignorePattern,
     absolute: true,
   })
