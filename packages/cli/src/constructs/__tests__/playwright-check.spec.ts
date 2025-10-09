@@ -214,55 +214,83 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+  })
 
-    it('should error if retryStrategy is set', async () => {
+  describe('config defaults override', () => {
+    it('should override retryStrategy from group defaults to undefined', () => {
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       })
 
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-        // @ts-expect-error - Testing runtime validation. TypeScript should prevent this at compile time.
+      const group = new CheckGroupV2('group', {
+        name: 'Test Group',
         retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
       })
 
-      const diags = new Diagnostics()
-      await check.validate(diags)
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        group,
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('The value provided for property "retryStrategy" is not valid.'),
-        }),
-        expect.objectContaining({
-          message: expect.stringContaining('Retry strategies are not supported for Playwright checks'),
-        }),
-      ]))
+      expect(check.retryStrategy).toBeUndefined()
     })
 
-    it('should error if doubleCheck is set', async () => {
+    it('should override doubleCheck from group defaults to undefined', () => {
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       })
 
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      const group = new CheckGroupV2('group', {
+        name: 'Test Group',
         doubleCheck: true,
       })
 
-      const diags = new Diagnostics()
-      await check.validate(diags)
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        group,
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('The "doubleCheck" property is not supported for Playwright checks'),
-        }),
-      ]))
+      expect(check.doubleCheck).toBeUndefined()
+    })
+
+    it('should override retryStrategy from session defaults to undefined', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      Session.checkDefaults = {
+        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+      }
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
+
+      expect(check.retryStrategy).toBeUndefined()
+    })
+
+    it('should override doubleCheck from session defaults to undefined', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      Session.checkDefaults = {
+        doubleCheck: true,
+      }
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
+
+      expect(check.doubleCheck).toBeUndefined()
     })
   })
 })

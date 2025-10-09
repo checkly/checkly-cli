@@ -11,7 +11,6 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
-  RemovedPropertyDiagnostic,
 } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
@@ -165,12 +164,19 @@ export class PlaywrightCheck extends RuntimeCheck {
 
     return makeConfigDefaultsGetter(
       group?.getCheckDefaults(),
-      {
-        ...Session.checkDefaults,
-        // Override retryStrategy from checkly.config.ts as is not supported for Playwright checks
-        retryStrategy: undefined,
-      },
+      Session.checkDefaults,
     )
+  }
+
+  protected applyConfigDefaults<T extends Omit<PlaywrightCheckProps, 'playwrightConfigPath'>> (props: T): T {
+    const config = super.applyConfigDefaults(props)
+    return {
+      ...config,
+      // Not supported by Playwright checks.
+      retryStrategy: undefined,
+      // Not supported by Playwright checks.
+      doubleCheck: undefined,
+    }
   }
 
   static #resolveGroupFromProps (props: PlaywrightCheckProps) {
@@ -202,29 +208,8 @@ export class PlaywrightCheck extends RuntimeCheck {
       .find(group => group.name === groupName)
   }
 
-  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    await this.validateDeprecatedDoubleCheck(diagnostics)
-  }
-
-  validateDeprecatedDoubleCheck (diagnostics: Diagnostics) {
-    if (this.doubleCheck !== undefined) {
-      diagnostics.add(new RemovedPropertyDiagnostic(
-        'doubleCheck',
-        new Error(`The "doubleCheck" property is not supported for Playwright checks. Playwright tests have their own built-in retry mechanism that should be configured in your playwright.config.ts file instead.`),
-      ))
-    }
-  }
-
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
-
-    // Check if retryStrategy was passed (even though TypeScript should prevent it)
-    if (this.retryStrategy) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'retryStrategy',
-        new Error(`Retry strategies are not supported for Playwright checks. Playwright tests have their own built-in retry mechanism that should be configured in your playwright.config.ts file instead.`),
-      ))
-    }
 
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)
