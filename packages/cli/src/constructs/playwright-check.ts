@@ -11,6 +11,7 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  RemovedPropertyDiagnostic,
 } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
@@ -197,6 +198,19 @@ export class PlaywrightCheck extends RuntimeCheck {
       .find(group => group.name === groupName)
   }
 
+  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
+    await this.validateDeprecatedDoubleCheck(diagnostics)
+  }
+
+  validateDeprecatedDoubleCheck (diagnostics: Diagnostics) {
+    if (this.doubleCheck !== undefined) {
+      diagnostics.add(new RemovedPropertyDiagnostic(
+        'doubleCheck',
+        new Error(`The "doubleCheck" property is not supported for Playwright checks. Playwright tests have their own built-in retry mechanism that should be configured in your playwright.config.ts file instead.`),
+      ))
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
@@ -321,6 +335,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
+      doubleCheck: false,
     }
   }
 }

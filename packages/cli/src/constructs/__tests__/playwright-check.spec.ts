@@ -241,5 +241,28 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+
+    it('should error if doubleCheck is set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        doubleCheck: true,
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('The "doubleCheck" property is not supported for Playwright checks'),
+        }),
+      ]))
+    })
   })
 })
