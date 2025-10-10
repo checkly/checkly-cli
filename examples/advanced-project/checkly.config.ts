@@ -45,13 +45,14 @@ const config = defineConfig({
       * */
       testMatch: '**/__checks__/**/*.spec.ts',
     },
+
+    // Playwright Check Suites definition, run the whole Playwright Test Suite in a Check
     playwrightConfigPath: './playwright.config.ts',
     playwrightChecks: [
       {
-        logicalId: 'playwright-check',
-        name: 'Playwright Test Project',
-        locations: ['eu-west-1'],
-        frequency: 10,
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite TS',
+        //Use `testCommand: npx playwright test` to filter the tests you want to run
       }
     ],
   },
