@@ -70,6 +70,23 @@ export class RemovedPropertyDiagnostic extends ErrorDiagnostic {
   }
 }
 
+export class UnsupportedPropertyDiagnostic extends ErrorDiagnostic {
+  property: string
+
+  constructor (property: string, error: Error) {
+    super({
+      title: `Use of unsupported property`,
+      message:
+        `Property "${property}" is not supported.`
+        + `\n\n`
+        + `Reason: ${error.message}`,
+      error,
+    })
+
+    this.property = property
+  }
+}
+
 export class DeprecatedConstructDiagnostic extends WarningDiagnostic {
   construct: string
 
