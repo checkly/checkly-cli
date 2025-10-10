@@ -10,7 +10,10 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "checkly": "latest",
-    "@playwright/test": "1.55.1"
+    "@playwright/test": "1.55.1",
+    "checkly": "^6.7.0"
+  },
+  "dependencies": {
+    "jiti": "^2.6.1"
   }
 }
