@@ -40,7 +40,7 @@ const config = defineConfig({
     playwrightChecks: [
       {
         logicalId: 'playwright-check-suite',
-        name: 'Playwright Check Suite Simple',
+        name: 'Playwright Check Suite Simple TS',
         //Use `testCommand: npx playwright test` to filter the tests you want to run
       }
     ],

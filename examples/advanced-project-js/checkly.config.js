@@ -46,11 +46,11 @@ const config = defineConfig({
     playwrightConfigPath: './playwright.config.js',
     playwrightChecks: [
       {
-        logicalId: 'playwright-check',
-        name: 'Playwright Test Project',
-        locations: ['eu-west-1'],
-        frequency: 10,
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite JS',
+        //Use `testCommand: npx playwright test` to filter the tests you want to run
       }
+    ],
     ],
   },
   cli: {

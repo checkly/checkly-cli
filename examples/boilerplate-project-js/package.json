@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "checkly": "latest"
+    "checkly": "^6.7.0"
   }
 }
