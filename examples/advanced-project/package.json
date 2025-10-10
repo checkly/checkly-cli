@@ -10,8 +10,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "1.55.1",
-    "checkly": "^6.7.0",
+    "@playwright/test": "^1",
+    "checkly": "latest",
     "jiti": "^2"
   }
 }
