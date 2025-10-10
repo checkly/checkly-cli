@@ -8,7 +8,7 @@ https://checklyhq.com website as a monitoring target.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
-npm create checkly@latest -- --template advanced-project
+npm create checkly@latest -- --template advanced-project-js
 ```
 
 ## Project Structure
@@ -17,7 +17,7 @@ This project has examples of all Checkly check types and showcases some advanced
 
 - Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
 
-- Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
+- Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the
 region `us-east-1` and `eu-west-1`
 
 - An example GitHub Actions workflow is in the `.github/workflow.yml` file. It triggers all the checks in the project and deploys
@@ -25,7 +25,7 @@ them if they pass.
 
 ## CLI Commands
 
-Run the core CLI commands with `npx checkly <command>` 
+Run the core CLI commands with `npx checkly <command>`
 
 | Command              | Action                                           |
 |:---------------------|:-------------------------------------------------|
@@ -47,5 +47,5 @@ npm install --save-dev @playwright/test@1.38.1
 
 ## Questions?
 
-Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or
 join our [Slack community](https://checklyhq.com/slack).
