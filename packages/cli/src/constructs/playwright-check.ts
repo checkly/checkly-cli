@@ -19,7 +19,7 @@ import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 
-export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy'> {
+export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
    * Path to the Playwright configuration file (playwright.config.js/ts).
    * This file defines test settings, browser configurations, and project structure.
