@@ -222,7 +222,7 @@ describe('bootstrap', () => {
       const projectFolder = path.join(directory, newProjectName)
       const commandOutput = await runChecklyCreateCli({
         directory,
-        promptsInjection: [newProjectName, template, false, false],
+        promptsInjection: [newProjectName, template, false, false, false],
       })
 
       expectVersionAndName({ commandOutput, latestVersion, greeting })

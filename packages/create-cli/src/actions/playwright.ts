@@ -15,7 +15,7 @@ export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFil
       return
     }
 
-    const checklyConfig = getChecklyConfigFile()
+    const checklyConfig = getChecklyConfigFile(dirPath)
     if (!checklyConfig) {
       return handleError(copySpinner, 'Could not find your checkly config file')
     }
@@ -44,7 +44,7 @@ function handleError (copySpinner: ora.Ora, message: string | unknown) {
   process.exit(1)
 }
 
-function getChecklyConfigFile (): { checklyConfig: string, fileName: string } | undefined {
+function getChecklyConfigFile (dirPath?: string): { checklyConfig: string, fileName: string } | undefined {
   const filenames = [
     'checkly.config.ts',
     'checkly.config.mts',
@@ -55,7 +55,7 @@ function getChecklyConfigFile (): { checklyConfig: string, fileName: string } | 
   ]
   let config
   for (const configFile of filenames) {
-    const dir = path.resolve(path.dirname(configFile))
+    const dir = dirPath || path.resolve(path.dirname(configFile))
     if (!fs.existsSync(path.resolve(dir, configFile))) {
       continue
     }
