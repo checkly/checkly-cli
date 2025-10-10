@@ -216,81 +216,39 @@ describe('PlaywrightCheck', () => {
     })
   })
 
-  describe('config defaults override', () => {
-    it('should override retryStrategy from group defaults to undefined', () => {
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
-
-      const group = new CheckGroupV2('group', {
-        name: 'Test Group',
-        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
-      })
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        group,
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.retryStrategy).toBeUndefined()
+  it('should override retryStrategy from session defaults to undefined', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
     })
 
-    it('should override doubleCheck from group defaults to undefined', () => {
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
+    Session.checkDefaults = {
+      retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+    }
 
-      const group = new CheckGroupV2('group', {
-        name: 'Test Group',
-        doubleCheck: true,
-      })
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        group,
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.doubleCheck).toBeUndefined()
+    const check = new PlaywrightCheck('foo', {
+      name: 'Test Check',
+      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
     })
 
-    it('should override retryStrategy from session defaults to undefined', () => {
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
+    expect(check.retryStrategy).toBeUndefined()
+  })
 
-      Session.checkDefaults = {
-        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
-      }
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.retryStrategy).toBeUndefined()
+  it('should override doubleCheck from session defaults to undefined', () => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
     })
 
-    it('should override doubleCheck from session defaults to undefined', () => {
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
+    Session.checkDefaults = {
+      doubleCheck: true,
+    }
 
-      Session.checkDefaults = {
-        doubleCheck: true,
-      }
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.doubleCheck).toBeUndefined()
+    const check = new PlaywrightCheck('foo', {
+      name: 'Test Check',
+      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
     })
+
+    expect(check.doubleCheck).toBeUndefined()
   })
 })
