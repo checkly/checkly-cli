@@ -3,7 +3,7 @@
 This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
 https://checklyhq.com website as a monitoring target.
 
-1. Write API Checks and Playwright-powered Browser Checks.
+1. Write API Checks and Playwright-powered Browser Checks or fully native Playwright Check Suites.
 2. Add Alert Channels, and dry-run your Checks on 20+ global locations.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
@@ -30,6 +30,7 @@ Run the core CLI commands with `npx checkly <command>`
 | Command              | Action                                           |
 |:---------------------|:-------------------------------------------------|
 | `npx checkly test`   | Dry run all the checks in your project           |
+| `npx checkly pw-test`| Run playwright tests in your project             |
 | `npx checkly deploy` | Deploy your checks to the Checkly cloud          |
 | `npx checkly login`  | Log in to your Checkly account                   |
 | `npx checkly --help` | Show help for each command.                      |
@@ -47,5 +48,5 @@ npm install --save-dev @playwright/test@1.38.1
 
 ## Questions?
 
-Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [the CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
 join our [Slack community](https://checklyhq.com/slack).

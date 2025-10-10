@@ -1,8 +1,9 @@
-import { test } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
-test("Visit logged in area", async ({ page }) => {
+test("Visit Checkly home page", async ({ page }) => {
   await page.goto("/")
 
-  // More test code ..
+  await expect(page).toHaveTitle(/Checkly/)
 
+  // More test code ...
 })
