@@ -11,6 +11,7 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
@@ -164,19 +165,14 @@ export class PlaywrightCheck extends RuntimeCheck {
 
     return makeConfigDefaultsGetter(
       group?.getCheckDefaults(),
-      Session.checkDefaults,
+      {
+        ...Session.checkDefaults,
+        // Not supported by Playwright checks; exclude from defaults.
+        retryStrategy: undefined,
+        // Not supported by Playwright checks; exclude from defaults.
+        doubleCheck: undefined,
+      },
     )
-  }
-
-  protected applyConfigDefaults<T extends Omit<PlaywrightCheckProps, 'playwrightConfigPath'>> (props: T): T {
-    const config = super.applyConfigDefaults(props)
-    return {
-      ...config,
-      // Not supported by Playwright checks.
-      retryStrategy: undefined,
-      // Not supported by Playwright checks.
-      doubleCheck: undefined,
-    }
   }
 
   static #resolveGroupFromProps (props: PlaywrightCheckProps) {
@@ -208,8 +204,42 @@ export class PlaywrightCheck extends RuntimeCheck {
       .find(group => group.name === groupName)
   }
 
+  // eslint-disable-next-line require-await
+  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
+    if (this.doubleCheck !== undefined) {
+      diagnostics.add(new UnsupportedPropertyDiagnostic(
+        'doubleCheck',
+        new Error(
+          `This property is not available in Playwright checks.`
+          + `\n\n`
+          + `Playwright tests have their own built-in retry mechanism that `
+          + `should be configured in your Playwright configuration file `
+          + `instead.`,
+        ),
+      ))
+    }
+  }
+
+  // eslint-disable-next-line require-await
+  protected async validateRetryStrategy (diagnostics: Diagnostics): Promise<void> {
+    // Check if retryStrategy was passed (even though TypeScript should prevent it)
+    if (this.retryStrategy) {
+      diagnostics.add(new UnsupportedPropertyDiagnostic(
+        'retryStrategy',
+        new Error(
+          `This property is not available in Playwright checks.`
+          + `\n\n`
+          + `Playwright tests have their own built-in retry mechanism that `
+          + `should be configured in your Playwright configuration file `
+          + `instead.`,
+        ),
+      ))
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+    await this.validateRetryStrategy(diagnostics)
 
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)

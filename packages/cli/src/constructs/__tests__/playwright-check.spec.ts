@@ -214,41 +214,90 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+
+    it('should error if retryStrategy is set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        // @ts-expect-error - Testing runtime validation. TypeScript should prevent this at compile time.
+        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "retryStrategy" is not supported.'),
+        }),
+      ]))
+    })
+
+    it('should error if doubleCheck is set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        doubleCheck: true,
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "doubleCheck" is not supported.'),
+        }),
+      ]))
+    })
   })
 
-  it('should override retryStrategy from session defaults to undefined', () => {
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
+  describe('defaults', () => {
+    it('should ignore retryStrategy from session check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      Session.checkDefaults = {
+        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+      }
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
+
+      expect(check.retryStrategy).toBeUndefined()
     })
 
-    Session.checkDefaults = {
-      retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
-    }
+    it('should ignore doubleCheck from session check defaults', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
 
-    const check = new PlaywrightCheck('foo', {
-      name: 'Test Check',
-      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      Session.checkDefaults = {
+        doubleCheck: true,
+      }
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
+
+      expect(check.doubleCheck).toBeUndefined()
     })
-
-    expect(check.retryStrategy).toBeUndefined()
-  })
-
-  it('should override doubleCheck from session defaults to undefined', () => {
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-
-    Session.checkDefaults = {
-      doubleCheck: true,
-    }
-
-    const check = new PlaywrightCheck('foo', {
-      name: 'Test Check',
-      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-    })
-
-    expect(check.doubleCheck).toBeUndefined()
   })
 })
