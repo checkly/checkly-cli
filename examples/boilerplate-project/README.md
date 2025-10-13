@@ -20,11 +20,19 @@ This project has the basic boilerplate files needed to get you started.
 ├── __checks__
 │   ├── api.check.ts
 │   └── homepage.spec.ts
+├── tests
+│   ├── docspage.spec.ts
+│   └── landingpage.spec.ts
 ├── checkly.config.ts
-└── package.json
+├── checkly.config.ts
+├── package.json
+└── package-lock.json
 ```
+- Running `npx checkly pw-test` will use the `playwright.config.ts` file and run the test suite in Checkly.
 
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
+
+- Running `npx checkly test --record` will run all checks in a test session for you to preview in the UI.
 
 - Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
 region `us-east-1` and `eu-west-1`
@@ -36,6 +44,7 @@ Run the core CLI commands with `npx checkly <command>`
 | Command              | Action                                           |
 |:---------------------|:-------------------------------------------------|
 | `npx checkly test`   | Dry run all the checks in your project           |
+| `npx checkly pw-test`| Run playwright tests in your project             |
 | `npx checkly deploy` | Deploy your checks to the Checkly cloud          |
 | `npx checkly login`  | Log in to your Checkly account                   |
 | `npx checkly --help` | Show help for each command.                      |
@@ -44,11 +53,14 @@ Run the core CLI commands with `npx checkly <command>`
 
 ## Adding and running `@playwright/test`
 
-You can add `@playwright/test` to this project to get full code completion and run `.spec.ts` files for local debugging.
-It's best to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
+Run `npm install` to install all required dependencies. 
+
+ `@playwright/test` will give you full code completion and run `.spec.js` files for local debugging.
+
+If you're using MultiStep or Browser Checks, make sure to install the Playwright npm package version that matches your [Checkly runtime](https://www.checklyhq.com/docs/cli/npm-packages/).
 
 ```bash
-npm install --save-dev @playwright/test@1.38.1
+npm install --save-dev @playwright/test@1.54.1
 ```
 
 ## Questions?

@@ -45,6 +45,16 @@ const config = defineConfig({
       * */
       testMatch: '**/__checks__/**/*.spec.ts',
     },
+
+    // Playwright Check Suites definition, run the whole Playwright Test Suite in a Check
+    playwrightConfigPath: './playwright.config.ts',
+    playwrightChecks: [
+      {
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite TS',
+        //Use `testCommand: npx playwright test` to filter the tests you want to run
+      }
+    ],
   },
   cli: {
     /* The default datacenter location to use when running npx checkly test */
