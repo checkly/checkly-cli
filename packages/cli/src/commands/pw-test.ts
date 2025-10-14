@@ -86,7 +86,8 @@ export default class PwTestCommand extends AuthCommand {
     }),
     'stream-logs': Flags.boolean({
       description: 'Stream logs from the test run to the console.',
-      default: false,
+      default: true,
+      allowNo: true,
     }),
   }
 
