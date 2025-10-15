@@ -303,7 +303,7 @@ export async function loadPlaywrightProjectFiles (
     archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
   }
   for (const filePath of extraFiles) {
-    archive.file(filePath, { name: filePath, mode })
+    archive.file(path.resolve(dir, filePath), { name: filePath, mode })
   }
 }
 
