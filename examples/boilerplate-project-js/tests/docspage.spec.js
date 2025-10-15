@@ -5,5 +5,5 @@ test('Visit Checkly docs', async ({ page }) => {
 
   await expect(page).toHaveTitle(/Checkly Documentation/)
 
-  // More test code ...
+  // interact with the page and add more assertions
 })
