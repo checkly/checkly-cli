@@ -3,8 +3,8 @@ import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBu
 type DnsAssertionSource =
   | 'RESPONSE_CODE'
   | 'RESPONSE_TIME'
-  | 'ANSWER'
-  | 'ANSWER_JSON'
+  | 'TEXT_ANSWER'
+  | 'JSON_ANSWER'
 
 export type DnsAssertion = CoreAssertion<DnsAssertionSource>
 
@@ -45,7 +45,7 @@ export class DnsAssertionBuilder {
    * @returns A general assertion builder for the answer.
    */
   static textAnswer (regex?: string) {
-    return new GeneralAssertionBuilder<DnsAssertionSource>('ANSWER', undefined, regex)
+    return new GeneralAssertionBuilder<DnsAssertionSource>('TEXT_ANSWER', undefined, regex)
   }
 
   /**
@@ -54,6 +54,6 @@ export class DnsAssertionBuilder {
    * @returns A general assertion builder for the JSON formatted answer.
    */
   static jsonAnswer (property?: string) {
-    return new GeneralAssertionBuilder<DnsAssertionSource>('ANSWER_JSON', property)
+    return new GeneralAssertionBuilder<DnsAssertionSource>('JSON_ANSWER', property)
   }
 }
