@@ -12,6 +12,6 @@
   "devDependencies": {
     "@playwright/test": "^1",
     "checkly": "latest",
-    "jiti": "^1"
+    "jiti": "^2"
   }
 }
