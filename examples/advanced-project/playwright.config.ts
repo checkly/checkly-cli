@@ -20,7 +20,6 @@ export default defineConfig({
     baseURL: "https://www.checklyhq.com",
     viewport: { width: 1280, height: 720 },
     trace: "on",
-
   },
   projects: [
     {

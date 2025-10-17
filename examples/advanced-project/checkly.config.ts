@@ -35,9 +35,9 @@ const config = defineConfig({
     playwrightConfig: {
       timeout: 30000,
       use: {
-        baseURL: 'https://www.danube-web.shop',
+        baseURL: "https://www.checklyhq.com",
         viewport: { width: 1280, height: 720 },
-      }
+      },
     },
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.ts files and automagically creates a Browser Check. This way, you
