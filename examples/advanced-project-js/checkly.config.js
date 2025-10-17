@@ -51,7 +51,6 @@ const config = defineConfig({
         //Use `testCommand: npx playwright test` to filter the tests you want to run
       }
     ],
-    ],
   },
   cli: {
     /* The default datacenter location to use when running npx checkly test */

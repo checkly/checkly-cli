@@ -27,7 +27,12 @@ const config = defineConfig({
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.ts',
     /* Global configuration option for Playwright-powered checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
-    playwrightConfig: {},
+    playwrightConfig: {
+      use: {
+        baseURL: "https://www.checklyhq.com",
+        viewport: { width: 1280, height: 720 },
+      },
+    },
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.ts files and automagically creates a Browser Check. This way, you
       * can just write native Playwright code. See https://www.checklyhq.com/docs/cli/using-check-test-match/
