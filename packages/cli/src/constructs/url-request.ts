@@ -1,3 +1,4 @@
+import { HttpRequestMethod } from './http-request'
 import { IPFamily } from './ip'
 import { UrlAssertion } from './url-assertion'
 
@@ -15,6 +16,12 @@ export interface UrlRequest {
    * @example 'https://api.example.com/health'
    */
   url: string
+
+  /**
+   * The HTTP method to use.
+   * Supported methods: GET, POST, PUT, HEAD, DELETE, PATCH
+   */
+  method: HttpRequestMethod
 
   /**
    * IP family version to use for the connection.
