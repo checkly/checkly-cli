@@ -6,13 +6,14 @@ const AUTH_FILE = '.auth/user.json';
 const config = defineConfig({
   timeout: 30000,
   use: {
-    baseURL: 'https://www.danube-web.shop',
+    baseURL: 'https://welcome.checklyhq.com',
     viewport: { width: 1280, height: 720 },
+    trace: 'on',
   },
   projects: [
     {
       name: 'login-setup',
-      testMatch: /.*\.setup.ts/,
+      testMatch: /.*\.setup.js/,
       use: {
         ...devices['Desktop Chrome'],
       },

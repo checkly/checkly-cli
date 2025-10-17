@@ -1,9 +1,8 @@
-const { test, expect } = require('@playwright/test');
+import { expect, test } from '@playwright/test'
 
-test('webshop homepage @homepage', async ({ page }) => {
-  const response = await page.goto('');
+test('Visit Checkly home page', async ({ page }) => {
+  await page.goto('/')
 
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page).toHaveTitle(/Danube WebShop/);
-  await page.screenshot({ path: 'homepage.jpg' });
-});
+  await expect(page).toHaveTitle(/Build and Run Synthetics That Scale/)
+  await expect(page.getByText(/Welcome to Checkly/)).toBeVisible()
+})

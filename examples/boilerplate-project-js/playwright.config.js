@@ -22,11 +22,12 @@ module.exports = defineConfig({
 
   use: {
     // Base URL to use in actions like `await page.goto('/')`.
-    baseURL: "https://www.checklyhq.com",
+    baseURL: "https://www.welcome.checklyhq.com",
     viewport: { width: 1280, height: 720 },
     // Always collect trace
     trace: 'on',
   },
+  
   // Configure projects for major browsers.
   projects: [
     {

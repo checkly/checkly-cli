@@ -1,9 +1,12 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from '@playwright/test'
 
-test("Visit Checkly home page", async ({ page }) => {
-  await page.goto("/docs")
+test('Visit Checkly docs', async ({ page }) => {
+  await page.goto('/')
 
-  await expect(page).toHaveTitle(/Checkly/)
+  await expect(page.getByRole('link', { name: '/docs' })).toBeVisible()
+  await page.getByRole('link', { name: '/docs' }).click()
+  
+  await expect(page).toHaveTitle(/Checkly Documentation/)
 
-  // More test code ...
+  // interact with the page and add more assertions
 })
