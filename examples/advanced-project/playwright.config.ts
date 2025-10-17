@@ -17,10 +17,9 @@ export const AUTH_FILE = ".auth/user.json"
 export default defineConfig({
   timeout: 30000,
   use: {
-    baseURL: "https://www.checklyhq.com",
+    baseURL: "https://www.welcome.checklyhq.com",
     viewport: { width: 1280, height: 720 },
     trace: "on",
-
   },
   projects: [
     {
