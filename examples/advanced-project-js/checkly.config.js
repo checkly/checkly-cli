@@ -1,5 +1,5 @@
-const { defineConfig } = require('checkly');
-const { RetryStrategyBuilder } = require('checkly/constructs');
+const { defineConfig } = require('checkly')
+const { AlertEscalationBuilder, RetryStrategyBuilder } = require('checkly/constructs')
 
 /**
  * See https://www.checklyhq.com/docs/cli/project-structure/
@@ -27,6 +27,8 @@ const config = defineConfig({
     runtimeId: '2025.04',
     /* Failed check runs will be retried before triggering alerts */
     retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
+    /* All checks will have this alert escalation policy defined */
+    alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.js',
     /* Global configuration option for Playwright-powered checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
@@ -39,8 +41,8 @@ const config = defineConfig({
     },
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.js files and automagically creates a Browser Check. This way, you
-       * can just write native Playwright code. See https://www.checklyhq.com/docs/cli/using-check-test-match/
-       * */
+      * can just write native Playwright code. See https://www.checklyhq.com/docs/cli/using-check-test-match/
+      * */
       testMatch: '**/__checks__/**/*.spec.js',
     },
     playwrightConfigPath: './playwright.config.js',
@@ -60,6 +62,6 @@ const config = defineConfig({
     /* How many times to retry a failing test run when running `npx checkly test` or `npx checkly trigger` (max. 3) */
     retries: 0,
   },
-});
+})
 
-module.exports = config;
+module.exports = config

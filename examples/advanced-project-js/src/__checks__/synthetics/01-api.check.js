@@ -1,0 +1,30 @@
+const { join } = require('path')
+const { ApiCheck, AssertionBuilder } = require('checkly/constructs')
+const { syntheticGroup } = require('../utils/website-groups.check')
+
+// API checks send an HTTP request to a URL endpoint and validate the response. Read more at:
+// https://www.checklyhq.com/docs/api-checks/
+
+new ApiCheck('books-api-check-1', {
+  name: 'Books API',
+  degradedResponseTime: 10000, // milliseconds
+  maxResponseTime: 20000,
+  setupScript: {
+    // API checks can run arbitrary JS/TS code before or after a check.
+    entrypoint: join(__dirname, '../utils/setup.js')
+  },
+  group: syntheticGroup,
+  request: {
+    url: 'https://danube-web.shop/api/books',
+    method: 'GET',
+    followRedirects: true,
+    skipSSL: false,
+    assertions: [
+      AssertionBuilder.statusCode().equals(200),
+      AssertionBuilder.headers('content-type').equals('application/json; charset=utf-8'),
+      AssertionBuilder.jsonBody('$[0].id').isNotNull(),
+      AssertionBuilder.jsonBody('$[0].author').equals('Fric Eromm'),
+    ],
+  },
+  runParallel: true,
+})
