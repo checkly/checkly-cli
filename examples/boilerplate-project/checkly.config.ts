@@ -27,13 +27,28 @@ const config = defineConfig({
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.ts',
     /* Global configuration option for Playwright-powered checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
-    playwrightConfig: {},
+    playwrightConfig: {
+      use: {
+        baseURL: "https://www.checklyhq.com",
+        viewport: { width: 1280, height: 720 },
+      },
+    },
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.ts files and automagically creates a Browser Check. This way, you
       * can just write native Playwright code. See https://www.checklyhq.com/docs/cli/using-check-test-match/
       * */
       testMatch: '**/__checks__/**/*.spec.ts',
     },
+
+    // Playwright Check Suites definition, run the whole Playwright Test Suite in a Check
+    playwrightConfigPath: './playwright.config.ts',
+    playwrightChecks: [
+      {
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite Simple TS',
+        //Use `testCommand: npx playwright test` to filter the tests you want to run
+      }
+    ],
   },
   cli: {
     /* The default datacenter location to use when running npx checkly test */

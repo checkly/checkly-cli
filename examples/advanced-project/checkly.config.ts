@@ -35,9 +35,9 @@ const config = defineConfig({
     playwrightConfig: {
       timeout: 30000,
       use: {
-        baseURL: 'https://www.danube-web.shop',
+        baseURL: "https://www.checklyhq.com",
         viewport: { width: 1280, height: 720 },
-      }
+      },
     },
     browserChecks: {
       /* A glob pattern matches any Playwright .spec.ts files and automagically creates a Browser Check. This way, you
@@ -45,6 +45,16 @@ const config = defineConfig({
       * */
       testMatch: '**/__checks__/**/*.spec.ts',
     },
+
+    // Playwright Check Suites definition, run the whole Playwright Test Suite in a Check
+    playwrightConfigPath: './playwright.config.ts',
+    playwrightChecks: [
+      {
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite TS',
+        //Use `testCommand: npx playwright test` to filter the tests you want to run
+      }
+    ],
   },
   cli: {
     /* The default datacenter location to use when running npx checkly test */

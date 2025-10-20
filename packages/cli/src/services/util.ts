@@ -273,6 +273,12 @@ export function getPlaywrightVersionFromPackage (cwd: string): string {
   }
 }
 
+// Temporarily always include these extra files (if present) until they can
+// be properly supported.
+const extraFiles = [
+  'pnpm-workspace.yaml',
+]
+
 export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
   lockFile: string,
@@ -295,6 +301,9 @@ export async function loadPlaywrightProjectFiles (
   archive.glob('**/package.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
+  }
+  for (const filePath of extraFiles) {
+    archive.file(path.resolve(dir, filePath), { name: filePath, mode })
   }
 }
 

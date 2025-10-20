@@ -103,8 +103,9 @@ export default class Bootstrap extends Command {
     }
 
     const projectDirectory = await getProjectDirectory({ onCancel })
+    const existingProject = hasPackageJsonFile(projectDirectory)
 
-    if (hasPackageJsonFile(projectDirectory)) {
+    if (existingProject) {
       // Init Checkly CLI for an existing project
       await installWithinProject({ projectDirectory, version, onCancel })
     } else {
@@ -115,7 +116,8 @@ export default class Bootstrap extends Command {
     await installDependenciesAndInitGit({ projectDirectory })
 
     const playwrightConfig = getPlaywrightConfig(projectDirectory)
-    if (playwrightConfig) {
+    // Only prompt playwright copy when not using exampels
+    if (playwrightConfig && existingProject) {
       await copyPlaywrightConfig({ projectDirectory, playwrightConfig })
     }
 
