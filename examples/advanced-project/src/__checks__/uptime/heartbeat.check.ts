@@ -6,13 +6,9 @@ import { HeartbeatMonitor } from 'checkly/constructs'
 // getting pings at the generated URL, so it's deactivated for now.
 // Further documentation: https://www.checklyhq.com/docs/heartbeat-monitors/
 
-// This feature is only available on paid plans.
-// Upgrade your plan to start using it https://app.checklyhq.com/new-billing
-
-
 new HeartbeatMonitor('heartbeat-1', {
-    activated: false,
     name: 'Send weekly newsletter job',
+    activated: false,
     period: 1,
     periodUnit: 'hours',
     grace: 30,

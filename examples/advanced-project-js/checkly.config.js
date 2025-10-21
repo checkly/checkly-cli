@@ -1,5 +1,5 @@
-const { defineConfig } = require('checkly');
-const { RetryStrategyBuilder } = require('checkly/constructs');
+const { defineConfig } = require('checkly')
+const { AlertEscalationBuilder, RetryStrategyBuilder } = require('checkly/constructs')
 
 /**
  * See https://www.checklyhq.com/docs/cli/project-structure/
@@ -27,9 +27,10 @@ const config = defineConfig({
     runtimeId: '2025.04',
     /* Failed check runs will be retried before triggering alerts */
     retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
+    alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
     checkMatch: '**/__checks__/**/*.check.js',
-    /* Global configuration option for Playwright-powered checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
+    /* Global configuration option for Brower and Multistep checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
     playwrightConfig: {
       timeout: 30000,
       use: {
@@ -60,6 +61,6 @@ const config = defineConfig({
     /* How many times to retry a failing test run when running `npx checkly test` or `npx checkly trigger` (max. 3) */
     retries: 0,
   },
-});
+})
 
-module.exports = config;
+module.exports = config

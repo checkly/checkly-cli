@@ -1,8 +1,8 @@
-const { defineConfig, devices } = require('@playwright/test');
+const { defineConfig, devices } = require('@playwright/test')
 
 module.exports = defineConfig({
   timeout: 30000,
-    // Look for test files in the "tests" directory, relative to this configuration file.
+    // Look for test files in the 'tests' directory, relative to this configuration file.
   testDir: './tests',
 
   // Run all tests in parallel.
@@ -22,7 +22,7 @@ module.exports = defineConfig({
 
   use: {
     // Base URL to use in actions like `await page.goto('/')`.
-    baseURL: "https://www.welcome.checklyhq.com",
+    baseURL: 'https://www.danube-web.shop',
     viewport: { width: 1280, height: 720 },
     // Always collect trace
     trace: 'on',
@@ -40,4 +40,4 @@ module.exports = defineConfig({
     },
   ],
 
-});
+})

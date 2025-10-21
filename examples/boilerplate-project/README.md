@@ -1,7 +1,6 @@
 # Checkly Monitoring-as-code: Boilerplate Project
 
-This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
-https://checklyhq.com website as a monitoring target.
+This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow.
 
 1. Write API Checks and Playwright-powered Browser Checks!
 2. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
@@ -18,13 +17,14 @@ This project has the basic boilerplate files needed to get you started.
 .
 ├── README.md
 ├── __checks__
-│   ├── api.check.ts
-│   └── homepage.spec.ts
+│   ├── api.check.ts
+│   ├── heartbeat.check.ts
+│   ├── homepage.spec.ts
+│   └── url.check.ts
 ├── tests
-│   ├── docspage.spec.ts
-│   └── landingpage.spec.ts
+│   └── webshop-interactions.spec.ts
 ├── checkly.config.ts
-├── checkly.config.ts
+├── playwright.config.ts
 ├── package.json
 └── package-lock.json
 ```
@@ -34,12 +34,12 @@ This project has the basic boilerplate files needed to get you started.
 
 - Running `npx checkly test --record` will run all checks in a test session for you to preview in the UI.
 
-- Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
+- Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the
 region `us-east-1` and `eu-west-1`
 
 ## CLI Commands
 
-Run the core CLI commands with `npx checkly <command>` 
+Run the core CLI commands with `npx checkly <command>`
 
 | Command              | Action                                           |
 |:---------------------|:-------------------------------------------------|
@@ -53,7 +53,7 @@ Run the core CLI commands with `npx checkly <command>`
 
 ## Adding and running `@playwright/test`
 
-Run `npm install` to install all required dependencies. 
+Run `npm install` to install all required dependencies.
 
  `@playwright/test` will give you full code completion and run `.spec.js` files for local debugging.
 
@@ -65,5 +65,5 @@ npm install --save-dev @playwright/test@1.54.1
 
 ## Questions?
 
-Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [the Checkly CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or
 join our [Slack community](https://checklyhq.com/slack).

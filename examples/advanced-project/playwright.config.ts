@@ -1,14 +1,14 @@
-import { defineConfig, devices } from "@playwright/test"
+import { defineConfig, devices } from '@playwright/test'
 
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-import dotenv from "dotenv"
-import path from "path"
-dotenv.config({ path: path.resolve(__dirname, ".env") })
+import dotenv from 'dotenv'
+import path from 'path'
+dotenv.config({ path: path.resolve(__dirname, '.env') })
 
-export const AUTH_FILE = ".auth/user.json"
+export const AUTH_FILE = '.auth/user.json'
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -17,9 +17,9 @@ export const AUTH_FILE = ".auth/user.json"
 export default defineConfig({
   timeout: 30000,
   use: {
-    baseURL: "https://www.welcome.checklyhq.com",
+    baseURL: 'https://www.danube-web.shop',
     viewport: { width: 1280, height: 720 },
-    trace: "on",
+    trace: 'on',
   },
   projects: [
     {
@@ -36,7 +36,7 @@ export default defineConfig({
         ...devices['Desktop Firefox'],
         storageState: path.resolve(__dirname, AUTH_FILE),
       },
-      dependencies: ["login-setup"],
+      dependencies: ['login-setup'],
     },
     {
       name: 'Chromium',
@@ -47,7 +47,7 @@ export default defineConfig({
         // Optionally add Checkly user-agent
         userAgent: `${devices['Desktop Chrome'].userAgent} (Checkly, https://www.checklyhq.com)`,
       },
-      dependencies: ["login-setup"],
+      dependencies: ['login-setup'],
     },
   ]
-});
+})
