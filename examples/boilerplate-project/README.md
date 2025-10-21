@@ -2,7 +2,7 @@
 
 This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow.
 
-1. Write API Checks and Playwright-powered Browser Checks!
+1. Write API Checks and Playwright-powered Browser Checks or fully native Playwright Check Suites.
 2. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
