@@ -1,7 +1,6 @@
 import { UrlAssertionBuilder, UrlMonitor } from 'checkly/constructs'
 import { uptimeGroup } from '../utils/website-groups.check'
 
-
 // URL Monitors are the simplest and most efficient uptime monitors, they only
 // check for the status code of the response.
 // Further documentation: https://www.checklyhq.com/docs/url-monitors/

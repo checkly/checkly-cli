@@ -1,6 +1,6 @@
 const path = require('path')
 const { MultiStepCheck, Frequency } = require('checkly/constructs')
-const { syntheticGroup } = require('../utils/website-groups.check');
+const { syntheticGroup } = require('../utils/website-groups.check')
 
 new MultiStepCheck('multistep-check-1', {
   name: 'Multistep API check',

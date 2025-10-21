@@ -1,6 +1,6 @@
-const path = require('path');
-const { BrowserCheck } = require('checkly/constructs');
-const { syntheticGroup } = require('../utils/website-groups.check');
+const path = require('path')
+const { BrowserCheck } = require('checkly/constructs')
+const { syntheticGroup } = require('../utils/website-groups.check')
 
 // Configures two checks for our homepage in a single configuration file.
 // Most settings for these checks are defined in the check group,
