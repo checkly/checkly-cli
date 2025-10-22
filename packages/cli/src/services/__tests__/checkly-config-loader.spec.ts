@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import { loadChecklyConfig } from '../checkly-config-loader'
+import { loadChecklyConfig, defaultFilenames } from '../checkly-config-loader'
 import { splitConfigFilePath } from '../util'
 
 describe('loadChecklyConfig()', () => {
@@ -25,8 +25,10 @@ describe('loadChecklyConfig()', () => {
     try {
       await loadChecklyConfig(configDir)
     } catch (e: any) {
-      expect(e.message).toContain(`Unable to locate a config at ${configDir} with ${
-        ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'].join(', ')}.`)
+      expect(e.message).toContain(`Unable to detect a Checkly configuration file`)
+      for (const filename of defaultFilenames) {
+        expect(e.message).toContain(filename)
+      }
     }
   })
   it('config TS file should export an object', async () => {

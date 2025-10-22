@@ -13,6 +13,7 @@ import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loa
 import type { Runtime } from '../rest/runtimes'
 import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
+import { detectNearestPackageJson, detectPackageManager } from './check-parser/package-files/package-manager'
 
 type ProjectParseOpts = {
   directory: string
@@ -34,9 +35,30 @@ type ProjectParseOpts = {
   playwrightConfigPath?: string
   include?: string | string[]
   playwrightChecks?: PlaywrightSlimmedProp[]
+  enableWorkspaces?: boolean
 }
 
 const BASE_CHECK_DEFAULTS = {
+}
+
+async function findWorkspace (directory: string) {
+  const packageManager = await detectPackageManager(directory)
+  const workspace = await packageManager.lookupWorkspace(directory)
+  const nearestPackageJson = await detectNearestPackageJson(directory, {
+    root: workspace?.root.path,
+  })
+
+  // If the nearest workspace includes the nearest package, then use the
+  // workspace root as the project root. Otherwise, use the config dir as
+  // the project root.
+  const basePath = workspace?.memberByPath(nearestPackageJson.basePath) !== undefined
+    ? workspace.root.path
+    : directory
+
+  return {
+    basePath,
+    workspace,
+  }
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -60,6 +82,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     playwrightConfigPath,
     include,
     playwrightChecks,
+    enableWorkspaces = true,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -70,17 +93,22 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     project.allowTestOnly(true)
   }
 
+  const { basePath, workspace } = enableWorkspaces
+    ? await findWorkspace(directory)
+    : { basePath: directory }
+
   checklyConfigConstructs?.forEach(
     construct => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
-  Session.basePath = directory
+  Session.basePath = basePath
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.checkFilter = checkFilter
   Session.browserCheckDefaults = browserCheckDefaults
   Session.availableRuntimes = availableRuntimes
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
+  Session.workspace = workspace
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
