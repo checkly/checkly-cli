@@ -4,12 +4,13 @@ import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
 import { JSConfigFile } from './jsconfig-json-file'
-import { isBuiltinPath, isLocalPath, PathResult } from './paths'
+import { isBuiltinPath, isImportsPath, isLocalPath, PathResult, splitExternalPath } from './paths'
 import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
 import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
 import { walkUp, WalkUpOptions } from './walk'
+import { Workspace } from './workspace'
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
@@ -112,6 +113,13 @@ class PackageFiles {
   }
 }
 
+export type RawDependencySource = 'require' | 'import'
+
+export type RawDependency = {
+  importPath: string
+  source: RawDependencySource
+}
+
 type TSConfigFileLocalDependency = {
   kind: 'tsconfig-file'
   importPath: string
@@ -140,11 +148,18 @@ type RelativePathLocalDependency = {
   sourceFile: SourceFile
 }
 
+type WorkspacePackageLocalDependency = {
+  kind: 'workspace-package-path'
+  importPath: string
+  sourceFile: SourceFile
+}
+
 type LocalDependency =
   TSConfigFileLocalDependency
   | TSConfigResolvedPathLocalDependency
   | TSConfigBaseUrlRelativePathLocalDependency
   | RelativePathLocalDependency
+  | WorkspacePackageLocalDependency
 
 type MissingDependency = {
   importPath: string
@@ -161,8 +176,18 @@ export type Dependencies = {
   local: LocalDependency[]
 }
 
+interface ResolveSourceFileOptions {
+  exportPath?: string
+  source?: RawDependencySource
+}
+
 export class PackageFilesResolver {
   cache = new PackageFilesCache()
+  workspace?: Workspace
+
+  constructor (workspace?: Workspace) {
+    this.workspace = workspace
+  }
 
   async loadPackageJsonFile (filePath: string, options?: WalkUpOptions): Promise<PackageJsonFile | undefined> {
     let packageJson: PackageJsonFile | undefined
@@ -186,7 +211,11 @@ export class PackageFilesResolver {
     return files
   }
 
-  private async resolveSourceFile (sourceFile: SourceFile, context: LookupContext): Promise<SourceFile[]> {
+  private async resolveSourceFile (
+    sourceFile: SourceFile,
+    context: LookupContext,
+    options?: ResolveSourceFileOptions,
+  ): Promise<SourceFile[]> {
     if (sourceFile.meta.basename === PackageJsonFile.FILENAME) {
       const packageJson = await this.cache.packageJson(sourceFile.meta.filePath)
       if (packageJson === undefined) {
@@ -195,11 +224,35 @@ export class PackageFilesResolver {
         return [sourceFile]
       }
 
+      const {
+        exportPath = '',
+        source = 'import',
+      } = options ?? {}
+
+      const searchPaths: string[] = []
+
+      if (packageJson.hasExports()) {
+        const { root, paths } = packageJson.resolveExportPath(exportPath, [
+          source,
+          'node',
+          'module-sync',
+          'default',
+        ])
+
+        for (const { target: targetPath } of paths) {
+          searchPaths.push(path.resolve(root, targetPath.path))
+        }
+      }
+
+      if (searchPaths.length === 0 && exportPath === '') {
+        searchPaths.push(...packageJson.mainPaths)
+      }
+
       // Go through each main path. A fallback path is included. If we can
       // find a tsconfig for the main file, look it up and attempt to find
       // the original TypeScript sources roughly the same way tsc does it.
-      for (const mainPath of packageJson.mainPaths) {
-        const { tsconfigJson, jsconfigJson } = await this.loadPackageFiles(mainPath, {
+      for (const searchPath of searchPaths) {
+        const { tsconfigJson, jsconfigJson } = await this.loadPackageFiles(searchPath, {
           root: packageJson.basePath,
         })
 
@@ -209,7 +262,7 @@ export class PackageFilesResolver {
             continue
           }
 
-          const candidatePaths = configJson.collectLookupPaths(mainPath).flatMap(filePath => {
+          const candidatePaths = configJson.collectLookupPaths(searchPath).flatMap(filePath => {
             return context.collectLookupPaths(filePath)
           })
           for (const candidatePath of candidatePaths) {
@@ -224,7 +277,7 @@ export class PackageFilesResolver {
           }
         }
 
-        const mainSourceFile = await this.cache.sourceFile(mainPath, context)
+        const mainSourceFile = await this.cache.sourceFile(searchPath, context)
         if (mainSourceFile === undefined) {
           continue
         }
@@ -241,7 +294,7 @@ export class PackageFilesResolver {
 
   async resolveDependenciesForFilePath (
     filePath: string,
-    dependencies: string[],
+    dependencies: RawDependency[],
   ): Promise<Dependencies> {
     const resolved: Dependencies = {
       external: [],
@@ -256,7 +309,7 @@ export class PackageFilesResolver {
     const context = LookupContext.forFilePath(filePath)
 
     resolve:
-    for (const importPath of dependencies) {
+    for (const { importPath, source } of dependencies) {
       if (isBuiltinPath(importPath)) {
         resolved.external.push({
           importPath,
@@ -353,6 +406,37 @@ export class PackageFilesResolver {
                 importPath,
                 sourceFile: configJson.jsonFile.sourceFile,
                 configFile: configJson,
+              })
+              found = true
+            }
+            if (found) {
+              continue resolve
+            }
+          }
+        }
+      }
+
+      if (isImportsPath(importPath)) {
+        // TODO
+        continue resolve
+      }
+
+      if (this.workspace) {
+        const { name, path: exportPath } = splitExternalPath(importPath)
+        const pkg = this.workspace.memberByName(name)
+        if (pkg) {
+          const sourceFile = await this.cache.sourceFile(pkg.path, context)
+          if (sourceFile !== undefined) {
+            const resolvedFiles = await this.resolveSourceFile(sourceFile, context, {
+              exportPath,
+              source,
+            })
+            let found = false
+            for (const resolvedFile of resolvedFiles) {
+              resolved.local.push({
+                kind: 'workspace-package-path',
+                importPath,
+                sourceFile: resolvedFile,
               })
               found = true
             }

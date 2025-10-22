@@ -24,6 +24,7 @@ import { Diagnostics } from './diagnostics'
 import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle'
 import { pathToPosix } from '../services/util'
+import { Workspace } from '../services/check-parser/package-files/workspace'
 
 export interface ProjectProps {
   /**
@@ -246,6 +247,7 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static currentCommand?: 'pw-test' | 'test' | 'deploy'
   static includeFlagProvided?: boolean
+  static workspace?: Workspace
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
@@ -340,6 +342,7 @@ export class Session {
     const parser = new Parser({
       supportedNpmModules: Object.keys(runtime.dependencies),
       checkUnsupportedModules: Session.verifyRuntimeDependencies,
+      workspace: Session.workspace,
     })
 
     Session.parsers.set(runtime.name, parser)

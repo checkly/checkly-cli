@@ -5,6 +5,7 @@ import { lineage } from './walk'
 import { shellQuote } from '../../../services/shell'
 import { PackageJsonFile } from './package-json-file'
 import { JsonSourceFile } from './json-source-file'
+import { lookupNearestPackageJsonWorkspace, Package, Workspace } from './workspace'
 
 export class Runnable {
   executable: string
@@ -28,16 +29,6 @@ export interface PackageManager {
 }
 
 class NotDetectedError extends Error {}
-
-export class Workspace {
-  root: string
-  packages: string[]
-
-  constructor (root: string, packages: string[]) {
-    this.root = root
-    this.packages = packages
-  }
-}
 
 export abstract class PackageManagerDetector {
   abstract get name (): string
@@ -190,32 +181,64 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
   }
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
-    const { execa } = await import('execa')
+    // To avoid having to bring in a yaml parser, just call pnpm directly.
+    // However, to avoid calling pnpm if it's likely not installed, detect
+    // the presence of the workspace file first.
+    for (const searchPath of lineage(dir)) {
+      try {
+        await this.detectConfigFile(searchPath)
+      } catch {
+        continue
+      }
 
-    const result = await execa('pnpm', ['list', '--json', '--only-projects', '--workspace-root'], {
-      cwd: dir,
-    })
+      const { execa } = await import('execa')
 
-    type ListOnlyProjectsOutput = {
-      path: string
-      dependencies: Record<string, { path: string }>
-    }[]
+      const pnpmArgs = [
+        'list',
+        '--json',
+        '--only-projects',
+        '--workspace-root',
+      ]
 
-    const output: ListOnlyProjectsOutput = JSON.parse(result.stdout)
-    if (!Array.isArray(output)) {
-      throw new Error(`The output of 'pnpm list' was not an array (stdout=${result.stdout}, stderr=${result.stderr})`)
+      const result = await execa('pnpm', pnpmArgs, {
+        cwd: searchPath,
+      })
+
+      type ListOnlyProjectsOutput = {
+        name: string
+        path: string
+        dependencies: Record<string, { path: string }>
+      }[]
+
+      const output: ListOnlyProjectsOutput = JSON.parse(result.stdout)
+      if (!Array.isArray(output)) {
+        throw new Error(`The output of 'pnpm list' was not an array (stdout=${result.stdout}, stderr=${result.stderr})`)
+      }
+
+      if (output.length !== 1) {
+        return
+      }
+
+      const project = output[0]
+
+      const rootPackage = new Package({
+        name: project.name,
+        path: project.path,
+        workspaces: Object.values(project.dependencies).map(dep => dep.path),
+      })
+
+      const workspacePackages = Object.entries(project.dependencies).map(([name, { path }]) => {
+        return new Package({
+          name,
+          path,
+        })
+      })
+
+      return new Workspace(
+        rootPackage,
+        workspacePackages,
+      )
     }
-
-    if (output.length !== 1) {
-      return
-    }
-
-    const project = output[0]
-
-    return new Workspace(
-      project.path,
-      Object.values(project.dependencies).map(dep => dep.path),
-    )
   }
 }
 
@@ -321,16 +344,31 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
           continue
         }
 
-        const workspaces = jsonFile.data.workspace
+        const rootPackage = await Package.loadFromDirPath(searchPath)
+        if (rootPackage === undefined) {
+          continue
+        }
+
+        const workspaces = jsonFile.data.workspace?.map(packagePath => {
+          return path.resolve(searchPath, packagePath)
+        })
+
         if (!workspaces) {
           continue
         }
 
-        const packages = workspaces.map(packagePath => {
-          return path.resolve(searchPath, packagePath)
-        })
+        const packages: Package[] = []
 
-        return new Workspace(searchPath, packages)
+        for (const workspace of workspaces) {
+          const workspacePackage = await Package.loadFromDirPath(workspace)
+          if (workspacePackage === undefined) {
+            continue
+          }
+
+          packages.push(workspacePackage)
+        }
+
+        return new Workspace(rootPackage, packages)
       } catch {
         continue
       }
@@ -674,22 +712,40 @@ export async function detectNearestConfigFile (
   throw new NoConfigFileFoundError(searchPaths, configFiles)
 }
 
-async function lookupNearestPackageJsonWorkspace (dir: string): Promise<Workspace | undefined> {
-  for (const searchPath of lineage(dir)) {
-    const packageJson = await PackageJsonFile.loadFromFilePath(PackageJsonFile.filePath(searchPath))
-    if (!packageJson) {
-      continue
-    }
+export class NoPackageJsonFoundError extends Error {
+  searchPaths: string[]
 
-    const workspaces = packageJson.workspaces
-    if (!workspaces) {
-      continue
-    }
-
-    const packages = workspaces.map(packagePath => {
-      return path.resolve(searchPath, packagePath)
-    })
-
-    return new Workspace(searchPath, packages)
+  constructor (searchPaths: string[], options?: ErrorOptions) {
+    const message = `Unable to detect a package.json in any of the following paths:`
+      + `\n\n`
+      + `${searchPaths.map(searchPath => `  ${searchPath}`).join('\n')}`
+    super(message, options)
+    this.name = 'NoPackageJsonFoundError'
+    this.searchPaths = searchPaths
   }
+}
+
+export interface DetectNearestPackageJsonOptions {
+  root?: string
+}
+
+export async function detectNearestPackageJson (
+  dir: string,
+  options?: DetectNearestPackageJsonOptions,
+): Promise<PackageJsonFile> {
+  const searchPaths: string[] = []
+
+  for (const searchPath of lineage(dir, { root: options?.root })) {
+    searchPaths.push(searchPath)
+
+    const packageJson = await PackageJsonFile.loadFromFilePath(
+      PackageJsonFile.filePath(searchPath),
+    )
+
+    if (packageJson) {
+      return packageJson
+    }
+  }
+
+  throw new NoPackageJsonFoundError(searchPaths)
 }
