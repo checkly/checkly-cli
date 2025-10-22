@@ -9,7 +9,7 @@ import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
 import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
-import { walkUp, WalkUpOptions } from './walk'
+import { lineage, LineageOptions } from './walk'
 import { Workspace } from './workspace'
 
 class PackageFilesCache {
@@ -189,24 +189,15 @@ export class PackageFilesResolver {
     this.workspace = workspace
   }
 
-  async loadPackageJsonFile (filePath: string, options?: WalkUpOptions): Promise<PackageJsonFile | undefined> {
-    let packageJson: PackageJsonFile | undefined
-
-    await walkUp(filePath, async dirPath => {
-      packageJson = await this.cache.packageJson(PackageJsonFile.filePath(dirPath))
-      return packageJson !== undefined
-    }, options)
-
-    return packageJson
-  }
-
-  async loadPackageFiles (filePath: string, options?: WalkUpOptions): Promise<PackageFiles> {
+  async loadPackageFiles (filePath: string, options?: LineageOptions): Promise<PackageFiles> {
     const files = new PackageFiles()
 
-    await walkUp(filePath, async dirPath => {
-      const found = await files.satisfyFromDirPath(dirPath, this.cache)
-      return found
-    }, options)
+    for (const searchPath of lineage(path.dirname(filePath), options)) {
+      const found = await files.satisfyFromDirPath(searchPath, this.cache)
+      if (found) {
+        break
+      }
+    }
 
     return files
   }
