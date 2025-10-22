@@ -10,9 +10,10 @@ import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-est
 
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
-import { PackageFilesResolver, Dependencies } from './package-files/resolver'
+import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
 import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
+import { Workspace } from './package-files/workspace'
 
 // Our custom configuration to handle walking errors
 
@@ -20,7 +21,7 @@ import { findFilesWithPattern, pathToPosix } from '../util'
 const ignore = (_node: any, _st: any, _c: any) => {}
 
 type Module = {
-  dependencies: Array<string>
+  dependencies: Array<RawDependency>
 }
 
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
@@ -93,15 +94,28 @@ function getTsParser (): any {
   }
 }
 
+class RawDependencyCollector {
+  #dependencies: RawDependency[] = []
+
+  add (dependency: RawDependency) {
+    this.#dependencies.push(dependency)
+  }
+
+  state (): RawDependency[] {
+    return this.#dependencies
+  }
+}
+
 type ParserOptions = {
   supportedNpmModules?: Array<string>
   checkUnsupportedModules?: boolean
+  workspace?: Workspace
 }
 
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
-  resolver = new PackageFilesResolver()
+  resolver: PackageFilesResolver
   cache = new Map<string, {
     module: Module
     resolvedDependencies?: Dependencies
@@ -113,6 +127,7 @@ export class Parser {
   constructor (options: ParserOptions) {
     this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
+    this.resolver = new PackageFilesResolver(options.workspace)
   }
 
   supportsModule (importPath: string) {
@@ -341,7 +356,7 @@ export class Parser {
 
   static parseDependencies (filePath: string, contents: string):
   { module: Module, error?: any } {
-    const dependencies = new Set<string>()
+    const dependencies = new RawDependencyCollector()
 
     const extension = path.extname(filePath)
     try {
@@ -368,7 +383,7 @@ export class Parser {
     } catch (err) {
       return {
         module: {
-          dependencies: Array.from(dependencies),
+          dependencies: dependencies.state(),
         },
         error: err,
       }
@@ -376,60 +391,60 @@ export class Parser {
 
     return {
       module: {
-        dependencies: Array.from(dependencies),
+        dependencies: dependencies.state(),
       },
     }
   }
 
-  static jsNodeVisitor (dependencies: Set<string>): any {
+  static jsNodeVisitor (dependencies: RawDependencyCollector): any {
     return {
       CallExpression (node: Node) {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
-        Parser.registerDependency(requireStringArg, dependencies)
+        Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
       ImportDeclaration (node: any) {
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportNamedDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportAllDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
     }
   }
 
-  static tsNodeVisitor (tsParser: any, dependencies: Set<string>): any {
+  static tsNodeVisitor (tsParser: any, dependencies: RawDependencyCollector): any {
     return {
       // While rare, TypeScript files may also use require.
       CallExpression (node: Node) {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
-        Parser.registerDependency(requireStringArg, dependencies)
+        Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
       ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportAllDeclaration (node: TSESTree.ExportAllDeclaration) {
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
     }
   }
@@ -471,12 +486,19 @@ export class Parser {
     }
   }
 
-  static registerDependency (importArg: string | null, dependencies: Set<string>) {
-  // TODO: We currently don't support import path aliases, f.ex: `import { Something } from '@services/my-service'`
-    if (!importArg) {
-    // If there's no importArg, don't register a dependency
-    } else {
-      dependencies.add(importArg)
+  static registerDependency (
+    importPath: string | null,
+    source: RawDependencySource,
+    dependencies: RawDependencyCollector,
+  ) {
+    if (!importPath) {
+      // If there's no importPath, don't register a dependency.
+      return
     }
+
+    dependencies.add({
+      importPath,
+      source,
+    })
   }
 }

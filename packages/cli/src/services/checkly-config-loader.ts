@@ -143,9 +143,40 @@ export async function getChecklyConfigFile (): Promise<{ checklyConfig: string, 
   return config
 }
 
-export class ConfigNotFoundError extends Error {}
+export class ConfigNotFoundError extends Error {
+  searchPaths: string[]
+  configFiles: string[]
 
-export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'], writeChecklyConfig: boolean = true, playwrightConfigPath?: string): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+  constructor (searchPaths: string[], configFiles: string[], options?: ErrorOptions) {
+    const message = `Unable to detect a Checkly configuration file in any of the following paths:`
+      + `\n\n`
+      + `${searchPaths.map(searchPath => `  ${searchPath}`).join('\n')}`
+      + `\n\n`
+      + `Configuration files we looked for:`
+      + `\n\n`
+      + `${configFiles.map(lockfile => `  ${lockfile}`).join('\n')}`
+    super(message, options)
+    this.name = 'ConfigNotFoundError'
+    this.searchPaths = searchPaths
+    this.configFiles = configFiles
+  }
+}
+
+export const defaultFilenames = [
+  'checkly.config.ts',
+  'checkly.config.mts',
+  'checkly.config.cts',
+  'checkly.config.js',
+  'checkly.config.mjs',
+  'checkly.config.cjs',
+]
+
+export async function loadChecklyConfig (
+  dir: string,
+  filenames = defaultFilenames,
+  writeChecklyConfig: boolean = true,
+  playwrightConfigPath?: string,
+): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
   Session.loadingChecklyConfigFile = true
   try {
     let config: ChecklyConfig | undefined
@@ -192,7 +223,7 @@ async function handleMissingConfig (
     }
     return checklyConfig
   }
-  throw new ConfigNotFoundError(`Unable to locate a config at ${dir} with ${filenames.join(', ')}.`)
+  throw new ConfigNotFoundError([dir], filenames)
 }
 
 function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConfig)[]): void {
