@@ -16,7 +16,7 @@ test('Add to cart', async ({ page }) => {
   // Redirected to cart preview, verify item is added
   await expect(page.getByText('Your Shopping Cart')).toBeVisible()
 
-  // Verify cart page and item is psresent
+  // Verify cart page and item is present
   const cartItems = await page.getByRole('listitem')
   await expect(cartItems).toHaveCount(1)
 

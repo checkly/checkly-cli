@@ -46,7 +46,7 @@ This project has examples of all Checkly check types and showcases some advanced
 └── package-lock.json
 ```
 
-- Running `npx checkly pw-test` will use the `playwright.config.ts` file and run the test suite in Checkly.
+- Running `npx checkly pw-test` will use the `playwright.config.js` file and run the test suite in Checkly.
 
 - Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
 
