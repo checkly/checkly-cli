@@ -6,41 +6,45 @@ import { DnsRequest } from './dns-request'
 
 export interface DnsMonitorProps extends MonitorProps {
   /**
-   * Determines the request that the check is going to run.
+   * Determines the request that the monitor is going to run.
    */
   request: DnsRequest
 
   /**
-   * The response time in milliseconds where a check should be considered degraded.
-   * TCP checks have lower thresholds than HTTP checks due to protocol differences.
+   * The response time in milliseconds where the monitor should be considered
+   * degraded.
    *
-   * @defaultValue 4000
+   * DNS monitors have lower thresholds than most other checks and monitors.
+   *
+   * @defaultValue 500
    * @minimum 0
-   * @maximum 5000
+   * @maximum 500
    * @example
    * ```typescript
-   * degradedResponseTime: 1000  // Alert when TCP connection takes longer than 1 second
+   * degradedResponseTime: 200  // Alert when DNS request takes longer than 400 milliseconds
    * ```
    */
   degradedResponseTime?: number
 
   /**
-   * The response time in milliseconds where a check should be considered failing.
-   * Maximum allowed value is lower for TCP checks compared to HTTP checks.
+   * The response time in milliseconds where the monitor should be considered
+   * failing.
    *
-   * @defaultValue 5000
+   * DNS monitors have lower thresholds than most other checks and monitors.
+   *
+   * @defaultValue 1000
    * @minimum 0
-   * @maximum 5000
+   * @maximum 1000
    * @example
    * ```typescript
-   * maxResponseTime: 3000  // Fail check if TCP connection takes longer than 3 seconds
+   * maxResponseTime: 200  // Fail if DNS request takes longer than 200 milliseconds
    * ```
    */
   maxResponseTime?: number
 }
 
 /**
- * Creates a TCP Monitor
+ * Creates a DNS Monitor
  */
 export class DnsMonitor extends Monitor {
   request: DnsRequest
@@ -48,12 +52,12 @@ export class DnsMonitor extends Monitor {
   maxResponseTime?: number
 
   /**
-   * Constructs the TCP Monitor instance
+   * Constructs the DNS Monitor instance
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#tcpmonitor Read more in the docs}
+   * {@link https://checklyhq.com/docs/cli/constructs-reference/#dnsmonitor Read more in the docs}
    */
 
   constructor (logicalId: string, props: DnsMonitorProps) {
@@ -76,8 +80,8 @@ export class DnsMonitor extends Monitor {
     await super.validate(diagnostics)
 
     await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 5_000,
-      maxResponseTime: 5_000,
+      degradedResponseTime: 500,
+      maxResponseTime: 1000,
     })
   }
 
