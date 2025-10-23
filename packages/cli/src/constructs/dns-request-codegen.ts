@@ -12,9 +12,18 @@ export function valueForDnsRequest (
   return object(builder => {
     builder.string('recordType', request.recordType)
     builder.string('query', request.query)
-    builder.string('nameServer', request.nameServer)
-    builder.number('port', request.port)
-    builder.string('protocol', request.protocol)
+
+    if (request.nameServer) {
+      builder.string('nameServer', request.nameServer)
+    }
+
+    if (request.port && request.port !== 53) {
+      builder.number('port', request.port)
+    }
+
+    if (request.protocol && request.protocol !== 'UDP') {
+      builder.string('protocol', request.protocol)
+    }
 
     if (request.assertions) {
       const assertions = request.assertions

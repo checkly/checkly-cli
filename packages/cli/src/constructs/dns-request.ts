@@ -36,12 +36,13 @@ export interface DnsRequest {
   query: string
 
   /**
-   * The name server the query should be made to.
+   * The name server the query should be made to. If not set, an appropriate
+   * name server will be used automatically.
    *
    * @example "8.8.4.4"
    * @example "resolver1.opendns.com"
    */
-  nameServer: string
+  nameServer?: string
 
   /**
    * The port of the name server.
@@ -49,16 +50,18 @@ export interface DnsRequest {
    * @minimum 1
    * @maximum 65535
    * @example 53
+   * @default 53
    */
-  port: number
+  port?: number
 
   /**
    * The protocol used to connect to the name server.
    *
    * @example "UDP"
    * @example "TCP"
+   * @default "UDP"
    */
-  protocol: DnsProtocol
+  protocol?: DnsProtocol
 
   /**
    * Assertions to validate the DNS response.
