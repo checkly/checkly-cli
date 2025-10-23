@@ -3,6 +3,7 @@ import { Session } from './project'
 import { Diagnostics } from './diagnostics'
 import { validateResponseTimes } from './internal/common-diagnostics'
 import { DnsRequest } from './dns-request'
+import { RequiredPropertyDiagnostic } from './construct-diagnostics'
 
 export interface DnsMonitorProps extends MonitorProps {
   /**
@@ -78,6 +79,24 @@ export class DnsMonitor extends Monitor {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+
+    if (this.request.nameServer && this.request.port === undefined) {
+      diagnostics.add(new RequiredPropertyDiagnostic(
+        'port',
+        new Error(
+          `A value for "port" is required when "nameServer" is set.`,
+        ),
+      ))
+    }
+
+    if (!this.request.nameServer && this.request.port !== undefined) {
+      diagnostics.add(new RequiredPropertyDiagnostic(
+        'nameServer',
+        new Error(
+          `A value for "nameServer" is required when "port" is set.`,
+        ),
+      ))
+    }
 
     await validateResponseTimes(diagnostics, this, {
       degradedResponseTime: 500,

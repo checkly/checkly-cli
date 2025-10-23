@@ -18,6 +18,23 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   }
 }
 
+export class RequiredPropertyDiagnostic extends ErrorDiagnostic {
+  property: string
+
+  constructor (property: string, error: Error) {
+    super({
+      title: `Missing required property`,
+      message:
+        `Property "${property}" is required and must be set.`
+        + `\n\n`
+        + `Reason: ${error.message}`,
+      error,
+    })
+
+    this.property = property
+  }
+}
+
 export class ConflictingPropertyDiagnostic extends ErrorDiagnostic {
   property1: string
   property2: string
