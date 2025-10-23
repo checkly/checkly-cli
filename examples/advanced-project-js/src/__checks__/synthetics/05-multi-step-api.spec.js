@@ -1,12 +1,13 @@
-import { test, expect } from '@playwright/test'
+const { test, expect } = require('@playwright/test')
+
+// Multistep checks let you make multiple API calls in sequence. Rather than
+// a simple API check configuration, multistep checks use Playwright allowing
+// chained API requests. Read more at: https://www.checklyhq.com/docs/multistep-checks/
 
 const baseUrl = 'https://api.spacexdata.com/v3'
 
-test('space-x dragon capsules', async ({ request }) => {
-  /**
-   * Get all SpaceX Dragon Capsules
-   */
-  const [first] = await test.step('get all capsules', async () => {
+test('space-x capsules', async ({ request }) => {
+  const [first] = await test.step('get all Dragon capsules', async () => {
     const response = await request.get(`${baseUrl}/dragons`)
     expect(response).toBeOK()
 
@@ -16,9 +17,6 @@ test('space-x dragon capsules', async ({ request }) => {
     return data
   })
 
-  /**
-   * Get a single Dragon Capsule
-   */
   await test.step('get single dragon capsule', async () => {
     const response = await request.get(`${baseUrl}/dragons/${first.id}`)
     expect(response).toBeOK()

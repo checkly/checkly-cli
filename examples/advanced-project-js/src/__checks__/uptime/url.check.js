@@ -1,5 +1,5 @@
-import { UrlAssertionBuilder, UrlMonitor } from 'checkly/constructs'
-import { uptimeGroup } from '../utils/website-groups.check'
+const { UrlAssertionBuilder, UrlMonitor } = require('checkly/constructs')
+const { uptimeGroup } = require('../utils/website-groups.check')
 
 // URL Monitors are the simplest and most efficient uptime monitors, they only
 // check for the status code of the response.

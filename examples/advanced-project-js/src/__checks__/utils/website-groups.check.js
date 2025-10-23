@@ -1,10 +1,10 @@
-import { CheckGroupV2, Frequency, AlertEscalationBuilder } from 'checkly/constructs'
-import { smsChannel, emailChannel } from './alert-channels'
+const { CheckGroupV2, Frequency, AlertEscalationBuilder } = require('checkly/constructs')
+const { smsChannel, emailChannel } = require('./alert-channels')
 
 // This file defines two groups, one for synthetics monitors and one for uptime
 // monitors. Read more about group configuration at: https://www.checklyhq.com/docs/groups/
 
-export const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
+const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
   name: 'Synthetic Monitors Group',
   activated: true,
   muted: false,
@@ -22,10 +22,16 @@ export const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
   concurrency: 10
 })
 
-export const uptimeGroup = new CheckGroupV2('check-group-uptime', {
+const uptimeGroup = new CheckGroupV2('check-group-uptime', {
   name: 'Uptime Monitors Group',
   muted: false,
   frequency: Frequency.EVERY_15M,
   tags: ['uptime'],
   concurrency: 10
 })
+
+
+module.exports = {
+  syntheticGroup,
+  uptimeGroup,
+}

@@ -1,10 +1,10 @@
-import { test, expect } from '@playwright/test'
+const { test, expect } = require('@playwright/test')
 
 // Source code for a browser check using Playwright Test. Find more Playwright information at 
 // https://www.checklyhq.com/learn/playwright/ 
 
 // This environment variable is set in the group configuration in /utils/website-groups.check.ts
-const searchString: string = process.env.AUTHOR_NAME || "Herman Moulson"
+const searchString = process.env.AUTHOR_NAME || "Herman Moulson"
 
 test('Browse and search for a book', async ({ page }) => {
   // The baseURL can be set in the playwrightConfig of your Checkly config

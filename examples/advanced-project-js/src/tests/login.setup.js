@@ -1,11 +1,11 @@
-import { test as setup } from '@playwright/test'
+const { test: setup } = require('@playwright/test')
+
+const AUTH_FILE = ".auth/user.json"
 
 // This check logs in as a user would, by clicking and entering text on your web page.
 
-// See Checkly's documentation on secrets and variables: https://www.checklyhq.com/docs/browser-checks/variables/
-const password: string = process.env.WEB_SHOP_PASSWORD || 'defaultPwd'
-
-const AUTH_FILE = '.auth/user.json'
+// See Checkly's documentation on secrets and variables: https://www.checklyhq.com/docs/platform/variables/
+const password = process.env.WEB_SHOP_PASSWORD || 'defaultPwd'
 
 setup('Log into web shop', async ({ page }) => {
   // The base URL is set in your Playwright config

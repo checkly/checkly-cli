@@ -1,18 +1,30 @@
-const { defineConfig, devices } = require('@playwright/test');
-const path = require('path');
+const { defineConfig, devices } = require('@playwright/test')
 
-const AUTH_FILE = '.auth/user.json';
+/**
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+const dotenv = require('dotenv')
+const path = require('path')
+dotenv.config({ path: path.resolve(__dirname, '.env') })
 
-const config = defineConfig({
+const AUTH_FILE = '.auth/user.json'
+
+/**
+ * See https://playwright.dev/docs/test-configuration.
+ */
+
+module.exports = defineConfig({
   timeout: 30000,
   use: {
     baseURL: 'https://www.danube-web.shop',
     viewport: { width: 1280, height: 720 },
+    trace: 'on',
   },
   projects: [
     {
       name: 'login-setup',
-      testMatch: /.*\.setup.ts/,
+      testMatch: /.*\.setup.js/,
       use: {
         ...devices['Desktop Chrome'],
       },
@@ -24,7 +36,7 @@ const config = defineConfig({
         ...devices['Desktop Firefox'],
         storageState: path.resolve(__dirname, AUTH_FILE),
       },
-      dependencies: ["login-setup"],
+      dependencies: ['login-setup'],
     },
     {
       name: 'Chromium',
@@ -38,6 +50,4 @@ const config = defineConfig({
       dependencies: ['login-setup'],
     },
   ]
-});
-
-module.exports = config;
+})

@@ -1,7 +1,6 @@
 # Checkly Monitoring-as-code: Advanced Project
 
-This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
-https://checklyhq.com website as a monitoring target.
+This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow.
 
 1. Write API Checks and Playwright-powered Browser Checks or fully native Playwright Check Suites.
 2. Add Alert Channels, and dry-run your Checks on 20+ global locations.
@@ -15,7 +14,40 @@ npm create checkly@latest -- --template advanced-project
 
 This project has examples of all Checkly check types and showcases some advanced features. It also adds a GitHub Actions workflow.
 
+```
+.
+├── README.md
+├── .github
+│   └── workflow.yml
+├── src
+│   ├── __checks__
+│   │   ├── synthetics
+│   │   │   ├── 01-api.check.ts
+│   │   │   ├── 02-business-critical.check.ts
+│   │   │   ├── 03-browse-and-search.spec.ts
+│   │   │   ├── 04-add-to-cart.spec.ts
+│   │   │   ├── 05-multi-step-api.spec.ts
+│   │   │   └── 06-multi-step-api.check.ts
+│   │   ├── uptime
+│   │   │   ├── heartbeat.check.ts
+│   │   │   ├── tcp.check.ts
+│   │   │   └── url.check.ts
+│   │   └── utils
+│   │       ├── alert-channels.ts
+│   │       ├── auth-client.ts
+│   │       ├── setup.ts
+│   │       └── website-groups.check.ts
+│   └── tests
+│       ├── login.setup.ts
+│       └── webshop-interactions.spec.ts
+├── checkly.config.ts
+├── playwright.config.ts
+├── package.json
+└── package-lock.json
+```
+
 - Running `npx checkly pw-test` will use the `playwright.config.ts` file and run the test suite in Checkly.
+
 - Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
 
 - Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the 
@@ -52,5 +84,5 @@ npm install --save-dev @playwright/test@1.54.1
 
 ## Questions?
 
-Check [the CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [the Checkly CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
 join our [Slack community](https://checklyhq.com/slack).

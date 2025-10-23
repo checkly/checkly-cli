@@ -4,11 +4,9 @@ import { test, expect } from '@playwright/test'
 // a simple API check configuration, multistep checks use Playwright allowing
 // chained API requests. Read more at: https://www.checklyhq.com/docs/multistep-checks/
 
-
 const baseUrl = 'https://api.spacexdata.com/v3'
 
 test('space-x capsules', async ({ request }) => {
-
   const [first] = await test.step('get all Dragon capsules', async () => {
     const response = await request.get(`${baseUrl}/dragons`)
     expect(response).toBeOK()

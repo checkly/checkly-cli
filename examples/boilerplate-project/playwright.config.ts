@@ -1,8 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   timeout: 30000,
-    // Look for test files in the "tests" directory, relative to this configuration file.
+    // Look for test files in the 'tests' directory, relative to this configuration file.
   testDir: './tests',
 
   // Run all tests in parallel.
@@ -22,11 +22,12 @@ export default defineConfig({
 
   use: {
     // Base URL to use in actions like `await page.goto('/')`.
-    baseURL: "https://www.checklyhq.com",
+    baseURL: 'https://www.danube-web.shop',
     viewport: { width: 1280, height: 720 },
     // Always collect trace
     trace: 'on',
   },
+  
   // Configure projects for major browsers.
   projects: [
     {
@@ -39,4 +40,4 @@ export default defineConfig({
     },
   ],
 
-});
+})
