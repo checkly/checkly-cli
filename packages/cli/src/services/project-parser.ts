@@ -99,7 +99,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   const { basePath, workspace } = enableWorkspaces
     ? await findWorkspace(directory)
-    : { basePath: directory }
+    : { basePath: directory, workspace: undefined }
 
   checklyConfigConstructs?.forEach(
     construct => project.addResource(construct.type, construct.logicalId, construct),
