@@ -188,5 +188,45 @@ describe('DnsMonitor', () => {
         }),
       ]))
     })
+
+    it('should not error if neither nameServer nor port are set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should not error if both nameServer and port are set', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          port: 53,
+          nameServer: '1.1.1.1',
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+    })
   })
 })
