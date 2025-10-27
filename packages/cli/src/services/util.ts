@@ -298,7 +298,6 @@ export async function loadPlaywrightProjectFiles (
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
   const root = Session.basePath!
-  const prefix = Session.relativePosixPath(dir)
   const entryDefaults = {
     mode: 0o755, // Default mode for files in the archive
   }
@@ -317,14 +316,6 @@ export async function loadPlaywrightProjectFiles (
   archive.file(packageJsonFile, {
     ...entryDefaults,
     name: Session.relativePosixPath(packageJsonFile),
-  })
-  // handle workspaces
-  archive.glob('**/package.json', {
-    cwd: dir,
-    ignore: ignoredFiles,
-  }, {
-    ...entryDefaults,
-    prefix,
   })
   for (const includePattern of include) {
     // If pattern explicitly targets an ignored directory, only apply custom ignores
