@@ -1,3 +1,5 @@
+import { isIPv6 } from 'node:net'
+
 import chalk from 'chalk'
 import indentString from 'indent-string'
 import { DateTime } from 'luxon'
@@ -109,6 +111,44 @@ export function formatCheckResult (checkResult: any) {
       }
     }
   }
+  if (checkResult.checkType === 'DNS') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else {
+      if (checkResult.checkRunData?.request) {
+        result.push([
+          formatSectionTitle('DNS Request'),
+          formatDnsRequest(checkResult.checkRunData.request),
+        ])
+      }
+      if (checkResult.checkRunData?.nameServerInfo) {
+        result.push([
+          formatSectionTitle('Name Server Information'),
+          formatDnsNameServerInfo(checkResult.checkRunData.nameServerInfo),
+        ])
+      }
+      if (checkResult.checkRunData?.response) {
+        result.push([
+          formatSectionTitle('DNS Response'),
+          formatDnsResponse(checkResult.checkRunData.response),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions, {
+            truncate: {
+              chars: Infinity,
+              lines: Infinity,
+            },
+          }),
+        ])
+      }
+    }
+  }
   if (checkResult.checkType === 'TCP') {
     if (checkResult.checkRunData?.requestError) {
       result.push([
@@ -158,6 +198,9 @@ const assertionSources: any = {
   TEXT_BODY: 'text body',
   RESPONSE_TIME: 'response time',
   RESPONSE_DATA: 'response data',
+  TEXT_ANSWER: 'answer (text)',
+  JSON_ANSWER: 'answer (JSON)',
+  RESPONSE_CODE: 'response code',
 }
 
 const assertionComparisons: any = {
@@ -177,7 +220,14 @@ const assertionComparisons: any = {
   NOT_NULL: 'is not null',
 }
 
-function formatAssertions (assertions: Array<Assertion<string> & { error: string, actual: any }>) {
+type formatAssertionsOptions = {
+  truncate?: TruncateOptions
+}
+
+function formatAssertions (
+  assertions: Array<Assertion<string> & { error: string, actual: any }>,
+  options?: formatAssertionsOptions,
+) {
   return assertions.map(({ source, property, comparison, target, regex, error, actual }) => {
     const assertionFailed = !!error
     const humanSource = assertionSources[source] || source
@@ -188,6 +238,7 @@ function formatAssertions (assertions: Array<Assertion<string> & { error: string
         chars: 300,
         lines: 5,
         ending: chalk.magenta('\n...truncated...'),
+        ...options?.truncate,
       })
 
       if (truncatedActualLines <= 1) {
@@ -239,6 +290,51 @@ function formatHttpResponse (response: any) {
     indentString(headersString, 2),
     response.body ? 'Body:' : undefined,
     indentString(stringBody, 2),
+  ].filter(Boolean).join('\n')
+}
+
+type DNSRequest = {
+  query: string
+  recordType: string
+  protocol: string
+  nameServer?: string
+  port?: number | null
+}
+
+function formatDnsRequest (request: DNSRequest) {
+  return [
+    `Query: ${request.query}`,
+    `Record Type: ${request.recordType}`,
+    request.nameServer ? `Name Server: ${formatHostPort(request.nameServer, request.port)}` : '',
+    `Protocol: ${request.protocol}`,
+  ].filter(Boolean).join('\n')
+}
+
+type NameServerInfo = {
+  name?: string
+  host: string
+  port: number
+}
+
+function formatDnsNameServerInfo (nameServerInfo: NameServerInfo) {
+  return [
+    nameServerInfo.name ? `Name: ${nameServerInfo.name}` : '',
+    `Server: ${formatHostPort(nameServerInfo.host, nameServerInfo.port)}`,
+  ].filter(Boolean).join('\n')
+}
+
+type DNSResponse = {
+  returnCode: string
+  answer: string
+  responseTime: number
+}
+
+function formatDnsResponse (response: DNSResponse) {
+  return [
+    `Return Code: ${response.returnCode}`,
+    `Response Time: ${formatDuration(response.responseTime)}`,
+    response.answer ? 'Answer:' : undefined,
+    indentString(response.answer, 2),
   ].filter(Boolean).join('\n')
 }
 
@@ -418,7 +514,13 @@ function formatSectionTitle (title: string): string {
   return `──${chalk.bold(title)}${'─'.repeat(rightPaddingLength)}`
 }
 
-function truncate (val: any, opts: { chars?: number, lines?: number, ending?: string }) {
+type TruncateOptions = {
+  chars?: number
+  lines?: number
+  ending?: string
+}
+
+function truncate (val: any, opts: TruncateOptions) {
   let truncated = false
   let result = toString(val)
   if (opts.chars && val.length > opts.chars) {
@@ -468,4 +570,10 @@ export function getTestSessionUrl (testSessionId: string): string {
 
 export function getTraceUrl (traceUrl: string): string {
   return `https://trace.playwright.dev/?trace=${encodeURIComponent(traceUrl)}`
+}
+
+function formatHostPort (host: string, port?: number | null) {
+  const prefix = isIPv6(host) ? `[${host}]` : host
+  const suffix = port ? `:${port}` : ''
+  return prefix + suffix
 }
