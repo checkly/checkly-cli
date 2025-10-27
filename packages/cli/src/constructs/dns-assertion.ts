@@ -42,10 +42,13 @@ export class DnsAssertionBuilder {
 
   /**
    * Creates an assertion builder for the answer in common plain text format.
+   * @param regex An optional regular expression with at least one capture
+   * group. If set, assertion operators will apply against the value of the
+   * first capture group instead of the entire answer.
    * @returns A general assertion builder for the answer.
    */
   static textAnswer (regex?: string) {
-    return new GeneralAssertionBuilder<DnsAssertionSource>('TEXT_ANSWER', undefined, regex)
+    return new GeneralAssertionBuilder<DnsAssertionSource>('TEXT_ANSWER', regex)
   }
 
   /**
