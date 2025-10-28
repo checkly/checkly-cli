@@ -40,6 +40,10 @@ const EXAMPLE_CONFIGS: Record<
     templateString: '// INSERT URL MONITOR EXAMPLE HERE //',
     exampleConfigPath: 'resources/url-monitors/example-url-monitor.check.ts',
   },
+  DNS_MONITOR: {
+    templateString: '// INSERT DNS MONITOR EXAMPLE HERE //',
+    exampleConfigPath: 'resources/dns-monitors/example-dns-monitor.check.ts',
+  },
   CHECK_GROUP: {
     templateString: '// INSERT CHECK GROUP EXAMPLE HERE //',
     exampleConfigPath:
