@@ -17,7 +17,7 @@ export function valueForDnsRequest (
       builder.string('nameServer', request.nameServer)
     }
 
-    if (request.port && request.port !== 53) {
+    if (request.port) {
       builder.number('port', request.port)
     }
 

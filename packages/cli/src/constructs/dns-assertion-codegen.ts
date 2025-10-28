@@ -15,8 +15,8 @@ export function valueForDnsAssertion (genfile: GeneratedFile, assertion: DnsAsse
       return valueForNumericAssertion('DnsAssertionBuilder', 'responseTime', assertion)
     case 'TEXT_ANSWER':
       return valueForGeneralAssertion('DnsAssertionBuilder', 'textAnswer', assertion, {
-        hasProperty: false,
-        hasRegex: true,
+        hasProperty: true,
+        hasRegex: false,
       })
     case 'JSON_ANSWER':
       return valueForGeneralAssertion('DnsAssertionBuilder', 'jsonAnswer', assertion, {
