@@ -16,7 +16,7 @@ import {
 } from './retry-strategy'
 import { Check, CheckProps } from './check'
 import { Diagnostics } from './diagnostics'
-import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
+import { validateUnsupportedDoubleCheck } from './internal/common-diagnostics'
 
 /**
  * Retry strategies supported by monitors.
@@ -117,7 +117,7 @@ export abstract class Monitor extends Check {
   }
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    await validateRemovedDoubleCheck(diagnostics, this)
+    await validateUnsupportedDoubleCheck(diagnostics, this)
   }
 
   synthesize () {
