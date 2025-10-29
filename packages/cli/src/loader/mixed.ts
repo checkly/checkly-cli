@@ -8,7 +8,7 @@ export class MixedFileLoader extends FileLoader {
 
   constructor (...loaders: FileLoader[]) {
     super()
-    this.loaders = new Set(loaders)
+    this.loaders = new Set([...loaders].sort((a, b) => b.priority - a.priority))
   }
 
   isAuthoritativeFor (filePath: string): boolean {

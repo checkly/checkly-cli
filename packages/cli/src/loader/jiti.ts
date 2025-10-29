@@ -1,5 +1,6 @@
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
 import { FileMatch } from './match'
+import { preferenceDelta } from './config'
 
 interface JitiExports {
   createJiti (id: string, userOptions?: any): Jiti
@@ -65,11 +66,14 @@ export class InitializedJitiFileLoaderState extends FileLoader {
 export type JitiFileLoaderOptions = FileLoaderOptions
 
 export class JitiFileLoader extends FileLoader {
+  static DEFAULT_PRIORITY = 500 + preferenceDelta('jiti')
+
   static state: FileLoader = new UninitializedJitiFileLoaderState()
 
   constructor (options?: JitiFileLoaderOptions) {
     super({
       match: FileMatch.standardFiles().complement(),
+      priority: JitiFileLoader.DEFAULT_PRIORITY,
       ...options,
     })
   }
