@@ -42,16 +42,28 @@ export function valueForNumericAssertion<Source extends string> (
   })
 }
 
+export interface ValueForGeneralAssertionOptions {
+  hasProperty?: boolean
+  hasRegex?: boolean
+}
+
 export function valueForGeneralAssertion<Source extends string> (
   klass: string,
   method: string,
   assertion: Assertion<Source>,
+  options?: ValueForGeneralAssertionOptions,
 ): Value {
   return expr(ident(klass), builder => {
     builder.member(ident(method))
     builder.call(builder => {
-      if (assertion.property !== '') {
+      const hasProperty = options?.hasProperty ?? true
+      if (hasProperty && assertion.property !== '') {
         builder.string(assertion.property)
+      }
+
+      const hasRegex = options?.hasRegex ?? true
+      if (hasRegex && assertion.regex !== '' && assertion.regex !== null) {
+        builder.string(assertion.regex)
       }
     })
     switch (assertion.comparison) {
