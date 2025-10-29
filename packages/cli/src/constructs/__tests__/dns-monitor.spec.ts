@@ -93,48 +93,70 @@ describe('DnsMonitor', () => {
       ]))
     })
 
-    it('should error if degradedResponseTime is above 500', async () => {
+    it('should error if degradedResponseTime is above 5000', async () => {
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       })
 
-      const check = new DnsMonitor('test-check', {
+      const check1 = new DnsMonitor('test-check-1', {
         name: 'Test Check',
         request,
-        degradedResponseTime: 501,
+        degradedResponseTime: 5000,
       })
 
-      const diags = new Diagnostics()
-      await check.validate(diags)
+      const diags1 = new Diagnostics()
+      await check1.validate(diags1)
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
+      expect(diags1.isFatal()).toEqual(false)
+
+      const check2 = new DnsMonitor('test-check-2', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 5001,
+      })
+
+      const diags2 = new Diagnostics()
+      await check2.validate(diags2)
+
+      expect(diags2.isFatal()).toEqual(true)
+      expect(diags2.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('The value of "degradedResponseTime" must be 500 or lower.'),
+          message: expect.stringContaining('The value of "degradedResponseTime" must be 5000 or lower.'),
         }),
       ]))
     })
 
-    it('should error if maxResponseTime is above 1000', async () => {
+    it('should error if maxResponseTime is above 5000', async () => {
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       })
 
-      const check = new DnsMonitor('test-check', {
+      const check1 = new DnsMonitor('test-check-1', {
         name: 'Test Check',
         request,
-        maxResponseTime: 1001,
+        maxResponseTime: 5000,
       })
 
-      const diags = new Diagnostics()
-      await check.validate(diags)
+      const diags1 = new Diagnostics()
+      await check1.validate(diags1)
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
+      expect(diags1.isFatal()).toEqual(false)
+
+      const check2 = new DnsMonitor('test-check-2', {
+        name: 'Test Check',
+        request,
+        maxResponseTime: 5001,
+      })
+
+      const diags2 = new Diagnostics()
+      await check2.validate(diags2)
+
+      expect(diags2.isFatal()).toEqual(true)
+      expect(diags2.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('The value of "maxResponseTime" must be 1000 or lower.'),
+          message: expect.stringContaining('The value of "maxResponseTime" must be 5000 or lower.'),
         }),
       ]))
     })
