@@ -19,7 +19,7 @@ export interface DnsMonitorProps extends MonitorProps {
    *
    * @defaultValue 500
    * @minimum 0
-   * @maximum 500
+   * @maximum 5000
    * @example
    * ```typescript
    * degradedResponseTime: 200  // Alert when DNS request takes longer than 400 milliseconds
@@ -35,7 +35,7 @@ export interface DnsMonitorProps extends MonitorProps {
    *
    * @defaultValue 1000
    * @minimum 0
-   * @maximum 1000
+   * @maximum 5000
    * @example
    * ```typescript
    * maxResponseTime: 200  // Fail if DNS request takes longer than 200 milliseconds
@@ -99,8 +99,8 @@ export class DnsMonitor extends Monitor {
     }
 
     await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 500,
-      maxResponseTime: 1000,
+      degradedResponseTime: 5_000,
+      maxResponseTime: 5_000,
     })
   }
 
