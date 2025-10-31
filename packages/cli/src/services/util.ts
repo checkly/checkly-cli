@@ -5,9 +5,6 @@ import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
-// @ts-ignore
-import { getProxyForUrl } from 'proxy-from-env'
-import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
 import archiver from 'archiver'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
@@ -148,38 +145,6 @@ export async function getEnvs (envFile: string | undefined, envArgs: Array<strin
   }
   const envsString = `${envArgs.join('\n')}`
   return parse(envsString)
-}
-
-const isHttps = (protocol: string) => protocol.startsWith('https')
-
-export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
-  const proxyUrlEnv = getProxyForUrl(baseURL)
-  if (!proxyUrlEnv) {
-    return axiosConfig
-  }
-
-  const parsedProxyUrl = new URL(proxyUrlEnv)
-  const isProxyHttps = isHttps(parsedProxyUrl.protocol)
-  const isEndpointHttps = isHttps(baseURL)
-  const proxy: any = {
-    host: parsedProxyUrl.hostname,
-    port: parsedProxyUrl.port,
-    protocol: parsedProxyUrl.protocol,
-  }
-  if (parsedProxyUrl.username && parsedProxyUrl.password) {
-    proxy.proxyAuth = `${parsedProxyUrl.username}:${parsedProxyUrl.password}`
-  }
-  if (isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttps({ proxy })
-  } else if (isProxyHttps && !isEndpointHttps) {
-    axiosConfig.httpAgent = httpOverHttps({ proxy })
-  } else if (!isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttp({ proxy })
-  } else {
-    axiosConfig.httpAgent = httpOverHttp({ proxy })
-  }
-  axiosConfig.proxy = false
-  return axiosConfig
 }
 
 export function normalizeVersion (v?: string | undefined): string | undefined {
