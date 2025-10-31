@@ -196,38 +196,52 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       const pnpmArgs = [
         'list',
         '--json',
-        '--only-projects',
-        '--workspace-root',
+        '--recursive',
+        '--depth',
+        '1',
       ]
 
       const result = await execa('pnpm', pnpmArgs, {
         cwd: searchPath,
       })
 
-      type ListOnlyProjectsOutput = {
+      type PnpmProjectOutput = {
         name: string
         path: string
-        dependencies: Record<string, { path: string }>
-      }[]
+      }
 
-      const output: ListOnlyProjectsOutput = JSON.parse(result.stdout)
+      const output: PnpmProjectOutput[] = JSON.parse(result.stdout)
       if (!Array.isArray(output)) {
         throw new Error(`The output of 'pnpm list' was not an array (stdout=${result.stdout}, stderr=${result.stderr})`)
       }
 
-      if (output.length !== 1) {
+      const [root, dependencies] = output.reduce(
+        ([root, dependencies]: [PnpmProjectOutput | undefined, PnpmProjectOutput[]], project) => {
+          if (root === undefined) {
+            return [project, dependencies]
+          }
+
+          // The project with the shortest path should be the workspace root.
+          if (root.path.length > project.path.length) {
+            return [project, [...dependencies, root]]
+          }
+
+          return [root, [...dependencies, project]]
+        },
+        [undefined, []],
+      )
+
+      if (root === undefined) {
         return
       }
 
-      const project = output[0]
-
       const rootPackage = new Package({
-        name: project.name,
-        path: project.path,
-        workspaces: Object.values(project.dependencies).map(dep => dep.path),
+        name: root.name,
+        path: root.path,
+        workspaces: Object.values(dependencies).map(dep => dep.path),
       })
 
-      const workspacePackages = Object.entries(project.dependencies).map(([name, { path }]) => {
+      const workspacePackages = Object.entries(dependencies).map(([name, { path }]) => {
         return new Package({
           name,
           path,
