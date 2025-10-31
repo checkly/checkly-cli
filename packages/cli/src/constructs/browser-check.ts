@@ -1,9 +1,7 @@
 import fs from 'node:fs/promises'
-import path from 'node:path'
 
 import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session, SharedFileRef } from './project'
-import { pathToPosix } from '../services/util'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { detectSnapshots } from '../services/snapshot-service'
 import { PlaywrightConfig } from './playwright-config'
@@ -168,7 +166,7 @@ export class BrowserCheck extends RuntimeCheck {
     const deps: SharedFileRef[] = []
     for (const { filePath, content } of parsed.dependencies) {
       deps.push(Session.registerSharedFile({
-        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        path: Session.relativePosixPath(filePath),
         content,
       }))
     }

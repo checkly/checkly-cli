@@ -275,3 +275,33 @@ export function isBuiltinPath (importPath: string) {
 
   return false
 }
+
+export function isImportsPath (importPath: string) {
+  if (importPath.startsWith('#')) {
+    return true
+  }
+
+  return false
+}
+
+export interface ExternalPath {
+  name: string
+  path: string
+}
+
+export function splitExternalPath (importPath: string): ExternalPath {
+  if (importPath.startsWith('@')) {
+    const [namespace, pkg, ...rest] = importPath.split('/')
+    return {
+      name: pkg ? `${namespace}/${pkg}` : namespace,
+      path: rest.join('/'),
+    }
+  }
+
+  const [pkg, ...rest] = importPath.split('/')
+
+  return {
+    name: pkg,
+    path: rest.join('/'),
+  }
+}
