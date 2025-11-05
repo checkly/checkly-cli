@@ -7,7 +7,7 @@ import { syntheticGroup } from '../utils/website-groups.check'
 // in /utils/website-groups.check.ts
 
 new BrowserCheck('browse-and-search-check', {
-  name: 'Browse and Search',
+  name: 'Browse and search',
   group: syntheticGroup,
   code: {
     entrypoint: path.join(__dirname, '03-browse-and-search.spec.ts')
@@ -16,10 +16,10 @@ new BrowserCheck('browse-and-search-check', {
 })
 
 new BrowserCheck('login-browser-check', {
-  name: 'Login',
+  name: 'Add to cart flow',
   group: syntheticGroup,
   code: {
-    entrypoint: path.join(__dirname, '04-login.spec.ts')
+    entrypoint: path.join(__dirname, '04-add-to-cart.spec.ts')
   },
   runParallel: true,
 })

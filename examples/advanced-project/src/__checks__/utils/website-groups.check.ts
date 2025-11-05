@@ -18,7 +18,7 @@ export const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
     { enabled: true, percentage: 50 } // Alert if 50% of parallel runs fail
   ),
   alertChannels: [emailChannel, smsChannel],
-  environmentVariables: [{ key: 'authorName', value: 'Fric Eromm' }],
+  environmentVariables: [{ key: 'AUTHOR_NAME', value: 'Fric Eromm' }],
   concurrency: 10
 })
 

@@ -1,3 +1,4 @@
+import { preferenceDelta } from './config'
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
 import { FileMatch } from './match'
 
@@ -85,11 +86,14 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
 export type TSNodeFileLoaderOptions = FileLoaderOptions
 
 export class TSNodeFileLoader extends FileLoader {
+  static DEFAULT_PRIORITY = 500 + preferenceDelta('ts-node')
+
   static state: FileLoader = new UninitializedTSNodeFileLoaderState()
 
   constructor (options?: TSNodeFileLoaderOptions) {
     super({
       match: FileMatch.standardFiles().complement(),
+      priority: TSNodeFileLoader.DEFAULT_PRIORITY,
       ...options,
     })
   }

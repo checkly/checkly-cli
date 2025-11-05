@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import path from 'node:path'
 
 import config from 'config'
@@ -235,7 +236,19 @@ Update and Unchanged:
       env: { PROJECT_LOGICAL_ID: projectLogicalId, PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname },
       timeout: 10000,
     })
+    if (resultOne.status !== 0) {
+      console.group('resultOne')
+      console.warn(`stdout=${resultOne.stdout}`)
+      console.warn(`stderr=${resultOne.stderr}`)
+      console.groupEnd()
+    }
     expect(resultOne.status).toBe(0)
+    if (resultOne.status !== 0) {
+      console.group('resultTwo')
+      console.warn(`stdout=${resultTwo.stdout}`)
+      console.warn(`stderr=${resultTwo.stderr}`)
+      console.groupEnd()
+    }
     expect(resultTwo.status).toBe(0)
     expect(resultOne.stdout).toContain(
       `Create:
@@ -243,6 +256,9 @@ Update and Unchanged:
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
     ApiCheck: api-check-retry-only-on-network-error
+    DnsMonitor: dns-nonexistent-all-assertion-types
+    DnsMonitor: dns-welcome-a
+    DnsMonitor: dns-welcome-aaaa
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     TcpMonitor: tcp-monitor
@@ -261,6 +277,9 @@ Update and Unchanged:
     ApiCheck: api-check-high-freq
     ApiCheck: api-check-incident-trigger
     ApiCheck: api-check-retry-only-on-network-error
+    DnsMonitor: dns-nonexistent-all-assertion-types
+    DnsMonitor: dns-welcome-a
+    DnsMonitor: dns-welcome-aaaa
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     BrowserCheck: snapshot-test.test.ts

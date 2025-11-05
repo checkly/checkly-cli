@@ -12,6 +12,7 @@
   "devDependencies": {
     "@playwright/test": "^1",
     "checkly": "latest",
-    "jiti": "^1"
+    "jiti": "^2",
+    "dotenv": "^16.0.0"
   }
 }

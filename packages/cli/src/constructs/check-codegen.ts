@@ -14,6 +14,7 @@ import { TcpMonitorCodegen, TcpMonitorResource } from './tcp-monitor-codegen'
 import { UrlMonitorCodegen, UrlMonitorResource } from './url-monitor-codegen'
 import { valueForPrivateLocationFromId } from './private-location-codegen'
 import { valueForAlertChannelFromId } from './alert-channel-codegen'
+import { DnsMonitorCodegen, DnsMonitorResource } from './dns-monitor-codegen'
 
 export interface CheckResource {
   id: string
@@ -214,6 +215,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
   multiStepCheckCodegen: MultiStepCheckCodegen
   tcpMonitorCodegen: TcpMonitorCodegen
   urlMonitorCodegen: UrlMonitorCodegen
+  dnsMonitorCodegen: DnsMonitorCodegen
 
   constructor (program: Program) {
     super(program)
@@ -224,6 +226,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.multiStepCheckCodegen = new MultiStepCheckCodegen(program)
     this.tcpMonitorCodegen = new TcpMonitorCodegen(program)
     this.urlMonitorCodegen = new UrlMonitorCodegen(program)
+    this.dnsMonitorCodegen = new DnsMonitorCodegen(program)
   }
 
   describe (resource: CheckResource): string {
@@ -242,6 +245,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return this.heartbeatMonitorCodegen.describe(resource as HeartbeatMonitorResource)
       case 'URL':
         return this.urlMonitorCodegen.describe(resource as UrlMonitorResource)
+      case 'DNS':
+        return this.dnsMonitorCodegen.describe(resource as DnsMonitorResource)
       default:
         throw new Error(`Unable to describe unsupported check type '${checkType}'.`)
     }
@@ -268,6 +273,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return
       case 'URL':
         this.urlMonitorCodegen.gencode(logicalId, resource as UrlMonitorResource, context)
+        return
+      case 'DNS':
+        this.dnsMonitorCodegen.gencode(logicalId, resource as DnsMonitorResource, context)
         return
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)

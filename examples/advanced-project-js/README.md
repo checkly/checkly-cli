@@ -1,21 +1,52 @@
 # Checkly Monitoring-as-code: Advanced Project
 
-This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow. We are using the
-https://checklyhq.com website as a monitoring target.
+This example project shows how you can use the Checkly CLI in a monitoring as code (MaC) workflow.
 
-1. Write API Checks and Playwright-powered Browser Checks.
+1. Write API Checks and Playwright-powered Browser Checks or fully native Playwright Check Suites.
 2. Add Alert Channels, and dry-run your Checks on 20+ global locations.
 3. Test -> Deploy: now you have your app monitored around the clock. All from your code base.
 
 ```
-npm create checkly@latest -- --template advanced-project
+npm create checkly@latest -- --template advanced-project-js
 ```
 
 ## Project Structure
 
 This project has examples of all Checkly check types and showcases some advanced features. It also adds a GitHub Actions workflow.
 
-- Running `npx checkly pw-test` will use the `playwright.config.ts` file and run the test suite in Checkly.
+```
+.
+├── README.md
+├── .github
+│   └── workflow.yml
+├── src
+│   ├── __checks__
+│   │   ├── synthetics
+│   │   │   ├── 01-api.check.js
+│   │   │   ├── 02-business-critical.check.js
+│   │   │   ├── 03-browse-and-search.spec.js
+│   │   │   ├── 04-add-to-cart.spec.js
+│   │   │   ├── 05-multi-step-api.spec.js
+│   │   │   └── 06-multi-step-api.check.js
+│   │   ├── uptime
+│   │   │   ├── heartbeat.check.js
+│   │   │   ├── tcp.check.js
+│   │   │   └── url.check.js
+│   │   └── utils
+│   │       ├── alert-channels.js
+│   │       ├── auth-client.js
+│   │       ├── setup.js
+│   │       └── website-groups.check.js
+│   └── tests
+│       ├── login.setup.js
+│       └── webshop-interactions.spec.js
+├── checkly.config.js
+├── playwright.config.js
+├── package.json
+└── package-lock.json
+```
+
+- Running `npx checkly pw-test` will use the `playwright.config.js` file and run the test suite in Checkly.
 
 - Running `npx checkly test` will look for `.check.js` files and `.spec.js` in `__checks__` directories and execute them in a dry run.
 
@@ -53,5 +84,5 @@ npm install --save-dev @playwright/test@1.54.1
 
 ## Questions?
 
-Check [our CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
+Check [the Checkly CLI docs](https://www.checklyhq.com/docs/cli/), the [main Checkly docs](https://checklyhq.com/docs) or 
 join our [Slack community](https://checklyhq.com/slack).

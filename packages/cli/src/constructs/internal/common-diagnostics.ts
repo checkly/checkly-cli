@@ -1,4 +1,9 @@
-import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic, RemovedPropertyDiagnostic } from '../construct-diagnostics'
+import {
+  DeprecatedPropertyDiagnostic,
+  InvalidPropertyValueDiagnostic,
+  RemovedPropertyDiagnostic,
+  UnsupportedPropertyDiagnostic,
+} from '../construct-diagnostics'
 import { Diagnostics, Diagnostic } from '../diagnostics'
 import { RetryStrategy } from '../retry-strategy'
 
@@ -58,6 +63,10 @@ export async function validateDeprecatedDoubleCheck (diagnostics: Diagnostics, p
 
 export async function validateRemovedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {
   await validateDoubleCheck(diagnostics, RemovedPropertyDiagnostic, props)
+}
+
+export async function validateUnsupportedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {
+  await validateDoubleCheck(diagnostics, UnsupportedPropertyDiagnostic, props)
 }
 
 type ResponseTimeProps = {

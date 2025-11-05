@@ -234,7 +234,7 @@ export async function bundlePlayWrightProject (
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
         playwrightVersion,
-        relativePlaywrightConfigPath: path.relative(dir, filePath),
+        relativePlaywrightConfigPath: Session.relativePosixPath(filePath),
         cacheHash,
       })
     })
@@ -286,24 +286,49 @@ export async function loadPlaywrightProjectFiles (
   const ignoredFiles = ['**/node_modules/**', '.git/**']
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
-  const mode = 0o755 // Default mode for files in the archive
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
+  const root = Session.basePath!
+  const prefix = Session.relativePosixPath(dir)
+  const entryDefaults = {
+    mode: 0o755, // Default mode for files in the archive
+  }
   for (const file of files) {
-    const relativePath = path.relative(dir, file)
-    archive.file(file, { name: relativePath, mode })
+    archive.file(file, {
+      ...entryDefaults,
+      name: Session.relativePosixPath(file),
+    })
   }
   const lockFileDirName = path.dirname(lockFile)
-  archive.file(lockFile, { name: path.basename(lockFile), mode })
-  archive.file(path.join(lockFileDirName, 'package.json'), { name: 'package.json', mode })
+  const packageJsonFile = path.join(lockFileDirName, 'package.json')
+  archive.file(lockFile, {
+    ...entryDefaults,
+    name: Session.relativePosixPath(lockFile),
+  })
+  archive.file(packageJsonFile, {
+    ...entryDefaults,
+    name: Session.relativePosixPath(packageJsonFile),
+  })
   // handle workspaces
-  archive.glob('**/package.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  archive.glob('**/package.json', {
+    cwd: dir,
+    ignore: ignoredFiles,
+  }, {
+    ...entryDefaults,
+    prefix,
+  })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
+    archive.glob(includePattern, { cwd: dir }, {
+      ...entryDefaults,
+      prefix,
+    })
   }
   for (const filePath of extraFiles) {
-    archive.file(path.resolve(dir, filePath), { name: filePath, mode })
+    archive.file(path.resolve(root, filePath), {
+      ...entryDefaults,
+      name: Session.relativePosixPath(filePath),
+    })
   }
 }
 

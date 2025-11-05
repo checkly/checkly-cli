@@ -1,11 +1,17 @@
-const { URL } = require('node:url');
+const { URL } = require('node:url')
 
 const {
   SmsAlertChannel,
   EmailAlertChannel,
   SlackAlertChannel,
   WebhookAlertChannel,
-} = require('checkly/constructs');
+} = require('checkly/constructs')
+
+// Defines the settings for our alert channels. 
+// Not every channel is used in the rest of this demo project.
+// Note that you can create multiple channels of a type:
+// e.g. "prodEmailChannel" "frontendTeamEmailChannel" etc.
+// See all the options at https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/
 
 const sendDefaults = {
   sendFailure: true,
@@ -18,12 +24,12 @@ const sendDefaults = {
 const smsChannel = new SmsAlertChannel('sms-channel-1', {
   phoneNumber: '0031061234567890',
   ...sendDefaults,
-});
+})
 
 const emailChannel = new EmailAlertChannel('email-channel-1', {
   address: 'alerts@acme.com',
   ...sendDefaults,
-});
+})
 
 const slackChannel = new SlackAlertChannel('slack-channel-1', {
   url: new URL(
@@ -31,7 +37,7 @@ const slackChannel = new SlackAlertChannel('slack-channel-1', {
   ),
   channel: '#ops',
   ...sendDefaults,
-});
+})
 
 const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
   name: 'Pushover webhook',
@@ -48,11 +54,11 @@ const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
     "message":"{{ALERT_TYPE}} {{STARTED_AT}} ({{RESPONSE_TIME}}ms) {{RESULT_LINK}}"
   }`,
   ...sendDefaults,
-});
+})
 
 module.exports = {
   smsChannel,
   emailChannel,
   slackChannel,
   webhookChannel,
-};
+}

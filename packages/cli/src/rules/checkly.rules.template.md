@@ -99,6 +99,16 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 // INSERT URL MONITOR EXAMPLE HERE //
 ```
 
+### DNS Monitor
+
+- Import the `DnsMonitor` construct from `checkly/constructs`.
+- Reference [the docs for DNS monitors](https://www.checklyhq.com/docs/cli/constructs-reference/#dnsmonitor) before generating any code.
+- When adding `assertions`, always use `DnsAssertionBuilder` class which is [documented here](https://www.checklyhq.com/docs/cli/constructs-reference/#dnsassertionbuilder)
+
+```typescript
+// INSERT DNS MONITOR EXAMPLE HERE //
+```
+
 ### Heartbeat Monitor
 
 - Import the `HeartbeatMonitor` construct from `checkly/constructs`.
