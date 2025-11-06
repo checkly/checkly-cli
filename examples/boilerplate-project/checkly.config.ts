@@ -24,7 +24,7 @@ const config = defineConfig({
      * See https://www.checklyhq.com/docs/cli/npm-packages/
      */
     runtimeId: '2025.04',
-    /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/cli/using-check-test-match/ */
+    /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/constructs/including-checks/#checks-checkmatch */
     checkMatch: '**/__checks__/**/*.check.ts',
     /* Global configuration option for Browser and Multistep checks. See https://www.checklyhq.com/docs/browser-checks/playwright-test/#global-configuration */
     playwrightConfig: {
