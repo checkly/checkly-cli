@@ -14,6 +14,7 @@ import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource 
 import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
 import { Workspace } from './package-files/workspace'
+import { isCoreExtension, isTSExtension } from './package-files/extension'
 
 // Our custom configuration to handle walking errors
 
@@ -24,10 +25,20 @@ type Module = {
   dependencies: Array<RawDependency>
 }
 
-type SupportedFileExtension = '.js' | '.mjs' | '.ts'
+type LegacySupportedFileExtension = '.js' | '.mjs' | '.ts'
+
+function isLegacySupportedFileExtension (value: string): value is LegacySupportedFileExtension {
+  switch (value) {
+    case '.js':
+    case '.mjs':
+    case '.ts':
+      return true
+    default:
+      return false
+  }
+}
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
-const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png', '.yml']
 
 const supportedBuiltinModules = [
   'node:assert',
@@ -46,24 +57,6 @@ const supportedBuiltinModules = [
   'node:util',
   'node:zlib',
 ]
-
-async function validateEntrypoint (
-  entrypoint: string,
-): Promise<{
-  extension: SupportedFileExtension
-  content: string
-}> {
-  const extension = path.extname(entrypoint)
-  if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
-    throw new Error(`Unsupported file extension for ${entrypoint}`)
-  }
-  try {
-    const content = await fs.readFile(entrypoint, { encoding: 'utf-8' })
-    return { extension, content }
-  } catch {
-    throw new DependencyParseError(entrypoint, [entrypoint], [], [])
-  }
-}
 
 let tsParser: any
 function getTsParser (): any {
@@ -110,12 +103,14 @@ type ParserOptions = {
   supportedNpmModules?: Array<string>
   checkUnsupportedModules?: boolean
   workspace?: Workspace
+  restricted?: boolean
 }
 
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
   resolver: PackageFilesResolver
+  restricted: boolean
   cache = new Map<string, {
     module: Module
     resolvedDependencies?: Dependencies
@@ -127,7 +122,10 @@ export class Parser {
   constructor (options: ParserOptions) {
     this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
-    this.resolver = new PackageFilesResolver(options.workspace)
+    this.resolver = new PackageFilesResolver({
+      workspace: options.workspace,
+    })
+    this.restricted = options.restricted ?? true
   }
 
   supportsModule (importPath: string) {
@@ -142,9 +140,14 @@ export class Parser {
     return false
   }
 
-  private async validateFile (filePath: string): Promise<{ filePath: string, content: string }> {
+  private async validateFile (
+    filePath: string,
+  ): Promise<{
+    filePath: string
+    content: string
+  }> {
     const extension = path.extname(filePath)
-    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
+    if (!this.isProcessableExtension(extension)) {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
     try {
@@ -153,6 +156,22 @@ export class Parser {
     } catch {
       throw new DependencyParseError(filePath, [filePath], [], [])
     }
+  }
+
+  private isProcessableExtension (extension: string): boolean {
+    if (this.restricted) {
+      return isLegacySupportedFileExtension(extension)
+    }
+
+    if (isCoreExtension(extension) && extension !== '.json') {
+      return true
+    }
+
+    if (isTSExtension(extension)) {
+      return true
+    }
+
+    return false
   }
 
   async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
@@ -166,8 +185,8 @@ export class Parser {
       if (resultFileSet.has(file)) {
         continue
       }
-      if (STATIC_FILE_EXTENSION.includes(path.extname(file))) {
-        // Holds info about the main file and doesn't need to be parsed
+      const extension = path.extname(file)
+      if (!this.isProcessableExtension(extension)) {
         resultFileSet.add(file)
         continue
       }
@@ -282,7 +301,7 @@ export class Parser {
   }
 
   async parse (entrypoint: string) {
-    const { content } = await validateEntrypoint(entrypoint)
+    const { content } = await this.validateFile(entrypoint)
 
     /*
   * The importing of files forms a directed graph.
@@ -360,7 +379,7 @@ export class Parser {
 
     const extension = path.extname(filePath)
     try {
-      if (extension === '.js' || extension === '.mjs') {
+      if (isCoreExtension(extension) && extension !== '.json') {
         const ast = acorn.parse(contents, {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
@@ -368,17 +387,13 @@ export class Parser {
           allowAwaitOutsideFunction: true,
         })
         walk.simple(ast, Parser.jsNodeVisitor(dependencies))
-      } else if (extension === '.ts') {
+      } else if (isTSExtension(extension)) {
         const tsParser = getTsParser()
         const ast = tsParser.parse(contents, {})
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
         walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
-      } else if (extension === '.json') {
-        // No dependencies to check.
-      } else {
-        throw new Error(`Unsupported file extension for ${filePath}`)
       }
     } catch (err) {
       return {

@@ -200,8 +200,7 @@ export async function bundlePlayWrightProject (
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
-  const supportedDetectors = [new NpmDetector(), new YarnDetector(), new PNpmDetector()]
-  const { lockfile } = await detectNearestLockfile(dir, { detectors: supportedDetectors, root: Session.basePath })
+  const lockfile = Session.workspace.unwrap().lockfile.unwrap()
 
   // No need of loading everything if there is no lockfile
   const pwtConfig = await Session.loadFile(filePath)
@@ -230,7 +229,7 @@ export async function bundlePlayWrightProject (
 
   const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive, lockfile),
+    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
   ])
 
   await archive.finalize()
@@ -240,7 +239,7 @@ export async function bundlePlayWrightProject (
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
         playwrightVersion,
-        relativePlaywrightConfigPath: Session.relativePosixPath(filePath),
+        relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
         cacheHash,
       })
     })
@@ -279,19 +278,13 @@ export function getPlaywrightVersionFromPackage (cwd: string): string {
   }
 }
 
-// Temporarily always include these extra files (if present) until they can
-// be properly supported.
-const extraFiles = [
-  'pnpm-workspace.yaml',
-]
-
 export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
-  lockFile: string,
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
   const parser = new Parser({
-    workspace: Session.workspace,
+    workspace: Session.workspace.ok(),
+    restricted: false,
   })
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
@@ -307,16 +300,6 @@ export async function loadPlaywrightProjectFiles (
       name: Session.relativePosixPath(file),
     })
   }
-  const lockFileDirName = path.dirname(lockFile)
-  const packageJsonFile = path.join(lockFileDirName, 'package.json')
-  archive.file(lockFile, {
-    ...entryDefaults,
-    name: Session.relativePosixPath(lockFile),
-  })
-  archive.file(packageJsonFile, {
-    ...entryDefaults,
-    name: Session.relativePosixPath(packageJsonFile),
-  })
   for (const includePattern of include) {
     // If pattern explicitly targets an ignored directory, only apply custom ignores
     const explicitlyTargetsIgnored =
@@ -330,18 +313,6 @@ export async function loadPlaywrightProjectFiles (
       ...entryDefaults,
     })
   }
-  for (const filePath of extraFiles) {
-    archive.file(path.resolve(root, filePath), {
-      ...entryDefaults,
-      name: Session.relativePosixPath(filePath),
-    })
-  }
-}
-
-export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
-Promise<string[]> {
-  const files = await findFilesWithPattern(directory, '**/*.{js,ts,mjs}', ignorePattern)
-  return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
 }
 
 export async function findFilesWithPattern (

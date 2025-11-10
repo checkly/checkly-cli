@@ -3,7 +3,7 @@ import path from 'node:path'
 import { glob } from 'glob'
 
 import { PackageJsonFile } from './package-json-file'
-import { lineage } from './walk'
+import { Result } from './result'
 
 export interface PackageOptions {
   /**
@@ -57,6 +57,15 @@ export class Package {
   }
 }
 
+export type OptionalWorkspaceFile = Result<string, Error>
+
+export interface WorkspaceOptions {
+  root: Package
+  packages: Package[]
+  lockfile: OptionalWorkspaceFile
+  configFile: OptionalWorkspaceFile
+}
+
 export class Workspace {
   /**
    * The workspace root package.
@@ -68,20 +77,32 @@ export class Workspace {
    */
   packages: Package[]
 
+  /**
+   * The package manager specific lockfile of the workspace.
+   */
+  lockfile: OptionalWorkspaceFile
+
+  /**
+   * The package manager specific config file of the workspace.
+   */
+  configFile: OptionalWorkspaceFile
+
   #membersByName = new Map<string, Package>()
   #membersByPath = new Map<string, Package>()
 
-  constructor (root: Package, packages: Package[]) {
-    this.root = root
-    this.packages = packages
-    this.#membersByName = [root, ...packages].reduce(
+  constructor (options: WorkspaceOptions) {
+    this.root = options.root
+    this.packages = options.packages
+    this.#membersByName = [options.root, ...options.packages].reduce(
       (map, pkg) => map.set(pkg.name, pkg),
       new Map<string, Package>(),
     )
-    this.#membersByPath = [root, ...packages].reduce(
+    this.#membersByPath = [options.root, ...options.packages].reduce(
       (map, pkg) => map.set(pkg.path, pkg),
       new Map<string, Package>(),
     )
+    this.lockfile = options.lockfile
+    this.configFile = options.configFile
   }
 
   memberByName (name: string): Package | undefined {
@@ -127,22 +148,5 @@ export class Workspace {
     }
 
     return packages
-  }
-}
-
-export async function lookupNearestPackageJsonWorkspace (dir: string): Promise<Workspace | undefined> {
-  for (const searchPath of lineage(dir)) {
-    const rootPackage = await Package.loadFromDirPath(searchPath)
-    if (!rootPackage) {
-      continue
-    }
-
-    if (rootPackage.workspaces === undefined || rootPackage.workspaces.length === 0) {
-      continue
-    }
-
-    const packages = await Workspace.resolvePatterns(searchPath, rootPackage.workspaces)
-
-    return new Workspace(rootPackage, packages)
   }
 }
