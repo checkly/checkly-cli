@@ -25,6 +25,8 @@ import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construc
 import { ProjectBundle, ProjectDataBundle } from './project-bundle'
 import { pathToPosix } from '../services/util'
 import { Workspace } from '../services/check-parser/package-files/workspace'
+import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
+import { Err, Result } from '../services/check-parser/package-files/result'
 
 export interface ProjectProps {
   /**
@@ -230,6 +232,7 @@ export class Session {
 
   static project?: Project
   static basePath?: string
+  static contextPath?: string
   static checkDefaults?: CheckConfigDefaults
   static checkFilter?: CheckFilter
   static browserCheckDefaults?: CheckConfigDefaults
@@ -247,7 +250,8 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static currentCommand?: 'pw-test' | 'test' | 'deploy'
   static includeFlagProvided?: boolean
-  static workspace?: Workspace
+  static packageManager: PackageManager = npmPackageManager
+  static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
@@ -342,7 +346,7 @@ export class Session {
     const parser = new Parser({
       supportedNpmModules: Object.keys(runtime.dependencies),
       checkUnsupportedModules: Session.verifyRuntimeDependencies,
-      workspace: Session.workspace,
+      workspace: Session.workspace.ok(),
     })
 
     Session.parsers.set(runtime.name, parser)
@@ -352,6 +356,10 @@ export class Session {
 
   static relativePosixPath (filePath: string): string {
     return pathToPosix(path.relative(Session.basePath!, filePath))
+  }
+
+  static contextRelativePosixPath (filePath: string): string {
+    return pathToPosix(path.relative(Session.contextPath!, filePath))
   }
 
   static sharedFileRefs = new Map<string, SharedFileRef>()

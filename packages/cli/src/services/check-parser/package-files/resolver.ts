@@ -11,6 +11,7 @@ import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
 import { lineage, LineageOptions } from './walk'
 import { Workspace } from './workspace'
+import { PackageManager } from './package-manager'
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
@@ -52,9 +53,13 @@ class PackageFilesCache {
   #tsconfigJsonCache = new FileLoader(this.#jsonTextFileLoader(TSConfigFile.loadFromJsonTextSourceFile))
   #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(JSConfigFile.loadFromJsonSourceFile))
 
+  async exactSourceFile (filePath: string): Promise<SourceFile | undefined> {
+    return await this.#sourceFileCache.load(filePath)
+  }
+
   async sourceFile (filePath: string, context: LookupContext): Promise<SourceFile | undefined> {
     for (const lookupPath of context.collectLookupPaths(filePath)) {
-      const sourceFile = await this.#sourceFileCache.load(lookupPath)
+      const sourceFile = await this.exactSourceFile(lookupPath)
       if (sourceFile === undefined) {
         continue
       }
@@ -120,23 +125,63 @@ export type RawDependency = {
   source: RawDependencySource
 }
 
-type TSConfigFileLocalDependency = {
-  kind: 'tsconfig-file'
+type WorkspaceRootPackageJsonFileLocalDependency = {
+  kind: 'workspace-root-package-json-file'
+  importPath: string
+  sourceFile: SourceFile
+  packageJsonFile: PackageJsonFile
+}
+
+type WorkspaceRootTSConfigFileLocalDependency = {
+  kind: 'workspace-root-tsconfig-file'
   importPath: string
   sourceFile: SourceFile
   configFile: TSConfigFile
 }
 
-type TSConfigResolvedPathLocalDependency = {
-  kind: 'tsconfig-resolved-path'
+type WorkspaceRootLockfileLocalDependency = {
+  kind: 'workspace-root-lockfile'
+  importPath: string
+  sourceFile: SourceFile
+}
+
+type WorkspaceRootConfigFileLocalDependency = {
+  kind: 'workspace-root-config-file'
+  importPath: string
+  sourceFile: SourceFile
+}
+
+type NearestPackageJsonFileLocalDependency = {
+  kind: 'nearest-package-json-file'
+  importPath: string
+  sourceFile: SourceFile
+  packageJsonFile: PackageJsonFile
+}
+
+type NearestTSConfigFileLocalDependency = {
+  kind: 'nearest-tsconfig-file'
+  importPath: string
+  sourceFile: SourceFile
+  configFile: TSConfigFile
+}
+
+type SupportingTSConfigFileLocalDependency = {
+  kind: 'supporting-tsconfig-file'
+  importPath: string
+  sourceFile: SourceFile
+  configFile: TSConfigFile
+}
+
+type SupportingTSConfigResolvedPathLocalDependency = {
+  kind: 'supporting-tsconfig-resolved-path'
   importPath: string
   sourceFile: SourceFile
   configFile: TSConfigFile
   pathResult: PathResult
 }
 
-type TSConfigBaseUrlRelativePathLocalDependency = {
-  kind: 'tsconfig-baseurl-relative-path'
+type SupportingTSConfigBaseUrlRelativePathLocalDependency = {
+  kind: 'supporting-tsconfig-baseurl-relative-path'
   importPath: string
   configFile: TSConfigFile
   sourceFile: SourceFile
@@ -148,18 +193,24 @@ type RelativePathLocalDependency = {
   sourceFile: SourceFile
 }
 
-type WorkspacePackageLocalDependency = {
-  kind: 'workspace-package-path'
+type WorkspaceNeighborLocalDependency = {
+  kind: 'workspace-neighbor'
   importPath: string
   sourceFile: SourceFile
 }
 
 type LocalDependency =
-  TSConfigFileLocalDependency
-  | TSConfigResolvedPathLocalDependency
-  | TSConfigBaseUrlRelativePathLocalDependency
+  | WorkspaceRootPackageJsonFileLocalDependency
+  | WorkspaceRootTSConfigFileLocalDependency
+  | WorkspaceRootLockfileLocalDependency
+  | WorkspaceRootConfigFileLocalDependency
+  | NearestPackageJsonFileLocalDependency
+  | NearestTSConfigFileLocalDependency
+  | SupportingTSConfigFileLocalDependency
+  | SupportingTSConfigResolvedPathLocalDependency
+  | SupportingTSConfigBaseUrlRelativePathLocalDependency
   | RelativePathLocalDependency
-  | WorkspacePackageLocalDependency
+  | WorkspaceNeighborLocalDependency
 
 type MissingDependency = {
   importPath: string
@@ -181,12 +232,16 @@ interface ResolveSourceFileOptions {
   source?: RawDependencySource
 }
 
+export interface PackageFilesResolverOptions {
+  workspace?: Workspace
+}
+
 export class PackageFilesResolver {
   cache = new PackageFilesCache()
   workspace?: Workspace
 
-  constructor (workspace?: Workspace) {
-    this.workspace = workspace
+  constructor (options?: PackageFilesResolverOptions) {
+    this.workspace = options?.workspace
   }
 
   async loadPackageFiles (filePath: string, options?: LineageOptions): Promise<PackageFiles> {
@@ -295,7 +350,101 @@ export class PackageFilesResolver {
 
     const dirname = path.dirname(filePath)
 
-    const { tsconfigJson, jsconfigJson } = await this.loadPackageFiles(filePath)
+    const {
+      packageJson,
+      tsconfigJson,
+      jsconfigJson,
+    } = await this.loadPackageFiles(filePath, {
+      root: this.workspace?.root.path,
+    })
+
+    if (this.workspace) {
+      const {
+        packageJson,
+        tsconfigJson,
+        jsconfigJson,
+      } = await this.loadPackageFiles(PackageJsonFile.filePath(this.workspace.root.path))
+
+      if (packageJson) {
+        resolved.local.push({
+          kind: 'workspace-root-package-json-file',
+          importPath: filePath,
+          sourceFile: packageJson.jsonFile.sourceFile,
+          packageJsonFile: packageJson,
+        })
+      }
+
+      if (tsconfigJson) {
+        resolved.local.push({
+          kind: 'workspace-root-tsconfig-file',
+          importPath: filePath,
+          sourceFile: tsconfigJson.jsonFile.sourceFile,
+          configFile: tsconfigJson,
+        })
+      }
+
+      if (jsconfigJson) {
+        resolved.local.push({
+          kind: 'workspace-root-tsconfig-file',
+          importPath: filePath,
+          sourceFile: jsconfigJson.jsonFile.sourceFile,
+          configFile: jsconfigJson,
+        })
+      }
+
+      if (this.workspace.lockfile.isOk()) {
+        const lockfile = await this.cache.exactSourceFile(
+          this.workspace.lockfile.ok(),
+        )
+        if (lockfile !== undefined) {
+          resolved.local.push({
+            kind: 'workspace-root-lockfile',
+            importPath: filePath,
+            sourceFile: lockfile,
+          })
+        }
+      }
+
+      if (this.workspace.configFile.isOk()) {
+        const configFile = await this.cache.exactSourceFile(
+          this.workspace.configFile.ok(),
+        )
+        if (configFile !== undefined) {
+          resolved.local.push({
+            kind: 'workspace-root-config-file',
+            importPath: filePath,
+            sourceFile: configFile,
+          })
+        }
+      }
+    }
+
+    if (packageJson) {
+      resolved.local.push({
+        kind: 'nearest-package-json-file',
+        importPath: filePath,
+        sourceFile: packageJson.jsonFile.sourceFile,
+        packageJsonFile: packageJson,
+      })
+    }
+
+    if (tsconfigJson) {
+      resolved.local.push({
+        kind: 'nearest-tsconfig-file',
+        importPath: filePath,
+        sourceFile: tsconfigJson.jsonFile.sourceFile,
+        configFile: tsconfigJson,
+      })
+    }
+
+    if (jsconfigJson) {
+      resolved.local.push({
+        kind: 'nearest-tsconfig-file',
+        importPath: filePath,
+        sourceFile: jsconfigJson.jsonFile.sourceFile,
+        configFile: jsconfigJson,
+      })
+    }
 
     const context = LookupContext.forFilePath(filePath)
 
@@ -349,7 +498,7 @@ export class PackageFilesResolver {
               for (const resolvedFile of resolvedFiles) {
                 configJson.registerRelatedSourceFile(resolvedFile)
                 resolved.local.push({
-                  kind: 'tsconfig-resolved-path',
+                  kind: 'supporting-tsconfig-resolved-path',
                   importPath,
                   sourceFile: resolvedFile,
                   configFile: configJson,
@@ -359,7 +508,7 @@ export class PackageFilesResolver {
                   },
                 })
                 resolved.local.push({
-                  kind: 'tsconfig-file',
+                  kind: 'supporting-tsconfig-file',
                   importPath,
                   sourceFile: configJson.jsonFile.sourceFile,
                   configFile: configJson,
@@ -387,13 +536,13 @@ export class PackageFilesResolver {
             for (const resolvedFile of resolvedFiles) {
               configJson.registerRelatedSourceFile(resolvedFile)
               resolved.local.push({
-                kind: 'tsconfig-baseurl-relative-path',
+                kind: 'supporting-tsconfig-baseurl-relative-path',
                 importPath,
                 sourceFile: resolvedFile,
                 configFile: configJson,
               })
               resolved.local.push({
-                kind: 'tsconfig-file',
+                kind: 'supporting-tsconfig-file',
                 importPath,
                 sourceFile: configJson.jsonFile.sourceFile,
                 configFile: configJson,
@@ -425,7 +574,7 @@ export class PackageFilesResolver {
             let found = false
             for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
-                kind: 'workspace-package-path',
+                kind: 'workspace-neighbor',
                 importPath,
                 sourceFile: resolvedFile,
               })

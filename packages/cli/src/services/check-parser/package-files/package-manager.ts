@@ -5,7 +5,8 @@ import { lineage } from './walk'
 import { shellQuote } from '../../../services/shell'
 import { PackageJsonFile } from './package-json-file'
 import { JsonSourceFile } from './json-source-file'
-import { lookupNearestPackageJsonWorkspace, Package, Workspace } from './workspace'
+import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace'
+import { Err, Ok } from './result'
 
 export class Runnable {
   executable: string
@@ -23,9 +24,12 @@ export class Runnable {
 
 export interface PackageManager {
   get name (): string
+  get representativeLockfile (): string | undefined
+  get representativeConfigFile (): string | undefined
   installCommand (): Runnable
   execCommand (args: string[]): Runnable
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
+  detector (): PackageManagerDetector
 }
 
 class NotDetectedError extends Error {}
@@ -42,6 +46,9 @@ export abstract class PackageManagerDetector {
   abstract installCommand (): Runnable
   abstract execCommand (args: string[]): Runnable
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
+  detector (): PackageManagerDetector {
+    return this
+  }
 }
 
 export class NpmDetector extends PackageManagerDetector implements PackageManager {
@@ -87,7 +94,7 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
   }
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
-    return await lookupNearestPackageJsonWorkspace(dir)
+    return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 }
 
@@ -135,7 +142,7 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
   }
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
-    return await lookupNearestPackageJsonWorkspace(dir)
+    return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 }
 
@@ -241,17 +248,17 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
         workspaces: Object.values(dependencies).map(dep => dep.path),
       })
 
-      const workspacePackages = Object.entries(dependencies).map(([name, { path }]) => {
+      const packages = Object.entries(dependencies).map(([name, { path }]) => {
         return new Package({
           name,
           path,
         })
       })
 
-      return new Workspace(
-        rootPackage,
-        workspacePackages,
-      )
+      return await initWorkspace(this, {
+        root: rootPackage,
+        packages,
+      })
     }
   }
 }
@@ -299,7 +306,7 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
   }
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
-    return await lookupNearestPackageJsonWorkspace(dir)
+    return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 }
 
@@ -382,7 +389,10 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
           packages.push(workspacePackage)
         }
 
-        return new Workspace(rootPackage, packages)
+        return await initWorkspace(this, {
+          root: rootPackage,
+          packages,
+        })
       } catch {
         continue
       }
@@ -433,7 +443,7 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
   }
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
-    return await lookupNearestPackageJsonWorkspace(dir)
+    return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 }
 
@@ -529,7 +539,7 @@ export class PathLookup {
   }
 }
 
-const npmDetector = new NpmDetector()
+export const npmPackageManager = new NpmDetector()
 
 // The order of the detectors is relevant to the lookup order.
 export const knownPackageManagers: PackageManagerDetector[] = [
@@ -538,7 +548,7 @@ export const knownPackageManagers: PackageManagerDetector[] = [
   new DenoDetector(),
   new YarnDetector(),
   new CNpmDetector(),
-  npmDetector,
+  npmPackageManager,
 ]
 
 export interface DetectOptions {
@@ -608,7 +618,7 @@ export async function detectPackageManager (
   }
 
   // If all else fails, just assume npm.
-  return npmDetector
+  return npmPackageManager
 }
 
 export interface NearestLockFile {
@@ -762,4 +772,69 @@ export async function detectNearestPackageJson (
   }
 
   throw new NoPackageJsonFoundError(searchPaths)
+}
+
+export async function fauxWorkspaceFromPackageJson (
+  packageManager: PackageManager,
+  packageJsonFile: PackageJsonFile,
+): Promise<Workspace> {
+  const rootPackage = new Package({
+    name: packageJsonFile.name!,
+    path: packageJsonFile.basePath,
+  })
+
+  return await initWorkspace(packageManager.detector(), {
+    root: rootPackage,
+    packages: [],
+  })
+}
+
+async function lookupNearestPackageJsonWorkspace (
+  detector: PackageManagerDetector,
+  dir: string,
+): Promise<Workspace | undefined> {
+  for (const searchPath of lineage(dir)) {
+    const rootPackage = await Package.loadFromDirPath(searchPath)
+    if (!rootPackage) {
+      continue
+    }
+
+    if (rootPackage.workspaces === undefined || rootPackage.workspaces.length === 0) {
+      continue
+    }
+
+    const packages = await Workspace.resolvePatterns(searchPath, rootPackage.workspaces)
+
+    return await initWorkspace(detector, {
+      root: rootPackage,
+      packages,
+    })
+  }
+}
+
+async function initWorkspace (
+  detector: PackageManagerDetector,
+  options: Pick<WorkspaceOptions, 'root' | 'packages'>,
+) {
+  const lockfile: OptionalWorkspaceFile = await detectNearestLockfile(options.root.path, {
+    root: options.root.path,
+    detectors: [detector],
+  }).then(
+    ({ lockfile }) => Ok(lockfile),
+    reason => Err(reason),
+  )
+
+  const configFile: OptionalWorkspaceFile = await detectNearestConfigFile(options.root.path, {
+    root: options.root.path,
+    detectors: [detector],
+  }).then(
+    ({ configFile }) => Ok(configFile),
+    reason => Err(reason),
+  )
+
+  return new Workspace({
+    ...options,
+    lockfile,
+    configFile,
+  })
 }
