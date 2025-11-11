@@ -320,9 +320,14 @@ export async function loadPlaywrightProjectFiles (
     prefix,
   })
   for (const includePattern of include) {
+    // If pattern explicitly targets an ignored directory, only apply custom ignores
+    const explicitlyTargetsIgnored =
+      includePattern.startsWith('node_modules/')
+      || includePattern.startsWith('.git/')
+
     archive.glob(includePattern, {
       cwd: dir,
-      ignore: ignoredFiles,
+      ignore: explicitlyTargetsIgnored ? Session.ignoreDirectoriesMatch : ignoredFiles,
     }, {
       ...entryDefaults,
       prefix,

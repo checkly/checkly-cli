@@ -75,7 +75,7 @@ describe('util', () => {
       // Clean up extraction directory
       try {
         await fs.rm(extractDir, { recursive: true, force: true })
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     })
@@ -131,6 +131,102 @@ describe('util', () => {
         const fixtureFiles = await fs.readdir(fixturesPath)
         expect(fixtureFiles).toContain('mock-data.json')
       }
+    }, 30000)
+
+    it('should include explicit node_modules patterns bypassing default ignores', async () => {
+      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
+      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
+
+      // Set empty ignoreDirectoriesMatch
+      Session.ignoreDirectoriesMatch = []
+
+      // Bundle the project with explicit node_modules pattern
+      const result = await bundlePlayWrightProject(playwrightConfigPath, ['node_modules/@internal/test-helpers/**'])
+
+      // Extract the bundle
+      await extract({
+        file: result.outputFile,
+        cwd: extractDir,
+      })
+
+      // Check that node_modules directory IS included when explicitly specified
+      const nodeModulesPath = path.join(extractDir, 'node_modules', '@internal', 'test-helpers')
+      const nodeModulesExists = await fs.access(nodeModulesPath).then(() => true).catch(() => false)
+      expect(nodeModulesExists).toBe(true)
+
+      if (nodeModulesExists) {
+        const helperFiles = await fs.readdir(nodeModulesPath)
+        expect(helperFiles).toContain('helper.js')
+      }
+    }, 30000)
+
+    it('should include explicit .git patterns bypassing default ignores', async () => {
+      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
+      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
+
+      // Set empty ignoreDirectoriesMatch
+      Session.ignoreDirectoriesMatch = []
+
+      // Bundle the project with explicit .git pattern
+      const result = await bundlePlayWrightProject(playwrightConfigPath, ['.git/**'])
+
+      // Extract the bundle
+      await extract({
+        file: result.outputFile,
+        cwd: extractDir,
+      })
+
+      // Check that .git directory IS included when explicitly specified
+      const gitPath = path.join(extractDir, '.git')
+      const gitExists = await fs.access(gitPath).then(() => true).catch(() => false)
+      expect(gitExists).toBe(true)
+
+      if (gitExists) {
+        const gitFiles = await fs.readdir(gitPath)
+        expect(gitFiles).toContain('config')
+      }
+    }, 30000)
+
+    it('should still respect custom ignoreDirectoriesMatch for explicit patterns', async () => {
+      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
+      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
+
+      // Set custom ignoreDirectoriesMatch to exclude @internal
+      Session.ignoreDirectoriesMatch = ['**/@internal/**']
+
+      // Bundle the project with explicit node_modules pattern
+      const result = await bundlePlayWrightProject(playwrightConfigPath, ['node_modules/@internal/test-helpers/**'])
+
+      // Extract the bundle
+      await extract({
+        file: result.outputFile,
+        cwd: extractDir,
+      })
+
+      // Check that @internal is NOT included (custom ignore still applies)
+      const nodeModulesPath = path.join(extractDir, 'node_modules', '@internal')
+      await expect(fs.access(nodeModulesPath)).rejects.toThrow()
+    }, 30000)
+
+    it('should exclude node_modules with broad patterns despite include', async () => {
+      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
+      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
+
+      // Set empty ignoreDirectoriesMatch
+      Session.ignoreDirectoriesMatch = []
+
+      // Bundle with a broad pattern that would match node_modules but doesn't explicitly target it
+      const result = await bundlePlayWrightProject(playwrightConfigPath, ['**/*.js'])
+
+      // Extract the bundle
+      await extract({
+        file: result.outputFile,
+        cwd: extractDir,
+      })
+
+      // Check that node_modules is NOT included (default ignore still applies for broad patterns)
+      const nodeModulesPath = path.join(extractDir, 'node_modules')
+      await expect(fs.access(nodeModulesPath)).rejects.toThrow()
     }, 30000)
   })
 })
