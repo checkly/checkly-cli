@@ -1,0 +1,3 @@
+# Allow node_modules and .git in test fixtures
+!node_modules
+!.git
