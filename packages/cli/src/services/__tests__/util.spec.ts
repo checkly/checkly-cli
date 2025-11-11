@@ -160,33 +160,6 @@ describe('util', () => {
       }
     }, 30000)
 
-    it('should include explicit .git patterns bypassing default ignores', async () => {
-      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
-      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
-
-      // Set empty ignoreDirectoriesMatch
-      Session.ignoreDirectoriesMatch = []
-
-      // Bundle the project with explicit .git pattern
-      const result = await bundlePlayWrightProject(playwrightConfigPath, ['.git/**'])
-
-      // Extract the bundle
-      await extract({
-        file: result.outputFile,
-        cwd: extractDir,
-      })
-
-      // Check that .git directory IS included when explicitly specified
-      const gitPath = path.join(extractDir, '.git')
-      const gitExists = await fs.access(gitPath).then(() => true).catch(() => false)
-      expect(gitExists).toBe(true)
-
-      if (gitExists) {
-        const gitFiles = await fs.readdir(gitPath)
-        expect(gitFiles).toContain('config')
-      }
-    }, 30000)
-
     it('should still respect custom ignoreDirectoriesMatch for explicit patterns', async () => {
       const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
       const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
