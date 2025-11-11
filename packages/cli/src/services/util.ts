@@ -210,13 +210,18 @@ export async function bundlePlayWrightProject (
   const output = fsSync.createWriteStream(outputFile)
 
   // Dynamic import for CommonJs so it doesn't break when using checkly/playwright-reporter archiver
-  const { default: archiver } = await import('archiver')
-  const archive = archiver('tar', {
-    gzip: true,
-    gzipOptions: {
-      level: 9,
-    },
-  })
+  // The custom Checkly fork of archiver exports TarArchive class instead of a default function
+  const archiverModule: any = await import('archiver')
+  let archive: Archiver
+  if (archiverModule.TarArchive) {
+    // Using Checkly's custom fork which exports TarArchive class
+    archive = new archiverModule.TarArchive({ gzip: true, gzipOptions: { level: 9 } })
+  } else if (archiverModule.default) {
+    // Using standard archiver which has a default factory function
+    archive = archiverModule.default('tar', { gzip: true, gzipOptions: { level: 9 } })
+  } else {
+    throw new Error('Unable to initialize archiver: neither TarArchive nor default export found')
+  }
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
