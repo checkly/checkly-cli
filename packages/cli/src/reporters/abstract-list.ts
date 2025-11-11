@@ -107,6 +107,10 @@ export default abstract class AbstractListReporter implements Reporter {
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
     const logList = logs || []
 
+    // Clearing the summary first, printing logs second and finally adding the summary again at the end will ensure
+    // the summary sticks to the bottom of the users screen with logs streaming in above.
+    this._clearSummary()
+
     // Display the check title if this is the first time we're streaming logs for this check
     const isFirstLogBatch = !checkFile.hasStreamedLogs
     checkFile.hasStreamedLogs = true
@@ -132,6 +136,8 @@ export default abstract class AbstractListReporter implements Reporter {
         printLn(indentString(formattedLine, 4))
       })
     })
+
+    this._printSummary()
   }
 
   // Clear the summary which was printed by _printStatus from stdout
