@@ -17,7 +17,12 @@ import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../construc
 import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
-import { DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, Events, SequenceId } from '../services/abstract-check-runner'
+import {
+  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+  DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
+  Events,
+  SequenceId,
+} from '../services/abstract-check-runner'
 import { TestResultsShortLinks } from '../rest/test-sessions'
 import commonMessages from '../messages/common-messages'
 import type { Region } from '..'
@@ -59,7 +64,7 @@ export default class PwTestCommand extends AuthCommand {
       exclusive: ['env'],
     }),
     'timeout': Flags.integer({
-      default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+      default: DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
       description: 'A timeout (in seconds) to wait for checks to complete.',
     }),
     'verbose': Flags.boolean({
