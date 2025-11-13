@@ -243,6 +243,7 @@ export class Session {
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static constructExports: ConstructExport[] = []
+  static ignoreDirectoriesMatch: string[] = []
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader

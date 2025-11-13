@@ -289,7 +289,7 @@ export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
   lockFile: string,
 ) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
@@ -325,7 +325,15 @@ export async function loadPlaywrightProjectFiles (
     prefix,
   })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: root }, {
+    // If pattern explicitly targets an ignored directory, only apply custom ignores
+    const explicitlyTargetsIgnored =
+      includePattern.startsWith('node_modules/')
+      || includePattern.startsWith('.git/')
+
+    archive.glob(includePattern, {
+      cwd: root,
+      ignore: explicitlyTargetsIgnored ? Session.ignoreDirectoriesMatch : ignoredFiles,
+    }, {
       ...entryDefaults,
     })
   }
