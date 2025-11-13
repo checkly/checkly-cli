@@ -326,11 +326,10 @@ export async function loadPlaywrightProjectFiles (
       || includePattern.startsWith('.git/')
 
     archive.glob(includePattern, {
-      cwd: dir,
+      cwd: root,
       ignore: explicitlyTargetsIgnored ? Session.ignoreDirectoriesMatch : ignoredFiles,
     }, {
       ...entryDefaults,
-      prefix,
     })
   }
   for (const filePath of extraFiles) {

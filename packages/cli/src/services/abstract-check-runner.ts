@@ -38,6 +38,7 @@ export type CheckRunId = string
 export type SequenceId = string
 
 export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 600
+export const DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS = 1200
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
@@ -197,10 +198,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private setAllTimeouts () {
-    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) =>
+    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) => {
+      const checkTimeout = (check instanceof PlaywrightCheck && this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS)
+        ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
+        : this.timeout
       this.timeouts.set(sequenceId, setTimeout(() => {
         this.timeouts.delete(sequenceId)
-        let errorMessage = `Reached timeout of ${this.timeout} seconds waiting for check result.`
+        let errorMessage = `Reached timeout of ${checkTimeout} seconds waiting for check result.`
         // Playwright checks can take longer.
         // We should point the user to the --timeout flag in that case.
         if (check instanceof PlaywrightCheck) {
@@ -212,8 +216,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         }
         this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
         this.emit(Events.CHECK_FINISHED, check)
-      }, this.timeout * 1000),
-      ))
+      }, checkTimeout * 1000),
+      )
+    })
   }
 
   private disableAllTimeouts () {
