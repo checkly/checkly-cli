@@ -320,9 +320,8 @@ export async function loadPlaywrightProjectFiles (
     prefix,
   })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: dir }, {
+    archive.glob(includePattern, { cwd: root }, {
       ...entryDefaults,
-      prefix,
     })
   }
   for (const filePath of extraFiles) {
