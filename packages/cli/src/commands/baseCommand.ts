@@ -3,8 +3,8 @@ import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { api } from '../rest/api'
 import { CommandStyle } from '../helpers/command-style'
-import { PackageFilesResolver } from '../services/check-parser/package-files/resolver'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file'
+import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager'
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
@@ -18,12 +18,15 @@ export abstract class BaseCommand extends Command {
   #packageJsonLoader?: Promise<PackageJsonFile | undefined>
 
   async loadPackageJsonOfSelf (): Promise<PackageJsonFile | undefined> {
-    if (!this.#packageJsonLoader) {
-      const resolver = new PackageFilesResolver()
-      this.#packageJsonLoader = resolver.loadPackageJsonFile(__filename)
-    }
+    try {
+      if (!this.#packageJsonLoader) {
+        this.#packageJsonLoader = detectNearestPackageJson(__dirname)
+      }
 
-    return await this.#packageJsonLoader
+      return await this.#packageJsonLoader
+    } catch {
+      return
+    }
   }
 
   async checkEngineCompatibility (): Promise<void> {

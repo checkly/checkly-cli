@@ -289,8 +289,9 @@ export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
   lockFile: string,
 ) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**']
-  const parser = new Parser({})
+  const parser = new Parser({
+    workspace: Session.workspace,
+  })
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
@@ -315,14 +316,6 @@ export async function loadPlaywrightProjectFiles (
   archive.file(packageJsonFile, {
     ...entryDefaults,
     name: Session.relativePosixPath(packageJsonFile),
-  })
-  // handle workspaces
-  archive.glob('**/package.json', {
-    cwd: dir,
-    ignore: ignoredFiles,
-  }, {
-    ...entryDefaults,
-    prefix,
   })
   for (const includePattern of include) {
     archive.glob(includePattern, { cwd: root }, {
