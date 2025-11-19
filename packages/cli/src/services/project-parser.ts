@@ -81,6 +81,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.availableRuntimes = availableRuntimes
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
+  Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
