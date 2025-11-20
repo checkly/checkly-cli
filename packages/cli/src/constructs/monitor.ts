@@ -105,7 +105,7 @@ export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
    * Determines whether the monitor should create and resolve an incident
    * based on its alert configuration.
    *
-   * See https://www.checklyhq.com/docs/status-pages/incidents/#incident-automation
+   * See https://www.checklyhq.com/docs/communicate/status-pages/incidents/#incident-automation
    * to learn more about automated incidents.
    */
   triggerIncident?: IncidentTrigger

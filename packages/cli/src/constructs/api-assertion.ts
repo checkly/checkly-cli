@@ -49,7 +49,7 @@ export type Assertion = CoreAssertion<ApiAssertionSource>
  * ```
  *
  * @see {@link https://jsonpath.com/ | JSONPath Online Evaluator}
- * @see {@link https://www.checklyhq.com/docs/api-checks/assertions/ | API Check Assertions}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/api-checks/assertions/ | API Check Assertions}
  */
 // Called AssertionBuilder instead of ApiAssertionBuilder for historical
 // reasons.

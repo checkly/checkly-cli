@@ -93,7 +93,7 @@ export interface CheckProps {
    * An array of one or more data center locations where to run this check.
    *
    * @example ['us-east-1', 'eu-west-1', 'ap-southeast-1']
-   * @see {@link https://www.checklyhq.com/docs/monitoring/global-locations/ | Global Locations}
+   * @see {@link https://www.checklyhq.com/docs/concepts/locations/ | Global Locations}
    */
   locations?: Array<keyof Region>
 
@@ -174,7 +174,7 @@ export interface CheckProps {
    * // Reference the channels in your check
    * alertChannels: [emailChannel, slackChannel]
    * ```
-   * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels}
+   * @see {@link https://www.checklyhq.com/docs/communicate/alerts/channels/ | Alert Channels}
    */
   alertChannels?: Array<AlertChannel | AlertChannelRef>
 
@@ -218,7 +218,7 @@ export interface CheckProps {
    * Determines whether the check should run on all selected locations in parallel or round-robin.
    *
    * @defaultValue false (round-robin)
-   * @see {@link https://www.checklyhq.com/docs/monitoring/global-locations/ | Scheduling Strategies}
+   * @see {@link https://www.checklyhq.com/docs/concepts/scheduling/ | Scheduling Strategies}
    */
   runParallel?: boolean
 
@@ -226,7 +226,8 @@ export interface CheckProps {
    * Determines whether the check should create and resolve an incident based on its alert configuration.
    * Useful for status page automation.
    *
-   * @see {@link https://www.checklyhq.com/docs/status-pages/incidents/#incident-automation | Incident Automation}
+   * @see {@link https://www.checklyhq.com/docs/communicate/status-pages/incidents/#incident-automation
+   * Incident Automation}
    */
   triggerIncident?: IncidentTrigger
 }

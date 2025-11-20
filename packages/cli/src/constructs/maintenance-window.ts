@@ -60,7 +60,7 @@ export class MaintenanceWindow extends Construct {
    * @param logicalId unique project-scoped resource name identification
    * @param props maintenance window configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#maintenancewindow Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/maintenance-window/ Read more in the docs}
    */
   constructor (logicalId: string, props: MaintenanceWindowProps) {
     super(MaintenanceWindow.__checklyType, logicalId)

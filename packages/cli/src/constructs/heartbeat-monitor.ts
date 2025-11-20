@@ -62,7 +62,7 @@ export class HeartbeatMonitor extends Monitor {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props configuration properties
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#heartbeatmonitor Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/heartbeat-monitor/ Read more in the docs}
    */
   constructor (logicalId: string, props: HeartbeatMonitorProps) {
     super(logicalId, props)

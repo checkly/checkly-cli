@@ -12,7 +12,8 @@ export interface OpsgenieAlertChannelProps extends AlertChannelProps {
   name: string
   /**
    * An API key for your Opsgenie account. See our
-   * {@link https://www.checklyhq.com/docs/integrations/opsgenie/ docs} on where to create this API key
+   * {@link https://www.checklyhq.com/docs/integrations/incident-management/opsgenie/
+   * docs on where to create this API key}
    */
   apiKey: string
   /**

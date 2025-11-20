@@ -8,7 +8,7 @@ export interface MSTeamsAlertChannelProps extends AlertChannelProps {
   name: string
   /**
    * The unique URL created by creating an integration in Microsoft Teams.
-   * {@link https://www.checklyhq.com/docs/integrations/msteams/}
+   * {@link https://www.checklyhq.com/docs/integrations/alerts/msteams/}
    */
   url: string
   /**

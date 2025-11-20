@@ -86,7 +86,7 @@ export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalat
    *
    * If not set, individual check settings are used.
    *
-   * See https://www.checklyhq.com/docs/monitoring/global-locations/ to learn
+   * See https://www.checklyhq.com/docs/concepts/locations/ to learn
    * more about scheduling strategies.
    */
   runParallel?: boolean

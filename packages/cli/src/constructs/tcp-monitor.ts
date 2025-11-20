@@ -136,7 +136,7 @@ export class TcpMonitor extends Monitor {
    * @param logicalId unique project-scoped resource name identification
    * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#tcpmonitor Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/tcp-monitor/ Read more in the docs}
    */
 
   constructor (logicalId: string, props: TcpMonitorProps) {
