@@ -68,6 +68,22 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 // INSERT BROWSER CHECK EXAMPLE HERE //
 ```
 
+### Playwright Check Suite
+
+- Import the `PlaywrightCheck` construct from `checkly/constructs`.
+- Reference [the docs for Playwright Check Suites](https://www.checklyhq.com/docs/constructs/playwright-check/) before generating any code.
+- use `pwProjects` if your tasked to reuse a Playwright project.
+
+```typescript
+const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
+  name: "Multi-browser check suite",
+  playwrightConfigPath: "./playwright.config.ts",
+  // Playwright Check Suites support all browsers
+  // defined in your `playwight.config`
+  pwProjects: ["chromium", "firefox", "webkit"],
+});
+```
+
 ### MultiStep Check
 
 - Import the `MultiStepCheck` construct from `checkly/constructs`.
