@@ -78,6 +78,11 @@ class ChecklyConfig {
   }
 
   getApiUrl (): string {
+    // Allow overriding the API URL via CHECKLY_BASE_URL environment variable
+    if (process.env.CHECKLY_BASE_URL) {
+      return process.env.CHECKLY_BASE_URL
+    }
+
     const environments = {
       local: 'http://127.0.0.1:3000',
       development: 'https://api-dev.checklyhq.com',
