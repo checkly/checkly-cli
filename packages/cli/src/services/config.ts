@@ -93,6 +93,10 @@ class ChecklyConfig {
   }
 
   getMqttUrl (): string {
+    if (process.env.CHECKLY_MQTT_URL) {
+      return process.env.CHECKLY_MQTT_URL
+    }
+
     const environments = {
       local: 'wss://events-local.checklyhq.com',
       development: 'wss://events-dev.checklyhq.com',
