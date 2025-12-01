@@ -25,7 +25,6 @@ const config = defineConfig({
      * See https://www.checklyhq.com/docs/cli/npm-packages/
      */
     runtimeId: '2025.04',
-    /* Failed check runs will be retried before triggering alerts - not available on all plan types */
     /* Failed check runs will not be retried per default. See `browserChecks` below for a retry example. */
     retryStrategy: RetryStrategyBuilder.noRetries(),,
     /* All checks will have this alert escalation policy defined */
