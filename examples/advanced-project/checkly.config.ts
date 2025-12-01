@@ -44,6 +44,8 @@ const config = defineConfig({
        * can just write Playwright code. See https://www.checklyhq.com/docs/constructs/including-checks/#browserchecks-testmatch
        * */
       testMatch: '**/__checks__/**/*.spec.ts',
+      /* Failed check runs will be retried before triggering alerts */
+      retryStrategy: RetryStrategyBuilder.fixedStrategy({ baseBackoffSeconds: 60, maxRetries: 4, sameRegion: true }),
     },
     // Playwright Check Suites definition, run the whole Playwright Test Suite in a Check
     playwrightConfigPath: './playwright.config.ts',
