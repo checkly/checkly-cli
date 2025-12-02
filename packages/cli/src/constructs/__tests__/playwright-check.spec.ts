@@ -22,6 +22,7 @@ describe('PlaywrightCheck', () => {
   })
 
   it('should synthesize groupName', async () => {
+    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -49,6 +50,7 @@ describe('PlaywrightCheck', () => {
   })
 
   it('should synthesize group', async () => {
+    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -76,6 +78,7 @@ describe('PlaywrightCheck', () => {
   })
 
   it('should synthesize groupId', async () => {
+    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
     Session.project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -104,6 +107,7 @@ describe('PlaywrightCheck', () => {
 
   describe('validation', () => {
     it('should warn that groupName is deprecated', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -132,6 +136,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should error if groupName is not found', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -160,6 +165,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should error if both group and groupName are set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -188,6 +194,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should error if both groupId and groupName are set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -216,6 +223,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should error if retryStrategy is set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -240,6 +248,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should error if doubleCheck is set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -248,6 +257,7 @@ describe('PlaywrightCheck', () => {
       const check = new PlaywrightCheck('foo', {
         name: 'Test Check',
         playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        // @ts-expect-error Testing a property that isn't part of the type.
         doubleCheck: true,
       })
 
@@ -265,6 +275,7 @@ describe('PlaywrightCheck', () => {
 
   describe('defaults', () => {
     it('should ignore retryStrategy from session check defaults', () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
@@ -283,6 +294,7 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should ignore doubleCheck from session check defaults', () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',

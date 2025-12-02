@@ -1,14 +1,33 @@
 import { FileMatch } from './match'
 
 export interface FileLoaderOptions {
+  /**
+   * The priority of the loader, used to resolve load order if multiple
+   * loaders are available.
+   *
+   * The higher the priority the earlier the load order.
+   */
+  priority?: number
   match?: FileMatch
 }
 
 export abstract class FileLoader {
+  static DEFAULT_PRIORITY = 1000
+
   protected fileMatcher: FileMatch
+  #priority: number
 
   constructor (options?: FileLoaderOptions) {
     this.fileMatcher = options?.match ?? FileMatch.any()
+    this.#priority = options?.priority ?? FileLoader.DEFAULT_PRIORITY
+  }
+
+  /**
+   * The priority of the loader, used to resolve load order if multiple
+   * loaders are available.
+   */
+  get priority () {
+    return this.#priority
   }
 
   /**

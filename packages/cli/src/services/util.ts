@@ -8,7 +8,6 @@ import { parse } from 'dotenv'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
-import archiver from 'archiver'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
@@ -210,12 +209,19 @@ export async function bundlePlayWrightProject (
   const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
   const output = fsSync.createWriteStream(outputFile)
 
-  const archive = archiver('tar', {
-    gzip: true,
-    gzipOptions: {
-      level: 9,
-    },
-  })
+  // Dynamic import for CommonJs so it doesn't break when using checkly/playwright-reporter archiver
+  // The custom Checkly fork of archiver exports TarArchive class instead of a default function
+  const archiverModule: any = await import('archiver')
+  let archive: Archiver
+  if (archiverModule.TarArchive) {
+    // Using Checkly's custom fork which exports TarArchive class
+    archive = new archiverModule.TarArchive({ gzip: true, gzipOptions: { level: 9 } })
+  } else if (archiverModule.default) {
+    // Using standard archiver which has a default factory function
+    archive = archiverModule.default('tar', { gzip: true, gzipOptions: { level: 9 } })
+  } else {
+    throw new Error('Unable to initialize archiver: neither TarArchive nor default export found')
+  }
   archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
@@ -234,7 +240,7 @@ export async function bundlePlayWrightProject (
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
         playwrightVersion,
-        relativePlaywrightConfigPath: path.relative(dir, filePath),
+        relativePlaywrightConfigPath: Session.relativePosixPath(filePath),
         cacheHash,
       })
     })
@@ -283,27 +289,59 @@ export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
   lockFile: string,
 ) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**']
+  const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
   const parser = new Parser({})
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
-  const mode = 0o755 // Default mode for files in the archive
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
+  const root = Session.basePath!
+  const prefix = Session.relativePosixPath(dir)
+  const entryDefaults = {
+    mode: 0o755, // Default mode for files in the archive
+  }
   for (const file of files) {
-    const relativePath = path.relative(dir, file)
-    archive.file(file, { name: relativePath, mode })
+    archive.file(file, {
+      ...entryDefaults,
+      name: Session.relativePosixPath(file),
+    })
   }
   const lockFileDirName = path.dirname(lockFile)
-  archive.file(lockFile, { name: path.basename(lockFile), mode })
-  archive.file(path.join(lockFileDirName, 'package.json'), { name: 'package.json', mode })
+  const packageJsonFile = path.join(lockFileDirName, 'package.json')
+  archive.file(lockFile, {
+    ...entryDefaults,
+    name: Session.relativePosixPath(lockFile),
+  })
+  archive.file(packageJsonFile, {
+    ...entryDefaults,
+    name: Session.relativePosixPath(packageJsonFile),
+  })
   // handle workspaces
-  archive.glob('**/package.json', { cwd: path.join(dir, '/'), ignore: ignoredFiles }, { mode })
+  archive.glob('**/package.json', {
+    cwd: dir,
+    ignore: ignoredFiles,
+  }, {
+    ...entryDefaults,
+    prefix,
+  })
   for (const includePattern of include) {
-    archive.glob(includePattern, { cwd: path.join(dir, '/') }, { mode })
+    // If pattern explicitly targets an ignored directory, only apply custom ignores
+    const explicitlyTargetsIgnored =
+      includePattern.startsWith('node_modules/')
+      || includePattern.startsWith('.git/')
+
+    archive.glob(includePattern, {
+      cwd: root,
+      ignore: explicitlyTargetsIgnored ? Session.ignoreDirectoriesMatch : ignoredFiles,
+    }, {
+      ...entryDefaults,
+    })
   }
   for (const filePath of extraFiles) {
-    archive.file(path.resolve(dir, filePath), { name: filePath, mode })
+    archive.file(path.resolve(root, filePath), {
+      ...entryDefaults,
+      name: Session.relativePosixPath(filePath),
+    })
   }
 }
 
