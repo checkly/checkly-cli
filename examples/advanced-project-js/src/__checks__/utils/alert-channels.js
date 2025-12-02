@@ -1,7 +1,6 @@
 const { URL } = require('node:url')
 
 const {
-  SmsAlertChannel,
   EmailAlertChannel,
   SlackAlertChannel,
   WebhookAlertChannel,
@@ -20,11 +19,6 @@ const sendDefaults = {
   sslExpiry: true,
   sslExpiryThreshold: 30,
 };
-
-const smsChannel = new SmsAlertChannel('sms-channel-1', {
-  phoneNumber: '0031061234567890',
-  ...sendDefaults,
-})
 
 const emailChannel = new EmailAlertChannel('email-channel-1', {
   address: 'alerts@acme.com',
@@ -57,7 +51,6 @@ const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
 })
 
 module.exports = {
-  smsChannel,
   emailChannel,
   slackChannel,
   webhookChannel,

@@ -6,7 +6,7 @@ const config = defineConfig({
   repoUrl: 'https://github.com/checkly/checkly-cli',
   checks: {
     frequency: 10,
-    locations: ['us-east-1', 'eu-west-1'],
+    locations: ['us-east-1', 'eu-central-1'],
     tags: ['mac'],
     runtimeId: '2023.02',
     checkMatch: '**/__checks__/**/*.check.ts',
@@ -15,7 +15,7 @@ const config = defineConfig({
     },
   },
   cli: {
-    runLocation: 'eu-west-1',
+    runLocation: 'eu-central-1',
     reporters: ['list'],
   },
 })
