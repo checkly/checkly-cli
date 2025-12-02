@@ -129,7 +129,7 @@ export class Parser {
 
   private async validateFile (filePath: string): Promise<{ filePath: string, content: string }> {
     const extension = path.extname(filePath)
-    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
+    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs' && extension !== '.yml') {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
     try {
@@ -360,7 +360,7 @@ export class Parser {
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
         walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
-      } else if (extension === '.json') {
+      } else if (extension === '.json' || extension === '.yml') {
         // No dependencies to check.
       } else {
         throw new Error(`Unsupported file extension for ${filePath}`)
