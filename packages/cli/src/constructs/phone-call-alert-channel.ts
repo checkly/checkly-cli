@@ -29,8 +29,7 @@ export class PhoneCallAlertChannel extends AlertChannel {
    * @param props Phone Call alert channel configuration properties
    *
    * {@link https://www.checklyhq.com/docs/constructs/phone-call-alert-channel/ Read more in the docs}
-   * {@link https://www.checklyhq.com/docs/integrations/alerts/phone-calls/#supported-countries-and-regions
-   *  List of supported countries}
+   * {@link https://www.checklyhq.com/docs/integrations/alerts/phone-calls/#supported-countries-and-regions | List of supported countries}
    */
   constructor (logicalId: string, props: PhoneCallAlertChannelProps) {
     super(logicalId, props)

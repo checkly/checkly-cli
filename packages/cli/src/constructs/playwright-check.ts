@@ -120,8 +120,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
  * ```
  *
  * @see {@link https://www.checklyhq.com/docs/constructs/playwright-check/ | PlaywrightCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/playwright-checks/overview/
- * Playwright Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/playwright-checks/overview/ | Playwright Checks Documentation}
  * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
 export class PlaywrightCheck extends RuntimeCheck {
