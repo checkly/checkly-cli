@@ -26,7 +26,7 @@ type Module = {
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
-const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png']
+const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png', '.yml']
 
 const supportedBuiltinModules = [
   'node:assert',
@@ -129,7 +129,7 @@ export class Parser {
 
   private async validateFile (filePath: string): Promise<{ filePath: string, content: string }> {
     const extension = path.extname(filePath)
-    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs' && extension !== '.yml') {
+    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
     try {
@@ -360,7 +360,7 @@ export class Parser {
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
         walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
-      } else if (extension === '.json' || extension === '.yml') {
+      } else if (extension === '.json') {
         // No dependencies to check.
       } else {
         throw new Error(`Unsupported file extension for ${filePath}`)
