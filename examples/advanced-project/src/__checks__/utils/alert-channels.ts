@@ -1,6 +1,5 @@
 import { URL } from 'node:url'
 import {
-  SmsAlertChannel,
   EmailAlertChannel,
   SlackAlertChannel,
   WebhookAlertChannel
@@ -20,11 +19,6 @@ const sendDefaults = {
   sslExpiry: true,
   sslExpiryThreshold: 30
 }
-
-export const smsChannel = new SmsAlertChannel('sms-channel-1', {
-  phoneNumber: '0031061234567890',
-  ...sendDefaults
-})
 
 export const emailChannel = new EmailAlertChannel('email-channel-1', {
   address: 'alerts@acme.com',
