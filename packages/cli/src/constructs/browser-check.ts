@@ -73,8 +73,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  * ```
  *
  * @see {@link https://www.checklyhq.com/docs/constructs/browser-check/ | BrowserCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/browser-checks/overview/
- * Browser Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/browser-checks/overview/ | Browser Checks Documentation}
  * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
 export class BrowserCheck extends RuntimeCheck {

@@ -44,8 +44,7 @@ export type UrlAssertion = CoreAssertion<UrlAssertionSource>
  * UrlAssertionBuilder.statusCode().lessThan(600)
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/
- * URL Monitors Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
 export class UrlAssertionBuilder {
   /**

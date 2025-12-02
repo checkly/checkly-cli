@@ -137,8 +137,7 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  * ```
  *
  * @see {@link https://www.checklyhq.com/docs/constructs/api-check/ | ApiCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/api-checks/overview/
- * API Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/api-checks/overview/ | API Checks Documentation}
  */
 export class ApiCheck extends RuntimeCheck {
   readonly request: Request

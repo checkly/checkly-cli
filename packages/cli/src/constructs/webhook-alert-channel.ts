@@ -16,8 +16,7 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
   url: URL | string
   /**
    * This is commonly a JSON body. You can
-   * use {@link https://www.checklyhq.com/docs/communicate/alerts/webhooks/#using-variables
-   * Handlebars-style template variables}
+   * use {@link https://www.checklyhq.com/docs/communicate/alerts/webhooks/#using-variables | Handlebars-style template variables}
    * to add custom data to the template.
    */
   template?: string

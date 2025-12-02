@@ -100,8 +100,7 @@ export interface UrlMonitorProps extends MonitorProps {
  * ```
  *
  * @see {@link https://www.checklyhq.com/docs/constructs/url-monitor/ | UrlMonitor API Reference}
- * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/
- * URL Monitors Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
 export class UrlMonitor extends Monitor {
   readonly request: UrlRequest

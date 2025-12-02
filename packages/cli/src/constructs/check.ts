@@ -226,8 +226,7 @@ export interface CheckProps {
    * Determines whether the check should create and resolve an incident based on its alert configuration.
    * Useful for status page automation.
    *
-   * @see {@link https://www.checklyhq.com/docs/communicate/status-pages/incidents/#incident-automation
-   * Incident Automation}
+   * @see {@link https://www.checklyhq.com/docs/communicate/status-pages/incidents/#incident-automation | Incident Automation}
    */
   triggerIncident?: IncidentTrigger
 }

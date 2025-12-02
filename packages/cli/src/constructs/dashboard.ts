@@ -45,8 +45,7 @@ export interface DashboardProps {
    * This is required if 'customUrl' is not specified.
    *
    * @example 'status.example.com'
-   * @see {@link https://www.checklyhq.com/docs/communicate/dashboards/configuration/#custom-domain
-   * Custom Domain Setup}
+   * @see {@link https://www.checklyhq.com/docs/communicate/dashboards/configuration/#custom-domain | Custom Domain Setup}
    */
   customDomain?: string
 
