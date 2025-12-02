@@ -76,7 +76,7 @@ const RE_SLUG = /^((?!((us(-gov)?|ap|ca|cn|eu|sa|af|me)-(central|(north|south)?(
  *
  * This class make use of the Private Location endpoints.
  *
- * {@link https://www.checklyhq.com/docs/cli/constructs-reference/#privatelocation Read more in the docs}
+ * {@link https://www.checklyhq.com/docs/constructs/private-location/ Read more in the docs}
  */
 export class PrivateLocation extends Construct {
   name: string

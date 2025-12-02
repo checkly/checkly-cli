@@ -72,8 +72,8 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  * })
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#browsercheck | BrowserCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/monitoring/browser-checks/ | Browser Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/constructs/browser-check/ | BrowserCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/browser-checks/overview/ | Browser Checks Documentation}
  * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
 export class BrowserCheck extends RuntimeCheck {
@@ -86,7 +86,7 @@ export class BrowserCheck extends RuntimeCheck {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#browsercheck Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/browser-check/ Read more in the docs}
    */
   constructor (logicalId: string, props: BrowserCheckProps) {
     super(logicalId, props)

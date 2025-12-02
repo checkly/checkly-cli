@@ -136,66 +136,8 @@ export interface ApiCheckProps extends RuntimeCheckProps {
  * })
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
- */
-/**
- * Creates an API Check to monitor HTTP endpoints and APIs.
- *
- * API checks allow you to monitor REST APIs, GraphQL endpoints, and any HTTP-based service.
- * You can validate response status codes, response times, headers, and response body content.
- *
- * @example
- * ```typescript
- * // Basic API check
- * new ApiCheck('hello-api', {
- *   name: 'Hello API',
- *   request: {
- *     method: 'GET',
- *     url: 'https://api.example.com/hello',
- *     assertions: [
- *       AssertionBuilder.statusCode().equals(200)
- *     ]
- *   }
- * })
- *
- * // Advanced API check with POST request
- * new ApiCheck('user-api', {
- *   name: 'User API Check',
- *   frequency: Frequency.EVERY_5M,
- *   locations: ['us-east-1', 'eu-west-1'],
- *   request: {
- *     method: 'POST',
- *     url: 'https://api.example.com/users',
- *     headers: [{ key: 'Content-Type', value: 'application/json' }],
- *     body: JSON.stringify({ name: 'test-user' }),
- *     bodyType: 'JSON',
- *     assertions: [
- *       AssertionBuilder.statusCode().equals(201),
- *       AssertionBuilder.jsonBody('$.id').isNotNull(),
- *       AssertionBuilder.responseTime().lessThan(1000)
- *     ]
- *   },
- *   maxResponseTime: 5000,
- *   degradedResponseTime: 2000
- * })
- *
- * // Error validation check (shouldFail required for error status checks)
- * new ApiCheck('not-found-check', {
- *   name: 'Not Found Check',
- *   shouldFail: true,
- *   request: {
- *     method: 'GET',
- *     url: 'https://api.example.com/nonexistent',
- *     assertions: [
- *       AssertionBuilder.statusCode().equals(404)
- *     ]
- *   }
- * })
- * ```
- *
- * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#apicheck | ApiCheck API Reference}
- * @see {@link https://www.checklyhq.com/docs/monitoring/api-checks/ | API Checks Documentation}
+ * @see {@link https://www.checklyhq.com/docs/constructs/api-check/ | ApiCheck API Reference}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/api-checks/overview/ | API Checks Documentation}
  */
 export class ApiCheck extends RuntimeCheck {
   readonly request: Request
@@ -212,7 +154,7 @@ export class ApiCheck extends RuntimeCheck {
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#apicheck Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/api-check/ Read more in the docs}
    */
 
   constructor (logicalId: string, props: ApiCheckProps) {

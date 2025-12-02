@@ -14,7 +14,7 @@
  * frequency: Frequency.EVERY_24H
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/monitoring/ | Monitoring Documentation}
+ * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/overview/ | Monitoring Documentation}
  */
 export class Frequency {
   /** Run every 10 seconds */

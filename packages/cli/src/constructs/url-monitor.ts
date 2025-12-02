@@ -99,8 +99,8 @@ export interface UrlMonitorProps extends MonitorProps {
  * })
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#urlmonitor | UrlMonitor API Reference}
- * @see {@link https://www.checklyhq.com/docs/url-monitors/ | URL Monitors Documentation}
+ * @see {@link https://www.checklyhq.com/docs/constructs/url-monitor/ | UrlMonitor API Reference}
+ * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
 export class UrlMonitor extends Monitor {
   readonly request: UrlRequest
@@ -113,7 +113,7 @@ export class UrlMonitor extends Monitor {
    * @param logicalId unique project-scoped resource name identification
    * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#urlmonitor Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/url-monitor/ Read more in the docs}
    */
 
   constructor (logicalId: string, props: UrlMonitorProps) {

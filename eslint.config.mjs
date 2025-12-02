@@ -22,6 +22,7 @@ const checklyStyle = {
         code: 120,
         ignoreTemplateLiterals: true,
         ignoreStrings: true,
+        ignoreComments: true,
       },
     ],
     'no-var': 'error',

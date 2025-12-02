@@ -16,7 +16,7 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
   url: URL | string
   /**
    * This is commonly a JSON body. You can
-   * use {@link https://www.checklyhq.com/docs/alerting/webhooks/#using-variables Handlebars-style template variables}
+   * use {@link https://www.checklyhq.com/docs/communicate/alerts/webhooks/#using-variables | Handlebars-style template variables}
    * to add custom data to the template.
    */
   template?: string
@@ -63,7 +63,7 @@ export class WebhookAlertChannel extends AlertChannel {
    * @param logicalId unique project-scoped resource name identification
    * @param props Webhook alert channel configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#webhookalertchannel Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/webhook-alert-channel/ Read more in the docs}
    */
   constructor (logicalId: string, props: WebhookAlertChannelProps) {
     super(logicalId, props)

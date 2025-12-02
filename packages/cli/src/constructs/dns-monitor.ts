@@ -58,7 +58,7 @@ export class DnsMonitor extends Monitor {
    * @param logicalId unique project-scoped resource name identification
    * @param props configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#dnsmonitor Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/dns-monitor/ Read more in the docs}
    */
 
   constructor (logicalId: string, props: DnsMonitorProps) {

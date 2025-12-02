@@ -42,7 +42,7 @@ export class StatusPageService extends Construct {
    * @param logicalId unique project-scoped resource name identification
    * @param props status page service configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#statuspageservice Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/status-page-service/ Read more in the docs}
    */
   constructor (logicalId: string, props: StatusPageServiceProps) {
     super(StatusPageService.__checklyType, logicalId)

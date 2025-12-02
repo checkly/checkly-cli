@@ -45,7 +45,7 @@ export interface DashboardProps {
    * This is required if 'customUrl' is not specified.
    *
    * @example 'status.example.com'
-   * @see {@link https://www.checklyhq.com/docs/dashboards/custom-domains/ | Custom Domain Setup}
+   * @see {@link https://www.checklyhq.com/docs/communicate/dashboards/configuration/#custom-domain | Custom Domain Setup}
    */
   customDomain?: string
 
@@ -144,7 +144,7 @@ export interface DashboardProps {
    *
    * @defaultValue false
    * @remarks Only paid accounts can enable this feature
-   * @see {@link https://www.checklyhq.com/docs/dashboards/incidents/ | Dashboard Incidents}
+   * @see {@link https://www.checklyhq.com/docs/communicate/dashboards/incidents/ | Dashboard Incidents}
    */
   enableIncidents?: boolean
 
@@ -244,7 +244,7 @@ export class Dashboard extends Construct {
    * @param logicalId unique project-scoped resource name identification
    * @param props dashboard configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#dashboard Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/dashboard/ Read more in the docs}
    */
   constructor (logicalId: string, props: DashboardProps) {
     super(Dashboard.__checklyType, logicalId)

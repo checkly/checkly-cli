@@ -35,7 +35,7 @@ export class MultiStepCheck extends RuntimeCheck {
    *
    * @param logicalId unique project-scoped resource name identification
    * @param props check configuration properties
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#multistepcheck Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/constructs/multistep-check/ Read more in the docs}
    */
   constructor (logicalId: string, props: MultiStepCheckProps) {
     super(logicalId, props)

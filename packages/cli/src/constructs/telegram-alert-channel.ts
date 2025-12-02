@@ -8,12 +8,12 @@ export interface TelegramAlertChannelProps extends AlertChannelProps {
   name: string
   /**
    * The chat ID of your Telegram bot.
-   * {@link https://www.checklyhq.com/docs/integrations/telegram/}
+   * {@link https://www.checklyhq.com/docs/integrations/alerts/telegram/}
    */
   chatId: string
   /**
    * The API key for your Telegram bot.
-   * {@link https://www.checklyhq.com/docs/integrations/telegram/}
+   * {@link https://www.checklyhq.com/docs/integrations/alerts/telegram/}
    */
   apiKey: string
   /**

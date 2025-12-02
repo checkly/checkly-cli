@@ -117,8 +117,7 @@ export class AlertChannelRef extends Construct {
  * })
  * ```
  *
- * @see {@link https://www.checklyhq.com/docs/cli/constructs-reference/#alertchannel | AlertChannel API Reference}
- * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/alert-channels/ | Alert Channels Documentation}
+ * @see {@link https://www.checklyhq.com/docs/communicate/alerts/channels/ | Alert Channels Documentation}
  */
 export abstract class AlertChannel extends Construct {
   sendRecovery?: boolean

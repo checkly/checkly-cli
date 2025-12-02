@@ -8,12 +8,12 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
   name: string
   /**
    * The unique URL created by installing the Checkly integration in Incident.io.
-   * {@link https://www.checklyhq.com/docs/integrations/incidentio/}
+   * {@link https://www.checklyhq.com/docs/integrations/incident-management/incidentio/}
    */
   url: URL | string
   /**
    * The API key created by installing the Checkly integration in Incident.io.
-   * {@link https://www.checklyhq.com/docs/integrations/incidentio/}
+   * {@link https://www.checklyhq.com/docs/integrations/incident-management/incidentio/}
    */
   apiKey: string
   /**
@@ -54,7 +54,7 @@ export class IncidentioAlertChannel extends WebhookAlertChannel {
    * @param logicalId unique project-scoped resource name identification
    * @param props Incident.io alert channel configuration properties
    *
-   * {@link https://checklyhq.com/docs/cli/constructs-reference/#incidentioalertchannel Read more in the docs}
+   * {@link https://www.checklyhq.com/docs/integrations/incident-management/incidentio/ Read more in the docs}
    */
   constructor (logicalId: string, props: IncidentioAlertChannelProps) {
     super(logicalId, props)
