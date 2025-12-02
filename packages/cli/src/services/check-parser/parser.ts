@@ -26,7 +26,7 @@ type Module = {
 type SupportedFileExtension = '.js' | '.mjs' | '.ts'
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
-const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png']
+const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png', '.yml']
 
 const supportedBuiltinModules = [
   'node:assert',
