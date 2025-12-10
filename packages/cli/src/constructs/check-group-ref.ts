@@ -36,6 +36,10 @@ export class CheckGroupRef extends Construct {
     return {}
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return null
   }
