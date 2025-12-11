@@ -20,6 +20,7 @@ import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -162,7 +163,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `PlaywrightCheck:${this.logicalId}`
   }
 
-  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     const group = PlaywrightCheck.#resolveGroupFromProps(props)
 
     return makeConfigDefaultsGetter(

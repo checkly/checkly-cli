@@ -9,6 +9,7 @@ import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface BrowserCheckProps extends RuntimeCheckProps {
   /**
@@ -104,7 +105,7 @@ export class BrowserCheck extends RuntimeCheck {
     return `BrowserCheck:${this.logicalId}`
   }
 
-  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     return makeConfigDefaultsGetter(
       props.group?.getBrowserCheckDefaults(),
       Session.browserCheckDefaults,
