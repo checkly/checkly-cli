@@ -23,6 +23,7 @@ import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { Diagnostics } from './diagnostics'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 /**
  * Retry strategies supported by checks.
@@ -329,7 +330,7 @@ export abstract class Check extends Construct {
     await this.validateRetryStrategyOnlyOn(diagnostics)
   }
 
-  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     return makeConfigDefaultsGetter(
       props.group?.getCheckDefaults(),
       Session.checkDefaults,

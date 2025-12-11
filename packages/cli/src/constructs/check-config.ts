@@ -1,13 +1,13 @@
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
+export type ConfigDefaultsGetter<
+  T extends object,
+> = <K extends keyof T = keyof T>(key: K) => T[K] | undefined
 
-export type ConfigDefaultsGetter = <K extends keyof CheckConfigDefaults> (key: K) => CheckConfigDefaults[K]
-
-export function makeConfigDefaultsGetter (
-  ...defaults: (Partial<CheckConfigDefaults> | undefined)[]
-): ConfigDefaultsGetter {
+export function makeConfigDefaultsGetter<T extends object> (
+  ...defaults: (Partial<T> | undefined)[]
+): ConfigDefaultsGetter<T> {
   const ok = defaults.filter(value => value !== undefined)
 
-  function get<K extends keyof CheckConfigDefaults> (key: K): CheckConfigDefaults[K] {
+  function get<K extends keyof T> (key: K): T[K] | undefined {
     for (const config of ok) {
       // Older TS seems to need this check.
       if (config === undefined) {
