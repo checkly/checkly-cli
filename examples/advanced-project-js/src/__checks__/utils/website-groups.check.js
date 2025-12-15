@@ -1,5 +1,5 @@
 const { CheckGroupV2, Frequency, AlertEscalationBuilder } = require('checkly/constructs')
-const { smsChannel, emailChannel } = require('./alert-channels')
+const { emailChannel } = require('./alert-channels')
 
 // This file defines two groups, one for synthetics monitors and one for uptime
 // monitors. Read more about group configuration at: https://www.checklyhq.com/docs/groups/
@@ -17,7 +17,7 @@ const syntheticGroup = new CheckGroupV2('check-group-synthetics', {
     { amount: 2, interval: 5 }, // Send 2 reminders, 5 minutes apart
     { enabled: true, percentage: 50 } // Alert if 50% of parallel runs fail
   ),
-  alertChannels: [emailChannel, smsChannel],
+  alertChannels: [emailChannel],
   environmentVariables: [{ key: 'AUTHOR_NAME', value: 'Fric Eromm' }],
   concurrency: 10
 })
