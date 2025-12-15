@@ -26,7 +26,7 @@ const config = defineConfig({
      */
     runtimeId: '2025.04',
     /* Failed check runs will not be retried per default. See `browserChecks` below for a retry example. */
-    retryStrategy: RetryStrategyBuilder.noRetries(),,
+    retryStrategy: RetryStrategyBuilder.noRetries(),
     /* All checks will have this alert escalation policy defined */
     alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
     /* A glob pattern that matches the Checks inside your repo, see https://www.checklyhq.com/docs/constructs/including-checks/#checks-checkmatch */
