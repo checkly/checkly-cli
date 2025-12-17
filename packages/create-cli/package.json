@@ -57,7 +57,7 @@
     "@oclif/plugin-help": "^6.2.36",
     "@oclif/plugin-plugins": "^5.4.54",
     "@oclif/plugin-warn-if-update-available": "^3.1.53",
-    "axios": "^1.8.4",
+    "axios": "^1.13.2",
     "chalk": "^4.1.2",
     "debug": "^4.4.0",
     "execa": "^5.1.0",
