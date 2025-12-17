@@ -91,7 +91,7 @@
     "ci-info": "^4.2.0",
     "conf": "^10.2.0",
     "dotenv": "^16.5.0",
-    "execa": "^9.5.3",
+    "execa": "^9.6.1",
     "git-repo-info": "^2.1.1",
     "glob": "^10.5.0",
     "indent-string": "^4.0.0",
