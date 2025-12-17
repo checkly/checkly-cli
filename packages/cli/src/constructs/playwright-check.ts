@@ -2,6 +2,8 @@ import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 
 import type { AxiosResponse } from 'axios'
+import Debug from 'debug'
+
 import { checklyStorage } from '../rest/api'
 import {
   bundlePlayWrightProject, cleanup,
@@ -21,6 +23,8 @@ import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+
+const debug = Debug('checkly:cli:constructs:playwright-check')
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -437,7 +441,12 @@ export class PlaywrightCheck extends RuntimeCheck {
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
       return { key, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion }
     } finally {
-      await cleanup(dir)
+      if (process.env['CHECKLY_PLAYWRIGHT_DEBUG_PERSIST_BUNDLE'] === '1') {
+        debug(`Skip cleaning up bundle '${dir}'`)
+      } else {
+        debug(`Cleaning up bundle '${dir}'`)
+        await cleanup(dir)
+      }
     }
   }
 
