@@ -7,6 +7,7 @@ import * as walk from 'acorn-walk'
 import { minimatch } from 'minimatch'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
+import Debug from 'debug'
 
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
@@ -15,6 +16,8 @@ import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
 import { Workspace } from './package-files/workspace'
 import { isCoreExtension, isTSExtension } from './package-files/extension'
+
+const debug = Debug('checkly:cli:services:check-parser:parser')
 
 // Our custom configuration to handle walking errors
 
@@ -71,12 +74,11 @@ function getTsParser (): any {
     // Our custom configuration to handle walking errors
 
     Object.values(AST_NODE_TYPES).forEach(astType => {
-      // Only handle the TS specific ones
-      if (!astType.startsWith('TS')) {
-        return
+      // Only handle the TS/JSX specific ones
+      if (astType.startsWith('TS') || astType.startsWith('JSX')) {
+        const base: any = walk.base
+        base[astType] = base[astType] ?? ignore
       }
-      const base: any = walk.base
-      base[astType] = base[astType] ?? ignore
     })
     return tsParser
   } catch (err: any) {
@@ -375,6 +377,7 @@ export class Parser {
 
   static parseDependencies (filePath: string, contents: string):
   { module: Module, error?: any } {
+    debug(`Parsing dependencies of ${filePath}`)
     const dependencies = new RawDependencyCollector()
 
     const extension = path.extname(filePath)
@@ -389,13 +392,17 @@ export class Parser {
         walk.simple(ast, Parser.jsNodeVisitor(dependencies))
       } else if (isTSExtension(extension)) {
         const tsParser = getTsParser()
-        const ast = tsParser.parse(contents, {})
+        const ast = tsParser.parse(contents, {
+          jsx: true,
+        })
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
         walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
       }
     } catch (err) {
+      debug(`Failed to parse dependencies of ${filePath}: ${err}`)
+
       return {
         module: {
           dependencies: dependencies.state(),
