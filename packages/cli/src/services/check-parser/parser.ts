@@ -393,7 +393,9 @@ export class Parser {
       } else if (isTSExtension(extension)) {
         const tsParser = getTsParser()
         const ast = tsParser.parse(contents, {
-          jsx: true,
+          // We must only enable jsx for tsx/jsx files. Otherwise type brackets
+          // may confuse the parser and cause an error.
+          jsx: extension.endsWith('x'),
         })
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
