@@ -253,6 +253,30 @@ export class Session {
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 
+  static reset () {
+    this.project = undefined
+    this.basePath = undefined
+    this.contextPath = undefined
+    this.checkDefaults = undefined
+    this.checkFilter = undefined
+    this.browserCheckDefaults = undefined
+    this.multiStepCheckDefaults = undefined
+    this.checkFilePath = undefined
+    this.checkFileAbsolutePath = undefined
+    this.availableRuntimes = {}
+    this.defaultRuntimeId = undefined
+    this.verifyRuntimeDependencies = true
+    this.loadingChecklyConfigFile = false
+    this.checklyConfigFileConstructs = undefined
+    this.privateLocations = []
+    this.parsers = new Map<string, Parser>()
+    this.constructExports = []
+    this.ignoreDirectoriesMatch = []
+    this.packageManager = npmPackageManager
+    this.workspace = Err(new Error(`Workspace support not initialized`))
+    this.resetSharedFiles()
+  }
+
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
     if (loader === undefined) {
