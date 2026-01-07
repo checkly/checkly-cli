@@ -6,6 +6,9 @@ import { AxiosHeaders } from 'axios'
 import { CheckGroupV2, Diagnostics, PlaywrightCheck, RetryStrategyBuilder } from '../index'
 import { Project, Session } from '../project'
 import { checklyStorage } from '../../rest/api'
+import { usingIsolatedFixture } from '../../services/check-parser/__tests__/helper'
+import { Package, Workspace } from '../../services/check-parser/package-files/workspace'
+import { Err, Ok } from '../../services/check-parser/package-files/result'
 
 describe('PlaywrightCheck', () => {
   beforeEach(() => {
@@ -28,99 +31,42 @@ describe('PlaywrightCheck', () => {
     Session.includeFlagProvided = undefined
   })
 
+  async function usingFixture (
+    handle: ({ fixtureDir }: { fixtureDir: string }) => Promise<void> | void,
+  ) {
+    await usingIsolatedFixture(path.join(__dirname, 'fixtures', 'playwright-check'), async fixtureDir => {
+      try {
+        Session.workspace = Ok(new Workspace({
+          root: new Package({
+            name: 'playwright-bundle-test',
+            path: fixtureDir,
+          }),
+          packages: [],
+          lockfile: Ok(path.join(fixtureDir, 'package-lock.json')),
+          configFile: Err(new Error('configFile not set')),
+        }))
+
+        Session.basePath = fixtureDir
+        Session.contextPath = fixtureDir
+
+        await handle({
+          fixtureDir,
+        })
+      } finally {
+        Session.reset()
+      }
+    })
+  }
+
+  beforeEach(() => {
+    Session.project = new Project('project-id', {
+      name: 'Test Project',
+      repoUrl: 'https://github.com/checkly/checkly-cli',
+    })
+  })
+
   it('should synthesize groupName', async () => {
-    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-
-    const group = new CheckGroupV2('group', {
-      name: 'Test Group',
-    })
-
-    const check = new PlaywrightCheck('foo', {
-      name: 'Test Check',
-      groupName: 'Test Group',
-      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-    })
-
-    const diags = new Diagnostics()
-    await check.validate(diags)
-
-    expect(diags.isFatal()).toEqual(false)
-
-    const bundle = await check.bundle()
-    const payload = bundle.synthesize()
-
-    expect(payload.groupId).toEqual(group.ref())
-  })
-
-  it('should synthesize group', async () => {
-    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-
-    const group = new CheckGroupV2('group', {
-      name: 'Test Group',
-    })
-
-    const check = new PlaywrightCheck('foo', {
-      name: 'Test Check',
-      group,
-      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-    })
-
-    const diags = new Diagnostics()
-    await check.validate(diags)
-
-    expect(diags.isFatal()).toEqual(false)
-
-    const bundle = await check.bundle()
-    const payload = bundle.synthesize()
-
-    expect(payload.groupId).toEqual(group.ref())
-  })
-
-  it('should synthesize groupId', async () => {
-    Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-
-    const group = new CheckGroupV2('group', {
-      name: 'Test Group',
-    })
-
-    const check = new PlaywrightCheck('foo', {
-      name: 'Test Check',
-      groupId: group.ref(),
-      playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-    })
-
-    const diags = new Diagnostics()
-    await check.validate(diags)
-
-    expect(diags.isFatal()).toEqual(false)
-
-    const bundle = await check.bundle()
-    const payload = bundle.synthesize()
-
-    expect(payload.groupId).toEqual(group.ref())
-  })
-
-  describe('validation', () => {
-    it('should warn that groupName is deprecated', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    await usingFixture(async ({ fixtureDir }) => {
       const group = new CheckGroupV2('group', {
         name: 'Test Group',
       })
@@ -128,56 +74,23 @@ describe('PlaywrightCheck', () => {
       const check = new PlaywrightCheck('foo', {
         name: 'Test Check',
         groupName: 'Test Group',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
       })
 
       const diags = new Diagnostics()
       await check.validate(diags)
 
       expect(diags.isFatal()).toEqual(false)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('Property "groupName" is deprecated and will eventually be removed.'),
-        }),
-      ]))
+
+      const bundle = await check.bundle()
+      const payload = bundle.synthesize()
+
+      expect(payload.groupId).toEqual(group.ref())
     })
+  })
 
-    it('should error if groupName is not found', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const group = new CheckGroupV2('group', {
-        name: 'Test Group',
-      })
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        groupName: 'Missing Group',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      const diags = new Diagnostics()
-      await check.validate(diags)
-
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('The value provided for property "groupName" is not valid.'),
-        }),
-      ]))
-    })
-
-    it('should error if both group and groupName are set', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
-
+  it('should synthesize group', async () => {
+    await usingFixture(async ({ fixtureDir }) => {
       const group = new CheckGroupV2('group', {
         name: 'Test Group',
       })
@@ -185,28 +98,23 @@ describe('PlaywrightCheck', () => {
       const check = new PlaywrightCheck('foo', {
         name: 'Test Check',
         group,
-        groupName: 'Test Group',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
       })
 
       const diags = new Diagnostics()
       await check.validate(diags)
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
-        }),
-      ]))
+      expect(diags.isFatal()).toEqual(false)
+
+      const bundle = await check.bundle()
+      const payload = bundle.synthesize()
+
+      expect(payload.groupId).toEqual(group.ref())
     })
+  })
 
-    it('should error if both groupId and groupName are set', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      })
-
+  it('should synthesize groupId', async () => {
+    await usingFixture(async ({ fixtureDir }) => {
       const group = new CheckGroupV2('group', {
         name: 'Test Group',
       })
@@ -214,69 +122,162 @@ describe('PlaywrightCheck', () => {
       const check = new PlaywrightCheck('foo', {
         name: 'Test Check',
         groupId: group.ref(),
-        groupName: 'Test Group',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
       })
 
       const diags = new Diagnostics()
       await check.validate(diags)
 
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
-        }),
-      ]))
+      expect(diags.isFatal()).toEqual(false)
+
+      const bundle = await check.bundle()
+      const payload = bundle.synthesize()
+
+      expect(payload.groupId).toEqual(group.ref())
+    })
+  })
+
+  describe('validation', () => {
+    it('should warn that groupName is deprecated', async () => {
+      await usingFixture(async ({ fixtureDir }) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const group = new CheckGroupV2('group', {
+          name: 'Test Group',
+        })
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          groupName: 'Test Group',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(false)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Property "groupName" is deprecated and will eventually be removed.'),
+          }),
+        ]))
+      })
+    })
+
+    it('should error if groupName is not found', async () => {
+      await usingFixture(async ({ fixtureDir }) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const group = new CheckGroupV2('group', {
+          name: 'Test Group',
+        })
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          groupName: 'Missing Group',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('The value provided for property "groupName" is not valid.'),
+          }),
+        ]))
+      })
+    })
+
+    it('should error if both group and groupName are set', async () => {
+      await usingFixture(async ({ fixtureDir }) => {
+        const group = new CheckGroupV2('group', {
+          name: 'Test Group',
+        })
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          group,
+          groupName: 'Test Group',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
+          }),
+        ]))
+      })
+    })
+
+    it('should error if both groupId and groupName are set', async () => {
+      await usingFixture(async ({ fixtureDir }) => {
+        const group = new CheckGroupV2('group', {
+          name: 'Test Group',
+        })
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          groupId: group.ref(),
+          groupName: 'Test Group',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
+          }),
+        ]))
+      })
     })
 
     it('should error if retryStrategy is set', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
+      await usingFixture(async ({ fixtureDir }) => {
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+          // @ts-expect-error - Testing runtime validation. TypeScript should prevent this at compile time.
+          retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Property "retryStrategy" is not supported.'),
+          }),
+        ]))
       })
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-        // @ts-expect-error - Testing runtime validation. TypeScript should prevent this at compile time.
-        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
-      })
-
-      const diags = new Diagnostics()
-      await check.validate(diags)
-
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('Property "retryStrategy" is not supported.'),
-        }),
-      ]))
     })
 
     it('should error if doubleCheck is set', async () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
+      await usingFixture(async ({ fixtureDir }) => {
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+          // @ts-expect-error Testing a property that isn't part of the type.
+          doubleCheck: true,
+        })
+
+        const diags = new Diagnostics()
+        await check.validate(diags)
+
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('Property "doubleCheck" is not supported.'),
+          }),
+        ]))
       })
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-        // @ts-expect-error Testing a property that isn't part of the type.
-        doubleCheck: true,
-      })
-
-      const diags = new Diagnostics()
-      await check.validate(diags)
-
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          message: expect.stringContaining('Property "doubleCheck" is not supported.'),
-        }),
-      ]))
     })
 
     it('should error if headless: false is set globally', async () => {
@@ -522,42 +523,34 @@ describe('PlaywrightCheck', () => {
   })
 
   describe('defaults', () => {
-    it('should ignore retryStrategy from session check defaults', () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
+    it('should ignore retryStrategy from session check defaults', async () => {
+      await usingFixture(({ fixtureDir }) => {
+        Session.checkDefaults = {
+          retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
+        }
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        expect(check.retryStrategy).toBeUndefined()
       })
-
-      Session.checkDefaults = {
-        retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }),
-      }
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.retryStrategy).toBeUndefined()
     })
 
-    it('should ignore doubleCheck from session check defaults', () => {
-      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
-      Session.project = new Project('project-id', {
-        name: 'Test Project',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
+    it('should ignore doubleCheck from session check defaults', async () => {
+      await usingFixture(({ fixtureDir }) => {
+        Session.checkDefaults = {
+          doubleCheck: true,
+        }
+
+        const check = new PlaywrightCheck('foo', {
+          name: 'Test Check',
+          playwrightConfigPath: path.resolve(fixtureDir, 'playwright.config.ts'),
+        })
+
+        expect(check.doubleCheck).toBeUndefined()
       })
-
-      Session.checkDefaults = {
-        doubleCheck: true,
-      }
-
-      const check = new PlaywrightCheck('foo', {
-        name: 'Test Check',
-        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
-      })
-
-      expect(check.doubleCheck).toBeUndefined()
     })
   })
 })
