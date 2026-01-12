@@ -171,15 +171,15 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   async processCheckResult (result: any) {
     const {
-      region,
       logPath,
       checkRunDataPath,
     } = result.assets
+
     if (logPath && (this.verbose || result.hasFailures)) {
-      result.logs = await assets.getLogs(region, logPath)
+      result.logs = await assets.getLogs(result.assets)
     }
     if (checkRunDataPath && (this.verbose || result.hasFailures)) {
-      result.checkRunData = await assets.getCheckRunData(region, checkRunDataPath)
+      result.checkRunData = await assets.getCheckRunData(result.assets)
     }
   }
 
