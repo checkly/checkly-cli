@@ -97,16 +97,16 @@ export function formatCheckResult (checkResult: any) {
           formatAssertions(checkResult.checkRunData.assertions),
         ])
       }
-      if (checkResult.logs?.request.length) {
-        result.push([
-          formatSectionTitle('Request Logs'),
-          formatLogs(checkResult.logs.request),
-        ])
-      }
       if (checkResult.logs?.setup.length) {
         result.push([
           formatSectionTitle('Setup Script Logs'),
           formatLogs(checkResult.logs.setup),
+        ])
+      }
+      if (checkResult.logs?.request.length) {
+        result.push([
+          formatSectionTitle('Request Logs'),
+          formatLogs(checkResult.logs.request),
         ])
       }
       if (checkResult.logs?.teardown.length) {
