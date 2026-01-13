@@ -103,6 +103,12 @@ export function formatCheckResult (checkResult: any) {
           formatLogs(checkResult.logs.setup),
         ])
       }
+      if (checkResult.logs?.request.length) {
+        result.push([
+          formatSectionTitle('Request Logs'),
+          formatLogs(checkResult.logs.request),
+        ])
+      }
       if (checkResult.logs?.teardown.length) {
         result.push([
           formatSectionTitle('Teardown Script Logs'),
