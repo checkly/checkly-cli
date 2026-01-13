@@ -111,8 +111,10 @@ export default class Assets {
       case AssetType.CHECK_RUN_DATA: {
         if (isCheckResultAssetsV1(asset) && asset.checkRunDataPath) {
           key = asset.checkRunDataPath
+        } else if (isCheckResultAssetsV3(asset)) {
+          key = asset.clickHouseId
+          break
         }
-        break
       }
     }
 
