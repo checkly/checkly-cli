@@ -52,6 +52,10 @@ export class AlertChannelSubscription extends Construct {
     return `AlertChannelSubscription:${this.logicalId}`
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return {
       alertChannelId: this.alertChannelId,

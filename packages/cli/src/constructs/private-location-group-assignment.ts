@@ -37,6 +37,10 @@ export class PrivateLocationGroupAssignment extends Construct {
     return `PrivateLocationGroupAssignment:${this.logicalId}`
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return {
       privateLocationId: this.privateLocationId,
