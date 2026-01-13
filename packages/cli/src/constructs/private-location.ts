@@ -62,6 +62,10 @@ export class PrivateLocationRef extends Construct {
     return `PrivateLocationRef:${this.logicalId}`
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return null
   }
