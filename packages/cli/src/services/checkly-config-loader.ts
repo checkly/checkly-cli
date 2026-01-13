@@ -146,31 +146,35 @@ export async function getChecklyConfigFile (): Promise<{ checklyConfig: string, 
 export class ConfigNotFoundError extends Error {}
 
 export async function loadChecklyConfig (dir: string, filenames = ['checkly.config.ts', 'checkly.config.mts', 'checkly.config.cts', 'checkly.config.js', 'checkly.config.mjs', 'checkly.config.cjs'], writeChecklyConfig: boolean = true, playwrightConfigPath?: string): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
-  let config: ChecklyConfig | undefined
   Session.loadingChecklyConfigFile = true
-  Session.checklyConfigFileConstructs = []
-  for (const filename of filenames) {
-    const filePath = path.join(dir, filename)
-    try {
-      await fs.access(filePath, fs.constants.R_OK)
-    } catch {
-      continue
+  try {
+    let config: ChecklyConfig | undefined
+    Session.checklyConfigFileConstructs = []
+    for (const filename of filenames) {
+      const filePath = path.join(dir, filename)
+      try {
+        await fs.access(filePath, fs.constants.R_OK)
+      } catch {
+        continue
+      }
+      config = await Session.loadFile<ChecklyConfig>(filePath)
+      break
     }
-    config = await Session.loadFile<ChecklyConfig>(filePath)
-    break
-  }
-  if (!config) {
-    config = await handleMissingConfig(dir, filenames, writeChecklyConfig, playwrightConfigPath)
-  }
-  validateConfigFields(config, ['logicalId', 'projectName'] as const)
+    if (!config) {
+      config = await handleMissingConfig(dir, filenames, writeChecklyConfig, playwrightConfigPath)
+    }
+    validateConfigFields(config, ['logicalId', 'projectName'] as const)
 
-  const constructs = Session.checklyConfigFileConstructs
-  Session.loadingChecklyConfigFile = false
-  Session.checklyConfigFileConstructs = []
-  if (config.cli?.loader) {
-    Session.loader = config.cli.loader
+    const constructs = Session.checklyConfigFileConstructs
+
+    Session.checklyConfigFileConstructs = []
+    if (config.cli?.loader) {
+      Session.loader = config.cli.loader
+    }
+    return { config, constructs }
+  } finally {
+    Session.loadingChecklyConfigFile = false
   }
-  return { config, constructs }
 }
 
 async function handleMissingConfig (
