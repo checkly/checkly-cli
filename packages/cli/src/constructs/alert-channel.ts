@@ -81,6 +81,10 @@ export class AlertChannelRef extends Construct {
     return `AlertChannelRef:${this.logicalId}`
   }
 
+  allowInChecklyConfig () {
+    return true
+  }
+
   synthesize () {
     return null
   }
