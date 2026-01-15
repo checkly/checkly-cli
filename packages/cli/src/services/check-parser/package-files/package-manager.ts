@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { lineage } from './walk'
+import { shellQuote } from '../../../services/shell'
 
 export class Runnable {
   executable: string
@@ -13,25 +14,8 @@ export class Runnable {
   }
 
   get unsafeDisplayCommand (): string {
-    return [this.executable, ...this.args.map(unsafeQuoteArg)].join(' ')
+    return [this.executable, ...this.args.map(shellQuote)].join(' ')
   }
-}
-
-/**
- * Quotes an argument for display purposes only.
- *
- * @returns The argument as-is if quoting is not required, or quoted otherwise.
- */
-function unsafeQuoteArg (arg: string) {
-  if (arg === '') {
-    return `''`
-  }
-
-  if (!/[^%+,-./:=@_0-9A-Za-z]/.test(arg)) {
-    return arg
-  }
-
-  return `'${arg.replaceAll(`'`, `'"'"'`)}'`
 }
 
 export interface PackageManager {
