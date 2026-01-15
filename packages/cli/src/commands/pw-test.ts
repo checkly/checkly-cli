@@ -321,18 +321,24 @@ export default class PwTestCommand extends AuthCommand {
     await runner.run()
   }
 
+  // Safe shell characters: %+,-./:=@_ and alphanumeric
+  private static shellQuoteArg (arg: string): string {
+    if (arg === '') {
+      return '""'
+    }
+    if (/^[%+,\-./:=@_0-9A-Za-z]+$/.test(arg)) {
+      return arg
+    }
+    return `"${arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  }
+
   static async createPlaywrightCheck (
     args: string[],
     runLocation: keyof Region,
     privateRunLocation: string | undefined,
     dir: string,
   ): Promise<PlaywrightSlimmedProp> {
-    const parseArgs = args.map(arg => {
-      if (arg.includes(' ')) {
-        arg = `"${arg}"`
-      }
-      return arg
-    })
+    const parseArgs = args.map(arg => PwTestCommand.shellQuoteArg(arg))
     const input = parseArgs.join(' ') || ''
     const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
     const testCommand = await PwTestCommand.getTestCommand(dir, input)
