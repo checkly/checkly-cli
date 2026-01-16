@@ -6,7 +6,7 @@ import { checklyStorage } from '../rest/api'
 import {
   bundlePlayWrightProject, cleanup,
 } from '../services/util'
-import { shellQuoteDouble } from '../services/shell'
+import { shellQuote } from '../services/shell'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
 import {
   ConflictingPropertyDiagnostic,
@@ -289,9 +289,9 @@ export class PlaywrightCheck extends RuntimeCheck {
   static buildTestCommand (
     testCommand: string, playwrightConfigPath: string, playwrightProject?: string[], playwrightTag?: string[],
   ) {
-    const quotedPath = shellQuoteDouble(playwrightConfigPath)
-    const projectArg = playwrightProject?.length ? ' --project ' + playwrightProject.map(p => shellQuoteDouble(p)).join(' ') : ''
-    const tagArg = playwrightTag?.length ? ' --grep ' + shellQuoteDouble(playwrightTag.join('|')) : ''
+    const quotedPath = shellQuote(playwrightConfigPath)
+    const projectArg = playwrightProject?.length ? ' --project ' + playwrightProject.map(p => shellQuote(p)).join(' ') : ''
+    const tagArg = playwrightTag?.length ? ' --grep ' + shellQuote(playwrightTag.join('|')) : ''
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 

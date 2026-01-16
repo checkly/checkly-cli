@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shellQuote, shellQuoteDouble, shellJoin } from '../shell'
+import { shellQuote, shellJoin } from '../shell'
 
 describe('shell', () => {
   describe('shellQuote', () => {
@@ -29,34 +29,6 @@ describe('shell', () => {
 
     it('escapes embedded single quotes', () => {
       expect(shellQuote('it\'s')).toBe('\'it\'"\'"\'s\'')
-    })
-  })
-
-  describe('shellQuoteDouble', () => {
-    it('returns empty string as quoted', () => {
-      expect(shellQuoteDouble('')).toBe('""')
-    })
-
-    it('leaves safe characters unquoted', () => {
-      expect(shellQuoteDouble('@TAG-B')).toBe('@TAG-B')
-      expect(shellQuoteDouble('--grep')).toBe('--grep')
-    })
-
-    it('quotes strings with spaces', () => {
-      expect(shellQuoteDouble('@foo bar')).toBe('"@foo bar"')
-    })
-
-    it('quotes strings with shell metacharacters', () => {
-      expect(shellQuoteDouble('test|pattern')).toBe('"test|pattern"')
-      expect(shellQuoteDouble('$var')).toBe('"$var"')
-    })
-
-    it('escapes embedded double quotes', () => {
-      expect(shellQuoteDouble('say "hello"')).toBe('"say \\"hello\\""')
-    })
-
-    it('escapes backslashes', () => {
-      expect(shellQuoteDouble('path\\to\\file')).toBe('"path\\\\to\\\\file"')
     })
   })
 

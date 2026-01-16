@@ -37,7 +37,7 @@ import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
 import { DEFAULT_REGION } from '../helpers/constants'
 import { cased } from '../sourcegen'
-import { shellQuoteDouble } from '../services/shell'
+import { shellQuote } from '../services/shell'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -328,7 +328,7 @@ export default class PwTestCommand extends AuthCommand {
     privateRunLocation: string | undefined,
     dir: string,
   ): Promise<PlaywrightSlimmedProp> {
-    const parseArgs = args.map(arg => shellQuoteDouble(arg))
+    const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
     const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)
     const testCommand = await PwTestCommand.getTestCommand(dir, input)
