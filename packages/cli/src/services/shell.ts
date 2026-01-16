@@ -3,12 +3,12 @@ const SAFE_SHELL_CHARS = /^[%+,\-./:=@_0-9A-Za-z]+$/
 
 export function shellQuote (arg: string): string {
   if (arg === '') {
-    return '\'\''
+    return `''`
   }
   if (SAFE_SHELL_CHARS.test(arg)) {
     return arg
   }
-  return `'${arg.replace(/'/g, '\'"\'"\'')}'`
+  return `'${arg.replace(/'/g, `'"'"'`)}'`
 }
 
 export function shellJoin (args: string[]): string {

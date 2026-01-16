@@ -4,7 +4,7 @@ import { shellQuote, shellJoin } from '../shell'
 describe('shell', () => {
   describe('shellQuote', () => {
     it('returns empty string as quoted', () => {
-      expect(shellQuote('')).toBe('\'\'')
+      expect(shellQuote('')).toBe(`''`)
     })
 
     it('leaves safe characters unquoted', () => {
@@ -16,27 +16,27 @@ describe('shell', () => {
     })
 
     it('quotes strings with spaces', () => {
-      expect(shellQuote('@foo bar')).toBe('\'@foo bar\'')
+      expect(shellQuote('@foo bar')).toBe(`'@foo bar'`)
     })
 
     it('quotes strings with shell metacharacters', () => {
-      expect(shellQuote('test|pattern')).toBe('\'test|pattern\'')
-      expect(shellQuote('$var')).toBe('\'$var\'')
-      expect(shellQuote('cmd;rm -rf')).toBe('\'cmd;rm -rf\'')
-      expect(shellQuote('a*b')).toBe('\'a*b\'')
-      expect(shellQuote('(foo)')).toBe('\'(foo)\'')
+      expect(shellQuote('test|pattern')).toBe(`'test|pattern'`)
+      expect(shellQuote('$var')).toBe(`'$var'`)
+      expect(shellQuote('cmd;rm -rf')).toBe(`'cmd;rm -rf'`)
+      expect(shellQuote('a*b')).toBe(`'a*b'`)
+      expect(shellQuote('(foo)')).toBe(`'(foo)'`)
     })
 
     it('escapes embedded single quotes', () => {
-      expect(shellQuote('it\'s')).toBe('\'it\'"\'"\'s\'')
+      expect(shellQuote(`it's`)).toBe(`'it'"'"'s'`)
     })
   })
 
   describe('shellJoin', () => {
     it('joins args with proper quoting', () => {
       expect(shellJoin(['--grep', '@TAG-B'])).toBe('--grep @TAG-B')
-      expect(shellJoin(['--grep', '@foo bar'])).toBe('--grep \'@foo bar\'')
-      expect(shellJoin(['npx', 'playwright', 'test', '--grep', 'a|b'])).toBe('npx playwright test --grep \'a|b\'')
+      expect(shellJoin(['--grep', '@foo bar'])).toBe(`--grep '@foo bar'`)
+      expect(shellJoin(['npx', 'playwright', 'test', '--grep', 'a|b'])).toBe(`npx playwright test --grep 'a|b'`)
     })
 
     it('handles empty array', () => {
