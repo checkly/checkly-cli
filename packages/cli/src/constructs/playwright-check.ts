@@ -13,6 +13,7 @@ import {
   InvalidPropertyValueDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
+import { WarningDiagnostic } from './diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
@@ -238,19 +239,22 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
+    // Only show webServer warning for pw-test command when --include is not provided
+    if (Session.currentCommand !== 'pw-test' || Session.includeFlagProvided) {
+      return
+    }
+
     try {
       const playwrightConfig = await Session.loadFile(this.playwrightConfigPath)
 
       if (playwrightConfig && typeof playwrightConfig === 'object' && 'webServer' in playwrightConfig) {
-        diagnostics.add(new UnsupportedPropertyDiagnostic(
-          'webServer',
-          new Error(
-            `webServer configuration in "${this.playwrightConfigPath}" is not supported.`
-            + `\n\n`
-            + `Deploy your application independently `
-            + `and use environment variables for the URL.`,
-          ),
-        ))
+        diagnostics.add(new WarningDiagnostic({
+          title: 'webServer configuration detected',
+          message:
+            `webServer configuration requires additional files. `
+            + `Include all files needed to start the server (e.g., server scripts, config files) `
+            + `by passing them via the --include flag.`,
+        }))
       }
     } catch {
       // Config loading errors will be caught by the fs.access check below

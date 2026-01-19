@@ -19,6 +19,8 @@ describe('PlaywrightCheck', () => {
         headers: new AxiosHeaders(),
       },
     })
+    Session.currentCommand = undefined
+    Session.includeFlagProvided = undefined
   })
 
   it('should synthesize groupName', async () => {
@@ -272,12 +274,13 @@ describe('PlaywrightCheck', () => {
       ]))
     })
 
-    it('should error if webServer is configured in playwright config', async () => {
+    it('should warn if webServer is configured in playwright config when running pw-test', async () => {
       Session.basePath = path.resolve(__dirname, './fixtures/playwright-check-webserver')
       Session.project = new Project('project-id', {
         name: 'Test Project',
         repoUrl: 'https://github.com/checkly/checkly-cli',
       })
+      Session.currentCommand = 'pw-test'
 
       const check = new PlaywrightCheck('foo', {
         name: 'Test Check',
@@ -287,10 +290,58 @@ describe('PlaywrightCheck', () => {
       const diags = new Diagnostics()
       await check.validate(diags)
 
-      expect(diags.isFatal()).toEqual(true)
+      expect(diags.isFatal()).toEqual(false)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('Property "webServer" is not supported.'),
+          title: expect.stringContaining('webServer configuration detected'),
+          message: expect.stringContaining('webServer configuration requires additional files'),
+        }),
+      ]))
+    })
+
+    it('should not warn about webServer when not running pw-test command', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check-webserver')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      Session.currentCommand = 'test'
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check-webserver/playwright.config.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          title: expect.stringContaining('webServer configuration detected'),
+        }),
+      ]))
+    })
+
+    it('should not warn about webServer when --include flag is provided', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check-webserver')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+      Session.currentCommand = 'pw-test'
+      Session.includeFlagProvided = true
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check-webserver/playwright.config.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          title: expect.stringContaining('webServer configuration detected'),
         }),
       ]))
     })

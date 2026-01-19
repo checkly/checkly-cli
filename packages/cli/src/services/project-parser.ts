@@ -33,7 +33,9 @@ type ProjectParseOpts = {
   checklyConfigConstructs?: Construct[]
   playwrightConfigPath?: string
   include?: string | string[]
+  includeFlagProvided?: boolean
   playwrightChecks?: PlaywrightSlimmedProp[]
+  currentCommand?: 'pw-test' | 'test' | 'deploy'
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -59,7 +61,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     checklyConfigConstructs,
     playwrightConfigPath,
     include,
+    includeFlagProvided,
     playwrightChecks,
+    currentCommand,
   } = opts
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -82,6 +86,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
+  Session.currentCommand = currentCommand
+  Session.includeFlagProvided = includeFlagProvided
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
