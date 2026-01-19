@@ -271,6 +271,29 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+
+    it('should error if webServer is configured in playwright config', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check-webserver')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check-webserver/playwright.config.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "webServer" is not supported.'),
+        }),
+      ]))
+    })
   })
 
   describe('defaults', () => {

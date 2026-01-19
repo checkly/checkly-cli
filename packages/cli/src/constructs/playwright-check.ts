@@ -237,12 +237,34 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
   }
 
+  protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
+    try {
+      const playwrightConfig = await Session.loadFile(this.playwrightConfigPath)
+
+      if (playwrightConfig && typeof playwrightConfig === 'object' && 'webServer' in playwrightConfig) {
+        diagnostics.add(new UnsupportedPropertyDiagnostic(
+          'webServer',
+          new Error(
+            `webServer configuration in "${this.playwrightConfigPath}" is not supported.`
+            + `\n\n`
+            + `Deploy your application independently `
+            + `and use environment variables for the URL.`,
+          ),
+        ))
+      }
+    } catch {
+      // Config loading errors will be caught by the fs.access check below
+      // or during bundling. No need to duplicate error handling here.
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateRetryStrategy(diagnostics)
 
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)
+      await this.validateWebServerConfig(diagnostics)
     } catch (err: any) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'playwrightConfigPath',
