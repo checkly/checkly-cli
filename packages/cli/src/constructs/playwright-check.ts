@@ -238,6 +238,45 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
   }
 
+  protected async validateHeadlessMode (diagnostics: Diagnostics): Promise<void> {
+    try {
+      const playwrightConfig = await Session.loadFile<any>(this.playwrightConfigPath)
+
+      if (playwrightConfig?.use?.headless === false) {
+        diagnostics.add(new UnsupportedPropertyDiagnostic(
+          'headless',
+          new Error(
+            `headless: false is not supported.`
+            + `\n\n`
+            + `Checkly runs all Playwright checks in headless mode. `
+            + `Please remove this setting from your Playwright configuration, `
+            + `or set it to true.`,
+          ),
+        ))
+      }
+
+      if (Array.isArray(playwrightConfig?.projects)) {
+        for (const project of playwrightConfig.projects) {
+          if (project?.use?.headless === false) {
+            const projectName = project.name ? ` in project "${project.name}"` : ''
+            diagnostics.add(new UnsupportedPropertyDiagnostic(
+              'headless',
+              new Error(
+                `headless: false is not supported${projectName}.`
+                + `\n\n`
+                + `Checkly runs all Playwright checks in headless mode. `
+                + `Please remove this setting from your Playwright configuration, `
+                + `or set it to true.`,
+              ),
+            ))
+          }
+        }
+      }
+    } catch {
+      // Config loading errors are handled by existing playwrightConfigPath validation
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateRetryStrategy(diagnostics)
@@ -250,6 +289,8 @@ export class PlaywrightCheck extends RuntimeCheck {
         new Error(`Playwright config "${this.playwrightConfigPath}" does not exist: ${err.message}`, { cause: err }),
       ))
     }
+
+    await this.validateHeadlessMode(diagnostics)
 
     this.#validateGroupReferences(diagnostics)
   }

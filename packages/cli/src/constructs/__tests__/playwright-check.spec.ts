@@ -271,6 +271,101 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+
+    it('should error if headless: false is set globally', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.headless-false.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "headless" is not supported.'),
+        }),
+      ]))
+    })
+
+    it('should error if headless: false is set in a project', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.headless-false-project.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "headless" is not supported.'),
+        }),
+        expect.objectContaining({
+          message: expect.stringContaining('in project "chromium"'),
+        }),
+      ]))
+    })
+
+    it('should not error if headless: true is set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.headless-true.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "headless" is not supported.'),
+        }),
+      ]))
+    })
+
+    it('should not error if headless is not set', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('Property "headless" is not supported.'),
+        }),
+      ]))
+    })
   })
 
   describe('defaults', () => {
