@@ -272,8 +272,14 @@ export class PlaywrightCheck extends RuntimeCheck {
           }
         }
       }
-    } catch {
-      // Config loading errors are handled by existing playwrightConfigPath validation
+    } catch (err: any) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'playwrightConfigPath',
+        new Error(
+          `Unable to parse Playwright config "${this.playwrightConfigPath}": ${err.message}`,
+          { cause: err },
+        ),
+      ))
     }
   }
 
