@@ -10,8 +10,7 @@ import { JsonSourceFile } from './json-source-file'
 import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
 import { lineage, LineageOptions } from './walk'
-import { Workspace } from './workspace'
-import { PackageManager } from './package-manager'
+import { Package, Workspace } from './workspace'
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
@@ -195,6 +194,7 @@ type RelativePathLocalDependency = {
 
 type WorkspaceNeighborLocalDependency = {
   kind: 'workspace-neighbor'
+  neighbor: Package
   importPath: string
   sourceFile: SourceFile
 }
@@ -221,10 +221,16 @@ type ExternalDependency = {
   importPath: string
 }
 
+type NeighborDependencies = {
+  depends: Package[]
+  references: Package[]
+}
+
 export type Dependencies = {
   external: ExternalDependency[]
   missing: MissingDependency[]
   local: LocalDependency[]
+  neighbors: NeighborDependencies
 }
 
 interface ResolveSourceFileOptions {
@@ -346,6 +352,10 @@ export class PackageFilesResolver {
       external: [],
       missing: [],
       local: [],
+      neighbors: {
+        depends: [],
+        references: [],
+      },
     }
 
     const dirname = path.dirname(filePath)
@@ -445,6 +455,8 @@ export class PackageFilesResolver {
         configFile: jsconfigJson,
       })
     }
+
+    const usedNeighbors = new Set<Package>()
 
     const context = LookupContext.forFilePath(filePath)
 
@@ -563,9 +575,9 @@ export class PackageFilesResolver {
 
       if (this.workspace) {
         const { name, path: exportPath } = splitExternalPath(importPath)
-        const pkg = this.workspace.memberByName(name)
-        if (pkg) {
-          const sourceFile = await this.cache.sourceFile(pkg.path, context)
+        const neighbor = this.workspace.memberByName(name)
+        if (neighbor) {
+          const sourceFile = await this.cache.sourceFile(neighbor.path, context)
           if (sourceFile !== undefined) {
             const resolvedFiles = await this.resolveSourceFile(sourceFile, context, {
               exportPath,
@@ -575,12 +587,14 @@ export class PackageFilesResolver {
             for (const resolvedFile of resolvedFiles) {
               resolved.local.push({
                 kind: 'workspace-neighbor',
+                neighbor,
                 importPath,
                 sourceFile: resolvedFile,
               })
               found = true
             }
             if (found) {
+              usedNeighbors.add(neighbor)
               continue resolve
             }
           }
@@ -590,6 +604,27 @@ export class PackageFilesResolver {
       resolved.external.push({
         importPath,
       })
+    }
+
+    const requiredNeighbors = new Set<Package>()
+
+    if (packageJson && this.workspace) {
+      const combinedDependencies = {
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies,
+      }
+
+      for (const dep of Object.keys(combinedDependencies)) {
+        const neighbor = this.workspace.memberByName(dep)
+        if (neighbor) {
+          requiredNeighbors.add(neighbor)
+        }
+      }
+    }
+
+    resolved.neighbors = {
+      depends: Array.from(requiredNeighbors),
+      references: Array.from(usedNeighbors),
     }
 
     return resolved
