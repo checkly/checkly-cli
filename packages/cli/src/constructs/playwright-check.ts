@@ -425,21 +425,27 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
-  static contextifyCommand (command: string): string {
-    return Session.basePath === Session.contextPath
-      ? command
-      : `env --chdir "${Session.relativePosixPath(Session.contextPath!)}" -- ${command}`
-  }
-
   static async bundleProject (playwrightConfigPath: string, include: string[]) {
     let dir = ''
     try {
       const {
-        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion,
+        outputFile,
+        browsers,
+        relativePlaywrightConfigPath,
+        cacheHash,
+        playwrightVersion,
+        workingDir,
       } = await bundlePlayWrightProject(playwrightConfigPath, include)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
-      return { key, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion }
+      return {
+        key,
+        browsers,
+        relativePlaywrightConfigPath,
+        cacheHash,
+        playwrightVersion,
+        workingDir,
+      }
     } finally {
       if (process.env['CHECKLY_PLAYWRIGHT_DEBUG_PERSIST_BUNDLE'] === '1') {
         debug(`Skip cleaning up bundle '${dir}'`)
@@ -472,14 +478,15 @@ export class PlaywrightCheck extends RuntimeCheck {
       cacheHash,
       playwrightVersion,
       relativePlaywrightConfigPath,
+      workingDir,
     } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
 
-    const testCommand = PlaywrightCheck.contextifyCommand(PlaywrightCheck.buildTestCommand(
+    const testCommand = PlaywrightCheck.buildTestCommand(
       this.testCommand ?? this.#defaultTestCommand(),
       relativePlaywrightConfigPath,
       this.pwProjects,
       this.pwTags,
-    ))
+    )
 
     return new PlaywrightCheckBundle(this, {
       groupId,
@@ -489,6 +496,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       playwrightVersion,
       testCommand,
       installCommand: this.installCommand,
+      workingDir,
     })
   }
 
