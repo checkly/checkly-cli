@@ -256,9 +256,11 @@ export class PlaywrightCheck extends RuntimeCheck {
             + `by passing them via the --include flag.`,
         }))
       }
-    } catch {
-      // Config loading errors will be caught by the fs.access check below
-      // or during bundling. No need to duplicate error handling here.
+    } catch (err: any) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'playwrightConfigPath',
+        new Error(`Unable to parse Playwright config "${this.playwrightConfigPath}": ${err.message}`, { cause: err }),
+      ))
     }
   }
 
