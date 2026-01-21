@@ -10,6 +10,7 @@ export interface PlaywrightCheckBundleProps {
   playwrightVersion?: string
   installCommand?: string
   testCommand: string
+  workingDir?: string
 }
 
 export class PlaywrightCheckBundle implements Bundle {
@@ -21,6 +22,7 @@ export class PlaywrightCheckBundle implements Bundle {
   playwrightVersion?: string
   installCommand?: string
   testCommand: string
+  workingDir?: string
 
   constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckBundleProps) {
     this.playwrightCheck = playwrightCheck
@@ -31,6 +33,7 @@ export class PlaywrightCheckBundle implements Bundle {
     this.playwrightVersion = props.playwrightVersion
     this.installCommand = props.installCommand
     this.testCommand = props.testCommand
+    this.workingDir = props.workingDir
   }
 
   synthesize () {
@@ -43,6 +46,7 @@ export class PlaywrightCheckBundle implements Bundle {
       playwrightVersion: this.playwrightVersion,
       installCommand: this.installCommand,
       testCommand: this.testCommand,
+      workingDir: this.workingDir,
     }
   }
 }

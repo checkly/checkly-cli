@@ -197,6 +197,7 @@ export async function bundlePlayWrightProject (
   relativePlaywrightConfigPath: string
   cacheHash: string
   playwrightVersion: string
+  workingDir?: string
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
@@ -241,6 +242,7 @@ export async function bundlePlayWrightProject (
         playwrightVersion,
         relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
         cacheHash,
+        workingDir: Session.relativePosixPath(Session.contextPath!),
       })
     })
 
