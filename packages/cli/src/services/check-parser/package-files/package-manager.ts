@@ -245,10 +245,10 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       const rootPackage = new Package({
         name: root.name,
         path: root.path,
-        workspaces: Object.values(dependencies).map(dep => dep.path),
+        workspaces: dependencies.map(dep => dep.path),
       })
 
-      const packages = Object.entries(dependencies).map(([name, { path }]) => {
+      const packages = dependencies.map(({ name, path }) => {
         return new Package({
           name,
           path,

@@ -33,6 +33,10 @@ export class Package {
     this.workspaces = workspaces
   }
 
+  get packageJsonPath (): string {
+    return PackageJsonFile.filePath(this.path)
+  }
+
   // eslint-disable-next-line require-await
   static async loadFromPackageJsonFile (packageJson: PackageJsonFile): Promise<Package | undefined> {
     const { name, workspaces } = packageJson

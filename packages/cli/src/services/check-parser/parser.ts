@@ -14,8 +14,9 @@ import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
 import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
-import { Workspace } from './package-files/workspace'
+import { Package, Workspace } from './package-files/workspace'
 import { isCoreExtension, isTSExtension } from './package-files/extension'
+import { createFauxPackageFiles } from './faux-package'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -101,6 +102,33 @@ class RawDependencyCollector {
   }
 }
 
+class NeighborDependencyCollector {
+  #depended = new Set<Package>()
+  #referenced = new Set<Package>()
+
+  markDepended (...pkg: Package[]): void {
+    for (const p of pkg) {
+      this.#depended.add(p)
+    }
+  }
+
+  markReferenced (...pkg: Package[]): void {
+    for (const p of pkg) {
+      this.markDepended(p)
+      this.#referenced.add(p)
+    }
+  }
+
+  unreferencedDependedPackages (): Package[] {
+    return Array.from(this.#depended).filter(pkg => !this.#referenced.has(pkg))
+  }
+}
+
+type FileEntry = {
+  filePath: string
+  content: string
+}
+
 type ParserOptions = {
   supportedNpmModules?: Array<string>
   checkUnsupportedModules?: boolean
@@ -111,6 +139,7 @@ type ParserOptions = {
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
+  workspace?: Workspace
   resolver: PackageFilesResolver
   restricted: boolean
   cache = new Map<string, {
@@ -124,6 +153,7 @@ export class Parser {
   constructor (options: ParserOptions) {
     this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
+    this.workspace = options.workspace
     this.resolver = new PackageFilesResolver({
       workspace: options.workspace,
     })
@@ -144,10 +174,7 @@ export class Parser {
 
   private async validateFile (
     filePath: string,
-  ): Promise<{
-    filePath: string
-    content: string
-  }> {
+  ): Promise<FileEntry> {
     const extension = path.extname(filePath)
     if (!this.isProcessableExtension(extension)) {
       throw new Error(`Unsupported file extension for ${filePath}`)
@@ -176,13 +203,19 @@ export class Parser {
     return false
   }
 
-  async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
-  Promise<{ files: string[], errors: string[] }> {
+  async getFilesAndDependencies (
+    playwrightConfig: PlaywrightConfig,
+  ): Promise<{
+    filePaths: string[]
+    fileEntries: FileEntry[]
+    errors: string[]
+  }> {
     const files = new Set(await this.getFilesFromPaths(playwrightConfig))
     files.add(playwrightConfig.configFilePath)
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
+    const neighbors = new NeighborDependencyCollector()
     for (const file of files) {
       if (resultFileSet.has(file)) {
         continue
@@ -211,6 +244,9 @@ export class Parser {
         missingFiles.add(pathToPosix(dep.filePath))
       }
 
+      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+
       this.cache.set(item.filePath, { module, resolvedDependencies })
 
       for (const dep of resolvedDependencies.local) {
@@ -222,10 +258,19 @@ export class Parser {
       }
       resultFileSet.add(pathToPosix(item.filePath))
     }
+
     if (missingFiles.size) {
       throw new DependencyParseError([].join(', '), Array.from(missingFiles), [], [])
     }
-    return { files: Array.from(resultFileSet), errors: Array.from(errors) }
+
+    const fileEntries = neighbors.unreferencedDependedPackages()
+      .flatMap(pkg => createFauxPackageFiles(pkg))
+
+    return {
+      filePaths: Array.from(resultFileSet),
+      fileEntries,
+      errors: Array.from(errors),
+    }
   }
 
   private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
@@ -312,7 +357,8 @@ export class Parser {
   * In this implementation, we use breadth first search.
   */
     const collector = new Collector(entrypoint, content)
-    const bfsQueue: [{ filePath: string, content: string }] = [{ filePath: entrypoint, content }]
+    const neighbors = new NeighborDependencyCollector()
+    const bfsQueue: [FileEntry] = [{ filePath: entrypoint, content }]
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
     // We can add a not-null assertion operator (!).
@@ -367,6 +413,15 @@ export class Parser {
         }
         collector.addDependency(filePath, dep.sourceFile.contents)
         bfsQueue.push({ filePath, content: dep.sourceFile.contents })
+      }
+
+      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+    }
+
+    for (const pkg of neighbors.unreferencedDependedPackages()) {
+      for (const f of createFauxPackageFiles(pkg)) {
+        collector.addDependency(f.filePath, f.content)
       }
     }
 

@@ -286,7 +286,7 @@ export async function loadPlaywrightProjectFiles (
     workspace: Session.workspace.ok(),
     restricted: false,
   })
-  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  const { filePaths, fileEntries, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
@@ -294,10 +294,16 @@ export async function loadPlaywrightProjectFiles (
   const entryDefaults = {
     mode: 0o755, // Default mode for files in the archive
   }
-  for (const file of files) {
-    archive.file(file, {
+  for (const { filePath, content } of fileEntries) {
+    archive.append(content, {
       ...entryDefaults,
-      name: Session.relativePosixPath(file),
+      name: Session.relativePosixPath(filePath),
+    })
+  }
+  for (const filePath of filePaths) {
+    archive.file(filePath, {
+      ...entryDefaults,
+      name: Session.relativePosixPath(filePath),
     })
   }
   for (const includePattern of include) {
