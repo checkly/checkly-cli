@@ -243,7 +243,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       const playwrightConfig = await Session.loadFile<any>(this.playwrightConfigPath)
 
       if (playwrightConfig?.use?.headless === false) {
-        diagnostics.add(new UnsupportedPropertyDiagnostic(
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
           'headless',
           new Error(
             `headless: false is not supported.`
@@ -259,7 +259,7 @@ export class PlaywrightCheck extends RuntimeCheck {
         for (const project of playwrightConfig.projects) {
           if (project?.use?.headless === false) {
             const projectName = project.name ? ` in project "${project.name}"` : ''
-            diagnostics.add(new UnsupportedPropertyDiagnostic(
+            diagnostics.add(new InvalidPropertyValueDiagnostic(
               'headless',
               new Error(
                 `headless: false is not supported${projectName}.`

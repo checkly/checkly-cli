@@ -290,7 +290,7 @@ describe('PlaywrightCheck', () => {
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('Property "headless" is not supported.'),
+          message: expect.stringContaining('The value provided for property "headless" is not valid.'),
         }),
       ]))
     })
@@ -313,7 +313,7 @@ describe('PlaywrightCheck', () => {
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('Property "headless" is not supported.'),
+          message: expect.stringContaining('The value provided for property "headless" is not valid.'),
         }),
         expect.objectContaining({
           message: expect.stringContaining('in project "chromium"'),
@@ -339,7 +339,7 @@ describe('PlaywrightCheck', () => {
       expect(diags.isFatal()).toEqual(false)
       expect(diags.observations).not.toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('Property "headless" is not supported.'),
+          message: expect.stringContaining('The value provided for property "headless" is not valid.'),
         }),
       ]))
     })
@@ -362,7 +362,7 @@ describe('PlaywrightCheck', () => {
       expect(diags.isFatal()).toEqual(false)
       expect(diags.observations).not.toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('Property "headless" is not supported.'),
+          message: expect.stringContaining('The value provided for property "headless" is not valid.'),
         }),
       ]))
     })
