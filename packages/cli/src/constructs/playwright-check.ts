@@ -239,6 +239,51 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
   }
 
+  protected async validateHeadlessMode (diagnostics: Diagnostics): Promise<void> {
+    try {
+      const playwrightConfig = await Session.loadFile<any>(this.playwrightConfigPath)
+
+      if (playwrightConfig?.use?.headless === false) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'headless',
+          new Error(
+            `headless: false is not supported.`
+            + `\n\n`
+            + `Checkly runs all Playwright checks in headless mode. `
+            + `Please remove this setting from your Playwright configuration, `
+            + `or set it to true.`,
+          ),
+        ))
+      }
+
+      if (Array.isArray(playwrightConfig?.projects)) {
+        for (const project of playwrightConfig.projects) {
+          if (project?.use?.headless === false) {
+            const projectName = project.name ? ` in project "${project.name}"` : ''
+            diagnostics.add(new InvalidPropertyValueDiagnostic(
+              'headless',
+              new Error(
+                `headless: false is not supported${projectName}.`
+                + `\n\n`
+                + `Checkly runs all Playwright checks in headless mode. `
+                + `Please remove this setting from your Playwright configuration, `
+                + `or set it to true.`,
+              ),
+            ))
+          }
+        }
+      }
+    } catch (err: any) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'playwrightConfigPath',
+        new Error(
+          `Unable to parse Playwright config "${this.playwrightConfigPath}": ${err.message}`,
+          { cause: err },
+        ),
+      ))
+    }
+  }
+
   protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
     // Only show webServer warning for pw-test command when --include is not provided
     if (Session.currentCommand !== 'pw-test' || Session.includeFlagProvided) {

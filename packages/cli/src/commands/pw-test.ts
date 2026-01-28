@@ -18,7 +18,6 @@ import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
 import {
-  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
   DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
   Events,
   SequenceId,
