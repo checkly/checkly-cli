@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { AxiosHeaders } from 'axios'
 
 import { CheckGroupV2, Diagnostics, PlaywrightCheck, RetryStrategyBuilder } from '../index'
@@ -19,6 +19,11 @@ describe('PlaywrightCheck', () => {
         headers: new AxiosHeaders(),
       },
     })
+    Session.currentCommand = undefined
+    Session.includeFlagProvided = undefined
+  })
+
+  afterEach(() => {
     Session.currentCommand = undefined
     Session.includeFlagProvided = undefined
   })
