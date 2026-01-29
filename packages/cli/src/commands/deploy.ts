@@ -18,6 +18,7 @@ import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
+import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -155,12 +156,45 @@ export default class Deploy extends AuthCommand {
       }
     })()
 
-    if (!preview) {
-      for (const { bundle: check } of Object.values(projectBundle.data.check)) {
-        if (!(check instanceof BrowserCheckBundle)) {
-          continue
+    const bundledChecksByType = {
+      playwright: [] as string[],
+      browser: [] as string[],
+    }
+
+    for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
+      if (bundle instanceof BrowserCheckBundle) {
+        bundledChecksByType.browser.push(logicalId)
+      } else if (bundle instanceof PlaywrightCheckLocalBundle) {
+        bundledChecksByType.playwright.push(logicalId)
+      }
+    }
+
+    if (!preview && bundledChecksByType.browser.length) {
+      this.style.actionStart('Uploading Playwright snapshots')
+      try {
+        for (const logicalId of bundledChecksByType.browser) {
+          const bundle = projectBundle.data.check[logicalId].bundle as BrowserCheckBundle
+          bundle.snapshots = await uploadSnapshots(bundle.rawSnapshots)
         }
-        check.snapshots = await uploadSnapshots(check.rawSnapshots)
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    }
+
+    if (bundledChecksByType.playwright.length) {
+      this.style.actionStart('Uploading Playwright code bundles')
+      try {
+        for (const logicalId of bundledChecksByType.playwright) {
+          const resourceData = projectBundle.data.check[logicalId]
+          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
+          resourceData.bundle = await bundle.store()
+        }
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
       }
     }
 
