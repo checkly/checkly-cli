@@ -9,7 +9,10 @@ export const EXAMPLE_CONFIGS: Record<
 > = {
   CHECKLY_CONFIG: {
     templateString: '// INSERT CHECKLY CONFIG EXAMPLE HERE //',
-    exampleConfig: `export default defineConfig({
+    exampleConfig: `import { defineConfig } from 'checkly'
+import { Frequency } from 'checkly/constructs'
+
+export default defineConfig({
   projectName: "Production Monitoring Suite",
   logicalId: "prod-monitoring-2025",
   repoUrl: "https://github.com/acme/monitoring",
@@ -49,14 +52,16 @@ export const EXAMPLE_CONFIGS: Record<
   },
   PLAYRIGHT_CHECK: {
     templateString: '// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //',
-    exampleConfig: `const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
+    exampleConfig: `import { PlaywrightCheck } from "checkly/constructs"
+
+const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
   name: "Multi-browser check suite",
   playwrightConfigPath: "./playwright.config.ts",
   // Playwright Check Suites support all browsers
   // defined in your \`playwight.config\`
   pwProjects: ["chromium", "firefox", "webkit"],
 });
-    `,
+`,
     reference: 'https://www.checklyhq.com/docs/constructs/playwright-check.md',
   },
   API_CHECK: {
