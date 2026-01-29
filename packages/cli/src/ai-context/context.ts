@@ -48,7 +48,7 @@ export const EXAMPLE_CONFIGS: Record<
     reference: 'https://www.checklyhq.com/docs/constructs/browser-check.md',
   },
   PLAYRIGHT_CHECK: {
-    templateString: '// INSERT BROWSER CHECK EXAMPLE HERE //',
+    templateString: '// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //',
     exampleConfig: `const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
   name: "Multi-browser check suite",
   playwrightConfigPath: "./playwright.config.ts",

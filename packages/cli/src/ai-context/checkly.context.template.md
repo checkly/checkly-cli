@@ -77,7 +77,7 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 - Import the `PlaywrightCheck` construct from `checkly/constructs`.
 - use `pwProjects` if your tasked to reuse a Playwright project.
 
-
+// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //
 
 ### MultiStep Check
 
