@@ -11,7 +11,7 @@ const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
 const SKILL_OUTPUT_DIR = join(__dirname, '../../../skills/monitoring')
 
 function stripYamlFrontmatter (content: string): string {
-  const frontmatterRegex = /^---\n[\s\S]*?\n---\n+/
+  const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
   return content.replace(frontmatterRegex, '')
 }
 
