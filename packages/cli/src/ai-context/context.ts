@@ -50,7 +50,7 @@ export default defineConfig({
       'resources/browser-checks/example-browser-check/example-browser-check.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/browser-check.md',
   },
-  PLAYRIGHT_CHECK: {
+  PLAYWRIGHT_CHECK: {
     templateString: '// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //',
     exampleConfig: `import { PlaywrightCheck } from "checkly/constructs"
 
@@ -58,7 +58,7 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
   name: "Multi-browser check suite",
   playwrightConfigPath: "./playwright.config.ts",
   // Playwright Check Suites support all browsers
-  // defined in your \`playwight.config\`
+  // defined in your \`playwright.config\`
   pwProjects: ["chromium", "firefox", "webkit"],
 });
 `,
