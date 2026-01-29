@@ -1,12 +1,7 @@
-import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 
-import type { AxiosResponse } from 'axios'
-import Debug from 'debug'
-
-import { checklyStorage } from '../rest/api'
 import {
-  bundlePlayWrightProject, cleanup,
+  bundlePlayWrightProject,
 } from '../services/util'
 import { shellQuote } from '../services/shell'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
@@ -18,13 +13,11 @@ import {
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
 import { Diagnostics, WarningDiagnostic } from './diagnostics'
-import { PlaywrightCheckBundle } from './playwright-check-bundle'
+import { PlaywrightCheckLocalBundle } from './playwright-check-bundle'
 import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
-
-const debug = Debug('checkly:cli:constructs:playwright-check')
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -425,47 +418,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
-  static async bundleProject (playwrightConfigPath: string, include: string[]) {
-    let dir = ''
-    try {
-      const {
-        outputFile,
-        browsers,
-        relativePlaywrightConfigPath,
-        cacheHash,
-        playwrightVersion,
-        workingDir,
-      } = await bundlePlayWrightProject(playwrightConfigPath, include)
-      dir = outputFile
-      const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
-      return {
-        key,
-        browsers,
-        relativePlaywrightConfigPath,
-        cacheHash,
-        playwrightVersion,
-        workingDir,
-      }
-    } finally {
-      if (process.env['CHECKLY_PLAYWRIGHT_DEBUG_PERSIST_BUNDLE'] === '1') {
-        debug(`Skip cleaning up bundle '${dir}'`)
-      } else {
-        debug(`Cleaning up bundle '${dir}'`)
-        await cleanup(dir)
-      }
-    }
-  }
-
-  static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
-    const { size } = await fs.stat(dir)
-    const stream = createReadStream(dir)
-    stream.on('error', err => {
-      throw new Error(`Failed to read Playwright project file: ${err.message}`)
-    })
-    return checklyStorage.uploadCodeBundle(stream, size)
-  }
-
-  async bundle (): Promise<PlaywrightCheckBundle> {
+  async bundle (): Promise<PlaywrightCheckLocalBundle> {
     // Prefer the standard groupId but fall back to the deprecated groupName
     // if available.
     const groupId = this.groupName && !this.groupId
@@ -473,13 +426,13 @@ export class PlaywrightCheck extends RuntimeCheck {
       : this.groupId
 
     const {
-      key: codeBundlePath,
+      outputFile: codeBundleLocalFilePath,
       browsers,
       cacheHash,
       playwrightVersion,
       relativePlaywrightConfigPath,
       workingDir,
-    } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+    } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
 
     const testCommand = PlaywrightCheck.buildTestCommand(
       this.testCommand ?? this.#defaultTestCommand(),
@@ -488,9 +441,9 @@ export class PlaywrightCheck extends RuntimeCheck {
       this.pwTags,
     )
 
-    return new PlaywrightCheckBundle(this, {
+    return new PlaywrightCheckLocalBundle(this, {
       groupId,
-      codeBundlePath,
+      localCodeBundlePath: codeBundleLocalFilePath,
       browsers,
       cacheHash,
       playwrightVersion,
