@@ -1,6 +1,3 @@
-// ABOUTME: Compiles the context template with code examples into rules and skill outputs.
-// ABOUTME: Generates dist/ai-context/checkly.rules.md and skills/monitoring/SKILL.md
-
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { EXAMPLE_CONFIGS } from '../src/ai-context/context'

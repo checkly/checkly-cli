@@ -1,6 +1,3 @@
-// ABOUTME: Configuration for code examples used in AI context generation.
-// ABOUTME: Maps template placeholders to generated example file paths.
-
 export const EXAMPLE_CONFIGS: Record<
   string,
   {
