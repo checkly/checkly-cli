@@ -18,7 +18,6 @@ import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
 import TestRunner from '../services/test-runner'
 import {
-  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
   DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
   Events,
   SequenceId,
@@ -95,6 +94,12 @@ export default class PwTestCommand extends AuthCommand {
       default: true,
       allowNo: true,
     }),
+    'include': Flags.string({
+      char: 'i',
+      description: 'File patterns to include when bundling the test project (e.g., "utils/**/*").',
+      multiple: true,
+      default: [],
+    }),
   }
 
   async run (): Promise<void> {
@@ -116,6 +121,7 @@ export default class PwTestCommand extends AuthCommand {
       'test-session-name': testSessionName,
       'create-check': createCheck,
       'stream-logs': streamLogs,
+      'include': includeFlag,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -174,8 +180,10 @@ export default class PwTestCommand extends AuthCommand {
       verifyRuntimeDependencies: false,
       checklyConfigConstructs,
       playwrightConfigPath,
-      include: checklyConfig.checks?.include,
+      include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
+      includeFlagProvided: includeFlag.length > 0,
       playwrightChecks: [playwrightCheck],
+      currentCommand: 'pw-test',
       checkFilter: check => {
         // Skip non Playwright checks
         if (!(check instanceof PlaywrightCheck)) {

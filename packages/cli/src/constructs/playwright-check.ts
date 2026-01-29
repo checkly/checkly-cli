@@ -14,6 +14,7 @@ import {
   InvalidPropertyValueDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
+import { WarningDiagnostic } from './diagnostics'
 import { Diagnostics } from './diagnostics'
 import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
@@ -283,12 +284,42 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
   }
 
+  protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
+    // Only show webServer warning for pw-test command when --include is not provided
+    if (Session.currentCommand !== 'pw-test' || Session.includeFlagProvided) {
+      return
+    }
+
+    try {
+      const playwrightConfig = await Session.loadFile(this.playwrightConfigPath)
+
+      if (playwrightConfig && typeof playwrightConfig === 'object' && 'webServer' in playwrightConfig) {
+        diagnostics.add(new WarningDiagnostic({
+          title: 'webServer configuration detected',
+          message:
+            `webServer configuration requires additional files. `
+            + `Include all files needed to start the server (e.g., server scripts, config files) `
+            + `by passing them via the --include flag.`,
+        }))
+      }
+    } catch (err: any) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'playwrightConfigPath',
+        new Error(
+          `Unable to parse Playwright config "${this.playwrightConfigPath}": ${err.message}`,
+          { cause: err },
+        ),
+      ))
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateRetryStrategy(diagnostics)
 
     try {
       await fs.access(this.playwrightConfigPath, fs.constants.R_OK)
+      await this.validateWebServerConfig(diagnostics)
     } catch (err: any) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'playwrightConfigPath',

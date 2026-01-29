@@ -1,0 +1,6 @@
+{
+ "name": "playwright-check-webserver-fixture",
+ "devDependencies": {
+  "@playwright/test": "^1.55.1"
+ }
+}

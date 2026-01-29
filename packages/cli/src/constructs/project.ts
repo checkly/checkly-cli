@@ -244,6 +244,8 @@ export class Session {
   static parsers = new Map<string, Parser>()
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
+  static currentCommand?: 'pw-test' | 'test' | 'deploy'
+  static includeFlagProvided?: boolean
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
