@@ -159,7 +159,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   }
 
   const packageManager = await detectPackageManager(directory)
-  debug(`Detected package manager %O`, packageManager)
+  debug(`Detected package manager ${packageManager.name}`)
 
   const { basePath, contextPath, workspace } = await findBasePath(packageManager, directory, {
     ignoreWorkspaces: !enableWorkspaces,
