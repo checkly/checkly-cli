@@ -1,13 +1,9 @@
-import type { CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
-// @ts-ignore
-import { getProxyForUrl } from 'proxy-from-env'
-import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
@@ -17,7 +13,7 @@ import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
 import { readFile } from 'fs/promises'
 import { createHash } from 'crypto'
-import { Session } from '../constructs'
+import { Session } from '../constructs/project'
 import semver from 'semver'
 import {
   detectNearestLockfile,
@@ -147,38 +143,6 @@ export async function getEnvs (envFile: string | undefined, envArgs: Array<strin
   }
   const envsString = `${envArgs.join('\n')}`
   return parse(envsString)
-}
-
-const isHttps = (protocol: string) => protocol.startsWith('https')
-
-export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
-  const proxyUrlEnv = getProxyForUrl(baseURL)
-  if (!proxyUrlEnv) {
-    return axiosConfig
-  }
-
-  const parsedProxyUrl = new URL(proxyUrlEnv)
-  const isProxyHttps = isHttps(parsedProxyUrl.protocol)
-  const isEndpointHttps = isHttps(baseURL)
-  const proxy: any = {
-    host: parsedProxyUrl.hostname,
-    port: parsedProxyUrl.port,
-    protocol: parsedProxyUrl.protocol,
-  }
-  if (parsedProxyUrl.username && parsedProxyUrl.password) {
-    proxy.proxyAuth = `${parsedProxyUrl.username}:${parsedProxyUrl.password}`
-  }
-  if (isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttps({ proxy })
-  } else if (isProxyHttps && !isEndpointHttps) {
-    axiosConfig.httpAgent = httpOverHttps({ proxy })
-  } else if (!isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttp({ proxy })
-  } else {
-    axiosConfig.httpAgent = httpOverHttp({ proxy })
-  }
-  axiosConfig.proxy = false
-  return axiosConfig
 }
 
 export function normalizeVersion (v?: string | undefined): string | undefined {
