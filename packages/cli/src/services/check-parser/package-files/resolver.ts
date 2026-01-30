@@ -373,7 +373,9 @@ export class PackageFilesResolver {
         packageJson,
         tsconfigJson,
         jsconfigJson,
-      } = await this.loadPackageFiles(PackageJsonFile.filePath(this.workspace.root.path))
+      } = await this.loadPackageFiles(PackageJsonFile.filePath(this.workspace.root.path), {
+        root: this.workspace.root.path,
+      })
 
       if (packageJson) {
         resolved.local.push({
