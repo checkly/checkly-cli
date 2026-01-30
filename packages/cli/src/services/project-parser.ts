@@ -11,7 +11,6 @@ import {
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
-import type { Runtime } from '../rest/runtimes'
 import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
 import {
@@ -23,6 +22,7 @@ import {
 } from './check-parser/package-files/package-manager'
 import { Err, Ok, Result } from './check-parser/package-files/result'
 import { Workspace } from './check-parser/package-files/workspace'
+import { Runtime } from '../runtimes'
 
 const debug = Debug('checkly:cli:services:project-parser')
 
@@ -89,6 +89,8 @@ async function findBasePath (
       })
     }
 
+    // We've found a workspace. Let's try to figure out whether we're a part
+    // of it.
     const nearestPackageJson = await detectNearestPackageJson(directory, {
       root: workspace.root.path,
     })
@@ -96,17 +98,19 @@ async function findBasePath (
     const contextPath = nearestPackageJson.basePath
 
     // If the nearest workspace includes the nearest package, then use the
-    // workspace root as the project root. Otherwise, use the config dir as
-    // the project root.
-    const basePath = workspace.memberByPath(contextPath) !== undefined
-      ? workspace.root.path
-      : contextPath
-
-    return {
-      basePath,
-      contextPath,
-      workspace: Ok(workspace),
+    // workspace root as the project root.
+    if (workspace.memberByPath(contextPath) !== undefined) {
+      return {
+        basePath: workspace.root.path,
+        contextPath,
+        workspace: Ok(workspace),
+      }
     }
+
+    // Otherwise, use the config dir as the project root.
+    return await findBasePath(packageManager, directory, {
+      ignoreWorkspaces: true,
+    })
   } catch (err) {
     if (err instanceof NoPackageJsonFoundError) {
       return {
