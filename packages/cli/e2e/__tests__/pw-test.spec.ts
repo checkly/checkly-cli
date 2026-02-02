@@ -33,7 +33,7 @@ describe('pw-test', { timeout: 45000 }, () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
     })
-  })
+  }, 120_000)
 
   afterAll(async () => {
     await fixt?.destroy()

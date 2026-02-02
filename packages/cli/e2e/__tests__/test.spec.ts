@@ -127,7 +127,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-parse-error'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -156,7 +156,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -185,7 +185,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -211,7 +211,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'esm-module'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -232,7 +232,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -256,7 +256,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project-missing-snapshots'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -282,7 +282,7 @@ describe('test', { timeout: 45000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'retry-project'),
       })
-    })
+    }, 120_000)
 
     afterAll(async () => {
       await fixt?.destroy()

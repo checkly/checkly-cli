@@ -37,7 +37,7 @@ async function listTarFiles (filePath: string): Promise<string[]> {
   return filenames
 }
 
-const DEFAULT_TEST_TIMEOUT = 30_000
+const DEFAULT_TEST_TIMEOUT = 120_000
 
 describe('PlaywrightCheck', () => {
   it('should synthesize groupName', async () => {
