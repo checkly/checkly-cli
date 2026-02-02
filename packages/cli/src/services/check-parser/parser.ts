@@ -136,6 +136,13 @@ type ParserOptions = {
   restricted?: boolean
 }
 
+export type VirtualFile = { filePath: string, physical: false, content: string }
+export type PhysicalFile = { filePath: string, physical: true }
+
+export type File =
+  | VirtualFile
+  | PhysicalFile
+
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
@@ -175,6 +182,7 @@ export class Parser {
   private async validateFile (
     filePath: string,
   ): Promise<FileEntry> {
+    debug(`Validating file ${filePath}`)
     const extension = path.extname(filePath)
     if (!this.isProcessableExtension(extension)) {
       throw new Error(`Unsupported file extension for ${filePath}`)
@@ -182,7 +190,8 @@ export class Parser {
     try {
       const content = await fs.readFile(filePath, { encoding: 'utf-8' })
       return { filePath, content }
-    } catch {
+    } catch (err) {
+      debug(`Failed to validate file ${filePath}: ${err}`)
       throw new DependencyParseError(filePath, [filePath], [], [])
     }
   }
@@ -206,8 +215,7 @@ export class Parser {
   async getFilesAndDependencies (
     playwrightConfig: PlaywrightConfig,
   ): Promise<{
-    filePaths: string[]
-    fileEntries: FileEntry[]
+    files: File[]
     errors: string[]
   }> {
     const files = new Set(await this.getFilesFromPaths(playwrightConfig))
@@ -263,12 +271,26 @@ export class Parser {
       throw new DependencyParseError([].join(', '), Array.from(missingFiles), [], [])
     }
 
-    const fileEntries = neighbors.unreferencedDependedPackages()
+    const outputFiles: File[] = []
+
+    for (const filePath of resultFileSet) {
+      outputFiles.push({
+        filePath,
+        physical: true,
+      })
+    }
+
+    const neighborFiles = neighbors.unreferencedDependedPackages()
       .flatMap(pkg => createFauxPackageFiles(pkg))
 
+    outputFiles.push(...neighborFiles)
+
+    outputFiles.sort((a, b) => {
+      return a.filePath.localeCompare(b.filePath)
+    })
+
     return {
-      filePaths: Array.from(resultFileSet),
-      fileEntries,
+      files: outputFiles,
       errors: Array.from(errors),
     }
   }

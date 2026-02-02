@@ -12,7 +12,6 @@ import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFla
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import type { Runtime } from '../rest/runtimes'
 import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
 import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -38,6 +37,7 @@ import { detectPackageManager } from '../services/check-parser/package-files/pac
 import { DEFAULT_REGION } from '../helpers/constants'
 import { cased } from '../sourcegen'
 import { shellQuote } from '../services/shell'
+import { Runtime } from '../runtimes'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -171,7 +171,7 @@ export default class PwTestCommand extends AuthCommand {
 
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const account = this.account
-    const { data: availableRuntimes } = await api.runtimes.getAll()
+    const availableRuntimes = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)
 
     const project = await parseProject({

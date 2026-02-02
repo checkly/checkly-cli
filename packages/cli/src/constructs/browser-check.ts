@@ -153,6 +153,16 @@ export class BrowserCheck extends RuntimeCheck {
         ))
       }
     }
+
+    if (this.runtimeId) {
+      const runtime = Session.getRuntime(this.runtimeId)
+      if (!runtime) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'runtimeId',
+          new Error(`"${this.runtimeId}" is not a known runtime.`),
+        ))
+      }
+    }
   }
 
   static async bundle (entry: string, runtimeId?: string) {

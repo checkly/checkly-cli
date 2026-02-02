@@ -6,7 +6,6 @@ import { Parser } from '../services/check-parser/parser'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
-import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
@@ -27,6 +26,7 @@ import { pathToPosix } from '../services/util'
 import { Workspace } from '../services/check-parser/package-files/workspace'
 import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
 import { Err, Result } from '../services/check-parser/package-files/result'
+import { Runtime } from '../runtimes'
 
 export interface ProjectProps {
   /**

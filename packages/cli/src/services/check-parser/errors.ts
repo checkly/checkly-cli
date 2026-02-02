@@ -42,6 +42,7 @@ export class DependencyParseError extends Error {
       }
     }
     super(message)
+    this.name = 'DependencyParseError'
     this.entrypoint = entrypoint
     this.missingFiles = missingFiles
     this.unsupportedNpmDependencies = unsupportedNpmDependencies

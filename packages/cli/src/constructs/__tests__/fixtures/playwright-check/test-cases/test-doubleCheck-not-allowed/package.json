@@ -1,0 +1,8 @@
+{
+  "name": "playwright-check-fixture",
+  "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "jiti": "^2.6.1",
+    "checkly": "file:./checkly.tgz"
+  }
+}

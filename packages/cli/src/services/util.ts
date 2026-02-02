@@ -15,12 +15,6 @@ import { readFile } from 'fs/promises'
 import { createHash } from 'crypto'
 import { Session } from '../constructs/project'
 import semver from 'semver'
-import {
-  detectNearestLockfile,
-  NpmDetector,
-  PNpmDetector,
-  YarnDetector,
-} from './check-parser/package-files/package-manager'
 import { existsSync } from 'fs'
 
 export interface GitInformation {
@@ -252,7 +246,7 @@ export async function loadPlaywrightProjectFiles (
     workspace: Session.workspace.ok(),
     restricted: false,
   })
-  const { filePaths, fileEntries, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
@@ -260,17 +254,18 @@ export async function loadPlaywrightProjectFiles (
   const entryDefaults = {
     mode: 0o755, // Default mode for files in the archive
   }
-  for (const { filePath, content } of fileEntries) {
-    archive.append(content, {
-      ...entryDefaults,
-      name: Session.relativePosixPath(filePath),
-    })
-  }
-  for (const filePath of filePaths) {
-    archive.file(filePath, {
-      ...entryDefaults,
-      name: Session.relativePosixPath(filePath),
-    })
+  for (const file of files) {
+    if (file.physical) {
+      archive.file(file.filePath, {
+        ...entryDefaults,
+        name: Session.relativePosixPath(file.filePath),
+      })
+    } else {
+      archive.append(file.content, {
+        ...entryDefaults,
+        name: Session.relativePosixPath(file.filePath),
+      })
+    }
   }
   for (const includePattern of include) {
     // If pattern explicitly targets an ignored directory, only apply custom ignores
