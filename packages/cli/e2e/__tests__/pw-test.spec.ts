@@ -36,7 +36,7 @@ describe('pw-test', { timeout: 45000 }, () => {
   })
 
   afterAll(async () => {
-    await fixt.destroy()
+    await fixt?.destroy()
   })
 
   it('Playwright test should run successfully', async () => {

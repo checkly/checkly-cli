@@ -125,7 +125,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('Simple project should deploy successfully (version v4.0.8)', async () => {
@@ -253,7 +253,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('Simple esm project should deploy successfully', async () => {
@@ -279,7 +279,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('Should mark testOnly check as skipped', async () => {
@@ -342,7 +342,7 @@ Update and Unchanged:
     })
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('Should terminate when no resources are found', async () => {
@@ -375,7 +375,7 @@ Update and Unchanged:
     })
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('Should deploy a project with snapshots', async () => {

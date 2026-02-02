@@ -24,7 +24,7 @@ describe('dependency-parser - parser()', () => {
   })
 
   afterAll(async () => {
-    await fixt.destroy()
+    await fixt?.destroy()
   })
 
   it('should handle JS file with no dependencies', async () => {
