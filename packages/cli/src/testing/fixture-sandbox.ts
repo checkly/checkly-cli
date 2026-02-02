@@ -195,8 +195,8 @@ async function run (executable: string, args: string[], options?: RunOptions) {
   return result
 }
 
-interface RunOptions {
-  env?: Record<string, string>
+export interface RunOptions {
+  env?: Record<string, string | undefined>
   timeout?: number
   cwd?: string
 }
