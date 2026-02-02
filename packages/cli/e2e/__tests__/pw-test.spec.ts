@@ -51,8 +51,28 @@ describe('pw-test', { timeout: 45000 }, () => {
     expect(checklyConfig.config?.checks).toBeDefined()
     expect(checklyConfig.config?.checks?.playwrightConfigPath).toBe('./playwright.config.ts')
     expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightChecks.length).toBe(1)
-    expect(checklyConfig.config?.checks?.playwrightChecks[0].name).toBe('Playwright Test: --grep @TAG-B')
-    expect(checklyConfig.config?.checks?.playwrightChecks[0].testCommand).toBe('npx playwright test --grep @TAG-B')
+    const playwrightChecks = checklyConfig.config?.checks?.playwrightChecks
+    expect(playwrightChecks).toBeDefined()
+    expect(playwrightChecks!.length).toBe(1)
+    expect(playwrightChecks![0].name).toBe('Playwright Test: --grep @TAG-B')
+    expect(playwrightChecks![0].testCommand).toBe('npx playwright test --grep @TAG-B')
+  })
+
+  it('Should add a Playwright test with custom install command to the config', async () => {
+    const result = await runChecklyCli({
+      args: ['pw-test', '--install-command', 'pnpm install', '--create-check', '--', `--grep`, '@TAG-B'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+      directory: FIXTURE_TEST_PWT_NATIVE,
+      timeout: 120000, // 2 minutes
+    })
+    expect(result.status).toBe(0)
+    const checklyConfig = await loadChecklyConfig(FIXTURE_TEST_PWT_NATIVE)
+    expect(checklyConfig.config?.checks).toBeDefined()
+    expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
+    const playwrightChecks = checklyConfig.config?.checks?.playwrightChecks
+    expect(playwrightChecks).toBeDefined()
+    expect(playwrightChecks!.length).toBe(1)
+    expect(playwrightChecks![0].installCommand).toBe('pnpm install')
   })
 })
