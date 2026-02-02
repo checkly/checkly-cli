@@ -39,11 +39,12 @@ export interface CreateFixtureSandboxOptions {
   installPackages?: boolean
 
   /**
-   * Whether to copy the packed containing package into the sandbox.
+   * If true, installs the packed containing package into the sandbox. Done
+   * only if packages are also installed.
    *
    * @default true
    */
-  copyPackedSelf?: boolean
+  injectPackedSelf?: boolean
 }
 
 interface FixtureSandboxOptions {
@@ -75,8 +76,8 @@ export class FixtureSandbox {
       source,
       root: maybeRoot,
       packageManager: maybePackageManager,
-      copyPackedSelf: copyChecklyPackage = true,
       installPackages = true,
+      injectPackedSelf = true,
     } = options
 
     const root = maybeRoot
@@ -96,21 +97,6 @@ export class FixtureSandbox {
 
     debug(`Detected package manager ${packageManager.name}`)
 
-    if (copyChecklyPackage) {
-      const packageJson = await detectNearestPackageJson(__dirname)
-
-      const sourcePath = path.join(
-        packageJson.basePath,
-        `${packageJson.name}-${packageJson.version}.tgz`,
-      )
-
-      const targetPath = path.join(root, `${packageJson.name}.tgz`)
-
-      debug(`Copying ${sourcePath} to ${targetPath}`)
-
-      await fs.cp(sourcePath, targetPath)
-    }
-
     if (installPackages) {
       const { executable, args, unsafeDisplayCommand } = packageManager.installCommand()
 
@@ -119,6 +105,57 @@ export class FixtureSandbox {
       await execa(executable, args, {
         cwd: root,
       })
+    }
+
+    if (installPackages && injectPackedSelf) {
+      debug('Injecting containing package')
+
+      const lockfile = packageManager.representativeLockfile
+
+      // Take a backup of the original package.json so that we can restore
+      // it later.
+      await fs.cp(
+        path.join(root, 'package.json'),
+        path.join(root, 'package.json.backup'),
+      )
+
+      // Same for the lockfile.
+      if (lockfile) {
+        await fs.cp(
+          path.join(root, lockfile),
+          path.join(root, `${lockfile}.backup`),
+        )
+      }
+
+      const packageJson = await detectNearestPackageJson(__dirname)
+
+      const sourcePath = path.join(
+        packageJson.basePath,
+        `${packageJson.name}-${packageJson.version}.tgz`,
+      )
+
+      // Make sure the archive exists.
+      await fs.access(sourcePath, fs.constants.R_OK)
+
+      const { executable, args } = packageManager.installCommand()
+
+      await execa(executable, [...args, '--save-dev', `file:${sourcePath}`], {
+        cwd: root,
+      })
+
+      // Restore original package.json.
+      await fs.rename(
+        path.join(root, 'package.json.backup'),
+        path.join(root, 'package.json'),
+      )
+
+      // Restore original lockfile.
+      if (lockfile) {
+        await fs.rename(
+          path.join(root, `${lockfile}.backup`),
+          path.join(root, lockfile),
+        )
+      }
     }
 
     return new FixtureSandbox({
@@ -136,17 +173,30 @@ export class FixtureSandbox {
     })
   }
 
-  async run (executable: string, args: string[]) {
-    const { execa } = await import('execa')
-
-    const result = await execa(executable, args, {
+  async run (executable: string, args: string[], options?: RunOptions) {
+    return await run(executable, args, {
       cwd: this.#root,
+      ...options,
     })
-
-    return result
   }
 
   abspath (...to: string[]): string {
     return path.join(this.#root, ...to)
   }
+}
+
+async function run (executable: string, args: string[], options?: RunOptions) {
+  const { execa } = await import('execa')
+
+  const result = await execa(executable, args, {
+    ...options,
+  })
+
+  return result
+}
+
+interface RunOptions {
+  env?: Record<string, string>
+  timeout?: number
+  cwd?: string
 }

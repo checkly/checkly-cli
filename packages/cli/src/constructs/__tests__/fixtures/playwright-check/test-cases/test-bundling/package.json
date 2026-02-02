@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "dependencies": {
     "@playwright/test": "^1.55.1",
-    "jiti": "^2.6.1",
-    "checkly": "file:./checkly.tgz"
+    "jiti": "^2.6.1"
   }
 }
