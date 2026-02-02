@@ -29,9 +29,9 @@ import { generateChecklyConfig } from '../../services/checkly-config-codegen'
 import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
 import { detectNearestPackageJson, detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
 import { parseProject } from '../../services/project-parser'
-import { Runtime } from '../../rest/runtimes'
 import { ConstructExport, Project, Session } from '../../constructs/project'
 import { Diagnostics } from '../../constructs'
+import { Runtime } from '../../runtimes'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -942,7 +942,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     let project: Project
     try {
       const account = this.account
-      const { data: availableRuntimes } = await api.runtimes.getAll()
+      const availableRuntimes = await api.runtimes.getAll()
 
       project = await parseProject({
         directory: configDirectory,

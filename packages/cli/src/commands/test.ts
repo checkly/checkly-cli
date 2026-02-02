@@ -11,7 +11,6 @@ import {
 import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
-import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck, Check, Diagnostics, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs'
 import type { Region } from '..'
@@ -25,6 +24,7 @@ import { isEntrypoint } from '../constructs/construct'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
 import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
 import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
+import { Runtime } from '../runtimes'
 
 const MAX_RETRIES = 3
 
@@ -163,7 +163,7 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const account = this.account
-    const { data: availableRuntimes } = await api.runtimes.getAll()
+    const availableRuntimes = await api.runtimes.getAll()
 
     const project = await parseProject({
       directory: configDirectory,

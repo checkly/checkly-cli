@@ -5,7 +5,7 @@ export default class Runtimes extends BaseCommand {
   static hidden = false
   static description = 'List all supported runtimes and dependencies.'
   async run (): Promise<void> {
-    const { data: runtimes } = await api.runtimes.getAll()
+    const runtimes = await api.runtimes.getAll()
     const output = runtimes
       .sort((a, b) => b.name.localeCompare(a.name))
       .map(r => {

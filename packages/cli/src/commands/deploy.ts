@@ -6,7 +6,6 @@ import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
-import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
@@ -19,6 +18,7 @@ import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
 import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
+import { Runtime } from '../runtimes'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {
@@ -94,7 +94,7 @@ export default class Deploy extends AuthCommand {
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
     const account = this.account
-    const { data: avilableRuntimes } = await api.runtimes.getAll()
+    const availableRuntimes = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
       projectLogicalId: checklyConfig.logicalId,
@@ -106,7 +106,7 @@ export default class Deploy extends AuthCommand {
       ignoreDirectoriesMatch: checklyConfig.checks?.ignoreDirectoriesMatch,
       checkDefaults: checklyConfig.checks,
       browserCheckDefaults: checklyConfig.checks?.browserChecks,
-      availableRuntimes: avilableRuntimes.reduce((acc, runtime) => {
+      availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
       }, <Record<string, Runtime>> {}),

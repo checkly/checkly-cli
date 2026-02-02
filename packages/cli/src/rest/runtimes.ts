@@ -1,13 +1,6 @@
 import type { AxiosInstance } from 'axios'
 
-export interface Runtime {
-  name: string
-  stage?: string
-  runtimeEndOfLife?: string
-  description?: string
-  dependencies: Record<string, string>
-  multiStepSupport?: boolean
-}
+import { Runtime } from '../runtimes'
 
 class Runtimes {
   api: AxiosInstance
@@ -15,12 +8,14 @@ class Runtimes {
     this.api = api
   }
 
-  getAll () {
-    return this.api.get<Array<Runtime>>('/v1/runtimes')
+  async getAll (): Promise<Runtime[]> {
+    const resp = await this.api.get<Array<Runtime>>('/v1/runtimes')
+    return resp.data
   }
 
-  get (runtimeId: string) {
-    return this.api.get<Runtime>(`/v1/runtimes/${runtimeId}`)
+  async get (runtimeId: string): Promise<Runtime> {
+    const resp = await this.api.get<Runtime>(`/v1/runtimes/${runtimeId}`)
+    return resp.data
   }
 }
 

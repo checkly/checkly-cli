@@ -1,0 +1,7 @@
+{
+  "name": "api-check-fixture",
+  "type": "module",
+  "devDependencies": {
+    "checkly": "file:./checkly.tgz"
+  }
+}
