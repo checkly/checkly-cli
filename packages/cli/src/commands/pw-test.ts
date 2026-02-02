@@ -38,6 +38,7 @@ import { DEFAULT_REGION } from '../helpers/constants'
 import { cased } from '../sourcegen'
 import { shellQuote } from '../services/shell'
 import { Runtime } from '../runtimes'
+import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -250,6 +251,31 @@ export default class PwTestCommand extends AuthCommand {
         throw err
       }
     })()
+
+    const bundledChecksByType = {
+      playwright: [] as string[],
+    }
+
+    for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
+      if (bundle instanceof PlaywrightCheckLocalBundle) {
+        bundledChecksByType.playwright.push(logicalId)
+      }
+    }
+
+    if (bundledChecksByType.playwright.length) {
+      this.style.actionStart('Uploading Playwright code bundles')
+      try {
+        for (const logicalId of bundledChecksByType.playwright) {
+          const resourceData = projectBundle.data.check[logicalId]
+          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
+          resourceData.bundle = await bundle.store()
+        }
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    }
 
     const checkBundles = Object.values(projectBundle.data.check)
 
