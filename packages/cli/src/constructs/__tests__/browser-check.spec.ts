@@ -40,7 +40,7 @@ describe('BrowserCheck', () => {
   }, DEFAULT_TEST_TIMEOUT)
 
   afterAll(async () => {
-    await fixt.destroy()
+    await fixt?.destroy()
   })
 
   it('should correctly load file dependencies', async () => {

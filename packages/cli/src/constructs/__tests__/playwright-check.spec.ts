@@ -661,7 +661,7 @@ describe('PlaywrightCheck', () => {
     }, DEFAULT_TEST_TIMEOUT)
 
     afterAll(async () => {
-      await fixt.destroy()
+      await fixt?.destroy()
     })
 
     it('should exclude directories matching ignoreDirectoriesMatch pattern', async () => {
