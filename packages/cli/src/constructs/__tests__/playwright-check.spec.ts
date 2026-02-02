@@ -481,7 +481,7 @@ describe('PlaywrightCheck', () => {
         } finally {
           await fixt.destroy()
         }
-      })
+      }, DEFAULT_TEST_TIMEOUT)
     })
 
     describe('installCommand', () => {
@@ -560,7 +560,7 @@ describe('PlaywrightCheck', () => {
         } finally {
           await fixt.destroy()
         }
-      })
+      }, DEFAULT_TEST_TIMEOUT)
 
       it('should not warn when testCommand does not playwright install', async () => {
         const fixt = await FixtureSandbox.create({
@@ -585,7 +585,7 @@ describe('PlaywrightCheck', () => {
         } finally {
           await fixt.destroy()
         }
-      })
+      }, DEFAULT_TEST_TIMEOUT)
     })
   })
 
