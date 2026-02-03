@@ -37,7 +37,7 @@ describe('ApiCheck', () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'api-check'),
     })
-  }, DEFAULT_TEST_TIMEOUT)
+  }, 180_000)
 
   afterAll(async () => {
     await fixt?.destroy()

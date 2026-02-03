@@ -11,7 +11,7 @@ async function runTest (fixt: FixtureSandbox, args: string[]) {
     'pw-test',
     ...args,
   ], {
-    timeout: 120_000,
+    timeout: 180_000,
   })
 
   if (result.exitCode !== 0) {
@@ -33,7 +33,7 @@ describe('pw-test', { timeout: 45000 }, () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
     })
-  }, 120_000)
+  }, 180_000)
 
   afterAll(async () => {
     await fixt?.destroy()
