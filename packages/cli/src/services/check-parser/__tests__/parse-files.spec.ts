@@ -1,17 +1,25 @@
 import path from 'node:path'
 
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
 import { File } from '../parser'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox'
 
-describe('project parser - getFilesAndDependencies()', () => {
-  test('should handle spec file', async () => {
-    const fixt = await FixtureSandbox.create({
-      source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
+describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
+  describe('playwright-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-project'),
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
 
-    try {
+    test('should handle spec file', async () => {
       const result = await fixt.run('npx', [
         'checkly',
         'debug',
@@ -41,17 +49,23 @@ describe('project parser - getFilesAndDependencies()', () => {
       ])
 
       expect(output.errors).toHaveLength(0)
-    } finally {
-      await fixt.destroy()
-    }
-  }, 30_000)
+    })
+  })
 
-  test('should handle a spec file with snapshots', async () => {
-    const fixt = await FixtureSandbox.create({
-      source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
+  describe('playwright-project-snapshots', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-project-snapshots'),
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
 
-    try {
+    test('should handle a spec file with snapshots', async () => {
       const result = await fixt.run('npx', [
         'checkly',
         'debug',
@@ -82,8 +96,6 @@ describe('project parser - getFilesAndDependencies()', () => {
       ])
 
       expect(output.errors).toHaveLength(0)
-    } finally {
-      await fixt.destroy()
-    }
-  }, 30_000)
+    })
+  })
 })
