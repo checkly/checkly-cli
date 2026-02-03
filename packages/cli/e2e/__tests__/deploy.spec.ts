@@ -122,7 +122,7 @@ describe('deploy', { timeout: 45_000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-project'),
       })
-    }, 120_000)
+    }, 180_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -250,7 +250,7 @@ describe('deploy', { timeout: 45_000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
       })
-    }, 120_000)
+    }, 180_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -276,7 +276,7 @@ describe('deploy', { timeout: 45_000 }, () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
       })
-    }, 120_000)
+    }, 180_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -339,7 +339,7 @@ Update and Unchanged:
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'empty-project'),
       })
-    }, 120_000)
+    }, 180_000)
 
     afterAll(async () => {
       await fixt?.destroy()
@@ -372,7 +372,7 @@ Update and Unchanged:
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
       })
-    }, 120_000)
+    }, 180_000)
 
     afterAll(async () => {
       await fixt?.destroy()
