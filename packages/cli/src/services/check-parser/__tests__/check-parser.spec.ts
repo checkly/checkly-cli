@@ -21,7 +21,7 @@ describe('dependency-parser - parser()', () => {
       source: path.join(__dirname, 'check-parser-fixtures'),
       installPackages: false,
     })
-  })
+  }, 180_000)
 
   afterAll(async () => {
     await fixt?.destroy()
