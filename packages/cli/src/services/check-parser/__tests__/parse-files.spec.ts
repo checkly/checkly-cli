@@ -11,7 +11,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
-        source: path.join(__dirname, 'fixtures', 'playwright-project'),
+        source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
       })
     }, 180_000)
 
@@ -57,7 +57,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
-        source: path.join(__dirname, 'fixtures', 'playwright-project-snapshots'),
+        source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
       })
     }, 180_000)
 
