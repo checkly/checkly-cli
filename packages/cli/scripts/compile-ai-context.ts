@@ -8,7 +8,7 @@ const CONTEXT_TEMPLATE_PATH = join(
   '../src/ai-context/checkly.context.template.md',
 )
 const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
-const SKILL_OUTPUT_DIR = join(__dirname, '../../../skills/monitoring')
+const SKILL_OUTPUT_DIR = join(__dirname, '../dist/ai-context/skills/monitoring')
 
 function stripYamlFrontmatter (content: string): string {
   const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
