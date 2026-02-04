@@ -1,4 +1,12 @@
-# Checkly
+---
+name: monitoring
+description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
+allowed-tools: Bash(npx:checkly:*) Bash(npm:create:checkly@latest)
+metadata:
+  author: checkly
+---
+
+# Checkly Monitoring
 
 - Refer to docs for Checkly CLI v6.0.0 and above.
 - Check the Checkly CLI output to figure out into which folder the setup was generated.
@@ -33,12 +41,13 @@ Here is an example directory tree of what that would look like:
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
+// INSERT CHECKLY CONFIG EXAMPLE HERE //
+
 ## Check and Monitor Constructs
 
 ### API Check
 
 - Import the `ApiCheck` construct from `checkly/constructs`.
-- Reference [the docs for API checks](https://www.checklyhq.com/docs/constructs/api-check/) before generating any code.
 - When adding `assertions`, always use `AssertionBuilder` class for API Checks.
 - When referencing environment variables always use the handlebar syntax `{{MY_ENV_VAR}}`.
 - When referencing secrets always use the handlebar syntax `{{MY_SECRET}}`.
@@ -46,9 +55,7 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 - Referenced `setupScript.ts` and `teardownScript.ts` for API checks must be plain ts files and not export anything.
 - Check in the code if API endpoints require authentication.
 
-```typescript
 // INSERT API CHECK EXAMPLE HERE //
-```
 
 #### Authentication Setup Scripts for API Checks
 
@@ -60,60 +67,39 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 ### Browser Check
 
 - Import the `BrowserCheck` construct from `checkly/constructs`.
-- Reference [the docs for Browser checks](https://www.checklyhq.com/docs/constructs/browser-check/) before generating any code.
 - Generate a separate `.spec.ts` file for the Playwright code referenced in the `BrowserCheck` construct.
 - Use the `code.entrypoint` property to specify the path to your Playwright test file.
 
-```typescript
 // INSERT BROWSER CHECK EXAMPLE HERE //
-```
 
 ### Playwright Check Suite
 
 - Import the `PlaywrightCheck` construct from `checkly/constructs`.
-- Reference [the docs for Playwright Check Suites](https://www.checklyhq.com/docs/constructs/playwright-check/) before generating any code.
 - use `pwProjects` if your tasked to reuse a Playwright project.
 
-```typescript
-const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
-  name: "Multi-browser check suite",
-  playwrightConfigPath: "./playwright.config.ts",
-  // Playwright Check Suites support all browsers
-  // defined in your `playwight.config`
-  pwProjects: ["chromium", "firefox", "webkit"],
-});
-```
+// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //
 
 ### MultiStep Check
 
 - Import the `MultiStepCheck` construct from `checkly/constructs`.
-- Reference [the docs for Multistep checks](https://www.checklyhq.com/docs/constructs/multistep-check/) before generating any code.
 - Generate a separate `.spec.ts` file for the Playwright code referenced in the `MultiStepCheck` construct.
 - Use the `code.entrypoint` property to specify the path to your Playwright test file.
 
-```typescript
 // INSERT MULTISTEP CHECK EXAMPLE HERE //
-```
 
 ### TCP Monitor
 
 - Import the `TcpMonitor` construct from `checkly/constructs`.
-- Reference [the docs for TCP monitors](https://www.checklyhq.com/docs/constructs/tcp-monitor/) before generating any code.
 - When adding `assertions`, always use `TcpAssertionBuilder` class for TCP monitors.
 
-```typescript
 // INSERT TCP MONITOR EXAMPLE HERE //
-```
 
 ### URL Monitor
 
 - Import the `UrlMonitor` construct from `checkly/constructs`.
-- Reference [the docs for URL monitors](https://www.checklyhq.com/docs/constructs/url-monitor/) before generating any code.
 - When adding `assertions`, always use `UrlAssertionBuilder`.
 
-```typescript
 // INSERT URL MONITOR EXAMPLE HERE //
-```
 
 ### DNS Monitor
 
@@ -121,29 +107,21 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
 - Reference [the docs for DNS monitors](https://www.checklyhq.com/docs/constructs/dns-monitor/) before generating any code.
 - When adding `assertions`, always use `DnsAssertionBuilder` class.
 
-```typescript
 // INSERT DNS MONITOR EXAMPLE HERE //
-```
 
 ### Heartbeat Monitor
 
 - Import the `HeartbeatMonitor` construct from `checkly/constructs`.
-- Reference [the docs for Heartbeat monitor](https://www.checklyhq.com/docs/constructs/heartbeat-monitor/) before generating any code.
 
-```typescript
 // INSERT HEARTBEAT MONITOR EXAMPLE HERE //
-```
 
 ### Check Group
 
 - Import the `CheckGroupV2` construct from `checkly/constructs`.
-- Reference [the docs for Check Groups](https://www.checklyhq.com/docs/constructs/check-group-v2/) before generating any code.
 - Check Groups are used to group checks together for easier management and organization.
 - Checks are added to Check Groups by referencing the group in the `group` property of a check.
 
-```typescript
 // INSERT CHECK GROUP EXAMPLE HERE //
-```
 
 ## Alert Channel Constructs
 
@@ -154,29 +132,17 @@ Here are some examples of how to create different types of alert channels. All a
 
 ### Email Alert Channel
 
-- Reference [the docs for Email Alert Channels](https://www.checklyhq.com/docs/constructs/email-alert-channel/) before generating any code.
-
-```typescript
 // INSERT EMAIL ALERT CHANNEL EXAMPLE HERE //
-```
 
 
 ### Phone Call Alert Channel
 
-- Reference [the docs for Phone Call Alert Channels](https://www.checklyhq.com/docs/constructs/phone-call-alert-channel/) before generating any code.
-
-```typescript
 // INSERT PHONE CALL ALERT CHANNEL EXAMPLE HERE //
-```
 
 
 ### Slack Alert Channel
 
-- Reference [the docs for Slack Alert Channels](https://www.checklyhq.com/docs/constructs/slack-alert-channel/) before generating any code.
-
-```typescript
 // INSERT SLACK ALERT CHANNEL EXAMPLE HERE //
-```
 
 
 ## Supporting Constructs
@@ -184,54 +150,39 @@ Here are some examples of how to create different types of alert channels. All a
 ### Status Page
 
 - Import the `StatusPage` construct from `checkly/constructs`.
-- Reference [the docs for StatusPages](https://www.checklyhq.com/docs/constructs/status-page/) before generating any code.
 - Status pages are used to display the status of your services to your users.
 - A Status Page consists of cards which include Status Page Services.
 
-```typescript
 // INSERT STATUS PAGE EXAMPLE HERE //
-```
 
 ### Status Page Service
 
 - Import the `StatusPageService` construct from `checkly/constructs`.
-- Reference [the docs for Status Page Services](https://www.checklyhq.com/docs/constructs/status-page-service/) before generating any code.
 - Status Page Services are used to represent individual services on a Status Page.
 
-```typescript
 // INSERT STATUS PAGE SERVICE EXAMPLE HERE //
-```
 
 ### Dashboard
 
 - Import the `Dashboard` construct from `checkly/constructs`.
-- Reference [the docs for Dashboards](https://www.checklyhq.com/docs/constructs/dashboard/) before generating any code.
 - Dashboards are used to display the results of your checks on screens external to Checkly.
 
-```typescript
 // INSERT DASHBOARD EXAMPLE HERE //
-```
 
 ### Maintenance Window
 
 - Import the `MaintenanceWindow` construct from `checkly/constructs`.
-- Reference [the docs for Maintenance Windows](https://www.checklyhq.com/docs/constructs/maintenance-window/) before generating any code.
 - Maintenance windows are used to pause checks during maintenance periods so no alerts are sent.
 - Checks are referenced by their tags in the `tags` property.
 
-```typescript
 // INSERT MAINTENANCE WINDOW EXAMPLE HERE //
-```
 
 ### Private Location
 
 - Import the `PrivateLocation` construct from `checkly/constructs`.
-- Reference [the docs for Private Locations](https://www.checklyhq.com/docs/constructs/private-location/) before generating any code.
 - Private locations are used to run checks from your own infrastructure with the Checkly Agent, an OCI compatible container.
 
-```typescript
 // INSERT PRIVATE LOCATION EXAMPLE HERE //
-```
 
 ## Testing and Debugging
 
