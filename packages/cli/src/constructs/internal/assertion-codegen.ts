@@ -1,15 +1,23 @@
 import { expr, ident, Value } from '../../sourcegen'
 import { Assertion } from './assertion'
 
+export interface ValueForNumericAssertionOptions {
+  hasProperty?: boolean
+}
+
 export function valueForNumericAssertion<Source extends string> (
   klass: string,
   method: string,
   assertion: Assertion<Source>,
+  options?: ValueForNumericAssertionOptions,
 ): Value {
   return expr(ident(klass), builder => {
     builder.member(ident(method))
     builder.call(builder => {
-      builder.empty()
+      const hasProperty = options?.hasProperty ?? false
+      if (hasProperty && assertion.property !== '') {
+        builder.string(assertion.property)
+      }
     })
     switch (assertion.comparison) {
       case 'EQUALS':
