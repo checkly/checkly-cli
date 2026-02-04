@@ -397,8 +397,8 @@ export default class PwTestCommand extends AuthCommand {
       : { locations: [runLocation || DEFAULT_REGION] }
 
     return {
-      logicalId: `playwright-check-${inputLogicalId}`,
-      name: `Playwright Test: ${input}`,
+      logicalId: inputLogicalId ? `playwright-check-${inputLogicalId}` : 'playwright-check',
+      name: input ? `Playwright Test: ${input}` : 'Playwright Test',
       testCommand,
       ...locationConfig,
       frequency,
@@ -458,6 +458,7 @@ export default class PwTestCommand extends AuthCommand {
   private static async getTestCommand (directoryPath: string, input: string): Promise<string | undefined> {
     const packageManager = await detectPackageManager(directoryPath)
     // Passing the input to the execCommand will return it quoted, which we want to avoid
-    return `${packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand} ${input}`
+    const baseCommand = packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand
+    return input ? `${baseCommand} ${input}` : baseCommand
   }
 }
