@@ -313,6 +313,28 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
   }
 
+  protected validateBrowserInstallCommand (diagnostics: Diagnostics): void {
+    const playwrightInstallPattern = /playwright\s+install/i
+
+    const commands = [
+      { name: 'installCommand', value: this.installCommand },
+      { name: 'testCommand', value: this.testCommand },
+    ]
+
+    for (const { name, value } of commands) {
+      if (value && playwrightInstallPattern.test(value)) {
+        diagnostics.add(new WarningDiagnostic({
+          title: 'Unnecessary browser installation detected',
+          message:
+            `The ${name} contains "playwright install" which is not needed. `
+            + `Checkly automatically installs browsers based on your pwProjects configuration. `
+            + `Consider removing the browser installation from ${name}.`,
+        }))
+        break
+      }
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateRetryStrategy(diagnostics)
@@ -328,6 +350,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     }
 
     await this.validateHeadlessMode(diagnostics)
+    this.validateBrowserInstallCommand(diagnostics)
 
     this.#validateGroupReferences(diagnostics)
   }

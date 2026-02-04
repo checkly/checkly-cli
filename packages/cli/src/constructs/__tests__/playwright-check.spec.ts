@@ -445,6 +445,80 @@ describe('PlaywrightCheck', () => {
         }),
       ]))
     })
+
+    it('should warn when installCommand contains playwright install', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        installCommand: 'npm ci && npx playwright install chromium',
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Unnecessary browser installation detected',
+          message: expect.stringContaining('installCommand contains "playwright install"'),
+        }),
+      ]))
+    })
+
+    it('should warn when testCommand contains playwright install', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        testCommand: 'npx playwright install && npx playwright test',
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Unnecessary browser installation detected',
+          message: expect.stringContaining('testCommand contains "playwright install"'),
+        }),
+      ]))
+    })
+
+    it('should not warn when commands do not contain playwright install', async () => {
+      Session.basePath = path.resolve(__dirname, './fixtures/playwright-check')
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new PlaywrightCheck('foo', {
+        name: 'Test Check',
+        playwrightConfigPath: path.resolve(__dirname, './fixtures/playwright-check/playwright.config.ts'),
+        installCommand: 'npm ci',
+        testCommand: 'npx playwright test',
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Unnecessary browser installation detected',
+        }),
+      ]))
+    })
   })
 
   describe('defaults', () => {
