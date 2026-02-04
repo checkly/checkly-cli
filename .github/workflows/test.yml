@@ -48,5 +48,5 @@ jobs:
         with:
           name: llm-rules-test-${{ matrix.os }}
           if-no-files-found: error
-          path: packages/cli/dist/rules/*
+          path: packages/cli/dist/ai-context/*
           retention-days: 1
