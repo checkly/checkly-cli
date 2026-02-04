@@ -1,6 +1,6 @@
 ---
 name: monitoring
-description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
+description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, ICMP monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:create:checkly@latest)
 metadata:
   author: checkly
@@ -108,6 +108,16 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 - When adding `assertions`, always use `DnsAssertionBuilder` class.
 
 // INSERT DNS MONITOR EXAMPLE HERE //
+
+### ICMP Monitor
+
+- Import the `IcmpMonitor` construct from `checkly/constructs`.
+- Reference [the docs for ICMP monitors](https://www.checklyhq.com/docs/constructs/icmp-monitor/) before generating any code.
+- When adding `assertions`, always use `IcmpAssertionBuilder` class.
+- Latency assertions require a property parameter: `'avg'`, `'min'`, `'max'`, or `'stdDev'`.
+- Use `degradedPacketLossThreshold` and `maxPacketLossThreshold` for packet loss thresholds (percentages).
+
+// INSERT ICMP MONITOR EXAMPLE HERE //
 
 ### Heartbeat Monitor
 
