@@ -64,7 +64,7 @@ export abstract class Construct implements Validate, Bundle {
    * @param member Whether this construct is a member of the project
    */
   constructor (type: string, logicalId: string, physicalId?: string | number, member?: boolean) {
-    this.logicalId = logicalId
+    this.logicalId = Session.sanitizeLogicalId(logicalId)
     this.type = type
     this.physicalId = physicalId
     this.member = member ?? true

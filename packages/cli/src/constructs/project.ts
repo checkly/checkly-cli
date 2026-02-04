@@ -293,13 +293,13 @@ export class Session {
     }
   }
 
+  static sanitizeLogicalId (logicalId: string): string {
+    return logicalId.replace(/[^A-Za-z0-9_\-/#.]/g, '')
+  }
+
   static validateCreateConstruct (construct: Construct) {
     if (typeof construct.logicalId !== 'string') {
       throw new ValidationError(`The "logicalId" of a ${construct.type} construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
-    }
-
-    if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
-      throw new ValidationError(`The "logicalId" can only include the following characters: [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
     }
 
     if (construct.type === Project.__checklyType) {
