@@ -401,7 +401,6 @@ new IcmpMonitor('example-icmp-monitor', {
   maxPacketLossThreshold: 20,
   activated: true,
   muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-north-1',

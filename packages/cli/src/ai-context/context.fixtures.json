@@ -803,22 +803,13 @@
           "frequencyOffset": 91,
           "activated": true,
           "muted": false,
-          "shouldFail": false,
           "locations": [
             "eu-central-1",
             "eu-north-1"
           ],
-          "script": null,
           "created_at": "2025-10-28T17:25:17.037Z",
           "updated_at": null,
-          "environmentVariables": [],
-          "doubleCheck": false,
           "tags": [],
-          "sslCheckDomain": "",
-          "setupSnippetId": null,
-          "tearDownSnippetId": null,
-          "localSetupScript": null,
-          "localTearDownScript": null,
           "alertSettings": {
             "reminders": {
               "amount": 0,
@@ -841,8 +832,6 @@
           "maxPacketLossThreshold": 20,
           "groupId": null,
           "groupOrder": null,
-          "runtimeId": null,
-          "scriptPath": null,
           "retryStrategy": null,
           "runParallel": false,
           "triggerIncident": null,
