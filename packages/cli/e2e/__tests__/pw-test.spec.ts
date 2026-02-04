@@ -76,7 +76,7 @@ describe('pw-test', { timeout: 45000 }, () => {
     expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
     const playwrightChecks = checklyConfig.config?.checks?.playwrightChecks
     expect(playwrightChecks).toBeDefined()
-    expect(playwrightChecks!.length).toBe(2)
-    expect(playwrightChecks![1].installCommand).toBe('pnpm install')
+    expect(playwrightChecks!.length).toBe(1)
+    expect(playwrightChecks![0].installCommand).toBe('pnpm install')
   })
 })
