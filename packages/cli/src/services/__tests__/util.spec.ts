@@ -181,6 +181,17 @@ describe('util', () => {
       await expect(fs.access(nodeModulesPath)).rejects.toThrow()
     }, 30000)
 
+    it('should produce different cacheHash when installCommand is provided', async () => {
+      const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
+      const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')
+      Session.ignoreDirectoriesMatch = []
+
+      const resultWithout = await bundlePlayWrightProject(playwrightConfigPath, [])
+      const resultWith = await bundlePlayWrightProject(playwrightConfigPath, [], 'npm ci')
+
+      expect(resultWith.cacheHash).not.toEqual(resultWithout.cacheHash)
+    }, 30000)
+
     it('should exclude node_modules with broad patterns despite include', async () => {
       const fixtureDir = path.join(__dirname, 'fixtures', 'playwright-bundle-test')
       const playwrightConfigPath = path.join(fixtureDir, 'playwright.config.ts')

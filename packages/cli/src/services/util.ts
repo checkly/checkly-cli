@@ -191,6 +191,7 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
 export async function bundlePlayWrightProject (
   playwrightConfig: string,
   include: string[],
+  installCommand?: string,
 ): Promise<{
   outputFile: string
   browsers: string[]
@@ -229,7 +230,7 @@ export async function bundlePlayWrightProject (
   const playwrightVersion = getPlaywrightVersionFromPackage(dir)
 
   const [cacheHash] = await Promise.all([
-    getCacheHash(lockfile),
+    getCacheHash(lockfile, installCommand),
     loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive, lockfile),
   ])
 
@@ -251,10 +252,13 @@ export async function bundlePlayWrightProject (
   })
 }
 
-export async function getCacheHash (lockFile: string): Promise<string> {
+async function getCacheHash (lockFile: string, installCommand?: string): Promise<string> {
   const fileBuffer = await readFile(lockFile)
   const hash = createHash('sha256')
   hash.update(fileBuffer)
+  if (installCommand) {
+    hash.update(installCommand)
+  }
   return hash.digest('hex')
 }
 

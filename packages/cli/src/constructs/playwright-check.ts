@@ -396,12 +396,12 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
-  static async bundleProject (playwrightConfigPath: string, include: string[]) {
+  static async bundleProject (playwrightConfigPath: string, include: string[], installCommand?: string) {
     let dir = ''
     try {
       const {
         outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion,
-      } = await bundlePlayWrightProject(playwrightConfigPath, include)
+      } = await bundlePlayWrightProject(playwrightConfigPath, include, installCommand)
       dir = outputFile
       const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
       return { key, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion }
@@ -432,7 +432,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       cacheHash,
       playwrightVersion,
       relativePlaywrightConfigPath,
-    } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+    } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [], this.installCommand)
 
     const testCommand = PlaywrightCheck.buildTestCommand(
       this.testCommand,
