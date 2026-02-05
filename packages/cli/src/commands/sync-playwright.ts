@@ -6,6 +6,7 @@ import path from 'path'
 import { ux } from '@oclif/core'
 import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
 import { addOrReplaceItem, findPropertyByName, reWriteChecklyConfigFile } from '../helpers/write-config-helpers'
+import * as acornParser from '../helpers/recast-acorn-parser'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = false
@@ -20,7 +21,7 @@ export default class SyncPlaywright extends BaseCommand {
     if (!configFile) {
       return this.handleError('Could not find a checkly config file')
     }
-    const checklyAst = recast.parse(configFile.checklyConfig)
+    const checklyAst = recast.parse(configFile.checklyConfig, { parser: acornParser })
 
     const config = await loadPlaywrightConfig()
     if (!config) {
@@ -35,7 +36,7 @@ export default class SyncPlaywright extends BaseCommand {
     }
 
     const pwtConfig = new PlaywrightConfigTemplate(config).getConfigTemplate()
-    const pwtConfigAst = findPropertyByName(recast.parse(pwtConfig), 'playwrightConfig')
+    const pwtConfigAst = findPropertyByName(recast.parse(pwtConfig, { parser: acornParser }), 'playwrightConfig')
     addOrReplaceItem(checksAst.value, pwtConfigAst, 'playwrightConfig')
 
     const checklyConfigData = recast.print(checklyAst, { tabWidth: 2 }).code

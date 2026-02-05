@@ -32,6 +32,7 @@ import {
   findPropertyByName,
   reWriteChecklyConfigFile,
 } from '../helpers/write-config-helpers'
+import * as acornParser from '../helpers/recast-acorn-parser'
 import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
 import { DEFAULT_REGION } from '../helpers/constants'
@@ -379,7 +380,7 @@ export default class PwTestCommand extends AuthCommand {
       this.style.actionSuccess()
       return
     }
-    const checklyAst = recast.parse(configFile.checklyConfig)
+    const checklyAst = recast.parse(configFile.checklyConfig, { parser: acornParser })
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is '
@@ -396,7 +397,7 @@ export default class PwTestCommand extends AuthCommand {
     )
 
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
-    const playwrightCheckAst = recast.parse(playwrightCheckString)
+    const playwrightCheckAst = recast.parse(playwrightCheckString, { parser: acornParser })
     const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init
     addOrReplaceItem(checksAst.value, playwrightPropertyNode, 'playwrightConfigPath')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
