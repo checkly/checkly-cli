@@ -10,10 +10,11 @@ import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, Diagnostics, Session,
+  Project, ProjectData, Diagnostics,
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
+import { confirmSanitizedLogicalIds } from '../helpers/sanitized-logical-id'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
@@ -121,25 +122,9 @@ export default class Deploy extends AuthCommand {
     this.style.actionSuccess()
 
     // Check for sanitized logicalIds and prompt user for confirmation
-    const sanitizedIds = Session.getSanitizedLogicalIds()
-    if (sanitizedIds.length > 0 && !force) {
-      this.log(chalk.yellow('\nThe following logicalIds contain invalid characters and will be sanitized:\n'))
-      for (const { constructType, original, sanitized } of sanitizedIds) {
-        this.log(`  ${constructType}: "${original}" → "${sanitized}"`)
-      }
-      this.log('')
-      this.log(chalk.dim('Your source files will not be modified. The sanitized logicalIds will only'))
-      this.log(chalk.dim('be used when syncing with Checkly. To avoid this warning, update your'))
-      this.log(chalk.dim('configuration to use valid characters (A-Z, a-z, 0-9, _ - / # .).\n'))
-      const { confirm } = await prompts({
-        name: 'confirm',
-        type: 'confirm',
-        message: 'Do you want to continue with the sanitized logicalIds?',
-      })
-      if (!confirm) {
-        this.log('Aborted. Please update your configuration to use valid logicalId characters.')
-        return
-      }
+    const shouldContinue = await confirmSanitizedLogicalIds(this.log.bind(this), { force })
+    if (!shouldContinue) {
+      return
     }
 
     this.style.actionStart('Validating project resources')
