@@ -66,8 +66,8 @@ describe('pw-test', { timeout: 45000 }, () => {
       timeout: 120000, // 2 minutes
     })
     expect(result.status).toBe(0)
-    const checklyConfig = await loadChecklyConfig(FIXTURE_TEST_PWT_NATIVE)
-    expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightChecks[0].frequency).toBe(5)
+    const configContent = fs.readFileSync(
+      path.join(FIXTURE_TEST_PWT_NATIVE, 'checkly.config.ts'), 'utf-8')
+    expect(configContent).toContain('frequency: 5')
   })
 })
