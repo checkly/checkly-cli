@@ -249,7 +249,9 @@ export default class PwTestCommand extends AuthCommand {
       return
     }
 
-    const reporters = createReporters(reporterTypes, location, verboseFlag)
+    const reporters = createReporters(reporterTypes, location, verboseFlag, {
+      showStreamingHeaders: false,
+    })
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
     // TODO: ADD PROPER RETRY STRATEGY HANDLING
