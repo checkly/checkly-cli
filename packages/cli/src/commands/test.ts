@@ -1,5 +1,7 @@
 import { Flags, Args, ux } from '@oclif/core'
 import indentString from 'indent-string'
+import chalk from 'chalk'
+import prompts from 'prompts'
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
@@ -244,6 +246,28 @@ export default class Test extends AuthCommand {
     })
 
     this.style.actionSuccess()
+
+    // Check for sanitized logicalIds and prompt user for confirmation
+    const sanitizedIds = Session.getSanitizedLogicalIds()
+    if (sanitizedIds.length > 0) {
+      this.log(chalk.yellow('\nThe following logicalIds contain invalid characters and will be sanitized:\n'))
+      for (const { constructType, original, sanitized } of sanitizedIds) {
+        this.log(`  ${constructType}: "${original}" → "${sanitized}"`)
+      }
+      this.log('')
+      this.log(chalk.dim('Your source files will not be modified. The sanitized logicalIds will only'))
+      this.log(chalk.dim('be used when syncing with Checkly. To avoid this warning, update your'))
+      this.log(chalk.dim('configuration to use valid characters (A-Z, a-z, 0-9, _ - / # .).\n'))
+      const { confirm } = await prompts({
+        name: 'confirm',
+        type: 'confirm',
+        message: 'Do you want to continue with the sanitized logicalIds?',
+      })
+      if (!confirm) {
+        this.log('Aborted. Please update your configuration to use valid logicalId characters.')
+        return
+      }
+    }
 
     this.style.actionStart('Validating project resources')
 

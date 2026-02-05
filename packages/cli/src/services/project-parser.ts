@@ -65,6 +65,10 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     playwrightChecks,
     currentCommand,
   } = opts
+
+  // Clear sanitized logicalIds at the start of parsing
+  Session.clearSanitizedLogicalIds()
+
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
