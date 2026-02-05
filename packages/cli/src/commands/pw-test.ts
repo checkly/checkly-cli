@@ -43,7 +43,6 @@ export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
   static description = 'Test your Playwright Tests on Checkly.'
-  static state = 'beta'
   static flags = {
     'location': Flags.string({
       char: 'l',
@@ -176,7 +175,7 @@ export default class PwTestCommand extends AuthCommand {
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
-      }, <Record<string, Runtime>> {}),
+      }, <Record<string, Runtime>>{}),
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies: false,
       checklyConfigConstructs,
