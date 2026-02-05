@@ -32,13 +32,16 @@ export default abstract class AbstractListReporter implements Reporter {
   verbose: boolean
   testSessionId?: string
   _isSchedulingDelayExceeded?: boolean
+  showStreamingHeaders: boolean
 
   constructor (
     runLocation: RunLocation,
     verbose: boolean,
+    options: { showStreamingHeaders?: boolean } = {},
   ) {
     this.runLocation = runLocation
     this.verbose = verbose
+    this.showStreamingHeaders = options.showStreamingHeaders ?? true
   }
 
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void {
@@ -114,7 +117,7 @@ export default abstract class AbstractListReporter implements Reporter {
     // Display the check title if this is the first time we're streaming logs for this check
     const isFirstLogBatch = !checkFile.hasStreamedLogs
     checkFile.hasStreamedLogs = true
-    if (isFirstLogBatch) {
+    if (isFirstLogBatch && this.showStreamingHeaders) {
       // For Playwright tests, we need to create a better display name
       const displayCheck = {
         ...check,

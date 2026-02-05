@@ -4,7 +4,7 @@ import path, { join } from 'path'
 import { constants } from 'fs'
 import prompts from 'prompts'
 
-const BASE_RULES_FILE_PATH = join(__dirname, '../rules/checkly.rules.md')
+const BASE_RULES_FILE_PATH = join(__dirname, '../ai-context/checkly.rules.md')
 
 // AI IDE configurations mapping
 const AI_IDE_CONFIGS = {
