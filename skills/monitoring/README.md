@@ -7,6 +7,7 @@ This directory contains the agent skill for creating and managing end-to-end tes
 ```
 skills/
 └── monitoring/
+    ├── README.md             # Documentation about the skill
     └── SKILL.md              # Main skill instructions
 ```
 
