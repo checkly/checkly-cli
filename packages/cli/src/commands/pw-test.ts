@@ -253,7 +253,8 @@ export default class PwTestCommand extends AuthCommand {
     const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
-      this.log(`Unable to find checks to run`)
+      this.style.shortError('Unable to find checks to run.')
+      this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
       return
     }
 
@@ -305,10 +306,15 @@ export default class PwTestCommand extends AuthCommand {
       }, links))
     })
 
+    const noTestsFoundChecks = new Set<string>()
+
     runner.on(Events.CHECK_SUCCESSFUL,
       (sequenceId: SequenceId, check, result, testResultId, links?: TestResultsShortLinks) => {
         if (result.hasFailures) {
           process.exitCode = 1
+          if (noTestsFoundChecks.has(check.logicalId)) {
+            this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+          }
         }
 
         reporters.forEach(r => r.onCheckEnd(sequenceId, {
@@ -326,6 +332,9 @@ export default class PwTestCommand extends AuthCommand {
         hasFailures: true,
         runError: message,
       }))
+      if (message.includes('No tests found')) {
+        this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+      }
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
@@ -335,6 +344,10 @@ export default class PwTestCommand extends AuthCommand {
     })
     runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
       reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+      const hasNoTestsFound = logs.some((log: { message: string }) => log.message?.includes('No tests found'))
+      if (hasNoTestsFound) {
+        noTestsFoundChecks.add(check.logicalId)
+      }
     })
     await runner.run()
   }
