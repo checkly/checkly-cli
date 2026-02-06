@@ -32,6 +32,7 @@ import {
   findPropertyByName,
   reWriteChecklyConfigFile,
 } from '../helpers/write-config-helpers'
+import * as acornParser from '../helpers/recast-acorn-parser'
 import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
 import { DEFAULT_REGION } from '../helpers/constants'
@@ -88,6 +89,12 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
     }),
+    'frequency': Flags.integer({
+      char: 'f',
+      description: 'The frequency in minutes for the created check.',
+      default: 10,
+      options: ['1', '2', '5', '10', '15', '30', '60', '120', '180', '360', '720', '1440'],
+    }),
     'stream-logs': Flags.boolean({
       description: 'Stream logs from the test run to the console.',
       default: true,
@@ -121,6 +128,7 @@ export default class PwTestCommand extends AuthCommand {
       'create-check': createCheck,
       'stream-logs': streamLogs,
       'include': includeFlag,
+      'frequency': frequency,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -147,6 +155,7 @@ export default class PwTestCommand extends AuthCommand {
       runLocation as keyof Region,
       privateRunLocation,
       dir,
+      frequency,
     )
     if (createCheck) {
       this.style.actionStart('Adding check with specified options to the Checkly config file')
@@ -245,7 +254,8 @@ export default class PwTestCommand extends AuthCommand {
     const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
-      this.log(`Unable to find checks to run`)
+      this.style.shortError('Unable to find checks to run.')
+      this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
       return
     }
 
@@ -297,10 +307,15 @@ export default class PwTestCommand extends AuthCommand {
       }, links))
     })
 
+    const noTestsFoundChecks = new Set<string>()
+
     runner.on(Events.CHECK_SUCCESSFUL,
       (sequenceId: SequenceId, check, result, testResultId, links?: TestResultsShortLinks) => {
         if (result.hasFailures) {
           process.exitCode = 1
+          if (noTestsFoundChecks.has(check.logicalId)) {
+            this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+          }
         }
 
         reporters.forEach(r => r.onCheckEnd(sequenceId, {
@@ -318,6 +333,9 @@ export default class PwTestCommand extends AuthCommand {
         hasFailures: true,
         runError: message,
       }))
+      if (message.includes('No tests found')) {
+        this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+      }
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
@@ -327,6 +345,10 @@ export default class PwTestCommand extends AuthCommand {
     })
     runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
       reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+      const hasNoTestsFound = logs.some((log: { message: string }) => log.message?.includes('No tests found'))
+      if (hasNoTestsFound) {
+        noTestsFoundChecks.add(check.logicalId)
+      }
     })
     await runner.run()
   }
@@ -336,6 +358,7 @@ export default class PwTestCommand extends AuthCommand {
     runLocation: keyof Region,
     privateRunLocation: string | undefined,
     dir: string,
+    frequency: number = 10,
   ): Promise<PlaywrightSlimmedProp> {
     const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
@@ -352,7 +375,7 @@ export default class PwTestCommand extends AuthCommand {
       name: `Playwright Test: ${input}`,
       testCommand,
       ...locationConfig,
-      frequency: 10,
+      frequency,
     }
   }
 
@@ -378,7 +401,7 @@ export default class PwTestCommand extends AuthCommand {
       this.style.actionSuccess()
       return
     }
-    const checklyAst = recast.parse(configFile.checklyConfig)
+    const checklyAst = recast.parse(configFile.checklyConfig, { parser: acornParser })
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is '
@@ -395,7 +418,7 @@ export default class PwTestCommand extends AuthCommand {
     )
 
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
-    const playwrightCheckAst = recast.parse(playwrightCheckString)
+    const playwrightCheckAst = recast.parse(playwrightCheckString, { parser: acornParser })
     const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init
     addOrReplaceItem(checksAst.value, playwrightPropertyNode, 'playwrightConfigPath')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
