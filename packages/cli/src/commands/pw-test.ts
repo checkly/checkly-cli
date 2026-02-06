@@ -42,7 +42,6 @@ export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
   static description = 'Test your Playwright Tests on Checkly.'
-  static state = 'beta'
   static flags = {
     'location': Flags.string({
       char: 'l',
@@ -89,6 +88,12 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
     }),
+    'frequency': Flags.integer({
+      char: 'f',
+      description: 'The frequency in minutes for the created check.',
+      default: 10,
+      options: ['1', '2', '5', '10', '15', '30', '60', '120', '180', '360', '720', '1440'],
+    }),
     'stream-logs': Flags.boolean({
       description: 'Stream logs from the test run to the console.',
       default: true,
@@ -122,6 +127,7 @@ export default class PwTestCommand extends AuthCommand {
       'create-check': createCheck,
       'stream-logs': streamLogs,
       'include': includeFlag,
+      'frequency': frequency,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -148,6 +154,7 @@ export default class PwTestCommand extends AuthCommand {
       runLocation as keyof Region,
       privateRunLocation,
       dir,
+      frequency,
     )
     if (createCheck) {
       this.style.actionStart('Adding check with specified options to the Checkly config file')
@@ -251,7 +258,9 @@ export default class PwTestCommand extends AuthCommand {
       return
     }
 
-    const reporters = createReporters(reporterTypes, location, verboseFlag)
+    const reporters = createReporters(reporterTypes, location, verboseFlag, {
+      showStreamingHeaders: false,
+    })
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
     // TODO: ADD PROPER RETRY STRATEGY HANDLING
@@ -348,6 +357,7 @@ export default class PwTestCommand extends AuthCommand {
     runLocation: keyof Region,
     privateRunLocation: string | undefined,
     dir: string,
+    frequency: number = 10,
   ): Promise<PlaywrightSlimmedProp> {
     const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
@@ -364,7 +374,7 @@ export default class PwTestCommand extends AuthCommand {
       name: `Playwright Test: ${input}`,
       testCommand,
       ...locationConfig,
-      frequency: 10,
+      frequency,
     }
   }
 
