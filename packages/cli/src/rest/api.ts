@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { name as CIname } from 'ci-info'
 import config from '../services/config'
-import { assignProxy } from '../services/util'
+import { assignProxy } from '../services/proxy'
 import Accounts, { Account } from './accounts'
 import Users from './users'
 import Projects from './projects'

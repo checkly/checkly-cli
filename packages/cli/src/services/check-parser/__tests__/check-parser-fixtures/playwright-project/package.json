@@ -1,0 +1,8 @@
+{
+  "name": "playwright-project",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "jiti": "^2.6.1"
+  }
+}

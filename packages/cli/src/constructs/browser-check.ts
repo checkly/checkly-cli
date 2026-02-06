@@ -1,9 +1,7 @@
 import fs from 'node:fs/promises'
-import path from 'node:path'
 
 import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
 import { Session, SharedFileRef } from './project'
-import { pathToPosix } from '../services/util'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
 import { detectSnapshots } from '../services/snapshot-service'
 import { PlaywrightConfig } from './playwright-config'
@@ -11,6 +9,7 @@ import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface BrowserCheckProps extends RuntimeCheckProps {
   /**
@@ -106,7 +105,7 @@ export class BrowserCheck extends RuntimeCheck {
     return `BrowserCheck:${this.logicalId}`
   }
 
-  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     return makeConfigDefaultsGetter(
       props.group?.getBrowserCheckDefaults(),
       Session.browserCheckDefaults,
@@ -154,6 +153,16 @@ export class BrowserCheck extends RuntimeCheck {
         ))
       }
     }
+
+    if (this.runtimeId) {
+      const runtime = Session.getRuntime(this.runtimeId)
+      if (!runtime) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'runtimeId',
+          new Error(`"${this.runtimeId}" is not a known runtime.`),
+        ))
+      }
+    }
   }
 
   static async bundle (entry: string, runtimeId?: string) {
@@ -168,7 +177,7 @@ export class BrowserCheck extends RuntimeCheck {
     const deps: SharedFileRef[] = []
     for (const { filePath, content } of parsed.dependencies) {
       deps.push(Session.registerSharedFile({
-        path: pathToPosix(path.relative(Session.basePath!, filePath)),
+        path: Session.relativePosixPath(filePath),
         content,
       }))
     }

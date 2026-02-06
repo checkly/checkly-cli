@@ -1,35 +1,102 @@
 import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
-import { Parser } from '../parser'
-import { PlaywrightConfig } from '../../playwright-config'
-import { Session } from '../../../constructs'
+import { File } from '../parser'
+import { FixtureSandbox } from '../../../testing/fixture-sandbox'
+import { pathToPosix } from '../../util'
 
-const fixturePath = path.join(__dirname, 'check-parser-fixtures')
+describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
+  describe('playwright-project', () => {
+    let fixt: FixtureSandbox
 
-describe('project parser - getFilesAndDependencies()', () => {
-  it('should handle spec file', async () => {
-    const projectPath = path.join(fixturePath, 'playwright-project')
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
+      })
+    }, 180_000)
 
-    const playwrightConfig = new PlaywrightConfig(
-      path.join(projectPath, 'playwright.config.ts'),
-      await Session.loadFile(path.join(projectPath, 'playwright.config.ts')),
-    )
-    const parser = new Parser({})
-    const res = await parser.getFilesAndDependencies(playwrightConfig)
-    expect(res.files).toHaveLength(2)
-    expect(res.errors).toHaveLength(0)
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    test('should handle spec file', async () => {
+      const result = await fixt.run('npx', [
+        'checkly',
+        'debug',
+        'parse-playwright-config',
+        '--file',
+        fixt.abspath('playwright.config.ts'),
+      ])
+
+      if (result.exitCode !== 0) {
+        // eslint-disable-next-line no-console
+        console.error('stderr', result.stderr)
+        // eslint-disable-next-line no-console
+        console.error('stdout', result.stdout)
+      }
+
+      expect(result.exitCode).toBe(0)
+
+      const output: {
+        files: File[]
+        errors: string[]
+      } = JSON.parse(result.stdout)
+
+      expect(output.files).toEqual(expect.arrayContaining([
+        { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('tests', 'example.spec.ts')) },
+      ]))
+      expect(output.files).toHaveLength(3)
+      expect(output.errors).toHaveLength(0)
+    })
   })
-  it('should handle a spec file with snapshots', async () => {
-    const projectPath = path.join(fixturePath, 'playwright-project-snapshots')
-    const playwrightConfig = new PlaywrightConfig(
-      path.join(projectPath, 'playwright.config.ts'),
-      await Session.loadFile(path.join(projectPath, 'playwright.config.ts')),
-    )
-    const parser = new Parser({})
-    const res = await parser.getFilesAndDependencies(playwrightConfig)
-    expect(res.files).toHaveLength(3)
-    expect(res.errors).toHaveLength(0)
+
+  describe('playwright-project-snapshots', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    test('should handle a spec file with snapshots', async () => {
+      const result = await fixt.run('npx', [
+        'checkly',
+        'debug',
+        'parse-playwright-config',
+        '--file',
+        fixt.abspath('playwright.config.ts'),
+      ])
+
+      if (result.exitCode !== 0) {
+        // eslint-disable-next-line no-console
+        console.error('stderr', result.stderr)
+        // eslint-disable-next-line no-console
+        console.error('stdout', result.stdout)
+      }
+
+      expect(result.exitCode).toBe(0)
+
+      const output: {
+        files: File[]
+        errors: string[]
+      } = JSON.parse(result.stdout)
+
+      expect(output.files).toEqual(expect.arrayContaining([
+        { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('tests/example.spec.ts')) },
+        { physical: true, filePath: expect.stringContaining('example.spec.ts-snapshots') },
+      ]))
+      expect(output.files).toHaveLength(4)
+      expect(output.errors).toHaveLength(0)
+    })
   })
 })

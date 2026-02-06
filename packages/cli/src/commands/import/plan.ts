@@ -26,13 +26,12 @@ import { ExitError } from '@oclif/core/errors'
 import { confirmCommit, performCommitAction } from './commit'
 import { confirmApply, performApplyAction } from './apply'
 import { generateChecklyConfig } from '../../services/checkly-config-codegen'
-import { PackageFilesResolver } from '../../services/check-parser/package-files/resolver'
 import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
-import { detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
+import { detectNearestPackageJson, detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
 import { parseProject } from '../../services/project-parser'
-import { Runtime } from '../../rest/runtimes'
 import { ConstructExport, Project, Session } from '../../constructs/project'
 import { Diagnostics } from '../../constructs'
+import { Runtime } from '../../runtimes'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -704,10 +703,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #loadPackageJson (): Promise<PackageJsonFile | undefined> {
-    const resolver = new PackageFilesResolver()
-    return await resolver.loadPackageJsonFile(process.cwd(), {
-      isDir: true,
-    })
+    try {
+      return await detectNearestPackageJson(process.cwd())
+    } catch {
+      return
+    }
   }
 
   #createPackageJson (logicalId: string): PackageJsonFile {
@@ -942,7 +942,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     let project: Project
     try {
       const account = this.account
-      const { data: availableRuntimes } = await api.runtimes.getAll()
+      const availableRuntimes = await api.runtimes.getAll()
 
       project = await parseProject({
         directory: configDirectory,

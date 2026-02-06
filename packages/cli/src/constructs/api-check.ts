@@ -11,6 +11,7 @@ import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 import { Assertion } from './api-assertion'
 import { validateResponseTimes } from './internal/common-diagnostics'
+import { Runtime } from '../runtimes'
 
 /**
  * Default configuration that can be applied to API checks.
@@ -244,6 +245,16 @@ export class ApiCheck extends RuntimeCheck {
         'localTearDownScript',
         new Error(`Use "tearDownScript" instead.`),
       ))
+    }
+
+    if (this.runtimeId) {
+      const runtime = Session.getRuntime(this.runtimeId)
+      if (!runtime) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'runtimeId',
+          new Error(`"${this.runtimeId}" is not a known runtime.`),
+        ))
+      }
     }
 
     await validateResponseTimes(diagnostics, this, {

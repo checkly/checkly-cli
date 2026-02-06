@@ -1,6 +1,10 @@
+import Debug from 'debug'
+
 import { preferenceDelta } from './config'
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
 import { FileMatch } from './match'
+
+const debug = Debug('checkly:cli:loader:ts-node')
 
 interface TSNodeExports {
   register (opts?: any): TSNodeService
@@ -15,6 +19,7 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
     UninitializedTSNodeFileLoaderState.init ??= (async () => {
+      debug('Initializing loader')
       try {
         const tsNodeExports: TSNodeExports = await import('ts-node')
         const service = tsNodeExports.register({
@@ -25,8 +30,10 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
             module: 'CommonJS',
           },
         })
+        debug(`Successfully initialized loader`)
         TSNodeFileLoader.state = new InitializedTSNodeFileLoaderState(service)
       } catch (err) {
+        debug(`Failed to initialize loader: ${err}`)
         TSNodeFileLoader.state = new FailedTSNodeFileLoaderState(err as Error)
       }
     })()
@@ -63,6 +70,7 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
 
   // eslint-disable-next-line require-await
   async loadFile<T = unknown> (filePath: string): Promise<T> {
+    debug(`Loading file ${filePath}`)
     try {
       this.service.enabled(true)
 
@@ -70,6 +78,8 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
       const moduleExports = require(filePath)
       return moduleExports
     } catch (err: any) {
+      debug(`Failed to load file ${filePath}: ${err}`)
+
       if (err.message?.includes('Unable to compile TypeScript')) {
         throw new Error(`Unable to load file '${filePath}' with 'ts-node' (hint: consider installing 'jiti' for improved TypeScript support)\n${err.stack}`, {
           cause: err as Error,

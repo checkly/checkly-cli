@@ -137,6 +137,20 @@ export class UnsupportedRuntimeFeatureDiagnostic extends ErrorDiagnostic {
   }
 }
 
+export class UnsatisfiedLocalPrerequisitesDiagnostic extends ErrorDiagnostic {
+  constructor (error: Error) {
+    super({
+      title: `Unsatisfied local prerequisites`,
+      message:
+        `Local environment does not satisfy the prerequisites for this `
+        + `functionality.`
+        + `\n\n`
+        + `Cause: ${error.message}`,
+      error,
+    })
+  }
+}
+
 export class ConstructDiagnostic extends Diagnostic {
   underlying: Diagnostic
 

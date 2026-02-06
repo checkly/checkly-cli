@@ -4,7 +4,7 @@ import * as http from 'http'
 import * as crypto from 'crypto'
 import jwtDecode from 'jwt-decode'
 import { getDefaults as getApiDefaults } from '../rest/api'
-import { assignProxy } from '../services/util'
+import { assignProxy } from '../services/proxy'
 import * as fs from 'fs'
 import * as path from 'path'
 

@@ -1,13 +1,9 @@
-import type { CreateAxiosDefaults } from 'axios'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
-// @ts-ignore
-import { getProxyForUrl } from 'proxy-from-env'
-import { httpOverHttp, httpsOverHttp, httpOverHttps, httpsOverHttps } from 'tunnel'
 import type { Archiver } from 'archiver'
 import { glob } from 'glob'
 import os from 'node:os'
@@ -17,14 +13,8 @@ import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
 import { readFile } from 'fs/promises'
 import { createHash } from 'crypto'
-import { Session } from '../constructs'
+import { Session } from '../constructs/project'
 import semver from 'semver'
-import {
-  detectNearestLockfile,
-  NpmDetector,
-  PNpmDetector,
-  YarnDetector,
-} from './check-parser/package-files/package-manager'
 import { existsSync } from 'fs'
 
 export interface GitInformation {
@@ -149,38 +139,6 @@ export async function getEnvs (envFile: string | undefined, envArgs: Array<strin
   return parse(envsString)
 }
 
-const isHttps = (protocol: string) => protocol.startsWith('https')
-
-export function assignProxy (baseURL: string, axiosConfig: CreateAxiosDefaults) {
-  const proxyUrlEnv = getProxyForUrl(baseURL)
-  if (!proxyUrlEnv) {
-    return axiosConfig
-  }
-
-  const parsedProxyUrl = new URL(proxyUrlEnv)
-  const isProxyHttps = isHttps(parsedProxyUrl.protocol)
-  const isEndpointHttps = isHttps(baseURL)
-  const proxy: any = {
-    host: parsedProxyUrl.hostname,
-    port: parsedProxyUrl.port,
-    protocol: parsedProxyUrl.protocol,
-  }
-  if (parsedProxyUrl.username && parsedProxyUrl.password) {
-    proxy.proxyAuth = `${parsedProxyUrl.username}:${parsedProxyUrl.password}`
-  }
-  if (isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttps({ proxy })
-  } else if (isProxyHttps && !isEndpointHttps) {
-    axiosConfig.httpAgent = httpOverHttps({ proxy })
-  } else if (!isProxyHttps && isEndpointHttps) {
-    axiosConfig.httpsAgent = httpsOverHttp({ proxy })
-  } else {
-    axiosConfig.httpAgent = httpOverHttp({ proxy })
-  }
-  axiosConfig.proxy = false
-  return axiosConfig
-}
-
 export function normalizeVersion (v?: string | undefined): string | undefined {
   const cleaned =
     semver.valid(semver.clean(v ?? '') || '')
@@ -197,11 +155,11 @@ export async function bundlePlayWrightProject (
   relativePlaywrightConfigPath: string
   cacheHash: string
   playwrightVersion: string
+  workingDir?: string
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
-  const supportedDetectors = [new NpmDetector(), new YarnDetector(), new PNpmDetector()]
-  const { lockfile } = await detectNearestLockfile(dir, { detectors: supportedDetectors, root: Session.basePath })
+  const lockfile = Session.workspace.unwrap().lockfile.unwrap()
 
   // No need of loading everything if there is no lockfile
   const pwtConfig = await Session.loadFile(filePath)
@@ -230,7 +188,7 @@ export async function bundlePlayWrightProject (
 
   const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive, lockfile),
+    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
   ])
 
   await archive.finalize()
@@ -240,8 +198,9 @@ export async function bundlePlayWrightProject (
         outputFile,
         browsers: pwConfigParsed.getBrowsers(),
         playwrightVersion,
-        relativePlaywrightConfigPath: Session.relativePosixPath(filePath),
+        relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
         cacheHash,
+        workingDir: Session.relativePosixPath(Session.contextPath!),
       })
     })
 
@@ -279,51 +238,35 @@ export function getPlaywrightVersionFromPackage (cwd: string): string {
   }
 }
 
-// Temporarily always include these extra files (if present) until they can
-// be properly supported.
-const extraFiles = [
-  'pnpm-workspace.yaml',
-]
-
 export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
-  lockFile: string,
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
-  const parser = new Parser({})
+  const parser = new Parser({
+    workspace: Session.workspace.ok(),
+    restricted: false,
+  })
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
   const root = Session.basePath!
-  const prefix = Session.relativePosixPath(dir)
   const entryDefaults = {
     mode: 0o755, // Default mode for files in the archive
   }
   for (const file of files) {
-    archive.file(file, {
-      ...entryDefaults,
-      name: Session.relativePosixPath(file),
-    })
+    if (file.physical) {
+      archive.file(file.filePath, {
+        ...entryDefaults,
+        name: Session.relativePosixPath(file.filePath),
+      })
+    } else {
+      archive.append(file.content, {
+        ...entryDefaults,
+        name: Session.relativePosixPath(file.filePath),
+      })
+    }
   }
-  const lockFileDirName = path.dirname(lockFile)
-  const packageJsonFile = path.join(lockFileDirName, 'package.json')
-  archive.file(lockFile, {
-    ...entryDefaults,
-    name: Session.relativePosixPath(lockFile),
-  })
-  archive.file(packageJsonFile, {
-    ...entryDefaults,
-    name: Session.relativePosixPath(packageJsonFile),
-  })
-  // handle workspaces
-  archive.glob('**/package.json', {
-    cwd: dir,
-    ignore: ignoredFiles,
-  }, {
-    ...entryDefaults,
-    prefix,
-  })
   for (const includePattern of include) {
     // If pattern explicitly targets an ignored directory, only apply custom ignores
     const explicitlyTargetsIgnored =
@@ -337,18 +280,6 @@ export async function loadPlaywrightProjectFiles (
       ...entryDefaults,
     })
   }
-  for (const filePath of extraFiles) {
-    archive.file(path.resolve(root, filePath), {
-      ...entryDefaults,
-      name: Session.relativePosixPath(filePath),
-    })
-  }
-}
-
-export async function findRegexFiles (directory: string, regex: RegExp, ignorePattern: string[]):
-Promise<string[]> {
-  const files = await findFilesWithPattern(directory, '**/*.{js,ts,mjs}', ignorePattern)
-  return files.filter(file => regex.test(file)).map(file => pathToPosix(path.relative(directory, file)))
 }
 
 export async function findFilesWithPattern (

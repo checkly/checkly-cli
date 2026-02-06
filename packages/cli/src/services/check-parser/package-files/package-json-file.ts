@@ -4,9 +4,24 @@ import semver from 'semver'
 
 import { JsonSourceFile } from './json-source-file'
 import { FileMeta, SourceFile } from './source-file'
+import { PathResolver, ResolveResult } from './paths'
 
-type ExportCondition =
-  'node-addons' | 'node' | 'import' | 'require' | 'module-sync' | 'default'
+type ConditionKey =
+  | 'node-addons'
+  | 'node'
+  | 'import'
+  | 'require'
+  | 'module-sync'
+  | 'default'
+  // Allow any string value, but keep auto complete for known values.
+  | (string & Record<never, never>)
+
+type Exports =
+  | string
+  | Record<string, string | Record<ConditionKey, string>>
+
+type Imports =
+  | Record<string, string | Record<ConditionKey, string>>
 
 type Schema = {
   name?: string
@@ -14,10 +29,12 @@ type Schema = {
   license?: string
   main?: string
   engines?: Record<string, string>
-  exports?: string | string[] | Record<string, string> | Record<ExportCondition, Record<string, string>>
+  exports?: Exports
+  imports?: Imports
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   private?: boolean
+  workspaces?: string[]
 }
 
 export interface EngineSupportResult {
@@ -47,8 +64,64 @@ export class PackageJsonFile {
       : [fallbackMainPath]
   }
 
+  hasExports (): boolean {
+    return !!this.jsonFile.data.exports
+  }
+
+  resolveExportPath (exportPath: string, conditions: ConditionKey[]): ResolveResult {
+    const resolver = PathResolver.createFromPaths(
+      this.basePath,
+      this.#resolveExports(this.jsonFile.data.exports ?? {}, conditions),
+    )
+
+    // Exports must always start with "./" - make sure that the path we're
+    // matching against also starts with that prefix.
+    if (!exportPath.startsWith('./')) {
+      exportPath = `./${exportPath}`
+    }
+
+    return resolver.resolve(exportPath)
+  }
+
+  #resolveExports (exports: Exports, conditions: ConditionKey[]): Record<string, string[]> {
+    if (typeof exports === 'string') {
+      return {
+        '.': [exports],
+      }
+    }
+
+    const resolved: Record<string, string[]> = {}
+
+    Resolve:
+    for (const [from, rules] of Object.entries(exports)) {
+      if (typeof rules === 'string') {
+        resolved[from] = [rules]
+        continue Resolve
+      }
+
+      for (const [condition, to] of Object.entries(rules)) {
+        if (conditions.includes(condition)) {
+          resolved[from] = [to]
+          continue Resolve
+        }
+      }
+
+      const fallback = rules['default']
+      if (fallback) {
+        resolved[from] = [fallback]
+        continue Resolve
+      }
+    }
+
+    return resolved
+  }
+
   public get meta () {
     return this.jsonFile.meta
+  }
+
+  public get name () {
+    return this.jsonFile.data.name
   }
 
   public get version () {
@@ -65,6 +138,10 @@ export class PackageJsonFile {
 
   public get engines () {
     return this.jsonFile.data.engines
+  }
+
+  public get workspaces () {
+    return this.jsonFile.data.workspaces
   }
 
   supportsEngine (engine: string, version: string): EngineSupportResult {
@@ -103,6 +180,24 @@ export class PackageJsonFile {
   // eslint-disable-next-line require-await
   static async loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): Promise<PackageJsonFile | undefined> {
     return new PackageJsonFile(jsonFile)
+  }
+
+  static async loadFromSourceFile (sourceFile: SourceFile): Promise<PackageJsonFile | undefined> {
+    const jsonSourceFile = await JsonSourceFile.loadFromSourceFile<Schema>(sourceFile)
+    if (!jsonSourceFile) {
+      return
+    }
+
+    return PackageJsonFile.loadFromJsonSourceFile(jsonSourceFile)
+  }
+
+  static async loadFromFilePath (filePath: string): Promise<PackageJsonFile | undefined> {
+    const sourceFile = await SourceFile.loadFromFilePath(filePath)
+    if (!sourceFile) {
+      return
+    }
+
+    return PackageJsonFile.loadFromSourceFile(sourceFile)
   }
 
   static filePath (dirPath: string) {
