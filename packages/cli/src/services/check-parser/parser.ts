@@ -249,7 +249,7 @@ export class Parser {
         ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       for (const dep of resolvedDependencies.missing) {
-        missingFiles.add(pathToPosix(dep.filePath))
+        missingFiles.add(dep.filePath)
       }
 
       neighbors.markDepended(...resolvedDependencies.neighbors.depends)
@@ -264,7 +264,7 @@ export class Parser {
         const filePath = dep.sourceFile.meta.filePath
         files.add(filePath)
       }
-      resultFileSet.add(pathToPosix(item.filePath))
+      resultFileSet.add(item.filePath)
     }
 
     if (missingFiles.size) {
@@ -275,7 +275,7 @@ export class Parser {
 
     for (const filePath of resultFileSet) {
       outputFiles.push({
-        filePath,
+        filePath: pathToPosix(filePath),
         physical: true,
       })
     }
