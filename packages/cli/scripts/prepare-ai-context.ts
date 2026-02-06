@@ -9,6 +9,7 @@ const CONTEXT_TEMPLATE_PATH = join(
 )
 const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
 const SKILL_OUTPUT_DIR = join(__dirname, '../dist/ai-context/skills/monitoring')
+const README_PATH = join(__dirname, '../src/ai-context/README.md')
 
 function stripYamlFrontmatter (content: string): string {
   const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
@@ -23,7 +24,7 @@ async function writeOutput (content: string, dir: string, filename: string): Pro
   console.log(`✅ Compiled to ${outputPath}`)
 }
 
-async function compileContext () {
+async function prepareContext () {
   try {
     // eslint-disable-next-line no-console
     console.log('📝 Compiling context template with examples...')
@@ -41,6 +42,9 @@ async function compileContext () {
       RULES_OUTPUT_DIR,
       'checkly.rules.md',
     )
+
+    const readme = await readFile(README_PATH, 'utf8')
+    await writeOutput(readme, SKILL_OUTPUT_DIR, 'README.md')
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to compile context:', error)
@@ -82,4 +86,4 @@ async function readExampleCode (): Promise<
   return examples
 }
 
-compileContext()
+prepareContext()
