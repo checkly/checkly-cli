@@ -21,13 +21,13 @@ async function writeOutput (content: string, dir: string, filename: string): Pro
   const outputPath = join(dir, filename)
   await writeFile(outputPath, content, 'utf8')
   // eslint-disable-next-line no-console
-  console.log(`✅ Compiled to ${outputPath}`)
+  console.log(`✅ Wrote ${outputPath}`)
 }
 
 async function prepareContext () {
   try {
     // eslint-disable-next-line no-console
-    console.log('📝 Compiling context template with examples...')
+    console.log('📝 Preparing AI context...')
 
     let content = await readFile(CONTEXT_TEMPLATE_PATH, 'utf8')
     const examples = await readExampleCode()
@@ -47,7 +47,7 @@ async function prepareContext () {
     await writeOutput(readme, SKILL_OUTPUT_DIR, 'README.md')
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('❌ Failed to compile context:', error)
+    console.error('❌ Failed to prepare AI context:', error)
     process.exit(1)
   }
 }
