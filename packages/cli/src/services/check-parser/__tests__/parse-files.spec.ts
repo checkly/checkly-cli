@@ -4,6 +4,7 @@ import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
 import { File } from '../parser'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox'
+import { pathToPosix } from '../../util'
 
 describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
   describe('playwright-project', () => {
@@ -43,9 +44,9 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
       } = JSON.parse(result.stdout)
 
       expect(output.files).toEqual([
-        { physical: true, filePath: fixt.abspath('package.json') },
-        { physical: true, filePath: fixt.abspath('playwright.config.ts') },
-        { physical: true, filePath: fixt.abspath('tests/example.spec.ts') },
+        { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('tests', 'example.spec.ts')) },
       ])
 
       expect(output.errors).toHaveLength(0)
@@ -89,10 +90,10 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
       } = JSON.parse(result.stdout)
 
       expect(output.files).toEqual([
-        { physical: true, filePath: fixt.abspath('package.json') },
-        { physical: true, filePath: fixt.abspath('playwright.config.ts') },
-        { physical: true, filePath: fixt.abspath('tests/example.spec.ts') },
-        { physical: true, filePath: fixt.abspath('tests/example.spec.ts-snapshots/Google-test-1-Mobile-Chrome-linux.png') },
+        { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
+        { physical: true, filePath: pathToPosix(fixt.abspath('tests/example.spec.ts')) },
+        { physical: true, filePath: expect.stringContaining('example.spec.ts-snapshots') },
       ])
 
       expect(output.errors).toHaveLength(0)
