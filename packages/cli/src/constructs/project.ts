@@ -57,7 +57,6 @@ export type ProjectData = {
 export class Project extends Construct {
   name: string
   repoUrl?: string
-  logicalId: string
   testOnlyAllowed = false
   data: ProjectData = {
     'check': {},
@@ -85,7 +84,7 @@ export class Project extends Construct {
     super(Project.__checklyType, logicalId)
     this.name = props.name
     this.repoUrl = props.repoUrl
-    this.logicalId = logicalId
+    // logicalId is already set by Construct constructor (with sanitization)
   }
 
   describe (): string {
@@ -246,6 +245,7 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static currentCommand?: 'pw-test' | 'test' | 'deploy'
   static includeFlagProvided?: boolean
+  static sanitizedLogicalIds: Array<{ constructType: string, original: string, sanitized: string }> = []
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
@@ -293,13 +293,29 @@ export class Session {
     }
   }
 
+  static sanitizeLogicalId (logicalId: string, constructType?: string): string {
+    const sanitized = logicalId.replace(/[^A-Za-z0-9_\-/#.]/g, '')
+    if (sanitized !== logicalId && constructType) {
+      Session.sanitizedLogicalIds.push({
+        constructType,
+        original: logicalId,
+        sanitized,
+      })
+    }
+    return sanitized
+  }
+
+  static clearSanitizedLogicalIds (): void {
+    Session.sanitizedLogicalIds = []
+  }
+
+  static getSanitizedLogicalIds (): Array<{ constructType: string, original: string, sanitized: string }> {
+    return Session.sanitizedLogicalIds
+  }
+
   static validateCreateConstruct (construct: Construct) {
     if (typeof construct.logicalId !== 'string') {
       throw new ValidationError(`The "logicalId" of a ${construct.type} construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
-    }
-
-    if (!/^[A-Za-z0-9_\-/#.]+$/.test(construct.logicalId)) {
-      throw new ValidationError(`The "logicalId" can only include the following characters: [A-Za-z0-9_-/#.]. (logicalId='${construct.logicalId}')`)
     }
 
     if (construct.type === Project.__checklyType) {

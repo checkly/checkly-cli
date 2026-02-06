@@ -14,6 +14,7 @@ import {
 } from '../constructs'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
+import { confirmSanitizedLogicalIds } from '../helpers/sanitized-logical-id'
 import commonMessages from '../messages/common-messages'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
@@ -119,6 +120,12 @@ export default class Deploy extends AuthCommand {
     const repoInfo = getGitInformation(project.repoUrl)
 
     this.style.actionSuccess()
+
+    // Check for sanitized logicalIds and prompt user for confirmation
+    const shouldContinue = await confirmSanitizedLogicalIds(this.log.bind(this), { force })
+    if (!shouldContinue) {
+      return
+    }
 
     this.style.actionStart('Validating project resources')
 

@@ -1,6 +1,7 @@
 import { Flags, Args, ux } from '@oclif/core'
 import indentString from 'indent-string'
 import * as api from '../rest/api'
+import { confirmSanitizedLogicalIds } from '../helpers/sanitized-logical-id'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
 import {
@@ -244,6 +245,12 @@ export default class Test extends AuthCommand {
     })
 
     this.style.actionSuccess()
+
+    // Check for sanitized logicalIds and prompt user for confirmation
+    const shouldContinue = await confirmSanitizedLogicalIds(this.log.bind(this))
+    if (!shouldContinue) {
+      return
+    }
 
     this.style.actionStart('Validating project resources')
 
