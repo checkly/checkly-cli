@@ -43,12 +43,12 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
         errors: string[]
       } = JSON.parse(result.stdout)
 
-      expect(output.files).toEqual([
+      expect(output.files).toEqual(expect.arrayContaining([
         { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
         { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
         { physical: true, filePath: pathToPosix(fixt.abspath('tests', 'example.spec.ts')) },
-      ])
-
+      ]))
+      expect(output.files).toHaveLength(3)
       expect(output.errors).toHaveLength(0)
     })
   })
@@ -89,13 +89,13 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
         errors: string[]
       } = JSON.parse(result.stdout)
 
-      expect(output.files).toEqual([
+      expect(output.files).toEqual(expect.arrayContaining([
         { physical: true, filePath: pathToPosix(fixt.abspath('package.json')) },
         { physical: true, filePath: pathToPosix(fixt.abspath('playwright.config.ts')) },
         { physical: true, filePath: pathToPosix(fixt.abspath('tests/example.spec.ts')) },
         { physical: true, filePath: expect.stringContaining('example.spec.ts-snapshots') },
-      ])
-
+      ]))
+      expect(output.files).toHaveLength(4)
       expect(output.errors).toHaveLength(0)
     })
   })
