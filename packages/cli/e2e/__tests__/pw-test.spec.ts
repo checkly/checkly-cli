@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
@@ -47,42 +47,70 @@ describe('pw-test', { timeout: 45000 }, () => {
     ])
   }, 130000)
 
-  it('Should add a Playwright test to the config', async () => {
-    await runTest(fixt, [
-      '--create-check',
-      '--',
-      '--grep',
-      '@TAG-B',
-    ])
+  describe('create-check', () => {
+    let fixt: FixtureSandbox
 
-    const checklyConfig = await loadChecklyConfig(fixt.root)
+    beforeEach(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
+      })
+    }, 180_000)
 
-    expect(checklyConfig.config?.checks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightConfigPath).toBe('./playwright.config.ts')
-    expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightChecks?.length).toBe(1)
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.name).toBe('Playwright Test: --grep @TAG-B')
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.testCommand).toBe('npx playwright test --grep @TAG-B')
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.frequency).toBe(10)
-  })
+    afterEach(async () => {
+      await fixt?.destroy()
+    })
 
-  it('Should add a Playwright test with custom frequency', async () => {
-    await runTest(fixt, [
-      '--create-check',
-      '--frequency',
-      '5',
-      '--',
-      '--grep',
-      '@TAG-B',
-    ])
+    it('Should add a Playwright test to the config', async () => {
+      await runTest(fixt, [
+        '--create-check',
+        '--',
+        '--grep',
+        '@TAG-B',
+      ])
 
-    const checklyConfig = await loadChecklyConfig(fixt.root)
+      const checklyConfig = await loadChecklyConfig(fixt.root)
 
-    expect(checklyConfig.config?.checks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightChecks).toBeDefined()
-    expect(checklyConfig.config?.checks?.playwrightChecks?.length).toBe(1)
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.name).toBe('Playwright Test: --grep @TAG-B')
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.testCommand).toBe('npx playwright test --grep @TAG-B')
-    expect(checklyConfig.config?.checks?.playwrightChecks?.[0]?.frequency).toBe(5)
+      expect(checklyConfig).toEqual(expect.objectContaining({
+        config: expect.objectContaining({
+          checks: expect.objectContaining({
+            playwrightConfigPath: './playwright.config.ts',
+            playwrightChecks: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Playwright Test: --grep @TAG-B',
+                testCommand: 'npx playwright test --grep @TAG-B',
+                frequency: 10,
+              }),
+            ]),
+          }),
+        }),
+      }))
+    })
+
+    it('Should add a Playwright test with custom frequency', async () => {
+      await runTest(fixt, [
+        '--create-check',
+        '--frequency',
+        '5',
+        '--',
+        '--grep',
+        '@TAG-B',
+      ])
+
+      const checklyConfig = await loadChecklyConfig(fixt.root)
+
+      expect(checklyConfig).toEqual(expect.objectContaining({
+        config: expect.objectContaining({
+          checks: expect.objectContaining({
+            playwrightChecks: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Playwright Test: --grep @TAG-B',
+                testCommand: 'npx playwright test --grep @TAG-B',
+                frequency: 5,
+              }),
+            ]),
+          }),
+        }),
+      }))
+    })
   })
 })
