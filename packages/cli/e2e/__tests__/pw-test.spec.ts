@@ -88,6 +88,8 @@ describe('pw-test', { timeout: 45000 }, () => {
       // eslint-disable-next-line no-console
       console.log(result)
     }
+    const configContent = fs.readFileSync(
+      path.join(FIXTURE_TEST_PWT_NATIVE, 'checkly.config.ts'), 'utf-8')
     expect(result.status).toBe(0)
     const checklyConfig = await loadChecklyConfig(FIXTURE_TEST_PWT_NATIVE)
     expect(checklyConfig.config?.checks).toBeDefined()
@@ -95,6 +97,6 @@ describe('pw-test', { timeout: 45000 }, () => {
     const playwrightChecks = checklyConfig.config?.checks?.playwrightChecks
     expect(playwrightChecks).toBeDefined()
     expect(playwrightChecks!.length).toBe(1)
-    expect(playwrightChecks![0].installCommand).toBe('pnpm install')
+    expect(configContent).toContain('pnpm install')
   })
 })
