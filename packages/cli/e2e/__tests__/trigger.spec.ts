@@ -51,7 +51,7 @@ describe('trigger', () => {
     expect(result.stdout).toContain('Prod Frontend Check')
     expect(result.stdout).not.toContain('Staging Backend Check')
     expect(result.status).toBe(0)
-  })
+  }, 45_000)
 
   test('Should return code 1 when no checks match', async () => {
     const result = await runChecklyCli({

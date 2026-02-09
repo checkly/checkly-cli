@@ -1,0 +1,9 @@
+{
+  "name": "baz",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./lib/dep2": "./dist/lib/dep2.js"
+  }
+}

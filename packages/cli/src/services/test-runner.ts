@@ -7,7 +7,7 @@ import { Check } from '../constructs/check'
 import { RetryStrategy, SharedFile } from '../constructs'
 import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle'
 import { pullSnapshots } from '../services/snapshot-service'
-import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
+import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
 
 export default class TestRunner extends AbstractCheckRunner {
   projectBundle: ProjectBundle
@@ -61,7 +61,7 @@ export default class TestRunner extends AbstractCheckRunner {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
       // Get the group reference - Playwright checks store it in the bundle,
       // other checks store it in the check construct (as groupId)
-      const groupId = bundle instanceof PlaywrightCheckBundle
+      const groupId = bundle instanceof PlaywrightCheckLocalBundle
         ? bundle.groupId
         : check.groupId
 

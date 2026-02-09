@@ -1,6 +1,10 @@
+import Debug from 'debug'
+
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
 import { FileMatch } from './match'
 import { preferenceDelta } from './config'
+
+const debug = Debug('checkly:cli:loader:jiti')
 
 interface JitiExports {
   createJiti (id: string, userOptions?: any): Jiti
@@ -18,11 +22,16 @@ export class UninitializedJitiFileLoaderState extends FileLoader {
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
     UninitializedJitiFileLoaderState.init ??= (async () => {
+      debug('Initializing loader')
       try {
         const jitiExports: JitiExports = await import('jiti')
-        const jiti = jitiExports.createJiti(__filename)
+        const jiti = jitiExports.createJiti(__filename, {
+          tsx: true,
+        })
+        debug(`Successfully initialized loader`)
         JitiFileLoader.state = new InitializedJitiFileLoaderState(jiti)
       } catch (err) {
+        debug(`Failed to initialize loader: ${err}`)
         JitiFileLoader.state = new FailedJitiFileLoaderState(err as Error)
       }
     })()
@@ -58,8 +67,14 @@ export class InitializedJitiFileLoaderState extends FileLoader {
   }
 
   async loadFile<T = unknown> (filePath: string): Promise<T> {
-    const moduleExports = await this.jiti.import<T>(filePath)
-    return moduleExports
+    debug(`Loading file ${filePath}`)
+    try {
+      const moduleExports = await this.jiti.import<T>(filePath)
+      return moduleExports
+    } catch (err) {
+      debug(`Failed to load file ${filePath}: ${err}`)
+      throw err
+    }
   }
 }
 

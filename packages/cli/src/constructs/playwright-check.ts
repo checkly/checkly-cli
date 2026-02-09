@@ -1,10 +1,7 @@
-import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 
-import type { AxiosResponse } from 'axios'
-import { checklyStorage } from '../rest/api'
 import {
-  bundlePlayWrightProject, cleanup,
+  bundlePlayWrightProject,
 } from '../services/util'
 import { shellQuote } from '../services/shell'
 import { RuntimeCheck, RuntimeCheckProps } from './check'
@@ -12,14 +9,15 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  UnsatisfiedLocalPrerequisitesDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
-import { WarningDiagnostic } from './diagnostics'
-import { Diagnostics } from './diagnostics'
-import { PlaywrightCheckBundle } from './playwright-check-bundle'
+import { Diagnostics, WarningDiagnostic } from './diagnostics'
+import { PlaywrightCheckLocalBundle } from './playwright-check-bundle'
 import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -127,7 +125,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
  */
 export class PlaywrightCheck extends RuntimeCheck {
   installCommand?: string
-  testCommand: string
+  testCommand?: string
   playwrightConfigPath: string
   pwProjects: string[]
   pwTags: string[]
@@ -150,7 +148,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.include = config.include
       ? (Array.isArray(config.include) ? config.include : [config.include])
       : []
-    this.testCommand = config.testCommand ?? 'npx playwright test'
+    this.testCommand = config.testCommand
     this.groupName = config.groupName
     this.playwrightConfigPath = this.resolveContentFilePath(config.playwrightConfigPath)
     Session.registerConstruct(this)
@@ -162,7 +160,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `PlaywrightCheck:${this.logicalId}`
   }
 
-  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     const group = PlaywrightCheck.#resolveGroupFromProps(props)
 
     return makeConfigDefaultsGetter(
@@ -337,6 +335,7 @@ export class PlaywrightCheck extends RuntimeCheck {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+    await this.#validateWorkspace(diagnostics)
     await this.validateRetryStrategy(diagnostics)
 
     try {
@@ -353,6 +352,29 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.validateBrowserInstallCommand(diagnostics)
 
     this.#validateGroupReferences(diagnostics)
+  }
+
+  // eslint-disable-next-line require-await
+  async #validateWorkspace (diagnostics: Diagnostics): Promise<void> {
+    const workspace = Session.workspace
+    if (workspace.isOk()) {
+      const lockfile = workspace.ok().lockfile
+      if (lockfile.isErr()) {
+        diagnostics.add(new UnsatisfiedLocalPrerequisitesDiagnostic(new Error(
+          `A lockfile is required for Playwright checks, but none could be `
+          + `detected.`
+          + '\n\n'
+          + `Cause: ${lockfile.err().message}`,
+        )))
+      }
+    } else if (workspace.isErr()) {
+      diagnostics.add(new UnsatisfiedLocalPrerequisitesDiagnostic(new Error(
+        `A workspace is required for Playwright checks, but none could be `
+        + `detected.`
+        + '\n\n'
+        + `Cause: ${workspace.err().message}`,
+      )))
+    }
   }
 
   #validateGroupReferences (diagnostics: Diagnostics): void {
@@ -396,30 +418,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
-  static async bundleProject (playwrightConfigPath: string, include: string[]) {
-    let dir = ''
-    try {
-      const {
-        outputFile, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion,
-      } = await bundlePlayWrightProject(playwrightConfigPath, include)
-      dir = outputFile
-      const { data: { key } } = await PlaywrightCheck.uploadPlaywrightProject(dir)
-      return { key, browsers, relativePlaywrightConfigPath, cacheHash, playwrightVersion }
-    } finally {
-      await cleanup(dir)
-    }
-  }
-
-  static async uploadPlaywrightProject (dir: string): Promise<AxiosResponse> {
-    const { size } = await fs.stat(dir)
-    const stream = createReadStream(dir)
-    stream.on('error', err => {
-      throw new Error(`Failed to read Playwright project file: ${err.message}`)
-    })
-    return checklyStorage.uploadCodeBundle(stream, size)
-  }
-
-  async bundle (): Promise<PlaywrightCheckBundle> {
+  async bundle (): Promise<PlaywrightCheckLocalBundle> {
     // Prefer the standard groupId but fall back to the deprecated groupName
     // if available.
     const groupId = this.groupName && !this.groupId
@@ -427,29 +426,35 @@ export class PlaywrightCheck extends RuntimeCheck {
       : this.groupId
 
     const {
-      key: codeBundlePath,
+      outputFile: codeBundleLocalFilePath,
       browsers,
       cacheHash,
       playwrightVersion,
       relativePlaywrightConfigPath,
-    } = await PlaywrightCheck.bundleProject(this.playwrightConfigPath, this.include ?? [])
+      workingDir,
+    } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
 
     const testCommand = PlaywrightCheck.buildTestCommand(
-      this.testCommand,
+      this.testCommand ?? this.#defaultTestCommand(),
       relativePlaywrightConfigPath,
       this.pwProjects,
       this.pwTags,
     )
 
-    return new PlaywrightCheckBundle(this, {
+    return new PlaywrightCheckLocalBundle(this, {
       groupId,
-      codeBundlePath,
+      localCodeBundlePath: codeBundleLocalFilePath,
       browsers,
       cacheHash,
       playwrightVersion,
       testCommand,
       installCommand: this.installCommand,
+      workingDir,
     })
+  }
+
+  #defaultTestCommand (): string {
+    return Session.packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand
   }
 
   synthesize () {

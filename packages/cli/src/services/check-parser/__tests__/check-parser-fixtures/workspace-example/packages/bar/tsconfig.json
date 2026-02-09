@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "module": "nodenext",
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "rootDirs": [
+      "src",
+    ],
+    "baseUrl": "./src",
+    "strict": true,
+    "target": "esnext",
+    "sourceMap": true,
+    "paths": {
+      "@lib/*": [
+        "./lib/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+  ],
+}

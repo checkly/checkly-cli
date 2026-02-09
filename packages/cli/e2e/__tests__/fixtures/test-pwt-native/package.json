@@ -2,6 +2,7 @@
   "name": "test-pwt-native",
   "version": "0.0.1",
   "devDependencies": {
-    "@playwright/test": "1.53.1"
+    "@playwright/test": "1.53.1",
+    "jiti": "^2.6.1"
   }
 }

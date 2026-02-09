@@ -21,8 +21,8 @@
     "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && ts-node ./scripts/prepare-ai-context.ts",
     "prepare:dist": "tsc --build",
     "prepare": "npm run clean && npm run prepare:dist && npm run prepare:ai-context",
-    "test": "vitest",
-    "test:e2e": "npm run prepare && cross-env NODE_CONFIG_DIR=./e2e/config vitest -c ./vitest.config.e2e.mts",
+    "test": "npm pack && vitest --run",
+    "test:e2e": "npm pack && cross-env NODE_CONFIG_DIR=./e2e/config vitest --run -c ./vitest.config.e2e.mts",
     "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local npm run test:e2e",
     "watch": "tsc --watch"
   },
@@ -38,6 +38,7 @@
   "files": [
     "/bin",
     "/dist",
+    "/assets",
     "/constructs.js",
     "/constructs.d.ts",
     "/oclif.manifest.json"
@@ -89,6 +90,7 @@
     "chalk": "^4.1.2",
     "ci-info": "^4.3.1",
     "conf": "^10.2.0",
+    "debug": "^4.4.3",
     "dotenv": "^16.5.0",
     "execa": "^9.6.1",
     "git-repo-info": "^2.1.1",
@@ -114,6 +116,7 @@
     "@playwright/test": "^1.57.0",
     "@types/archiver": "6.0.3",
     "@types/config": "^3.3.5",
+    "@types/debug": "^4.1.12",
     "@types/glob": "^8.1.0",
     "@types/luxon": "^3.7.1",
     "@types/node": "^22.14.1",
@@ -129,6 +132,7 @@
     "oclif": "^4.22.56",
     "rimraf": "^5.0.10",
     "simple-git-hooks": "^2.12.1",
+    "tar": "^7.5.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vitest": "3.1.2"

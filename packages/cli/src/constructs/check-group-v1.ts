@@ -17,7 +17,6 @@ import { Diagnostics } from './diagnostics'
 import { DeprecatedConstructDiagnostic, DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import CheckTypes from '../constants'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { pathToPosix } from '../services/util'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { BrowserCheck } from './browser-check'
 import { CheckGroupRef } from './check-group-ref'
@@ -438,7 +437,7 @@ export class CheckGroupV1 extends Construct {
         },
         // the browserChecks props inherited from the group are applied in BrowserCheck.constructor()
       }
-      const checkLogicalId = pathToPosix(path.relative(Session.basePath!, filepath))
+      const checkLogicalId = Session.relativePosixPath(filepath)
       if (checkType === CheckTypes.BROWSER) {
         new BrowserCheck(checkLogicalId, props)
       } else {
