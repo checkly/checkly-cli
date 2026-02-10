@@ -41,7 +41,14 @@ export const REFERENCES = [
   },
 ] as const
 
-export const EXAMPLE_CONFIGS = {
+interface ExampleConfig {
+  templateString: string
+  reference: string
+  exampleConfig?: string
+  exampleConfigPath?: string
+}
+
+export const EXAMPLE_CONFIGS: Record<string, ExampleConfig> = {
   CHECKLY_CONFIG: {
     templateString: '<!-- EXAMPLE: CHECKLY_CONFIG -->',
     exampleConfig: `import { defineConfig } from 'checkly'
@@ -182,4 +189,4 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     exampleConfigPath: 'resources/alert-channels/slack/general.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/slack-alert-channel/',
   },
-} as const
+}
