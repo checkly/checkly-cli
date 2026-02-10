@@ -5,7 +5,7 @@
 - When referencing environment variables always use the handlebar syntax `{{MY_ENV_VAR}}`.
 - When referencing secrets always use the handlebar syntax `{{MY_SECRET}}`.
 - If endpoints require authentication ask the user which authentication method to use and then generate a setupScript to authenticate the given requests.
-- Referenced `setupScript.ts` and `teardownScript.ts` for API checks must be plain ts files and not export anything.
+- Referenced `setup-script.ts` and `teardown-script.ts` for API checks must be plain ts files and not export anything.
 - Check in the code if API endpoints require authentication.
 
 <!-- EXAMPLE: API_CHECK -->

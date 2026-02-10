@@ -17,7 +17,7 @@ metadata:
 
 ## Using the Checkly CLI
 
-- ALWAYS use `npm install --save-dev checkly` to install the Checkly CLI.
+- Use `npx checkly` or `npm create checkly@latest` (see below) instead of installing the Checkly CLI globally.
 - NEVER make up commands that do not exist.
 - Use `npm create checkly@latest` to set up a new Checkly project via the CLI.
 
