@@ -89,7 +89,7 @@ npm install --save-dev checkly
 
 Official docs are over at [checklyhq.com/docs/cli](https://checklyhq.com/docs/cli/)
 
-# AI Agents & Coding Assistents
+# AI Agents & Coding Assistants
 
 The Checkly CLI is designed with AI-powered development in mind. With [**Monitoring as Code**](https://www.checklyhq.com/docs/concepts/monitoring-as-code/), your entire monitoring setup lives in TypeScript files — perfect for AI agents that can read, write, and reason about code.
 
@@ -101,7 +101,7 @@ npx skills add checkly/checkly-cli
 
 This provides your AI with documentation, best practices, and examples so it can help you create and manage API checks, browser checks, alert channels, and more.
 
-Check out our [AI Agents & Coding Assistents docs](https://www.checklyhq.com/docs/integrations/ai/overview) for more best practices and examples.
+Check out our [AI Agents & Coding Assistants docs](https://www.checklyhq.com/docs/integrations/ai/overview) for more best practices and examples.
 
 
 ## Need help?
