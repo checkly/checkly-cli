@@ -54,6 +54,6 @@ export function parseSnippetDependencies (content: string): string[] {
   }
 
   return dependencies
-    .filter(value => value.startsWith(SNIPPET_PATH_PREFIX))
-    .map(value => value.slice(SNIPPET_PATH_PREFIX.length))
+    .filter(({ importPath }) => importPath.startsWith(SNIPPET_PATH_PREFIX))
+    .map(({ importPath }) => importPath.slice(SNIPPET_PATH_PREFIX.length))
 }

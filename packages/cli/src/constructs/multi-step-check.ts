@@ -9,6 +9,7 @@ import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic, UnsupportedRuntimeFeatureDiagnostic } from './construct-diagnostics'
 import { MultiStepCheckBundle } from './multi-step-check-bundle'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
+import { CheckConfigDefaults } from '../services/checkly-config-loader'
 
 export interface MultiStepCheckProps extends RuntimeCheckProps {
   /**
@@ -96,7 +97,7 @@ export class MultiStepCheck extends RuntimeCheck {
     }
   }
 
-  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter {
+  protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
     return makeConfigDefaultsGetter(
       props.group?.getMultiStepCheckDefaults(),
       Session.multiStepCheckDefaults,

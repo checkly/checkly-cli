@@ -6,7 +6,6 @@ import { Parser } from '../services/check-parser/parser'
 import { Construct } from './construct'
 import { ValidationError } from './validator-error'
 
-import type { Runtime } from '../rest/runtimes'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
@@ -24,6 +23,10 @@ import { Diagnostics } from './diagnostics'
 import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle'
 import { pathToPosix } from '../services/util'
+import { Workspace } from '../services/check-parser/package-files/workspace'
+import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
+import { Err, Result } from '../services/check-parser/package-files/result'
+import { Runtime } from '../runtimes'
 
 export interface ProjectProps {
   /**
@@ -229,6 +232,7 @@ export class Session {
 
   static project?: Project
   static basePath?: string
+  static contextPath?: string
   static checkDefaults?: CheckConfigDefaults
   static checkFilter?: CheckFilter
   static browserCheckDefaults?: CheckConfigDefaults
@@ -246,6 +250,32 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static currentCommand?: 'pw-test' | 'test' | 'deploy'
   static includeFlagProvided?: boolean
+  static packageManager: PackageManager = npmPackageManager
+  static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
+
+  static reset () {
+    this.project = undefined
+    this.basePath = undefined
+    this.contextPath = undefined
+    this.checkDefaults = undefined
+    this.checkFilter = undefined
+    this.browserCheckDefaults = undefined
+    this.multiStepCheckDefaults = undefined
+    this.checkFilePath = undefined
+    this.checkFileAbsolutePath = undefined
+    this.availableRuntimes = {}
+    this.defaultRuntimeId = undefined
+    this.verifyRuntimeDependencies = true
+    this.loadingChecklyConfigFile = false
+    this.checklyConfigFileConstructs = undefined
+    this.privateLocations = []
+    this.parsers = new Map<string, Parser>()
+    this.constructExports = []
+    this.ignoreDirectoriesMatch = []
+    this.packageManager = npmPackageManager
+    this.workspace = Err(new Error(`Workspace support not initialized`))
+    this.resetSharedFiles()
+  }
 
   static async loadFile<T = unknown> (filePath: string): Promise<T> {
     const loader = this.loader
@@ -340,6 +370,7 @@ export class Session {
     const parser = new Parser({
       supportedNpmModules: Object.keys(runtime.dependencies),
       checkUnsupportedModules: Session.verifyRuntimeDependencies,
+      workspace: Session.workspace.ok(),
     })
 
     Session.parsers.set(runtime.name, parser)
@@ -349,6 +380,10 @@ export class Session {
 
   static relativePosixPath (filePath: string): string {
     return pathToPosix(path.relative(Session.basePath!, filePath))
+  }
+
+  static contextRelativePosixPath (filePath: string): string {
+    return pathToPosix(path.relative(Session.contextPath!, filePath))
   }
 
   static sharedFileRefs = new Map<string, SharedFileRef>()
