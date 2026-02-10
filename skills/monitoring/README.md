@@ -8,7 +8,16 @@ This directory contains the agent skill for creating and managing end-to-end tes
 skills/
 └── monitoring/
     ├── README.md             # Documentation about the skill
-    └── SKILL.md              # Main skill instructions
+    ├── SKILL.md              # Main skill instructions
+    └── references/           # Detailed construct documentation
+        ├── api-checks.md
+        ├── browser-checks.md
+        ├── playwright-checks.md
+        ├── multistep-checks.md
+        ├── monitors.md
+        ├── check-groups.md
+        ├── alert-channels.md
+        └── supporting-constructs.md
 ```
 
 ## What is an Agent Skill?
@@ -27,13 +36,15 @@ Agent Skills are a standardized format for giving AI agents specialized knowledg
 AI agents can load this skill to gain expertise in Checkly monitoring. The skill follows the [Agent Skills specification](https://agentskills.io) with:
 
 - **SKILL.md**: Core instructions loaded when the skill is activated
+- **references/**: Detailed documentation loaded on demand
 
 ## Progressive Disclosure
 
 The skill is structured for efficient context usage:
 
 1. **Metadata** (~80 tokens): Name and description in frontmatter
-2. **Core Instructions** (~4.5K tokens): Main SKILL.md content with construct examples
+2. **Core Instructions** (~1K tokens): Main SKILL.md content with links to references
+3. **References** (loaded on demand): Detailed construct documentation with examples
 
 Agents load what they need for each task.
 
