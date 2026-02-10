@@ -1,7 +1,8 @@
 # Playwright Check Suites
 
 - Import the `PlaywrightCheck` construct from `checkly/constructs`.
-- use `pwProjects` if your tasked to reuse a Playwright project.
+- use `pwProjects` if you're tasked to reuse a Playwright project.
+- use `pwTags` if you're tasked to reuse a Playwright tag.
 
 **Reference:** https://www.checklyhq.com/docs/constructs/playwright-check/
 
