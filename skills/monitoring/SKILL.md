@@ -97,11 +97,6 @@ import { AlertEscalationBuilder, ApiCheck, Frequency, RetryStrategyBuilder } fro
 
 new ApiCheck('example-api-check', {
   name: 'Example API Check',
-  request: {
-    url: 'https://api.example.com/v1/products',
-    method: 'GET',
-    ipFamily: 'IPv4',
-  },
   setupScript: {
     entrypoint: './setup-script.ts',
   },
@@ -111,8 +106,6 @@ new ApiCheck('example-api-check', {
   degradedResponseTime: 5000,
   maxResponseTime: 20000,
   activated: true,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-west-2',
@@ -132,6 +125,11 @@ new ApiCheck('example-api-check', {
     sameRegion: true,
   }),
   runParallel: true,
+  request: {
+    url: 'https://api.example.com/v1/products',
+    method: 'GET',
+    ipFamily: 'IPv4',
+  },
 })
 ```
 
@@ -159,8 +157,6 @@ new BrowserCheck('example-browser-check', {
     entrypoint: './example-browser-check.spec.ts',
   },
   activated: false,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-west-2',
@@ -219,8 +215,6 @@ new MultiStepCheck('example-multi-step-check', {
     entrypoint: './example-multistep-check.spec.ts',
   },
   activated: true,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-west-2',
@@ -250,20 +244,9 @@ import { AlertEscalationBuilder, Frequency, RetryStrategyBuilder, TcpAssertionBu
 
 new TcpMonitor('example-tcp-monitor', {
   name: 'Example TCP Monitor',
-  request: {
-    hostname: 'tcp.example.com',
-    port: 4242,
-    ipFamily: 'IPv4',
-    assertions: [
-      TcpAssertionBuilder.responseTime().lessThan(200),
-      TcpAssertionBuilder.responseData().isEmpty(),
-    ],
-  },
   degradedResponseTime: 5000,
   maxResponseTime: 5000,
   activated: true,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-west-2',
@@ -283,6 +266,15 @@ new TcpMonitor('example-tcp-monitor', {
     sameRegion: true,
   }),
   runParallel: true,
+  request: {
+    hostname: 'tcp.example.com',
+    port: 4242,
+    ipFamily: 'IPv4',
+    assertions: [
+      TcpAssertionBuilder.responseTime().lessThan(200),
+      TcpAssertionBuilder.responseData().isEmpty(),
+    ],
+  },
 })
 ```
 
@@ -298,18 +290,7 @@ import { AlertEscalationBuilder, Frequency, RetryStrategyBuilder, UrlAssertionBu
 
 new UrlMonitor('example-url-monitor', {
   name: 'Example URL Monitor',
-  request: {
-    url: 'https://example.com',
-    ipFamily: 'IPv4',
-    assertions: [
-      UrlAssertionBuilder.statusCode().equals(200),
-    ],
-  },
-  degradedResponseTime: 5000,
-  maxResponseTime: 20000,
   activated: true,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-west-2',
@@ -329,6 +310,15 @@ new UrlMonitor('example-url-monitor', {
     sameRegion: true,
   }),
   runParallel: true,
+  degradedResponseTime: 5000,
+  maxResponseTime: 20000,
+  request: {
+    url: 'https://example.com',
+    ipFamily: 'IPv4',
+    assertions: [
+      UrlAssertionBuilder.statusCode().equals(200),
+    ],
+  },
 })
 ```
 
@@ -345,18 +335,9 @@ import { AlertEscalationBuilder, DnsAssertionBuilder, DnsMonitor, Frequency, Ret
 
 new DnsMonitor('example-dns-monitor', {
   name: 'Example DNS Monitor',
-  request: {
-    recordType: 'AAAA',
-    query: 'welcome.checklyhq.com',
-    assertions: [
-      DnsAssertionBuilder.responseCode().equals('NOERROR'),
-    ],
-  },
   degradedResponseTime: 500,
   maxResponseTime: 1000,
   activated: true,
-  muted: false,
-  shouldFail: false,
   locations: [
     'eu-central-1',
     'eu-north-1',
@@ -370,7 +351,13 @@ new DnsMonitor('example-dns-monitor', {
     percentage: 10,
   }),
   retryStrategy: RetryStrategyBuilder.noRetries(),
-  runParallel: false,
+  request: {
+    recordType: 'AAAA',
+    query: 'welcome.checklyhq.com',
+    assertions: [
+      DnsAssertionBuilder.responseCode().equals('NOERROR'),
+    ],
+  },
 })
 ```
 
@@ -390,8 +377,6 @@ new HeartbeatMonitor('example-heartbeat-monitor', {
   grace: 30,
   graceUnit: 'minutes',
   activated: true,
-  muted: false,
-  shouldFail: false,
   frequency: Frequency.EVERY_10S,
   alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, {
     amount: 0,
