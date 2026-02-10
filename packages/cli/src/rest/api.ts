@@ -12,8 +12,15 @@ import Locations from './locations'
 import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
+import Checks from './checks'
 import ChecklyStorage from './checkly-storage'
 import { handleErrorResponse, UnauthorizedError } from './errors'
+
+/**
+ * The API version date for the new versioned API surface (/api/).
+ * This is pinned per CLI release — clients opt in to new versions explicitly.
+ */
+export const CHECKLY_API_VERSION = '2026-02-10'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -66,6 +73,11 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
 
   config.headers['x-checkly-ci-name'] = CIname
 
+  // Pin API version header for all /api/ requests
+  if (config.url?.startsWith('/api/')) {
+    config.headers['x-checkly-api-version'] = CHECKLY_API_VERSION
+  }
+
   return config
 }
 
@@ -101,4 +113,5 @@ export const privateLocations = new PrivateLocations(api)
 export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
 export const heartbeatCheck = new HeartbeatChecks(api)
+export const checks = new Checks(api)
 export const checklyStorage = new ChecklyStorage(api)
