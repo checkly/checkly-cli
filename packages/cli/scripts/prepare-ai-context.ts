@@ -13,6 +13,14 @@ function stripYamlFrontmatter (content: string): string {
   return content.replace(frontmatterRegex, '')
 }
 
+// Demote headings by two levels (# -> ###, ## -> ####) to maintain proper
+// heading hierarchy when reference docs are concatenated after the header.
+// The header has "# Checkly Monitoring" and "## ..." sections, so reference
+// content needs to start at ### to avoid multiple H1s and broken structure.
+function demoteHeadings (content: string): string {
+  return content.replace(/^(#+)/gm, '##$1')
+}
+
 async function writeOutput (content: string, dir: string, filename: string): Promise<void> {
   await mkdir(dir, { recursive: true })
   const outputPath = join(dir, filename)
@@ -96,10 +104,11 @@ async function prepareContext () {
     await writeOutput(skillContent, SKILL_OUTPUT_DIR, 'SKILL.md')
 
     // Generate checkly.rules.md (header + all references concatenated + footer)
+    const demotedReferences = referenceContents.map(demoteHeadings).join('\n\n')
     const rulesContent = stripYamlFrontmatter(
       replaceExamples(header.replace('<!-- REFERENCE_LINKS -->', ''), examples)
       + '\n'
-      + referenceContents.join('\n\n')
+      + demotedReferences
       + '\n\n'
       + footer,
     )
