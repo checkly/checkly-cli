@@ -55,7 +55,7 @@ export async function validateAuthentication (): Promise<Account | undefined> {
 }
 
 export function detectOperator (): string {
-  if (process.env.CLAUDE_CODE) return 'claude-code'
+  if (process.env.CLAUDECODE) return 'claude-code'
   if (process.env.CURSOR_TRACE_ID) return 'cursor'
   if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
   if (process.env.GITHUB_COPILOT) return 'github-copilot'

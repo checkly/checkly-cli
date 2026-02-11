@@ -3,7 +3,7 @@ import { detectOperator } from '../api'
 
 describe('detectOperator', () => {
   const envVarsToClean = [
-    'CLAUDE_CODE',
+    'CLAUDECODE',
     'CURSOR_TRACE_ID',
     'TERM_PROGRAM',
     'GITHUB_COPILOT',
@@ -26,7 +26,7 @@ describe('detectOperator', () => {
   })
 
   it('detects Claude Code', () => {
-    process.env.CLAUDE_CODE = '1'
+    process.env.CLAUDECODE = '1'
     expect(detectOperator()).toBe('claude-code')
   })
 
@@ -81,7 +81,7 @@ describe('detectOperator', () => {
   })
 
   it('prioritizes Claude Code over CI', () => {
-    process.env.CLAUDE_CODE = '1'
+    process.env.CLAUDECODE = '1'
     process.env.CI = 'true'
     expect(detectOperator()).toBe('claude-code')
   })
