@@ -63,7 +63,7 @@ jobs:
         with:
           name: llm-rules-prerelease
           if-no-files-found: error
-          path: packages/cli/dist/rules/*
+          path: packages/cli/dist/ai-context/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -127,7 +127,7 @@ jobs:
         with:
           name: llm-rules-release
           if-no-files-found: error
-          path: packages/cli/dist/rules/*
+          path: packages/cli/dist/ai-context/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
