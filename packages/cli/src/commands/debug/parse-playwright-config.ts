@@ -28,7 +28,9 @@ export default class ParsePlaywrightConfigCommand extends Command {
       await Session.loadFile(playwrightConfigFile),
     )
 
-    const parser = new Parser({})
+    const parser = new Parser({
+      restricted: false,
+    })
     const output = await parser.getFilesAndDependencies(playwrightConfig)
 
     // eslint-disable-next-line no-console
