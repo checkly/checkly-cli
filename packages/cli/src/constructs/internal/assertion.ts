@@ -22,11 +22,13 @@ export interface Assertion<Source extends string> {
   regex: string | null
 }
 
-export class NumericAssertionBuilder<Source extends string> {
+export class NumericAssertionBuilder<Source extends string, Property extends string = string> {
   source: Source
+  property?: Property
 
-  constructor (source: Source) {
+  constructor (source: Source, property?: Property) {
     this.source = source
+    this.property = property
   }
 
   equals (target: number): Assertion<Source> {
@@ -50,7 +52,7 @@ export class NumericAssertionBuilder<Source extends string> {
     return {
       source: this.source,
       comparison,
-      property: '',
+      property: this.property ?? '',
       target: target.toString(),
       regex: null,
     }
