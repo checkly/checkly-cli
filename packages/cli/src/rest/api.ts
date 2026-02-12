@@ -1,7 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { name as CIname } from 'ci-info'
 import config from '../services/config'
-import { assignProxy } from '../services/proxy'
 import Accounts, { Account } from './accounts'
 import Users from './users'
 import Projects from './projects'
@@ -14,6 +13,7 @@ import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
 import ChecklyStorage from './checkly-storage'
 import { handleErrorResponse, UnauthorizedError } from './errors'
+import { ProxyAgent } from 'proxy-agent'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -90,9 +90,14 @@ export function responseErrorInterceptor (error: any) {
 
 function init (): AxiosInstance {
   const { baseURL } = getDefaults()
-  const axiosConf = assignProxy(baseURL, { baseURL })
 
-  const api = axios.create(axiosConf)
+  const agent = new ProxyAgent()
+
+  const api = axios.create({
+    baseURL,
+    httpAgent: agent,
+    httpsAgent: agent,
+  })
 
   api.interceptors.request.use(requestInterceptor)
 
