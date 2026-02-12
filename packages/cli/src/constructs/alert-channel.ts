@@ -1,4 +1,6 @@
 import { Construct } from './construct'
+import { Diagnostics } from './diagnostics'
+import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics'
 import { Session } from './project'
 
 /**
@@ -70,15 +72,22 @@ export interface AlertChannelProps {
  * Creates a reference to an existing Alert Channel.
  *
  * References link existing resources to a project without managing them.
+ *
+ * Use {@link AlertChannel.fromId()} instead of instantiating this class directly.
  */
 export class AlertChannelRef extends Construct {
-  constructor (logicalId: string, physicalId: string | number) {
+  constructor (logicalId: string, physicalId: number) {
     super(AlertChannel.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
 
   describe (): string {
     return `AlertChannelRef:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    await validatePhysicalIdIsNumeric(diagnostics, 'AlertChannel', this.physicalId)
   }
 
   allowInChecklyConfig () {
@@ -147,7 +156,10 @@ export abstract class AlertChannel extends Construct {
     this.sslExpiryThreshold = props.sslExpiryThreshold
   }
 
-  static fromId (id: string | number) {
+  /**
+   * @param id - The numeric ID of the existing alert channel
+   */
+  static fromId (id: number) {
     return new AlertChannelRef(`alert-channel-${id}`, id)
   }
 

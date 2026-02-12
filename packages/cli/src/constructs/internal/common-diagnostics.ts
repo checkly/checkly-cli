@@ -1,3 +1,5 @@
+import { validate as validateUuid } from 'uuid'
+
 import {
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
@@ -67,6 +69,56 @@ export async function validateRemovedDoubleCheck (diagnostics: Diagnostics, prop
 
 export async function validateUnsupportedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {
   await validateDoubleCheck(diagnostics, UnsupportedPropertyDiagnostic, props)
+}
+
+// eslint-disable-next-line require-await
+export async function validatePhysicalIdIsNumeric (
+  diagnostics: Diagnostics,
+  constructName: string,
+  physicalId: string | number | undefined,
+): Promise<void> {
+  if (physicalId === undefined) {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'physicalId',
+      new Error('Value is required.'),
+    ))
+    return
+  }
+  if (typeof physicalId !== 'number') {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'physicalId',
+      new Error(
+        `Value must be a number.`
+        + `\n\n`
+        + `Hint: When calling ${constructName}.fromId(), make sure the value you pass in is a number.`,
+      ),
+    ))
+  }
+}
+
+// eslint-disable-next-line require-await
+export async function validatePhysicalIdIsUuid (
+  diagnostics: Diagnostics,
+  constructName: string,
+  physicalId: string | number | undefined,
+): Promise<void> {
+  if (physicalId === undefined) {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'physicalId',
+      new Error('Value is required.'),
+    ))
+    return
+  }
+  if (!validateUuid(String(physicalId))) {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'physicalId',
+      new Error(
+        `Value must be a valid UUID.`
+        + `\n\n`
+        + `Hint: When calling ${constructName}.fromId(), make sure the value you pass in is a valid UUID.`,
+      ),
+    ))
+  }
 }
 
 type ResponseTimeProps = {

@@ -1,4 +1,6 @@
 import { Construct } from './construct'
+import { Diagnostics } from './diagnostics'
+import { validatePhysicalIdIsUuid } from './internal/common-diagnostics'
 import { Session } from './project'
 
 export interface StatusPageServiceProps {
@@ -12,15 +14,22 @@ export interface StatusPageServiceProps {
  * Creates a reference to an existing Status Page Service.
  *
  * References link existing resources to a project without managing them.
+ *
+ * Use {@link StatusPageService.fromId()} instead of instantiating this class directly.
  */
 export class StatusPageServiceRef extends Construct {
-  constructor (logicalId: string, physicalId: string | number) {
+  constructor (logicalId: string, physicalId: string) {
     super(StatusPageService.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
 
   describe (): string {
     return `StatusPageServiceRef:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    await validatePhysicalIdIsUuid(diagnostics, 'StatusPageService', this.physicalId)
   }
 
   synthesize () {
@@ -55,6 +64,9 @@ export class StatusPageService extends Construct {
     return `StatusPageService:${this.logicalId}`
   }
 
+  /**
+   * @param id - The UUID of the existing status page service
+   */
   static fromId (id: string) {
     return new StatusPageServiceRef(`status-page-service-${id}`, id)
   }
