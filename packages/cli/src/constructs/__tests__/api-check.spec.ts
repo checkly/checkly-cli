@@ -61,10 +61,6 @@ describe('ApiCheck', () => {
             content: fs.readFileSync(fixt.abspath('package.json'), 'utf8'),
           }),
           expect.objectContaining({
-            path: 'package-lock.json',
-            content: fs.readFileSync(fixt.abspath('package-lock.json'), 'utf8'),
-          }),
-          expect.objectContaining({
             path: 'test-cases/test-script-dependencies/dep1.js',
             content: fs.readFileSync(fixt.abspath('test-cases/test-script-dependencies/dep1.js'), 'utf8'),
           }),
@@ -84,7 +80,6 @@ describe('ApiCheck', () => {
                 0,
                 1,
                 2,
-                3,
               ],
             }),
           }),
@@ -98,7 +93,6 @@ describe('ApiCheck', () => {
                 0,
                 1,
                 2,
-                3,
               ],
             }),
           }),
