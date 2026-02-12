@@ -46,7 +46,6 @@ new ApiCheck('example-api-check', {
   request: {
     url: 'https://api.example.com/v1/products',
     method: 'GET',
-    ipFamily: 'IPv4',
   },
 })
 ```
