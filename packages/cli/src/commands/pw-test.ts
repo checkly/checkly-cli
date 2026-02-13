@@ -107,6 +107,9 @@ export default class PwTestCommand extends AuthCommand {
       multiple: true,
       default: [],
     }),
+    'install-command': Flags.string({
+      description: 'Command to install dependencies before running tests.',
+    }),
   }
 
   async run (): Promise<void> {
@@ -130,6 +133,7 @@ export default class PwTestCommand extends AuthCommand {
       'stream-logs': streamLogs,
       'include': includeFlag,
       'frequency': frequency,
+      'install-command': installCommand,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -157,6 +161,7 @@ export default class PwTestCommand extends AuthCommand {
       privateRunLocation,
       dir,
       frequency,
+      installCommand,
     )
     if (createCheck) {
       this.style.actionStart('Adding check with specified options to the Checkly config file')
@@ -385,6 +390,7 @@ export default class PwTestCommand extends AuthCommand {
     privateRunLocation: string | undefined,
     dir: string,
     frequency: number = 10,
+    installCommand?: string,
   ): Promise<PlaywrightSlimmedProp> {
     const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
@@ -402,6 +408,7 @@ export default class PwTestCommand extends AuthCommand {
       testCommand,
       ...locationConfig,
       frequency,
+      ...(installCommand ? { installCommand } : {}),
     }
   }
 
