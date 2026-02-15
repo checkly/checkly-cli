@@ -1,0 +1,46 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      depended-on-by-root:
+        specifier: workspace:*
+        version: link:apps/depended-on-by-root
+    devDependencies:
+      depended-on-by-main-and-root:
+        specifier: workspace:*
+        version: link:apps/depended-on-by-main-and-root
+
+  apps/depended-on-by-main:
+    dependencies:
+      depended-on-by-neighbor-depended-on-by-main:
+        specifier: workspace:*
+        version: link:../depended-on-by-neighbor-depended-on-by-main
+
+  apps/depended-on-by-main-and-root: {}
+
+  apps/depended-on-by-neighbor-depended-on-by-main: {}
+
+  apps/depended-on-by-neighbor-depended-on-by-root: {}
+
+  apps/depended-on-by-root:
+    dependencies:
+      depended-on-by-neighbor-depended-on-by-root:
+        specifier: workspace:*
+        version: link:../depended-on-by-neighbor-depended-on-by-root
+
+  apps/main:
+    dependencies:
+      depended-on-by-main:
+        specifier: workspace:*
+        version: link:../depended-on-by-main
+      depended-on-by-main-and-root:
+        specifier: workspace:*
+        version: link:../depended-on-by-main-and-root
+
+  apps/not-depended-on: {}
