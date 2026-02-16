@@ -1001,7 +1001,7 @@
           "type": "CALL",
           "config": {
             "name": "Test User",
-            "number": "+311234567890"
+            "number": "INSERT_PHONE_NUMBER"
           },
           "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "created_at": "2025-07-07T11:36:19.897Z",
@@ -1024,7 +1024,7 @@
           "id": 100000014,
           "type": "SLACK",
           "config": {
-            "url": "https://hooks.slack.com/services/TK123456789123/12345/123456789",
+            "url": "INSERT_SLACK_URL",
             "channel": "#general"
           },
           "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
