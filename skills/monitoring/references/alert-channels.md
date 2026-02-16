@@ -7,6 +7,8 @@ Here are some examples of how to create different types of alert channels.
 
 All available alerts are described in the [Checkly docs](https://www.checklyhq.com/docs/constructs/overview/).
 
+*Important*: Don't make up email addresses, phone numbers, Slack URLs or similar static values. Scan the project to discover a valid configuration or ask what the values should be.
+
 ## Email Alert Channel
 
 **Reference:** https://www.checklyhq.com/docs/constructs/email-alert-channel/
@@ -29,7 +31,7 @@ import { PhoneCallAlertChannel } from 'checkly/constructs'
 
 export const testUserPhoneCallAlert = new PhoneCallAlertChannel('example-call-alert-channel', {
   name: 'Test User',
-  phoneNumber: '+311234567890',
+  phoneNumber: 'INSERT_PHONE_NUMBER',
 })
 ```
 
@@ -41,7 +43,7 @@ export const testUserPhoneCallAlert = new PhoneCallAlertChannel('example-call-al
 import { SlackAlertChannel } from 'checkly/constructs'
 
 export const generalSlackAlert = new SlackAlertChannel('example-slack-alert-channel', {
-  url: 'https://hooks.slack.com/services/TK123456789123/12345/123456789',
+  url: 'INSERT_SLACK_URL',
   channel: '#general',
 })
 ```
