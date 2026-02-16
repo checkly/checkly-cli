@@ -61,10 +61,6 @@ describe('BrowserCheck', () => {
             content: fs.readFileSync(fixt.abspath('package.json'), 'utf8'),
           }),
           expect.objectContaining({
-            path: 'package-lock.json',
-            content: fs.readFileSync(fixt.abspath('package-lock.json'), 'utf8'),
-          }),
-          expect.objectContaining({
             path: 'test-cases/test-code-dependencies/dep1.js',
             content: fs.readFileSync(fixt.abspath('test-cases/test-code-dependencies/dep1.js'), 'utf8'),
           }),
@@ -85,7 +81,6 @@ describe('BrowserCheck', () => {
                 0,
                 1,
                 2,
-                3,
               ],
             }),
           }),

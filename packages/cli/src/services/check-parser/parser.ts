@@ -158,13 +158,14 @@ export class Parser {
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
   constructor (options: ParserOptions) {
+    this.restricted = options.restricted ?? true
     this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
     this.workspace = options.workspace
     this.resolver = new PackageFilesResolver({
       workspace: options.workspace,
+      restricted: this.restricted,
     })
-    this.restricted = options.restricted ?? true
   }
 
   supportsModule (importPath: string) {
