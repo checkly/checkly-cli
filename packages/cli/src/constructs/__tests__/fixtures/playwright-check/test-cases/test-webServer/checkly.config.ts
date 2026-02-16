@@ -5,6 +5,7 @@ const config = defineConfig({
   logicalId: 'playwright-check-fixture',
   checks: {
     checkMatch: '**/*.check.ts',
+    playwrightConfigPath: './playwright.config.ts',
   },
 })
 
