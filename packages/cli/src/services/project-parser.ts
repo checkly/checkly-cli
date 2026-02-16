@@ -165,7 +165,11 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     ignoreWorkspaces: !enableWorkspaces,
   })
 
-  checklyConfigConstructs?.forEach(
+  const filteredConstructs = currentCommand === 'pw-test'
+    ? checklyConfigConstructs?.filter(c => !(c instanceof PlaywrightCheck))
+    : checklyConfigConstructs
+
+  filteredConstructs?.forEach(
     construct => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
@@ -186,7 +190,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
 
-  await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
+  if (currentCommand !== 'pw-test') {
+    await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
+  }
 
   // Load sequentially because otherwise Session.checkFileAbsolutePath and
   // Session.checkFilePath are going to be subject to race conditions.
