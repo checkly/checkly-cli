@@ -21,6 +21,10 @@ function demoteHeadings (content: string): string {
   return content.replace(/^(#+)/gm, '##$1')
 }
 
+function normalizeBlankLines (content: string): string {
+  return content.replace(/\n{3,}/g, '\n\n')
+}
+
 async function writeOutput (content: string, dir: string, filename: string): Promise<void> {
   await mkdir(dir, { recursive: true })
   const outputPath = join(dir, filename)
@@ -105,13 +109,13 @@ async function prepareContext () {
 
     // Generate checkly.rules.md (header + all references concatenated + footer)
     const demotedReferences = referenceContents.map(demoteHeadings).join('\n\n')
-    const rulesContent = stripYamlFrontmatter(
+    const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
       replaceExamples(header.replace('<!-- REFERENCE_LINKS -->', ''), examples)
       + '\n'
       + demotedReferences
       + '\n\n'
       + footer,
-    )
+    ))
     await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
 
     // Copy README
