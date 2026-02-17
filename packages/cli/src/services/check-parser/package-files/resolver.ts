@@ -240,14 +240,17 @@ interface ResolveSourceFileOptions {
 
 export interface PackageFilesResolverOptions {
   workspace?: Workspace
+  restricted?: boolean
 }
 
 export class PackageFilesResolver {
   cache = new PackageFilesCache()
   workspace?: Workspace
+  restricted: boolean
 
   constructor (options?: PackageFilesResolverOptions) {
     this.workspace = options?.workspace
+    this.restricted = options?.restricted ?? false
   }
 
   async loadPackageFiles (filePath: string, options?: LineageOptions): Promise<PackageFiles> {
@@ -368,7 +371,14 @@ export class PackageFilesResolver {
       root: this.workspace?.root.path,
     })
 
-    if (this.workspace) {
+    // Only add workspace files if we are not running in restricted mode.
+    // Restricted mode is used by ApiChecks, BrowserChecks and MultiStepChecks.
+    // In restricted mode, files are not bundled into a separate archive,
+    // which means that including potentially large files like the lockfile
+    // is going to significantly increase the payload size for no benefit,
+    // since they do not currently even support installation of external
+    // packages.
+    if (this.workspace && !this.restricted) {
       const {
         packageJson,
         tsconfigJson,

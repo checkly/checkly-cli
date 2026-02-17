@@ -416,6 +416,9 @@ export class CheckGroupV1 extends Construct {
     }
   }
 
+  /**
+   * @param id - The numeric ID of the existing check group
+   */
   static fromId (id: number) {
     return new CheckGroupRef(`check-group-${id}`, id)
   }

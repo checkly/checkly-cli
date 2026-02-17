@@ -1,6 +1,7 @@
 import { Construct } from './construct'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
+import { validatePhysicalIdIsUuid } from './internal/common-diagnostics'
 import { Session } from './project'
 
 export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow-right' | 'arrow-small-down'
@@ -51,15 +52,22 @@ export interface PrivateLocationProps {
  * Creates a reference to an existing Private Location.
  *
  * References link existing resources to a project without managing them.
+ *
+ * Use {@link PrivateLocation.fromId()} instead of instantiating this class directly.
  */
 export class PrivateLocationRef extends Construct {
-  constructor (logicalId: string, physicalId: string | number) {
+  constructor (logicalId: string, physicalId: string) {
     super(PrivateLocation.__checklyType, logicalId, physicalId, false)
     Session.registerConstruct(this)
   }
 
   describe (): string {
     return `PrivateLocationRef:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    await validatePhysicalIdIsUuid(diagnostics, 'PrivateLocation', this.physicalId)
   }
 
   allowInChecklyConfig () {
@@ -121,6 +129,9 @@ export class PrivateLocation extends Construct {
     }
   }
 
+  /**
+   * @param id - The UUID of the existing private location
+   */
   static fromId (id: string) {
     return new PrivateLocationRef(`private-location-${id}`, id)
   }

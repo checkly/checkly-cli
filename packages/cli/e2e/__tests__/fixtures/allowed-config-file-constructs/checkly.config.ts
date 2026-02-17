@@ -1,11 +1,9 @@
 import { defineConfig } from 'checkly'
 import {
   AlertChannel,
-  ApiCheck,
   CheckGroupV2,
   EmailAlertChannel,
   PrivateLocation,
-  UrlMonitor,
 } from 'checkly/constructs'
 
 // Alert channels should be allowed when configuration is being loaded.
@@ -23,7 +21,7 @@ const pl = new PrivateLocation('pl-in-config', {
 })
 
 // Private location references should be allowed.
-const plRef = PrivateLocation.fromId('not-real')
+const plRef = PrivateLocation.fromId('070ddd08-ab58-4681-88e2-1ae955637300')
 
 // Check groups should be allowed.
 const group = new CheckGroupV2('group-in-config', {
