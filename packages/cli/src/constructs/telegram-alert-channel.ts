@@ -31,7 +31,14 @@ export interface TelegramAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class TelegramAlertChannel extends WebhookAlertChannel {
-  static DEFAULT_PAYLOAD = `<b>{{ALERT_TITLE}}</b> at {{STARTED_AT}} in {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)
+  static DEFAULT_PAYLOAD = `<b>{{ALERT_TITLE}}</b> at {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)
+{{#if AI_ANALYSIS_CLASSIFICATION}}
+AI Analysis: <i>{{AI_ANALYSIS_CLASSIFICATION}}</i>
+
+{{AI_ANALYSIS_ROOT_CAUSE}}
+<a href="{{AI_ANALYSIS_LINK}}">Read full analysis</a>
+{{/if}}
+
 Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/each}}
 <a href="{{RESULT_LINK}}">View check result</a>
 `

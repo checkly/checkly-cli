@@ -43,9 +43,53 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
               {
                 "type": "TextBlock",
                 "text": "{{ALERT_TITLE}}",
-                "weight": "bolder",
-                "size": "medium"
+                "weight": "Bolder",
+                "size": "Large",
+                "style": "heading"
               },
+              {{#if AI_ANALYSIS_CLASSIFICATION}}
+              {
+                "type": "TextBlock",
+                "text": "AI analysis",
+                "weight": "Bolder",
+                "size": "Default",
+                "style": "heading"
+              },
+              {
+                "type": "ColumnSet",
+                "columns": [
+                  {
+                    "type": "Column",
+                    "width": "stretch",
+                    "items": [
+                      {
+                        "type": "TextBlock",
+                        "text": "{{AI_ANALYSIS_CLASSIFICATION}}",
+                        "weight": "Bolder",
+                        "wrap": true
+                      },
+                      {
+                        "type": "TextBlock",
+                        "text": "{{AI_ANALYSIS_ROOT_CAUSE}}",
+                        "wrap": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "ActionSet",
+                "actions": [
+                  {
+                    "type": "Action.OpenUrl",
+                    "title": "Read full analysis",
+                    "url": "{{AI_ANALYSIS_LINK}}",
+                    "style": "positive",
+                    "iconUrl": "icon:Sparkle"
+                  }
+                ]
+              },
+              {{/if}}
               {
                 "type": "ColumnSet",
                 "columns": [
@@ -91,7 +135,8 @@ export class MSTeamsAlertChannel extends WebhookAlertChannel {
           {
             "type":"Action.OpenUrl",
             "title":"View in Checkly",
-            "url":"{{RESULT_LINK}}"
+            "url":"{{RESULT_LINK}}",
+            "style": "positive"
           }
         ]
       }
