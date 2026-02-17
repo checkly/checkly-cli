@@ -45,9 +45,9 @@ type ProjectParseOpts = {
   checklyConfigConstructs?: Construct[]
   playwrightConfigPath?: string
   include?: string | string[]
-  includeFlagProvided?: boolean
   playwrightChecks?: PlaywrightSlimmedProp[]
-  currentCommand?: 'pw-test' | 'test' | 'deploy'
+  ignoreCheckDefinitions?: boolean
+  skipWebServerValidation?: boolean
   enableWorkspaces?: boolean
 }
 
@@ -144,9 +144,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     checklyConfigConstructs,
     playwrightConfigPath,
     include,
-    includeFlagProvided,
     playwrightChecks,
-    currentCommand,
+    ignoreCheckDefinitions,
+    skipWebServerValidation,
     enableWorkspaces = true,
   } = opts
   const project = new Project(projectLogicalId, {
@@ -165,7 +165,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     ignoreWorkspaces: !enableWorkspaces,
   })
 
-  const filteredConstructs = currentCommand === 'pw-test'
+  const filteredConstructs = ignoreCheckDefinitions
     ? checklyConfigConstructs?.filter(c => !(c instanceof PlaywrightCheck))
     : checklyConfigConstructs
 
@@ -182,15 +182,14 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
-  Session.currentCommand = currentCommand
-  Session.includeFlagProvided = includeFlagProvided
+  Session.skipWebServerValidation = skipWebServerValidation
   Session.packageManager = packageManager
   Session.workspace = workspace
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
 
-  if (currentCommand !== 'pw-test') {
+  if (!ignoreCheckDefinitions) {
     await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
   }
 

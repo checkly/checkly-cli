@@ -107,9 +107,9 @@ export default class ParseProjectCommand extends Command {
         checklyConfigConstructs,
         playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
         include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
-        includeFlagProvided: includeFlag.length > 0,
         playwrightChecks: checklyConfig.checks?.playwrightChecks,
-        currentCommand: emulatePwTest ? 'pw-test' : undefined,
+        ignoreCheckDefinitions: emulatePwTest,
+        skipWebServerValidation: emulatePwTest && !(includeFlag.length > 0),
       })
 
       const diagnostics = new Diagnostics()

@@ -190,9 +190,9 @@ export default class PwTestCommand extends AuthCommand {
       checklyConfigConstructs,
       playwrightConfigPath,
       include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
-      includeFlagProvided: includeFlag.length > 0,
       playwrightChecks: [playwrightCheck],
-      currentCommand: 'pw-test',
+      ignoreCheckDefinitions: true,
+      skipWebServerValidation: !(includeFlag.length > 0),
       checkFilter: check => {
         // Skip non Playwright checks
         if (!(check instanceof PlaywrightCheck)) {

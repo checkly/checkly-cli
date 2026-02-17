@@ -248,8 +248,7 @@ export class Session {
   static parsers = new Map<string, Parser>()
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
-  static currentCommand?: 'pw-test' | 'test' | 'deploy'
-  static includeFlagProvided?: boolean
+  static skipWebServerValidation?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 

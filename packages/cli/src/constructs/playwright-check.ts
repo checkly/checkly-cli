@@ -283,8 +283,8 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
-    // Only show webServer warning for pw-test command when --include is not provided
-    if (Session.currentCommand !== 'pw-test' || Session.includeFlagProvided) {
+    // Skip webServer validation unless explicitly requested via skipWebServerValidation
+    if (!Session.skipWebServerValidation) {
       return
     }
 
