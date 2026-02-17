@@ -46,7 +46,7 @@ type ProjectParseOpts = {
   playwrightConfigPath?: string
   include?: string | string[]
   playwrightChecks?: PlaywrightSlimmedProp[]
-  ignoreCheckDefinitions?: boolean
+  loadPlaywrightChecksOnly?: boolean
   warnOnWebServerConfig?: boolean
   enableWorkspaces?: boolean
 }
@@ -145,7 +145,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     playwrightConfigPath,
     include,
     playwrightChecks,
-    ignoreCheckDefinitions,
+    loadPlaywrightChecksOnly,
     warnOnWebServerConfig,
     enableWorkspaces = true,
   } = opts
@@ -165,7 +165,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     ignoreWorkspaces: !enableWorkspaces,
   })
 
-  const filteredConstructs = ignoreCheckDefinitions
+  const filteredConstructs = loadPlaywrightChecksOnly
     ? checklyConfigConstructs?.filter(c => !(c instanceof PlaywrightCheck))
     : checklyConfigConstructs
 
@@ -189,14 +189,13 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]
 
-  if (!ignoreCheckDefinitions) {
+  if (!loadPlaywrightChecksOnly) {
     await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
+    // Load sequentially because otherwise Session.checkFileAbsolutePath and
+    // Session.checkFilePath are going to be subject to race conditions.
+    await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
+    await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
   }
-
-  // Load sequentially because otherwise Session.checkFileAbsolutePath and
-  // Session.checkFilePath are going to be subject to race conditions.
-  await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
-  await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
   await loadPlaywrightChecks(directory, playwrightChecks, playwrightConfigPath, include)
 
   // private-location must be processed after all checks and groups are loaded.
