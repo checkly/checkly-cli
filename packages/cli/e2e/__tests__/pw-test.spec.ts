@@ -112,5 +112,32 @@ describe('pw-test', { timeout: 45000 }, () => {
         }),
       }))
     })
+
+    it('Should add a Playwright test with custom install command to the config', async () => {
+      await runTest(fixt, [
+        '--create-check',
+        '--install-command',
+        'pnpm install',
+        '--',
+        '--grep',
+        '@TAG-A',
+      ])
+
+      const checklyConfig = await loadChecklyConfig(fixt.root)
+
+      expect(checklyConfig).toEqual(expect.objectContaining({
+        config: expect.objectContaining({
+          checks: expect.objectContaining({
+            playwrightChecks: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Playwright Test: --grep @TAG-A',
+                testCommand: 'npx playwright test --grep @TAG-A',
+                installCommand: 'pnpm install',
+              }),
+            ]),
+          }),
+        }),
+      }))
+    })
   })
 })
