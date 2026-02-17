@@ -28,7 +28,7 @@ export interface IcmpRequest {
    * and assert how many packets were received.
    *
    * @minimum 1
-   * @maximum 100
+   * @maximum 50
    * @example 10
    * @default 10
    */
