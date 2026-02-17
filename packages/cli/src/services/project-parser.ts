@@ -47,7 +47,7 @@ type ProjectParseOpts = {
   include?: string | string[]
   playwrightChecks?: PlaywrightSlimmedProp[]
   ignoreCheckDefinitions?: boolean
-  skipWebServerValidation?: boolean
+  warnOnWebServerConfig?: boolean
   enableWorkspaces?: boolean
 }
 
@@ -146,7 +146,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     include,
     playwrightChecks,
     ignoreCheckDefinitions,
-    skipWebServerValidation,
+    warnOnWebServerConfig,
     enableWorkspaces = true,
   } = opts
   const project = new Project(projectLogicalId, {
@@ -182,7 +182,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.defaultRuntimeId = defaultRuntimeId
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
-  Session.skipWebServerValidation = skipWebServerValidation
+  Session.warnOnWebServerConfig = warnOnWebServerConfig
   Session.packageManager = packageManager
   Session.workspace = workspace
 

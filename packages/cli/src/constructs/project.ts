@@ -248,7 +248,7 @@ export class Session {
   static parsers = new Map<string, Parser>()
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
-  static skipWebServerValidation?: boolean
+  static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 

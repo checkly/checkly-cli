@@ -283,8 +283,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
-    // Skip webServer validation unless explicitly requested via skipWebServerValidation
-    if (!Session.skipWebServerValidation) {
+    if (!Session.warnOnWebServerConfig) {
       return
     }
 
