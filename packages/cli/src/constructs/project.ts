@@ -60,6 +60,7 @@ export type ProjectData = {
 export class Project extends Construct {
   name: string
   repoUrl?: string
+  logicalId: string
   testOnlyAllowed = false
   data: ProjectData = {
     'check': {},
@@ -87,6 +88,7 @@ export class Project extends Construct {
     super(Project.__checklyType, logicalId)
     this.name = props.name
     this.repoUrl = props.repoUrl
+    this.logicalId = logicalId
   }
 
   describe (): string {
