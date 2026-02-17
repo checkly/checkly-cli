@@ -130,7 +130,7 @@ export abstract class Construct implements Validate, Bundle {
     if (!LOGICAL_ID_PATTERN.test(this.logicalId)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'logicalId',
-        new Error(`The logicalId "${this.logicalId}" contains invalid characters. Only A-Z, a-z, 0-9, _, -, /, #, and . are allowed.`),
+        new Error(`"${this.logicalId}" contains invalid characters. Only A-Z, a-z, 0-9, _, -, /, #, and . are allowed.`),
       ))
     }
   }

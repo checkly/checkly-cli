@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Session } from '../project'
 import { Construct } from '../construct'
 import { Diagnostics } from '../diagnostics'
-import { InvalidPropertyValueDiagnostic } from '../construct-diagnostics'
 
 class TestConstruct extends Construct {
   constructor (logicalId: string) {
@@ -45,8 +44,11 @@ describe('Construct logicalId validation', () => {
     const diagnostics = new Diagnostics()
     await construct.validate(diagnostics)
     expect(diagnostics.isFatal()).toBe(true)
-    expect(diagnostics.observations).toHaveLength(1)
-    expect(diagnostics.observations[0]).toBeInstanceOf(InvalidPropertyValueDiagnostic)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('contains invalid characters'),
+      }),
+    ]))
   })
 
   it('should produce an error diagnostic for logicalIds with special characters', async () => {
@@ -54,6 +56,11 @@ describe('Construct logicalId validation', () => {
     const diagnostics = new Diagnostics()
     await construct.validate(diagnostics)
     expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('contains invalid characters'),
+      }),
+    ]))
   })
 
   it('should produce an error diagnostic for empty logicalIds', async () => {
@@ -61,5 +68,10 @@ describe('Construct logicalId validation', () => {
     const diagnostics = new Diagnostics()
     await construct.validate(diagnostics)
     expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('contains invalid characters'),
+      }),
+    ]))
   })
 })
