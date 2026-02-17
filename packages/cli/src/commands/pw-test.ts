@@ -1,5 +1,4 @@
 import { AuthCommand } from './authCommand'
-import { confirmSanitizedLogicalIds } from '../helpers/sanitized-logical-id'
 import {
   findPlaywrightConfigPath,
   getCiInformation,
@@ -217,12 +216,6 @@ export default class PwTestCommand extends AuthCommand {
     })
 
     this.style.actionSuccess()
-
-    // Check for sanitized logicalIds and prompt user for confirmation
-    const shouldContinue = await confirmSanitizedLogicalIds(this.log.bind(this))
-    if (!shouldContinue) {
-      return
-    }
 
     this.style.actionStart('Validating project resources')
 

@@ -87,7 +87,6 @@ export class Project extends Construct {
     super(Project.__checklyType, logicalId)
     this.name = props.name
     this.repoUrl = props.repoUrl
-    // logicalId is already set by Construct constructor (with sanitization)
   }
 
   describe (): string {
@@ -249,7 +248,6 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static currentCommand?: 'pw-test' | 'test' | 'deploy'
   static includeFlagProvided?: boolean
-  static sanitizedLogicalIds: Array<{ constructType: string, original: string, sanitized: string }> = []
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 
@@ -272,7 +270,6 @@ export class Session {
     this.parsers = new Map<string, Parser>()
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
-    this.sanitizedLogicalIds = []
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
     this.resetSharedFiles()
@@ -322,26 +319,6 @@ export class Session {
     } else {
       throw new Error('Internal Error: Session is not properly configured for using a construct. Please contact Checkly support at support@checklyhq.com.')
     }
-  }
-
-  static sanitizeLogicalId (logicalId: string, constructType?: string): string {
-    const sanitized = logicalId.replace(/[^A-Za-z0-9_\-/#.]/g, '')
-    if (sanitized !== logicalId && constructType) {
-      Session.sanitizedLogicalIds.push({
-        constructType,
-        original: logicalId,
-        sanitized,
-      })
-    }
-    return sanitized
-  }
-
-  static clearSanitizedLogicalIds (): void {
-    Session.sanitizedLogicalIds = []
-  }
-
-  static getSanitizedLogicalIds (): Array<{ constructType: string, original: string, sanitized: string }> {
-    return Session.sanitizedLogicalIds
   }
 
   static validateCreateConstruct (construct: Construct) {

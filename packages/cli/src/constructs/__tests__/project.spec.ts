@@ -1,74 +1,65 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
 import { Session } from '../project'
+import { Construct } from '../construct'
+import { Diagnostics } from '../diagnostics'
+import { InvalidPropertyValueDiagnostic } from '../construct-diagnostics'
 
-describe('Session.sanitizeLogicalId', () => {
+class TestConstruct extends Construct {
+  constructor (logicalId: string) {
+    super('test', logicalId)
+  }
+
+  describe (): string {
+    return `Test:${this.logicalId}`
+  }
+
+  synthesize () {
+    return null
+  }
+}
+
+describe('Construct logicalId validation', () => {
   beforeEach(() => {
-    Session.clearSanitizedLogicalIds()
+    Session.reset()
+    Session.project = { addResource: () => {} } as any
   })
 
-  it('should return valid logicalIds unchanged', () => {
-    expect(Session.sanitizeLogicalId('my-check')).toBe('my-check')
-    expect(Session.sanitizeLogicalId('my_check')).toBe('my_check')
-    expect(Session.sanitizeLogicalId('myCheck123')).toBe('myCheck123')
-    expect(Session.sanitizeLogicalId('my/check')).toBe('my/check')
-    expect(Session.sanitizeLogicalId('my#check')).toBe('my#check')
-    expect(Session.sanitizeLogicalId('my.check')).toBe('my.check')
+  it('should pass validation for valid logicalIds', async () => {
+    const validIds = ['my-check', 'my_check', 'myCheck123', 'my/check', 'my#check', 'my.check']
+    for (const id of validIds) {
+      const construct = new TestConstruct(id)
+      const diagnostics = new Diagnostics()
+      await construct.validate(diagnostics)
+      expect(diagnostics.isFatal(), `Expected "${id}" to be valid`).toBe(false)
+    }
   })
 
-  it('should strip spaces from logicalIds', () => {
-    expect(Session.sanitizeLogicalId('my check')).toBe('mycheck')
-    expect(Session.sanitizeLogicalId('my check name')).toBe('mycheckname')
+  it('should store the original logicalId without modification', () => {
+    const construct = new TestConstruct('my check')
+    expect(construct.logicalId).toBe('my check')
   })
 
-  it('should strip special characters from logicalIds', () => {
-    expect(Session.sanitizeLogicalId('my(check)')).toBe('mycheck')
-    expect(Session.sanitizeLogicalId('my@check!')).toBe('mycheck')
-    expect(Session.sanitizeLogicalId('my$check%name')).toBe('mycheckname')
+  it('should produce an error diagnostic for logicalIds with spaces', async () => {
+    const construct = new TestConstruct('my check')
+    const diagnostics = new Diagnostics()
+    await construct.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toHaveLength(1)
+    expect(diagnostics.observations[0]).toBeInstanceOf(InvalidPropertyValueDiagnostic)
   })
 
-  it('should handle mixed valid and invalid characters', () => {
-    expect(Session.sanitizeLogicalId('my-check (test)')).toBe('my-checktest')
-    expect(Session.sanitizeLogicalId('API Check #1')).toBe('APICheck#1')
+  it('should produce an error diagnostic for logicalIds with special characters', async () => {
+    const construct = new TestConstruct('my@check!')
+    const diagnostics = new Diagnostics()
+    await construct.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
   })
 
-  it('should return empty string for all invalid characters', () => {
-    expect(Session.sanitizeLogicalId('   ')).toBe('')
-    expect(Session.sanitizeLogicalId('!@$%^&*()')).toBe('')
-  })
-
-  it('should track sanitized logicalIds when constructType is provided', () => {
-    Session.sanitizeLogicalId('my check', 'check')
-    Session.sanitizeLogicalId('valid-id', 'check')
-    Session.sanitizeLogicalId('another (invalid)', 'check-group')
-
-    const sanitizedIds = Session.getSanitizedLogicalIds()
-    expect(sanitizedIds).toHaveLength(2)
-    expect(sanitizedIds[0]).toEqual({
-      constructType: 'check',
-      original: 'my check',
-      sanitized: 'mycheck',
-    })
-    expect(sanitizedIds[1]).toEqual({
-      constructType: 'check-group',
-      original: 'another (invalid)',
-      sanitized: 'anotherinvalid',
-    })
-  })
-
-  it('should not track sanitized logicalIds when constructType is not provided', () => {
-    Session.sanitizeLogicalId('my check')
-    Session.sanitizeLogicalId('another (invalid)')
-
-    const sanitizedIds = Session.getSanitizedLogicalIds()
-    expect(sanitizedIds).toHaveLength(0)
-  })
-
-  it('should clear sanitized logicalIds', () => {
-    Session.sanitizeLogicalId('my check', 'check')
-    expect(Session.getSanitizedLogicalIds()).toHaveLength(1)
-
-    Session.clearSanitizedLogicalIds()
-    expect(Session.getSanitizedLogicalIds()).toHaveLength(0)
+  it('should produce an error diagnostic for empty logicalIds', async () => {
+    const construct = new TestConstruct('')
+    const diagnostics = new Diagnostics()
+    await construct.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
   })
 })

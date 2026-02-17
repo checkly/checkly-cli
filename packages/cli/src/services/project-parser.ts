@@ -150,9 +150,6 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     enableWorkspaces = true,
   } = opts
 
-  // Clear sanitized logicalIds at the start of parsing
-  Session.clearSanitizedLogicalIds()
-
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
