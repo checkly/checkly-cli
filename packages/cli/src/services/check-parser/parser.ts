@@ -7,12 +7,18 @@ import * as walk from 'acorn-walk'
 import { minimatch } from 'minimatch'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
+import Debug from 'debug'
 
 import { Collector } from './collector'
 import { DependencyParseError } from './errors'
-import { PackageFilesResolver, Dependencies } from './package-files/resolver'
+import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
 import type { PlaywrightConfig } from '../playwright-config'
 import { findFilesWithPattern, pathToPosix } from '../util'
+import { Package, Workspace } from './package-files/workspace'
+import { isCoreExtension, isTSExtension } from './package-files/extension'
+import { createFauxPackageFiles } from './faux-package'
+
+const debug = Debug('checkly:cli:services:check-parser:parser')
 
 // Our custom configuration to handle walking errors
 
@@ -20,13 +26,23 @@ import { findFilesWithPattern, pathToPosix } from '../util'
 const ignore = (_node: any, _st: any, _c: any) => {}
 
 type Module = {
-  dependencies: Array<string>
+  dependencies: Array<RawDependency>
 }
 
-type SupportedFileExtension = '.js' | '.mjs' | '.ts'
+type LegacySupportedFileExtension = '.js' | '.mjs' | '.ts'
+
+function isLegacySupportedFileExtension (value: string): value is LegacySupportedFileExtension {
+  switch (value) {
+    case '.js':
+    case '.mjs':
+    case '.ts':
+      return true
+    default:
+      return false
+  }
+}
 
 const PACKAGE_EXTENSION = `${path.sep}package.json`
-const STATIC_FILE_EXTENSION = ['.json', '.txt', '.jpeg', '.jpg', '.png', '.yml']
 
 const supportedBuiltinModules = [
   'node:assert',
@@ -46,24 +62,6 @@ const supportedBuiltinModules = [
   'node:zlib',
 ]
 
-async function validateEntrypoint (
-  entrypoint: string,
-): Promise<{
-  extension: SupportedFileExtension
-  content: string
-}> {
-  const extension = path.extname(entrypoint)
-  if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
-    throw new Error(`Unsupported file extension for ${entrypoint}`)
-  }
-  try {
-    const content = await fs.readFile(entrypoint, { encoding: 'utf-8' })
-    return { extension, content }
-  } catch {
-    throw new DependencyParseError(entrypoint, [entrypoint], [], [])
-  }
-}
-
 let tsParser: any
 function getTsParser (): any {
   if (tsParser) {
@@ -77,12 +75,11 @@ function getTsParser (): any {
     // Our custom configuration to handle walking errors
 
     Object.values(AST_NODE_TYPES).forEach(astType => {
-      // Only handle the TS specific ones
-      if (!astType.startsWith('TS')) {
-        return
+      // Only handle the TS/JSX specific ones
+      if (astType.startsWith('TS') || astType.startsWith('JSX')) {
+        const base: any = walk.base
+        base[astType] = base[astType] ?? ignore
       }
-      const base: any = walk.base
-      base[astType] = base[astType] ?? ignore
     })
     return tsParser
   } catch (err: any) {
@@ -93,15 +90,65 @@ function getTsParser (): any {
   }
 }
 
+class RawDependencyCollector {
+  #dependencies: RawDependency[] = []
+
+  add (dependency: RawDependency) {
+    this.#dependencies.push(dependency)
+  }
+
+  state (): RawDependency[] {
+    return this.#dependencies
+  }
+}
+
+class NeighborDependencyCollector {
+  #depended = new Set<Package>()
+  #referenced = new Set<Package>()
+
+  markDepended (...pkg: Package[]): void {
+    for (const p of pkg) {
+      this.#depended.add(p)
+    }
+  }
+
+  markReferenced (...pkg: Package[]): void {
+    for (const p of pkg) {
+      this.markDepended(p)
+      this.#referenced.add(p)
+    }
+  }
+
+  unreferencedDependedPackages (): Package[] {
+    return Array.from(this.#depended).filter(pkg => !this.#referenced.has(pkg))
+  }
+}
+
+type FileEntry = {
+  filePath: string
+  content: string
+}
+
 type ParserOptions = {
   supportedNpmModules?: Array<string>
   checkUnsupportedModules?: boolean
+  workspace?: Workspace
+  restricted?: boolean
 }
+
+export type VirtualFile = { filePath: string, physical: false, content: string }
+export type PhysicalFile = { filePath: string, physical: true }
+
+export type File =
+  | VirtualFile
+  | PhysicalFile
 
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
-  resolver = new PackageFilesResolver()
+  workspace?: Workspace
+  resolver: PackageFilesResolver
+  restricted: boolean
   cache = new Map<string, {
     module: Module
     resolvedDependencies?: Dependencies
@@ -111,8 +158,14 @@ export class Parser {
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
   constructor (options: ParserOptions) {
+    this.restricted = options.restricted ?? true
     this.supportedModules = new Set(supportedBuiltinModules.concat(options.supportedNpmModules ?? []))
     this.checkUnsupportedModules = options.checkUnsupportedModules ?? true
+    this.workspace = options.workspace
+    this.resolver = new PackageFilesResolver({
+      workspace: options.workspace,
+      restricted: this.restricted,
+    })
   }
 
   supportsModule (importPath: string) {
@@ -127,32 +180,57 @@ export class Parser {
     return false
   }
 
-  private async validateFile (filePath: string): Promise<{ filePath: string, content: string }> {
+  private async validateFile (
+    filePath: string,
+  ): Promise<FileEntry> {
+    debug(`Validating file ${filePath}`)
     const extension = path.extname(filePath)
-    if (extension !== '.js' && extension !== '.ts' && extension !== '.mjs') {
+    if (!this.isProcessableExtension(extension)) {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
     try {
       const content = await fs.readFile(filePath, { encoding: 'utf-8' })
       return { filePath, content }
-    } catch {
+    } catch (err) {
+      debug(`Failed to validate file ${filePath}: ${err}`)
       throw new DependencyParseError(filePath, [filePath], [], [])
     }
   }
 
-  async getFilesAndDependencies (playwrightConfig: PlaywrightConfig):
-  Promise<{ files: string[], errors: string[] }> {
+  private isProcessableExtension (extension: string): boolean {
+    if (this.restricted) {
+      return isLegacySupportedFileExtension(extension)
+    }
+
+    if (isCoreExtension(extension) && extension !== '.json') {
+      return true
+    }
+
+    if (isTSExtension(extension)) {
+      return true
+    }
+
+    return false
+  }
+
+  async getFilesAndDependencies (
+    playwrightConfig: PlaywrightConfig,
+  ): Promise<{
+    files: File[]
+    errors: string[]
+  }> {
     const files = new Set(await this.getFilesFromPaths(playwrightConfig))
     files.add(playwrightConfig.configFilePath)
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
+    const neighbors = new NeighborDependencyCollector()
     for (const file of files) {
       if (resultFileSet.has(file)) {
         continue
       }
-      if (STATIC_FILE_EXTENSION.includes(path.extname(file))) {
-        // Holds info about the main file and doesn't need to be parsed
+      const extension = path.extname(file)
+      if (!this.isProcessableExtension(extension)) {
         resultFileSet.add(file)
         continue
       }
@@ -172,8 +250,11 @@ export class Parser {
         ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
 
       for (const dep of resolvedDependencies.missing) {
-        missingFiles.add(pathToPosix(dep.filePath))
+        missingFiles.add(dep.filePath)
       }
+
+      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
 
       this.cache.set(item.filePath, { module, resolvedDependencies })
 
@@ -184,12 +265,35 @@ export class Parser {
         const filePath = dep.sourceFile.meta.filePath
         files.add(filePath)
       }
-      resultFileSet.add(pathToPosix(item.filePath))
+      resultFileSet.add(item.filePath)
     }
+
     if (missingFiles.size) {
       throw new DependencyParseError([].join(', '), Array.from(missingFiles), [], [])
     }
-    return { files: Array.from(resultFileSet), errors: Array.from(errors) }
+
+    const outputFiles: File[] = []
+
+    for (const filePath of resultFileSet) {
+      outputFiles.push({
+        filePath: pathToPosix(filePath),
+        physical: true,
+      })
+    }
+
+    const neighborFiles = neighbors.unreferencedDependedPackages()
+      .flatMap(pkg => createFauxPackageFiles(pkg))
+
+    outputFiles.push(...neighborFiles)
+
+    outputFiles.sort((a, b) => {
+      return a.filePath.localeCompare(b.filePath)
+    })
+
+    return {
+      files: outputFiles,
+      errors: Array.from(errors),
+    }
   }
 
   private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
@@ -267,7 +371,7 @@ export class Parser {
   }
 
   async parse (entrypoint: string) {
-    const { content } = await validateEntrypoint(entrypoint)
+    const { content } = await this.validateFile(entrypoint)
 
     /*
   * The importing of files forms a directed graph.
@@ -276,7 +380,8 @@ export class Parser {
   * In this implementation, we use breadth first search.
   */
     const collector = new Collector(entrypoint, content)
-    const bfsQueue: [{ filePath: string, content: string }] = [{ filePath: entrypoint, content }]
+    const neighbors = new NeighborDependencyCollector()
+    const bfsQueue: [FileEntry] = [{ filePath: entrypoint, content }]
     while (bfsQueue.length > 0) {
     // Since we just checked the length, shift() will never return undefined.
     // We can add a not-null assertion operator (!).
@@ -332,6 +437,15 @@ export class Parser {
         collector.addDependency(filePath, dep.sourceFile.contents)
         bfsQueue.push({ filePath, content: dep.sourceFile.contents })
       }
+
+      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+    }
+
+    for (const pkg of neighbors.unreferencedDependedPackages()) {
+      for (const f of createFauxPackageFiles(pkg)) {
+        collector.addDependency(f.filePath, f.content)
+      }
     }
 
     collector.validate()
@@ -341,11 +455,12 @@ export class Parser {
 
   static parseDependencies (filePath: string, contents: string):
   { module: Module, error?: any } {
-    const dependencies = new Set<string>()
+    debug(`Parsing dependencies of ${filePath}`)
+    const dependencies = new RawDependencyCollector()
 
     const extension = path.extname(filePath)
     try {
-      if (extension === '.js' || extension === '.mjs') {
+      if (isCoreExtension(extension) && extension !== '.json') {
         const ast = acorn.parse(contents, {
           allowReturnOutsideFunction: true,
           ecmaVersion: 'latest',
@@ -353,22 +468,24 @@ export class Parser {
           allowAwaitOutsideFunction: true,
         })
         walk.simple(ast, Parser.jsNodeVisitor(dependencies))
-      } else if (extension === '.ts') {
+      } else if (isTSExtension(extension)) {
         const tsParser = getTsParser()
-        const ast = tsParser.parse(contents, {})
+        const ast = tsParser.parse(contents, {
+          // We must only enable jsx for tsx/jsx files. Otherwise type brackets
+          // may confuse the parser and cause an error.
+          jsx: extension.endsWith('x'),
+        })
         // The AST from typescript-estree is slightly different from the type used by acorn-walk.
         // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
         // @ts-ignore
         walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
-      } else if (extension === '.json') {
-        // No dependencies to check.
-      } else {
-        throw new Error(`Unsupported file extension for ${filePath}`)
       }
     } catch (err) {
+      debug(`Failed to parse dependencies of ${filePath}: ${err}`)
+
       return {
         module: {
-          dependencies: Array.from(dependencies),
+          dependencies: dependencies.state(),
         },
         error: err,
       }
@@ -376,60 +493,60 @@ export class Parser {
 
     return {
       module: {
-        dependencies: Array.from(dependencies),
+        dependencies: dependencies.state(),
       },
     }
   }
 
-  static jsNodeVisitor (dependencies: Set<string>): any {
+  static jsNodeVisitor (dependencies: RawDependencyCollector): any {
     return {
       CallExpression (node: Node) {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
-        Parser.registerDependency(requireStringArg, dependencies)
+        Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
       ImportDeclaration (node: any) {
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportNamedDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportAllDeclaration (node: any) {
         if (node.source === null) return
         if (node.source.type !== 'Literal') return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
     }
   }
 
-  static tsNodeVisitor (tsParser: any, dependencies: Set<string>): any {
+  static tsNodeVisitor (tsParser: any, dependencies: RawDependencyCollector): any {
     return {
       // While rare, TypeScript files may also use require.
       CallExpression (node: Node) {
         if (!Parser.isRequireExpression(node)) return
         const requireStringArg = Parser.getRequireStringArg(node)
-        Parser.registerDependency(requireStringArg, dependencies)
+        Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
       ImportDeclaration (node: TSESTree.ImportDeclaration) {
       // For now, we only support literal strings in the import statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
       // The statement isn't importing another dependency
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportAllDeclaration (node: TSESTree.ExportAllDeclaration) {
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
-        Parser.registerDependency(node.source.value, dependencies)
+        Parser.registerDependency(node.source.value, 'import', dependencies)
       },
     }
   }
@@ -471,12 +588,19 @@ export class Parser {
     }
   }
 
-  static registerDependency (importArg: string | null, dependencies: Set<string>) {
-  // TODO: We currently don't support import path aliases, f.ex: `import { Something } from '@services/my-service'`
-    if (!importArg) {
-    // If there's no importArg, don't register a dependency
-    } else {
-      dependencies.add(importArg)
+  static registerDependency (
+    importPath: string | null,
+    source: RawDependencySource,
+    dependencies: RawDependencyCollector,
+  ) {
+    if (!importPath) {
+      // If there's no importPath, don't register a dependency.
+      return
     }
+
+    dependencies.add({
+      importPath,
+      source,
+    })
   }
 }

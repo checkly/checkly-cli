@@ -37,7 +37,7 @@ jobs:
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
         env:
             NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -63,7 +63,7 @@ jobs:
         with:
           name: llm-rules-prerelease
           if-no-files-found: error
-          path: packages/cli/dist/rules/*
+          path: packages/cli/dist/ai-context/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
@@ -103,7 +103,7 @@ jobs:
           ref: main
       - uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -127,7 +127,7 @@ jobs:
         with:
           name: llm-rules-release
           if-no-files-found: error
-          path: packages/cli/dist/rules/*
+          path: packages/cli/dist/ai-context/*
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}

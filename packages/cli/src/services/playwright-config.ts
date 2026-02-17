@@ -65,9 +65,9 @@ export class PlaywrightConfig {
         continue
       }
       if (Array.isArray(definition)) {
-        definition.forEach((file: string) => this.files.add(file))
+        definition.forEach((file: string) => this.files.add(toAbsolutePath(dir, file)))
       } else {
-        this.files.add(definition)
+        this.files.add(toAbsolutePath(dir, definition))
       }
     }
 

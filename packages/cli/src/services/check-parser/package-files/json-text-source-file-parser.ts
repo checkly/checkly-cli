@@ -6,7 +6,8 @@ class UninitializedJsonTextSourceFileParserState extends SourceFileParser {
 
   async #parser (): Promise<SourceFileParser> {
     try {
-      const { parseJsonText, convertToObject } = await import('typescript')
+      const typescriptExports = await import('typescript')
+      const { parseJsonText, convertToObject } = typescriptExports.default
 
       const parser = new SourceFileParserFuncState(<T>(sourceFile: SourceFile) => {
         const errors: any[] = []

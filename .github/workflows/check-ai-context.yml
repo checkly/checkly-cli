@@ -1,0 +1,40 @@
+name: check-ai-context
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "packages/cli/**"
+
+jobs:
+  check-ai-context:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm config set fund false && npm set audit false
+      - run: npm ci
+      - run: npm run prepare
+      - name: Check for uncommitted changes in skills/
+        run: git diff --exit-code skills/
+      - name: Comment on PR if skills/ is out of date
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ AI context is out of date
+
+          The \`skills/\` directory doesn't match the generated output from \`packages/cli\`.
+
+          Please run the following locally and commit the changes:
+
+          \`\`\`
+          npm run prepare
+          \`\`\`"

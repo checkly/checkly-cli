@@ -13,7 +13,6 @@ import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFla
 import * as api from '../rest/api'
 import config from '../services/config'
 import { parseProject } from '../services/project-parser'
-import type { Runtime } from '../rest/runtimes'
 import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
 import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter'
@@ -33,17 +32,19 @@ import {
   findPropertyByName,
   reWriteChecklyConfigFile,
 } from '../helpers/write-config-helpers'
+import * as acornParser from '../helpers/recast-acorn-parser'
 import * as JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
 import { DEFAULT_REGION } from '../helpers/constants'
 import { cased } from '../sourcegen'
 import { shellQuote } from '../services/shell'
+import { Runtime } from '../runtimes'
+import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
   static description = 'Test your Playwright Tests on Checkly.'
-  static state = 'beta'
   static flags = {
     'location': Flags.string({
       char: 'l',
@@ -90,6 +91,12 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Create a Checkly check from the Playwright test.',
       default: false,
     }),
+    'frequency': Flags.integer({
+      char: 'f',
+      description: 'The frequency in minutes for the created check.',
+      default: 10,
+      options: ['1', '2', '5', '10', '15', '30', '60', '120', '180', '360', '720', '1440'],
+    }),
     'stream-logs': Flags.boolean({
       description: 'Stream logs from the test run to the console.',
       default: true,
@@ -123,6 +130,7 @@ export default class PwTestCommand extends AuthCommand {
       'create-check': createCheck,
       'stream-logs': streamLogs,
       'include': includeFlag,
+      'frequency': frequency,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -149,6 +157,7 @@ export default class PwTestCommand extends AuthCommand {
       runLocation as keyof Region,
       privateRunLocation,
       dir,
+      frequency,
     )
     if (createCheck) {
       this.style.actionStart('Adding check with specified options to the Checkly config file')
@@ -164,7 +173,7 @@ export default class PwTestCommand extends AuthCommand {
 
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const account = this.account
-    const { data: availableRuntimes } = await api.runtimes.getAll()
+    const availableRuntimes = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)
 
     const project = await parseProject({
@@ -176,7 +185,7 @@ export default class PwTestCommand extends AuthCommand {
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
-      }, <Record<string, Runtime>> {}),
+      }, <Record<string, Runtime>>{}),
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies: false,
       checklyConfigConstructs,
@@ -250,14 +259,42 @@ export default class PwTestCommand extends AuthCommand {
       }
     })()
 
+    const bundledChecksByType = {
+      playwright: [] as string[],
+    }
+
+    for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
+      if (bundle instanceof PlaywrightCheckLocalBundle) {
+        bundledChecksByType.playwright.push(logicalId)
+      }
+    }
+
+    if (bundledChecksByType.playwright.length) {
+      this.style.actionStart('Uploading Playwright code bundles')
+      try {
+        for (const logicalId of bundledChecksByType.playwright) {
+          const resourceData = projectBundle.data.check[logicalId]
+          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
+          resourceData.bundle = await bundle.store()
+        }
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    }
+
     const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
-      this.log(`Unable to find checks to run`)
+      this.style.shortError('Unable to find checks to run.')
+      this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
       return
     }
 
-    const reporters = createReporters(reporterTypes, location, verboseFlag)
+    const reporters = createReporters(reporterTypes, location, verboseFlag, {
+      showStreamingHeaders: false,
+    })
     const repoInfo = getGitInformation(project.repoUrl)
     const ciInfo = getCiInformation()
     // TODO: ADD PROPER RETRY STRATEGY HANDLING
@@ -303,10 +340,15 @@ export default class PwTestCommand extends AuthCommand {
       }, links))
     })
 
+    const noTestsFoundChecks = new Set<string>()
+
     runner.on(Events.CHECK_SUCCESSFUL,
       (sequenceId: SequenceId, check, result, testResultId, links?: TestResultsShortLinks) => {
         if (result.hasFailures) {
           process.exitCode = 1
+          if (noTestsFoundChecks.has(check.logicalId)) {
+            this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+          }
         }
 
         reporters.forEach(r => r.onCheckEnd(sequenceId, {
@@ -324,6 +366,9 @@ export default class PwTestCommand extends AuthCommand {
         hasFailures: true,
         runError: message,
       }))
+      if (message.includes('No tests found')) {
+        this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+      }
       process.exitCode = 1
     })
     runner.on(Events.RUN_FINISHED, () => reporters.forEach(r => r.onEnd()))
@@ -333,6 +378,10 @@ export default class PwTestCommand extends AuthCommand {
     })
     runner.on(Events.STREAM_LOGS, (check: any, sequenceId: SequenceId, logs) => {
       reporters.forEach(r => r.onStreamLogs(check, sequenceId, logs))
+      const hasNoTestsFound = logs.some((log: { message: string }) => log.message?.includes('No tests found'))
+      if (hasNoTestsFound) {
+        noTestsFoundChecks.add(check.logicalId)
+      }
     })
     await runner.run()
   }
@@ -342,6 +391,7 @@ export default class PwTestCommand extends AuthCommand {
     runLocation: keyof Region,
     privateRunLocation: string | undefined,
     dir: string,
+    frequency: number = 10,
   ): Promise<PlaywrightSlimmedProp> {
     const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
@@ -354,11 +404,11 @@ export default class PwTestCommand extends AuthCommand {
       : { locations: [runLocation || DEFAULT_REGION] }
 
     return {
-      logicalId: `playwright-check-${inputLogicalId}`,
-      name: `Playwright Test: ${input}`,
+      logicalId: inputLogicalId ? `playwright-check-${inputLogicalId}` : 'playwright-check',
+      name: input ? `Playwright Test: ${input}` : 'Playwright Test',
       testCommand,
       ...locationConfig,
-      frequency: 10,
+      frequency,
     }
   }
 
@@ -384,7 +434,7 @@ export default class PwTestCommand extends AuthCommand {
       this.style.actionSuccess()
       return
     }
-    const checklyAst = recast.parse(configFile.checklyConfig)
+    const checklyAst = recast.parse(configFile.checklyConfig, { parser: acornParser })
     const checksAst = findPropertyByName(checklyAst, 'checks')
     if (!checksAst) {
       this.style.longError('Unable to automatically sync your config file.', 'This can happen if your Checkly config is '
@@ -401,7 +451,7 @@ export default class PwTestCommand extends AuthCommand {
     )
 
     const playwrightCheckString = `const playwrightCheck = ${JSON5.stringify(playwrightCheck, { space: 2 })}`
-    const playwrightCheckAst = recast.parse(playwrightCheckString)
+    const playwrightCheckAst = recast.parse(playwrightCheckString, { parser: acornParser })
     const playwrightCheckNode = playwrightCheckAst.program.body[0].declarations[0].init
     addOrReplaceItem(checksAst.value, playwrightPropertyNode, 'playwrightConfigPath')
     addItemToArray(checksAst.value, playwrightCheckNode, 'playwrightChecks')
@@ -415,6 +465,7 @@ export default class PwTestCommand extends AuthCommand {
   private static async getTestCommand (directoryPath: string, input: string): Promise<string | undefined> {
     const packageManager = await detectPackageManager(directoryPath)
     // Passing the input to the execCommand will return it quoted, which we want to avoid
-    return `${packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand} ${input}`
+    const baseCommand = packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand
+    return input ? `${baseCommand} ${input}` : baseCommand
   }
 }

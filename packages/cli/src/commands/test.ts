@@ -12,7 +12,6 @@ import {
 import TestRunner from '../services/test-runner'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
-import type { Runtime } from '../rest/runtimes'
 import { AuthCommand } from './authCommand'
 import { BrowserCheck, Check, Diagnostics, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs'
 import type { Region } from '..'
@@ -25,6 +24,8 @@ import { uploadSnapshots } from '../services/snapshot-service'
 import { isEntrypoint } from '../constructs/construct'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
 import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
+import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
+import { Runtime } from '../runtimes'
 
 const MAX_RETRIES = 3
 
@@ -163,7 +164,7 @@ export default class Test extends AuthCommand {
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
     const account = this.account
-    const { data: availableRuntimes } = await api.runtimes.getAll()
+    const availableRuntimes = await api.runtimes.getAll()
 
     const project = await parseProject({
       directory: configDirectory,
@@ -287,18 +288,53 @@ export default class Test extends AuthCommand {
       }
     })()
 
-    const checkBundles = Object.values(projectBundle.data.check)
+    const bundledChecksByType = {
+      playwright: [] as string[],
+      browser: [] as string[],
+    }
 
-    for (const { bundle: check } of checkBundles) {
-      if (!(check instanceof BrowserCheckBundle)) {
-        continue
+    for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
+      if (bundle instanceof BrowserCheckBundle) {
+        bundledChecksByType.browser.push(logicalId)
+      } else if (bundle instanceof PlaywrightCheckLocalBundle) {
+        bundledChecksByType.playwright.push(logicalId)
       }
-      check.snapshots = await uploadSnapshots(check.rawSnapshots)
+    }
+
+    if (bundledChecksByType.browser.length) {
+      this.style.actionStart('Uploading Playwright snapshots')
+      try {
+        for (const logicalId of bundledChecksByType.browser) {
+          const bundle = projectBundle.data.check[logicalId].bundle as BrowserCheckBundle
+          bundle.snapshots = await uploadSnapshots(bundle.rawSnapshots)
+        }
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
+    }
+
+    if (bundledChecksByType.playwright.length) {
+      this.style.actionStart('Uploading Playwright code bundles')
+      try {
+        for (const logicalId of bundledChecksByType.playwright) {
+          const resourceData = projectBundle.data.check[logicalId]
+          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
+          resourceData.bundle = await bundle.store()
+        }
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
     }
 
     if (this.fancy) {
       ux.action.stop()
     }
+
+    const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)

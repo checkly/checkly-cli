@@ -1,4 +1,5 @@
 import * as path from 'path'
+import Debug from 'debug'
 import {
   findFilesWithPattern, getPlaywrightConfigPath,
   pathToPosix,
@@ -10,9 +11,20 @@ import {
 } from '../constructs'
 import { Ref } from '../constructs/ref'
 import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
-import type { Runtime } from '../rest/runtimes'
 import { isEntrypoint, type Construct } from '../constructs/construct'
 import { PlaywrightCheck } from '../constructs/playwright-check'
+import {
+  detectNearestPackageJson,
+  detectPackageManager,
+  fauxWorkspaceFromPackageJson,
+  NoPackageJsonFoundError,
+  PackageManager,
+} from './check-parser/package-files/package-manager'
+import { Err, Ok, Result } from './check-parser/package-files/result'
+import { Workspace } from './check-parser/package-files/workspace'
+import { Runtime } from '../runtimes'
+
+const debug = Debug('checkly:cli:services:project-parser')
 
 type ProjectParseOpts = {
   directory: string
@@ -36,9 +48,80 @@ type ProjectParseOpts = {
   includeFlagProvided?: boolean
   playwrightChecks?: PlaywrightSlimmedProp[]
   currentCommand?: 'pw-test' | 'test' | 'deploy'
+  enableWorkspaces?: boolean
 }
 
 const BASE_CHECK_DEFAULTS = {
+}
+
+async function findBasePath (
+  packageManager: PackageManager,
+  directory: string,
+  { ignoreWorkspaces = false },
+): Promise<{
+  basePath: string
+  contextPath: string
+  workspace: Result<Workspace, Error>
+}> {
+  try {
+    if (ignoreWorkspaces) {
+      const nearestPackageJson = await detectNearestPackageJson(directory)
+
+      const workspace = await fauxWorkspaceFromPackageJson(
+        packageManager,
+        nearestPackageJson,
+      )
+
+      return {
+        basePath: workspace.root.path,
+        contextPath: workspace.root.path,
+        workspace: Ok(workspace),
+      }
+    }
+
+    const workspace = await packageManager.lookupWorkspace(directory)
+
+    // If we can't locate a real workspace, set up a faux workspace instead.
+    // Makes usage easier since we can rely on a workspace being available.
+    if (!workspace) {
+      return await findBasePath(packageManager, directory, {
+        ignoreWorkspaces: true,
+      })
+    }
+
+    // We've found a workspace. Let's try to figure out whether we're a part
+    // of it.
+    const nearestPackageJson = await detectNearestPackageJson(directory, {
+      root: workspace.root.path,
+    })
+
+    const contextPath = nearestPackageJson.basePath
+
+    // If the nearest workspace includes the nearest package, then use the
+    // workspace root as the project root.
+    if (workspace.memberByPath(contextPath) !== undefined) {
+      return {
+        basePath: workspace.root.path,
+        contextPath,
+        workspace: Ok(workspace),
+      }
+    }
+
+    // Otherwise, use the config dir as the project root.
+    return await findBasePath(packageManager, directory, {
+      ignoreWorkspaces: true,
+    })
+  } catch (err) {
+    if (err instanceof NoPackageJsonFoundError) {
+      return {
+        basePath: directory,
+        contextPath: directory,
+        workspace: Err(err),
+      }
+    }
+
+    throw err
+  }
 }
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
@@ -64,6 +147,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     includeFlagProvided,
     playwrightChecks,
     currentCommand,
+    enableWorkspaces = true,
   } = opts
 
   // Clear sanitized logicalIds at the start of parsing
@@ -78,11 +162,19 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     project.allowTestOnly(true)
   }
 
+  const packageManager = await detectPackageManager(directory)
+  debug(`Detected package manager ${packageManager.name}`)
+
+  const { basePath, contextPath, workspace } = await findBasePath(packageManager, directory, {
+    ignoreWorkspaces: !enableWorkspaces,
+  })
+
   checklyConfigConstructs?.forEach(
     construct => project.addResource(construct.type, construct.logicalId, construct),
   )
   Session.project = project
-  Session.basePath = directory
+  Session.basePath = basePath
+  Session.contextPath = contextPath
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.checkFilter = checkFilter
   Session.browserCheckDefaults = browserCheckDefaults
@@ -92,6 +184,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
   Session.currentCommand = currentCommand
   Session.includeFlagProvided = includeFlagProvided
+  Session.packageManager = packageManager
+  Session.workspace = workspace
 
   // TODO: Do we really need all of the ** globs, or could we just put node_modules?
   const ignoreDirectories = ['**/node_modules/**', '**/.git/**', ...ignoreDirectoriesMatch]

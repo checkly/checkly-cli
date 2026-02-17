@@ -4,6 +4,10 @@ export type CoreExtension = '.js' | '.mjs' | '.cjs' | '.json'
 
 export const CoreExtensions: CoreExtension[] = ['.js', '.mjs', '.cjs', '.json']
 
+export function isCoreExtension (value: string): value is CoreExtension {
+  return CoreExtensions.includes(value as CoreExtension)
+}
+
 type CoreExtensionMapping = {
   [key in CoreExtension]: string[]
 }
@@ -26,9 +30,13 @@ export const tsCoreExtensionLookupOrder: CoreExtensionMapping = {
   '.json': ['.json'],
 }
 
-export type TSExtension = '.ts' | '.mts' | '.tsx'
+export type TSExtension = '.ts' | '.mts' | '.cts' | '.tsx'
 
-export const TSExtensions: TSExtension[] = ['.ts', '.mts', '.tsx']
+export const TSExtensions: TSExtension[] = ['.ts', '.mts', '.cts', '.tsx']
+
+export function isTSExtension (value: string): value is TSExtension {
+  return TSExtensions.includes(value as TSExtension)
+}
 
 type TSExtensionMapping = {
   [key in TSExtension]: string[]
@@ -37,6 +45,7 @@ type TSExtensionMapping = {
 export const tsExtensionLookupOrder: TSExtensionMapping = {
   '.ts': ['.ts'],
   '.mts': ['.mts'],
+  '.cts': ['.cts'],
   '.tsx': ['.tsx'],
 }
 

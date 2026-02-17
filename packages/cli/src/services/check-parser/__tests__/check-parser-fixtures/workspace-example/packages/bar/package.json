@@ -1,0 +1,12 @@
+{
+  "name": "bar",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "dependencies": {
+    "foo": "*",
+    "baz": "*"
+  }
+}

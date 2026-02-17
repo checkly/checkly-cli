@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { name as CIname } from 'ci-info'
 import config from '../services/config'
-import { assignProxy } from '../services/util'
+import { assignProxy } from '../services/proxy'
 import Accounts, { Account } from './accounts'
 import Users from './users'
 import Projects from './projects'
@@ -54,6 +54,19 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   }
 }
 
+export function detectOperator (): string {
+  if (process.env.CLAUDECODE) return 'claude-code'
+  if (process.env.CURSOR_TRACE_ID) return 'cursor'
+  if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
+  if (process.env.GITHUB_COPILOT) return 'github-copilot'
+  if (process.env.AIDER) return 'aider'
+  if (process.env.WINDSURF || process.env.CODEIUM_ENV) return 'windsurf'
+  if (process.env.GITHUB_ACTIONS) return 'github-actions'
+  if (process.env.GITLAB_CI) return 'gitlab-ci'
+  if (process.env.CI) return 'ci'
+  return 'manual'
+}
+
 export function requestInterceptor (config: InternalAxiosRequestConfig) {
   const { Authorization, accountId } = getDefaults()
   if (Authorization && config.headers) {
@@ -64,7 +77,9 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
     config.headers['x-checkly-account'] = accountId
   }
 
+  config.headers['x-checkly-source'] = 'CLI'
   config.headers['x-checkly-ci-name'] = CIname
+  config.headers['x-checkly-operator'] = detectOperator()
 
   return config
 }

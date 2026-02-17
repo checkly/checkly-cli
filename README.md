@@ -1,4 +1,4 @@
-The Checkly CLI gives you a **JavaScript/TypeScript-native workflow** for coding, testing and deploying synthetic 
+The Checkly CLI gives you a **JavaScript/TypeScript-native workflow** for coding, testing and deploying synthetic
 monitoring at scale, from your code base. We call this workflow **monitoring as code** (MaC).
 
 - **Codeable, testable, reviewable monitoring constructs.** Works with your dev pipeline. From your IDE, via PR to CI.
@@ -51,7 +51,7 @@ Running 2 checks in eu-west-1.
 
 __checks__/books-api.check.ts
   ✔ Books API 1 (52ms)
-__checks__/home.spec.ts  
+__checks__/home.spec.ts
   ✔ home.spec.ts (5s)
 
 2 passed, 2 total
@@ -76,7 +76,7 @@ Then, the **easiest** way to get started is to install the CLI using the followi
 ```bash
 npm create checkly@latest
 ```
-This command will guide you through some simple steps and set up a fully working example project for you. Should take 
+This command will guide you through some simple steps and set up a fully working example project for you. Should take
 ~1 minute.
 
 You can also set up the CLI **from scratch** by running:
@@ -89,7 +89,22 @@ npm install --save-dev checkly
 
 Official docs are over at [checklyhq.com/docs/cli](https://checklyhq.com/docs/cli/)
 
-## Need help? 
+# AI Agents & Coding Assistants
+
+The Checkly CLI is designed with AI-powered development in mind. With [**Monitoring as Code**](https://www.checklyhq.com/docs/concepts/monitoring-as-code/), your entire monitoring setup lives in TypeScript files — perfect for AI agents that can read, write, and reason about code.
+
+To give your AI coding assistant full context about the Checkly CLI, install the Checkly skill:
+
+```bash
+npx skills add checkly/checkly-cli
+```
+
+This provides your AI with documentation, best practices, and examples so it can help you create and manage API checks, browser checks, alert channels, and more.
+
+Check out our [AI Agents & Coding Assistants docs](https://www.checklyhq.com/docs/integrations/ai/overview) for more best practices and examples.
+
+
+## Need help?
 
 - Check out our [Getting Started Guide](https://checklyhq.com/docs/cli/)
 - Join our [Slack Community](https://checklyhq.com/slack). The devs who built this hang out there.
