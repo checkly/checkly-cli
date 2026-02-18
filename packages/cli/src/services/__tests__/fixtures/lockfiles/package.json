@@ -1,0 +1,13 @@
+{
+  "name": "npm-tests",
+  "version": "1.0.0",
+  "dependencies": {
+    "jiti": "^2.4.2",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.18",
+    "checkly": "^0.0.0-pr.1077.3c8e1f4"
+  }
+}

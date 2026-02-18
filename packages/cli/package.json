@@ -109,6 +109,7 @@
     "proxy-from-env": "^1.1.0",
     "recast": "^0.23.11",
     "semver": "^7.7.3",
+    "snyk-nodejs-lockfile-parser": "2.5.0",
     "tunnel": "^0.0.6",
     "uuid": "^11.1.0"
   },

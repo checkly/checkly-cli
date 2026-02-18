@@ -16,6 +16,11 @@ import { createHash } from 'crypto'
 import { Session } from '../constructs/project'
 import semver from 'semver'
 import { existsSync } from 'fs'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { extractPkgsFromYarnLockV1, extractPkgsFromYarnLockV2, parsePnpmProject } from 'snyk-nodejs-lockfile-parser'
+
+const execAsync = promisify(exec)
 
 export interface GitInformation {
   commitId: string
@@ -146,6 +151,127 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
   return cleaned && semver.valid(cleaned) ? cleaned : undefined
 }
 
+const PW_PACKAGE_NAME = '@playwright/test'
+
+async function readTextFile (projectDir: string, filename: string): Promise<string> {
+  try {
+    const full = path.join(projectDir, filename)
+    return await readFile(full, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+async function readJsonFile<T = any> (projectDir: string, filename: string): Promise<T | undefined> {
+  try {
+    const full = path.join(projectDir, filename)
+    return JSON.parse(await readFile(full, 'utf8')) as T
+  } catch {
+    return undefined
+  }
+}
+
+export async function getVersionFromPackageLock (projectDir: string): Promise<string | undefined> {
+  const j = (await readJsonFile(projectDir, 'package-lock.json')) as any
+  return normalizeVersion(
+    j?.packages?.[`node_modules/${PW_PACKAGE_NAME}`]?.version
+    ?? j?.dependencies?.[PW_PACKAGE_NAME]?.version,
+  )
+}
+
+export async function getVersionFromPnpmLock (projectDir: string): Promise<string | undefined> {
+  try {
+    const manifestContent = await readTextFile(projectDir, 'package.json')
+    const lockfileContent = await readTextFile(projectDir, 'pnpm-lock.yaml')
+
+    if (!manifestContent || !lockfileContent) return undefined
+
+    const result = await parsePnpmProject(manifestContent, lockfileContent, {
+      includeDevDeps: true,
+      includeOptionalDeps: false,
+      strictOutOfSync: false,
+      pruneWithinTopLevelDeps: false,
+    })
+
+    const depPkgs = result.getDepPkgs()
+    const playwrightDep = depPkgs.find((dep: any) => dep.name === PW_PACKAGE_NAME)
+
+    return playwrightDep ? normalizeVersion(playwrightDep.version) : undefined
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error parsing pnpm-lock.yaml:', error)
+    return undefined
+  }
+}
+
+export async function getVersionFromYarnLock (projectDir: string): Promise<string | undefined> {
+  try {
+    const lockfileContent = await readTextFile(projectDir, 'yarn.lock')
+    if (!lockfileContent) return undefined
+
+    const isYarnV2 = lockfileContent.includes('version:') && lockfileContent.includes('@npm:')
+    const extractFunction = isYarnV2 ? extractPkgsFromYarnLockV2 : extractPkgsFromYarnLockV1
+
+    const packages = extractFunction(lockfileContent)
+
+    for (const [key, pkg] of Object.entries(packages)) {
+      if (key.includes(PW_PACKAGE_NAME)) {
+        return normalizeVersion((pkg as any).version)
+      }
+    }
+
+    return undefined
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error parsing yarn.lock:', error)
+    return undefined
+  }
+}
+
+export async function getVersionFromPackageJsonRange (projectDir: string): Promise<string | undefined> {
+  try {
+    const pkg = (await readJsonFile(projectDir, 'package.json')) as any
+    const range = pkg?.devDependencies?.[PW_PACKAGE_NAME] ?? pkg?.dependencies?.[PW_PACKAGE_NAME]
+    if (!range) return undefined
+    const { stdout } = await execAsync(
+      `npm view "${PW_PACKAGE_NAME}@${range}" version`,
+      { encoding: 'utf8', cwd: projectDir, timeout: 30000 },
+    )
+    return normalizeVersion(stdout.trim())
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error resolving version from package.json range:', error)
+    return undefined
+  }
+}
+
+export async function detectPlaywrightVersion (
+  lockfile: string,
+): Promise<string | undefined> {
+  let version: string | undefined
+
+  const projectDir = path.dirname(lockfile)
+  const lockfileName = path.basename(lockfile)
+
+  switch (lockfileName) {
+    case 'package-lock.json':
+      version = await getVersionFromPackageLock(projectDir)
+      break
+    case 'pnpm-lock.yaml':
+      version = await getVersionFromPnpmLock(projectDir)
+      break
+    case 'yarn.lock':
+      version = await getVersionFromYarnLock(projectDir)
+      break
+  }
+
+  if (!version) {
+    version = await getVersionFromPackageJsonRange(projectDir)
+  }
+
+  return version
+}
+
 export async function bundlePlayWrightProject (
   playwrightConfig: string,
   include: string[],
@@ -184,7 +310,10 @@ export async function bundlePlayWrightProject (
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
-  const playwrightVersion = getPlaywrightVersionFromPackage(dir)
+  const playwrightVersion = await detectPlaywrightVersion(lockfile)
+  if (!playwrightVersion) {
+    throw new Error('Could not detect @playwright/test version from lockfile. Make sure it is installed and a lockfile exists.')
+  }
 
   const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
@@ -215,27 +344,6 @@ export async function getCacheHash (lockFile: string): Promise<string> {
   const hash = createHash('sha256')
   hash.update(fileBuffer)
   return hash.digest('hex')
-}
-
-export function getPlaywrightVersionFromPackage (cwd: string): string {
-  try {
-    const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const playwrightPkg = require(playwrightPath)
-    const version = normalizeVersion(playwrightPkg.version)
-
-    if (!version) {
-      throw new Error('Invalid version found in @playwright/test package.json')
-    }
-
-    return version
-  } catch (error) {
-    // @ts-ignore
-    if (error instanceof Error && error.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Could not find @playwright/test package. Make sure it is installed.')
-    }
-    throw error
-  }
 }
 
 export async function loadPlaywrightProjectFiles (

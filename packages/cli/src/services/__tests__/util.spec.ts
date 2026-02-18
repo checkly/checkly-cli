@@ -4,8 +4,13 @@ import { describe, it, expect } from 'vitest'
 import {
   pathToPosix,
   isFileSync,
-  getPlaywrightVersionFromPackage,
+  detectPlaywrightVersion,
+  getVersionFromPackageLock,
+  getVersionFromPnpmLock,
+  getVersionFromYarnLock,
 } from '../util'
+
+const fixturesDir = path.resolve(__dirname, 'fixtures/lockfiles')
 
 describe('util', () => {
   describe('pathToPosix()', () => {
@@ -29,21 +34,61 @@ describe('util', () => {
     })
   })
 
-  describe('getPlaywrightVersionFromPackage()', () => {
-    it('should throw error when playwright package is not found', () => {
-      // Use a directory that doesn't have playwright installed
-      const nonExistentDir = '/tmp/non-existent-dir'
-      expect(() => getPlaywrightVersionFromPackage(nonExistentDir))
-        .toThrow('Could not find @playwright/test package. Make sure it is installed.')
+  describe('detectPlaywrightVersion()', () => {
+    it('should extract version from package-lock.json', async () => {
+      const result = await detectPlaywrightVersion(path.join(fixturesDir, 'package-lock.json'))
+      expect(result).toBe('1.52.0')
     })
 
-    it('should get version from installed playwright package', () => {
-      // Use the current working directory which should have playwright installed
-      const currentDir = process.cwd()
-      const version = getPlaywrightVersionFromPackage(currentDir)
+    it('should extract version from pnpm-lock.yaml', async () => {
+      const result = await detectPlaywrightVersion(path.join(fixturesDir, 'pnpm-lock.yaml'))
+      expect(result).toBe('1.52.0')
+    })
 
-      // Should return a valid semver version
-      expect(version).toMatch(/^\d+\.\d+\.\d+/)
+    it('should extract version from yarn.lock', async () => {
+      const result = await detectPlaywrightVersion(path.join(fixturesDir, 'yarn.lock'))
+      expect(result).toBe('1.52.0')
+    })
+
+    it('should fall back to npm view for unknown lockfile type', async () => {
+      const result = await detectPlaywrightVersion(path.join(fixturesDir, 'unknown.lock'))
+      expect(result).toMatch(/^\d+\.\d+\.\d+/)
+    })
+  })
+
+  describe('getVersionFromPackageLock()', () => {
+    it('should extract version from packages field', async () => {
+      const result = await getVersionFromPackageLock(fixturesDir)
+      expect(result).toBe('1.52.0')
+    })
+
+    it('should return undefined when file missing', async () => {
+      const result = await getVersionFromPackageLock('/tmp/non-existent-dir')
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('getVersionFromPnpmLock()', () => {
+    it('should extract version from pnpm-lock.yaml', async () => {
+      const result = await getVersionFromPnpmLock(fixturesDir)
+      expect(result).toBe('1.52.0')
+    })
+
+    it('should return undefined when file missing', async () => {
+      const result = await getVersionFromPnpmLock('/tmp/non-existent-dir')
+      expect(result).toBeUndefined()
+    })
+  })
+
+  describe('getVersionFromYarnLock()', () => {
+    it('should extract version from yarn.lock', async () => {
+      const result = await getVersionFromYarnLock(fixturesDir)
+      expect(result).toBe('1.52.0')
+    })
+
+    it('should return undefined when file missing', async () => {
+      const result = await getVersionFromYarnLock('/tmp/non-existent-dir')
+      expect(result).toBeUndefined()
     })
   })
 })
