@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import Debug from 'debug'
+
 import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
@@ -11,6 +13,8 @@ import { JsonTextSourceFile } from './json-text-source-file'
 import { LookupContext } from './lookup'
 import { lineage, LineageOptions } from './walk'
 import { Package, Workspace } from './workspace'
+
+const debug = Debug('checkly:cli:services:check-parser:resolver')
 
 class PackageFilesCache {
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
@@ -351,6 +355,8 @@ export class PackageFilesResolver {
     filePath: string,
     dependencies: RawDependency[],
   ): Promise<Dependencies> {
+    debug(`Resolving dependencies for %s`, filePath)
+
     const resolved: Dependencies = {
       external: [],
       missing: [],
@@ -388,6 +394,9 @@ export class PackageFilesResolver {
       })
 
       if (packageJson) {
+        debug('Found workspace root package.json file %s',
+          packageJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'workspace-root-package-json-file',
           importPath: filePath,
@@ -397,6 +406,9 @@ export class PackageFilesResolver {
       }
 
       if (tsconfigJson) {
+        debug('Found workspace root tsconfig.json file %s',
+          tsconfigJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'workspace-root-tsconfig-file',
           importPath: filePath,
@@ -406,6 +418,9 @@ export class PackageFilesResolver {
       }
 
       if (jsconfigJson) {
+        debug('Found workspace root jsconfig.json file %s',
+          jsconfigJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'workspace-root-tsconfig-file',
           importPath: filePath,
@@ -419,6 +434,9 @@ export class PackageFilesResolver {
           this.workspace.lockfile.ok(),
         )
         if (lockfile !== undefined) {
+          debug('Found workspace root lockfile %s',
+            lockfile.meta.filePath,
+          )
           resolved.local.push({
             kind: 'workspace-root-lockfile',
             importPath: filePath,
@@ -432,6 +450,9 @@ export class PackageFilesResolver {
           this.workspace.configFile.ok(),
         )
         if (configFile !== undefined) {
+          debug('Found workspace root config file %s',
+            configFile.meta.filePath,
+          )
           resolved.local.push({
             kind: 'workspace-root-config-file',
             importPath: filePath,
@@ -453,6 +474,9 @@ export class PackageFilesResolver {
     // here is not necessary in restricted mode.
     if (!this.restricted) {
       if (packageJson) {
+        debug('Found nearest package.json file %s',
+          packageJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'nearest-package-json-file',
           importPath: filePath,
@@ -462,6 +486,9 @@ export class PackageFilesResolver {
       }
 
       if (tsconfigJson) {
+        debug('Found nearest tsconfig.json file %s',
+          tsconfigJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'nearest-tsconfig-file',
           importPath: filePath,
@@ -471,6 +498,9 @@ export class PackageFilesResolver {
       }
 
       if (jsconfigJson) {
+        debug('Found nearest jsconfig.json file %s',
+          jsconfigJson.meta.filePath,
+        )
         resolved.local.push({
           kind: 'nearest-tsconfig-file',
           importPath: filePath,
@@ -487,6 +517,7 @@ export class PackageFilesResolver {
     resolve:
     for (const { importPath, source } of dependencies) {
       if (isBuiltinPath(importPath)) {
+        debug('Found built-in %s', importPath)
         resolved.external.push({
           importPath,
         })
@@ -500,6 +531,7 @@ export class PackageFilesResolver {
           const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
           let found = false
           for (const resolvedFile of resolvedFiles) {
+            debug('Found local file %s', resolvedFile.meta.filePath)
             resolved.local.push({
               kind: 'relative-path',
               importPath,
@@ -511,6 +543,7 @@ export class PackageFilesResolver {
             continue resolve
           }
         }
+        debug('Failed to find local file %s', importPath)
         resolved.missing.push({
           importPath,
           filePath: relativeDepPath,
@@ -533,6 +566,9 @@ export class PackageFilesResolver {
               const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
               for (const resolvedFile of resolvedFiles) {
                 configJson.registerRelatedSourceFile(resolvedFile)
+                debug('Found tsconfig paths resolved file %s',
+                  resolvedFile.meta.filePath,
+                )
                 resolved.local.push({
                   kind: 'supporting-tsconfig-resolved-path',
                   importPath,
@@ -543,6 +579,9 @@ export class PackageFilesResolver {
                     target,
                   },
                 })
+                debug('Found supporting tsconfig.json file %s (paths)',
+                  configJson.meta.filePath,
+                )
                 resolved.local.push({
                   kind: 'supporting-tsconfig-file',
                   importPath,
@@ -571,12 +610,18 @@ export class PackageFilesResolver {
             let found = false
             for (const resolvedFile of resolvedFiles) {
               configJson.registerRelatedSourceFile(resolvedFile)
+              debug('Found tsconfig baseUrl relative file %s',
+                resolvedFile.meta.filePath,
+              )
               resolved.local.push({
                 kind: 'supporting-tsconfig-baseurl-relative-path',
                 importPath,
                 sourceFile: resolvedFile,
                 configFile: configJson,
               })
+              debug('Found supporting tsconfig file %s (baseUrl)',
+                configJson.meta.filePath,
+              )
               resolved.local.push({
                 kind: 'supporting-tsconfig-file',
                 importPath,
@@ -593,6 +638,10 @@ export class PackageFilesResolver {
       }
 
       if (isImportsPath(importPath)) {
+        debug('Found local imports path %s',
+          importPath,
+        )
+
         // TODO
         continue resolve
       }
@@ -609,6 +658,7 @@ export class PackageFilesResolver {
             })
             let found = false
             for (const resolvedFile of resolvedFiles) {
+              debug('Found workspace neighbor file %s', resolvedFile.meta.filePath)
               resolved.local.push({
                 kind: 'workspace-neighbor',
                 neighbor,
@@ -618,6 +668,7 @@ export class PackageFilesResolver {
               found = true
             }
             if (found) {
+              debug('Found workspace neighbor reference %s', neighbor.path)
               usedNeighbors.add(neighbor)
               continue resolve
             }
@@ -625,6 +676,7 @@ export class PackageFilesResolver {
         }
       }
 
+      debug(`Found external dependency %s`, importPath)
       resolved.external.push({
         importPath,
       })
@@ -641,6 +693,7 @@ export class PackageFilesResolver {
       for (const dep of Object.keys(combinedDependencies)) {
         const neighbor = this.workspace.memberByName(dep)
         if (neighbor) {
+          debug('Found workspace neighbor requirement %s', neighbor.path)
           requiredNeighbors.add(neighbor)
         }
       }
