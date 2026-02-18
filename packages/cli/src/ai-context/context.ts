@@ -97,6 +97,11 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     exampleConfigPath: 'resources/dns-monitors/example-dns-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/dns-monitor/',
   },
+  ICMP_MONITOR: {
+    templateString: '// INSERT ICMP MONITOR EXAMPLE HERE //',
+    exampleConfigPath: 'resources/icmp-monitors/example-icmp-monitor.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/icmp-monitor/',
+  },
   CHECK_GROUP: {
     templateString: '// INSERT CHECK GROUP EXAMPLE HERE //',
     exampleConfigPath:

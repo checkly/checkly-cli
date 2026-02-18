@@ -8,7 +8,6 @@ import { DateTime, Duration } from 'luxon'
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import Projects from '../../src/rest/projects'
-import { CheckTypes } from '../../src/constants'
 import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
@@ -145,11 +144,8 @@ describe('deploy', { timeout: 45_000 }, () => {
       const checkGroups = await getAllResources('check-groups')
       const privateLocations = await getAllResources('private-locations')
 
-      // Check that all assignments were applied
-      // Filter out heartbeat checks as they don't have the privateLocations property
-      expect(checks.filter(({ checkType }: { checkType: string }) => checkType !== CheckTypes.HEARTBEAT)
-        .filter(({ privateLocations }: { privateLocations: string[] }) =>
-          privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+      expect(checks.filter(({ privateLocations }: { privateLocations?: string[] }) =>
+        privateLocations?.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
       expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
         privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(2)
       expect(privateLocations
@@ -172,11 +168,8 @@ describe('deploy', { timeout: 45_000 }, () => {
       const checkGroups = await getAllResources('check-groups')
       const privateLocations = await getAllResources('private-locations')
 
-      // Check that all assignments were applied
-      // Filter out heartbeat checks as they don't have the privateLocations property
-      expect(checks.filter(({ checkType }: { checkType: string }) => checkType !== CheckTypes.HEARTBEAT)
-        .filter(({ privateLocations }: { privateLocations: string[] }) =>
-          privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
+      expect(checks.filter(({ privateLocations }: { privateLocations?: string[] }) =>
+        privateLocations?.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(1)
       expect(checkGroups.filter(({ privateLocations }: { privateLocations: string[] }) =>
         privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname))).length).toEqual(2)
       expect(privateLocations
@@ -211,6 +204,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     DnsMonitor: dns-welcome-aaaa
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
+    IcmpMonitor: icmp-welcome
     TcpMonitor: tcp-monitor
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
@@ -232,6 +226,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     DnsMonitor: dns-welcome-aaaa
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
+    IcmpMonitor: icmp-welcome
     BrowserCheck: snapshot-test.test.ts
     TcpMonitor: tcp-monitor
     CheckGroupV2: my-group-1
