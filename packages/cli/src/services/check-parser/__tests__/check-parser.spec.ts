@@ -64,7 +64,7 @@ describe('dependency-parser - parser()', () => {
 
           it('should find all dependencies', async () => {
             const parser = new Parser({
-              supportedNpmModules: defaultNpmModules,
+              checkUnsupportedModules: false,
               restricted: false,
               workspace,
             })
@@ -106,7 +106,7 @@ describe('dependency-parser - parser()', () => {
 
           it('should find all dependencies', async () => {
             const parser = new Parser({
-              supportedNpmModules: defaultNpmModules,
+              checkUnsupportedModules: false,
               restricted: false,
               workspace,
             })
