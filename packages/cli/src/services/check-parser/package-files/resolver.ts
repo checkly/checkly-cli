@@ -441,31 +441,43 @@ export class PackageFilesResolver {
       }
     }
 
-    if (packageJson) {
-      resolved.local.push({
-        kind: 'nearest-package-json-file',
-        importPath: filePath,
-        sourceFile: packageJson.jsonFile.sourceFile,
-        packageJsonFile: packageJson,
-      })
-    }
+    // As above, only add nearest package files if we are not running in
+    // restricted mode.
+    //
+    // Including these files not only increases the size of the deployment,
+    // but can also affect the way Node.js treats the code files. Mainly,
+    // the package.json file can define whether the package uses CJS or ESM.
+    // Since our legacy runners do not support ESM, this leads into a
+    // compatibility issue. For tsconfig files, they will get included anyway
+    // if they are necessary for TypeScript file resolution, so including them
+    // here is not necessary in restricted mode.
+    if (!this.restricted) {
+      if (packageJson) {
+        resolved.local.push({
+          kind: 'nearest-package-json-file',
+          importPath: filePath,
+          sourceFile: packageJson.jsonFile.sourceFile,
+          packageJsonFile: packageJson,
+        })
+      }
 
-    if (tsconfigJson) {
-      resolved.local.push({
-        kind: 'nearest-tsconfig-file',
-        importPath: filePath,
-        sourceFile: tsconfigJson.jsonFile.sourceFile,
-        configFile: tsconfigJson,
-      })
-    }
+      if (tsconfigJson) {
+        resolved.local.push({
+          kind: 'nearest-tsconfig-file',
+          importPath: filePath,
+          sourceFile: tsconfigJson.jsonFile.sourceFile,
+          configFile: tsconfigJson,
+        })
+      }
 
-    if (jsconfigJson) {
-      resolved.local.push({
-        kind: 'nearest-tsconfig-file',
-        importPath: filePath,
-        sourceFile: jsconfigJson.jsonFile.sourceFile,
-        configFile: jsconfigJson,
-      })
+      if (jsconfigJson) {
+        resolved.local.push({
+          kind: 'nearest-tsconfig-file',
+          importPath: filePath,
+          sourceFile: jsconfigJson.jsonFile.sourceFile,
+          configFile: jsconfigJson,
+        })
+      }
     }
 
     const usedNeighbors = new Set<Package>()
