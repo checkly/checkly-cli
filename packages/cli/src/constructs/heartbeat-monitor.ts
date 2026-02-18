@@ -1,7 +1,7 @@
 import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
 import { DateTime } from 'luxon'
-import CheckTypes from '../constants'
+import { CheckTypes } from '../constants'
 
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 

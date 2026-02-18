@@ -8,7 +8,7 @@ import { DateTime, Duration } from 'luxon'
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import Projects from '../../src/rest/projects'
-import CheckTypes from '../../src/constants'
+import { CheckTypes } from '../../src/constants'
 import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 

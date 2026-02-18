@@ -33,7 +33,7 @@ export interface IncidentioAlertChannelProps extends AlertChannelProps {
 export class IncidentioAlertChannel extends WebhookAlertChannel {
   static DEFAULT_PAYLOAD = `{
   "title": "{{ALERT_TITLE}}",
-  "description": "{{ALERT_TITLE}} at {{STARTED_AT}} in {{RUN_LOCATION}} {{RESPONSE_TIME}}ms",
+  "description": "{{ALERT_TITLE}} at {{STARTED_AT}} in {{RUN_LOCATION}} {{RESPONSE_TIME}}ms\\n\\n{{#if AI_ANALYSIS_CLASSIFICATION}}# AI Analysis\\n\\n{{AI_ANALYSIS_CLASSIFICATION}}\\n\\n{{{AI_ANALYSIS_ROOT_CAUSE}}}\\nRead full analysis: {{AI_ANALYSIS_LINK}}{{/if}}",
   "deduplication_key": "{{CHECK_ID}}",
   "metadata": {
     "alertType": "{{ALERT_TYPE}}",

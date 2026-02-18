@@ -149,6 +149,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     warnOnWebServerConfig,
     enableWorkspaces = true,
   } = opts
+
   const project = new Project(projectLogicalId, {
     name: projectName,
     repoUrl,
