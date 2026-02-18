@@ -8,6 +8,7 @@ import chalk from 'chalk'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
 
+import { LOGICAL_ID_PATTERN } from '../../constants'
 import * as api from '../../rest/api'
 import { AuthCommand } from '../authCommand'
 import commonMessages from '../../messages/common-messages'
@@ -526,7 +527,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         message: 'How would you like your project to be identified?',
         initial: suggested,
         validate: input => {
-          if (!/^[A-Za-z0-9_\-/#.]+$/.test(input)) {
+          if (!LOGICAL_ID_PATTERN.test(input)) {
             return `Please only use ASCII letters, numbers, and the `
               + `symbols _, -, /, #, and .`
           }

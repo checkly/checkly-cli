@@ -15,7 +15,7 @@ import {
 import { AlertEscalation } from './alert-escalation-policy'
 import { Diagnostics } from './diagnostics'
 import { DeprecatedConstructDiagnostic, DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import CheckTypes from '../constants'
+import { CheckTypes } from '../constants'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { AlertChannelSubscription } from './alert-channel-subscription'
 import { BrowserCheck } from './browser-check'

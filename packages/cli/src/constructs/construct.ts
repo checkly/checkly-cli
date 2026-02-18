@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { LOGICAL_ID_PATTERN } from '../constants'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { Session } from './project'
 import { Ref } from './ref'
@@ -123,9 +125,14 @@ export abstract class Construct implements Validate, Bundle {
    * @param diagnostics The Diagnostics instance that any issues should be added to.
    * @returns A Promise that resolves when validation is complete.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, require-await
+  // eslint-disable-next-line require-await
   async validate (diagnostics: Diagnostics): Promise<void> {
-    return
+    if (!LOGICAL_ID_PATTERN.test(this.logicalId)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'logicalId',
+        new Error(`"${this.logicalId}" contains invalid characters. Only A-Z, a-z, 0-9, _, -, /, #, and . are allowed.`),
+      ))
+    }
   }
 
   /**
