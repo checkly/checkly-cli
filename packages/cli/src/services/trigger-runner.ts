@@ -12,6 +12,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
   environment: string | null
   testSessionName: string | undefined
   testRetryStrategy: RetryStrategy | null
+  refreshCache: boolean
 
   constructor (
     accountId: string,
@@ -25,6 +26,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     environment: string | null,
     testSessionName: string | undefined,
     testRetryStrategy: RetryStrategy | null,
+    refreshCache?: boolean,
   ) {
     super(accountId, timeout, verbose)
     this.shouldRecord = shouldRecord
@@ -35,6 +37,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     this.environment = environment
     this.testSessionName = testSessionName
     this.testRetryStrategy = testRetryStrategy
+    this.refreshCache = refreshCache ?? false
   }
 
   async scheduleChecks (
@@ -53,6 +56,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
       repoInfo: this.repoInfo,
       environment: this.environment,
       testRetryStrategy: this.testRetryStrategy,
+      refreshCache: this.refreshCache,
     })
     const {
       checks,
