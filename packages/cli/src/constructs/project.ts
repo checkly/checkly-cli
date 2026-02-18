@@ -271,6 +271,7 @@ export class Session {
     this.parsers = new Map<string, Parser>()
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
+    this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
     this.resetSharedFiles()
