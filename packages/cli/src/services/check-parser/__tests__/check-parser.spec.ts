@@ -1,9 +1,13 @@
+import fs from 'node:fs'
 import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 import { Parser } from '../parser'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox'
+import { NpmDetector, PNpmDetector } from '../package-files/package-manager'
+import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package'
+import { Workspace } from '../package-files/workspace'
 
 const defaultNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
@@ -28,6 +32,105 @@ describe('dependency-parser - parser()', () => {
   })
 
   describe('unrestricted mode', () => {
+    describe('workspaces', () => {
+      const realFileEntry = (filePath: string) => {
+        return {
+          filePath,
+          content: fs.readFileSync(filePath, 'utf8'),
+        }
+      }
+
+      const fauxFileEntry = (filePath: string) => {
+        return {
+          filePath,
+          content: expect.stringContaining(FAUX_PACKAGE_DESCRIPTION),
+        }
+      }
+
+      describe('pnpm workspaces', () => {
+        describe('pnpm-depend-on-workspace-package-in-root-package', () => {
+          const toAbsolutePath = (...filepath: string[]) => fixt.abspath(
+            'pnpm-depend-on-workspace-package-in-root-package',
+            ...filepath,
+          )
+
+          const packageManager = new PNpmDetector()
+
+          let workspace: Workspace | undefined
+          beforeAll(async () => {
+            workspace = await packageManager.lookupWorkspace(toAbsolutePath('.'))
+            expect(workspace).toBeDefined()
+          })
+
+          it('should find all dependencies', async () => {
+            const parser = new Parser({
+              supportedNpmModules: defaultNpmModules,
+              restricted: false,
+              workspace,
+            })
+            const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
+            const got = dependencies.sort((a, b) => a.filePath.localeCompare(b.filePath))
+            const want = [
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/index.js')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/package.json')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main/index.js')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main/package.json')),
+              fauxFileEntry(toAbsolutePath('apps/depended-on-by-neighbor-depended-on-by-main/package.json')),
+              fauxFileEntry(toAbsolutePath('apps/depended-on-by-root/package.json')),
+              realFileEntry(toAbsolutePath('apps/main/package.json')),
+              realFileEntry(toAbsolutePath('package.json')),
+              realFileEntry(toAbsolutePath('pnpm-lock.yaml')),
+              realFileEntry(toAbsolutePath('pnpm-workspace.yaml')),
+            ]
+            // Only check paths first, makes missing files easier to see.
+            expect(got.map(({ filePath }) => filePath)).toEqual(want.map(({ filePath }) => filePath))
+            expect(got).toEqual(want)
+          })
+        })
+      })
+
+      describe('npm workspaces', () => {
+        describe('npm-depend-on-workspace-package-in-root-package', () => {
+          const toAbsolutePath = (...filepath: string[]) => fixt.abspath(
+            'npm-depend-on-workspace-package-in-root-package',
+            ...filepath,
+          )
+
+          const packageManager = new NpmDetector()
+
+          let workspace: Workspace | undefined
+          beforeAll(async () => {
+            workspace = await packageManager.lookupWorkspace(toAbsolutePath('.'))
+            expect(workspace).toBeDefined()
+          })
+
+          it('should find all dependencies', async () => {
+            const parser = new Parser({
+              supportedNpmModules: defaultNpmModules,
+              restricted: false,
+              workspace,
+            })
+            const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
+            const got = dependencies.sort((a, b) => a.filePath.localeCompare(b.filePath))
+            const want = [
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/index.js')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/package.json')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main/index.js')),
+              realFileEntry(toAbsolutePath('apps/depended-on-by-main/package.json')),
+              fauxFileEntry(toAbsolutePath('apps/depended-on-by-neighbor-depended-on-by-main/package.json')),
+              fauxFileEntry(toAbsolutePath('apps/depended-on-by-root/package.json')),
+              realFileEntry(toAbsolutePath('apps/main/package.json')),
+              realFileEntry(toAbsolutePath('package-lock.json')),
+              realFileEntry(toAbsolutePath('package.json')),
+            ]
+            // Only check paths first, makes missing files easier to see.
+            expect(got.map(({ filePath }) => filePath)).toEqual(want.map(({ filePath }) => filePath))
+            expect(got).toEqual(want)
+          })
+        })
+      })
+    })
+
     it('should handle JS file with no dependencies', async () => {
       const parser = new Parser({
         supportedNpmModules: defaultNpmModules,
