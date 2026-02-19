@@ -87,7 +87,7 @@ Parse and read further reference documentation when tasked with creating or mana
 - [Browser Checks](references/browser-checks.md) - BrowserCheck construct with Playwright test files
 - [Playwright Checks](references/playwright-checks.md) - PlaywrightCheck construct for multi-browser test suites
 - [MultiStep Checks](references/multistep-checks.md) - MultiStepCheck construct for complex user flows
-- [Monitors](references/monitors.md) - TCP (`TcpMonitor`), URL and Uptime (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)
+- [Uptime Monitors](references/uptime-monitors.md) - TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)
 - [Check Groups](references/check-groups.md) - CheckGroupV2 construct for organizing checks
 - [Alert Channels](references/alert-channels.md) - Email, Phone, and Slack alert channels
 - [Supporting Constructs](references/supporting-constructs.md) - Status pages, dashboards, maintenance windows, and private locations
