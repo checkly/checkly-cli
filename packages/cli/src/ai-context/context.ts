@@ -22,7 +22,7 @@ export const REFERENCES = [
   {
     id: 'monitors',
     linkText: 'Monitors',
-    description: 'TCP, URL, DNS, and Heartbeat monitors',
+    description: 'TCP, URL, DNS, ICMP, and Heartbeat monitors',
   },
   {
     id: 'check-groups',
@@ -138,6 +138,11 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     templateString: '<!-- EXAMPLE: DNS_MONITOR -->',
     exampleConfigPath: 'resources/dns-monitors/example-dns-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/dns-monitor/',
+  },
+  ICMP_MONITOR: {
+    templateString: '<!-- EXAMPLE: ICMP_MONITOR -->',
+    exampleConfigPath: 'resources/icmp-monitors/example-icmp-monitor.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/icmp-monitor/',
   },
   CHECK_GROUP: {
     templateString: '<!-- EXAMPLE: CHECK_GROUP -->',

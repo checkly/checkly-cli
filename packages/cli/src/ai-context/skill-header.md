@@ -1,6 +1,6 @@
 ---
 name: monitoring
-description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
+description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, ICMP monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:create:checkly@latest)
 metadata:
   author: checkly

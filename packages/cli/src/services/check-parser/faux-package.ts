@@ -1,8 +1,9 @@
 import { Package } from './package-files/workspace'
 import { VirtualFile } from './parser'
 
-const DESCRIPTION = `This is a placeholder for an otherwise unused package `
-  + `that Checkly determined to be needed during the installation step.`
+export const FAUX_PACKAGE_DESCRIPTION = `This is a placeholder for an `
+  + `otherwise unused package that Checkly determined to be needed during `
+  + `the installation step.`
 
 export function createFauxPackageFiles (pkg: Package): VirtualFile[] {
   return [{
@@ -12,7 +13,7 @@ export function createFauxPackageFiles (pkg: Package): VirtualFile[] {
       {
         name: pkg.name,
         version: '0.0.0',
-        description: DESCRIPTION,
+        description: FAUX_PACKAGE_DESCRIPTION,
         private: true,
       },
       undefined,

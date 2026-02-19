@@ -129,6 +129,48 @@ new DnsMonitor('example-dns-monitor', {
 })
 ```
 
+### ICMP Monitor
+
+- Import the `IcmpMonitor` construct from `checkly/constructs`.
+- Reference [the docs for ICMP monitors](https://www.checklyhq.com/docs/constructs/icmp-monitor/) before generating any code.
+- When adding `assertions`, always use `IcmpAssertionBuilder` class.
+- Latency assertions require a property parameter: `'avg'`, `'min'`, `'max'`, or `'stdDev'`.
+- Use `degradedPacketLossThreshold` and `maxPacketLossThreshold` for packet loss thresholds (percentages).
+
+**Reference:** https://www.checklyhq.com/docs/constructs/icmp-monitor/
+
+```typescript
+import { AlertEscalationBuilder, Frequency, IcmpAssertionBuilder, IcmpMonitor, RetryStrategyBuilder } from 'checkly/constructs'
+
+new IcmpMonitor('example-icmp-monitor', {
+  name: 'Example ICMP Monitor',
+  request: {
+    hostname: '1.1.1.1',
+    pingCount: 10,
+    assertions: [
+      IcmpAssertionBuilder.latency('avg').lessThan(100),
+      IcmpAssertionBuilder.latency('max').lessThan(200),
+    ],
+  },
+  degradedPacketLossThreshold: 10,
+  maxPacketLossThreshold: 20,
+  activated: true,
+  locations: [
+    'eu-central-1',
+    'eu-north-1',
+  ],
+  frequency: Frequency.EVERY_10M,
+  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, {
+    amount: 0,
+    interval: 5,
+  }, {
+    enabled: false,
+    percentage: 10,
+  }),
+  retryStrategy: RetryStrategyBuilder.noRetries(),
+})
+```
+
 ## Heartbeat Monitor
 
 - Import the `HeartbeatMonitor` construct from `checkly/constructs`.

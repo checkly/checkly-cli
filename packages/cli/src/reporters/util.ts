@@ -176,6 +176,39 @@ export function formatCheckResult (checkResult: any) {
       }
     }
   }
+  if (checkResult.checkType === 'ICMP') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else {
+      if (checkResult.checkRunData?.request) {
+        result.push([
+          formatSectionTitle('ICMP Request'),
+          formatIcmpRequest(checkResult.checkRunData.request),
+        ])
+      }
+      if (checkResult.checkRunData?.response) {
+        result.push([
+          formatSectionTitle('ICMP Response'),
+          formatIcmpResponse(checkResult.checkRunData.response),
+        ])
+      }
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
+    }
+  }
   if (checkResult.logs?.length) {
     result.push([
       formatSectionTitle('Logs'),
@@ -207,6 +240,8 @@ const assertionSources: any = {
   TEXT_ANSWER: 'answer (text)',
   JSON_ANSWER: 'answer (JSON)',
   RESPONSE_CODE: 'response code',
+  LATENCY: 'latency',
+  JSON_RESPONSE: 'response data (JSON)',
 }
 
 const assertionComparisons: any = {
@@ -427,6 +462,72 @@ interface InvalidIPAddressError {
 
 function isInvalidIPAddressError (error: any): error is InvalidIPAddressError {
   return error.code === 'ERR_INVALID_IP_ADDRESS'
+}
+
+type ICMPRequest = {
+  hostname: string
+  targetIp: string
+  ipFamily: 'IPv4' | 'IPv6'
+  pingCount: number
+}
+
+function formatIcmpRequest (request: ICMPRequest) {
+  return [
+    `Hostname: ${request.hostname}`,
+    request.targetIp ? `Target IP: ${formatHostPort(request.targetIp)}` : '',
+    `IP Family: ${request.ipFamily}`,
+    `Ping Count: ${request.pingCount}`,
+  ].filter(Boolean).join('\n')
+}
+
+type ICMPResponse = {
+  hostname: string
+  resolvedIp?: string
+  ipFamily: 'IPv4' | 'IPv6'
+  pingCount: number
+  packetsSent: number
+  packetsReceived: number
+  packetSize: number
+  packetLoss: number
+  dnsResolutionTime: number
+  latency: {
+    avg: number
+    min: number
+    max: number
+    stdDev: number
+  }
+  pingResults: {
+    sequence: number
+    type: number
+    code: number
+    success: boolean
+    rtt: number
+    ttl: number
+  }[]
+}
+
+function formatLatency (value: number) {
+  return `${value.toFixed(3)}ms`
+}
+
+function formatIcmpResponse (response: ICMPResponse) {
+  return [
+    response.resolvedIp ? `Resolved IP: ${response.resolvedIp}` : undefined,
+    `Packets Sent: ${response.packetsSent}`,
+    `Packets Received: ${response.packetsReceived}`,
+    `Latency (min): ${formatLatency(response.latency.min)}`,
+    `Latency (max): ${formatLatency(response.latency.max)}`,
+    `Latency (avg): ${formatLatency(response.latency.avg)}`,
+    `Latency (stdDev): ${formatLatency(response.latency.stdDev)}`,
+    `Ping Results:`,
+    response.pingResults.map(result => {
+      if (result.success) {
+        return `  ${result.sequence}: ttl=${result.ttl} time=${formatLatency(result.rtt)}`
+      } else {
+        return `  ${result.sequence}: N/A`
+      }
+    }).join('\n'),
+  ].filter(Boolean).join('\n')
 }
 
 function formatConnectionError (error: any) {
