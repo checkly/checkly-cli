@@ -1,7 +1,7 @@
-import { Codegen, Context } from './internal/codegen'
 import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
 import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
+import { Codegen, Context } from './internal/codegen'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen'
 import { TcpAssertion, TcpRequest } from './tcp-monitor'
 
 export interface TcpMonitorResource extends MonitorResource {
@@ -45,6 +45,16 @@ export class TcpMonitorCodegen extends Codegen<TcpMonitorResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
+          if (resource.degradedResponseTime !== undefined) {
+            builder.number('degradedResponseTime', resource.degradedResponseTime)
+          }
+
+          if (resource.maxResponseTime !== undefined) {
+            builder.number('maxResponseTime', resource.maxResponseTime)
+          }
+
+          buildMonitorProps(this.program, file, builder, resource, context)
+
           builder.object('request', builder => {
             builder.string('hostname', resource.request.hostname)
             builder.number('port', resource.request.port)
@@ -68,16 +78,6 @@ export class TcpMonitorCodegen extends Codegen<TcpMonitorResource> {
               }
             }
           })
-
-          if (resource.degradedResponseTime !== undefined) {
-            builder.number('degradedResponseTime', resource.degradedResponseTime)
-          }
-
-          if (resource.maxResponseTime !== undefined) {
-            builder.number('maxResponseTime', resource.maxResponseTime)
-          }
-
-          buildMonitorProps(this.program, file, builder, resource, context)
         })
       })
     }))

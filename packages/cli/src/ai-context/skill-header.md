@@ -42,54 +42,8 @@ Here is an example directory tree of what that would look like:
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
-**Reference:** https://www.checklyhq.com/docs/constructs/project/
-
-```typescript
-import { defineConfig } from 'checkly'
-import { Frequency } from 'checkly/constructs'
-
-export default defineConfig({
-  projectName: "Production Monitoring Suite",
-  logicalId: "prod-monitoring-2025",
-  repoUrl: "https://github.com/acme/monitoring",
-  checks: {
-    activated: true,
-    muted: false,
-    runtimeId: "2025.04",
-    frequency: Frequency.EVERY_10M,
-    locations: ["us-east-1", "eu-west-1", "ap-southeast-1"],
-    tags: ["production", "critical"],
-    checkMatch: "**/__checks__/*.check.ts",
-    ignoreDirectoriesMatch: ["node_modules/**", "dist/**"],
-    playwrightConfig: {
-      use: {
-        baseURL: "https://app.example.com",
-      },
-    },
-    browserChecks: {
-      frequency: Frequency.EVERY_30M,
-      testMatch: "**/__tests__/*.spec.ts",
-    },
-  },
-  cli: {
-    runLocation: "eu-west-1",
-    privateRunLocation: "private-dc1",
-    retries: 2,
-  },
-})
-```
+<!-- EXAMPLE: CHECKLY_CONFIG -->
 
 ## Check and Monitor Constructs
 
-- [API Checks](references/api-checks.md) - ApiCheck construct, assertions, and authentication setup scripts
-- [Browser Checks](references/browser-checks.md) - BrowserCheck construct with Playwright test files
-- [Playwright Checks](references/playwright-checks.md) - PlaywrightCheck construct for multi-browser test suites
-- [MultiStep Checks](references/multistep-checks.md) - MultiStepCheck construct for complex user flows
-- [Monitors](references/monitors.md) - TCP, URL, DNS, ICMP, and Heartbeat monitors
-- [Check Groups](references/check-groups.md) - CheckGroupV2 construct for organizing checks
-- [Alert Channels](references/alert-channels.md) - Email, Phone, and Slack alert channels
-- [Supporting Constructs](references/supporting-constructs.md) - Status pages, dashboards, maintenance windows, and private locations
-
-## Testing and Debugging
-
-- Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, use `--record` to persist results, and use `--verbose` to see all errors.
+<!-- REFERENCE_LINKS -->
