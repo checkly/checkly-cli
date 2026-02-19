@@ -64,6 +64,9 @@
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. To update, run `npm install -D checkly@latest`"
     },
     "topics": {
+      "checks": {
+        "description": "List and inspect checks in your Checkly account."
+      },
       "env": {
         "description": "Manage Checkly environment variables."
       },
@@ -78,6 +81,7 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
+    "@checkly/public-api-client-preview": "file:../../../backend/packages/public-api-client-preview",
     "@oclif/core": "^4.8.0",
     "@oclif/plugin-help": "^6.2.36",
     "@oclif/plugin-not-found": "^3.2.73",
