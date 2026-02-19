@@ -11,7 +11,6 @@ import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 import { Assertion } from './api-assertion'
 import { validateResponseTimes } from './internal/common-diagnostics'
-import { Runtime } from '../runtimes'
 
 /**
  * Default configuration that can be applied to API checks.

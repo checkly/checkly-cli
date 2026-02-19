@@ -110,6 +110,10 @@ export default class Test extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    'refresh-cache': Flags.boolean({
+      description: 'Force a fresh install of dependencies and update the cached version.',
+      default: false,
+    }),
   }
 
   static args = {
@@ -144,6 +148,7 @@ export default class Test extends AuthCommand {
       'update-snapshots': updateSnapshots,
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
+      'refresh-cache': refreshCache,
     } = flags
     const filePatterns = argv as string[]
 
@@ -180,7 +185,7 @@ export default class Test extends AuthCommand {
       availableRuntimes: availableRuntimes.reduce((acc, runtime) => {
         acc[runtime.name] = runtime
         return acc
-      }, <Record<string, Runtime>> {}),
+      }, <Record<string, Runtime>>{}),
       defaultRuntimeId: account.runtimeId,
       verifyRuntimeDependencies,
       checklyConfigConstructs,
@@ -358,6 +363,8 @@ export default class Test extends AuthCommand {
       updateSnapshots,
       configDirectory,
       testRetryStrategy,
+      undefined,
+      refreshCache,
     )
 
     runner.on(Events.RUN_STARTED,

@@ -110,6 +110,10 @@ export default class PwTestCommand extends AuthCommand {
     'install-command': Flags.string({
       description: 'Command to install dependencies before running tests.',
     }),
+    'refresh-cache': Flags.boolean({
+      description: 'Force a fresh install of dependencies and update the cached version.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -134,6 +138,7 @@ export default class PwTestCommand extends AuthCommand {
       'include': includeFlag,
       'frequency': frequency,
       'install-command': installCommand,
+      'refresh-cache': refreshCache,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -315,6 +320,7 @@ export default class PwTestCommand extends AuthCommand {
       // TODO: ADD PROPER RETRY STRATEGY HANDLING
       null, // testRetryStrategy
       streamLogs,
+      refreshCache,
     )
 
     runner.on(Events.RUN_STARTED,
