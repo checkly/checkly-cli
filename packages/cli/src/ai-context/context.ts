@@ -22,7 +22,7 @@ export const REFERENCES = [
   {
     id: 'monitors',
     linkText: 'Monitors',
-    description: 'TCP, URL, DNS, ICMP, and Heartbeat monitors',
+    description: 'TCP (`TcpMonitor`), URL and Uptime (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)',
   },
   {
     id: 'check-groups',
