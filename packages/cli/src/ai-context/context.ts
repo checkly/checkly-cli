@@ -20,9 +20,9 @@ export const REFERENCES = [
     description: 'MultiStepCheck construct for complex user flows',
   },
   {
-    id: 'monitors',
-    linkText: 'Monitors',
-    description: 'TCP, URL, DNS, ICMP, and Heartbeat monitors',
+    id: 'uptime-monitors',
+    linkText: 'Uptime Monitors',
+    description: 'TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)',
   },
   {
     id: 'check-groups',

@@ -46,4 +46,6 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 
 ## Check and Monitor Constructs
 
+Parse and read further reference documentation when tasked with creating or managing any of the following Checkly constructs:
+
 <!-- REFERENCE_LINKS -->
