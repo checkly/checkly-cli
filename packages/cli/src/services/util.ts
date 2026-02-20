@@ -16,6 +16,7 @@ import { createHash } from 'crypto'
 import { Session } from '../constructs/project'
 import semver from 'semver'
 import { existsSync } from 'fs'
+import { detectNearestPackageJson } from './check-parser/package-files/package-manager'
 
 export interface GitInformation {
   commitId: string
@@ -184,7 +185,7 @@ export async function bundlePlayWrightProject (
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
-  const playwrightVersion = getPlaywrightVersionFromPackage(dir)
+  const playwrightVersion = await getPlaywrightVersionFromPackage(dir)
 
   const [cacheHash] = await Promise.all([
     getCacheHash(lockfile),
@@ -217,7 +218,7 @@ export async function getCacheHash (lockFile: string): Promise<string> {
   return hash.digest('hex')
 }
 
-export function getPlaywrightVersionFromPackage (cwd: string): string {
+export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
     const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -226,6 +227,17 @@ export function getPlaywrightVersionFromPackage (cwd: string): string {
 
     if (!version) {
       throw new Error('Invalid version found in @playwright/test package.json')
+    }
+
+    const packageJson = await detectNearestPackageJson(cwd)
+    const range =
+      packageJson.dependencies?.['@playwright/test']
+      ?? packageJson.devDependencies?.['@playwright/test']
+    if (range && !semver.satisfies(version, range)) {
+      throw new Error(
+        `Installed @playwright/test version ${version} does not satisfy the required range "${range}" in package.json. `
+        + 'Please run your package manager\'s install command to sync node_modules.',
+      )
     }
 
     return version
