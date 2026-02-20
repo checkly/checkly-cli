@@ -260,10 +260,7 @@ export async function loadPlaywrightProjectFiles (
   dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
 ) {
   const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
-  const parser = new Parser({
-    workspace: Session.workspace.ok(),
-    restricted: false,
-  })
+  const parser = Session.getPlaywrightParser()
   const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
   if (errors.length) {
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)

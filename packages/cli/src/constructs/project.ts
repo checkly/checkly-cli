@@ -357,21 +357,37 @@ export class Session {
     return Session.availableRuntimes[effectiveRuntimeId]
   }
 
-  static getParser (runtime: Runtime): Parser {
-    const cachedParser = Session.parsers.get(runtime.name)
-    if (cachedParser !== undefined) {
-      return cachedParser
+  static #getOrInitParser (cacheKey: string, init: () => Parser) {
+    const existingParser = Session.parsers.get(cacheKey)
+    if (existingParser !== undefined) {
+      return existingParser
     }
 
-    const parser = new Parser({
-      supportedNpmModules: Object.keys(runtime.dependencies),
-      checkUnsupportedModules: Session.verifyRuntimeDependencies,
-      workspace: Session.workspace.ok(),
+    const newParser = init()
+
+    Session.parsers.set(cacheKey, newParser)
+
+    return newParser
+  }
+
+  static getParser (runtime: Runtime): Parser {
+    return this.#getOrInitParser(`runtime:${runtime.name}`, () => {
+      return new Parser({
+        supportedNpmModules: Object.keys(runtime.dependencies),
+        checkUnsupportedModules: Session.verifyRuntimeDependencies,
+        workspace: Session.workspace.ok(),
+      })
     })
+  }
 
-    Session.parsers.set(runtime.name, parser)
-
-    return parser
+  static getPlaywrightParser (): Parser {
+    return this.#getOrInitParser(`playwright`, () => {
+      return new Parser({
+        checkUnsupportedModules: false,
+        workspace: Session.workspace.ok(),
+        restricted: false,
+      })
+    })
   }
 
   static relativePosixPath (filePath: string): string {
