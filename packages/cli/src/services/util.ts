@@ -233,7 +233,13 @@ export async function getPlaywrightVersionFromPackage (cwd: string): Promise<str
     const range =
       packageJson.dependencies?.['@playwright/test']
       ?? packageJson.devDependencies?.['@playwright/test']
-    if (range && !semver.satisfies(version, range)) {
+
+    if (!range) {
+      return version
+    }
+
+    const validRange = semver.validRange(range)
+    if (validRange && !semver.satisfies(version, validRange)) {
       throw new Error(
         `Installed @playwright/test version ${version} does not satisfy the required range "${range}" in package.json. `
         + 'Please run your package manager\'s install command to sync node_modules.',
