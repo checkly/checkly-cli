@@ -1,14 +1,56 @@
-export const EXAMPLE_CONFIGS: Record<
-  string,
+export const REFERENCES = [
   {
-    templateString: string
-    reference: string
-    exampleConfig?: string
-    exampleConfigPath?: string
-  }
-> = {
+    id: 'api-checks',
+    linkText: 'API Checks',
+    description: 'ApiCheck construct, assertions, and authentication setup scripts',
+  },
+  {
+    id: 'browser-checks',
+    linkText: 'Browser Checks',
+    description: 'BrowserCheck construct with Playwright test files',
+  },
+  {
+    id: 'playwright-checks',
+    linkText: 'Playwright Checks',
+    description: 'PlaywrightCheck construct for multi-browser test suites',
+  },
+  {
+    id: 'multistep-checks',
+    linkText: 'MultiStep Checks',
+    description: 'MultiStepCheck construct for complex user flows',
+  },
+  {
+    id: 'uptime-monitors',
+    linkText: 'Uptime Monitors',
+    description: 'TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)',
+  },
+  {
+    id: 'check-groups',
+    linkText: 'Check Groups',
+    description: 'CheckGroupV2 construct for organizing checks',
+  },
+  {
+    id: 'alert-channels',
+    linkText: 'Alert Channels',
+    description: 'Email, Phone, and Slack alert channels',
+  },
+  {
+    id: 'supporting-constructs',
+    linkText: 'Supporting Constructs',
+    description: 'Status pages, dashboards, maintenance windows, and private locations',
+  },
+] as const
+
+interface ExampleConfig {
+  templateString: string
+  reference: string
+  exampleConfig?: string
+  exampleConfigPath?: string
+}
+
+export const EXAMPLE_CONFIGS: Record<string, ExampleConfig> = {
   CHECKLY_CONFIG: {
-    templateString: '// INSERT CHECKLY CONFIG EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: CHECKLY_CONFIG -->',
     exampleConfig: `import { defineConfig } from 'checkly'
 import { Frequency } from 'checkly/constructs'
 
@@ -45,13 +87,13 @@ export default defineConfig({
     reference: 'https://www.checklyhq.com/docs/constructs/project/',
   },
   BROWSER_CHECK: {
-    templateString: '// INSERT BROWSER CHECK EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: BROWSER_CHECK -->',
     exampleConfigPath:
       'resources/browser-checks/example-browser-check/example-browser-check.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/browser-check/',
   },
   PLAYWRIGHT_CHECK: {
-    templateString: '// INSERT PLAYWRIGHT CHECK EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: PLAYWRIGHT_CHECK -->',
     exampleConfig: `import { PlaywrightCheck } from "checkly/constructs"
 
 const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
@@ -65,90 +107,90 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     reference: 'https://www.checklyhq.com/docs/constructs/playwright-check/',
   },
   API_CHECK: {
-    templateString: '// INSERT API CHECK EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: API_CHECK -->',
     exampleConfigPath:
       'resources/api-checks/example-api-check/example-api-check.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/api-check/',
   },
   MULTISTEP_CHECK: {
-    templateString: '// INSERT MULTISTEP CHECK EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: MULTISTEP_CHECK -->',
     exampleConfigPath:
       'resources/multi-step-checks/example-multistep-check/example-multistep-check.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/multistep-check/',
   },
   TCP_MONITOR: {
-    templateString: '// INSERT TCP MONITOR EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: TCP_MONITOR -->',
     exampleConfigPath: 'resources/tcp-monitors/example-tcp-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/tcp-monitor/',
   },
   HEARTBEAT_MONITOR: {
-    templateString: '// INSERT HEARTBEAT MONITOR EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: HEARTBEAT_MONITOR -->',
     exampleConfigPath:
       'resources/heartbeat-monitors/example-heartbeat-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/heartbeat-monitor/',
   },
   URL_MONITOR: {
-    templateString: '// INSERT URL MONITOR EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: URL_MONITOR -->',
     exampleConfigPath: 'resources/url-monitors/example-url-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/url-monitor/',
   },
   DNS_MONITOR: {
-    templateString: '// INSERT DNS MONITOR EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: DNS_MONITOR -->',
     exampleConfigPath: 'resources/dns-monitors/example-dns-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/dns-monitor/',
   },
   ICMP_MONITOR: {
-    templateString: '// INSERT ICMP MONITOR EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: ICMP_MONITOR -->',
     exampleConfigPath: 'resources/icmp-monitors/example-icmp-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/icmp-monitor/',
   },
   CHECK_GROUP: {
-    templateString: '// INSERT CHECK GROUP EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: CHECK_GROUP -->',
     exampleConfigPath:
       'resources/check-group/example-group/example-group.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/check-group/',
   },
   STATUS_PAGE: {
-    templateString: '// INSERT STATUS PAGE EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: STATUS_PAGE -->',
     exampleConfigPath: 'resources/status-pages/example-status-page.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/status-page/',
   },
   STATUS_PAGE_SERVICE: {
-    templateString: '// INSERT STATUS PAGE SERVICE EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: STATUS_PAGE_SERVICE -->',
     exampleConfigPath:
       'resources/status-pages/services/example-service.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/status-page-service/',
   },
   DASHBOARD: {
-    templateString: '// INSERT DASHBOARD EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: DASHBOARD -->',
     exampleConfigPath:
       'resources/dashboards/example-dashboard/example-dashboard.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/dashboard/',
   },
   MAINTENANCE_WINDOW: {
-    templateString: '// INSERT MAINTENANCE WINDOW EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: MAINTENANCE_WINDOW -->',
     exampleConfigPath:
       'resources/maintenance-windows/example-maintenance-window.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/maintenance-window/',
   },
   PRIVATE_LOCATION: {
-    templateString: '// INSERT PRIVATE LOCATION EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: PRIVATE_LOCATION -->',
     exampleConfigPath:
       'resources/private-locations/example-private-location.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/private-location/',
   },
   EMAIL_ALERT_CHANNEL: {
-    templateString: '// INSERT EMAIL ALERT CHANNEL EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: EMAIL_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/email/test.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/email-alert-channel/',
   },
   PHONE_CALL_ALERT_CHANNEL: {
-    templateString: '// INSERT PHONE CALL ALERT CHANNEL EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: PHONE_CALL_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/phone-call/test-user.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/phone-call-alert-channel/',
   },
   SLACK_ALERT_CHANNEL: {
-    templateString: '// INSERT SLACK ALERT CHANNEL EXAMPLE HERE //',
+    templateString: '<!-- EXAMPLE: SLACK_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/slack/general.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/slack-alert-channel/',
   },

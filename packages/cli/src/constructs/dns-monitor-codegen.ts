@@ -32,8 +32,6 @@ export class DnsMonitorCodegen extends Codegen<DnsMonitorResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          builder.value('request', valueForDnsRequest(this.program, file, context, resource.request))
-
           if (resource.degradedResponseTime !== undefined) {
             builder.number('degradedResponseTime', resource.degradedResponseTime)
           }
@@ -43,6 +41,8 @@ export class DnsMonitorCodegen extends Codegen<DnsMonitorResource> {
           }
 
           buildMonitorProps(this.program, file, builder, resource, context)
+
+          builder.value('request', valueForDnsRequest(this.program, file, context, resource.request))
         })
       })
     }))

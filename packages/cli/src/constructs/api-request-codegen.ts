@@ -14,7 +14,7 @@ export function valueForRequest (
     builder.string('url', request.url)
     builder.string('method', request.method)
 
-    if (request.ipFamily) {
+    if (request.ipFamily && request.ipFamily !== 'IPv4') {
       builder.string('ipFamily', request.ipFamily)
     }
 
