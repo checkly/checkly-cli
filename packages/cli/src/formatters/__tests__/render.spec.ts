@@ -157,7 +157,7 @@ describe('formatCheckType', () => {
   it('maps known check types', () => {
     expect(formatCheckType('API')).toBe('API')
     expect(formatCheckType('BROWSER')).toBe('BROWSER')
-    expect(formatCheckType('MULTI_STEP')).toBe('MULTISTEP')
+    expect(formatCheckType('MULTI_STEP')).toBe('MULTI_STEP')
     expect(formatCheckType('HEARTBEAT')).toBe('HEARTBEAT')
     expect(formatCheckType('TCP')).toBe('TCP')
   })

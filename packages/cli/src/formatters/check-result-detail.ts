@@ -199,13 +199,7 @@ function formatBrowserResultTerminal (browser: BrowserCheckResult): string[] {
     lines.push(`${label('Errors:')}${chalk.green('none')}`)
   }
 
-  if (browser.errors.length > 0) {
-    lines.push('')
-    lines.push(heading('ERRORS', 2, 'terminal'))
-    for (const err of browser.errors) {
-      lines.push(chalk.red(`  ${err}`))
-    }
-  }
+  appendErrors(lines, browser.errors)
 
   if (browser.pages && browser.pages.length > 0) {
     const vitalLines: string[] = []
@@ -239,22 +233,7 @@ function formatBrowserResultTerminal (browser: BrowserCheckResult): string[] {
     lines.push(...formatJobLogArray(browser.jobLog))
   }
 
-  const assets: string[] = []
-  if (browser.jobAssets && browser.jobAssets.length > 0) {
-    assets.push(`${browser.jobAssets.length} screenshot(s)`)
-  }
-  if (browser.playwrightTestTraces && browser.playwrightTestTraces.length > 0) {
-    assets.push(`${browser.playwrightTestTraces.length} trace(s)`)
-  }
-  if (browser.playwrightTestVideos && browser.playwrightTestVideos.length > 0) {
-    assets.push(`${browser.playwrightTestVideos.length} video(s)`)
-  }
-  if (assets.length > 0) {
-    lines.push('')
-    lines.push(heading('ASSETS', 2, 'terminal'))
-    lines.push(`  ${assets.join(', ')}`)
-    lines.push(chalk.dim('  Use --output json to get asset URLs'))
-  }
+  appendAssets(lines, browser)
 
   return lines
 }
@@ -301,32 +280,14 @@ function formatMultiStepResultTerminal (ms: MultiStepCheckResult): string[] {
   lines.push(heading('MULTI-STEP RESULT', 2, 'terminal'))
   lines.push(`${label('Runtime:')}${ms.runtimeVersion}`)
 
-  if (ms.errors.length > 0) {
-    lines.push('')
-    lines.push(heading('ERRORS', 2, 'terminal'))
-    for (const err of ms.errors) {
-      lines.push(chalk.red(`  ${err}`))
-    }
-  }
+  appendErrors(lines, ms.errors)
 
   if (ms.jobLog && ms.jobLog.length > 0) {
     lines.push('')
     lines.push(...formatJobLogArray(ms.jobLog))
   }
 
-  const assets: string[] = []
-  if (ms.jobAssets && ms.jobAssets.length > 0) {
-    assets.push(`${ms.jobAssets.length} screenshot(s)`)
-  }
-  if (ms.playwrightTestTraces && ms.playwrightTestTraces.length > 0) {
-    assets.push(`${ms.playwrightTestTraces.length} trace(s)`)
-  }
-  if (assets.length > 0) {
-    lines.push('')
-    lines.push(heading('ASSETS', 2, 'terminal'))
-    lines.push(`  ${assets.join(', ')}`)
-    lines.push(chalk.dim('  Use --output json to get asset URLs'))
-  }
+  appendAssets(lines, ms)
 
   return lines
 }
@@ -339,22 +300,40 @@ function colorStatus (code: number): string {
   return chalk.red(String(code))
 }
 
-function formatBody (body: string, indent: string): string {
-  try {
-    const parsed = JSON.parse(body)
-    const pretty = JSON.stringify(parsed, null, 2)
-    const lines = pretty.split('\n')
-    if (lines.length > 30) {
-      return lines.slice(0, 30).map(l => indent + l).join('\n') + `\n${indent}${chalk.dim(`... (${lines.length - 30} more lines)`)}`
-    }
-    return lines.map(l => indent + l).join('\n')
-  } catch {
-    const lines = body.split('\n')
-    if (lines.length > 30) {
-      return lines.slice(0, 30).map(l => indent + l).join('\n') + `\n${indent}${chalk.dim(`... (${lines.length - 30} more lines)`)}`
-    }
-    return lines.map(l => indent + l).join('\n')
+function appendErrors (lines: string[], errors: string[]): void {
+  if (errors.length === 0) return
+  lines.push('', heading('ERRORS', 2, 'terminal'))
+  for (const err of errors) lines.push(chalk.red(`  ${err}`))
+}
+
+function appendAssets (
+  lines: string[],
+  obj: { jobAssets?: string[] | null, playwrightTestTraces?: string[], playwrightTestVideos?: string[] },
+): void {
+  const parts: string[] = []
+  if (obj.jobAssets?.length) parts.push(`${obj.jobAssets.length} screenshot(s)`)
+  if (obj.playwrightTestTraces?.length) parts.push(`${obj.playwrightTestTraces.length} trace(s)`)
+  if (obj.playwrightTestVideos?.length) parts.push(`${obj.playwrightTestVideos.length} video(s)`)
+  if (parts.length > 0) {
+    lines.push('', heading('ASSETS', 2, 'terminal'))
+    lines.push(`  ${parts.join(', ')}`)
+    lines.push(chalk.dim('  Use --output json to get asset URLs'))
   }
+}
+
+function formatBody (body: string, indent: string): string {
+  let text: string
+  try {
+    text = JSON.stringify(JSON.parse(body), null, 2)
+  } catch {
+    text = body
+  }
+  const lines = text.split('\n')
+  if (lines.length > 30) {
+    return lines.slice(0, 30).map(l => indent + l).join('\n')
+      + `\n${indent}${chalk.dim(`... (${lines.length - 30} more lines)`)}`
+  }
+  return lines.map(l => indent + l).join('\n')
 }
 
 function formatTimingBar (tp: NonNullable<ApiCheckResult['response']['timingPhases']>): string {

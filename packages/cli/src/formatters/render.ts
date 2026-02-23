@@ -70,18 +70,7 @@ export function formatFrequency (minutes: number | undefined | null): string {
 }
 
 export function formatCheckType (checkType: string): string {
-  const typeMap: Record<string, string> = {
-    API: 'API',
-    BROWSER: 'BROWSER',
-    MULTI_STEP: 'MULTISTEP',
-    HEARTBEAT: 'HEARTBEAT',
-    PLAYWRIGHT: 'PLAYWRIGHT',
-    TCP: 'TCP',
-    URL: 'URL',
-    DNS: 'DNS',
-    ICMP: 'ICMP',
-  }
-  return typeMap[checkType] ?? checkType
+  return checkType
 }
 
 export function formatDate (dateStr: string | null | undefined, format: OutputFormat): string {

@@ -234,27 +234,16 @@ function buildCheckColumns (
     },
   ]
 
+  columns.push({
+    header: 'Tags',
+    ...(showId && { width: tagWidth }),
+    value: c => {
+      const tags = c.tags.length > 0 ? c.tags.join(', ') : chalk.dim('-')
+      return truncateToWidth(tags, tagWidth - 2)
+    },
+  })
   if (showId) {
-    columns.push({
-      header: 'Tags',
-      width: tagWidth,
-      value: c => {
-        const tags = c.tags.length > 0 ? c.tags.join(', ') : chalk.dim('-')
-        return truncateToWidth(tags, tagWidth - 2)
-      },
-    })
-    columns.push({
-      header: 'ID',
-      value: c => chalk.dim(c.id),
-    })
-  } else {
-    columns.push({
-      header: 'Tags',
-      value: c => {
-        const tags = c.tags.length > 0 ? c.tags.join(', ') : chalk.dim('-')
-        return truncateToWidth(tags, tagWidth - 2)
-      },
-    })
+    columns.push({ header: 'ID', value: c => chalk.dim(c.id) })
   }
 
   return columns

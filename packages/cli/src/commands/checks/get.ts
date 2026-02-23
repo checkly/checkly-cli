@@ -3,7 +3,7 @@ import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
 import * as api from '../../rest/api'
 import type { CheckWithStatus } from '../../formatters/checks'
-import type { OutputFormat } from '../../formatters/render'
+import { type OutputFormat, stripAnsi, formatDate } from '../../formatters/render'
 import {
   formatCheckDetail,
   formatResults,
@@ -155,16 +155,13 @@ export default class ChecksGet extends AuthCommand {
       return
     }
 
-    // eslint-disable-next-line no-control-regex
-    const ansiRegex = /\u001B\[[0-9;]*m/g
-    const cleanMsg = errorGroup.cleanedErrorMessage
-      .replace(ansiRegex, '')
+    const cleanMsg = stripAnsi(errorGroup.cleanedErrorMessage)
       .replace(/\s+/g, ' ')
       .trim()
 
     // Show full raw message if available and different from cleaned
     const rawMsg = errorGroup.rawErrorMessage
-      ? errorGroup.rawErrorMessage.replace(ansiRegex, '').trim()
+      ? stripAnsi(errorGroup.rawErrorMessage).trim()
       : null
 
     const output: string[] = []
@@ -176,14 +173,12 @@ export default class ChecksGet extends AuthCommand {
     if (rawMsg && rawMsg !== cleanMsg) {
       output.push('')
       output.push(chalk.bold('FULL ERROR'))
-      // Show the raw message with original newlines preserved
-      const fullMsg = errorGroup.rawErrorMessage!.replace(ansiRegex, '').trim()
-      output.push(fullMsg)
+      output.push(stripAnsi(errorGroup.rawErrorMessage!).trim())
     }
 
     output.push('')
-    output.push(`${chalk.dim('First seen:')}    ${new Date(errorGroup.firstSeen).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')}`)
-    output.push(`${chalk.dim('Last seen:')}     ${new Date(errorGroup.lastSeen).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')}`)
+    output.push(`${chalk.dim('First seen:')}    ${formatDate(errorGroup.firstSeen, 'terminal')}`)
+    output.push(`${chalk.dim('Last seen:')}     ${formatDate(errorGroup.lastSeen, 'terminal')}`)
     output.push(`${chalk.dim('Error group:')}   ${errorGroup.id}`)
 
     if (check.scriptPath) {
