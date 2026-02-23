@@ -30,7 +30,7 @@ import {
   browserCheckResult,
   activeErrorGroup,
   archivedErrorGroup,
-} from './fixtures'
+} from './__fixtures__/fixtures'
 
 // Pin time for timeAgo used in results/error groups
 beforeEach(() => {

@@ -7,7 +7,7 @@ import {
   browserCheckResult,
   multiStepCheckResult,
   minimalCheckResult,
-} from './fixtures'
+} from './__fixtures__/fixtures'
 
 // Pin time for formatDate used in result detail
 beforeEach(() => {
