@@ -13,6 +13,11 @@ import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
 import ChecklyStorage from './checkly-storage'
+import Checks from './checks'
+import CheckStatuses from './check-statuses'
+import CheckResults from './check-results'
+import CheckGroups from './check-groups'
+import ErrorGroups from './error-groups'
 import { handleErrorResponse, UnauthorizedError } from './errors'
 
 export function getDefaults () {
@@ -117,3 +122,8 @@ export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
 export const heartbeatCheck = new HeartbeatChecks(api)
 export const checklyStorage = new ChecklyStorage(api)
+export const checks = new Checks(api)
+export const checkStatuses = new CheckStatuses(api)
+export const checkResults = new CheckResults(api)
+export const checkGroups = new CheckGroups(api)
+export const errorGroups = new ErrorGroups(api)

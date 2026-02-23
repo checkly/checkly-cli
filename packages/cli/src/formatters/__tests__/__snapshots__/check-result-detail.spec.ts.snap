@@ -1,0 +1,216 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatResultDetail > API check result > renders markdown output > api-result-detail-md 1`] = `
+"# My API Check
+
+| Field | Value |
+| --- | --- |
+| Status | passing |
+| Location | eu-west-1 |
+| Response time | 245ms |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:01.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-1 |
+
+## Request
+\`GET https://api.example.com/health\`
+
+## Response
+**200 OK**
+
+\`\`\`json
+{"status":"ok","version":"1.2.3"}
+\`\`\`
+
+## Timing
+| Phase | Duration |
+| --- | --- |
+| DNS | 5ms |
+| TCP | 10ms |
+| TLS | 15ms |
+| TTFB | 200ms |
+| Download | 15ms |
+| **Total** | **245ms** |
+
+## Assertions
+- STATUS_CODE EQUALS 200
+- JSON_BODY.$.status EQUALS ok"
+`;
+
+exports[`formatResultDetail > API check result > renders terminal output > api-result-detail-terminal 1`] = `
+"My API Check
+
+Status:         passing
+Location:       eu-west-1
+Response time:  245ms
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:01 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-1
+
+REQUEST
+Method:         GET
+URL:            https://api.example.com/health
+Headers:        
+  Accept: application/json
+
+RESPONSE
+Status:         200 OK
+Headers:        
+  content-type: application/json
+Body:           
+  {
+    "status": "ok",
+    "version": "1.2.3"
+  }
+
+TIMING
+  DNS:        5ms
+  TCP:        10ms
+  TLS:        15ms
+  TTFB:       200ms
+  Download:   15ms
+  Total:      245ms
+
+ASSERTIONS
+  · STATUS_CODE EQUALS 200
+  · JSON_BODY.$.status EQUALS ok"
+`;
+
+exports[`formatResultDetail > API check result with requestError and jobLog > renders terminal snapshot > api-result-with-error-terminal 1`] = `
+"My API Check
+
+Status:         error
+Location:       eu-west-1
+Response time:  245ms
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:01 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-5
+
+REQUEST
+Method:         GET
+URL:            https://api.example.com/health
+Headers:        
+  Accept: application/json
+Body:           
+  {
+    "query": "test",
+    "filters": {
+      "active": true
+    }
+  }
+
+RESPONSE
+Status:         0 
+
+ASSERTIONS
+  · STATUS_CODE EQUALS 200
+  · JSON_BODY.$.status EQUALS ok
+
+ERROR
+  ECONNREFUSED: Connection refused to https://api.example.com/health
+
+JOB LOG
+  INFO Setting up request
+  ERROR ECONNREFUSED"
+`;
+
+exports[`formatResultDetail > Browser check result > renders markdown output > browser-result-detail-md 1`] = `
+"# Failing Browser Check
+
+| Field | Value |
+| --- | --- |
+| Status | failing |
+| Location | us-east-1 |
+| Response time | 5.20s |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:05.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-2 |
+
+## Browser Result (playwright)
+
+### Web Vitals
+| Metric | Value | Score |
+| --- | --- | --- |
+| LCP | 1.20s | GOOD |
+| FCP | 800ms | GOOD |
+| CLS | 0.150 | NEEDS_IMPROVEMENT |
+| TBT | 600ms | POOR |
+| TTFB | 120ms | GOOD |
+
+### Errors
+- TimeoutError: page.click: Timeout 30000ms exceeded"
+`;
+
+exports[`formatResultDetail > Browser check result > renders terminal output > browser-result-detail-terminal 1`] = `
+"Failing Browser Check
+
+Status:         failing
+Location:       us-east-1
+Response time:  5.20s
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:05 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-2
+
+BROWSER RESULT
+Framework:      playwright
+Runtime:        2024.02
+Errors:         2 console, 1 network
+
+ERRORS
+  TimeoutError: page.click: Timeout 30000ms exceeded
+
+WEB VITALS
+  LCP:    1.20s good
+  FCP:    800ms good
+  CLS:    0.150 needs improvement
+  TBT:    600ms poor
+  TTFB:   120ms good
+
+JOB LOG
+  INFO Starting browser check
+  ERROR TimeoutError: page.click: Timeout 30000ms exceeded
+
+ASSETS
+  1 screenshot(s), 1 trace(s), 1 video(s)
+  Use --output json to get asset URLs"
+`;
+
+exports[`formatResultDetail > Multi-step check result > renders terminal output > multistep-result-detail-terminal 1`] = `
+"Multi-Step Checkout Flow
+
+Status:         error
+Location:       ap-southeast-1
+Response time:  8.00s
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:08 UTC
+Attempts:       2
+Result type:    FINAL
+ID:             result-3
+
+MULTI-STEP RESULT
+Runtime:        2024.02
+
+ERRORS
+  Error: Payment step failed
+  AssertionError: Expected cart total to match
+
+JOB LOG
+  INFO Step 1: Navigate to homepage
+  INFO Step 2: Add item to cart
+  INFO Step 3: Checkout
+  ERROR Error: Payment step failed
+
+ASSETS
+  1 screenshot(s), 1 trace(s)
+  Use --output json to get asset URLs"
+`;

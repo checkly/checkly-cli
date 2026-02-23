@@ -17,6 +17,7 @@ const errorWrapOptions = {
 
 export class CommandStyle {
   private c: BaseCommand
+  outputFormat?: string
 
   constructor (command: BaseCommand) {
     this.c = command
@@ -84,6 +85,10 @@ export class CommandStyle {
   }
 
   longError (title: string, message: string | Error) {
+    if (this.outputFormat === 'json') {
+      this.c.log(JSON.stringify({ error: title, detail: this.#plainDescription(message) }))
+      return
+    }
     this.c.log(`${logSymbols.error} ${title}`)
     this.c.log()
     this.c.log(chalk.red(this.#formatDescription(message)))
@@ -91,6 +96,10 @@ export class CommandStyle {
   }
 
   shortError (message: string) {
+    if (this.outputFormat === 'json') {
+      this.c.log(JSON.stringify({ error: message }))
+      return
+    }
     this.c.log(`${logSymbols.error} ${chalk.red(message)}`)
     this.c.log()
   }
@@ -108,5 +117,9 @@ export class CommandStyle {
     const { message } = description
 
     return wrap(message, errorWrapOptions)
+  }
+
+  #plainDescription (description: string | Error): string {
+    return typeof description === 'string' ? description : description.message
   }
 }
