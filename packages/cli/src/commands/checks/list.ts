@@ -108,8 +108,8 @@ export default class ChecksList extends AuthCommand {
       if (needsAllChecks) {
         const [checkList, allStatuses, groupsResp] = await Promise.all([
           api.checks.fetchAll({ tag: flags.tag }),
-          api.checkStatuses.fetchAll(),
-          api.checkGroups.getAll(),
+          api.checkStatuses.fetchAll().catch(() => []),
+          api.checkGroups.getAll().catch(() => ({ data: [] })),
         ])
         statuses = allStatuses
         totalChecks = checkList.length
@@ -133,7 +133,7 @@ export default class ChecksList extends AuthCommand {
       } else {
         const [paginated, allStatuses] = await Promise.all([
           api.checks.getAllPaginated({ limit, page, tag: flags.tag }),
-          api.checkStatuses.fetchAll(),
+          api.checkStatuses.fetchAll().catch(() => []),
         ])
         statuses = allStatuses
         totalChecks = paginated.total
