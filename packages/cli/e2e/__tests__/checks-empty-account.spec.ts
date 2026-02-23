@@ -1,11 +1,12 @@
+import config from 'config'
 import { describe, it, expect } from 'vitest'
 
 import { runChecklyCli } from '../run-checkly'
 
-const apiKey = process.env.CHECKLY_EMPTY_API_KEY
-const accountId = process.env.CHECKLY_EMPTY_ACCOUNT_ID
+const apiKey: string | undefined = config.get('emptyApiKey')
+const accountId: string | undefined = config.get('emptyAccountId')
 
-describe('checks commands on empty account', () => {
+describe.skipIf(!apiKey || !accountId)('checks commands on empty account', () => {
   it('should show "No checks found." for checks list', async () => {
     const result = await runChecklyCli({
       args: ['checks', 'list'],

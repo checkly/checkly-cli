@@ -155,6 +155,8 @@ export default class ChecksGet extends AuthCommand {
       return
     }
 
+    const fmt: OutputFormat = outputFormat === 'md' ? 'md' : 'terminal'
+
     const cleanMsg = stripAnsi(errorGroup.cleanedErrorMessage)
       .replace(/\s+/g, ' ')
       .trim()
@@ -163,6 +165,30 @@ export default class ChecksGet extends AuthCommand {
     const rawMsg = errorGroup.rawErrorMessage
       ? stripAnsi(errorGroup.rawErrorMessage).trim()
       : null
+
+    if (fmt === 'md') {
+      const lines = [
+        '# Error Group',
+        '',
+        `\`\`\`\n${cleanMsg}\n\`\`\``,
+      ]
+      if (rawMsg && rawMsg !== cleanMsg) {
+        lines.push('', '## Full Error', '', `\`\`\`\n${stripAnsi(errorGroup.rawErrorMessage!).trim()}\n\`\`\``)
+      }
+      lines.push(
+        '',
+        `| Field | Value |`,
+        `| --- | --- |`,
+        `| First seen | ${formatDate(errorGroup.firstSeen, fmt)} |`,
+        `| Last seen | ${formatDate(errorGroup.lastSeen, fmt)} |`,
+        `| Error group | ${errorGroup.id} |`,
+      )
+      if (check.scriptPath) {
+        lines.push(`| Source file | ${check.scriptPath} |`)
+      }
+      this.log(lines.join('\n'))
+      return
+    }
 
     const output: string[] = []
 
@@ -177,8 +203,8 @@ export default class ChecksGet extends AuthCommand {
     }
 
     output.push('')
-    output.push(`${chalk.dim('First seen:')}    ${formatDate(errorGroup.firstSeen, 'terminal')}`)
-    output.push(`${chalk.dim('Last seen:')}     ${formatDate(errorGroup.lastSeen, 'terminal')}`)
+    output.push(`${chalk.dim('First seen:')}    ${formatDate(errorGroup.firstSeen, fmt)}`)
+    output.push(`${chalk.dim('Last seen:')}     ${formatDate(errorGroup.lastSeen, fmt)}`)
     output.push(`${chalk.dim('Error group:')}   ${errorGroup.id}`)
 
     if (check.scriptPath) {
