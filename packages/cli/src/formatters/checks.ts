@@ -69,6 +69,7 @@ export function formatSummaryBar (statuses: CheckStatus[], totalChecks: number, 
   if (failing > 0) parts.push(chalk.red(`${logSymbols.error} ${failing} failing`))
 
   const total = chalk.dim(`(${totalChecks} total checks)`)
+  if (parts.length === 0) return total
   return parts.join('    ') + '    ' + total
 }
 
