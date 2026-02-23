@@ -23,6 +23,17 @@ import {
  * (they have their own page), and checks in deactivated groups are treated
  * as inactive.
  */
+export function filterByStatus (checks: CheckWithStatus[], status: string): CheckWithStatus[] {
+  return checks.filter(c => {
+    if (!c.activated) return false
+    if (!c.status) return false
+    if (status === 'failing') return c.status.hasFailures || c.status.hasErrors
+    if (status === 'degraded') return c.status.isDegraded
+    if (status === 'passing') return !c.status.hasFailures && !c.status.hasErrors && !c.status.isDegraded
+    return true
+  })
+}
+
 export function buildActiveCheckIds (checks: Check[], groups: CheckGroup[]): Set<string> {
   const deactivatedGroups = new Set(groups.filter(g => !g.activated).map(g => g.id))
   return new Set(
@@ -112,13 +123,7 @@ export default class ChecksList extends AuthCommand {
           merged = merged.filter(c => c.name.toLowerCase().includes(term))
         }
         if (flags.status) {
-          merged = merged.filter(c => {
-            if (!c.status) return false
-            if (flags.status === 'failing') return c.status.hasFailures || c.status.hasErrors
-            if (flags.status === 'degraded') return c.status.isDegraded
-            if (flags.status === 'passing') return !c.status.hasFailures && !c.status.hasErrors && !c.status.isDegraded
-            return true
-          })
+          merged = filterByStatus(merged, flags.status)
         }
         if (flags.type) {
           merged = merged.filter(c => c.checkType === flags.type)
@@ -205,7 +210,7 @@ export default class ChecksList extends AuthCommand {
       this.log(output.join('\n'))
     } catch (err: any) {
       this.style.longError('Failed to list checks.', err)
-      this.exit(1)
+      process.exitCode = 1
     }
   }
 }

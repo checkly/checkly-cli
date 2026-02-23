@@ -140,7 +140,7 @@ export default class ChecksGet extends AuthCommand {
       this.log(output.join('\n'))
     } catch (err: any) {
       this.style.longError('Failed to get check details.', err)
-      this.exit(1)
+      process.exitCode = 1
     }
   }
 
