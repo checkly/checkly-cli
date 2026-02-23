@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { stripAnsi } from '../render'
 import {
   formatSummaryBar,
+  formatTypeBreakdown,
   formatPaginationInfo,
   formatNavigationHints,
   formatChecks,
@@ -66,6 +67,77 @@ describe('formatSummaryBar', () => {
     expect(result).toContain('1 passing')
     expect(result).not.toContain('failing')
     expect(result).not.toContain('degraded')
+  })
+})
+
+describe('formatTypeBreakdown', () => {
+  it('shows counts per check type sorted by count descending', () => {
+    const checks = [
+      { ...passingCheck, checkType: 'BROWSER' },
+      { ...passingCheck, checkType: 'BROWSER' },
+      { ...passingCheck, checkType: 'BROWSER' },
+      { ...passingCheck, checkType: 'API' },
+      { ...passingCheck, checkType: 'API' },
+      { ...passingCheck, checkType: 'HEARTBEAT' },
+    ]
+    const result = stripAnsi(formatTypeBreakdown(checks))
+    expect(result).toContain('BROWSER: 3')
+    expect(result).toContain('API: 2')
+    expect(result).toContain('HEARTBEAT: 1')
+    // BROWSER (3) should come before API (2)
+    expect(result.indexOf('BROWSER: 3')).toBeLessThan(result.indexOf('API: 2'))
+  })
+
+  it('omits types with zero count', () => {
+    const checks = [
+      { ...passingCheck, checkType: 'API' },
+    ]
+    const result = stripAnsi(formatTypeBreakdown(checks))
+    expect(result).toContain('API: 1')
+    expect(result).not.toContain('BROWSER')
+  })
+
+  it('filters by activeCheckIds when provided', () => {
+    const checks = [
+      { ...passingCheck, id: 'a', checkType: 'API' },
+      { ...passingCheck, id: 'b', checkType: 'API' },
+      { ...passingCheck, id: 'c', checkType: 'BROWSER' },
+    ]
+    const activeIds = new Set(['a', 'c'])
+    const result = stripAnsi(formatTypeBreakdown(checks, activeIds))
+    expect(result).toContain('API: 1')
+    expect(result).toContain('BROWSER: 1')
+  })
+
+  it('type counts sum to number of input checks', () => {
+    const checks = [
+      { ...passingCheck, checkType: 'BROWSER' },
+      { ...passingCheck, checkType: 'BROWSER' },
+      { ...passingCheck, checkType: 'API' },
+      { ...passingCheck, checkType: 'HEARTBEAT' },
+      { ...passingCheck, checkType: 'TCP' },
+    ]
+    const result = stripAnsi(formatTypeBreakdown(checks))
+    const sum = [...result.matchAll(/(\d+)/g)].reduce((s, m) => s + Number(m[1]), 0)
+    expect(sum).toBe(checks.length)
+  })
+
+  it('type counts sum to activeCheckIds size when filtered', () => {
+    const checks = [
+      { ...passingCheck, id: 'a', checkType: 'API' },
+      { ...passingCheck, id: 'b', checkType: 'BROWSER' },
+      { ...passingCheck, id: 'c', checkType: 'BROWSER' },
+      { ...passingCheck, id: 'd', checkType: 'TCP' },
+    ]
+    const activeIds = new Set(['a', 'b', 'd'])
+    const result = stripAnsi(formatTypeBreakdown(checks, activeIds))
+    const sum = [...result.matchAll(/(\d+)/g)].reduce((s, m) => s + Number(m[1]), 0)
+    expect(sum).toBe(activeIds.size)
+  })
+
+  it('returns empty string for empty list', () => {
+    const result = formatTypeBreakdown([])
+    expect(stripAnsi(result)).toBe('')
   })
 })
 

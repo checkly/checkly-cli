@@ -10,18 +10,14 @@ import type { OutputFormat } from '../../formatters/render'
 import {
   formatChecks,
   formatSummaryBar,
+  formatTypeBreakdown,
   formatPaginationInfo,
   formatNavigationHints,
 } from '../../formatters/checks'
 
 /**
- * Match webapp logic: a check is effectively active only if both the check
- * AND its parent group (if any) are activated.
- */
-/**
- * Match webapp: heartbeats are excluded from the home dashboard summary
- * (they have their own page), and checks in deactivated groups are treated
- * as inactive.
+ * A check is effectively active only if both the check AND its parent group
+ * (if any) are activated. Checks in deactivated groups are treated as inactive.
  */
 export function filterByStatus (checks: CheckWithStatus[], status: string): CheckWithStatus[] {
   return checks.filter(c => {
@@ -40,7 +36,6 @@ export function buildActiveCheckIds (checks: Check[], groups: CheckGroup[]): Set
     checks
       .filter(c =>
         c.activated
-        && c.checkType !== 'HEARTBEAT'
         && !(c.groupId && deactivatedGroups.has(c.groupId)),
       )
       .map(c => c.id),
@@ -77,7 +72,7 @@ export default class ChecksList extends AuthCommand {
     }),
     'type': Flags.string({
       description: 'Filter by check type.',
-      options: ['API', 'BROWSER', 'MULTI_STEP', 'HEARTBEAT', 'PLAYWRIGHT', 'TCP'],
+      options: ['API', 'BROWSER', 'MULTI_STEP', 'HEARTBEAT', 'PLAYWRIGHT', 'TCP', 'DNS', 'ICMP', 'URL'],
     }),
     'hide-id': Flags.boolean({
       description: 'Hide check IDs in table output.',
@@ -100,6 +95,7 @@ export default class ChecksList extends AuthCommand {
     const needsAllChecks = !!(flags.search || flags.status || flags.type)
 
     let filteredChecks: CheckWithStatus[]
+    let allChecksList: Check[]
     let totalChecks: number
     let statuses: CheckStatus[]
     let activeCheckIds: Set<string> | undefined
@@ -113,6 +109,7 @@ export default class ChecksList extends AuthCommand {
         ])
         statuses = allStatuses
         totalChecks = checkList.length
+        allChecksList = checkList
         activeCheckIds = buildActiveCheckIds(checkList, groupsResp.data)
 
         const statusMap = new Map(statuses.map(s => [s.checkId, s]))
@@ -123,6 +120,9 @@ export default class ChecksList extends AuthCommand {
           merged = merged.filter(c => c.name.toLowerCase().includes(term))
         }
         if (flags.status) {
+          // Exclude heartbeats and deactivated-group checks to match the
+          // summary bar counts (same logic as buildActiveCheckIds).
+          merged = merged.filter(c => activeCheckIds!.has(c.id))
           merged = filterByStatus(merged, flags.status)
         }
         if (flags.type) {
@@ -131,15 +131,16 @@ export default class ChecksList extends AuthCommand {
 
         filteredChecks = merged
       } else {
-        const [paginated, allStatuses] = await Promise.all([
+        const [paginated, allStatuses, allChecks, groupsResp] = await Promise.all([
           api.checks.getAllPaginated({ limit, page, tag: flags.tag }),
           api.checkStatuses.fetchAll().catch(() => []),
+          api.checks.fetchAll({ tag: flags.tag }),
+          api.checkGroups.getAll().catch(() => ({ data: [] })),
         ])
         statuses = allStatuses
         totalChecks = paginated.total
-        // On the paginated path, skip the extra fetchAll + groups call.
-        // The summary bar will count all statuses (including heartbeats).
-        activeCheckIds = undefined
+        allChecksList = allChecks
+        activeCheckIds = buildActiveCheckIds(allChecks, groupsResp.data)
 
         const statusMap = new Map(statuses.map(s => [s.checkId, s]))
         filteredChecks = paginated.checks.map(c => ({ ...c, status: statusMap.get(c.id) }))
@@ -187,6 +188,7 @@ export default class ChecksList extends AuthCommand {
       const output: string[] = []
 
       output.push(formatSummaryBar(statuses, totalChecks, activeCheckIds))
+      output.push(formatTypeBreakdown(allChecksList, activeCheckIds))
       output.push('')
 
       if (displayChecks.length === 0) {

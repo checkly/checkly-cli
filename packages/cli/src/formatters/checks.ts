@@ -68,9 +68,24 @@ export function formatSummaryBar (statuses: CheckStatus[], totalChecks: number, 
   if (degraded > 0) parts.push(chalk.yellow(`${logSymbols.warning} ${degraded} degraded`))
   if (failing > 0) parts.push(chalk.red(`${logSymbols.error} ${failing} failing`))
 
-  const total = chalk.dim(`(${totalChecks} total checks)`)
+  const displayTotal = activeCheckIds ? activeCheckIds.size : totalChecks
+  const total = chalk.dim(`(${displayTotal} total checks)`)
   if (parts.length === 0) return total
   return parts.join('    ') + '    ' + total
+}
+
+// --- Type breakdown (terminal only) ---
+
+export function formatTypeBreakdown (checks: Check[], activeCheckIds?: Set<string>): string {
+  const filtered = activeCheckIds ? checks.filter(c => activeCheckIds.has(c.id)) : checks
+  const counts = new Map<string, number>()
+  for (const check of filtered) {
+    counts.set(check.checkType, (counts.get(check.checkType) || 0) + 1)
+  }
+  const parts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => `${type}: ${count}`)
+  return chalk.dim(parts.join('    '))
 }
 
 // --- Pagination info (terminal only) ---

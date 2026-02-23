@@ -140,14 +140,14 @@ describe('buildActiveCheckIds', () => {
     expect(result.has('c2')).toBe(false)
   })
 
-  it('excludes heartbeat checks', () => {
+  it('includes heartbeat checks', () => {
     const checks = [
       makeCheck({ id: 'c1', checkType: 'API' }),
       makeCheck({ id: 'c2', checkType: 'HEARTBEAT' }),
     ]
     const result = buildActiveCheckIds(checks, [])
     expect(result.has('c1')).toBe(true)
-    expect(result.has('c2')).toBe(false)
+    expect(result.has('c2')).toBe(true)
   })
 
   it('excludes checks in deactivated groups', () => {
@@ -169,7 +169,6 @@ describe('buildActiveCheckIds', () => {
   it('returns empty set when no checks match', () => {
     const checks = [
       makeCheck({ id: 'c1', activated: false }),
-      makeCheck({ id: 'c2', checkType: 'HEARTBEAT' }),
     ]
     const result = buildActiveCheckIds(checks, [])
     expect(result.size).toBe(0)
