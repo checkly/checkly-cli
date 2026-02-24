@@ -24,6 +24,8 @@ export interface ListChecksParams {
   limit?: number
   page?: number
   tag?: string[]
+  checkType?: string
+  search?: string
 }
 
 export interface PaginatedChecks {
