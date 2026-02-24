@@ -248,8 +248,7 @@ export class Session {
   static parsers = new Map<string, Parser>()
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
-  static currentCommand?: 'pw-test' | 'test' | 'deploy'
-  static includeFlagProvided?: boolean
+  static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
 
@@ -272,6 +271,7 @@ export class Session {
     this.parsers = new Map<string, Parser>()
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
+    this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
     this.resetSharedFiles()
