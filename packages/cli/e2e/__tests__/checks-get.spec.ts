@@ -46,8 +46,7 @@ describe('checkly checks get', () => {
       accountId: config.get('accountId'),
     })
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('#')
-    expect(result.stdout).toContain('| Field |')
+    expect(result.stdout).toContain('| Field | Value |')
   })
 
   it('should fail for nonexistent check ID', async () => {
