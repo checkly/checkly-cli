@@ -4,13 +4,11 @@ import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { OutputFormat } from '../../formatters/render'
 import {
-  formatStatusPages,
-  formatStatusPageTree,
+  formatStatusPagesExpanded,
+  formatStatusPagesCompact,
   formatCursorPaginationInfo,
   formatCursorNavigationHints,
 } from '../../formatters/status-pages'
-
-const TREE_THRESHOLD = 5
 
 export default class StatusPagesList extends AuthCommand {
   static hidden = false
@@ -26,7 +24,7 @@ export default class StatusPagesList extends AuthCommand {
       description: 'Cursor for next page (from previous output).',
     }),
     compact: Flags.boolean({
-      description: 'Hide card/service tree in table output.',
+      description: 'Show one row per status page instead of per service.',
       default: false,
     }),
     output: outputFlag({ default: 'table' }),
@@ -62,37 +60,19 @@ export default class StatusPagesList extends AuthCommand {
 
       // Markdown output
       if (fmt === 'md') {
-        this.log(formatStatusPages(entries, fmt))
+        this.log(flags.compact
+          ? formatStatusPagesCompact(entries, fmt)
+          : formatStatusPagesExpanded(entries, fmt))
         return
       }
 
       // Table output
       const output: string[] = []
 
-      const showTree = !flags.compact && entries.length <= TREE_THRESHOLD
-
-      if (showTree) {
-        // Interleave table rows with trees: render one-row table per page + tree
-        for (let i = 0; i < entries.length; i++) {
-          const sp = entries[i]
-          if (i === 0) {
-            // First page: include header
-            output.push(formatStatusPages([sp], fmt))
-          } else {
-            // Subsequent pages: just the data row (skip header)
-            const fullTable = formatStatusPages([sp], fmt)
-            const lines = fullTable.split('\n')
-            output.push(lines.slice(1).join('\n'))
-          }
-          const tree = formatStatusPageTree(sp)
-          if (tree) {
-            output.push('')
-            output.push(tree)
-            output.push('')
-          }
-        }
+      if (flags.compact) {
+        output.push(formatStatusPagesCompact(entries, fmt))
       } else {
-        output.push(formatStatusPages(entries, fmt))
+        output.push(formatStatusPagesExpanded(entries, fmt))
       }
 
       output.push('')

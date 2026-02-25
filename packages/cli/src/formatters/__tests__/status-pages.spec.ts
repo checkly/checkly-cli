@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { stripAnsi } from '../render'
 import {
-  formatStatusPages,
-  formatStatusPageTree,
+  formatStatusPagesExpanded,
+  formatStatusPagesCompact,
   formatCursorPaginationInfo,
   formatCursorNavigationHints,
 } from '../status-pages'
@@ -12,70 +12,105 @@ import {
   noCardsStatusPage,
 } from './__fixtures__/status-page-fixtures'
 
-describe('formatStatusPages', () => {
+describe('formatStatusPagesExpanded', () => {
   describe('terminal', () => {
-    it('renders table with name, url, private, cards count, and id', () => {
-      const result = stripAnsi(formatStatusPages([simpleStatusPage, privateStatusPage], 'terminal'))
+    it('renders one row per service with all fields repeated', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([simpleStatusPage], 'terminal'))
       expect(result).toContain('NAME')
       expect(result).toContain('URL')
-      expect(result).toContain('PRIVATE')
-      expect(result).toContain('CARDS')
-      expect(result).toContain('Acme Status')
-      expect(result).toContain('status.acme.com')
-      expect(result).toContain('Internal Tools')
+      expect(result).toContain('CARD')
+      expect(result).toContain('SERVICE')
+      expect(result).toContain('ID')
+
+      const lines = result.split('\n').filter(l => l.includes('Acme Status'))
+      // simpleStatusPage has 5 services across 2 cards
+      expect(lines).toHaveLength(5)
     })
 
-    it('shows card count per page', () => {
-      const result = stripAnsi(formatStatusPages([simpleStatusPage], 'terminal'))
-      expect(result).toContain('2')
+    it('repeats name, url, and id on every service row', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([simpleStatusPage], 'terminal'))
+      const lines = result.split('\n').filter(l => l.includes('Acme Status'))
+      for (const line of lines) {
+        expect(line).toContain('Acme Status')
+        expect(line).toContain('a1b2c3d4')
+      }
+    })
+
+    it('repeats card name on every service row of that card', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([simpleStatusPage], 'terminal'))
+      const infraLines = result.split('\n').filter(l => l.includes('Infrastructure'))
+      expect(infraLines).toHaveLength(3) // 3 services in Infrastructure card
+      for (const line of infraLines) {
+        expect(line).toContain('Infrastructure')
+      }
+    })
+
+    it('shows each service name on its own row', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([simpleStatusPage], 'terminal'))
+      expect(result).toContain('API Gateway')
+      expect(result).toContain('Database Cluster')
+      expect(result).toContain('CDN')
+      expect(result).toContain('Dashboard')
+      expect(result).toContain('Marketing Site')
+    })
+
+    it('renders a fallback row for pages with no cards', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([noCardsStatusPage], 'terminal'))
+      const lines = result.split('\n').filter(l => l.includes('Empty Page'))
+      expect(lines).toHaveLength(1)
+    })
+
+    it('handles multiple status pages', () => {
+      const result = stripAnsi(formatStatusPagesExpanded([simpleStatusPage, privateStatusPage], 'terminal'))
+      const acmeLines = result.split('\n').filter(l => l.includes('Acme Status'))
+      const internalLines = result.split('\n').filter(l => l.includes('Internal Tools'))
+      expect(acmeLines).toHaveLength(5)
+      expect(internalLines).toHaveLength(1)
+    })
+  })
+
+  describe('md', () => {
+    it('renders a markdown table with card and service columns', () => {
+      const result = formatStatusPagesExpanded([simpleStatusPage], 'md')
+      expect(result).toContain('| Name |')
+      expect(result).toContain('| Card |')
+      expect(result).toContain('| Service |')
+      expect(result).toContain('| --- |')
+      expect(result).toContain('API Gateway')
+    })
+  })
+})
+
+describe('formatStatusPagesCompact', () => {
+  describe('terminal', () => {
+    it('renders one row per status page with card count', () => {
+      const result = stripAnsi(formatStatusPagesCompact([simpleStatusPage, privateStatusPage], 'terminal'))
+      expect(result).toContain('CARDS')
+      const acmeLines = result.split('\n').filter(l => l.includes('Acme Status'))
+      expect(acmeLines).toHaveLength(1)
     })
 
     it('shows private indicator', () => {
-      const result = stripAnsi(formatStatusPages([privateStatusPage], 'terminal'))
+      const result = stripAnsi(formatStatusPagesCompact([privateStatusPage], 'terminal'))
       expect(result).toContain('yes')
     })
 
     it('shows dash for non-private pages', () => {
-      const result = stripAnsi(formatStatusPages([simpleStatusPage], 'terminal'))
-      const lines = result.split('\n')
-      const acmeLine = lines.find(l => l.includes('Acme Status'))
+      const result = stripAnsi(formatStatusPagesCompact([simpleStatusPage], 'terminal'))
+      const acmeLine = result.split('\n').find(l => l.includes('Acme Status'))
       expect(acmeLine).toBeDefined()
       expect(acmeLine).toContain('-')
     })
   })
 
   describe('md', () => {
-    it('renders a markdown table', () => {
-      const result = formatStatusPages([simpleStatusPage, privateStatusPage], 'md')
+    it('renders a compact markdown table', () => {
+      const result = formatStatusPagesCompact([simpleStatusPage, privateStatusPage], 'md')
       expect(result).toContain('| Name |')
-      expect(result).toContain('| --- |')
+      expect(result).toContain('| Cards |')
       expect(result).toContain('Acme Status')
       expect(result).toContain('Internal Tools')
     })
-  })
-})
-
-describe('formatStatusPageTree', () => {
-  it('renders cards and services as a tree', () => {
-    const result = stripAnsi(formatStatusPageTree(simpleStatusPage))
-    expect(result).toContain('Infrastructure')
-    expect(result).toContain('API Gateway')
-    expect(result).toContain('Database Cluster')
-    expect(result).toContain('CDN')
-    expect(result).toContain('Web Applications')
-    expect(result).toContain('Dashboard')
-    expect(result).toContain('Marketing Site')
-  })
-
-  it('uses tree characters for hierarchy', () => {
-    const result = formatStatusPageTree(simpleStatusPage)
-    expect(result).toContain('├──')
-    expect(result).toContain('└──')
-  })
-
-  it('returns empty string for pages with no cards', () => {
-    const result = formatStatusPageTree(noCardsStatusPage)
-    expect(result).toBe('')
   })
 })
 

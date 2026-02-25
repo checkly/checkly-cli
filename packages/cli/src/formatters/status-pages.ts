@@ -7,9 +7,121 @@ import {
   renderTable,
 } from './render'
 
-// --- Table columns ---
+// --- Expanded row type: one row per service, all fields repeated ---
 
-function buildColumns (format: OutputFormat): ColumnDef<StatusPage>[] {
+interface ExpandedRow {
+  name: string
+  url: string
+  customDomain: string | null
+  isPrivate: boolean
+  card: string
+  service: string
+  id: string
+}
+
+function expandStatusPages (statusPages: StatusPage[]): ExpandedRow[] {
+  const rows: ExpandedRow[] = []
+  for (const sp of statusPages) {
+    if (sp.cards.length === 0) {
+      rows.push({
+        name: sp.name,
+        url: sp.url,
+        customDomain: sp.customDomain,
+        isPrivate: sp.isPrivate,
+        card: '-',
+        service: '-',
+        id: sp.id,
+      })
+      continue
+    }
+    for (const card of sp.cards) {
+      if (card.services.length === 0) {
+        rows.push({
+          name: sp.name,
+          url: sp.url,
+          customDomain: sp.customDomain,
+          isPrivate: sp.isPrivate,
+          card: card.name,
+          service: '-',
+          id: sp.id,
+        })
+        continue
+      }
+      for (const svc of card.services) {
+        rows.push({
+          name: sp.name,
+          url: sp.url,
+          customDomain: sp.customDomain,
+          isPrivate: sp.isPrivate,
+          card: card.name,
+          service: svc.name,
+          id: sp.id,
+        })
+      }
+    }
+  }
+  return rows
+}
+
+// --- Expanded table columns (default: one row per service) ---
+
+function buildExpandedColumns (format: OutputFormat): ColumnDef<ExpandedRow>[] {
+  if (format === 'md') {
+    return [
+      { header: 'Name', value: r => r.name },
+      { header: 'URL', value: r => r.customDomain ?? r.url },
+      { header: 'Card', value: r => r.card },
+      { header: 'Service', value: r => r.service },
+      { header: 'ID', value: r => r.id },
+    ]
+  }
+
+  const termWidth = process.stdout.columns || 120
+  const nameWidth = Math.min(24, Math.floor(termWidth * 0.18))
+  const urlWidth = Math.min(26, Math.floor(termWidth * 0.20))
+  const cardWidth = Math.min(20, Math.floor(termWidth * 0.16))
+  const serviceWidth = Math.min(24, Math.floor(termWidth * 0.20))
+
+  return [
+    {
+      header: 'Name',
+      width: nameWidth,
+      value: r => truncateToWidth(r.name, nameWidth - 2),
+    },
+    {
+      header: 'URL',
+      width: urlWidth,
+      value: r => {
+        const display = r.customDomain ?? r.url
+        return truncateToWidth(display, urlWidth - 2)
+      },
+    },
+    {
+      header: 'Card',
+      width: cardWidth,
+      value: r => truncateToWidth(r.card, cardWidth - 2),
+    },
+    {
+      header: 'Service',
+      width: serviceWidth,
+      value: r => truncateToWidth(r.service, serviceWidth - 2),
+    },
+    {
+      header: 'ID',
+      value: r => chalk.dim(r.id),
+    },
+  ]
+}
+
+export function formatStatusPagesExpanded (statusPages: StatusPage[], format: OutputFormat): string {
+  const rows = expandStatusPages(statusPages)
+  const columns = buildExpandedColumns(format)
+  return renderTable(columns, rows, format)
+}
+
+// --- Compact table columns (one row per status page) ---
+
+function buildCompactColumns (format: OutputFormat): ColumnDef<StatusPage>[] {
   if (format === 'md') {
     return [
       { header: 'Name', value: sp => sp.name },
@@ -55,26 +167,9 @@ function buildColumns (format: OutputFormat): ColumnDef<StatusPage>[] {
   ]
 }
 
-export function formatStatusPages (statusPages: StatusPage[], format: OutputFormat): string {
-  const columns = buildColumns(format)
+export function formatStatusPagesCompact (statusPages: StatusPage[], format: OutputFormat): string {
+  const columns = buildCompactColumns(format)
   return renderTable(columns, statusPages, format)
-}
-
-// --- Card/service tree (terminal only) ---
-
-export function formatStatusPageTree (statusPage: StatusPage): string {
-  if (statusPage.cards.length === 0) return ''
-
-  const lines: string[] = []
-  for (const card of statusPage.cards) {
-    lines.push(`  ${chalk.bold(card.name)}`)
-    for (let i = 0; i < card.services.length; i++) {
-      const isLast = i === card.services.length - 1
-      const prefix = isLast ? '└──' : '├──'
-      lines.push(`    ${chalk.dim(prefix)} ${card.services[i].name}`)
-    }
-  }
-  return lines.join('\n')
 }
 
 // --- Cursor pagination helpers ---
