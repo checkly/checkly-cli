@@ -49,8 +49,8 @@
       "strategy": "pattern",
       "target": "./dist/commands",
       "globPatterns": [
-        "**/*.+(js|cjs|mjs|ts|tsx|mts|cts)",
-        "!**/_*.+(js|cjs|mjs|ts|tsx|mts|cts)"
+        "**/*.+(js|cjs|mjs)",
+        "!**/_*.+(js|cjs|mjs)"
       ]
     },
     "topicSeparator": " ",
