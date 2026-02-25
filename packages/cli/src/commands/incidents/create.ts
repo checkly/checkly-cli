@@ -39,6 +39,11 @@ export default class IncidentsCreate extends AuthCommand {
     'message': Flags.string({
       description: 'Initial incident update message.',
     }),
+    'notify-subscribers': Flags.boolean({
+      description: 'Notify status page subscribers about this incident update.',
+      default: true,
+      allowNo: true,
+    }),
     'output': outputFlag({ default: 'table' }),
   }
 
@@ -58,7 +63,7 @@ export default class IncidentsCreate extends AuthCommand {
         incidentUpdates: [{
           description: flags.message ?? DEFAULT_CREATE_INCIDENT_MESSAGE,
           status: 'INVESTIGATING',
-          notifySubscribers: false,
+          notifySubscribers: flags['notify-subscribers'],
         }],
       })
 

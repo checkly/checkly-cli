@@ -19,10 +19,15 @@ export default class IncidentsResolve extends AuthCommand {
   }
 
   static flags = {
-    message: Flags.string({
+    'message': Flags.string({
       description: 'Optional closing note.',
     }),
-    output: outputFlag({ default: 'table' }),
+    'notify-subscribers': Flags.boolean({
+      description: 'Notify status page subscribers about this incident update.',
+      default: true,
+      allowNo: true,
+    }),
+    'output': outputFlag({ default: 'table' }),
   }
 
   async run (): Promise<void> {
@@ -33,7 +38,7 @@ export default class IncidentsResolve extends AuthCommand {
       const update = await api.incidents.createUpdate(args.id, {
         description: flags.message ?? DEFAULT_RESOLVE_INCIDENT_MESSAGE,
         status: 'RESOLVED',
-        notifySubscribers: false,
+        notifySubscribers: flags['notify-subscribers'],
       })
 
       if (flags.output === 'json') {
