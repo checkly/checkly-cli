@@ -5,6 +5,7 @@ import {
   formatStatusPagesCompact,
   formatCursorPaginationInfo,
   formatCursorNavigationHints,
+  formatStatusPageDetail,
 } from '../status-pages'
 import {
   simpleStatusPage,
@@ -137,5 +138,80 @@ describe('formatCursorNavigationHints', () => {
   it('omits next page when no cursor', () => {
     const result = stripAnsi(formatCursorNavigationHints(null))
     expect(result).not.toContain('--cursor')
+  })
+})
+
+describe('formatStatusPageDetail', () => {
+  describe('terminal', () => {
+    it('renders the page name as title', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('Acme Status')
+    })
+
+    it('shows url field', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('status.acme.com')
+    })
+
+    it('shows private field as no for public pages', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('no')
+    })
+
+    it('shows private field as yes for private pages', () => {
+      const result = stripAnsi(formatStatusPageDetail(privateStatusPage, 'terminal'))
+      expect(result).toContain('yes')
+    })
+
+    it('shows theme', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('AUTO')
+    })
+
+    it('shows the page ID', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+    })
+
+    it('includes a services table with card and service names', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('CARD')
+      expect(result).toContain('SERVICE')
+      expect(result).toContain('Infrastructure')
+      expect(result).toContain('API Gateway')
+      expect(result).toContain('Database Cluster')
+      expect(result).toContain('CDN')
+      expect(result).toContain('Web Applications')
+      expect(result).toContain('Dashboard')
+      expect(result).toContain('Marketing Site')
+    })
+
+    it('includes service IDs in the table', () => {
+      const result = stripAnsi(formatStatusPageDetail(simpleStatusPage, 'terminal'))
+      expect(result).toContain('svc-1111')
+      expect(result).toContain('svc-5555')
+    })
+
+    it('shows no services message for pages with no cards', () => {
+      const result = stripAnsi(formatStatusPageDetail(noCardsStatusPage, 'terminal'))
+      expect(result).toContain('No services')
+    })
+  })
+
+  describe('md', () => {
+    it('renders markdown detail fields', () => {
+      const result = formatStatusPageDetail(simpleStatusPage, 'md')
+      expect(result).toContain('# Acme Status')
+      expect(result).toContain('| Field | Value |')
+      expect(result).toContain('status.acme.com')
+    })
+
+    it('renders a markdown services table', () => {
+      const result = formatStatusPageDetail(simpleStatusPage, 'md')
+      expect(result).toContain('## Services')
+      expect(result).toContain('| Card |')
+      expect(result).toContain('| Service |')
+      expect(result).toContain('API Gateway')
+    })
   })
 })
