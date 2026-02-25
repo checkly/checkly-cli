@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
-import { outputFlag } from './_flags'
+import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { CheckWithStatus } from '../../formatters/checks'
 import type { OutputFormat } from '../../formatters/render'

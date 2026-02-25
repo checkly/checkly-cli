@@ -45,14 +45,7 @@
   ],
   "oclif": {
     "bin": "checkly",
-    "commands": {
-      "strategy": "pattern",
-      "target": "./dist/commands",
-      "globPatterns": [
-        "**/*.+(js|cjs|mjs)",
-        "!**/_*.+(js|cjs|mjs)"
-      ]
-    },
+    "commands": "./dist/commands",
     "topicSeparator": " ",
     "additionalHelpFlags": [
       "-h"
