@@ -16,13 +16,26 @@ export default class ChecklyHelpClass extends Help {
         .filter(c => !c.id.includes(':') || c.coreCommand)
         .map(c => [c.id.replace(/:/g, ' '), this.summary(c)])
 
-    const formatCommandsWithTopics = (commands: Array<Command.Loadable>) =>
-      commands
+    const formatCommandsWithTopics = (commands: Array<Command.Loadable>) => {
+      const explicitTopics = new Map(topics.map(t => [t.name, t.description]))
+      const topicNames = new Set<string>(topics.map(t => t.name))
+
+      for (const command of commands) {
+        const separatorIndex = command.id.indexOf(':')
+        if (separatorIndex > 0) {
+          topicNames.add(command.id.slice(0, separatorIndex))
+        }
+      }
+
+      const topicRows = [...topicNames].map(name => [name, explicitTopics.get(name)])
+
+      return commands
         // discard commands with ':' indicating they are under a topic
         .filter(c => !c.id.includes(':'))
         .map(c => [c.id, this.summary(c)])
-        .concat(topics.map(t => [t.name, t.description]))
+        .concat(topicRows)
         .sort(([a], [b]) => (a! < b!) ? -1 : 1)
+    }
 
     const reder = (commands: (string | undefined)[][]) =>
       this.renderList(commands, {
