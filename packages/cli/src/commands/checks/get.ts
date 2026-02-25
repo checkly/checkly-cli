@@ -1,6 +1,7 @@
 import { Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
+import { outputFlag } from './flags'
 import * as api from '../../rest/api'
 import type { CheckWithStatus } from '../../formatters/checks'
 import { type OutputFormat, stripAnsi, formatDate } from '../../formatters/render'
@@ -38,12 +39,7 @@ export default class ChecksGet extends AuthCommand {
     'results-cursor': Flags.string({
       description: 'Cursor for results pagination (from previous output).',
     }),
-    'output': Flags.string({
-      char: 'o',
-      description: 'Output format.',
-      options: ['detail', 'json', 'md'],
-      default: 'detail',
-    }),
+    'output': outputFlag({ default: 'detail' }),
   }
 
   async run (): Promise<void> {
@@ -51,7 +47,7 @@ export default class ChecksGet extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-    // Result detail mode: drill into a specific result
+      // Result detail mode: drill into a specific result
       if (flags.result) {
         return await this.showResultDetail(args.id, flags.result, flags.output ?? 'detail')
       }
