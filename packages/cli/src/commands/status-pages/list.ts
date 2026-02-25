@@ -78,6 +78,11 @@ export default class StatusPagesList extends AuthCommand {
       output.push('')
       output.push(formatCursorPaginationInfo(length, nextId))
 
+      if (!flags.compact) {
+        output.push('')
+        output.push('Hint: use --compact for one row per status page.')
+      }
+
       const navHints = formatCursorNavigationHints(nextId)
       if (navHints) {
         output.push('')
