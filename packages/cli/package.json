@@ -70,6 +70,9 @@
       "env": {
         "description": "Manage Checkly environment variables."
       },
+      "incidents": {
+        "description": "Create and manage status page incidents."
+      },
       "import": {
         "description": "Import existing resources from your Checkly account to your project."
       },
