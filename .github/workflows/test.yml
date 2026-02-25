@@ -46,6 +46,8 @@ jobs:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
           CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
+          CHECKLY_EMPTY_ACCOUNT_ID: ${{ secrets.E2E_EMPTY_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:

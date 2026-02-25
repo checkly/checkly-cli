@@ -49,6 +49,7 @@ describe('help', () => {
   trigger  Trigger your existing checks on Checkly.`)
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
+  checks           List and inspect checks in your Checkly account.
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
   help             Display help for checkly.

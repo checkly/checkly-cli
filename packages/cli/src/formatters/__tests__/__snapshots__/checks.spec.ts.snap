@@ -1,0 +1,102 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatCheckDetail > renders markdown detail > check-detail-md 1`] = `
+"# My API Check
+
+| Field | Value |
+| --- | --- |
+| Type | API |
+| Status | passing |
+| Active | yes |
+| Muted | - |
+| Frequency | Every 10m |
+| Locations | eu-west-1, us-east-1 |
+| Tags | production, api |
+| SSL | 90 days remaining |
+| Deployed | Jun 15, 2025 |
+| Group | - |
+| Created | 2025-01-01 |
+| ID | check-1 |"
+`;
+
+exports[`formatCheckDetail > renders terminal detail > check-detail-terminal 1`] = `
+"My API Check
+
+Type:       API
+Status:     passing
+Active:     yes
+Muted:      -
+Frequency:  Every 10m
+Locations:  eu-west-1, us-east-1
+Tags:       production, api
+Source:     UI
+URL:        https://api.example.com/health
+SSL:        90 days remaining
+Deployed:   Jun 15, 2025
+Group:      -
+Created:    2025-01-01
+ID:         check-1"
+`;
+
+exports[`formatChecks > renders markdown table > checks-table-md 1`] = `
+"| Name | Type | Status | Freq | Tags | ID |
+| --- | --- | --- | --- | --- | --- |
+| My API Check | API | passing | 10m | production, api | check-1 |
+| Failing Browser Check | BROWSER | failing | 10m | production, browser | check-2 |
+| Inactive Check | API | inactive | 10m | - | check-3 |
+| Muted Check | API | passing (muted) | 10m | production, api | check-4 |"
+`;
+
+exports[`formatChecks > renders markdown with pagination > checks-table-md-paginated 1`] = `
+"| Name | Type | Status | Freq | Tags | ID |
+| --- | --- | --- | --- | --- | --- |
+| My API Check | API | passing | 10m | production, api | check-1 |
+| Failing Browser Check | BROWSER | failing | 10m | production, browser | check-2 |
+| Inactive Check | API | inactive | 10m | - | check-3 |
+| Muted Check | API | passing (muted) | 10m | production, api | check-4 |
+
+*Showing page 1/3 (25 total checks)*"
+`;
+
+exports[`formatChecks > renders terminal table > checks-table-terminal 1`] = `
+"NAME                   TYPE        STATUS    FREQ  TAGS
+My API Check           API         passing   10m   production, api
+Failing Browser Check  BROWSER     failing   10m   production, browser
+Inactive Check         API         inactive  10m   -
+Muted Check            API         passing   10m   production, api"
+`;
+
+exports[`formatChecks > renders terminal table with showId > checks-table-terminal-with-id 1`] = `
+"NAME                   TYPE        STATUS    FREQ  TAGS                           ID
+My API Check           API         passing   10m   production, api                check-1
+Failing Browser Check  BROWSER     failing   10m   production, browser            check-2
+Inactive Check         API         inactive  10m   -                              check-3
+Muted Check            API         passing   10m   production, api                check-4"
+`;
+
+exports[`formatErrorGroups > renders markdown error groups > error-groups-md 1`] = `
+"## Error Groups
+
+| Error | First Seen | Last Seen | ID |
+| --- | --- | --- | --- |
+| TimeoutError: page.click: Timeout 30000ms exceeded | 2025-06-01T00:00:00.000Z | 2025-06-15T12:00:00.000Z | eg-1 |"
+`;
+
+exports[`formatErrorGroups > renders terminal error groups > error-groups-terminal 1`] = `
+"ERROR GROUPS
+ERROR                                                       FIRST SEEN    LAST SEEN
+TimeoutError: page.click: Timeout 30000ms exceeded          14d ago       5m ago"
+`;
+
+exports[`formatResults > renders markdown table > results-table-md 1`] = `
+"| Time | Location | Status | Response Time | ID |
+| --- | --- | --- | --- | --- |
+| 2025-06-15T12:00:00.000Z | eu-west-1 | passing | 245ms | result-1 |
+| 2025-06-15T12:00:00.000Z | us-east-1 | failing | 5.20s | result-2 |"
+`;
+
+exports[`formatResults > renders terminal table > results-table-terminal 1`] = `
+"TIME          LOCATION        STATUS    RESPONSE TIME   RESULT ID
+5m ago        eu-west-1       passing   245ms           result-1
+5m ago        us-east-1       failing   5.20s           result-2"
+`;

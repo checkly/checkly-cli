@@ -64,6 +64,9 @@
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. To update, run `npm install -D checkly@latest`"
     },
     "topics": {
+      "checks": {
+        "description": "List and inspect checks in your Checkly account."
+      },
       "env": {
         "description": "Manage Checkly environment variables."
       },
