@@ -19,6 +19,7 @@ import CheckResults from './check-results'
 import CheckGroups from './check-groups'
 import ErrorGroups from './error-groups'
 import StatusPages from './status-pages'
+import Incidents from './incidents'
 import { handleErrorResponse, UnauthorizedError } from './errors'
 
 export function getDefaults () {
@@ -129,3 +130,4 @@ export const checkResults = new CheckResults(api)
 export const checkGroups = new CheckGroups(api)
 export const errorGroups = new ErrorGroups(api)
 export const statusPages = new StatusPages(api)
+export const incidents = new Incidents(api)
