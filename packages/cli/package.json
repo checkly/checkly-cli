@@ -50,7 +50,7 @@
       "target": "./dist/commands",
       "globPatterns": [
         "**/*.+(js|cjs|mjs|ts|tsx|mts|cts)",
-        "!**/flags.+(js|cjs|mjs|ts|tsx|mts|cts)"
+        "!**/checks/flags.+(js|cjs|mjs|ts|tsx|mts|cts)"
       ]
     },
     "topicSeparator": " ",
