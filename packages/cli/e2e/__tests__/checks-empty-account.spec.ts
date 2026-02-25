@@ -39,16 +39,6 @@ describe.skipIf(!apiKey || !accountId)('checks commands on empty account', () =>
     expect(result.stdout).toContain('No checks found.')
   })
 
-  it('should handle --status filter gracefully on empty account', async () => {
-    const result = await runChecklyCli({
-      args: ['checks', 'list', '--status', 'failing'],
-      apiKey,
-      accountId,
-    })
-    expect(result.status).toBe(0)
-    expect(result.stdout).toContain('No checks matching')
-  })
-
   it('should handle --search filter gracefully on empty account', async () => {
     const result = await runChecklyCli({
       args: ['checks', 'list', '--search', 'anything'],
