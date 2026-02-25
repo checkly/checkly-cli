@@ -40,6 +40,7 @@ describe('formatStatusPages', () => {
       const lines = result.split('\n')
       const acmeLine = lines.find(l => l.includes('Acme Status'))
       expect(acmeLine).toBeDefined()
+      expect(acmeLine).toContain('-')
     })
   })
 
