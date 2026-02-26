@@ -12,6 +12,8 @@ import {
 
 export default class StatusPagesList extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List all status pages in your account.'
 
   static flags = {

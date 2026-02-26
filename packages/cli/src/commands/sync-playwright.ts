@@ -10,6 +10,7 @@ import * as acornParser from '../helpers/recast-acorn-parser'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = false
+  static idempotent = true
   static description = 'Copy Playwright config into the Checkly config file.'
 
   async run (): Promise<void> {

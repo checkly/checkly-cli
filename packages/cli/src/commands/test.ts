@@ -31,6 +31,8 @@ const MAX_RETRIES = 3
 export default class Test extends AuthCommand {
   static coreCommand = true
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'Test your checks on Checkly.'
   static flags = {
     'location': Flags.string({

@@ -4,6 +4,8 @@ import { escapeValue } from '../../services/util'
 
 export default class EnvLs extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List all Checkly environment variables via "checkly env ls".'
 
   async run (): Promise<void> {

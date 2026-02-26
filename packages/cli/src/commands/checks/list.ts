@@ -14,6 +14,8 @@ import {
 
 export default class ChecksList extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List all checks in your account.'
 
   static flags = {

@@ -7,6 +7,7 @@ import { selectAccount } from './login'
 
 export default class Switch extends AuthCommand {
   static hidden = false
+  static idempotent = true
   static description = 'Switch user account.'
   static flags = {
     'account-id': Flags.string({

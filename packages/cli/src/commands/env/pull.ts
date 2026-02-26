@@ -12,6 +12,8 @@ const CONTENTS_SECRET_VARS = '# Secret variables\n'
 
 export default class EnvPull extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'Pull Checkly environment variables via "checkly env pull <filename>".'
 
   static flags = {

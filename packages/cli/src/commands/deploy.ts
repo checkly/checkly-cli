@@ -30,6 +30,7 @@ enum ResourceDeployStatus {
 export default class Deploy extends AuthCommand {
   static coreCommand = true
   static hidden = false
+  static idempotent = true
   static description = 'Deploy your project to your Checkly account.'
 
   static flags = {
