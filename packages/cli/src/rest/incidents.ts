@@ -54,6 +54,10 @@ export interface CreateIncidentUpdatePayload {
   publicIncidentUpdateDate?: string
 }
 
+export interface UpdateIncidentPayload {
+  severity: IncidentSeverity
+}
+
 class Incidents {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -72,6 +76,11 @@ class Incidents {
 
   async create (payload: CreateIncidentPayload): Promise<StatusPageIncident> {
     const response = await this.api.post<StatusPageIncident>('/v1/status-pages/incidents', payload)
+    return response.data
+  }
+
+  async update (incidentId: string, payload: UpdateIncidentPayload): Promise<StatusPageIncident> {
+    const response = await this.api.patch<StatusPageIncident>(`/v1/status-pages/incidents/${incidentId}`, payload)
     return response.data
   }
 

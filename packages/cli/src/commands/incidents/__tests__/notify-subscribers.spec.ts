@@ -8,6 +8,7 @@ vi.mock('../../../rest/api', () => ({
   incidents: {
     create: vi.fn(),
     createUpdate: vi.fn(),
+    update: vi.fn(),
   },
 }))
 
@@ -55,6 +56,7 @@ describe('incidents notify-subscribers flags', () => {
     vi.mocked(api.statusPages.get).mockResolvedValue(statusPageFixture)
     vi.mocked(api.incidents.create).mockResolvedValue({ id: 'inc-1' } as any)
     vi.mocked(api.incidents.createUpdate).mockResolvedValue({ id: 'upd-1' } as any)
+    vi.mocked(api.incidents.update).mockResolvedValue({ id: 'inc-1', severity: 'CRITICAL' } as any)
   })
 
   it('defines notify-subscribers defaults and allowNo across commands', () => {
@@ -170,5 +172,41 @@ describe('incidents notify-subscribers flags', () => {
     expect(api.incidents.createUpdate).toHaveBeenCalledTimes(1)
     const payload = vi.mocked(api.incidents.createUpdate).mock.calls[0][1]
     expect(payload.notifySubscribers).toBe(false)
+  })
+
+  it('updates incident severity when --severity flag is provided', async () => {
+    const context = createCommandContext({
+      args: { id: 'inc-1' },
+      flags: {
+        'message': 'Escalating to critical',
+        'status': 'identified',
+        'severity': 'critical',
+        'notify-subscribers': true,
+        'output': 'json',
+      },
+    })
+
+    await IncidentsUpdate.prototype.run.call(context as any)
+
+    expect(api.incidents.update).toHaveBeenCalledTimes(1)
+    expect(api.incidents.update).toHaveBeenCalledWith('inc-1', { severity: 'CRITICAL' })
+    expect(api.incidents.createUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call update when --severity flag is omitted', async () => {
+    const context = createCommandContext({
+      args: { id: 'inc-1' },
+      flags: {
+        'message': 'Still investigating',
+        'status': 'investigating',
+        'notify-subscribers': true,
+        'output': 'json',
+      },
+    })
+
+    await IncidentsUpdate.prototype.run.call(context as any)
+
+    expect(api.incidents.update).not.toHaveBeenCalled()
+    expect(api.incidents.createUpdate).toHaveBeenCalledTimes(1)
   })
 })
