@@ -61,18 +61,7 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   }
 }
 
-export function detectOperator (): string {
-  if (process.env.CLAUDECODE) return 'claude-code'
-  if (process.env.CURSOR_TRACE_ID) return 'cursor'
-  if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
-  if (process.env.GITHUB_COPILOT) return 'github-copilot'
-  if (process.env.AIDER) return 'aider'
-  if (process.env.WINDSURF || process.env.CODEIUM_ENV) return 'windsurf'
-  if (process.env.GITHUB_ACTIONS) return 'github-actions'
-  if (process.env.GITLAB_CI) return 'gitlab-ci'
-  if (process.env.CI) return 'ci'
-  return 'manual'
-}
+export { detectOperator } from '../helpers/cli-mode'
 
 export function requestInterceptor (config: InternalAxiosRequestConfig) {
   const { Authorization, accountId } = getDefaults()
