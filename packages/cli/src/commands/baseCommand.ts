@@ -13,6 +13,9 @@ export type BaseCommandClass = typeof Command & {
 export abstract class BaseCommand extends Command {
   static coreCommand = false
   static hidden = true
+  static readOnly = false
+  static destructive = false
+  static idempotent = false
   fancy = true
   style = new CommandStyle(this)
   #packageJsonLoader?: Promise<PackageJsonFile | undefined>
