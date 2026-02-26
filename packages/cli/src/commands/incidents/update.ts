@@ -55,16 +55,19 @@ export default class IncidentsUpdate extends AuthCommand {
 
     const incident = await api.incidents.get(args.id)
 
+    const changes = [
+      `Will post update to incident "${incident.name}" (${args.id})`,
+      `Status: ${flags.status}`,
+      ...(flags.severity ? [`Severity: ${flags.severity}`] : []),
+      flags['notify-subscribers']
+        ? 'Will notify subscribers'
+        : 'Subscribers will NOT be notified',
+    ]
+
     await this.confirmOrAbort({
       command: 'incidents update',
       description: 'Post progress update to incident',
-      changes: [
-        `Will post update to incident "${incident.name}" (${args.id})`,
-        `Status: ${flags.status}`,
-        flags['notify-subscribers']
-          ? 'Will notify subscribers'
-          : 'Subscribers will NOT be notified',
-      ],
+      changes,
       flags,
       args: { id: args.id },
       classification: {
