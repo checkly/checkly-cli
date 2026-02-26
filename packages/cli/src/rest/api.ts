@@ -21,6 +21,7 @@ import ErrorGroups from './error-groups'
 import StatusPages from './status-pages'
 import Incidents from './incidents'
 import { handleErrorResponse, UnauthorizedError } from './errors'
+import { detectOperator } from '../helpers/cli-mode'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
