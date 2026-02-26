@@ -44,7 +44,7 @@ new ApiCheck('example-api-check', {
   }),
   runParallel: true,
   request: {
-    url: 'https://api.example.com/v1/products',
+    url: 'INSERT_URL',
     method: 'GET',
   },
 })

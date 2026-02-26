@@ -35,7 +35,7 @@ new TcpMonitor('example-tcp-monitor', {
   }),
   runParallel: true,
   request: {
-    hostname: 'tcp.example.com',
+    hostname: 'INSERT_HOSTNAME',
     port: 4242,
     ipFamily: 'IPv4',
     assertions: [
@@ -81,7 +81,7 @@ new UrlMonitor('example-url-monitor', {
   degradedResponseTime: 5000,
   maxResponseTime: 20000,
   request: {
-    url: 'https://example.com',
+    url: 'INSERT_URL',
     ipFamily: 'IPv4',
     assertions: [
       UrlAssertionBuilder.statusCode().equals(200),
@@ -121,7 +121,7 @@ new DnsMonitor('example-dns-monitor', {
   retryStrategy: RetryStrategyBuilder.noRetries(),
   request: {
     recordType: 'AAAA',
-    query: 'welcome.checklyhq.com',
+    query: 'INSERT_HOSTNAME',
     assertions: [
       DnsAssertionBuilder.responseCode().equals('NOERROR'),
     ],
@@ -145,7 +145,7 @@ import { AlertEscalationBuilder, Frequency, IcmpAssertionBuilder, IcmpMonitor, R
 new IcmpMonitor('example-icmp-monitor', {
   name: 'Example ICMP Monitor',
   request: {
-    hostname: '1.1.1.1',
+    hostname: 'INSERT_HOSTNAME',
     pingCount: 10,
     assertions: [
       IcmpAssertionBuilder.latency('avg').lessThan(100),

@@ -31,6 +31,7 @@ metadata:
 
 Here is an example directory tree of what that would look like:
 
+```
 .
 |-- checkly.config.ts
 |-- package.json
@@ -39,6 +40,7 @@ Here is an example directory tree of what that would look like:
 |-- alert-channels.ts
 |-- api-check.check.ts
 `-- homepage.spec.ts
+```
 
 The `checkly.config.ts` at the root of your project defines a range of defaults for all your checks.
 
