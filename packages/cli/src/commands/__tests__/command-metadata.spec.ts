@@ -33,43 +33,37 @@ import ImportCancel from '../import/cancel'
 import PwTest from '../pw-test'
 import SyncPlaywright from '../sync-playwright'
 
-type CommandClass = typeof BaseCommand & {
-  readOnly: boolean
-  destructive: boolean
-  idempotent: boolean
-}
-
-const commands: Array<[string, CommandClass]> = [
-  ['checks list', ChecksList as any],
-  ['checks get', ChecksGet as any],
-  ['status-pages list', StatusPagesList as any],
-  ['status-pages get', StatusPagesGet as any],
-  ['incidents list', IncidentsList as any],
-  ['incidents create', IncidentsCreate as any],
-  ['incidents update', IncidentsUpdate as any],
-  ['incidents resolve', IncidentsResolve as any],
-  ['env ls', EnvLs as any],
-  ['env add', EnvAdd as any],
-  ['env rm', EnvRm as any],
-  ['env update', EnvUpdate as any],
-  ['env pull', EnvPull as any],
-  ['deploy', Deploy as any],
-  ['destroy', Destroy as any],
-  ['test', Test as any],
-  ['trigger', Trigger as any],
-  ['validate', Validate as any],
-  ['login', Login as any],
-  ['logout', Logout as any],
-  ['whoami', Whoami as any],
-  ['switch', Switch as any],
-  ['runtimes', Runtimes as any],
-  ['rules', Rules as any],
-  ['import plan', ImportPlan as any],
-  ['import apply', ImportApply as any],
-  ['import commit', ImportCommit as any],
-  ['import cancel', ImportCancel as any],
-  ['pw-test', PwTest as any],
-  ['sync-playwright', SyncPlaywright as any],
+const commands: Array<[string, typeof BaseCommand]> = [
+  ['checks list', ChecksList],
+  ['checks get', ChecksGet],
+  ['status-pages list', StatusPagesList],
+  ['status-pages get', StatusPagesGet],
+  ['incidents list', IncidentsList],
+  ['incidents create', IncidentsCreate],
+  ['incidents update', IncidentsUpdate],
+  ['incidents resolve', IncidentsResolve],
+  ['env ls', EnvLs],
+  ['env add', EnvAdd],
+  ['env rm', EnvRm],
+  ['env update', EnvUpdate],
+  ['env pull', EnvPull],
+  ['deploy', Deploy],
+  ['destroy', Destroy],
+  ['test', Test],
+  ['trigger', Trigger],
+  ['validate', Validate],
+  ['login', Login],
+  ['logout', Logout],
+  ['whoami', Whoami],
+  ['switch', Switch],
+  ['runtimes', Runtimes],
+  ['rules', Rules],
+  ['import plan', ImportPlan],
+  ['import apply', ImportApply],
+  ['import commit', ImportCommit],
+  ['import cancel', ImportCancel],
+  ['pw-test', PwTest],
+  ['sync-playwright', SyncPlaywright],
 ]
 
 describe('command metadata', () => {

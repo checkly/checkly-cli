@@ -44,16 +44,22 @@ const statusPageFixture: StatusPage = {
 }
 
 function createCommandContext (parsed: unknown, CommandClass: any = IncidentsCreate) {
+  const logged: string[] = []
   return {
     parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn(),
-    exit: vi.fn(),
+    log: vi.fn((msg?: string) => {
+      if (msg) logged.push(msg)
+    }),
+    exit: vi.fn((code: number) => {
+      throw new Error(`EXIT_${code}`)
+    }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     style: {
       outputFormat: 'table',
       longError: vi.fn(),
     },
     constructor: CommandClass,
+    logged,
   }
 }
 
@@ -205,8 +211,10 @@ describe('incidents notify-subscribers flags', () => {
         'severity': 'critical',
         'notify-subscribers': true,
         'output': 'json',
+        'force': true,
+        'dry-run': false,
       },
-    })
+    }, IncidentsUpdate)
 
     await IncidentsUpdate.prototype.run.call(context as any)
 
@@ -223,12 +231,87 @@ describe('incidents notify-subscribers flags', () => {
         'status': 'investigating',
         'notify-subscribers': true,
         'output': 'json',
+        'force': true,
+        'dry-run': false,
       },
-    })
+    }, IncidentsUpdate)
 
     await IncidentsUpdate.prototype.run.call(context as any)
 
     expect(api.incidents.update).not.toHaveBeenCalled()
     expect(api.incidents.createUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('dry-run preview reflects notify-subscribers=true', async () => {
+    const context = createCommandContext({
+      flags: {
+        'status-page-id': 'sp-1',
+        'title': 'Outage',
+        'severity': 'major',
+        'notify-subscribers': true,
+        'output': 'table',
+        'force': false,
+        'dry-run': true,
+      },
+    })
+
+    await expect(
+      IncidentsCreate.prototype.run.call(context as any),
+    ).rejects.toThrow('EXIT_0')
+
+    const output = JSON.parse(context.logged[0])
+    expect(output.status).toBe('dry_run')
+    expect(output.changes).toContain('Will notify subscribers')
+    expect(api.incidents.create).not.toHaveBeenCalled()
+  })
+
+  it('dry-run preview reflects notify-subscribers=false', async () => {
+    const context = createCommandContext({
+      flags: {
+        'status-page-id': 'sp-1',
+        'title': 'Outage',
+        'severity': 'major',
+        'notify-subscribers': false,
+        'output': 'table',
+        'force': false,
+        'dry-run': true,
+      },
+    })
+
+    await expect(
+      IncidentsCreate.prototype.run.call(context as any),
+    ).rejects.toThrow('EXIT_0')
+
+    const output = JSON.parse(context.logged[0])
+    expect(output.status).toBe('dry_run')
+    expect(output.changes).toContain('Subscribers will NOT be notified')
+    expect(api.incidents.create).not.toHaveBeenCalled()
+  })
+
+  it('agent mode preview reflects notify-subscribers flag', async () => {
+    const { detectCliMode } = await import('../../../helpers/cli-mode')
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+
+    const context = createCommandContext({
+      flags: {
+        'status-page-id': 'sp-1',
+        'title': 'Outage',
+        'severity': 'major',
+        'notify-subscribers': false,
+        'output': 'table',
+        'force': false,
+        'dry-run': false,
+      },
+    })
+
+    await expect(
+      IncidentsCreate.prototype.run.call(context as any),
+    ).rejects.toThrow('EXIT_2')
+
+    const output = JSON.parse(context.logged[0])
+    expect(output.status).toBe('confirmation_required')
+    expect(output.changes).toContain('Subscribers will NOT be notified')
+    expect(output.confirmCommand).toContain('--no-notify-subscribers')
+    expect(api.incidents.create).not.toHaveBeenCalled()
   })
 })
