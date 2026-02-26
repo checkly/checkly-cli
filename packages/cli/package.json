@@ -72,6 +72,9 @@
       },
       "import": {
         "description": "Import existing resources from your Checkly account to your project."
+      },
+      "status-pages": {
+        "description": "List and manage status pages in your Checkly account."
       }
     },
     "helpClass": "./dist/help/help-extension"

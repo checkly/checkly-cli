@@ -59,6 +59,7 @@ describe('help', () => {
   logout           Log out and clear any local credentials.
   rules            Generate a rules file to use with AI IDEs and Copilots.
   runtimes         List all supported runtimes and dependencies.
+  status-pages     List and manage status pages in your Checkly account.
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
   whoami           See your currently logged in account and user.`)
