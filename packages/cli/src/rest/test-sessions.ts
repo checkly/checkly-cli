@@ -15,6 +15,7 @@ type RunTestSessionRequest = {
   environment?: string | null
   shouldRecord: boolean
   streamLogs?: boolean
+  refreshCache?: boolean
 }
 
 type TriggerTestSessionRequest = {
@@ -27,6 +28,7 @@ type TriggerTestSessionRequest = {
   repoInfo: GitInformation | null
   environment: string | null
   testRetryStrategy: RetryStrategy | null
+  refreshCache?: boolean
 }
 
 export type TestResultsShortLinks = {

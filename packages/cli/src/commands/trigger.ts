@@ -90,6 +90,10 @@ export default class Trigger extends AuthCommand {
     'retries': Flags.integer({
       description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a check run.`,
     }),
+    'refresh-cache': Flags.boolean({
+      description: 'Force a fresh install of dependencies and update the cached version.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -108,6 +112,7 @@ export default class Trigger extends AuthCommand {
       'env-file': envFile,
       'test-session-name': testSessionName,
       retries,
+      'refresh-cache': refreshCache,
     } = flags
     const envVars = await getEnvs(envFile, env)
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -143,6 +148,7 @@ export default class Trigger extends AuthCommand {
       ciInfo.environment,
       testSessionName,
       testRetryStrategy,
+      refreshCache,
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
