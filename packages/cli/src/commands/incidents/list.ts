@@ -34,6 +34,8 @@ async function fetchAllIncidents (): Promise<StatusPageIncident[]> {
 
 export default class IncidentsList extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List incidents, optionally filtered by status page or status.'
 
   static flags = {

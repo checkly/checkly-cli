@@ -1,7 +1,7 @@
 import { Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
+import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { OutputFormat } from '../../formatters/render'
 import { formatIncidentUpdateDetail, formatIncidentSeverity } from '../../formatters/incidents'
@@ -45,11 +45,34 @@ export default class IncidentsUpdate extends AuthCommand {
       allowNo: true,
     }),
     'output': outputFlag({ default: 'table' }),
+    'force': forceFlag(),
+    'dry-run': dryRunFlag(),
   }
 
   async run (): Promise<void> {
     const { args, flags } = await this.parse(IncidentsUpdate)
     this.style.outputFormat = flags.output
+
+    const incident = await api.incidents.get(args.id)
+
+    await this.confirmOrAbort({
+      command: 'incidents update',
+      description: 'Post progress update to incident',
+      changes: [
+        `Will post update to incident "${incident.name}" (${args.id})`,
+        `Status: ${flags.status}`,
+        flags['notify-subscribers']
+          ? 'Will notify subscribers'
+          : 'Subscribers will NOT be notified',
+      ],
+      flags,
+      args: { id: args.id },
+      classification: {
+        readOnly: IncidentsUpdate.readOnly,
+        destructive: IncidentsUpdate.destructive,
+        idempotent: IncidentsUpdate.idempotent,
+      },
+    }, { force: flags.force, dryRun: flags['dry-run'] })
 
     try {
       if (flags.severity) {

@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
+import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { OutputFormat } from '../../formatters/render'
 import { formatIncidentDetail } from '../../formatters/incidents'
@@ -45,17 +45,41 @@ export default class IncidentsCreate extends AuthCommand {
       allowNo: true,
     }),
     'output': outputFlag({ default: 'table' }),
+    'force': forceFlag(),
+    'dry-run': dryRunFlag(),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(IncidentsCreate)
     this.style.outputFormat = flags.output
 
-    try {
-      const statusPage = await api.statusPages.get(flags['status-page-id'])
-      const statusPageServices = flattenStatusPageServices(statusPage)
-      const incidentServices = resolveIncidentServices(statusPageServices, flags.services)
+    const statusPage = await api.statusPages.get(flags['status-page-id'])
+    const statusPageServices = flattenStatusPageServices(statusPage)
+    const incidentServices = resolveIncidentServices(statusPageServices, flags.services)
+    const serviceNames = incidentServices.map(s => s.name)
 
+    await this.confirmOrAbort({
+      command: 'incidents create',
+      description: 'Create incident on status page',
+      changes: [
+        `Will create incident "${flags.title}" on status page "${statusPage.name}"`,
+        `Severity: ${flags.severity}`,
+        serviceNames.length > 0
+          ? `Affected services: ${serviceNames.join(', ')}`
+          : 'All services affected',
+        flags['notify-subscribers']
+          ? 'Will notify subscribers'
+          : 'Subscribers will NOT be notified',
+      ],
+      flags,
+      classification: {
+        readOnly: IncidentsCreate.readOnly,
+        destructive: IncidentsCreate.destructive,
+        idempotent: IncidentsCreate.idempotent,
+      },
+    }, { force: flags.force, dryRun: flags['dry-run'] })
+
+    try {
       const incident = await api.incidents.create({
         name: flags.title,
         severity: toIncidentSeverity(flags.severity as IncidentSeverityOption),

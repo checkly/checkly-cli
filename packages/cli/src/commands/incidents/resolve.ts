@@ -1,7 +1,7 @@
 import { Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
+import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { OutputFormat } from '../../formatters/render'
 import { formatIncidentUpdateDetail } from '../../formatters/incidents'
@@ -28,11 +28,33 @@ export default class IncidentsResolve extends AuthCommand {
       allowNo: true,
     }),
     'output': outputFlag({ default: 'table' }),
+    'force': forceFlag(),
+    'dry-run': dryRunFlag(),
   }
 
   async run (): Promise<void> {
     const { args, flags } = await this.parse(IncidentsResolve)
     this.style.outputFormat = flags.output
+
+    const incident = await api.incidents.get(args.id)
+
+    await this.confirmOrAbort({
+      command: 'incidents resolve',
+      description: 'Resolve incident',
+      changes: [
+        `Will resolve incident "${incident.name}" (${args.id})`,
+        flags['notify-subscribers']
+          ? 'Will notify subscribers'
+          : 'Subscribers will NOT be notified',
+      ],
+      flags,
+      args: { id: args.id },
+      classification: {
+        readOnly: IncidentsResolve.readOnly,
+        destructive: IncidentsResolve.destructive,
+        idempotent: IncidentsResolve.idempotent,
+      },
+    }, { force: flags.force, dryRun: flags['dry-run'] })
 
     try {
       const update = await api.incidents.createUpdate(args.id, {
