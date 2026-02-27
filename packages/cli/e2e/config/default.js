@@ -10,5 +10,6 @@ config.baseURL = process.env.CHECKLY_BASE_URL || 'https://api.checklyhq.com'
 // Optional: empty account for edge-case testing (no checks, no groups, etc.)
 config.emptyApiKey = process.env.CHECKLY_EMPTY_API_KEY
 config.emptyAccountId = process.env.CHECKLY_EMPTY_ACCOUNT_ID
+config.emptyStatusPageId = process.env.CHECKLY_EMPTY_STATUS_PAGE_ID
 
 module.exports = config
