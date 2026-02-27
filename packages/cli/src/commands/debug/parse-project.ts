@@ -4,10 +4,12 @@ import { parseProject } from '../../services/project-parser'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import {
   Diagnostics,
+  Session,
 } from '../../constructs'
 import { splitConfigFilePath } from '../../services/util'
 import commonMessages from '../../messages/common-messages'
 import { loadSnapshot, Runtime } from '../../runtimes'
+import { Bundler } from '../../services/check-parser/bundler'
 
 export type ParseProjectOutput = {
   diagnostics: {
@@ -115,7 +117,13 @@ export default class ParseProjectCommand extends Command {
       const diagnostics = new Diagnostics()
       await project.validate(diagnostics)
 
-      const bundle = await project.bundle()
+      const bundler = await Bundler.create({
+        workspace: Session.workspace.ok(),
+      })
+      const bundle = await project.bundle(bundler)
+
+      const archive = await bundler.finalize()
+      bundler.updateMarker(archive.archiveFile)
 
       const payload = diagnostics.isFatal() ? null : bundle.synthesize()
 

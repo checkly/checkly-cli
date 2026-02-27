@@ -1,16 +1,11 @@
-import { createReadStream } from 'node:fs'
-import fs from 'node:fs/promises'
-
-import { AxiosResponse } from 'axios'
-
 import { Bundle } from './construct'
+import { BundlePathMarker } from '../services/check-parser/bundler'
 import { PlaywrightCheck } from './playwright-check'
 import { Ref } from './ref'
-import { checklyStorage } from '../rest/api'
 
-export interface PlaywrightCheckLocalBundleProps {
+export interface PlaywrightCheckBundleProps {
   groupId?: Ref
-  localCodeBundlePath: string
+  codeBundlePath: BundlePathMarker
   browsers?: string[]
   cacheHash?: string
   playwrightVersion?: string
@@ -19,10 +14,10 @@ export interface PlaywrightCheckLocalBundleProps {
   workingDir?: string
 }
 
-export class PlaywrightCheckLocalBundle implements Bundle {
+export class PlaywrightCheckBundle implements Bundle {
   playwrightCheck: PlaywrightCheck
   groupId?: Ref
-  localCodeBundlePath: string
+  codeBundlePath: BundlePathMarker
   browsers?: string[]
   cacheHash?: string
   playwrightVersion?: string
@@ -30,10 +25,10 @@ export class PlaywrightCheckLocalBundle implements Bundle {
   testCommand: string
   workingDir?: string
 
-  constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckLocalBundleProps) {
+  constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckBundleProps) {
     this.playwrightCheck = playwrightCheck
     this.groupId = props.groupId
-    this.localCodeBundlePath = props.localCodeBundlePath
+    this.codeBundlePath = props.codeBundlePath
     this.browsers = props.browsers
     this.cacheHash = props.cacheHash
     this.playwrightVersion = props.playwrightVersion
@@ -42,66 +37,17 @@ export class PlaywrightCheckLocalBundle implements Bundle {
     this.workingDir = props.workingDir
   }
 
-  async store (): Promise<PlaywrightCheckStoredBundle> {
-    const {
-      data: {
-        key: codeBundlePath,
-      },
-    } = await this.#uploadCodeBundle(this.localCodeBundlePath)
-
-    return new PlaywrightCheckStoredBundle(this.playwrightCheck, {
-      groupId: this.groupId,
-      localCodeBundlePath: this.localCodeBundlePath,
-      codeBundlePath,
-      browsers: this.browsers,
-      cacheHash: this.cacheHash,
-      playwrightVersion: this.playwrightVersion,
-      testCommand: this.testCommand,
-      installCommand: this.installCommand,
-      workingDir: this.workingDir,
-    })
-  }
-
-  async #uploadCodeBundle (filePath: string): Promise<AxiosResponse> {
-    const { size } = await fs.stat(filePath)
-    const stream = createReadStream(filePath)
-    stream.on('error', err => {
-      throw new Error(`Failed to read Playwright project file: ${err.message}`)
-    })
-    return checklyStorage.uploadCodeBundle(stream, size)
-  }
-
   synthesize () {
     return {
       ...this.playwrightCheck.synthesize(),
       groupId: this.groupId,
-      codeBundlePath: this.localCodeBundlePath,
+      codeBundlePath: this.codeBundlePath,
       browsers: this.browsers,
       cacheHash: this.cacheHash,
       playwrightVersion: this.playwrightVersion,
       installCommand: this.installCommand,
       testCommand: this.testCommand,
       workingDir: this.workingDir,
-    }
-  }
-}
-
-export interface PlaywrightCheckStoredBundleProps extends PlaywrightCheckLocalBundleProps {
-  codeBundlePath: string
-}
-
-export class PlaywrightCheckStoredBundle extends PlaywrightCheckLocalBundle {
-  codeBundlePath: string
-
-  constructor (playwrightCheck: PlaywrightCheck, props: PlaywrightCheckStoredBundleProps) {
-    super(playwrightCheck, props)
-    this.codeBundlePath = props.codeBundlePath
-  }
-
-  synthesize () {
-    return {
-      ...super.synthesize(),
-      codeBundlePath: this.codeBundlePath,
     }
   }
 }

@@ -23,8 +23,8 @@ import { uploadSnapshots } from '../services/snapshot-service'
 import { isEntrypoint } from '../constructs/construct'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
 import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
-import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
 import { Runtime } from '../runtimes'
+import { Bundler } from '../services/check-parser/bundler'
 
 const MAX_RETRIES = 3
 
@@ -269,10 +269,14 @@ export default class Test extends AuthCommand {
 
     this.style.actionSuccess()
 
+    const bundler = await Bundler.create({
+      workspace: Session.workspace.ok(),
+    })
+
     this.style.actionStart('Bundling project resources')
     const projectBundle = await (async () => {
       try {
-        const bundle = await project.bundle()
+        const bundle = await project.bundle(bundler)
         this.style.actionSuccess()
         return bundle
       } catch (err) {
@@ -281,16 +285,26 @@ export default class Test extends AuthCommand {
       }
     })()
 
+    const archive = await bundler.finalize()
+    bundler.updateMarker(archive.archiveFile)
+
+    this.style.actionStart('Uploading Playwright tests')
+    try {
+      const storedArchive = await archive.store()
+      bundler.updateMarker(storedArchive.key)
+      this.style.actionSuccess()
+    } catch (err) {
+      this.style.actionFailure()
+      throw err
+    }
+
     const bundledChecksByType = {
-      playwright: [] as string[],
       browser: [] as string[],
     }
 
     for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
       if (bundle instanceof BrowserCheckBundle) {
         bundledChecksByType.browser.push(logicalId)
-      } else if (bundle instanceof PlaywrightCheckLocalBundle) {
-        bundledChecksByType.playwright.push(logicalId)
       }
     }
 
@@ -300,21 +314,6 @@ export default class Test extends AuthCommand {
         for (const logicalId of bundledChecksByType.browser) {
           const bundle = projectBundle.data.check[logicalId].bundle as BrowserCheckBundle
           bundle.snapshots = await uploadSnapshots(bundle.rawSnapshots)
-        }
-        this.style.actionSuccess()
-      } catch (err) {
-        this.style.actionFailure()
-        throw err
-      }
-    }
-
-    if (bundledChecksByType.playwright.length) {
-      this.style.actionStart('Uploading Playwright code bundles')
-      try {
-        for (const logicalId of bundledChecksByType.playwright) {
-          const resourceData = projectBundle.data.check[logicalId]
-          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
-          resourceData.bundle = await bundle.store()
         }
         this.style.actionSuccess()
       } catch (err) {

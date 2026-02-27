@@ -27,6 +27,7 @@ import { Workspace } from '../services/check-parser/package-files/workspace'
 import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
 import { Err, Result } from '../services/check-parser/package-files/result'
 import { Runtime } from '../runtimes'
+import { Bundler } from '../services/check-parser/bundler'
 
 export interface ProjectProps {
   /**
@@ -140,7 +141,7 @@ export class Project extends Construct {
     this.data[type as keyof ProjectData][logicalId] = resource
   }
 
-  async bundle (): Promise<ProjectBundle> {
+  async bundle (bundler: Bundler): Promise<ProjectBundle> {
     const data: Record<keyof ProjectData, Record<string, Construct>> = {
       ...this.data,
 
@@ -155,7 +156,7 @@ export class Project extends Construct {
     const constructBundles = await Promise.all(
       Object.entries(data).flatMap(([, records]) => {
         return Object.entries(records).map(async ([, construct]) => {
-          const bundle = await construct.bundle()
+          const bundle = await construct.bundle(bundler)
           return {
             construct,
             bundle,
