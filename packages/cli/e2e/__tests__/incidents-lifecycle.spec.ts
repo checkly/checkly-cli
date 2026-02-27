@@ -42,7 +42,7 @@ describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resol
       apiKey,
       accountId,
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const incident = JSON.parse(result.stdout)
     expect(incident).toHaveProperty('id')
     expect(incident.name).toBe('E2E Test Incident')
@@ -56,7 +56,7 @@ describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resol
       apiKey,
       accountId,
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     const found = parsed.data.find((i: any) => i.id === incidentId)
     expect(found).toBeDefined()
@@ -75,7 +75,7 @@ describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resol
       apiKey,
       accountId,
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const update = JSON.parse(result.stdout)
     expect(update).toHaveProperty('status', 'IDENTIFIED')
     expect(update).toHaveProperty('description', 'Root cause identified.')
@@ -92,7 +92,7 @@ describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resol
       apiKey,
       accountId,
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const update = JSON.parse(result.stdout)
     expect(update).toHaveProperty('status', 'RESOLVED')
   })
@@ -103,7 +103,7 @@ describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resol
       apiKey,
       accountId,
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     const found = parsed.data.find((i: any) => i.id === incidentId)
     expect(found).toBeDefined()

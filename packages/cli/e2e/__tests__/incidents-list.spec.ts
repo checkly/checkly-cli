@@ -10,7 +10,7 @@ describe('checkly incidents list', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     expect(result.stdout).toBeTruthy()
   })
 
@@ -20,7 +20,7 @@ describe('checkly incidents list', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     expect(parsed).toHaveProperty('data')
     expect(Array.isArray(parsed.data)).toBe(true)
@@ -33,7 +33,7 @@ describe('checkly incidents list', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     expect(result.stdout).toBeTruthy()
   })
 
@@ -43,7 +43,7 @@ describe('checkly incidents list', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     expect(parsed).toHaveProperty('data')
     for (const incident of parsed.data) {
@@ -57,7 +57,7 @@ describe('checkly incidents list', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
+    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     expect(parsed).toHaveProperty('data')
     for (const incident of parsed.data) {
