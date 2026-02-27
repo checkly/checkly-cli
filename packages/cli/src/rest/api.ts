@@ -21,6 +21,7 @@ import ErrorGroups from './error-groups'
 import StatusPages from './status-pages'
 import Incidents from './incidents'
 import { handleErrorResponse, UnauthorizedError } from './errors'
+import { detectOperator } from '../helpers/cli-mode'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -60,8 +61,6 @@ export async function validateAuthentication (): Promise<Account | undefined> {
     throw err
   }
 }
-
-export { detectOperator } from '../helpers/cli-mode'
 
 export function requestInterceptor (config: InternalAxiosRequestConfig) {
   const { Authorization, accountId } = getDefaults()
