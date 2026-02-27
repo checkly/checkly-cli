@@ -7,9 +7,11 @@ config.apiKey = process.env.CHECKLY_API_KEY
 config.accountId = process.env.CHECKLY_ACCOUNT_ID
 config.baseURL = process.env.CHECKLY_BASE_URL || 'https://api.checklyhq.com'
 
+// Optional: status page for incidents lifecycle testing
+config.statusPageId = process.env.CHECKLY_STATUS_PAGE_ID
+
 // Optional: empty account for edge-case testing (no checks, no groups, etc.)
 config.emptyApiKey = process.env.CHECKLY_EMPTY_API_KEY
 config.emptyAccountId = process.env.CHECKLY_EMPTY_ACCOUNT_ID
-config.emptyStatusPageId = process.env.CHECKLY_EMPTY_STATUS_PAGE_ID
 
 module.exports = config

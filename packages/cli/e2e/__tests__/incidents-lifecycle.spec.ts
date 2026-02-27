@@ -1,14 +1,32 @@
 import config from 'config'
-import { describe, it, expect } from 'vitest'
+import axios from 'axios'
+import { describe, it, expect, afterAll } from 'vitest'
 
 import { runChecklyCli } from '../run-checkly'
 
-const apiKey: string | undefined = config.get('emptyApiKey')
-const accountId: string | undefined = config.get('emptyAccountId')
-const statusPageId: string | undefined = config.get('emptyStatusPageId')
+const apiKey: string = config.get('apiKey')
+const accountId: string = config.get('accountId')
+const statusPageId: string | undefined = config.has('statusPageId') ? config.get('statusPageId') : undefined
 
-describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (create → update → resolve)', () => {
+describe.skipIf(!statusPageId)('incidents lifecycle (create → update → resolve → delete)', () => {
   let incidentId: string
+
+  afterAll(async () => {
+    if (!incidentId) return
+    const api = axios.create({
+      baseURL: config.get('baseURL'),
+      headers: {
+        'x-checkly-account': accountId,
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    })
+    try {
+      await api.delete(`/v1/status-pages/incidents/${incidentId}`)
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.warn(`Failed to clean up test incident ${incidentId}: ${err.message}`)
+    }
+  })
 
   it('should create an incident', async () => {
     const result = await runChecklyCli({
@@ -24,7 +42,7 @@ describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (cr
       apiKey,
       accountId,
     })
-    expect(result.status).toBe(0)
+    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
     const incident = JSON.parse(result.stdout)
     expect(incident).toHaveProperty('id')
     expect(incident.name).toBe('E2E Test Incident')
@@ -38,7 +56,7 @@ describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (cr
       apiKey,
       accountId,
     })
-    expect(result.status).toBe(0)
+    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     const found = parsed.data.find((i: any) => i.id === incidentId)
     expect(found).toBeDefined()
@@ -57,7 +75,7 @@ describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (cr
       apiKey,
       accountId,
     })
-    expect(result.status).toBe(0)
+    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
     const update = JSON.parse(result.stdout)
     expect(update).toHaveProperty('status', 'IDENTIFIED')
     expect(update).toHaveProperty('description', 'Root cause identified.')
@@ -74,7 +92,7 @@ describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (cr
       apiKey,
       accountId,
     })
-    expect(result.status).toBe(0)
+    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
     const update = JSON.parse(result.stdout)
     expect(update).toHaveProperty('status', 'RESOLVED')
   })
@@ -85,7 +103,7 @@ describe.skipIf(!apiKey || !accountId || !statusPageId)('incidents lifecycle (cr
       apiKey,
       accountId,
     })
-    expect(result.status).toBe(0)
+    expect(result.status, `stderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
     const found = parsed.data.find((i: any) => i.id === incidentId)
     expect(found).toBeDefined()
