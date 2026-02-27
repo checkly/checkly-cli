@@ -55,6 +55,7 @@ describe('help', () => {
   help             Display help for checkly.
   import           Import existing resources from your Checkly account to your
                    project.
+  incidents        Create and manage status page incidents.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
   rules            Generate a rules file to use with AI IDEs and Copilots.

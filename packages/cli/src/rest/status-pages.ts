@@ -3,6 +3,9 @@ import type { AxiosInstance } from 'axios'
 export interface StatusPageService {
   id: string
   name: string
+  accountId?: string
+  created_at?: string
+  updated_at?: string | null
 }
 
 export interface StatusPageCard {
