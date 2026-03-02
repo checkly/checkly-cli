@@ -138,9 +138,7 @@ export default class ParseProjectCommand extends Command {
           return null
         }
 
-        const bundler = await Bundler.create({
-          workspace: Session.workspace.ok(),
-        })
+        const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap())
 
         const bundle = await project.bundle(bundler)
 

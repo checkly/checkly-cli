@@ -269,9 +269,7 @@ export default class Test extends AuthCommand {
 
     this.style.actionSuccess()
 
-    const bundler = await Bundler.create({
-      workspace: Session.workspace.ok(),
-    })
+    const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap())
 
     this.style.actionStart('Bundling project resources')
     const projectBundle = await (async () => {

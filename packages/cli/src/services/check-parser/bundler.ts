@@ -212,8 +212,11 @@ export class RemoteBundleArchive {
 
 export interface CreateBundlerOptions {
   tempDir?: string
-  workspace?: Workspace
+  cacheHash: string
+  stripPrefix?: string
 }
+
+export type CreateBundlerForWorkspaceOptions = Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'>
 
 interface BundlerOptions {
   tempDir?: string
@@ -243,21 +246,25 @@ export class Bundler {
     this.#tempDir = tempDir
   }
 
+  // eslint-disable-next-line require-await
   static async create (options: CreateBundlerOptions): Promise<Bundler> {
     debug(`Creating bundler`)
+    return new Bundler(options)
+  }
+
+  static async createForWorkspace (
+    workspace: Workspace,
+    options: CreateBundlerForWorkspaceOptions = {},
+  ): Promise<Bundler> {
+    debug(`Creating bundler for workspace`)
 
     const {
       tempDir,
-      workspace,
     } = options
 
-    const cacheHashFile = workspace?.lockfile.isOk()
+    const cacheHashFile = workspace.lockfile.isOk()
       ? workspace.lockfile.ok()
-      : workspace?.root.packageJsonPath
-
-    if (!cacheHashFile) {
-      throw new Error('Unable to setup Bundler to due missing lockfile or package.json file')
-    }
+      : workspace.root.packageJsonPath
 
     const cacheHash = await getCacheHash(cacheHashFile)
 
