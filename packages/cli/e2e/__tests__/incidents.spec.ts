@@ -100,9 +100,9 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
       args: [
         'incidents', 'create',
         '--status-page-id', statusPageId,
-        '--title', 'E2E Test Incident',
+        '--title', 'e2e-test-incident',
         '--severity', 'minor',
-        '--message', 'Automated e2e test incident.',
+        '--message', 'e2e-test-created',
         '--no-notify-subscribers',
         '--output', 'json',
       ],
@@ -112,7 +112,7 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const incident = JSON.parse(result.stdout)
     expect(incident).toHaveProperty('id')
-    expect(incident.name).toBe('E2E Test Incident')
+    expect(incident.name).toBe('e2e-test-incident')
     expect(incident.severity).toBe('MINOR')
     incidentId = incident.id
   })
@@ -121,7 +121,7 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
     const result = await runChecklyCli({
       args: [
         'incidents', 'update', incidentId,
-        '--message', 'Root cause identified.',
+        '--message', 'e2e-root-cause-identified',
         '--status', 'identified',
         '--no-notify-subscribers',
         '--output', 'json',
@@ -132,14 +132,14 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const update = JSON.parse(result.stdout)
     expect(update).toHaveProperty('status', 'IDENTIFIED')
-    expect(update).toHaveProperty('description', 'Root cause identified.')
+    expect(update).toHaveProperty('description', 'e2e-root-cause-identified')
   })
 
   it('should resolve the incident', async () => {
     const result = await runChecklyCli({
       args: [
         'incidents', 'resolve', incidentId,
-        '--message', 'E2E test resolved.',
+        '--message', 'e2e-test-resolved',
         '--no-notify-subscribers',
         '--output', 'json',
       ],
