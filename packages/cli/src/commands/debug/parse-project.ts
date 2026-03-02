@@ -70,6 +70,11 @@ export default class ParseProjectCommand extends Command {
       multiple: true,
       default: [],
     }),
+    'inject-private-location': Flags.string({
+      description: 'Pretend that the given private location exists (e.g., "70c4ded4-2229-45a7-acf4-6b1eb56a86df:my-external-private-location").',
+      multiple: true,
+      default: [],
+    }),
   }
 
   async run (): Promise<void> {
@@ -80,6 +85,7 @@ export default class ParseProjectCommand extends Command {
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'emulate-pw-test': emulatePwTest,
       'include': includeFlag,
+      'inject-private-location': injectPrivateLocation,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -89,6 +95,16 @@ export default class ParseProjectCommand extends Command {
     const availableRuntimes = await loadSnapshot()
 
     try {
+      if (injectPrivateLocation) {
+        Session.privateLocations = injectPrivateLocation.map(loc => {
+          const [id, ...rest] = loc.split(':')
+          return {
+            id,
+            slugName: rest.join(':'),
+          }
+        })
+      }
+
       const project = await parseProject({
         directory: configDirectory,
         projectLogicalId: checklyConfig.logicalId,
@@ -117,15 +133,22 @@ export default class ParseProjectCommand extends Command {
       const diagnostics = new Diagnostics()
       await project.validate(diagnostics)
 
-      const bundler = await Bundler.create({
-        workspace: Session.workspace.ok(),
-      })
-      const bundle = await project.bundle(bundler)
+      const payload = await (async () => {
+        if (diagnostics.isFatal()) {
+          return null
+        }
 
-      const archive = await bundler.finalize()
-      bundler.updateMarker(archive.archiveFile)
+        const bundler = await Bundler.create({
+          workspace: Session.workspace.ok(),
+        })
 
-      const payload = diagnostics.isFatal() ? null : bundle.synthesize()
+        const bundle = await project.bundle(bundler)
+
+        const archive = await bundler.finalize()
+        bundler.updateMarker(archive.archiveFile)
+
+        return bundle.synthesize()
+      })()
 
       const output = {
         diagnostics: {
