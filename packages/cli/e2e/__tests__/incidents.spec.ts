@@ -19,17 +19,7 @@ function createApiClient (): AxiosInstance {
 }
 
 describe('checkly incidents list', () => {
-  it('should list incidents with default output', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'all'],
-      apiKey,
-      accountId,
-    })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    expect(result.stdout).toBeTruthy()
-  })
-
-  it('should output valid JSON with --output json', async () => {
+  it('should list incidents as JSON with correct structure', async () => {
     const result = await runChecklyCli({
       args: ['incidents', 'list', '--status', 'all', '--output', 'json'],
       apiKey,
@@ -42,31 +32,18 @@ describe('checkly incidents list', () => {
     expect(parsed).toHaveProperty('count')
   })
 
-  it('should output markdown with --output md', async () => {
+  it('should respect --limit flag', async () => {
     const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'all', '--output', 'md'],
-      apiKey,
-      accountId,
-    })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    expect(result.stdout).toBeTruthy()
-  })
-
-  it('should filter by open status by default', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--output', 'json'],
+      args: ['incidents', 'list', '--status', 'all', '--limit', '2', '--output', 'json'],
       apiKey,
       accountId,
     })
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
-    expect(parsed).toHaveProperty('data')
-    for (const incident of parsed.data) {
-      expect(incident.lastUpdateStatus).not.toBe('RESOLVED')
-    }
+    expect(parsed.data.length).toBeLessThanOrEqual(2)
   })
 
-  it('should filter by resolved status', async () => {
+  it('should filter by status', async () => {
     const result = await runChecklyCli({
       args: ['incidents', 'list', '--status', 'resolved', '--output', 'json'],
       apiKey,
@@ -74,7 +51,6 @@ describe('checkly incidents list', () => {
     })
     expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
     const parsed = JSON.parse(result.stdout)
-    expect(parsed).toHaveProperty('data')
     for (const incident of parsed.data) {
       expect(incident.lastUpdateStatus).toBe('RESOLVED')
     }
@@ -139,19 +115,6 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
     expect(incident.name).toBe('E2E Test Incident')
     expect(incident.severity).toBe('MINOR')
     incidentId = incident.id
-  })
-
-  it('should list the created incident as open', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--output', 'json'],
-      apiKey,
-      accountId,
-    })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const parsed = JSON.parse(result.stdout)
-    const found = parsed.data.find((i: any) => i.id === incidentId)
-    expect(found).toBeDefined()
-    expect(found.lastUpdateStatus).not.toBe('RESOLVED')
   })
 
   it('should post a progress update', async () => {

@@ -3,7 +3,6 @@ import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
 import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
-import type { StatusPageIncident } from '../../rest/incidents'
 import type { OutputFormat } from '../../formatters/render'
 import { formatIncidentsList } from '../../formatters/incidents'
 import {
@@ -13,30 +12,16 @@ import {
   type IncidentListStatusOption,
 } from '../../helpers/incidents'
 
-const FETCH_LIMIT = 100
-const MAX_PAGES = 50
-
-async function fetchAllIncidents (): Promise<StatusPageIncident[]> {
-  const incidents: StatusPageIncident[] = []
-  let nextId: string | undefined
-  let pageCount = 0
-
-  while (pageCount < MAX_PAGES) {
-    const page = await api.incidents.getAll({ limit: FETCH_LIMIT, nextId })
-    incidents.push(...page.entries)
-    pageCount++
-    nextId = page.nextId ?? undefined
-    if (!nextId) break
-  }
-
-  return incidents
-}
-
 export default class IncidentsList extends AuthCommand {
   static hidden = false
   static description = 'List incidents, optionally filtered by status page or status.'
 
   static flags = {
+    'limit': Flags.integer({
+      char: 'l',
+      description: 'Number of incidents to return (1-100).',
+      default: 25,
+    }),
     'status-page-id': Flags.string({
       description: 'Filter incidents by status page ID.',
     }),
@@ -53,8 +38,8 @@ export default class IncidentsList extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      let incidents = await fetchAllIncidents()
-      incidents = filterIncidentsByStatus(incidents, flags.status as IncidentListStatusOption)
+      const page = await api.incidents.getAll({ limit: flags.limit })
+      let incidents = filterIncidentsByStatus(page.entries, flags.status as IncidentListStatusOption)
 
       if (flags['status-page-id']) {
         const statusPage = await api.statusPages.get(flags['status-page-id'])
@@ -65,7 +50,11 @@ export default class IncidentsList extends AuthCommand {
       }
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify({ data: incidents, count: incidents.length }, null, 2))
+        this.log(JSON.stringify({
+          data: incidents,
+          count: incidents.length,
+          ...(page.nextId ? { nextId: page.nextId } : {}),
+        }, null, 2))
         return
       }
 
