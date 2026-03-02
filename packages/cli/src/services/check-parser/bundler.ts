@@ -13,7 +13,7 @@ import { checklyStorage } from '../../rest/api'
 import { File } from './parser'
 import { Workspace } from './package-files/workspace'
 
-const debug = Debug('checkly:cli:constructs:internal:bundler')
+const debug = Debug('checkly:cli:services:check-parser:bundler')
 
 export interface CreateBundleArchiveOptions {
   tempDir?: string
