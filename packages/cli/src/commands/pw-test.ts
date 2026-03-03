@@ -72,7 +72,8 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Always show the full logs of the checks.',
     }),
     'reporter': Flags.string({
-      description: 'A list of custom reporters for the test output.',
+      multiple: true,
+      description: 'One or more reporters for the test output. Can be specified multiple times.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
     }),
     'config': Flags.string({
@@ -175,7 +176,7 @@ export default class PwTestCommand extends AuthCommand {
       privateRunLocation,
     }, api, config.getAccountId())
 
-    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)

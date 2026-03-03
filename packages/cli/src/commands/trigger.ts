@@ -1,5 +1,4 @@
 import { Flags } from '@oclif/core'
-import { isCI } from 'ci-info'
 
 import * as api from '../rest/api'
 import { AuthCommand } from './authCommand'
@@ -16,6 +15,7 @@ import {
 } from '../services/abstract-check-runner'
 import config from '../services/config'
 import { createReporters, ReporterType } from '../reporters/reporter'
+import { prepareReportersTypes } from '../helpers/test-helper'
 import { printLn } from '../reporters/util'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions'
 import { Session, RetryStrategyBuilder } from '../constructs'
@@ -65,7 +65,8 @@ export default class Trigger extends AuthCommand {
     }),
     'reporter': Flags.string({
       char: 'r',
-      description: 'A list of custom reporters for the test output.',
+      multiple: true,
+      description: 'One or more reporters for the test output. Can be specified multiple times.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
     }),
     'env': Flags.string({
@@ -124,7 +125,7 @@ export default class Trigger extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
-    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig?.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig?.cli?.reporters)
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
@@ -229,13 +230,6 @@ export default class Trigger extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
-  }
-
-  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
-    if (!reporterFlag && !cliReporters.length) {
-      return [isCI ? 'ci' : 'list']
-    }
-    return reporterFlag ? [reporterFlag] : cliReporters
   }
 
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {
