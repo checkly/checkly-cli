@@ -15,6 +15,7 @@ oclif.manifest.json
 local
 .env*
 .eslintcache
+*.tgz
 .tsbuildinfo
 **/checkly-github-report.md
 **/checkly-summary.md
