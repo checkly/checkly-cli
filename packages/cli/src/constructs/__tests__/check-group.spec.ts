@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import { AlertEscalationBuilder, CheckGroup, CheckGroupV1, CheckGroupV2, Diagnostics } from '../index'
 import { Project, Session } from '../project'
+import { Bundler } from '../../services/check-parser/bundler'
 
 describe('CheckGroup', () => {
   describe('v1', () => {
@@ -71,7 +72,10 @@ describe('CheckGroup', () => {
         name: 'Test',
       })
 
-      const bundle = await group.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await group.bundle(bundler)
       const payload = bundle.synthesize()
 
       expect(payload.v).toBeUndefined()
@@ -119,7 +123,10 @@ describe('CheckGroup', () => {
         name: 'Test',
       })
 
-      const bundle = await group.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await group.bundle(bundler)
       const payload = bundle.synthesize()
 
       expect(payload.v).toEqual(2)
@@ -136,7 +143,10 @@ describe('CheckGroup', () => {
         alertEscalationPolicy: 'global',
       })
 
-      const bundle = await group.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await group.bundle(bundler)
       const payload = bundle.synthesize()
 
       expect(payload.useGlobalAlertSettings).toEqual(true)
@@ -153,7 +163,10 @@ describe('CheckGroup', () => {
         name: 'Test',
       })
 
-      const bundle = await group.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await group.bundle(bundler)
       const payload = bundle.synthesize()
 
       expect(payload.useGlobalAlertSettings).toBeUndefined()
@@ -171,7 +184,10 @@ describe('CheckGroup', () => {
         alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),
       })
 
-      const bundle = await group.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await group.bundle(bundler)
       const payload = bundle.synthesize()
 
       expect(payload.useGlobalAlertSettings).toEqual(false)

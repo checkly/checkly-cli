@@ -4,19 +4,16 @@ import * as fsSync from 'fs'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
-import type { Archiver } from 'archiver'
 import { glob } from 'glob'
-import os from 'node:os'
 import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
-import { Parser } from './check-parser/parser'
+import { File } from './check-parser/parser'
 import * as JSON5 from 'json5'
 import { PlaywrightConfig } from './playwright-config'
-import { readFile } from 'fs/promises'
-import { createHash } from 'crypto'
 import { Session } from '../constructs/project'
 import semver from 'semver'
 import { existsSync } from 'fs'
 import { detectNearestPackageJson } from './check-parser/package-files/package-manager'
+import { Bundler } from './check-parser/bundler'
 
 export interface GitInformation {
   commitId: string
@@ -151,71 +148,75 @@ export async function bundlePlayWrightProject (
   playwrightConfig: string,
   include: string[],
 ): Promise<{
-  outputFile: string
   browsers: string[]
   relativePlaywrightConfigPath: string
-  cacheHash: string
   playwrightVersion: string
   workingDir?: string
+  files: File[]
 }> {
   const dir = path.resolve(path.dirname(playwrightConfig))
   const filePath = path.resolve(dir, playwrightConfig)
-  const lockfile = Session.workspace.unwrap().lockfile.unwrap()
 
   // No need of loading everything if there is no lockfile
   const pwtConfig = await Session.loadFile(filePath)
-  const outputFolder = await fs.mkdtemp(path.join(os.tmpdir(), 'cli-'))
-  const outputFile = path.join(outputFolder, 'playwright-project.tar.gz')
-  const output = fsSync.createWriteStream(outputFile)
-
-  // Dynamic import for CommonJs so it doesn't break when using checkly/playwright-reporter archiver
-  // The custom Checkly fork of archiver exports TarArchive class instead of a default function
-  const archiverModule: any = await import('archiver')
-  let archive: Archiver
-  if (archiverModule.TarArchive) {
-    // Using Checkly's custom fork which exports TarArchive class
-    archive = new archiverModule.TarArchive({ gzip: true, gzipOptions: { level: 9 } })
-  } else if (archiverModule.default) {
-    // Using standard archiver which has a default factory function
-    archive = archiverModule.default('tar', { gzip: true, gzipOptions: { level: 9 } })
-  } else {
-    throw new Error('Unable to initialize archiver: neither TarArchive nor default export found')
-  }
-  archive.pipe(output)
 
   const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
   const playwrightVersion = await getPlaywrightVersionFromPackage(dir)
 
-  const [cacheHash] = await Promise.all([
-    getCacheHash(lockfile),
-    loadPlaywrightProjectFiles(dir, pwConfigParsed, include, archive),
-  ])
+  const parser = Session.getPlaywrightParser()
+  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
+  if (errors.length) {
+    throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
+  }
 
-  await archive.finalize()
-  return new Promise((resolve, reject) => {
-    output.on('close', () => {
-      return resolve({
-        outputFile,
-        browsers: pwConfigParsed.getBrowsers(),
-        playwrightVersion,
-        relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
-        cacheHash,
-        workingDir: Session.relativePosixPath(Session.contextPath!),
-      })
+  const defaultIgnores = [
+    {
+      pattern: '**/node_modules/**',
+      skipIf: () => {
+        return include.some(value => {
+          return value.startsWith('node_modules/')
+        })
+      },
+    },
+    {
+      pattern: '.git/**',
+      skipIf: () => {
+        return include.some(value => {
+          return value.startsWith('.git/')
+        })
+      },
+    },
+  ]
+
+  const ignoredFiles = [...Session.ignoreDirectoriesMatch]
+  for (const ignore of defaultIgnores) {
+    if (!ignore.skipIf()) {
+      ignoredFiles.push(ignore.pattern)
+    }
+  }
+
+  const includedFiles = await findFilesWithPattern(
+    // FIXME: Shouldn't the pattern be relative to the Playwright check?
+    Session.basePath!,
+    include,
+    ignoredFiles,
+  )
+
+  for (const filePath of includedFiles) {
+    files.push({
+      filePath,
+      physical: true,
     })
+  }
 
-    output.on('error', err => {
-      return reject(err)
-    })
-  })
-}
-
-export async function getCacheHash (lockFile: string): Promise<string> {
-  const fileBuffer = await readFile(lockFile)
-  const hash = createHash('sha256')
-  hash.update(fileBuffer)
-  return hash.digest('hex')
+  return {
+    browsers: pwConfigParsed.getBrowsers(),
+    playwrightVersion,
+    relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
+    workingDir: Session.relativePosixPath(Session.contextPath!),
+    files,
+  }
 }
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
@@ -256,50 +257,6 @@ export async function getPlaywrightVersionFromPackage (cwd: string): Promise<str
   }
 }
 
-export async function loadPlaywrightProjectFiles (
-  dir: string, pwConfigParsed: PlaywrightConfig, include: string[], archive: Archiver,
-) {
-  const ignoredFiles = ['**/node_modules/**', '.git/**', ...Session.ignoreDirectoriesMatch]
-  const parser = new Parser({
-    workspace: Session.workspace.ok(),
-    restricted: false,
-  })
-  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
-  if (errors.length) {
-    throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
-  }
-  const root = Session.basePath!
-  const entryDefaults = {
-    mode: 0o755, // Default mode for files in the archive
-  }
-  for (const file of files) {
-    if (file.physical) {
-      archive.file(file.filePath, {
-        ...entryDefaults,
-        name: Session.relativePosixPath(file.filePath),
-      })
-    } else {
-      archive.append(file.content, {
-        ...entryDefaults,
-        name: Session.relativePosixPath(file.filePath),
-      })
-    }
-  }
-  for (const includePattern of include) {
-    // If pattern explicitly targets an ignored directory, only apply custom ignores
-    const explicitlyTargetsIgnored =
-      includePattern.startsWith('node_modules/')
-      || includePattern.startsWith('.git/')
-
-    archive.glob(includePattern, {
-      cwd: root,
-      ignore: explicitlyTargetsIgnored ? Session.ignoreDirectoriesMatch : ignoredFiles,
-    }, {
-      ...entryDefaults,
-    })
-  }
-}
-
 export async function findFilesWithPattern (
   directory: string,
   pattern: string | string[],
@@ -313,13 +270,6 @@ export async function findFilesWithPattern (
     absolute: true,
   })
   return files.sort()
-}
-
-export function cleanup (dir: string) {
-  if (!dir.length) {
-    return
-  }
-  return fs.rm(dir, { recursive: true, force: true })
 }
 
 export function getDefaultChecklyConfig (

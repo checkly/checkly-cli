@@ -1,11 +1,11 @@
 /* eslint-disable no-new */
-const path = require('node:path')
-import { BrowserCheck, ApiCheck } from '../../../../../../constructs'
+import path from 'node:path'
+import { BrowserCheck, ApiCheck } from 'checkly/constructs'
 
 new BrowserCheck('browser-check-2', {
   name: 'Search Service Check',
   code: {
-    entrypoint: path.join(__dirname, 'search-service.spec.js'),
+    entrypoint: path.join(import.meta.dirname, 'search-service.spec.js'),
   },
 })
 

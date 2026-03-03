@@ -1,4 +1,4 @@
-import { BrowserCheck } from '../../../../constructs'
+import { BrowserCheck } from 'checkly/constructs'
 
 export default function createCheck () {
   return new BrowserCheck('ts-check', {

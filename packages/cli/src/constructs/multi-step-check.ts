@@ -10,6 +10,7 @@ import { InvalidPropertyValueDiagnostic, UnsupportedRuntimeFeatureDiagnostic } f
 import { MultiStepCheckBundle } from './multi-step-check-bundle'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { Bundler } from '../services/check-parser/bundler'
 
 export interface MultiStepCheckProps extends RuntimeCheckProps {
   /**
@@ -115,7 +116,7 @@ export class MultiStepCheck extends RuntimeCheck {
     return config
   }
 
-  static async bundle (entry: string, runtimeId?: string) {
+  static async bundle (bundler: Bundler, entry: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
@@ -142,10 +143,11 @@ export class MultiStepCheck extends RuntimeCheck {
     return this.__checkFilePath
   }
 
-  async bundle (): Promise<MultiStepCheckBundle> {
+  async bundle (bundler: Bundler): Promise<MultiStepCheckBundle> {
     return new MultiStepCheckBundle(this, await (async () => {
       if (isEntrypoint(this.code)) {
         const bundle = await MultiStepCheck.bundle(
+          bundler,
           this.resolveContentFilePath(this.code.entrypoint),
           this.runtimeId,
         )

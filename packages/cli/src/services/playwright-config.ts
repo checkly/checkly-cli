@@ -93,12 +93,6 @@ export class PlaywrightConfig {
     }
   }
 
-  getFiles () {
-    const files = new Set<string>(this.files)
-    this.projects?.forEach(project => project.files.forEach(file => files.add(file)))
-    return Array.from(files)
-  }
-
   getBrowsers () {
     const browsers = new Set<string>(this.browsers)
     this.projects?.forEach(project => project.browsers.forEach(browser => browsers.add(browser)))
@@ -107,10 +101,6 @@ export class PlaywrightConfig {
       browsers.add('chromium')
     }
     return Array.from(browsers)
-  }
-
-  addFiles (...files: string[]) {
-    files.forEach(this.files.add, this.files)
   }
 
   getSnapshotPath (filePath: string) {
@@ -162,9 +152,5 @@ export class PlaywrightProject {
 
   getSnapshotPath (filePath: string) {
     return buildSnapshotTemplates(this, filePath)
-  }
-
-  addFiles (...files: string[]) {
-    files.forEach(this.files.add, this.files)
   }
 }
