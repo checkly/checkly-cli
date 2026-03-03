@@ -6,7 +6,7 @@ const EXAMPLES_DIR = join(__dirname, '../gen/')
 const AI_CONTEXT_DIR = join(__dirname, '../src/ai-context')
 const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
 
-// Reference files served by the CLI's `skills show` command
+// Reference files served by the CLI's `checkly skills [action] [reference]` command
 const COMMAND_REFERENCES_DIR = join(__dirname, '../dist/ai-context/skills-command/references')
 
 // Published skill directory copied to the repo root (SKILL.md + README.md only, no references)

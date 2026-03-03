@@ -30,7 +30,7 @@ Agent Skills are a standardized format for giving AI agents specialized knowledg
 
 AI agents can load this skill to gain expertise in Checkly monitoring. The skill follows the [Agent Skills specification](https://agentskills.io) with:
 
-- **SKILL.md**: Core instructions loaded when the skill is activated. It references the `npx checkly skills show` command for detailed construct documentation and examples.
+- **SKILL.md**: Core instructions loaded when the skill is activated. It references the `npx checkly skills` command for detailed construct documentation and examples.
 
 ## Learn More
 

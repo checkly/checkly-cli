@@ -41,7 +41,7 @@ export const REFERENCES = [
   },
   {
     id: 'configure-alert-channels',
-    description: 'Email (`EmailAlertChannel`), Phone (`PhoneAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
+    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
   },
   {
     id: 'configure-supporting-constructs',
