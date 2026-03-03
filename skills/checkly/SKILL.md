@@ -28,38 +28,38 @@ Learn how to set up a new Checkly CLI project from scratch.
 ### `npx checkly skills configure`
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
 
-### `npx checkly skills configure api-checks`
+#### `npx checkly skills configure api-checks`
 Api Check construct (`ApiCheck`), assertions, and authentication setup scripts
 
-### `npx checkly skills configure browser-checks`
+#### `npx checkly skills configure browser-checks`
 Browser Check construct (`BrowserCheck`) with Playwright test files
 
-### `npx checkly skills configure playwright-checks`
+#### `npx checkly skills configure playwright-checks`
 Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites
 
-### `npx checkly skills configure multistep-checks`
+#### `npx checkly skills configure multistep-checks`
 Multistep Check construct (`MultiStepCheck`) for complex user flows
 
-### `npx checkly skills configure tcp-monitors`
+#### `npx checkly skills configure tcp-monitors`
 TCP Monitor construct (`TcpMonitor`) with assertions
 
-### `npx checkly skills configure url-monitors`
+#### `npx checkly skills configure url-monitors`
 URL Monitor construct (`UrlMonitor`) with assertions
 
-### `npx checkly skills configure dns-monitors`
+#### `npx checkly skills configure dns-monitors`
 DNS Monitor construct (`DnsMonitor`) with assertions
 
-### `npx checkly skills configure icmp-monitors`
+#### `npx checkly skills configure icmp-monitors`
 ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions
 
-### `npx checkly skills configure heartbeat-monitors`
+#### `npx checkly skills configure heartbeat-monitors`
 Heartbeat Monitor construct (`HeartbeatMonitor`)
 
-### `npx checkly skills configure check-groups`
+#### `npx checkly skills configure check-groups`
 CheckGroupV2 construct (`CheckGroupV2`) for organizing checks
 
-### `npx checkly skills configure alert-channels`
-Email (`EmailAlertChannel`), Phone (`PhoneAlertChannel`), and Slack (`SlackAlertChannel`) alert channels
+#### `npx checkly skills configure alert-channels`
+Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels
 
-### `npx checkly skills configure supporting-constructs`
+#### `npx checkly skills configure supporting-constructs`
 Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)
