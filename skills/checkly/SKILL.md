@@ -12,6 +12,8 @@ The Checkly CLI provides all the required information via the `npx checkly skill
 
 Use `npx checkly skills` to list all available actions, and `npx checkly skills <action>` to access up-to-date information on how to use the Checkly CLI for each action.
 
+> **Important:** If the `npx checkly skills` command is not available or returns an error, update the Checkly CLI to the latest version by running `npm install checkly@latest` in the project directory.
+
 ### `npx checkly skills setup`
 Learn how to set up a new Checkly CLI project from scratch.
 
