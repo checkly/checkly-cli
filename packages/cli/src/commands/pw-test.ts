@@ -38,7 +38,7 @@ import { DEFAULT_REGION } from '../helpers/constants'
 import { cased } from '../sourcegen'
 import { shellQuote } from '../services/shell'
 import { Runtime } from '../runtimes'
-import { PlaywrightCheckLocalBundle } from '../constructs/playwright-check-bundle'
+import { Bundler } from '../services/check-parser/bundler'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -245,10 +245,12 @@ export default class PwTestCommand extends AuthCommand {
 
     this.style.actionSuccess()
 
+    const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap())
+
     this.style.actionStart('Bundling project resources')
     const projectBundle = await (async () => {
       try {
-        const bundle = await project.bundle()
+        const bundle = await project.bundle(bundler)
         this.style.actionSuccess()
         return bundle
       } catch (err) {
@@ -257,29 +259,17 @@ export default class PwTestCommand extends AuthCommand {
       }
     })()
 
-    const bundledChecksByType = {
-      playwright: [] as string[],
-    }
+    const archive = await bundler.finalize()
+    bundler.updateMarker(archive.archiveFile)
 
-    for (const [logicalId, { bundle }] of Object.entries(projectBundle.data.check)) {
-      if (bundle instanceof PlaywrightCheckLocalBundle) {
-        bundledChecksByType.playwright.push(logicalId)
-      }
-    }
-
-    if (bundledChecksByType.playwright.length) {
-      this.style.actionStart('Uploading Playwright code bundles')
-      try {
-        for (const logicalId of bundledChecksByType.playwright) {
-          const resourceData = projectBundle.data.check[logicalId]
-          const bundle = resourceData.bundle as PlaywrightCheckLocalBundle
-          resourceData.bundle = await bundle.store()
-        }
-        this.style.actionSuccess()
-      } catch (err) {
-        this.style.actionFailure()
-        throw err
-      }
+    this.style.actionStart('Uploading Playwright tests')
+    try {
+      const storedArchive = await archive.store()
+      bundler.updateMarker(storedArchive.key)
+      this.style.actionSuccess()
+    } catch (err) {
+      this.style.actionFailure()
+      throw err
     }
 
     const checkBundles = Object.values(projectBundle.data.check)

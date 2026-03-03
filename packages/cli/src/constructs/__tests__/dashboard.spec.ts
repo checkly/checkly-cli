@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 
 import { Dashboard } from '../index'
 import { Project, Session } from '../project'
+import { Bundler } from '../../services/check-parser/bundler'
 
 describe('Dashboard', () => {
   describe('customCSS', () => {
@@ -18,7 +19,10 @@ describe('Dashboard', () => {
           entrypoint: getFilePath('custom.css'),
         },
       })
-      const bundle = await dashboard.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await dashboard.bundle(bundler)
       expect(bundle.synthesize()).toMatchObject({
         customCSS: '/* legit CSS */',
       })
@@ -34,7 +38,10 @@ describe('Dashboard', () => {
           content: 'foo',
         },
       })
-      const bundle = await dashboard.bundle()
+      const bundler = await Bundler.create({
+        cacheHash: 'foo',
+      })
+      const bundle = await dashboard.bundle(bundler)
       expect(bundle.synthesize()).toMatchObject({
         customCSS: 'foo',
       })

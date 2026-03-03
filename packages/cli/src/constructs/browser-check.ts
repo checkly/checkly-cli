@@ -10,6 +10,7 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { BrowserCheckBundle } from './browser-check-bundle'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { Bundler } from '../services/check-parser/bundler'
 
 export interface BrowserCheckProps extends RuntimeCheckProps {
   /**
@@ -165,7 +166,7 @@ export class BrowserCheck extends RuntimeCheck {
     }
   }
 
-  static async bundle (entry: string, runtimeId?: string) {
+  static async bundle (bundler: Bundler, entry: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)
@@ -193,10 +194,11 @@ export class BrowserCheck extends RuntimeCheck {
     return this.__checkFilePath
   }
 
-  async bundle (): Promise<BrowserCheckBundle> {
+  async bundle (bundler: Bundler): Promise<BrowserCheckBundle> {
     return new BrowserCheckBundle(this, await (async () => {
       if (isEntrypoint(this.code)) {
         const bundle = await BrowserCheck.bundle(
+          bundler,
           this.resolveContentFilePath(this.code.entrypoint),
           this.runtimeId,
         )

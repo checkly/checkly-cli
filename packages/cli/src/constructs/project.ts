@@ -27,6 +27,7 @@ import { Workspace } from '../services/check-parser/package-files/workspace'
 import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
 import { Err, Result } from '../services/check-parser/package-files/result'
 import { Runtime } from '../runtimes'
+import { Bundler } from '../services/check-parser/bundler'
 
 export interface ProjectProps {
   /**
@@ -140,7 +141,7 @@ export class Project extends Construct {
     this.data[type as keyof ProjectData][logicalId] = resource
   }
 
-  async bundle (): Promise<ProjectBundle> {
+  async bundle (bundler: Bundler): Promise<ProjectBundle> {
     const data: Record<keyof ProjectData, Record<string, Construct>> = {
       ...this.data,
 
@@ -155,7 +156,7 @@ export class Project extends Construct {
     const constructBundles = await Promise.all(
       Object.entries(data).flatMap(([, records]) => {
         return Object.entries(records).map(async ([, construct]) => {
-          const bundle = await construct.bundle()
+          const bundle = await construct.bundle(bundler)
           return {
             construct,
             bundle,
@@ -357,21 +358,37 @@ export class Session {
     return Session.availableRuntimes[effectiveRuntimeId]
   }
 
-  static getParser (runtime: Runtime): Parser {
-    const cachedParser = Session.parsers.get(runtime.name)
-    if (cachedParser !== undefined) {
-      return cachedParser
+  static #getOrInitParser (cacheKey: string, init: () => Parser) {
+    const existingParser = Session.parsers.get(cacheKey)
+    if (existingParser !== undefined) {
+      return existingParser
     }
 
-    const parser = new Parser({
-      supportedNpmModules: Object.keys(runtime.dependencies),
-      checkUnsupportedModules: Session.verifyRuntimeDependencies,
-      workspace: Session.workspace.ok(),
+    const newParser = init()
+
+    Session.parsers.set(cacheKey, newParser)
+
+    return newParser
+  }
+
+  static getParser (runtime: Runtime): Parser {
+    return this.#getOrInitParser(`runtime:${runtime.name}`, () => {
+      return new Parser({
+        supportedNpmModules: Object.keys(runtime.dependencies),
+        checkUnsupportedModules: Session.verifyRuntimeDependencies,
+        workspace: Session.workspace.ok(),
+      })
     })
+  }
 
-    Session.parsers.set(runtime.name, parser)
-
-    return parser
+  static getPlaywrightParser (): Parser {
+    return this.#getOrInitParser(`playwright`, () => {
+      return new Parser({
+        checkUnsupportedModules: false,
+        workspace: Session.workspace.ok(),
+        restricted: false,
+      })
+    })
   }
 
   static relativePosixPath (filePath: string): string {

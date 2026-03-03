@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import { IcmpMonitor, CheckGroup, IcmpRequest, IcmpAssertionBuilder, Diagnostics } from '../index'
 import { Project, Session } from '../project'
+import { Bundler } from '../../services/check-parser/bundler'
 
 const request: IcmpRequest = {
   hostname: 'acme.com',
@@ -48,7 +49,10 @@ describe('IcmpMonitor', () => {
       request,
       groupId: group.ref(),
     })
-    const bundle = await check.bundle()
+    const bundler = await Bundler.create({
+      cacheHash: 'foo',
+    })
+    const bundle = await check.bundle(bundler)
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
@@ -63,7 +67,10 @@ describe('IcmpMonitor', () => {
       request,
       group,
     })
-    const bundle = await check.bundle()
+    const bundler = await Bundler.create({
+      cacheHash: 'foo',
+    })
+    const bundle = await check.bundle(bundler)
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
