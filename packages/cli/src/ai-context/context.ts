@@ -1,43 +1,62 @@
 export const REFERENCES = [
   {
-    id: 'api-checks',
+    id: 'configure-api-checks',
     linkText: 'API Checks',
     description: 'ApiCheck construct, assertions, and authentication setup scripts',
   },
   {
-    id: 'browser-checks',
+    id: 'configure-browser-checks',
     linkText: 'Browser Checks',
     description: 'BrowserCheck construct with Playwright test files',
   },
   {
-    id: 'playwright-checks',
+    id: 'configure-playwright-checks',
     linkText: 'Playwright Checks',
     description: 'PlaywrightCheck construct for multi-browser test suites',
   },
   {
-    id: 'multistep-checks',
+    id: 'configure-multistep-checks',
     linkText: 'MultiStep Checks',
     description: 'MultiStepCheck construct for complex user flows',
   },
   {
-    id: 'uptime-monitors',
+    id: 'configure-uptime-monitors',
     linkText: 'Uptime Monitors',
     description: 'TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)',
   },
   {
-    id: 'check-groups',
+    id: 'configure-check-groups',
     linkText: 'Check Groups',
     description: 'CheckGroupV2 construct for organizing checks',
   },
   {
-    id: 'alert-channels',
+    id: 'configure-alert-channels',
     linkText: 'Alert Channels',
     description: 'Email, Phone, and Slack alert channels',
   },
   {
-    id: 'supporting-constructs',
+    id: 'configure-supporting-constructs',
     linkText: 'Supporting Constructs',
     description: 'Status pages, dashboards, maintenance windows, and private locations',
+  },
+] as const
+
+export const SKILL = {
+  name: 'checkly',
+  description: 'Set up, create, test and manage monitoring checks using the Checkly CLI.',
+} as const
+
+export const ACTIONS = [
+  {
+    id: 'setup',
+    linkText: 'Setup',
+    description: 'Set up a new Checkly CLI project to monitor from scratch.',
+  },
+  {
+    id: 'configure',
+    linkText: 'Configure',
+    description: 'Create and manage monitoring checks using the Checkly CLI.',
+    references: REFERENCES,
   },
 ] as const
 

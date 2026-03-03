@@ -1,11 +1,3 @@
----
-name: monitoring
-description: Create and manage monitoring checks using the Checkly CLI. Use when working with API checks, browser checks, URL monitors, ICMP monitors, Playwright checks, heartbeat monitors, alert channels, dashboards, or status pages.
-allowed-tools: Bash(npx:checkly:*) Bash(npm:create:checkly@latest)
-metadata:
-  author: checkly
----
-
 # Checkly Monitoring
 
 - Refer to docs for Checkly CLI v6.0.0 and above.
@@ -48,6 +40,16 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 
 ## Check and Monitor Constructs
 
-Parse and read further reference documentation when tasked with creating or managing any of the following Checkly constructs:
+Parse and read further reference documentation when tasked with creating or managing any of the following Checkly constructs.
+
+If the Checkly CLI is installed (`npx checkly version`), use `npx checkly skills show configure [CONSTRUCT]` to access up-to-date information:
+
+<!-- REFERENCE_COMMANDS -->
+
+If the Checkly CLI is not installed, read the provided `skill` references:
 
 <!-- REFERENCE_LINKS -->
+
+## Testing and Debugging
+
+- Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, use `--record` to persist results, and use `--verbose` to see all errors.
