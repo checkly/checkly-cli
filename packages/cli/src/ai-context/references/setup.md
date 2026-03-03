@@ -17,7 +17,7 @@ If any pre-flight check fails, help the user fix it before proceeding.
 Ask the user which setup method they prefer:
 
 - **Option A: Scaffold with CLI** — Run `npm create checkly@latest` to generate a complete example project interactively. The CLI handles everything: project name, directory, dependencies, sample checks, and config. This is the fastest way to get started.
-- **Option B: AI-first** — Generate the project structure and checks from scratch using this skill. Best when the user already knows what they want to monitor and prefers a tailored setup without example boilerplate.
+- **Option B: AI-first (experimental)** — Generate the project structure and checks from scratch using this skill. Best when the user already knows what they want to monitor and prefers a tailored setup without example boilerplate.
 
 ### Option A: Scaffold with CLI
 
@@ -62,9 +62,9 @@ Ask the user the following questions to determine the setup:
 
 2. **How do you want to get alerted?** (multiple selections allowed)
 
-Run `npx checkly skills show configure alert-channels` to access up-to-date information on alert channel options and setup.
+Run `npx checkly skills configure alert-channels` to access up-to-date information on alert channel options and setup.
 
-3. **Where do want to store your monitoring and construct configuration?**
+1. **Where do want to store your monitoring and construct configuration?**
    - **__checks--** - create all resources and `check.ts` files in a seperate `__checks__` directory
    - **next to the resource**: - place the `check.ts` files next to page routes, api endpoints etc.
 
@@ -74,7 +74,7 @@ Run `npx checkly skills show configure alert-channels` to access up-to-date info
 Run the following command to retrieve the configure skill reference:
 
 ```bash
-npx checkly skills show configure
+npx checkly skills configure
 ```
 
 Use the output to create a `checkly.config.ts` (or `checkly.config.js` if the user chose JavaScript) in the project root.

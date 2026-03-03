@@ -42,13 +42,9 @@ The `checkly.config.ts` at the root of your project defines a range of defaults 
 
 Parse and read further reference documentation when tasked with creating or managing any of the following Checkly constructs.
 
-If the Checkly CLI is installed (`npx checkly version`), use `npx checkly skills show configure [CONSTRUCT]` to access up-to-date information:
+If the Checkly CLI is installed (`npx checkly version`), use `npx checkly skills configure [CONSTRUCT]` to access up-to-date information:
 
 <!-- REFERENCE_COMMANDS -->
-
-If the Checkly CLI is not installed, read the provided `skill` references:
-
-<!-- REFERENCE_LINKS -->
 
 ## Testing and Debugging
 

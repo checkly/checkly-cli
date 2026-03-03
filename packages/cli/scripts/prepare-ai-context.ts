@@ -76,15 +76,16 @@ function replaceExamples (content: string, examples: Map<string, string>): strin
 function generateSkillCommands (): string {
   return ACTIONS.map(action => {
     const lines = [
-      `## ${action.linkText}`,
-      '',
-      `- \`npx checkly skills show ${action.id}\` - ${action.description}`,
+      `### \`npx checkly skills ${action.id}\``,
+      action.description,
     ]
 
     if ('references' in action) {
       for (const ref of action.references) {
         const refId = ref.id.replace(`${action.id}-`, '')
-        lines.push(`- \`npx checkly skills show ${action.id} ${refId}\` - ${ref.description}`)
+        lines.push('')
+        lines.push(`### \`npx checkly skills ${action.id} ${refId}\``)
+        lines.push(ref.description)
       }
     }
 
@@ -93,15 +94,10 @@ function generateSkillCommands (): string {
 }
 
 function generateReferenceCommands (): string {
-  return REFERENCES.map(
-    ref => `- \`npx checkly skills show configure ${ref.id.replace('configure-', '')}\` - ${ref.description}`,
-  ).join('\n')
-}
-
-function generateReferenceLinks (): string {
-  return REFERENCES.map(
-    ref => `- [${ref.linkText}](references/${ref.id}.md) - ${ref.description}`,
-  ).join('\n')
+  return REFERENCES.map(ref => {
+    const refId = ref.id.replace('configure-', '')
+    return `### \`npx checkly skills configure ${refId}\`\n${ref.description}`
+  }).join('\n\n')
 }
 
 async function prepareContext () {
@@ -129,7 +125,6 @@ async function prepareContext () {
     // Process configure.md (action header with reference links/commands + examples)
     let configureContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'configure.md'), 'utf8')
     configureContent = configureContent
-      .replace('<!-- REFERENCE_LINKS -->', generateReferenceLinks())
       .replace('<!-- REFERENCE_COMMANDS -->', generateReferenceCommands())
     configureContent = replaceExamples(configureContent, examples)
     await writeOutput(configureContent, COMMAND_REFERENCES_DIR, 'configure.md')

@@ -1,62 +1,50 @@
 export const REFERENCES = [
   {
     id: 'configure-api-checks',
-    linkText: 'API Checks',
     description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
   },
   {
     id: 'configure-browser-checks',
-    linkText: 'Browser Checks',
     description: 'Browser Check construct (`BrowserCheck`) with Playwright test files',
   },
   {
     id: 'configure-playwright-checks',
-    linkText: 'Playwright Checks',
     description: 'Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites',
   },
   {
     id: 'configure-multistep-checks',
-    linkText: 'MultiStep Checks',
     description: 'Multistep Check construct (`MultiStepCheck`) for complex user flows',
   },
   {
     id: 'configure-tcp-monitors',
-    linkText: 'TCP Monitors',
     description: 'TCP Monitor construct (`TcpMonitor`) with assertions',
   },
   {
     id: 'configure-url-monitors',
-    linkText: 'URL Monitors',
     description: 'URL Monitor construct (`UrlMonitor`) with assertions',
   },
   {
     id: 'configure-dns-monitors',
-    linkText: 'DNS Monitors',
     description: 'DNS Monitor construct (`DnsMonitor`) with assertions',
   },
   {
     id: 'configure-icmp-monitors',
-    linkText: 'ICMP Monitors',
     description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
   },
   {
     id: 'configure-heartbeat-monitors',
-    linkText: 'Heartbeat Monitors',
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
   {
     id: 'configure-check-groups',
-    linkText: 'Check Groups',
     description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
   },
   {
     id: 'configure-alert-channels',
-    linkText: 'Alert Channels',
     description: 'Email (`EmailAlertChannel`), Phone (`PhoneAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
   },
   {
     id: 'configure-supporting-constructs',
-    linkText: 'Supporting Constructs',
     description: 'Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)',
   },
 ] as const
@@ -69,12 +57,10 @@ export const SKILL = {
 export const ACTIONS = [
   {
     id: 'setup',
-    linkText: 'Setup',
     description: 'Learn how to set up a new Checkly CLI project from scratch.',
   },
   {
     id: 'configure',
-    linkText: 'Configure',
     description: 'Learn how to create and manage monitoring checks using Checkly constructs and the CLI.',
     references: REFERENCES,
   },
