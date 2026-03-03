@@ -13,11 +13,12 @@ import {
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics'
 import { Diagnostics, WarningDiagnostic } from './diagnostics'
-import { PlaywrightCheckLocalBundle } from './playwright-check-bundle'
+import { PlaywrightCheckBundle } from './playwright-check-bundle'
 import { Session } from './project'
 import { Ref } from './ref'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
+import { Bundler } from '../services/check-parser/bundler'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -283,8 +284,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   protected async validateWebServerConfig (diagnostics: Diagnostics): Promise<void> {
-    // Only show webServer warning for pw-test command when --include is not provided
-    if (Session.currentCommand !== 'pw-test' || Session.includeFlagProvided) {
+    if (!Session.warnOnWebServerConfig) {
       return
     }
 
@@ -418,7 +418,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return `${testCommand} --config ${quotedPath}${projectArg}${tagArg}`
   }
 
-  async bundle (): Promise<PlaywrightCheckLocalBundle> {
+  async bundle (bundler: Bundler): Promise<PlaywrightCheckBundle> {
     // Prefer the standard groupId but fall back to the deprecated groupName
     // if available.
     const groupId = this.groupName && !this.groupId
@@ -426,13 +426,14 @@ export class PlaywrightCheck extends RuntimeCheck {
       : this.groupId
 
     const {
-      outputFile: codeBundleLocalFilePath,
       browsers,
-      cacheHash,
       playwrightVersion,
       relativePlaywrightConfigPath,
       workingDir,
+      files,
     } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
+
+    bundler.registerFiles(...files)
 
     const testCommand = PlaywrightCheck.buildTestCommand(
       this.testCommand ?? this.#defaultTestCommand(),
@@ -441,11 +442,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       this.pwTags,
     )
 
-    return new PlaywrightCheckLocalBundle(this, {
+    return new PlaywrightCheckBundle(this, {
       groupId,
-      localCodeBundlePath: codeBundleLocalFilePath,
+      codeBundlePath: bundler.marker,
       browsers,
-      cacheHash,
+      cacheHash: bundler.cacheHash,
       playwrightVersion,
       testCommand,
       installCommand: this.installCommand,

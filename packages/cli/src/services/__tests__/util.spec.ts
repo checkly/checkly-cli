@@ -30,17 +30,17 @@ describe('util', () => {
   })
 
   describe('getPlaywrightVersionFromPackage()', () => {
-    it('should throw error when playwright package is not found', () => {
+    it('should throw error when playwright package is not found', async () => {
       // Use a directory that doesn't have playwright installed
       const nonExistentDir = '/tmp/non-existent-dir'
-      expect(() => getPlaywrightVersionFromPackage(nonExistentDir))
-        .toThrow('Could not find @playwright/test package. Make sure it is installed.')
+      await expect(getPlaywrightVersionFromPackage(nonExistentDir))
+        .rejects.toThrow('Could not find @playwright/test package. Make sure it is installed.')
     })
 
-    it('should get version from installed playwright package', () => {
+    it('should get version from installed playwright package', async () => {
       // Use the current working directory which should have playwright installed
       const currentDir = process.cwd()
-      const version = getPlaywrightVersionFromPackage(currentDir)
+      const version = await getPlaywrightVersionFromPackage(currentDir)
 
       // Should return a valid semver version
       expect(version).toMatch(/^\d+\.\d+\.\d+/)

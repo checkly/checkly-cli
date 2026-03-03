@@ -50,11 +50,11 @@ export function buildCheckProps (
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined) {
+  if (resource.muted !== undefined && resource.muted !== false) {
     builder.boolean('muted', resource.muted)
   }
 
-  if (resource.shouldFail !== undefined) {
+  if (resource.shouldFail !== undefined && resource.shouldFail !== false) {
     builder.boolean('shouldFail', resource.shouldFail)
   }
 
@@ -167,13 +167,13 @@ export function buildCheckProps (
     builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
-  if (resource.testOnly !== undefined) {
+  if (resource.testOnly !== undefined && resource.testOnly !== false) {
     builder.boolean('testOnly', resource.testOnly)
   }
 
   builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
 
-  if (resource.runParallel !== undefined) {
+  if (resource.runParallel !== undefined && resource.runParallel !== false) {
     builder.boolean('runParallel', resource.runParallel)
   }
 }

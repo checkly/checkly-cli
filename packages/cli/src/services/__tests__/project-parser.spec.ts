@@ -1,234 +1,353 @@
 import path from 'node:path'
 
-import { AxiosResponse } from 'axios'
 import { v4 as uuidv4 } from 'uuid'
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { privateLocations } from '../../rest/api'
-import { parseProject } from '../project-parser'
-import { Diagnostics } from '../../constructs'
+import { FixtureSandbox } from '../../testing/fixture-sandbox'
+import { ParseProjectOutput } from '../../commands/debug/parse-project'
 
-const runtimes = {
-  2023.02: { name: '2023.02', default: false, stage: 'CURRENT', description: 'Main updates are Playwright 1.28.0, Node.js 16.x and Typescript support. We are also dropping support for Puppeteer', dependencies: { '@playwright/test': '1.28.0', '@opentelemetry/api': '1.0.4', '@opentelemetry/sdk-trace-base': '1.0.1', '@faker-js/faker': '5.5.3', 'aws4': '1.11.0', 'axios': '0.27.2', 'btoa': '1.2.1', 'chai': '4.3.7', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', 'expect': '29.3.1', 'form-data': '4.0.0', 'jsonwebtoken': '8.5.1', 'lodash': '4.17.21', 'mocha': '10.1.0', 'moment': '2.29.2', 'node': '16.x', 'otpauth': '9.0.2', 'playwright': '1.28.0', 'typescript': '4.8.4', 'uuid': '9.0.0' } },
-  2023.09: { name: '2023.09', default: false, stage: 'CURRENT', description: 'Main updates are Playwright 1.38.1 and the addition of ethers 6.7.1, prisma 5.1.1, zod 3.22.2, @t3-oss/env-nextjs 0.6.1 and @xmldom/xmldom 0.8.10. Node version is 18.', dependencies: { '@faker-js/faker': '8.0.2', '@google-cloud/local-auth': '3.0.0', '@opentelemetry/api': '1.4.1', '@opentelemetry/sdk-trace-base': '1.15.2', '@playwright/test': '1.38.1', '@t3-oss/env-nextjs': '0.6.1', '@xmldom/xmldom': '0.8.10', 'aws4': '1.12.0', 'axios': '0.27.2', 'btoa': '1.2.1', 'chai': '4.3.7', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', 'date-fns': '2.30.0', 'date-fns-tz': '2.0.0', 'dotenv': '16.3.1', 'ethers': '6.7.1', 'expect': '29.6.2', 'form-data': '4.0.0', 'gmail-api-parse-message-ts': '2.2.32', 'google-auth-library': '9.0.0', 'googleapis': '126.0.0', 'jose': '4.14.4', 'jsdom': '22.1.0', 'jsonwebtoken': '9.0.1', 'lodash': '4.17.21', 'moment': '2.29.4', 'otpauth': '9.1.4', 'playwright': '1.38.1', 'prisma': '5.1.1', 'twilio': '4.15.0', 'uuid': '9.0.0', 'ws': '8.13.0', 'xml-crypto': '4.1.0', 'xml-encryption': '3.0.2', 'zod': '3.22.2' }, multiStepSupport: true },
-  2024.02: { name: '2024.02', default: true, stage: 'CURRENT', description: 'Main updates are Playwright 1.38.1 and the addition of ethers 6.7.1, prisma 5.1.1, zod 3.22.2, @t3-oss/env-nextjs 0.6.1 and @xmldom/xmldom 0.8.10. Node version is 18.', dependencies: { '@faker-js/faker': '8.0.2', '@google-cloud/local-auth': '3.0.0', '@opentelemetry/api': '1.4.1', '@opentelemetry/sdk-trace-base': '1.15.2', '@playwright/test': '1.38.1', '@t3-oss/env-nextjs': '0.6.1', '@xmldom/xmldom': '0.8.10', 'aws4': '1.12.0', 'axios': '0.27.2', 'btoa': '1.2.1', 'chai': '4.3.7', 'chai-string': '1.5.0', 'crypto-js': '4.1.1', 'date-fns': '2.30.0', 'date-fns-tz': '2.0.0', 'dotenv': '16.3.1', 'ethers': '6.7.1', 'expect': '29.6.2', 'form-data': '4.0.0', 'gmail-api-parse-message-ts': '2.2.32', 'google-auth-library': '9.0.0', 'googleapis': '126.0.0', 'jose': '4.14.4', 'jsdom': '22.1.0', 'jsonwebtoken': '9.0.1', 'lodash': '4.17.21', 'moment': '2.29.4', 'otpauth': '9.1.4', 'playwright': '1.38.1', 'prisma': '5.1.1', 'twilio': '4.15.0', 'uuid': '9.0.0', 'ws': '8.13.0', 'xml-crypto': '4.1.0', 'xml-encryption': '3.0.2', 'zod': '3.22.2' }, multiStepSupport: true },
+async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
+  const result = await fixt.run('npx', [
+    'checkly',
+    'debug',
+    'parse-project',
+    ...args,
+  ])
+
+  if (result.exitCode !== 0) {
+    // eslint-disable-next-line no-console
+    console.error('stderr', result.stderr)
+    // eslint-disable-next-line no-console
+    console.error('stdout', result.stdout)
+  }
+
+  expect(result.exitCode).toBe(0)
+
+  const output: ParseProjectOutput = JSON.parse(result.stdout)
+
+  return output
 }
 
-const privateLocationId = uuidv4()
-const mockPrivateLocationsResponse = {
-  data: [{
-    id: privateLocationId,
-    slugName: 'my-external-private-location',
-  }],
-  status: 200,
-  statusText: 'ok',
-} as AxiosResponse
+const DEFAULT_FIXT_TIMEOUT = 180_000
 
 describe('parseProject()', () => {
-  beforeAll(() => {
-    vi.resetAllMocks()
-    vi.spyOn(privateLocations, 'getAll').mockResolvedValue(mockPrivateLocationsResponse)
-  })
-  it('should parse a simple project', async () => {
-    const simpleProjectPath = path.join(__dirname, 'project-parser-fixtures', 'simple-project')
-    const project = await parseProject({
-      directory: simpleProjectPath,
-      projectLogicalId: 'project-id',
-      projectName: 'project name',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      availableRuntimes: runtimes,
-      defaultRuntimeId: '2024.02',
-    })
-    const bundle = await project.bundle()
-    const synthesizedProject = bundle.synthesize()
-    expect(synthesizedProject).toMatchObject({
-      project: {
-        logicalId: 'project-id',
-        name: 'project name',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      },
-      resources: [
-        {
-          type: 'check',
-          logicalId: 'browser-check-1',
-        },
-        {
-          type: 'check',
-          logicalId: 'browser-check-2',
-        },
-        {
-          type: 'check',
-          logicalId: 'api-check-1',
-        },
-      ],
-    })
-    expect(Object.keys(synthesizedProject.resources)).toHaveLength(3)
-  })
+  describe('simple-project', () => {
+    let fixt: FixtureSandbox
 
-  it('should parse a simple project with private-locations', async () => {
-    const simpleProjectPath = path.join(__dirname, 'project-parser-fixtures', 'simple-project-with-pl')
-    const project = await parseProject({
-      directory: simpleProjectPath,
-      projectLogicalId: 'project-id',
-      projectName: 'project name',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      availableRuntimes: runtimes,
-      defaultRuntimeId: '2024.02',
-    })
-    const bundle = await project.bundle()
-    const synthesizedProject = bundle.synthesize()
-    expect(synthesizedProject).toMatchObject({
-      project: {
-        logicalId: 'project-id',
-        name: 'project name',
-        repoUrl: 'https://github.com/checkly/checkly-cli',
-      },
-      resources: [
-        {
-          type: 'check-group',
-          logicalId: 'group-1',
-        },
-        {
-          type: 'check',
-          logicalId: 'browser-check-1',
-        },
-        {
-          type: 'private-location',
-          logicalId: 'private-location-1',
-          member: true,
-        },
-        {
-          type: 'private-location',
-          logicalId: `private-location-${privateLocationId}`,
-          member: false,
-        },
-        {
-          type: 'private-location-check-assignment',
-          logicalId: 'private-location-check-assignment#browser-check-1#private-location-1',
-        },
-        {
-          type: 'private-location-check-assignment',
-          logicalId: `private-location-check-assignment#browser-check-1#private-location-${privateLocationId}`,
-        },
-        {
-          type: 'private-location-group-assignment',
-          logicalId: 'private-location-group-assignment#group-1#private-location-1',
-        },
-        {
-          type: 'private-location-group-assignment',
-          logicalId: `private-location-group-assignment#group-1#private-location-${privateLocationId}`,
-        },
-      ],
-    })
-    expect(Object.keys(synthesizedProject.resources)).toHaveLength(8)
-  })
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'simple-project'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
 
-  // FIXME: Temporaily disable this test due to incompatibilities with
-  // out file loader and Vitest.
-  it.skip('should parse a project with TypeScript check files', async () => {
-    const tsProjectPath = path.join(__dirname, 'project-parser-fixtures', 'typescript-project')
-    const project = await parseProject({
-      directory: tsProjectPath,
-      projectLogicalId: 'ts-project-id',
-      projectName: 'ts project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      availableRuntimes: runtimes,
-      defaultRuntimeId: '2024.02',
+    afterAll(async () => {
+      await fixt?.destroy()
     })
-    expect(project.synthesize()).toMatchObject({
-      project: {
-        logicalId: 'ts-project-id',
-      },
-      resources: [
-        { type: 'check', logicalId: 'ts-check' },
-      ],
+
+    it('should parse a simple project', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          project: expect.objectContaining({
+            logicalId: 'project-id',
+            name: 'project name',
+            repoUrl: 'https://github.com/checkly/checkly-cli',
+          }),
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'browser-check-1',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'browser-check-2',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'api-check-1',
+            }),
+          ]),
+        }),
+      }))
+      expect(output.payload.resources).toHaveLength(3)
     })
   })
 
-  it('should parse a project with multiple glob patterns and deduplicate overlapping patterns', async () => {
-    const globProjectPath = path.join(__dirname, 'project-parser-fixtures', 'multiple-glob-patterns-project')
-    const project = await parseProject({
-      directory: globProjectPath,
-      projectLogicalId: 'glob-project-id',
-      projectName: 'glob project',
-      availableRuntimes: runtimes,
-      checkMatch: ['**/__checks1__/*.check.js', '**/__checks2__/*.check.js', '**/__nested-checks__/*.check.js'],
-      browserCheckMatch: ['**/__checks1__/*.spec.js', '**/__checks2__/*.spec.js', '**/__nested-checks__/*.spec.js'],
-      defaultRuntimeId: '2024.02',
+  describe('simple-project-with-pl', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'simple-project-with-pl'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
-    const bundle = await project.bundle()
-    expect(bundle.synthesize()).toMatchObject({
-      project: {
-        logicalId: 'glob-project-id',
-      },
-      resources: [
-        { type: 'check', logicalId: 'nested' },
-        { type: 'check', logicalId: 'check1' },
-        { type: 'check', logicalId: 'check2' },
-        { type: 'check', logicalId: '__checks1__/__nested-checks__/nested.spec.js' },
-        { type: 'check', logicalId: '__checks1__/check1.spec.js' },
-        { type: 'check', logicalId: '__checks2__/check2.spec.js' },
-      ],
+
+    it('should parse a simple project with private-locations', async () => {
+      const privateLocationId = uuidv4()
+
+      const output = await parseProject(
+        fixt,
+        '--inject-private-location',
+        `${privateLocationId}:my-external-private-location`,
+      )
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          project: expect.objectContaining({
+            logicalId: 'project-id',
+            name: 'project name',
+            repoUrl: 'https://github.com/checkly/checkly-cli',
+          }),
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'check-group',
+              logicalId: 'group-1',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'browser-check-1',
+            }),
+            expect.objectContaining({
+              type: 'private-location',
+              logicalId: 'private-location-1',
+              member: true,
+            }),
+            expect.objectContaining({
+              type: 'private-location',
+              logicalId: `private-location-${privateLocationId}`,
+              member: false,
+            }),
+            expect.objectContaining({
+              type: 'private-location-check-assignment',
+              logicalId: 'private-location-check-assignment#browser-check-1#private-location-1',
+            }),
+            expect.objectContaining({
+              type: 'private-location-check-assignment',
+              logicalId: `private-location-check-assignment#browser-check-1#private-location-${privateLocationId}`,
+            }),
+            expect.objectContaining({
+              type: 'private-location-group-assignment',
+              logicalId: 'private-location-group-assignment#group-1#private-location-1',
+            }),
+            expect.objectContaining({
+              type: 'private-location-group-assignment',
+              logicalId: `private-location-group-assignment#group-1#private-location-${privateLocationId}`,
+            }),
+          ]),
+        }),
+      }))
+      expect(output.payload.resources).toHaveLength(8)
     })
   })
 
-  it('should report error diagnostics for empty browser-check script on validation', async () => {
-    const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
-    const project = await parseProject({
-      directory: projectPath,
-      projectLogicalId: 'empty-script-project-id',
-      projectName: 'empty script project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      availableRuntimes: runtimes,
-      checkMatch: '**/*.foobar.js', // don't match .check.js files used for a different test
-      browserCheckMatch: '**/*.spec.js',
-      defaultRuntimeId: '2024.02',
+  describe('typescript-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'typescript-project'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-    expect(diagnostics.isFatal()).toBe(true)
+
+    it('should parse a project with TypeScript check files', async () => {
+      const output = await parseProject(
+        fixt,
+        '--inject-private-location',
+        '70c4ded4-2229-45a7-acf4-6b1eb56a86df:my-external-private-location',
+      )
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          project: expect.objectContaining({
+            logicalId: 'ts-project-id',
+            name: 'ts project',
+            repoUrl: 'https://github.com/checkly/checkly-cli',
+          }),
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'ts-check',
+            }),
+          ]),
+        }),
+      }))
+      expect(output.payload.resources).toHaveLength(1)
+    })
   })
 
-  it('should report error diagnostics for empty environment variable on validate', async () => {
-    const projectPath = path.join(__dirname, 'project-parser-fixtures', 'empty-script-project')
-    const project = await parseProject({
-      directory: projectPath,
-      projectLogicalId: 'empty-script-project-id',
-      projectName: 'empty script project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      availableRuntimes: runtimes,
-      defaultRuntimeId: '2024.02',
-      browserCheckMatch: '**/*.foobar.js', // don't match .spec.js files used for a different test
+  describe('multiple-glob-patterns-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'multiple-glob-patterns-project'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-    // shouldn't reach this point
-    expect(diagnostics.isFatal()).toBe(true)
+
+    it('should parse a project with multiple glob patterns and deduplicate overlapping patterns', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          project: expect.objectContaining({
+            logicalId: 'glob-project-id',
+            name: 'glob project',
+            repoUrl: 'https://github.com/checkly/checkly-cli',
+          }),
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'nested',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'check1',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: 'check2',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: '__checks1__/__nested-checks__/nested.spec.js',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: '__checks1__/check1.spec.js',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: '__checks2__/check2.spec.js',
+            }),
+          ]),
+        }),
+      }))
+      expect(output.payload.resources).toHaveLength(6)
+    })
   })
 
-  it('should parse a project with multistep & browser glob patterns', async () => {
-    const globProjectPath = path.join(__dirname, 'project-parser-fixtures', 'multistep-browser-glob-patterns')
-    const project = await parseProject({
-      directory: globProjectPath,
-      projectLogicalId: 'glob-project-id',
-      projectName: 'glob project',
-      availableRuntimes: runtimes,
-      defaultRuntimeId: '2024.02',
-      checkMatch: [],
-      browserCheckMatch: ['**/__checks__/browser/*.spec.js'],
-      multiStepCheckMatch: ['**/__checks__/multistep/*.spec.js'],
-      checkDefaults: {
-        runtimeId: '2023.09',
-      },
+  describe('empty-script-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'empty-script-project'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
     })
-    const bundle = await project.bundle()
-    const synthesizedProject = bundle.synthesize()
-    expect(synthesizedProject.project.logicalId).toEqual('glob-project-id')
-    expect(synthesizedProject.resources).toHaveLength(2)
-    const checkLogicalIds = ['__checks__/browser/check2.spec.js', '__checks__/multistep/check1.spec.js']
-    synthesizedProject.resources.forEach(resource => {
-      expect(resource.type).toEqual('check')
-      expect(checkLogicalIds).toContain(resource.logicalId)
+
+    it('should report error diagnostics for empty browser-check script on validation', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: true,
+          observations: expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining(' must not be empty.'),
+            }),
+          ]),
+        }),
+      }))
+    })
+  })
+
+  describe('empty-env-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'empty-env-project'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should report error diagnostics for empty environment variable on validate', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: true,
+          observations: expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining('Reason: Value must not be empty.'),
+            }),
+          ]),
+        }),
+      }))
+    })
+  })
+
+  describe('multistep-browser-glob-patterns', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'project-parser-fixtures', 'multistep-browser-glob-patterns'),
+      })
+    }, DEFAULT_FIXT_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should parse a project with multistep & browser glob patterns', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          project: expect.objectContaining({
+            logicalId: 'glob-project-id',
+            name: 'glob project',
+            repoUrl: 'https://github.com/checkly/checkly-cli',
+          }),
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'check',
+              logicalId: '__checks__/browser/check2.spec.js',
+            }),
+            expect.objectContaining({
+              type: 'check',
+              logicalId: '__checks__/multistep/check1.spec.js',
+            }),
+          ]),
+        }),
+      }))
+      expect(output.payload.resources).toHaveLength(2)
     })
   })
 })

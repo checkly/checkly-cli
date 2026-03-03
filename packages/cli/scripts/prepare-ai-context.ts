@@ -1,19 +1,28 @@
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { EXAMPLE_CONFIGS } from '../src/ai-context/context'
+import { EXAMPLE_CONFIGS, REFERENCES } from '../src/ai-context/context'
 
 const EXAMPLES_DIR = join(__dirname, '../gen/')
-const CONTEXT_TEMPLATE_PATH = join(
-  __dirname,
-  '../src/ai-context/checkly.context.template.md',
-)
+const AI_CONTEXT_DIR = join(__dirname, '../src/ai-context')
 const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
 const SKILL_OUTPUT_DIR = join(__dirname, '../dist/ai-context/skills/monitoring')
-const README_PATH = join(__dirname, '../src/ai-context/README.md')
+const REFERENCES_OUTPUT_DIR = join(SKILL_OUTPUT_DIR, 'references')
 
 function stripYamlFrontmatter (content: string): string {
   const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
   return content.replace(frontmatterRegex, '')
+}
+
+// Demote headings by two levels (# -> ###, ## -> ####) to maintain proper
+// heading hierarchy when reference docs are concatenated after the header.
+// The header has "# Checkly Monitoring" and "## ..." sections, so reference
+// content needs to start at ### to avoid multiple H1s and broken structure.
+function demoteHeadings (content: string): string {
+  return content.replace(/^(#+)/gm, '##$1')
+}
+
+function normalizeBlankLines (content: string): string {
+  return content.replace(/\n{3,}/g, '\n\n')
 }
 
 async function writeOutput (content: string, dir: string, filename: string): Promise<void> {
@@ -24,40 +33,10 @@ async function writeOutput (content: string, dir: string, filename: string): Pro
   console.log(`✅ Wrote ${outputPath}`)
 }
 
-async function prepareContext () {
-  try {
-    // eslint-disable-next-line no-console
-    console.log('📝 Preparing AI context...')
+async function readExampleCode (): Promise<Map<string, string>> {
+  const examples = new Map<string, string>()
 
-    let content = await readFile(CONTEXT_TEMPLATE_PATH, 'utf8')
-    const examples = await readExampleCode()
-
-    for (const example of examples) {
-      content = content.replace(example.templateString, example.code)
-    }
-
-    await writeOutput(content, SKILL_OUTPUT_DIR, 'SKILL.md')
-    await writeOutput(
-      stripYamlFrontmatter(content),
-      RULES_OUTPUT_DIR,
-      'checkly.rules.md',
-    )
-
-    const readme = await readFile(README_PATH, 'utf8')
-    await writeOutput(readme, SKILL_OUTPUT_DIR, 'README.md')
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('❌ Failed to prepare AI context:', error)
-    process.exit(1)
-  }
-}
-
-async function readExampleCode (): Promise<
-  { templateString: string, code: string }[]
-> {
-  const examples: { templateString: string, code: string }[] = []
-
-  for (const config of Object.values(EXAMPLE_CONFIGS)) {
+  for (const [key, config] of Object.entries(EXAMPLE_CONFIGS)) {
     let code: string | undefined
 
     if (config.exampleConfig) {
@@ -69,21 +48,84 @@ async function readExampleCode (): Promise<
       } catch {
         // eslint-disable-next-line no-console
         console.warn(
-          `Warning: Could not read example for ${config.templateString} from ${filePath}. It might not exist or be accessible.`,
+          `Warning: Could not read example for ${key} from ${filePath}. It might not exist or be accessible.`,
         )
       }
     }
 
     if (code) {
       const wrappedCode = `**Reference:** ${config.reference}\n\n\`\`\`typescript\n${code}\`\`\``
-      examples.push({
-        templateString: config.templateString,
-        code: wrappedCode,
-      })
+      examples.set(config.templateString, wrappedCode)
     }
   }
 
   return examples
+}
+
+function replaceExamples (content: string, examples: Map<string, string>): string {
+  let result = content
+  for (const [templateString, code] of examples) {
+    result = result.replaceAll(templateString, code)
+  }
+  return result
+}
+
+function generateReferenceLinks (): string {
+  return REFERENCES.map(
+    ref => `- [${ref.linkText}](references/${ref.id}.md) - ${ref.description}`,
+  ).join('\n')
+}
+
+async function prepareContext () {
+  try {
+    // eslint-disable-next-line no-console
+    console.log('📝 Preparing AI context...')
+
+    const examples = await readExampleCode()
+
+    // Read source files
+    const header = await readFile(join(AI_CONTEXT_DIR, 'skill-header.md'), 'utf8')
+    const footer = await readFile(join(AI_CONTEXT_DIR, 'skill-footer.md'), 'utf8')
+
+    // Process reference files and collect their content
+    const referenceContents: string[] = []
+
+    for (const ref of REFERENCES) {
+      const refContent = await readFile(
+        join(AI_CONTEXT_DIR, 'references', `${ref.id}.md`),
+        'utf8',
+      )
+      const processedRefContent = replaceExamples(refContent, examples)
+      referenceContents.push(processedRefContent)
+
+      // Write reference file to skill output
+      await writeOutput(processedRefContent, REFERENCES_OUTPUT_DIR, `${ref.id}.md`)
+    }
+
+    // Generate SKILL.md (header with reference links + footer)
+    const headerWithLinks = header.replace('<!-- REFERENCE_LINKS -->', generateReferenceLinks())
+    const skillContent = replaceExamples(headerWithLinks, examples) + '\n' + footer
+    await writeOutput(skillContent, SKILL_OUTPUT_DIR, 'SKILL.md')
+
+    // Generate checkly.rules.md (header + all references concatenated + footer)
+    const demotedReferences = referenceContents.map(demoteHeadings).join('\n\n')
+    const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
+      replaceExamples(header.replace('<!-- REFERENCE_LINKS -->', ''), examples)
+      + '\n'
+      + demotedReferences
+      + '\n\n'
+      + footer,
+    ))
+    await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
+
+    // Copy README
+    const readme = await readFile(join(AI_CONTEXT_DIR, 'README.md'), 'utf8')
+    await writeOutput(readme, SKILL_OUTPUT_DIR, 'README.md')
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to prepare AI context:', error)
+    process.exit(1)
+  }
 }
 
 prepareContext()

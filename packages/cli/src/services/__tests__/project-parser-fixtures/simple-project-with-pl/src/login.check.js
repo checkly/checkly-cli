@@ -1,5 +1,5 @@
 /* eslint-disable no-new */
-import { BrowserCheck, PrivateLocation, CheckGroup } from '../../../../../constructs'
+import { BrowserCheck, PrivateLocation, CheckGroup } from 'checkly/constructs'
 
 const privateLocation = new PrivateLocation('private-location-1', {
   name: 'My Private Location',

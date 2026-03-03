@@ -13,7 +13,15 @@ import TestSessions from './test-sessions'
 import EnvironmentVariables from './environment-variables'
 import HeartbeatChecks from './heartbeat-checks'
 import ChecklyStorage from './checkly-storage'
+import Checks from './checks'
+import CheckStatuses from './check-statuses'
+import CheckResults from './check-results'
+import CheckGroups from './check-groups'
+import ErrorGroups from './error-groups'
+import StatusPages from './status-pages'
+import Incidents from './incidents'
 import { handleErrorResponse, UnauthorizedError } from './errors'
+import { detectOperator } from '../helpers/cli-mode'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -52,19 +60,6 @@ export async function validateAuthentication (): Promise<Account | undefined> {
 
     throw err
   }
-}
-
-export function detectOperator (): string {
-  if (process.env.CLAUDECODE) return 'claude-code'
-  if (process.env.CURSOR_TRACE_ID) return 'cursor'
-  if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
-  if (process.env.GITHUB_COPILOT) return 'github-copilot'
-  if (process.env.AIDER) return 'aider'
-  if (process.env.WINDSURF || process.env.CODEIUM_ENV) return 'windsurf'
-  if (process.env.GITHUB_ACTIONS) return 'github-actions'
-  if (process.env.GITLAB_CI) return 'gitlab-ci'
-  if (process.env.CI) return 'ci'
-  return 'manual'
 }
 
 export function requestInterceptor (config: InternalAxiosRequestConfig) {
@@ -117,3 +112,10 @@ export const testSessions = new TestSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
 export const heartbeatCheck = new HeartbeatChecks(api)
 export const checklyStorage = new ChecklyStorage(api)
+export const checks = new Checks(api)
+export const checkStatuses = new CheckStatuses(api)
+export const checkResults = new CheckResults(api)
+export const checkGroups = new CheckGroups(api)
+export const errorGroups = new ErrorGroups(api)
+export const statusPages = new StatusPages(api)
+export const incidents = new Incidents(api)

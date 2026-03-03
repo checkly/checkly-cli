@@ -49,15 +49,18 @@ describe('help', () => {
   trigger  Trigger your existing checks on Checkly.`)
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
+  checks           List and inspect checks in your Checkly account.
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
   help             Display help for checkly.
   import           Import existing resources from your Checkly account to your
                    project.
+  incidents        Create and manage status page incidents.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
   rules            Generate a rules file to use with AI IDEs and Copilots.
   runtimes         List all supported runtimes and dependencies.
+  status-pages     List and manage status pages in your Checkly account.
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
   whoami           See your currently logged in account and user.`)

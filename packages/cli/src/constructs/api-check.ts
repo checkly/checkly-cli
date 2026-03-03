@@ -11,7 +11,7 @@ import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle'
 import { Assertion } from './api-assertion'
 import { validateResponseTimes } from './internal/common-diagnostics'
-import { Runtime } from '../runtimes'
+import { Bundler } from '../services/check-parser/bundler'
 
 /**
  * Default configuration that can be applied to API checks.
@@ -263,7 +263,7 @@ export class ApiCheck extends RuntimeCheck {
     })
   }
 
-  async bundle (): Promise<ApiCheckBundle> {
+  async bundle (bundler: Bundler): Promise<ApiCheckBundle> {
     const props: ApiCheckBundleProps = {}
 
     if (this.localSetupScript) {
@@ -273,6 +273,7 @@ export class ApiCheck extends RuntimeCheck {
     if (this.setupScript) {
       if (isEntrypoint(this.setupScript)) {
         const { script, scriptPath, dependencies } = await ApiCheck.bundle(
+          bundler,
           this.resolveContentFilePath(this.setupScript.entrypoint),
           this.runtimeId,
         )
@@ -291,6 +292,7 @@ export class ApiCheck extends RuntimeCheck {
     if (this.tearDownScript) {
       if (isEntrypoint(this.tearDownScript)) {
         const { script, scriptPath, dependencies } = await ApiCheck.bundle(
+          bundler,
           this.resolveContentFilePath(this.tearDownScript.entrypoint),
           this.runtimeId,
         )
@@ -305,7 +307,7 @@ export class ApiCheck extends RuntimeCheck {
     return new ApiCheckBundle(this, props)
   }
 
-  static async bundle (entrypoint: string, runtimeId?: string) {
+  static async bundle (bundler: Bundler, entrypoint: string, runtimeId?: string) {
     const runtime = Session.getRuntime(runtimeId)
     if (!runtime) {
       throw new Error(`${runtimeId} is not supported`)

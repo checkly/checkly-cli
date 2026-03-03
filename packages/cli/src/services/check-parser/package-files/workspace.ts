@@ -1,5 +1,3 @@
-import path from 'node:path'
-
 import { glob } from 'glob'
 
 import { PackageJsonFile } from './package-json-file'
@@ -126,9 +124,10 @@ export class Workspace {
     root: string,
     patterns: string[],
   ): Promise<Package[]> {
-    const lookup = patterns.map(pattern =>
-      path.join(pattern, PackageJsonFile.FILENAME),
-    )
+    const lookup = patterns.map(pattern => {
+      const joiner = pattern.endsWith('/') ? '' : '/'
+      return [pattern, PackageJsonFile.FILENAME].join(joiner)
+    })
 
     const results = await glob(lookup, {
       cwd: root,

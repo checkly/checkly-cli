@@ -1,10 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import url from 'node:url'
 
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-import { minimatch } from 'minimatch'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import Debug from 'debug'
@@ -13,10 +11,11 @@ import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
 import type { PlaywrightConfig } from '../playwright-config'
-import { findFilesWithPattern, pathToPosix } from '../util'
+import { pathToPosix } from '../util'
 import { Package, Workspace } from './package-files/workspace'
 import { isCoreExtension, isTSExtension } from './package-files/extension'
 import { createFauxPackageFiles } from './faux-package'
+import { PlaywrightConfigExpander } from './playwright-config-expander'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -41,8 +40,6 @@ function isLegacySupportedFileExtension (value: string): value is LegacySupporte
       return false
   }
 }
-
-const PACKAGE_EXTENSION = `${path.sep}package.json`
 
 const supportedBuiltinModules = [
   'node:assert',
@@ -143,17 +140,24 @@ export type File =
   | VirtualFile
   | PhysicalFile
 
+const FILEOP_PARSE = 1
+const FILEOP_RESOLVE = 2
+
 export class Parser {
   supportedModules: Set<string>
   checkUnsupportedModules: boolean
   workspace?: Workspace
   resolver: PackageFilesResolver
   restricted: boolean
-  cache = new Map<string, {
+
+  #parseCache = new Map<string, {
     module: Module
-    resolvedDependencies?: Dependencies
     error?: any
   }>()
+
+  #resolveCache = new Map<string, Dependencies>()
+
+  #configExpander = new PlaywrightConfigExpander()
 
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
@@ -180,37 +184,52 @@ export class Parser {
     return false
   }
 
-  private async validateFile (
+  private validateEntrypoint (
     filePath: string,
-  ): Promise<FileEntry> {
-    debug(`Validating file ${filePath}`)
-    const extension = path.extname(filePath)
-    if (!this.isProcessableExtension(extension)) {
+  ): void {
+    const ops = this.determineFileOps(filePath)
+    if ((ops & FILEOP_PARSE) === 0) {
       throw new Error(`Unsupported file extension for ${filePath}`)
     }
+  }
+
+  private async readFile (
+    filePath: string,
+  ): Promise<FileEntry> {
+    debug(`Reading file ${filePath}`)
     try {
       const content = await fs.readFile(filePath, { encoding: 'utf-8' })
       return { filePath, content }
     } catch (err) {
-      debug(`Failed to validate file ${filePath}: ${err}`)
+      debug(`Failed to read file ${filePath}: ${err}`)
       throw new DependencyParseError(filePath, [filePath], [], [])
     }
   }
 
-  private isProcessableExtension (extension: string): boolean {
+  private determineFileOps (filePath: string): number {
+    const extension = path.extname(filePath)
+
     if (this.restricted) {
-      return isLegacySupportedFileExtension(extension)
+      if (isLegacySupportedFileExtension(extension)) {
+        return FILEOP_RESOLVE | FILEOP_PARSE
+      }
+
+      return 0
     }
 
-    if (isCoreExtension(extension) && extension !== '.json') {
-      return true
+    if (isCoreExtension(extension)) {
+      if (extension === '.json') {
+        return FILEOP_RESOLVE
+      }
+
+      return FILEOP_RESOLVE | FILEOP_PARSE
     }
 
     if (isTSExtension(extension)) {
-      return true
+      return FILEOP_RESOLVE | FILEOP_PARSE
     }
 
-    return false
+    return 0
   }
 
   async getFilesAndDependencies (
@@ -219,53 +238,57 @@ export class Parser {
     files: File[]
     errors: string[]
   }> {
-    const files = new Set(await this.getFilesFromPaths(playwrightConfig))
+    const files = new Set(await this.#configExpander.findTestFiles(playwrightConfig))
     files.add(playwrightConfig.configFilePath)
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()
     const neighbors = new NeighborDependencyCollector()
-    for (const file of files) {
-      if (resultFileSet.has(file)) {
+    for (const filePath of files) {
+      if (resultFileSet.has(filePath)) {
         continue
       }
-      const extension = path.extname(file)
-      if (!this.isProcessableExtension(extension)) {
-        resultFileSet.add(file)
+
+      const ops = this.determineFileOps(filePath)
+
+      // Not necessary - just a minor optimization.
+      if (ops === 0) {
+        resultFileSet.add(filePath)
         continue
       }
-      const item = await this.validateFile(file)
 
-      const cache = this.cache.get(item.filePath)
-      const { module, error } = cache !== undefined
-        ? cache
-        : Parser.parseDependencies(item.filePath, item.content)
+      let dependencies: RawDependency[] = []
+      if (ops & FILEOP_PARSE) {
+        const { module, error } = await this.parseFile(filePath)
 
-      if (error) {
-        this.cache.set(item.filePath, { module, error })
-        errors.add(item.filePath)
-        continue
-      }
-      const resolvedDependencies = cache?.resolvedDependencies
-        ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
-
-      for (const dep of resolvedDependencies.missing) {
-        missingFiles.add(dep.filePath)
-      }
-
-      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
-      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
-
-      this.cache.set(item.filePath, { module, resolvedDependencies })
-
-      for (const dep of resolvedDependencies.local) {
-        if (resultFileSet.has(dep.sourceFile.meta.filePath)) {
+        if (error) {
+          errors.add(filePath)
           continue
         }
-        const filePath = dep.sourceFile.meta.filePath
-        files.add(filePath)
+
+        dependencies = module.dependencies
       }
-      resultFileSet.add(item.filePath)
+
+      if (ops & FILEOP_RESOLVE) {
+        const resolvedDependencies = await this.resolveDependencies(filePath, dependencies)
+
+        for (const dep of resolvedDependencies.missing) {
+          missingFiles.add(dep.filePath)
+        }
+
+        neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+        neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+
+        for (const dep of resolvedDependencies.local) {
+          if (resultFileSet.has(dep.sourceFile.meta.filePath)) {
+            continue
+          }
+          const filePath = dep.sourceFile.meta.filePath
+          files.add(filePath)
+        }
+      }
+
+      resultFileSet.add(filePath)
     }
 
     if (missingFiles.size) {
@@ -296,82 +319,45 @@ export class Parser {
     }
   }
 
-  private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
-    let files = cache.get(testDir)
-    if (!files) {
-      files = await findFilesWithPattern(testDir, '**/*.{js,ts,mjs}', ignoredFiles)
-      cache.set(testDir, files)
+  private async parseFile (
+    filePath: string,
+  ): Promise<{ module: Module, error?: any }> {
+    const cache = this.#parseCache.get(filePath)
+    if (!cache) {
+      const { content } = await this.readFile(filePath)
+      return this.parseFileContent(filePath, content)
     }
-    return files
+    return cache
   }
 
-  private async getFilesFromPaths (playwrightConfig: (PlaywrightConfig)): Promise<string[]> {
-    const ignoredFiles = ['**/node_modules/**', '.git/**']
-    const cachedFiles = new Map<string, string[]>()
-    // If projects is definited, ignore root settings
-    const projects = playwrightConfig.projects ?? [playwrightConfig]
-    for (const project of projects) {
-      // Cache the files by test dir
-      const files = await this.collectFiles(cachedFiles, project.testDir, ignoredFiles)
-      const matcher = this.createFileMatcher(Array.from(project.testMatch))
-      for (const file of files) {
-        if (!matcher(file)) {
-          continue
-        }
-        project.addFiles(file)
-        const snapshotGlobs = project.getSnapshotPath(file).map(snapshotPath => pathToPosix(snapshotPath))
-        const snapshots = await findFilesWithPattern(project.testDir, snapshotGlobs, ignoredFiles)
-        if (snapshots.length) {
-          project.addFiles(...snapshots)
-        }
-      }
+  private parseFileContent (
+    filePath: string,
+    content: string,
+  ): { module: Module, error?: any } {
+    let cache = this.#parseCache.get(filePath)
+    if (!cache) {
+      cache = Parser.parseDependencies(filePath, content)
+      this.#parseCache.set(filePath, cache)
     }
-    return playwrightConfig.getFiles()
+    return cache
   }
 
-  createFileMatcher (patterns: (string | RegExp)[]): (filePath: string) => boolean {
-    const reList: RegExp[] = []
-    const filePatterns: string[] = []
-    for (const pattern of patterns) {
-      if (pattern instanceof RegExp) {
-        reList.push(pattern)
-      } else {
-        if (!pattern.startsWith('**/')) {
-          filePatterns.push('**/' + pattern)
-        } else {
-          filePatterns.push(pattern)
-        }
-      }
+  private async resolveDependencies (
+    filePath: string,
+    dependencies: RawDependency[],
+  ): Promise<Dependencies> {
+    let cache = this.#resolveCache.get(filePath)
+    if (!cache) {
+      cache = await this.resolver.resolveDependenciesForFilePath(filePath, dependencies)
+      this.#resolveCache.set(filePath, cache)
     }
-    return (filePath: string) => {
-      for (const re of reList) {
-        re.lastIndex = 0
-        if (re.test(filePath)) {
-          return true
-        }
-      }
-      // Windows might still receive unix style paths from Cygwin or Git Bash.
-      // Check against the file url as well.
-      if (path.sep === '\\') {
-        const fileURL = url.pathToFileURL(filePath).href
-        for (const re of reList) {
-          re.lastIndex = 0
-          if (re.test(fileURL)) {
-            return true
-          }
-        }
-      }
-      for (const pattern of filePatterns) {
-        if (minimatch(filePath, pattern, { nocase: true, dot: true })) {
-          return true
-        }
-      }
-      return false
-    }
+    return cache
   }
 
   async parse (entrypoint: string) {
-    const { content } = await this.validateFile(entrypoint)
+    this.validateEntrypoint(entrypoint)
+
+    const { content } = await this.readFile(entrypoint)
 
     /*
   * The importing of files forms a directed graph.
@@ -383,63 +369,61 @@ export class Parser {
     const neighbors = new NeighborDependencyCollector()
     const bfsQueue: [FileEntry] = [{ filePath: entrypoint, content }]
     while (bfsQueue.length > 0) {
-    // Since we just checked the length, shift() will never return undefined.
-    // We can add a not-null assertion operator (!).
-
+      // Since we just checked the length, shift() will never return undefined.
+      // We can add a not-null assertion operator (!).
       const item = bfsQueue.shift()!
 
-      if (item.filePath.endsWith(PACKAGE_EXTENSION)) {
-        // Holds info about the main file and doesn't need to be parsed
+      const ops = this.determineFileOps(item.filePath)
+
+      // Not necessary - just a minor optimization.
+      if (ops === 0) {
         continue
       }
 
-      // This cache is only useful when there are multiple entrypoints with
-      // common files, as we make sure to not add the same file twice to
-      // bfsQueue.
-      const cache = this.cache.get(item.filePath)
-      const { module, error } = cache !== undefined
-        ? cache
-        : Parser.parseDependencies(item.filePath, item.content)
+      let dependencies: RawDependency[] = []
+      if (ops & FILEOP_PARSE) {
+        const { module, error } = this.parseFileContent(item.filePath, item.content)
 
-      if (error) {
-        this.cache.set(item.filePath, { module, error })
-        collector.addParsingError(item.filePath, error.message)
-        continue
-      }
-
-      const resolvedDependencies = cache?.resolvedDependencies
-        ?? await this.resolver.resolveDependenciesForFilePath(item.filePath, module.dependencies)
-
-      this.cache.set(item.filePath, { module, resolvedDependencies })
-
-      if (this.checkUnsupportedModules) {
-        const unsupportedDependencies = resolvedDependencies.external.flatMap(dep => {
-          if (!this.supportsModule(dep.importPath)) {
-            return [dep.importPath]
-          } else {
-            return []
-          }
-        })
-        if (unsupportedDependencies.length) {
-          collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
-        }
-      }
-
-      for (const dep of resolvedDependencies.missing) {
-        collector.addMissingFile(dep.filePath)
-      }
-
-      for (const dep of resolvedDependencies.local) {
-        const filePath = dep.sourceFile.meta.filePath
-        if (collector.hasDependency(filePath)) {
+        if (error) {
+          collector.addParsingError(item.filePath, error.message)
           continue
         }
-        collector.addDependency(filePath, dep.sourceFile.contents)
-        bfsQueue.push({ filePath, content: dep.sourceFile.contents })
+
+        dependencies = module.dependencies
       }
 
-      neighbors.markDepended(...resolvedDependencies.neighbors.depends)
-      neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+      if (ops & FILEOP_RESOLVE) {
+        const resolvedDependencies = await this.resolveDependencies(item.filePath, dependencies)
+
+        if (this.checkUnsupportedModules) {
+          const unsupportedDependencies = resolvedDependencies.external.flatMap(dep => {
+            if (!this.supportsModule(dep.importPath)) {
+              return [dep.importPath]
+            } else {
+              return []
+            }
+          })
+          if (unsupportedDependencies.length) {
+            collector.addUnsupportedNpmDependencies(item.filePath, unsupportedDependencies)
+          }
+        }
+
+        for (const dep of resolvedDependencies.missing) {
+          collector.addMissingFile(dep.filePath)
+        }
+
+        for (const dep of resolvedDependencies.local) {
+          const filePath = dep.sourceFile.meta.filePath
+          if (collector.hasDependency(filePath)) {
+            continue
+          }
+          collector.addDependency(filePath, dep.sourceFile.contents)
+          bfsQueue.push({ filePath, content: dep.sourceFile.contents })
+        }
+
+        neighbors.markDepended(...resolvedDependencies.neighbors.depends)
+        neighbors.markReferenced(...resolvedDependencies.neighbors.references)
+      }
     }
 
     for (const pkg of neighbors.unreferencedDependedPackages()) {

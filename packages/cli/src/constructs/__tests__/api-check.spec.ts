@@ -57,10 +57,6 @@ describe('ApiCheck', () => {
       payload: expect.objectContaining({
         sharedFiles: [
           expect.objectContaining({
-            path: 'package.json',
-            content: fs.readFileSync(fixt.abspath('package.json'), 'utf8'),
-          }),
-          expect.objectContaining({
             path: 'test-cases/test-script-dependencies/dep1.js',
             content: fs.readFileSync(fixt.abspath('test-cases/test-script-dependencies/dep1.js'), 'utf8'),
           }),
@@ -79,7 +75,6 @@ describe('ApiCheck', () => {
               setupScriptDependencies: [
                 0,
                 1,
-                2,
               ],
             }),
           }),
@@ -92,7 +87,6 @@ describe('ApiCheck', () => {
               tearDownScriptDependencies: [
                 0,
                 1,
-                2,
               ],
             }),
           }),

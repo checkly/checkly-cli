@@ -57,10 +57,6 @@ describe('BrowserCheck', () => {
       payload: expect.objectContaining({
         sharedFiles: [
           expect.objectContaining({
-            path: 'package.json',
-            content: fs.readFileSync(fixt.abspath('package.json'), 'utf8'),
-          }),
-          expect.objectContaining({
             path: 'test-cases/test-code-dependencies/dep1.js',
             content: fs.readFileSync(fixt.abspath('test-cases/test-code-dependencies/dep1.js'), 'utf8'),
           }),
@@ -80,7 +76,6 @@ describe('BrowserCheck', () => {
               dependencies: [
                 0,
                 1,
-                2,
               ],
             }),
           }),

@@ -4,10 +4,12 @@ import { parseProject } from '../../services/project-parser'
 import { loadChecklyConfig } from '../../services/checkly-config-loader'
 import {
   Diagnostics,
+  Session,
 } from '../../constructs'
 import { splitConfigFilePath } from '../../services/util'
 import commonMessages from '../../messages/common-messages'
 import { loadSnapshot, Runtime } from '../../runtimes'
+import { Bundler } from '../../services/check-parser/bundler'
 
 export type ParseProjectOutput = {
   diagnostics: {
@@ -68,6 +70,11 @@ export default class ParseProjectCommand extends Command {
       multiple: true,
       default: [],
     }),
+    'inject-private-location': Flags.string({
+      description: 'Pretend that the given private location exists (e.g., "70c4ded4-2229-45a7-acf4-6b1eb56a86df:my-external-private-location").',
+      multiple: true,
+      default: [],
+    }),
   }
 
   async run (): Promise<void> {
@@ -78,6 +85,7 @@ export default class ParseProjectCommand extends Command {
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'emulate-pw-test': emulatePwTest,
       'include': includeFlag,
+      'inject-private-location': injectPrivateLocation,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -87,6 +95,16 @@ export default class ParseProjectCommand extends Command {
     const availableRuntimes = await loadSnapshot()
 
     try {
+      if (injectPrivateLocation) {
+        Session.privateLocations = injectPrivateLocation.map(loc => {
+          const [id, ...rest] = loc.split(':')
+          return {
+            id,
+            slugName: rest.join(':'),
+          }
+        })
+      }
+
       const project = await parseProject({
         directory: configDirectory,
         projectLogicalId: checklyConfig.logicalId,
@@ -107,17 +125,28 @@ export default class ParseProjectCommand extends Command {
         checklyConfigConstructs,
         playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
         include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
-        includeFlagProvided: includeFlag.length > 0,
         playwrightChecks: checklyConfig.checks?.playwrightChecks,
-        currentCommand: emulatePwTest ? 'pw-test' : undefined,
+        loadPlaywrightChecksOnly: emulatePwTest,
+        warnOnWebServerConfig: emulatePwTest && !(includeFlag.length > 0),
       })
 
       const diagnostics = new Diagnostics()
       await project.validate(diagnostics)
 
-      const bundle = await project.bundle()
+      const payload = await (async () => {
+        if (diagnostics.isFatal()) {
+          return null
+        }
 
-      const payload = diagnostics.isFatal() ? null : bundle.synthesize()
+        const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap())
+
+        const bundle = await project.bundle(bundler)
+
+        const archive = await bundler.finalize()
+        bundler.updateMarker(archive.archiveFile)
+
+        return bundle.synthesize()
+      })()
 
       const output = {
         diagnostics: {

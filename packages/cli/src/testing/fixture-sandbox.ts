@@ -82,7 +82,10 @@ export class FixtureSandbox {
 
     const root = maybeRoot
       ? await fs.mkdir(maybeRoot, { recursive: true }).then(() => maybeRoot)
-      : await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-'))
+      // tmpdir() on macOS usually returns a path starting with /var which is
+      // a symlink. Resolve the path so that we don't run into path mismatch
+      // issues.
+      : await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-')))
 
     debug(`Using root ${root}`)
 
@@ -181,7 +184,9 @@ export class FixtureSandbox {
   }
 
   abspath (...to: string[]): string {
-    return path.join(this.#root, ...to)
+    // Split segments by / so that we can define paths in posix style and
+    // still expect the results to work on Windows.
+    return path.join(this.#root, ...to.flatMap(segment => segment.split('/')))
   }
 }
 

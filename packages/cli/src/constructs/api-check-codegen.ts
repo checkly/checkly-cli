@@ -39,8 +39,6 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          builder.value('request', valueForRequest(this.program, file, context, resource.request))
-
           if (resource.localSetupScript) {
             const content = resource.localSetupScript
             validateScript(content)
@@ -106,6 +104,8 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
           }
 
           buildRuntimeCheckProps(this.program, file, builder, resource, context)
+
+          builder.value('request', valueForRequest(this.program, file, context, resource.request))
         })
       })
     }))
