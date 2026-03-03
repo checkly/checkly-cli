@@ -1,10 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import url from 'node:url'
 
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-import { minimatch } from 'minimatch'
 // Only import types given this is an optional dependency
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import Debug from 'debug'
@@ -13,10 +11,11 @@ import { Collector } from './collector'
 import { DependencyParseError } from './errors'
 import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
 import type { PlaywrightConfig } from '../playwright-config'
-import { findFilesWithPattern, pathToPosix } from '../util'
+import { pathToPosix } from '../util'
 import { Package, Workspace } from './package-files/workspace'
 import { isCoreExtension, isTSExtension } from './package-files/extension'
 import { createFauxPackageFiles } from './faux-package'
+import { PlaywrightConfigExpander } from './playwright-config-expander'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -158,6 +157,8 @@ export class Parser {
 
   #resolveCache = new Map<string, Dependencies>()
 
+  #configExpander = new PlaywrightConfigExpander()
+
   // TODO: pass a npm matrix of supported npm modules
   // Maybe pass a cache so we don't have to fetch files separately all the time
   constructor (options: ParserOptions) {
@@ -237,7 +238,7 @@ export class Parser {
     files: File[]
     errors: string[]
   }> {
-    const files = new Set(await this.getFilesFromPaths(playwrightConfig))
+    const files = new Set(await this.#configExpander.findTestFiles(playwrightConfig))
     files.add(playwrightConfig.configFilePath)
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
@@ -351,80 +352,6 @@ export class Parser {
       this.#resolveCache.set(filePath, cache)
     }
     return cache
-  }
-
-  private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
-    let files = cache.get(testDir)
-    if (!files) {
-      files = await findFilesWithPattern(testDir, '**/*.{js,ts,mjs}', ignoredFiles)
-      cache.set(testDir, files)
-    }
-    return files
-  }
-
-  private async getFilesFromPaths (playwrightConfig: (PlaywrightConfig)): Promise<string[]> {
-    const ignoredFiles = ['**/node_modules/**', '.git/**']
-    const cachedFiles = new Map<string, string[]>()
-    // If projects is definited, ignore root settings
-    const projects = playwrightConfig.projects ?? [playwrightConfig]
-    for (const project of projects) {
-      // Cache the files by test dir
-      const files = await this.collectFiles(cachedFiles, project.testDir, ignoredFiles)
-      const matcher = this.createFileMatcher(Array.from(project.testMatch))
-      for (const file of files) {
-        if (!matcher(file)) {
-          continue
-        }
-        project.addFiles(file)
-        const snapshotGlobs = project.getSnapshotPath(file).map(snapshotPath => pathToPosix(snapshotPath))
-        const snapshots = await findFilesWithPattern(project.testDir, snapshotGlobs, ignoredFiles)
-        if (snapshots.length) {
-          project.addFiles(...snapshots)
-        }
-      }
-    }
-    return playwrightConfig.getFiles()
-  }
-
-  createFileMatcher (patterns: (string | RegExp)[]): (filePath: string) => boolean {
-    const reList: RegExp[] = []
-    const filePatterns: string[] = []
-    for (const pattern of patterns) {
-      if (pattern instanceof RegExp) {
-        reList.push(pattern)
-      } else {
-        if (!pattern.startsWith('**/')) {
-          filePatterns.push('**/' + pattern)
-        } else {
-          filePatterns.push(pattern)
-        }
-      }
-    }
-    return (filePath: string) => {
-      for (const re of reList) {
-        re.lastIndex = 0
-        if (re.test(filePath)) {
-          return true
-        }
-      }
-      // Windows might still receive unix style paths from Cygwin or Git Bash.
-      // Check against the file url as well.
-      if (path.sep === '\\') {
-        const fileURL = url.pathToFileURL(filePath).href
-        for (const re of reList) {
-          re.lastIndex = 0
-          if (re.test(fileURL)) {
-            return true
-          }
-        }
-      }
-      for (const pattern of filePatterns) {
-        if (minimatch(filePath, pattern, { nocase: true, dot: true })) {
-          return true
-        }
-      }
-      return false
-    }
   }
 
   async parse (entrypoint: string) {

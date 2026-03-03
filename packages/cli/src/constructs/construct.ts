@@ -5,6 +5,7 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { Diagnostics } from './diagnostics'
 import { Session } from './project'
 import { Ref } from './ref'
+import { Bundler } from '../services/check-parser/bundler'
 
 /**
  * Base interface for construct-like objects in the Checkly CLI system.
@@ -145,8 +146,8 @@ export abstract class Construct implements Validate, Bundle {
    *
    * @returns A Promise that resolves to the bundled representation of the Construct.
    */
-  // eslint-disable-next-line require-await
-  async bundle (): Promise<Bundle> {
+  // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
+  async bundle (bundler: Bundler): Promise<Bundle> {
     return this
   }
 

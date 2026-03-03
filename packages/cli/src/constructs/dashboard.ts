@@ -5,6 +5,7 @@ import { Session } from './project'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 import { DashboardBundle } from './dashboard-bundle'
+import { Bundler } from '../services/check-parser/bundler'
 
 /**
  * Configuration properties for dashboards.
@@ -318,7 +319,8 @@ export class Dashboard extends Construct {
     }
   }
 
-  async bundle (): Promise<DashboardBundle> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async bundle (bundler: Bundler): Promise<DashboardBundle> {
     const customCSS = await (async () => {
       if (this.customCSS) {
         if (isEntrypoint(this.customCSS)) {

@@ -1,5 +1,5 @@
 /* eslint-disable no-new */
-import { BrowserCheck } from '../../../../../../constructs'
+import { BrowserCheck } from 'checkly/constructs'
 
 new BrowserCheck('nested', {
   name: 'nested',
