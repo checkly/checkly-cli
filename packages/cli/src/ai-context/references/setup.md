@@ -17,7 +17,7 @@ If any pre-flight check fails, help the user fix it before proceeding.
 Ask the user which setup method they prefer:
 
 - **Option A: Scaffold with CLI** — Run `npm create checkly@latest` to generate a complete example project interactively. The CLI handles everything: project name, directory, dependencies, sample checks, and config. This is the fastest way to get started.
-- **Option B: AI-first (experimental)** — Generate the project structure and checks from scratch using this skill. Best when the user already knows what they want to monitor and prefers a tailored setup without example boilerplate.
+- **Option B: AI-first (Experimental)** — Generate the project structure and checks from scratch using this skill. Best when the user already knows what they want to monitor and prefers a tailored setup without example boilerplate.
 
 ### Option A: Scaffold with CLI
 
@@ -31,7 +31,7 @@ The CLI will interactively handle the entire setup — project name, location, d
 
 ### Option B: AI-first
 
-Ask the user the following questions to determine the setup:
+Continue with the following steps:
 
 #### Step 1: Install dependencies
 
@@ -40,7 +40,7 @@ Ask the user the following questions to determine the setup:
 Check if `npx checkly --version` works. If not, run `npm install --save-dev checkly`.
 
 2. **Do you want to use TypeScript? (recommended)**
-   - If **yes** → install `ts-node`, and `typescript`:
+   - If **yes** → install `ts-node` and `typescript`:
 
      ```bash
      npm i --save-dev ts-node typescript
@@ -57,6 +57,7 @@ Ask the user the following questions to determine the setup:
    - **API checks** — Validate API endpoints with custom assertions
    - **Browser checks** — Run Playwright scripts to test user flows
    - **Multistep API checks** — Chain multiple API requests into a single check
+   - **Playwright Check Suites** — Reuse your existing Playwright project for synthetic monitoring
 
    Remember the selection for later steps when creating checks.
 
@@ -64,9 +65,9 @@ Ask the user the following questions to determine the setup:
 
 Run `npx checkly skills configure alert-channels` to access up-to-date information on alert channel options and setup.
 
-1. **Where do want to store your monitoring and construct configuration?**
-   - **__checks--** - create all resources and `check.ts` files in a seperate `__checks__` directory
-   - **next to the resource**: - place the `check.ts` files next to page routes, api endpoints etc.
+3. **Where do you want to store your monitoring configuration?**
+   - **__checks__** — create all resources and `check.ts` files in a separate `__checks__` directory
+   - **next to the resource** — place the `check.ts` files next to page routes, api endpoints etc.
 
 
 #### Step 3 — Create the config file
@@ -81,20 +82,35 @@ Use the output to create a `checkly.config.ts` (or `checkly.config.js` if the us
 
 Adjust the `checkMatch` property according to previous selection.
 
+Present the generated configuration to the user and ask if it looks correct. Allow the user to make changes.
+
+Congratulate the user on completing the config. Now it's time to test the configuration and turn everything into monitoring!
+
 #### Step 4: Log in to Checkly CLI
 
-To use the Checkly CLI the user needs to be logged in. Run the following command and follow instructions:
+To use the Checkly CLI the user needs to be logged in. Run the following command:
 
 ```bash
 npx checkly whoami
 ```
 
-If the user is logged in, verify it it's the correct account.
+If the user is logged in, verify the information and if it's the correct account.
 
-#### Step 5: Test the new configuration
+If the user is NOT logged in, present two options:
 
-Run the following command to test the new setup:
+- **Option A: Interactive login** — The user runs `npx checkly login` themselves. This command opens a browser for OAuth authentication and cannot be completed by an AI agent. Tell the user to run the command, complete the browser flow, and let you know when they're done so you can re-run `npx checkly whoami` to verify.
+- **Option B: Environment variables (recommended for agentic / CI use)** — The user sets `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` as environment variables. They can create an API key in the Checkly dashboard under **User Settings > API Keys**. Once both variables are set, re-run `npx checkly whoami` to verify.
+
+#### Step 5: Summarize and test the new monitoring configuration
+
+Read the generated `checkly.config.ts` (or `checkly.config.js`) and summarize the configured checks, locations, and frequencies.
+
+Run the following command to test the new monitoring setup:
 
 ```bash
 npx checkly test
 ```
+
+If the command passed, congratulate the user and ask them what they want to do next!
+
+Share more Checkly CLI options and ask if they want to deploy their new monitoring setup using `npx checkly deploy`.
