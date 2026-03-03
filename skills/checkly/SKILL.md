@@ -14,16 +14,20 @@ Use `npx checkly skills list` to list the documentation for all possible actions
 
 ## Setup
 
-- `npx checkly skills show setup` - Set up a new Checkly CLI project to monitor from scratch.
+- `npx checkly skills show setup` - Learn how to set up a new Checkly CLI project from scratch.
 
 ## Configure
 
-- `npx checkly skills show configure` - Create and manage monitoring checks using the Checkly CLI.
-- `npx checkly skills show configure api-checks` - ApiCheck construct, assertions, and authentication setup scripts
-- `npx checkly skills show configure browser-checks` - BrowserCheck construct with Playwright test files
-- `npx checkly skills show configure playwright-checks` - PlaywrightCheck construct for multi-browser test suites
-- `npx checkly skills show configure multistep-checks` - MultiStepCheck construct for complex user flows
-- `npx checkly skills show configure uptime-monitors` - TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)
-- `npx checkly skills show configure check-groups` - CheckGroupV2 construct for organizing checks
-- `npx checkly skills show configure alert-channels` - Email, Phone, and Slack alert channels
-- `npx checkly skills show configure supporting-constructs` - Status pages, dashboards, maintenance windows, and private locations
+- `npx checkly skills show configure` - Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
+- `npx checkly skills show configure api-checks` - Api Check construct (`ApiCheck`), assertions, and authentication setup scripts
+- `npx checkly skills show configure browser-checks` - Browser Check construct (`BrowserCheck`) with Playwright test files
+- `npx checkly skills show configure playwright-checks` - Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites
+- `npx checkly skills show configure multistep-checks` - Multistep Check construct (`MultiStepCheck`) for complex user flows
+- `npx checkly skills show configure tcp-monitors` - TCP Monitor construct (`TcpMonitor`) with assertions
+- `npx checkly skills show configure url-monitors` - URL Monitor construct (`UrlMonitor`) with assertions
+- `npx checkly skills show configure dns-monitors` - DNS Monitor construct (`DnsMonitor`) with assertions
+- `npx checkly skills show configure icmp-monitors` - ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions
+- `npx checkly skills show configure heartbeat-monitors` - Heartbeat Monitor construct (`HeartbeatMonitor`)
+- `npx checkly skills show configure check-groups` - CheckGroupV2 construct (`CheckGroupV2`) for organizing checks
+- `npx checkly skills show configure alert-channels` - Email (`EmailAlertChannel`), Phone (`PhoneAlertChannel`), and Slack (`SlackAlertChannel`) alert channels
+- `npx checkly skills show configure supporting-constructs` - Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)
