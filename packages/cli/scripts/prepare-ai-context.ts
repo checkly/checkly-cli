@@ -129,9 +129,9 @@ async function prepareContext () {
     configureContent = replaceExamples(configureContent, examples)
     await writeOutput(configureContent, COMMAND_REFERENCES_DIR, 'configure.md')
 
-    // Process setup.md (no templating needed currently)
-    const setupContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'setup.md'), 'utf8')
-    await writeOutput(setupContent, COMMAND_REFERENCES_DIR, 'setup.md')
+    // Process initialize.md (no templating needed currently)
+    const initializeContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'initialize.md'), 'utf8')
+    await writeOutput(initializeContent, COMMAND_REFERENCES_DIR, 'initialize.md')
 
     // Generate SKILL.md from skill.md template with action links/commands
     let skillTemplate = await readFile(join(AI_CONTEXT_DIR, 'skill.md'), 'utf8')

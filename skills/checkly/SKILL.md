@@ -22,8 +22,8 @@ The skill is structured for efficient context usage:
 
 Agents load what they need for each task.
 
-### `npx checkly skills setup`
-Learn how to set up a new Checkly CLI project from scratch.
+### `npx checkly skills initialize`
+Learn how to initialize and set up a new Checkly CLI project from scratch.
 
 ### `npx checkly skills configure`
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.

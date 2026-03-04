@@ -32,9 +32,9 @@ describe('checkly skills', () => {
     expect(result.stdout).toContain(`$ checkly skills configure ${referenceShortIds[0]}`)
   })
 
-  it('should show the setup action content', async () => {
+  it('should show the initialize action content', async () => {
     const result = await runChecklyCli({
-      args: ['skills', 'setup'],
+      args: ['skills', 'initialize'],
     })
     expect(result.status).toBe(0)
     expect(result.stdout).toBeTruthy()

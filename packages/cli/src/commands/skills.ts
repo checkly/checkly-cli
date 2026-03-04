@@ -14,7 +14,7 @@ export default class Skills extends BaseCommand {
   static args = {
     action: Args.string({
       required: false,
-      description: 'The action name (e.g. "configure", "setup").',
+      description: 'The action name (e.g. "configure", "initialize").',
     }),
     reference: Args.string({
       required: false,
@@ -68,7 +68,7 @@ export default class Skills extends BaseCommand {
     this.log(`${SKILL.description}\n`)
 
     this.log('Examples:\n')
-    this.log('  $ checkly skills setup')
+    this.log('  $ checkly skills initialize')
     this.log('  $ checkly skills configure')
     this.log('  $ checkly skills configure api-checks')
     this.log('')

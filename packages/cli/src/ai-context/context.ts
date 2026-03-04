@@ -51,13 +51,13 @@ export const REFERENCES = [
 
 export const SKILL = {
   name: 'checkly',
-  description: 'Get all the information and context to let your agent set up, create, test and manage your monitoring checks using the Checkly CLI.',
+  description: 'Get all the information and context to let your agent initialize, set up, create, test and manage your monitoring checks using the Checkly CLI.',
 } as const
 
 export const ACTIONS = [
   {
-    id: 'setup',
-    description: 'Learn how to set up a new Checkly CLI project from scratch.',
+    id: 'initialize',
+    description: 'Learn how to initialize and set up a new Checkly CLI project from scratch.',
   },
   {
     id: 'configure',
