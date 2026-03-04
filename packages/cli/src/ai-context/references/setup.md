@@ -40,10 +40,10 @@ Continue with the following steps:
 Check if `npx checkly --version` works. If not, run `npm install --save-dev checkly`.
 
 2. **Do you want to use TypeScript? (recommended)**
-   - If **yes** → install `ts-node` and `typescript`:
+   - If **yes** → install `jiti`:
 
      ```bash
-     npm i --save-dev ts-node typescript
+     npm i --save-dev jiti
      ```
 
    - If **no** → there's nothing to do
