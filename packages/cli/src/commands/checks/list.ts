@@ -40,6 +40,10 @@ export default class ChecksList extends AuthCommand {
       description: 'Filter by check type.',
       options: ['API', 'BROWSER', 'MULTI_STEP', 'HEARTBEAT', 'PLAYWRIGHT', 'TCP', 'DNS', 'ICMP', 'URL'],
     }),
+    'status': Flags.string({
+      description: 'Filter by check status.',
+      options: ['passing', 'failing', 'degraded'],
+    }),
     'hide-id': Flags.boolean({
       description: 'Hide check IDs in table output.',
       default: false,
@@ -61,6 +65,7 @@ export default class ChecksList extends AuthCommand {
           tag: flags.tag,
           checkType: flags.type,
           search: flags.search,
+          status: flags.status,
         }),
         api.checkStatuses.fetchAll().catch(() => []),
       ])
@@ -75,6 +80,7 @@ export default class ChecksList extends AuthCommand {
       if (flags.tag) activeFilters.push(...flags.tag.map(t => `tag=${t}`))
       if (flags.search) activeFilters.push(`search="${flags.search}"`)
       if (flags.type) activeFilters.push(`type=${flags.type}`)
+      if (flags.status) activeFilters.push(`status=${flags.status}`)
 
       // JSON output
       if (flags.output === 'json') {
