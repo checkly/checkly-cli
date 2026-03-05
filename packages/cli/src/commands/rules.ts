@@ -28,6 +28,8 @@ const AI_IDE_CONFIGS = {
 
 export default class Rules extends BaseCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description =
     'Generate a rules file to use with AI IDEs and Copilots.'
 

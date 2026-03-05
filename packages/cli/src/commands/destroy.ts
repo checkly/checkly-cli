@@ -8,6 +8,7 @@ import commonMessages from '../messages/common-messages'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
+  static destructive = true
   static description = 'Destroy your project with all its related resources.'
 
   static flags = {

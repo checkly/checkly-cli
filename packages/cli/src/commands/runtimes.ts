@@ -3,6 +3,8 @@ import { BaseCommand } from './baseCommand'
 
 export default class Runtimes extends BaseCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List all supported runtimes and dependencies.'
   async run (): Promise<void> {
     const runtimes = await api.runtimes.getAll()

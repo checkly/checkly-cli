@@ -14,6 +14,8 @@ import { formatResultDetail } from '../../formatters/check-result-detail'
 
 export default class ChecksGet extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'Get details of a specific check, including recent results. Use --result to drill into a specific result.'
 
   static args = {
