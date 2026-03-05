@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { prepareReportersTypes } from '../test-helper'
+
+vi.mock('ci-info', () => ({ isCI: false }))
 
 describe('prepareReportersTypes', () => {
   it('returns list reporter by default', () => {
