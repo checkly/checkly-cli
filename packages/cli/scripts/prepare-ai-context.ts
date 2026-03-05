@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { ACTIONS, EXAMPLE_CONFIGS, REFERENCES } from '../src/ai-context/context'
+import { ACTIONS, EXAMPLE_CONFIGS, MANAGE_REFERENCES, REFERENCES } from '../src/ai-context/context'
 
 const EXAMPLES_DIR = join(__dirname, '../gen/')
 const AI_CONTEXT_DIR = join(__dirname, '../src/ai-context')
@@ -100,6 +100,13 @@ function generateReferenceCommands (): string {
   }).join('\n\n')
 }
 
+function generateManageReferenceCommands (): string {
+  return MANAGE_REFERENCES.map(ref => {
+    const refId = ref.id.replace('manage-', '')
+    return `### \`npx checkly skills manage ${refId}\`\n${ref.description}`
+  }).join('\n\n')
+}
+
 async function prepareContext () {
   try {
     // eslint-disable-next-line no-console
@@ -128,6 +135,21 @@ async function prepareContext () {
       .replace('<!-- REFERENCE_COMMANDS -->', generateReferenceCommands())
     configureContent = replaceExamples(configureContent, examples)
     await writeOutput(configureContent, COMMAND_REFERENCES_DIR, 'configure.md')
+
+    // Process manage-* reference files
+    for (const ref of MANAGE_REFERENCES) {
+      const refContent = await readFile(
+        join(AI_CONTEXT_DIR, 'references', `${ref.id}.md`),
+        'utf8',
+      )
+      await writeOutput(refContent, COMMAND_REFERENCES_DIR, `${ref.id}.md`)
+    }
+
+    // Process manage.md (action header with reference links/commands)
+    let manageContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'manage.md'), 'utf8')
+    manageContent = manageContent
+      .replace('<!-- REFERENCE_COMMANDS -->', generateManageReferenceCommands())
+    await writeOutput(manageContent, COMMAND_REFERENCES_DIR, 'manage.md')
 
     // Process initialize.md (no templating needed currently)
     const initializeContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'initialize.md'), 'utf8')
