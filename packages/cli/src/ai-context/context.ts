@@ -1,53 +1,61 @@
-export const REFERENCES = [
-  {
-    id: 'configure-api-checks',
-    description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
-  },
-  {
-    id: 'configure-browser-checks',
-    description: 'Browser Check construct (`BrowserCheck`) with Playwright test files',
-  },
-  {
-    id: 'configure-playwright-checks',
-    description: 'Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites',
-  },
-  {
-    id: 'configure-multistep-checks',
-    description: 'Multistep Check construct (`MultiStepCheck`) for complex user flows',
-  },
-  {
-    id: 'configure-tcp-monitors',
-    description: 'TCP Monitor construct (`TcpMonitor`) with assertions',
-  },
-  {
-    id: 'configure-url-monitors',
-    description: 'URL Monitor construct (`UrlMonitor`) with assertions',
-  },
-  {
-    id: 'configure-dns-monitors',
-    description: 'DNS Monitor construct (`DnsMonitor`) with assertions',
-  },
-  {
-    id: 'configure-icmp-monitors',
-    description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
-  },
-  {
-    id: 'configure-heartbeat-monitors',
-    description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
-  },
-  {
-    id: 'configure-check-groups',
-    description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
-  },
-  {
-    id: 'configure-alert-channels',
-    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
-  },
-  {
-    id: 'configure-supporting-constructs',
-    description: 'Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)',
-  },
-] as const
+export const REFERENCES = {
+  initialize: [
+    {
+      id: 'initialize-playwright',
+      description: 'Transform your existing Playwright project into MultiStep Checks, Browser Checks or Playwright Check Suites',
+    },
+  ],
+  configure: [
+    {
+      id: 'configure-api-checks',
+      description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
+    },
+    {
+      id: 'configure-browser-checks',
+      description: 'Browser Check construct (`BrowserCheck`) with Playwright test files',
+    },
+    {
+      id: 'configure-playwright-checks',
+      description: 'Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites',
+    },
+    {
+      id: 'configure-multistep-checks',
+      description: 'Multistep Check construct (`MultiStepCheck`) for complex user flows',
+    },
+    {
+      id: 'configure-tcp-monitors',
+      description: 'TCP Monitor construct (`TcpMonitor`) with assertions',
+    },
+    {
+      id: 'configure-url-monitors',
+      description: 'URL Monitor construct (`UrlMonitor`) with assertions',
+    },
+    {
+      id: 'configure-dns-monitors',
+      description: 'DNS Monitor construct (`DnsMonitor`) with assertions',
+    },
+    {
+      id: 'configure-icmp-monitors',
+      description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
+    },
+    {
+      id: 'configure-heartbeat-monitors',
+      description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
+    },
+    {
+      id: 'configure-check-groups',
+      description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
+    },
+    {
+      id: 'configure-alert-channels',
+      description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
+    },
+    {
+      id: 'configure-supporting-constructs',
+      description: 'Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)',
+    },
+  ],
+} as const
 
 export const SKILL = {
   name: 'checkly',
@@ -58,11 +66,12 @@ export const ACTIONS = [
   {
     id: 'initialize',
     description: 'Learn how to initialize and set up a new Checkly CLI project from scratch.',
+    references: REFERENCES.initialize,
   },
   {
     id: 'configure',
     description: 'Learn how to create and manage monitoring checks using Checkly constructs and the CLI.',
-    references: REFERENCES,
+    references: REFERENCES.configure,
   },
 ] as const
 

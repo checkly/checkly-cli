@@ -25,6 +25,9 @@ Agents load what they need for each task.
 ### `npx checkly skills initialize`
 Learn how to initialize and set up a new Checkly CLI project from scratch.
 
+#### `npx checkly skills initialize playwright`
+Transform your existing Playwright project into MultiStep Checks, Browser Checks or Playwright Check Suites
+
 ### `npx checkly skills configure`
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
 

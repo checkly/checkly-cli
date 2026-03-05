@@ -93,10 +93,73 @@ function generateSkillCommands (): string {
   }).join('\n\n')
 }
 
-function generateReferenceCommands (): string {
-  return REFERENCES.map(ref => {
-    const refId = ref.id.replace('configure-', '')
-    return `### \`npx checkly skills configure ${refId}\`\n${ref.description}`
+async function processReferenceFiles (examples: Map<string, string>): Promise<Map<string, string>> {
+  const allRefs = Object.values(REFERENCES).flat()
+  const processed = new Map<string, string>()
+
+  for (const ref of allRefs) {
+    const refContent = await readFile(
+      join(AI_CONTEXT_DIR, 'references', `${ref.id}.md`),
+      'utf8',
+    )
+    const processedContent = replaceExamples(refContent, examples)
+    processed.set(ref.id, processedContent)
+
+    await writeOutput(processedContent, COMMAND_REFERENCES_DIR, `${ref.id}.md`)
+  }
+
+  return processed
+}
+
+async function processActionFiles (examples: Map<string, string>): Promise<Map<string, string>> {
+  const processed = new Map<string, string>()
+
+  for (const action of ACTIONS) {
+    let actionContent = await readFile(join(AI_CONTEXT_DIR, 'references', `${action.id}.md`), 'utf8')
+    actionContent = actionContent
+      .replace('<!-- REFERENCE_COMMANDS -->', generateReferenceCommands(action.id))
+    actionContent = replaceExamples(actionContent, examples)
+    processed.set(action.id, actionContent)
+    await writeOutput(actionContent, COMMAND_REFERENCES_DIR, `${action.id}.md`)
+  }
+
+  return processed
+}
+
+async function generateSkillFile (): Promise<void> {
+  let skillTemplate = await readFile(join(AI_CONTEXT_DIR, 'skill.md'), 'utf8')
+  skillTemplate = skillTemplate
+    .replace('<!-- SKILL_COMMANDS -->', generateSkillCommands())
+  await writeOutput(skillTemplate, PUBLIC_SKILL_DIR, 'SKILL.md')
+}
+
+async function generateRulesFile (
+  processedActions: Map<string, string>,
+  processedRefs: Map<string, string>,
+): Promise<void> {
+  const configureContent = processedActions.get('configure')
+  if (!configureContent) {
+    throw new Error('Missing processed content for "configure" action')
+  }
+  const configureRefContents = REFERENCES.configure
+    .map(ref => processedRefs.get(ref.id)!)
+  const demotedReferences = configureRefContents.map(demoteHeadings).join('\n\n')
+  const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
+    configureContent
+    + '\n'
+    + demotedReferences,
+  ))
+  await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
+}
+
+function generateReferenceCommands (actionId: string): string {
+  const refs = REFERENCES[actionId as keyof typeof REFERENCES]
+  if (!refs) {
+    throw new Error(`No references found for action "${actionId}"`)
+  }
+  return refs.map(ref => {
+    const refId = ref.id.replace(`${actionId}-`, '')
+    return `### \`npx checkly skills ${actionId} ${refId}\`\n${ref.description}`
   }).join('\n\n')
 }
 
@@ -107,46 +170,17 @@ async function prepareContext () {
 
     const examples = await readExampleCode()
 
-    // Process configure-* reference files and collect their content
-    const referenceContents: string[] = []
+    // Process reference .md files: read, replace example placeholders, and write to dist
+    const processedRefs = await processReferenceFiles(examples)
 
-    for (const ref of REFERENCES) {
-      const refContent = await readFile(
-        join(AI_CONTEXT_DIR, 'references', `${ref.id}.md`),
-        'utf8',
-      )
-      const processedRefContent = replaceExamples(refContent, examples)
-      referenceContents.push(processedRefContent)
-
-      // Write reference file to skill output
-      await writeOutput(processedRefContent, COMMAND_REFERENCES_DIR, `${ref.id}.md`)
-    }
-
-    // Process configure.md (action header with reference links/commands + examples)
-    let configureContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'configure.md'), 'utf8')
-    configureContent = configureContent
-      .replace('<!-- REFERENCE_COMMANDS -->', generateReferenceCommands())
-    configureContent = replaceExamples(configureContent, examples)
-    await writeOutput(configureContent, COMMAND_REFERENCES_DIR, 'configure.md')
-
-    // Process initialize.md (no templating needed currently)
-    const initializeContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'initialize.md'), 'utf8')
-    await writeOutput(initializeContent, COMMAND_REFERENCES_DIR, 'initialize.md')
+    // Process each action's .md file: replace reference commands, examples, and write to dist
+    const processedActions = await processActionFiles(examples)
 
     // Generate SKILL.md from skill.md template with action links/commands
-    let skillTemplate = await readFile(join(AI_CONTEXT_DIR, 'skill.md'), 'utf8')
-    skillTemplate = skillTemplate
-      .replace('<!-- SKILL_COMMANDS -->', generateSkillCommands())
-    await writeOutput(skillTemplate, PUBLIC_SKILL_DIR, 'SKILL.md')
+    await generateSkillFile()
 
-    // Generate checkly.rules.md (configure header + all configure-* references concatenated)
-    const demotedReferences = referenceContents.map(demoteHeadings).join('\n\n')
-    const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
-      configureContent
-      + '\n'
-      + demotedReferences,
-    ))
-    await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
+    // Generate checkly.rules.md (configure header + all configure references concatenated)
+    await generateRulesFile(processedActions, processedRefs)
 
     // Copy README
     const readme = await readFile(join(AI_CONTEXT_DIR, 'README.md'), 'utf8')
