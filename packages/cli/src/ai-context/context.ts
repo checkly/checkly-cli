@@ -1,43 +1,68 @@
 export const REFERENCES = [
   {
-    id: 'api-checks',
-    linkText: 'API Checks',
-    description: 'ApiCheck construct, assertions, and authentication setup scripts',
+    id: 'configure-api-checks',
+    description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
   },
   {
-    id: 'browser-checks',
-    linkText: 'Browser Checks',
-    description: 'BrowserCheck construct with Playwright test files',
+    id: 'configure-browser-checks',
+    description: 'Browser Check construct (`BrowserCheck`) with Playwright test files',
   },
   {
-    id: 'playwright-checks',
-    linkText: 'Playwright Checks',
-    description: 'PlaywrightCheck construct for multi-browser test suites',
+    id: 'configure-playwright-checks',
+    description: 'Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites',
   },
   {
-    id: 'multistep-checks',
-    linkText: 'MultiStep Checks',
-    description: 'MultiStepCheck construct for complex user flows',
+    id: 'configure-multistep-checks',
+    description: 'Multistep Check construct (`MultiStepCheck`) for complex user flows',
   },
   {
-    id: 'uptime-monitors',
-    linkText: 'Uptime Monitors',
-    description: 'TCP (`TcpMonitor`), URL (`UrlMonitor`), DNS (`DnsMonitor`), ICMP (`IcmpMonitor`), and Heartbeat monitors (`HeartbeatMonitor`)',
+    id: 'configure-tcp-monitors',
+    description: 'TCP Monitor construct (`TcpMonitor`) with assertions',
   },
   {
-    id: 'check-groups',
-    linkText: 'Check Groups',
-    description: 'CheckGroupV2 construct for organizing checks',
+    id: 'configure-url-monitors',
+    description: 'URL Monitor construct (`UrlMonitor`) with assertions',
   },
   {
-    id: 'alert-channels',
-    linkText: 'Alert Channels',
-    description: 'Email, Phone, and Slack alert channels',
+    id: 'configure-dns-monitors',
+    description: 'DNS Monitor construct (`DnsMonitor`) with assertions',
   },
   {
-    id: 'supporting-constructs',
-    linkText: 'Supporting Constructs',
-    description: 'Status pages, dashboards, maintenance windows, and private locations',
+    id: 'configure-icmp-monitors',
+    description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
+  },
+  {
+    id: 'configure-heartbeat-monitors',
+    description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
+  },
+  {
+    id: 'configure-check-groups',
+    description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
+  },
+  {
+    id: 'configure-alert-channels',
+    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
+  },
+  {
+    id: 'configure-supporting-constructs',
+    description: 'Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)',
+  },
+] as const
+
+export const SKILL = {
+  name: 'checkly',
+  description: 'Get all the information and context to let your agent initialize, set up, create, test and manage your monitoring checks using the Checkly CLI.',
+} as const
+
+export const ACTIONS = [
+  {
+    id: 'initialize',
+    description: 'Learn how to initialize and set up a new Checkly CLI project from scratch.',
+  },
+  {
+    id: 'configure',
+    description: 'Learn how to create and manage monitoring checks using Checkly constructs and the CLI.',
+    references: REFERENCES,
   },
 ] as const
 

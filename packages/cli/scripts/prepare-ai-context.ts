@@ -1,12 +1,17 @@
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { EXAMPLE_CONFIGS, REFERENCES } from '../src/ai-context/context'
+import { ACTIONS, EXAMPLE_CONFIGS, REFERENCES } from '../src/ai-context/context'
 
 const EXAMPLES_DIR = join(__dirname, '../gen/')
 const AI_CONTEXT_DIR = join(__dirname, '../src/ai-context')
 const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
-const SKILL_OUTPUT_DIR = join(__dirname, '../dist/ai-context/skills/monitoring')
-const REFERENCES_OUTPUT_DIR = join(SKILL_OUTPUT_DIR, 'references')
+
+// Reference files served by the CLI's `checkly skills [action] [reference]` command
+const COMMAND_REFERENCES_DIR = join(__dirname, '../dist/ai-context/skills-command/references')
+
+// Published skill directory copied to the repo root (SKILL.md + README.md only, no references)
+const PUBLIC_SKILLS_DIR = join(__dirname, '../dist/ai-context/public-skills')
+const PUBLIC_SKILL_DIR = join(PUBLIC_SKILLS_DIR, 'checkly')
 
 function stripYamlFrontmatter (content: string): string {
   const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
@@ -14,9 +19,7 @@ function stripYamlFrontmatter (content: string): string {
 }
 
 // Demote headings by two levels (# -> ###, ## -> ####) to maintain proper
-// heading hierarchy when reference docs are concatenated after the header.
-// The header has "# Checkly Monitoring" and "## ..." sections, so reference
-// content needs to start at ### to avoid multiple H1s and broken structure.
+// heading hierarchy in checkly.rules.md.
 function demoteHeadings (content: string): string {
   return content.replace(/^(#+)/gm, '##$1')
 }
@@ -30,7 +33,7 @@ async function writeOutput (content: string, dir: string, filename: string): Pro
   const outputPath = join(dir, filename)
   await writeFile(outputPath, content, 'utf8')
   // eslint-disable-next-line no-console
-  console.log(`✅ Wrote ${outputPath}`)
+  console.log(`Wrote ${outputPath}`)
 }
 
 async function readExampleCode (): Promise<Map<string, string>> {
@@ -70,10 +73,31 @@ function replaceExamples (content: string, examples: Map<string, string>): strin
   return result
 }
 
-function generateReferenceLinks (): string {
-  return REFERENCES.map(
-    ref => `- [${ref.linkText}](references/${ref.id}.md) - ${ref.description}`,
-  ).join('\n')
+function generateSkillCommands (): string {
+  return ACTIONS.map(action => {
+    const lines = [
+      `### \`npx checkly skills ${action.id}\``,
+      action.description,
+    ]
+
+    if ('references' in action) {
+      for (const ref of action.references) {
+        const refId = ref.id.replace(`${action.id}-`, '')
+        lines.push('')
+        lines.push(`#### \`npx checkly skills ${action.id} ${refId}\``)
+        lines.push(ref.description)
+      }
+    }
+
+    return lines.join('\n')
+  }).join('\n\n')
+}
+
+function generateReferenceCommands (): string {
+  return REFERENCES.map(ref => {
+    const refId = ref.id.replace('configure-', '')
+    return `### \`npx checkly skills configure ${refId}\`\n${ref.description}`
+  }).join('\n\n')
 }
 
 async function prepareContext () {
@@ -83,11 +107,7 @@ async function prepareContext () {
 
     const examples = await readExampleCode()
 
-    // Read source files
-    const header = await readFile(join(AI_CONTEXT_DIR, 'skill-header.md'), 'utf8')
-    const footer = await readFile(join(AI_CONTEXT_DIR, 'skill-footer.md'), 'utf8')
-
-    // Process reference files and collect their content
+    // Process configure-* reference files and collect their content
     const referenceContents: string[] = []
 
     for (const ref of REFERENCES) {
@@ -99,28 +119,38 @@ async function prepareContext () {
       referenceContents.push(processedRefContent)
 
       // Write reference file to skill output
-      await writeOutput(processedRefContent, REFERENCES_OUTPUT_DIR, `${ref.id}.md`)
+      await writeOutput(processedRefContent, COMMAND_REFERENCES_DIR, `${ref.id}.md`)
     }
 
-    // Generate SKILL.md (header with reference links + footer)
-    const headerWithLinks = header.replace('<!-- REFERENCE_LINKS -->', generateReferenceLinks())
-    const skillContent = replaceExamples(headerWithLinks, examples) + '\n' + footer
-    await writeOutput(skillContent, SKILL_OUTPUT_DIR, 'SKILL.md')
+    // Process configure.md (action header with reference links/commands + examples)
+    let configureContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'configure.md'), 'utf8')
+    configureContent = configureContent
+      .replace('<!-- REFERENCE_COMMANDS -->', generateReferenceCommands())
+    configureContent = replaceExamples(configureContent, examples)
+    await writeOutput(configureContent, COMMAND_REFERENCES_DIR, 'configure.md')
 
-    // Generate checkly.rules.md (header + all references concatenated + footer)
+    // Process initialize.md (no templating needed currently)
+    const initializeContent = await readFile(join(AI_CONTEXT_DIR, 'references', 'initialize.md'), 'utf8')
+    await writeOutput(initializeContent, COMMAND_REFERENCES_DIR, 'initialize.md')
+
+    // Generate SKILL.md from skill.md template with action links/commands
+    let skillTemplate = await readFile(join(AI_CONTEXT_DIR, 'skill.md'), 'utf8')
+    skillTemplate = skillTemplate
+      .replace('<!-- SKILL_COMMANDS -->', generateSkillCommands())
+    await writeOutput(skillTemplate, PUBLIC_SKILL_DIR, 'SKILL.md')
+
+    // Generate checkly.rules.md (configure header + all configure-* references concatenated)
     const demotedReferences = referenceContents.map(demoteHeadings).join('\n\n')
     const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
-      replaceExamples(header.replace('<!-- REFERENCE_LINKS -->', ''), examples)
+      configureContent
       + '\n'
-      + demotedReferences
-      + '\n\n'
-      + footer,
+      + demotedReferences,
     ))
     await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
 
     // Copy README
     const readme = await readFile(join(AI_CONTEXT_DIR, 'README.md'), 'utf8')
-    await writeOutput(readme, SKILL_OUTPUT_DIR, 'README.md')
+    await writeOutput(readme, PUBLIC_SKILL_DIR, 'README.md')
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to prepare AI context:', error)
