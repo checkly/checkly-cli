@@ -49,13 +49,16 @@ export const REFERENCES = [
   },
 ] as const
 
-export const MANAGE_REFERENCES = [
+export const INVESTIGATE_REFERENCES = [
   {
-    id: 'manage-checks',
+    id: 'investigate-checks',
     description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
   },
+] as const
+
+export const COMMUNICATE_REFERENCES = [
   {
-    id: 'manage-incidents',
+    id: 'communicate-incidents',
     description: 'Incident lifecycle (`incidents create`, `update`, `resolve`, `list`) and status pages',
   },
 ] as const
@@ -76,9 +79,14 @@ export const ACTIONS = [
     references: REFERENCES,
   },
   {
-    id: 'manage',
-    description: 'Inspect checks, manage incidents, and operate status pages. Includes the confirmation protocol for write commands.',
-    references: MANAGE_REFERENCES,
+    id: 'investigate',
+    description: 'Access check status, analyze failures, and investigate errors.',
+    references: INVESTIGATE_REFERENCES,
+  },
+  {
+    id: 'communicate',
+    description: 'Open incidents and lead customer communications via status pages.',
+    references: COMMUNICATE_REFERENCES,
   },
 ] as const
 

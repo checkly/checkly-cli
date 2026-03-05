@@ -1,6 +1,6 @@
 # Managing Incidents
 
-Create, update, and resolve incidents on status pages. All write commands require confirmation (see `npx checkly skills manage` for the confirmation protocol).
+Create, update, and resolve incidents on status pages. All write commands require confirmation (see `npx checkly skills communicate` for the confirmation protocol).
 
 ## List incidents
 

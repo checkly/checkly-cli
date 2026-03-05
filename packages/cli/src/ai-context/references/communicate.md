@@ -1,6 +1,6 @@
-# Managing Checks, Incidents and Status Pages
+# Customer Communications and Incident Management
 
-Operational commands for inspecting checks, managing incidents, and viewing status pages at runtime.
+Open incidents and lead customer communications via status pages.
 
 ## Confirmation Protocol
 
@@ -23,10 +23,10 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 2. **Never auto-append `--force`** — only run the `confirmCommand` after the user explicitly approves.
 3. This applies to **every** write command, not just the first one. Incident updates and resolutions also require confirmation.
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
-5. Read-only commands (`checks list`, `checks get`, `incidents list`, `status-pages list`) execute immediately without confirmation.
+5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
 
 ## Available Commands
 
-Parse and read further reference documentation when tasked with managing any of the following:
+Parse and read further reference documentation when tasked with any of the following:
 
 <!-- REFERENCE_COMMANDS -->
