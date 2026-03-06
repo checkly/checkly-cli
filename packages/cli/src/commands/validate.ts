@@ -11,6 +11,8 @@ import { Runtime } from '../runtimes'
 export default class Validate extends AuthCommand {
   static coreCommand = true
   static hidden = true // Expose when validation is more thorough.
+  static readOnly = true
+  static idempotent = true
   static description = 'Validate your project.'
 
   static flags = {

@@ -40,6 +40,8 @@ type FriendExports = {
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = `\
 Import existing resources from your Checkly account to your project.
 

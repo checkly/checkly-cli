@@ -8,7 +8,7 @@
     "prepack": "npm run prepack --workspaces",
     "prepare": "npx simple-git-hooks && npm run prepare --workspaces && npm run prepare:ai-context",
     "clean:ai-context": "rimraf skills",
-    "prepare:ai-context": "npm run clean:ai-context && cp -r packages/cli/dist/ai-context/skills .",
+    "prepare:ai-context": "npm run clean:ai-context && cp -r packages/cli/dist/ai-context/public-skills/. skills",
     "test": "npm run test --workspaces",
     "test:e2e": "npm run test:e2e --workspaces"
   },

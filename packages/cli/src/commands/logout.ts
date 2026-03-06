@@ -6,6 +6,7 @@ import commonMessages from '../messages/common-messages'
 
 export default class Logout extends BaseCommand {
   static hidden = false
+  static idempotent = true
   static description = 'Log out and clear any local credentials.'
   static flags = {
     force: Flags.boolean({

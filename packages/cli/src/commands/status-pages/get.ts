@@ -8,6 +8,8 @@ import { formatStatusPageDetail } from '../../formatters/status-pages'
 
 export default class StatusPagesGet extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'Get details of a status page, including its cards and services.'
 
   static args = {

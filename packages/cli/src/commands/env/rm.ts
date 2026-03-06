@@ -5,6 +5,7 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvRm extends AuthCommand {
   static hidden = false
+  static destructive = true
   static description = 'Remove environment variable via "checkly env rm <key>".'
 
   static flags = {
