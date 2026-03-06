@@ -57,6 +57,7 @@ export abstract class Construct implements Validate, Bundle {
   member: boolean
   /** Absolute path to the check file that created this construct */
   checkFileAbsolutePath?: string
+  private _originalLogicalIdType: string
 
   /**
    * Creates a new construct instance.
@@ -67,7 +68,8 @@ export abstract class Construct implements Validate, Bundle {
    * @param member Whether this construct is a member of the project
    */
   constructor (type: string, logicalId: string, physicalId?: string | number, member?: boolean) {
-    this.logicalId = logicalId
+    this._originalLogicalIdType = typeof logicalId
+    this.logicalId = typeof logicalId === 'string' ? logicalId : String(logicalId)
     this.type = type
     this.physicalId = physicalId
     this.member = member ?? true
@@ -128,6 +130,12 @@ export abstract class Construct implements Validate, Bundle {
    */
   // eslint-disable-next-line require-await
   async validate (diagnostics: Diagnostics): Promise<void> {
+    if (this._originalLogicalIdType !== 'string') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'logicalId',
+        new Error(`Expected a string but received type "${this._originalLogicalIdType}".`),
+      ))
+    }
     if (!LOGICAL_ID_PATTERN.test(this.logicalId)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'logicalId',
