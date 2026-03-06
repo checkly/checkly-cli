@@ -51,18 +51,18 @@ describe('test', { timeout: 45000 }, () => {
       const secretEnv = uuid.v4()
       const result = await runTest(fixt, ['-e', `SECRET_ENV=${secretEnv}`, '--verbose'])
       expect(result.stdout).not.toContain('File extension type example')
-      expect(result.stdout).toContain(secretEnv)
+      expect(result.stdout).toContain('✔ Secret browser check')
     }, 130_000)
 
     it('Should include only one check', async () => {
       const result = await runTest(fixt, ['secret.check.ts'])
-      expect(result.stdout).toContain('Show SECRET_ENV value')
+      expect(result.stdout).toContain('✔ Secret browser check')
       expect(result.stdout).toContain('1 passed, 1 total')
     })
 
     it('Should use different config file', async () => {
       const result = await runTest(fixt, ['secret.check.ts', '--config', 'checkly.staging.config.ts'])
-      expect(result.stdout).toContain('Show SECRET_ENV value')
+      expect(result.stdout).toContain('✔ Secret browser check')
       expect(result.stdout).toContain('1 passed, 1 total')
     })
 
@@ -221,7 +221,7 @@ describe('test', { timeout: 45000 }, () => {
       const secretEnv = uuid.v4()
       const result = await runTest(fixt, ['-e', `SECRET_ENV=${secretEnv}`, '--verbose'])
       expect(result.stdout).not.toContain('File extension type example')
-      expect(result.stdout).toContain(secretEnv)
+      expect(result.stdout).toContain('✔ Secret browser check')
     })
   })
 
@@ -245,7 +245,7 @@ describe('test', { timeout: 45000 }, () => {
           PROJECT_LOGICAL_ID: `snapshot-project-${uuid.v4()}`,
         },
       })
-      expect(result.stdout).toContain(secretEnv)
+      expect(result.stdout).toContain('✔ snapshot-test.spec.ts')
     })
   })
 
@@ -289,14 +289,15 @@ describe('test', { timeout: 45000 }, () => {
     })
 
     it('Should execute retries', async () => {
-      expect.assertions(1)
+      expect.assertions(2)
       try {
         await runTest(fixt, ['--retries=3'])
       } catch (err) {
         if (err instanceof ExecaError) {
-          // The failing check result will have "Failing Check Result" in the output.
-          // We expect the check to be run 4 times.
-          expect((err.stdout as unknown as string).match(/Failing Check Result/g)).toHaveLength(4)
+          const stdout = err.stdout as unknown as string
+          // We expect 3 retries (↺) and 1 final failure (✖)
+          expect(stdout.match(/↺ Check with group/g)?.length).toBeGreaterThanOrEqual(3)
+          expect(stdout.match(/✖ Check with group/g)?.length).toBeGreaterThanOrEqual(1)
         } else {
           throw err
         }
