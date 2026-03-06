@@ -69,6 +69,7 @@ export default class Skills extends BaseCommand {
 
     this.log('Examples:\n')
     this.log('  $ checkly skills initialize')
+    this.log('  $ checkly skills initialize playwright')
     this.log('  $ checkly skills configure')
     this.log('  $ checkly skills configure api-checks')
     this.log('')
