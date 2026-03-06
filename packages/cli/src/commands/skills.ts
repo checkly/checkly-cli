@@ -68,9 +68,14 @@ export default class Skills extends BaseCommand {
     this.log(`${SKILL.description}\n`)
 
     this.log('Examples:\n')
-    this.log('  $ checkly skills initialize')
-    this.log('  $ checkly skills configure')
-    this.log('  $ checkly skills configure api-checks')
+    for (const action of ACTIONS) {
+      this.log(`  $ checkly skills ${action.id}`)
+      if ('references' in action) {
+        const firstRef = action.references[0]
+        const refId = firstRef.id.replace(`${action.id}-`, '')
+        this.log(`  $ checkly skills ${action.id} ${refId}`)
+      }
+    }
     this.log('')
 
     this.log('Actions:\n')
