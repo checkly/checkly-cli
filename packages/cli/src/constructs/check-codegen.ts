@@ -16,6 +16,7 @@ import { valueForPrivateLocationFromId } from './private-location-codegen'
 import { valueForAlertChannelFromId } from './alert-channel-codegen'
 import { DnsMonitorCodegen, DnsMonitorResource } from './dns-monitor-codegen'
 import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen'
+import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen'
 
 export interface CheckResource {
   id: string
@@ -218,6 +219,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
   urlMonitorCodegen: UrlMonitorCodegen
   dnsMonitorCodegen: DnsMonitorCodegen
   icmpMonitorCodegen: IcmpMonitorCodegen
+  tracerouteMonitorCodegen: TracerouteMonitorCodegen
 
   constructor (program: Program) {
     super(program)
@@ -230,6 +232,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.urlMonitorCodegen = new UrlMonitorCodegen(program)
     this.dnsMonitorCodegen = new DnsMonitorCodegen(program)
     this.icmpMonitorCodegen = new IcmpMonitorCodegen(program)
+    this.tracerouteMonitorCodegen = new TracerouteMonitorCodegen(program)
   }
 
   describe (resource: CheckResource): string {
@@ -252,6 +255,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return this.dnsMonitorCodegen.describe(resource as DnsMonitorResource)
       case 'ICMP':
         return this.icmpMonitorCodegen.describe(resource as IcmpMonitorResource)
+      case 'TRACEROUTE':
+        return this.tracerouteMonitorCodegen.describe(resource as TracerouteMonitorResource)
       default:
         throw new Error(`Unable to describe unsupported check type '${checkType}'.`)
     }
@@ -284,6 +289,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return
       case 'ICMP':
         this.icmpMonitorCodegen.gencode(logicalId, resource as IcmpMonitorResource, context)
+        return
+      case 'TRACEROUTE':
+        this.tracerouteMonitorCodegen.gencode(logicalId, resource as TracerouteMonitorResource, context)
         return
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)

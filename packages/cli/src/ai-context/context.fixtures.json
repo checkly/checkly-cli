@@ -861,6 +861,81 @@
         }
       },
       {
+        "logicalId": "example-traceroute-monitor",
+        "physicalId": "d13bf665-dde8-5064-9c83-b07d4d92c3b6",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "d13bf665-dde8-5064-9c83-b07d4d92c3b6",
+          "checkType": "TRACEROUTE",
+          "name": "Example Traceroute Monitor",
+          "frequency": 10,
+          "frequencyOffset": 91,
+          "activated": true,
+          "muted": false,
+          "locations": [
+            "eu-central-1",
+            "eu-north-1"
+          ],
+          "created_at": "2025-10-28T17:25:17.037Z",
+          "updated_at": null,
+          "tags": [],
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "degradedResponseTime": 15000,
+          "maxResponseTime": 30000,
+          "groupId": null,
+          "groupOrder": null,
+          "retryStrategy": null,
+          "runParallel": false,
+          "triggerIncident": null,
+          "request": {
+            "hostname": "INSERT_HOSTNAME",
+            "port": 443,
+            "ipFamily": "IPv4",
+            "maxHops": 30,
+            "maxUnknownHops": 15,
+            "ptrLookup": true,
+            "timeout": 10,
+            "assertions": [
+              {
+                "regex": null,
+                "source": "RESPONSE_TIME",
+                "target": "100",
+                "property": "avg",
+                "comparison": "LESS_THAN"
+              },
+              {
+                "regex": null,
+                "source": "HOP_COUNT",
+                "target": "20",
+                "property": "",
+                "comparison": "LESS_THAN"
+              }
+            ]
+          },
+          "alertChannelSubscriptions": [],
+          "privateLocations": []
+        }
+      },
+      {
         "logicalId": "example-maintenance-window",
         "physicalId": 1000001,
         "type": "maintenance-window",

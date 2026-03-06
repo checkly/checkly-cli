@@ -32,6 +32,10 @@ export const REFERENCES = [
     description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
   },
   {
+    id: 'configure-traceroute-monitors',
+    description: 'Traceroute Monitor construct (`TracerouteMonitor`) with response time, hop count, and packet loss assertions',
+  },
+  {
     id: 'configure-heartbeat-monitors',
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
@@ -168,6 +172,11 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     templateString: '<!-- EXAMPLE: ICMP_MONITOR -->',
     exampleConfigPath: 'resources/icmp-monitors/example-icmp-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/icmp-monitor/',
+  },
+  TRACEROUTE_MONITOR: {
+    templateString: '<!-- EXAMPLE: TRACEROUTE_MONITOR -->',
+    exampleConfigPath: 'resources/traceroute-monitors/example-traceroute-monitor.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/traceroute-monitor/',
   },
   CHECK_GROUP: {
     templateString: '<!-- EXAMPLE: CHECK_GROUP -->',

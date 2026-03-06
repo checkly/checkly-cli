@@ -206,6 +206,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     BrowserCheck: homepage-browser-check
     IcmpMonitor: icmp-welcome
     TcpMonitor: tcp-monitor
+    TracerouteMonitor: traceroute-welcome
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
@@ -229,6 +230,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     IcmpMonitor: icmp-welcome
     BrowserCheck: snapshot-test.test.ts
     TcpMonitor: tcp-monitor
+    TracerouteMonitor: traceroute-welcome
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1

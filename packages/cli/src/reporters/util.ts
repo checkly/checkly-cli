@@ -209,6 +209,27 @@ export function formatCheckResult (checkResult: any) {
       }
     }
   }
+  if (checkResult.checkType === 'TRACEROUTE') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else {
+      if (checkResult.checkRunData?.request) {
+        result.push([
+          formatSectionTitle('Traceroute Request'),
+          formatTracerouteRequest(checkResult.checkRunData.request),
+        ])
+      }
+      if (checkResult.checkRunData?.assertions?.length) {
+        result.push([
+          formatSectionTitle('Assertions'),
+          formatAssertions(checkResult.checkRunData.assertions),
+        ])
+      }
+    }
+  }
   if (checkResult.logs?.length) {
     result.push([
       formatSectionTitle('Logs'),
@@ -242,6 +263,8 @@ const assertionSources: any = {
   RESPONSE_CODE: 'response code',
   LATENCY: 'latency',
   JSON_RESPONSE: 'response data (JSON)',
+  HOP_COUNT: 'hop count',
+  PACKET_LOSS: 'packet loss',
 }
 
 const assertionComparisons: any = {
@@ -528,6 +551,22 @@ function formatIcmpResponse (response: ICMPResponse) {
       }
     }).join('\n'),
   ].filter(Boolean).join('\n')
+}
+
+type TracerouteRequestData = {
+  hostname: string
+  port: number
+  ipFamily: 'IPv4' | 'IPv6'
+  maxHops: number
+}
+
+function formatTracerouteRequest (request: TracerouteRequestData) {
+  return [
+    `Hostname: ${request.hostname}`,
+    `Port: ${request.port}`,
+    `IP Family: ${request.ipFamily}`,
+    `Max Hops: ${request.maxHops}`,
+  ].join('\n')
 }
 
 function formatConnectionError (error: any) {
