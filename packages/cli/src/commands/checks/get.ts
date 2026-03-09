@@ -11,6 +11,8 @@ import {
   formatErrorGroups,
 } from '../../formatters/checks'
 import { formatResultDetail } from '../../formatters/check-result-detail'
+import { quickRangeValues, type QuickRange } from '../../rest/analytics'
+import { formatAnalyticsSection } from '../../formatters/analytics'
 
 export default class ChecksGet extends AuthCommand {
   static hidden = false
@@ -41,6 +43,11 @@ export default class ChecksGet extends AuthCommand {
     'results-cursor': Flags.string({
       description: 'Cursor for results pagination (from previous output).',
     }),
+    'stats-range': Flags.string({
+      description: 'Time range for stats.',
+      options: quickRangeValues,
+      default: 'last24Hours',
+    }),
     'output': outputFlag({ default: 'detail' }),
   }
 
@@ -59,14 +66,20 @@ export default class ChecksGet extends AuthCommand {
         return await this.showErrorGroupDetail(args.id, flags['error-group'], flags.output ?? 'detail')
       }
 
-      const [{ data: check }, statusResp, resultsResp, errorGroupsResp] = await Promise.all([
-        api.checks.get(args.id),
+      // Fetch check first (need checkType for analytics)
+      const { data: check } = await api.checks.get(args.id)
+
+      // Fetch remaining data in parallel
+      const [statusResp, resultsResp, errorGroupsResp, analyticsResp] = await Promise.all([
         api.checkStatuses.get(args.id).catch(() => ({ data: undefined })),
         api.checkResults.getAll(args.id, {
           limit: flags['results-limit'],
           nextId: flags['results-cursor'],
         }).catch(() => ({ data: { entries: [], nextId: null, length: 0 } })),
         api.errorGroups.getByCheckId(args.id).catch(() => ({ data: [] })),
+        api.analytics.get(args.id, check.checkType, {
+          quickRange: flags['stats-range'] as QuickRange,
+        }).catch(() => undefined),
       ])
 
       const status = statusResp.data
@@ -74,7 +87,8 @@ export default class ChecksGet extends AuthCommand {
       const errorGroups = errorGroupsResp.data
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify({ check, status, results, nextId, errorGroups }, null, 2))
+        const analytics = analyticsResp ?? null
+        this.log(JSON.stringify({ check, status, results, nextId, errorGroups, analytics }, null, 2))
         return
       }
 
@@ -85,6 +99,11 @@ export default class ChecksGet extends AuthCommand {
         const lines = [
           formatCheckDetail(checkWithStatus, fmt),
         ]
+        const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range']!, fmt)
+        if (statsOutput) {
+          lines.push('')
+          lines.push(statsOutput)
+        }
         const errorGroupsOutput = formatErrorGroups(errorGroups, fmt)
         if (errorGroupsOutput) {
           lines.push('')
@@ -105,6 +124,12 @@ export default class ChecksGet extends AuthCommand {
 
       output.push(formatCheckDetail(checkWithStatus, fmt))
       output.push('')
+
+      const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range']!, fmt)
+      if (statsOutput) {
+        output.push(statsOutput)
+        output.push('')
+      }
 
       const errorGroupsOutput = formatErrorGroups(errorGroups, fmt)
       if (errorGroupsOutput) {
@@ -133,6 +158,7 @@ export default class ChecksGet extends AuthCommand {
       if (nextId) {
         output.push(`  ${chalk.dim('More results:')}   checkly checks get ${args.id} --results-cursor ${nextId}`)
       }
+      output.push(`  ${chalk.dim('Change range:')}   checkly checks get ${args.id} --stats-range last7Days`)
       output.push(`  ${chalk.dim('Back to list:')}   checkly checks list`)
 
       this.log(output.join('\n'))
