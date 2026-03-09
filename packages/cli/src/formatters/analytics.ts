@@ -3,14 +3,17 @@ import { formatMs } from './render'
 import type { OutputFormat } from './render'
 import type { AnalyticsResponse } from '../rest/analytics'
 
-export function extractMetrics (response: AnalyticsResponse): Record<string, number | string> {
-  const data = response.series?.[0]?.data
+export function extractMetrics (response: AnalyticsResponse): Record<string, number> {
+  const data = response?.series?.[0]?.data
   if (!data || typeof data !== 'object') return {}
 
-  const result: Record<string, number | string> = {}
+  const result: Record<string, number> = {}
   for (const [key, value] of Object.entries(data)) {
     if (value != null && value !== '') {
-      result[key] = typeof value === 'string' ? parseFloat(value) : value
+      const num = typeof value === 'string' ? parseFloat(value) : value
+      if (typeof num === 'number' && !isNaN(num)) {
+        result[key] = num
+      }
     }
   }
   return result
@@ -63,7 +66,7 @@ export function formatMetricValue (key: string, value: number, format: OutputFor
   }
 
   // Generic number
-  return typeof value === 'number' ? value.toFixed(2) : String(value)
+  return value.toFixed(2)
 }
 
 export function formatMetricLabel (key: string): string {
@@ -91,17 +94,10 @@ export function formatAnalyticsSection (
   const metricKeys = Object.keys(metrics)
   if (metricKeys.length === 0) return ''
 
-  const entries: Array<{ label: string, value: string }> = []
-  for (const key of metricKeys) {
-    const value = metrics[key]
-    if (typeof value !== 'number' || isNaN(value)) continue
-    entries.push({
-      label: formatMetricLabel(key),
-      value: formatMetricValue(key, value, format),
-    })
-  }
-
-  if (entries.length === 0) return ''
+  const entries = metricKeys.map(key => ({
+    label: formatMetricLabel(key),
+    value: formatMetricValue(key, metrics[key], format),
+  }))
 
   if (format === 'md') {
     const lines = [
@@ -118,7 +114,7 @@ export function formatAnalyticsSection (
   const maxLabelLen = Math.max(0, ...entries.map(e => e.label.length))
   const padWidth = maxLabelLen + 3
 
-  const lines = [chalk.bold(`STATS (${range})`), '']
+  const lines = [chalk.bold('STATS') + ' ' + chalk.dim(`(${range})`), '']
   for (const { label, value } of entries) {
     const labelStr = `${label}:`
     const padding = ' '.repeat(padWidth - labelStr.length)
