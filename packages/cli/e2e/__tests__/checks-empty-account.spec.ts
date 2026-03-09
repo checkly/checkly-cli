@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest'
 
 import { runChecklyCli } from '../run-checkly'
 
-const apiKey: string | undefined = config.get('emptyApiKey')
-const accountId: string | undefined = config.get('emptyAccountId')
+const apiKey: string | undefined = config.has('emptyApiKey') ? config.get('emptyApiKey') : undefined
+const accountId: string | undefined = config.has('emptyAccountId') ? config.get('emptyAccountId') : undefined
 
 describe.skipIf(!apiKey || !accountId)('checks commands on empty account', () => {
   it('should show "No checks found." for checks list', async () => {
