@@ -1,3 +1,4 @@
+import axios from 'axios'
 import type { AxiosInstance } from 'axios'
 
 // eslint-disable-next-line no-restricted-syntax
@@ -103,6 +104,8 @@ export default class Assets {
       case AssetType.LOG: {
         if (isCheckResultAssetsV1(asset) && asset.logPath) {
           key = asset.logPath
+        } else if (isCheckResultAssetsV2(asset)) {
+          return this.getAssetsV2(assetType, asset)
         } else if (isCheckResultAssetsV3(asset) && asset.logPath) {
           key = asset.clickHouseId
         }
@@ -111,6 +114,8 @@ export default class Assets {
       case AssetType.CHECK_RUN_DATA: {
         if (isCheckResultAssetsV1(asset) && asset.checkRunDataPath) {
           key = asset.checkRunDataPath
+        } else if (isCheckResultAssetsV2(asset)) {
+          return this.getAssetsV2(assetType, asset)
         } else if (isCheckResultAssetsV3(asset)) {
           key = asset.clickHouseId
           break
@@ -124,6 +129,22 @@ export default class Assets {
 
     const response = await this.api.get(`/next/assets/${assetType}/${region}/${encodeURIComponent(key)}`)
     return response.data
+  }
+
+  private async getAssetsV2 (assetType: AssetType, asset: CheckResultAssetsV2): Promise<any> {
+    const entryName = assetType === AssetType.LOG ? 'logs.txt' : 'check-run-data.json'
+    const entry = asset.entries.find(e => e.name === entryName)
+    if (!entry) {
+      return
+    }
+
+    const presignedUrl = await this.getAssetsLink(asset.region, asset.key)
+    const response = await axios.get(presignedUrl, {
+      headers: { Range: `bytes=${entry.start}-${entry.end}` },
+      responseType: 'text',
+    })
+
+    return JSON.parse(response.data)
   }
 
   async getAssetsLink (region: string, key: string): Promise<any> {
