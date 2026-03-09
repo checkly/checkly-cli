@@ -299,6 +299,110 @@ describe('PlaywrightCheck', () => {
       }
     }, DEFAULT_TEST_TIMEOUT)
 
+    describe('test-global-files-bundling-with-projects', () => {
+      let fixt: FixtureSandbox
+      beforeAll(async () => {
+        fixt = await FixtureSandbox.create({
+          source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-with-projects'),
+        })
+      })
+
+      afterAll(async () => {
+        await fixt?.destroy()
+      })
+
+      it('should include global files', async () => {
+        const output = await parseProject(fixt)
+
+        expect(output).toEqual(expect.objectContaining({
+          diagnostics: expect.objectContaining({
+            fatal: false,
+          }),
+          payload: expect.objectContaining({
+            resources: expect.arrayContaining([
+              expect.objectContaining({
+                logicalId: 'my-check',
+                type: 'check',
+                member: true,
+                payload: expect.objectContaining({
+                  codeBundlePath: expect.stringMatching(/.tar.gz$/),
+                }),
+              }),
+            ]),
+          }),
+        }))
+
+        const {
+          codeBundlePath,
+        } = output.payload.resources[0].payload as any
+
+        const files = await listTarFiles(codeBundlePath)
+
+        expect(files.sort()).toEqual([
+          'lib/setup-util.ts',
+          'lib/teardown-util.ts',
+          'package-lock.json',
+          'package.json',
+          'playwright.config.ts',
+          'setup.ts',
+          'teardown.ts',
+          'tsconfig.playwright.json',
+        ])
+      })
+    })
+
+    describe('test-global-files-bundling-without-projects', () => {
+      let fixt: FixtureSandbox
+      beforeAll(async () => {
+        fixt = await FixtureSandbox.create({
+          source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-without-projects'),
+        })
+      })
+
+      afterAll(async () => {
+        await fixt?.destroy()
+      })
+
+      it('should include global files', async () => {
+        const output = await parseProject(fixt)
+
+        expect(output).toEqual(expect.objectContaining({
+          diagnostics: expect.objectContaining({
+            fatal: false,
+          }),
+          payload: expect.objectContaining({
+            resources: expect.arrayContaining([
+              expect.objectContaining({
+                logicalId: 'my-check',
+                type: 'check',
+                member: true,
+                payload: expect.objectContaining({
+                  codeBundlePath: expect.stringMatching(/.tar.gz$/),
+                }),
+              }),
+            ]),
+          }),
+        }))
+
+        const {
+          codeBundlePath,
+        } = output.payload.resources[0].payload as any
+
+        const files = await listTarFiles(codeBundlePath)
+
+        expect(files.sort()).toEqual([
+          'lib/setup-util.ts',
+          'lib/teardown-util.ts',
+          'package-lock.json',
+          'package.json',
+          'playwright.config.ts',
+          'setup.ts',
+          'teardown.ts',
+          'tsconfig.playwright.json',
+        ])
+      })
+    })
+
     describe('headless', () => {
       it('should error if headless: false is set globally', async () => {
         const fixt = await FixtureSandbox.create({

@@ -115,7 +115,6 @@ export class PlaywrightProject {
   snapshotDir: string
   testMatch: Set<string | RegExp>
   expect: any
-  files: Set<string>
   snapshotTemplates: Set<string>
   browsers: Set<string>
   constructor (dir: string, playwrightConfig: any, playwrightProject: any) {
@@ -125,7 +124,6 @@ export class PlaywrightProject {
     this.snapshotDir = playwrightProject.snapshotDir
       ? toAbsolutePath(dir, playwrightProject.snapshotDir)
       : (playwrightConfig.snapshotDir ?? this.testDir)
-    this.files = new Set<string>()
     this.snapshotTemplates = new Set<string>()
     const testMatch = playwrightProject.testMatch ?? Array.from(playwrightConfig.testMatch)
     this.testMatch = new Set<string | RegExp>(Array.isArray(testMatch) ? testMatch : [testMatch])
