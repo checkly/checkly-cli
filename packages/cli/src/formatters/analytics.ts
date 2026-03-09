@@ -4,7 +4,10 @@ import type { OutputFormat } from './render'
 import type { AnalyticsResponse } from '../rest/analytics'
 
 export function extractMetrics (response: AnalyticsResponse): Record<string, number> {
-  const data = response?.series?.[0]?.data
+  const rawData = response?.series?.[0]?.data
+  if (!rawData || typeof rawData !== 'object') return {}
+  // The API returns data as an array with one element, or as a plain object
+  const data = Array.isArray(rawData) ? rawData[0] : rawData
   if (!data || typeof data !== 'object') return {}
 
   const result: Record<string, number> = {}
@@ -91,10 +94,16 @@ export function formatAnalyticsSection (
   if (!response) return ''
 
   const metrics = extractMetrics(response)
-  const metricKeys = Object.keys(metrics)
-  if (metricKeys.length === 0) return ''
+  if (Object.keys(metrics).length === 0) return ''
 
-  const entries = metricKeys.map(key => ({
+  // Use requestedMetrics to filter out bonus fields (e.g. total, success)
+  // and preserve the intended display order (availability first)
+  const orderedKeys = response.requestedMetrics
+    ? response.requestedMetrics.filter(key => key in metrics)
+    : Object.keys(metrics)
+  if (orderedKeys.length === 0) return ''
+
+  const entries = orderedKeys.map(key => ({
     label: formatMetricLabel(key),
     value: formatMetricValue(key, metrics[key], format),
   }))

@@ -42,8 +42,9 @@ export interface AnalyticsResponse {
   from: string
   to: string
   tags: string[]
-  series: Array<{ data: Record<string, any> }>
-  metadata: Array<{ key: string, label: string, unit: string }>
+  series: Array<{ data: Record<string, any>[] | Record<string, any> }>
+  metadata: Record<string, { key?: string, label: string, unit: string }>
+  requestedMetrics?: string[]
 }
 
 export interface GetAnalyticsOptions {
@@ -72,6 +73,8 @@ class Analytics {
       },
     })
 
+    // Attach which metrics were requested so formatters can filter/order
+    data.requestedMetrics = metrics
     return data
   }
 
