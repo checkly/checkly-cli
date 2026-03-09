@@ -1,7 +1,17 @@
 import chalk from 'chalk'
 import { formatMs } from './render'
 import type { OutputFormat } from './render'
-import type { AnalyticsResponse } from '../rest/analytics'
+import type { AnalyticsResponse, QuickRange } from '../rest/analytics'
+
+const rangeLabels: Record<QuickRange, string> = {
+  last24Hours: 'last 24 hours',
+  last7Days: 'last 7 days',
+  last30Days: 'last 30 days',
+  thisWeek: 'this week',
+  thisMonth: 'this month',
+  lastWeek: 'last week',
+  lastMonth: 'last month',
+}
 
 export function extractMetrics (response: AnalyticsResponse): Record<string, number> {
   const rawData = response?.series?.[0]?.data
@@ -92,6 +102,7 @@ export function formatAnalyticsSection (
   format: OutputFormat,
 ): string {
   if (!response) return ''
+  const rangeDisplay = rangeLabels[range as QuickRange] ?? range
 
   const metrics = extractMetrics(response)
   if (Object.keys(metrics).length === 0) return ''
@@ -110,7 +121,7 @@ export function formatAnalyticsSection (
 
   if (format === 'md') {
     const lines = [
-      `## Stats (${range})`,
+      `## Stats (${rangeDisplay})`,
       '',
       '| Metric | Value |',
       '| --- | --- |',
@@ -123,7 +134,7 @@ export function formatAnalyticsSection (
   const maxLabelLen = Math.max(0, ...entries.map(e => e.label.length))
   const padWidth = maxLabelLen + 3
 
-  const lines = [chalk.bold('STATS') + ' ' + chalk.dim(`(${range})`), '']
+  const lines = [chalk.bold('STATS') + ' ' + chalk.dim(`(${rangeDisplay})`), '']
   for (const { label, value } of entries) {
     const labelStr = `${label}:`
     const padding = ' '.repeat(padWidth - labelStr.length)

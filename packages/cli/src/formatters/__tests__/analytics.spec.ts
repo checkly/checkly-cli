@@ -143,7 +143,7 @@ describe('formatAnalyticsSection', () => {
   it('renders terminal section with title and metrics', () => {
     const result = formatAnalyticsSection(mockAnalyticsResponse, 'last24Hours', 'terminal')
     const plain = stripAnsi(result)
-    expect(plain).toContain('STATS (last24Hours)')
+    expect(plain).toContain('STATS (last 24 hours)')
     expect(plain).toContain('Availability')
     expect(plain).toContain('99.95%')
     expect(plain).toContain('Response Time (avg)')
@@ -152,7 +152,7 @@ describe('formatAnalyticsSection', () => {
 
   it('renders markdown section with header and table', () => {
     const result = formatAnalyticsSection(mockAnalyticsResponse, 'last7Days', 'md')
-    expect(result).toContain('## Stats (last7Days)')
+    expect(result).toContain('## Stats (last 7 days)')
     expect(result).toContain('| Metric | Value |')
     expect(result).toContain('| --- | --- |')
     expect(result).toContain('99.95%')
