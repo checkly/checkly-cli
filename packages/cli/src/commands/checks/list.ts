@@ -5,6 +5,7 @@ import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { CheckWithStatus } from '../../formatters/checks'
 import type { OutputFormat } from '../../formatters/render'
+import { allCheckTypes } from '../../constants'
 import {
   formatChecks,
   formatSummaryBar,
@@ -40,7 +41,7 @@ export default class ChecksList extends AuthCommand {
     }),
     'type': Flags.string({
       description: 'Filter by check type.',
-      options: ['API', 'BROWSER', 'MULTI_STEP', 'HEARTBEAT', 'PLAYWRIGHT', 'TCP', 'DNS', 'ICMP', 'URL'],
+      options: allCheckTypes,
     }),
     'hide-id': Flags.boolean({
       description: 'Hide check IDs in table output.',
