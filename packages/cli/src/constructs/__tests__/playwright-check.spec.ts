@@ -305,7 +305,7 @@ describe('PlaywrightCheck', () => {
         fixt = await FixtureSandbox.create({
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-with-projects'),
         })
-      })
+      }, DEFAULT_TEST_TIMEOUT)
 
       afterAll(async () => {
         await fixt?.destroy()
@@ -357,7 +357,7 @@ describe('PlaywrightCheck', () => {
         fixt = await FixtureSandbox.create({
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-without-projects'),
         })
-      })
+      }, DEFAULT_TEST_TIMEOUT)
 
       afterAll(async () => {
         await fixt?.destroy()
