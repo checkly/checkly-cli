@@ -4,6 +4,7 @@ import * as api from '../rest/api'
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
+import { outputFlag } from '../helpers/flags'
 import { parseProject } from '../services/project-parser'
 import { loadChecklyConfig } from '../services/checkly-config-loader'
 import {
@@ -40,11 +41,7 @@ export default class Deploy extends AuthCommand {
       description: 'Show a preview of the changes made by the deploy command.',
       default: false,
     }),
-    'output': Flags.boolean({
-      char: 'o',
-      description: 'Shows the changes made after the deploy command.',
-      default: false,
-    }),
+    'output': outputFlag({ default: 'text' }),
     'schedule-on-deploy': Flags.boolean({
       description: 'Enables automatic check scheduling after a deploy.',
       default: true,
@@ -227,10 +224,24 @@ export default class Deploy extends AuthCommand {
 
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
-      if (preview || output) {
+      if (preview || output !== 'text') {
         this.log(this.formatPreview(data, project))
       }
       if (!preview) {
+        if (output === 'json') {
+          this.log(JSON.stringify({
+            project: project.name,
+            account: account.name,
+            diff: data.diff.map(({ logicalId, physicalId, type, action }) => ({
+              logicalId,
+              physicalId,
+              type,
+              action: action.toLowerCase(),
+            })),
+          }, null, 2))
+          return
+        }
+
         await setTimeout(500)
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
 
