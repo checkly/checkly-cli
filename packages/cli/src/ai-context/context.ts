@@ -49,6 +49,20 @@ export const REFERENCES = [
   },
 ] as const
 
+export const INVESTIGATE_REFERENCES = [
+  {
+    id: 'investigate-checks',
+    description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
+  },
+] as const
+
+export const COMMUNICATE_REFERENCES = [
+  {
+    id: 'communicate-incidents',
+    description: 'Incident lifecycle (`incidents create`, `update`, `resolve`, `list`) and status pages',
+  },
+] as const
+
 export const SKILL = {
   name: 'checkly',
   description: 'Get all the information and context to let your agent initialize, set up, create, test and manage your monitoring checks using the Checkly CLI.',
@@ -63,6 +77,16 @@ export const ACTIONS = [
     id: 'configure',
     description: 'Learn how to create and manage monitoring checks using Checkly constructs and the CLI.',
     references: REFERENCES,
+  },
+  {
+    id: 'investigate',
+    description: 'Access check status, analyze failures, and investigate errors.',
+    references: INVESTIGATE_REFERENCES,
+  },
+  {
+    id: 'communicate',
+    description: 'Open incidents and lead customer communications via status pages.',
+    references: COMMUNICATE_REFERENCES,
   },
 ] as const
 
