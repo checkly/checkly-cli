@@ -26,6 +26,7 @@ export interface ListChecksParams {
   tag?: string[]
   checkType?: string
   search?: string
+  status?: string
 }
 
 export interface PaginatedChecks {

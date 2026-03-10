@@ -68,6 +68,8 @@ export default class Trigger extends AuthCommand {
       char: 'r',
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
+      multiple: true,
+      delimiter: ',',
     }),
     'env': Flags.string({
       char: 'e',
@@ -125,7 +127,7 @@ export default class Trigger extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
-    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType, checklyConfig?.cli?.reporters)
+    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig?.cli?.reporters)
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
@@ -232,11 +234,11 @@ export default class Trigger extends AuthCommand {
     return verboseFlag ?? cliVerboseFlag ?? false
   }
 
-  prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
-    if (!reporterFlag && !cliReporters.length) {
+  prepareReportersTypes (reporterFlag: ReporterType[] | undefined, cliReporters: ReporterType[] = []): ReporterType[] {
+    if (!reporterFlag?.length && !cliReporters.length) {
       return [isCI ? 'ci' : 'list']
     }
-    return reporterFlag ? [reporterFlag] : cliReporters
+    return reporterFlag?.length ? reporterFlag : cliReporters
   }
 
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {

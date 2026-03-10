@@ -30,6 +30,7 @@ export default class IncidentsCreate extends AuthCommand {
     'services': Flags.string({
       description: 'Affected service IDs. Repeat the flag for multiple services.',
       multiple: true,
+      delimiter: ',',
     }),
     'severity': Flags.string({
       description: 'Incident severity.',

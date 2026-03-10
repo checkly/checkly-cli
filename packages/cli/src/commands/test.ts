@@ -85,6 +85,8 @@ export default class Test extends AuthCommand {
       char: 'r',
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
+      multiple: true,
+      delimiter: ',',
     }),
     'config': Flags.string({
       char: 'c',
@@ -163,7 +165,7 @@ export default class Test extends AuthCommand {
     api,
     config.getAccountId())
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
-    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
 
