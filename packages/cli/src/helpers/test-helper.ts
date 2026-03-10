@@ -52,11 +52,14 @@ export async function preparePrivateRunLocation (
   }
 }
 
-export function prepareReportersTypes (reporterFlag: ReporterType, cliReporters: ReporterType[] = []): ReporterType[] {
-  if (!reporterFlag && !cliReporters.length) {
+export function prepareReportersTypes (
+  reporterFlag: ReporterType[] | undefined,
+  cliReporters: ReporterType[] = [],
+): ReporterType[] {
+  if (!reporterFlag?.length && !cliReporters.length) {
     return [isCI ? 'ci' : 'list']
   }
-  return reporterFlag ? [reporterFlag] : cliReporters
+  return reporterFlag?.length ? reporterFlag : cliReporters
 }
 
 export function splitChecklyAndPlaywrightFlags (args: string[]) {

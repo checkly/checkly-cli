@@ -114,7 +114,7 @@ export function formatNavigationHints (pagination: PaginationInfo, activeFilters
   }
   lines.push(`  ${chalk.dim('View check:')}   checkly checks get <id>`)
   if (activeFilters.length === 0) {
-    lines.push(`  ${chalk.dim('Filter:')}       checkly checks list --tag <tag> --type <type> --search <name>`)
+    lines.push(`  ${chalk.dim('Filter:')}       checkly checks list --tag <tag> --type <type> --status <status> --search <name>`)
   }
 
   return lines.join('\n')
