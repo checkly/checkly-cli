@@ -258,7 +258,7 @@ export default class Deploy extends AuthCommand {
     const creating = []
     const deleting: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
-      const { type, logicalId, action } = change
+      const { type, logicalId, physicalId, action } = change
       if ([
         AlertChannelSubscription.__checklyType,
         PrivateLocationCheckAssignment.__checklyType,
@@ -270,9 +270,9 @@ export default class Deploy extends AuthCommand {
       }
       const construct = project.data[type as keyof ProjectData][logicalId]
       if (action === ResourceDeployStatus.UPDATE) {
-        updating.push({ resourceType: type, logicalId, construct })
+        updating.push({ resourceType: type, logicalId, physicalId, construct })
       } else if (action === ResourceDeployStatus.CREATE) {
-        creating.push({ resourceType: type, logicalId, construct })
+        creating.push({ resourceType: type, logicalId, physicalId, construct })
       } else if (action === ResourceDeployStatus.DELETE) {
         // Since the resource is being deleted, the construct isn't in the project.
         deleting.push({ resourceType: type, logicalId })
@@ -325,8 +325,14 @@ export default class Deploy extends AuthCommand {
 
     if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, construct } of sortedCreating) {
+      for (const { logicalId, physicalId, construct } of sortedCreating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
+        if ((construct as any).name) {
+          output.push(`      name: ${(construct as any).name}`)
+        }
+        if (physicalId) {
+          output.push(`      id: ${physicalId}`)
+        }
       }
       output.push('')
     }
@@ -347,8 +353,14 @@ export default class Deploy extends AuthCommand {
     }
     if (sortedUpdating.length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
-      for (const { logicalId, construct } of sortedUpdating) {
+      for (const { logicalId, physicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
+        if ((construct as any).name) {
+          output.push(`      name: ${(construct as any).name}`)
+        }
+        if (physicalId) {
+          output.push(`      id: ${physicalId}`)
+        }
       }
       output.push('')
     }
