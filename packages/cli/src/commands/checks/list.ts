@@ -33,6 +33,7 @@ export default class ChecksList extends AuthCommand {
       char: 't',
       description: 'Filter by tag. Can be specified multiple times.',
       multiple: true,
+      delimiter: ',',
     }),
     'search': Flags.string({
       char: 's',
