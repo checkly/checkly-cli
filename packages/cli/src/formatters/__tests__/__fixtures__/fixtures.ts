@@ -335,6 +335,18 @@ export const apiCheckResultWithError: CheckResult = {
   } as ApiCheckResult,
 }
 
+export const browserCheckResultWithObjectErrors: CheckResult = {
+  ...browserCheckResult,
+  id: 'result-6',
+  browserCheckResult: {
+    ...browserCheckResult.browserCheckResult!,
+    // The API sometimes returns error objects instead of strings
+    errors: [
+      { name: 'Error', message: 'expect(received).toBe(expected) // Object.is equality' },
+    ] as any,
+  } as BrowserCheckResult,
+}
+
 export const minimalCheckResult: CheckResult = {
   id: 'result-4',
   checkId: 'check-6',

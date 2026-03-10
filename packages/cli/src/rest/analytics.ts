@@ -22,14 +22,22 @@ const checkTypeToPath: Record<CheckType, string> = {
 // Default aggregated metrics per check type
 const defaultMetrics: Record<CheckType, string[]> = {
   [CheckTypes.API]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
-  [CheckTypes.BROWSER]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
-  [CheckTypes.PLAYWRIGHT]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
+  [CheckTypes.BROWSER]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
+  [CheckTypes.PLAYWRIGHT]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
   [CheckTypes.MULTI_STEP]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
   [CheckTypes.URL]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
   [CheckTypes.TCP]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.DNS]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.ICMP]: ['availability', 'packetLoss_avg', 'latencyAvg_avg', 'latencyAvg_p50', 'latencyAvg_p95', 'latencyAvg_p99'],
   [CheckTypes.HEARTBEAT]: ['availability'],
+}
+
+export type GroupBy = 'runLocation' | 'statusCode'
+
+export interface AnalyticsSeriesEntry {
+  data: Record<string, any>[] | Record<string, any>
+  runLocation?: string
+  statusCode?: number
 }
 
 export interface AnalyticsResponse {
@@ -42,7 +50,7 @@ export interface AnalyticsResponse {
   from: string
   to: string
   tags: string[]
-  series: Array<{ data: Record<string, any>[] | Record<string, any> }>
+  series: AnalyticsSeriesEntry[]
   metadata: Record<string, { key?: string, label: string, unit: string }>
   requestedMetrics?: string[]
 }
@@ -50,6 +58,8 @@ export interface AnalyticsResponse {
 export interface GetAnalyticsOptions {
   quickRange?: QuickRange
   metrics?: string[]
+  groupBy?: GroupBy
+  filterByStatus?: 'success' | 'failure'
 }
 
 class Analytics {
@@ -58,7 +68,9 @@ class Analytics {
     this.api = api
   }
 
-  async get (checkId: string, checkType: string, options: GetAnalyticsOptions = {}): Promise<AnalyticsResponse> {
+  async get (
+    checkId: string, checkType: string, options: GetAnalyticsOptions = {},
+  ): Promise<{ data: AnalyticsResponse }> {
     const pathSegment = checkTypeToPath[checkType as CheckType]
     if (!pathSegment) {
       throw new Error(`Unsupported check type: ${checkType}`)
@@ -66,28 +78,20 @@ class Analytics {
 
     const metrics = options.metrics ?? defaultMetrics[checkType as CheckType] ?? ['availability']
 
-    const { data } = await this.api.get<AnalyticsResponse>(`/v1/analytics/${pathSegment}/${checkId}`, {
-      params: {
-        metrics: metrics.join(','),
-        quickRange: options.quickRange || 'last24Hours',
-      },
+    const params: Record<string, string> = {
+      metrics: metrics.join(','),
+      quickRange: options.quickRange || 'last24Hours',
+    }
+    if (options.groupBy) params.groupBy = options.groupBy
+    if (options.filterByStatus) params.filterByStatus = options.filterByStatus
+
+    const response = await this.api.get<AnalyticsResponse>(`/v1/analytics/${pathSegment}/${checkId}`, {
+      params,
     })
 
     // Attach which metrics were requested so formatters can filter/order
-    data.requestedMetrics = metrics
-    return data
-  }
-
-  async listMetrics (checkType: string): Promise<Array<{
-    name: string
-    unit: string
-    label: string
-    aggregated: boolean
-  }>> {
-    const { data } = await this.api.get('/v1/analytics/metrics', {
-      params: { checkType },
-    })
-    return data
+    response.data.requestedMetrics = metrics
+    return response
   }
 }
 

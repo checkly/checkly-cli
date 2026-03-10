@@ -11,7 +11,7 @@ import {
   formatErrorGroups,
 } from '../../formatters/checks'
 import { formatResultDetail } from '../../formatters/check-result-detail'
-import { quickRangeValues, type QuickRange } from '../../rest/analytics'
+import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics'
 import { formatAnalyticsSection } from '../../formatters/analytics'
 
 export default class ChecksGet extends AuthCommand {
@@ -48,6 +48,17 @@ export default class ChecksGet extends AuthCommand {
       options: quickRangeValues,
       default: 'last24Hours',
     }),
+    'group-by': Flags.string({
+      description: 'Group stats by dimension.',
+      options: ['location', 'statusCode'],
+    }),
+    'metrics': Flags.string({
+      description: 'Comma-separated list of metrics to show (overrides defaults).',
+    }),
+    'filter-status': Flags.string({
+      description: 'Only include runs with this status in stats.',
+      options: ['success', 'failure'],
+    }),
     'output': outputFlag({ default: 'detail' }),
   }
 
@@ -78,8 +89,11 @@ export default class ChecksGet extends AuthCommand {
         }).catch(() => ({ data: { entries: [], nextId: null, length: 0 } })),
         api.errorGroups.getByCheckId(args.id).catch(() => ({ data: [] })),
         api.analytics.get(args.id, check.checkType, {
-          quickRange: flags['stats-range'] as QuickRange,
-        }).catch(() => undefined),
+          quickRange: (flags['stats-range'] ?? 'last24Hours') as QuickRange,
+          groupBy: flags['group-by'] === 'location' ? 'runLocation' : flags['group-by'] as GroupBy | undefined,
+          metrics: flags.metrics ? flags.metrics.split(',').map(m => m.trim()) : undefined,
+          filterByStatus: flags['filter-status'] as 'success' | 'failure' | undefined,
+        }).then(r => r.data).catch(() => undefined),
       ])
 
       const status = statusResp.data
@@ -99,7 +113,7 @@ export default class ChecksGet extends AuthCommand {
         const lines = [
           formatCheckDetail(checkWithStatus, fmt),
         ]
-        const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range']!, fmt)
+        const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range'] ?? 'last24Hours', fmt)
         if (statsOutput) {
           lines.push('')
           lines.push(statsOutput)
@@ -125,7 +139,7 @@ export default class ChecksGet extends AuthCommand {
       output.push(formatCheckDetail(checkWithStatus, fmt))
       output.push('')
 
-      const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range']!, fmt)
+      const statsOutput = formatAnalyticsSection(analyticsResp, flags['stats-range'] ?? 'last24Hours', fmt)
       if (statsOutput) {
         output.push(statsOutput)
         output.push('')
@@ -159,6 +173,7 @@ export default class ChecksGet extends AuthCommand {
         output.push(`  ${chalk.dim('More results:')}   checkly checks get ${args.id} --results-cursor ${nextId}`)
       }
       output.push(`  ${chalk.dim('Change range:')}   checkly checks get ${args.id} --stats-range last7Days`)
+      output.push(`  ${chalk.dim('By region:')}     checkly checks get ${args.id} --group-by location`)
       output.push(`  ${chalk.dim('Back to list:')}   checkly checks list`)
 
       this.log(output.join('\n'))

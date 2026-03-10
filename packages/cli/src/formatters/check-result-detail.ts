@@ -265,7 +265,7 @@ function formatBrowserResultMd (browser: BrowserCheckResult): string[] {
     lines.push('')
     lines.push('### Errors')
     for (const err of browser.errors) {
-      lines.push(`- ${err}`)
+      lines.push(`- ${formatErrorEntry(err)}`)
     }
   }
 
@@ -300,10 +300,21 @@ function colorStatus (code: number): string {
   return chalk.red(String(code))
 }
 
-function appendErrors (lines: string[], errors: string[]): void {
+function formatErrorEntry (err: unknown): string {
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object') {
+    // API may return error objects with message/name fields
+    const obj = err as Record<string, unknown>
+    if (obj.message) return String(obj.message)
+    return JSON.stringify(err)
+  }
+  return String(err)
+}
+
+function appendErrors (lines: string[], errors: unknown[]): void {
   if (errors.length === 0) return
   lines.push('', heading('ERRORS', 2, 'terminal'))
-  for (const err of errors) lines.push(chalk.red(`  ${err}`))
+  for (const err of errors) lines.push(chalk.red(`  ${formatErrorEntry(err)}`))
 }
 
 function appendAssets (
