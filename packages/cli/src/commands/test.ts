@@ -86,6 +86,7 @@ export default class Test extends AuthCommand {
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
       multiple: true,
+      delimiter: ',',
     }),
     'config': Flags.string({
       char: 'c',

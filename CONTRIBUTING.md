@@ -57,6 +57,27 @@ You can use the current branch of the code against any examples in the `/example
 2. Run `npm create checkly -- --template boilerplate-project`
 3. Just use `npx checkly` as normal.
 
+## AI context and agent skills
+
+The CLI ships agent skills (`skills/checkly/SKILL.md`) and serves reference docs via `npx checkly skills`. The source files live in `packages/cli/src/ai-context/` and are processed at build time.
+
+When modifying AI context sources (`src/ai-context/skill.md`, `src/ai-context/references/`, or `src/ai-context/context.ts`):
+
+1. Run the full prepare step from the `packages/cli` directory:
+   ```bash
+   npm run prepare --workspace packages/cli
+   ```
+   This compiles TypeScript, generates examples from fixtures, and runs `prepare-ai-context.ts` to produce the output in `dist/ai-context/`.
+
+2. Copy the generated public skill to the tracked location:
+   ```bash
+   cp packages/cli/dist/ai-context/public-skills/checkly/SKILL.md skills/checkly/SKILL.md
+   ```
+
+3. Commit both your source changes and the updated `skills/checkly/SKILL.md`.
+
+The `skills/checkly/SKILL.md` file is the published copy that agents load. If you forget to regenerate it, CI will flag it as out of date.
+
 ## Prerelease experimental version
 
 To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
