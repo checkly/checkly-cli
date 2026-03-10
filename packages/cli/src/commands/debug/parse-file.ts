@@ -23,6 +23,7 @@ export default class ParseFileCommand extends Command {
     }),
     'supported-module': Flags.string({
       multiple: true,
+      delimiter: ',',
       default: [],
     }),
     'check-unsupported-modules': Flags.boolean({
