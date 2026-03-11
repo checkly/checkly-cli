@@ -89,13 +89,14 @@ export default class Deploy extends AuthCommand {
       force,
       preview,
       'schedule-on-deploy': scheduleOnDeploy,
-      output,
+      output: outputFlag,
       verbose,
       config: configFilename,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'debug-bundle': debugBundle,
       'debug-bundle-output-file': debugBundleOutputFile,
     } = flags
+    const output = outputFlag || verbose
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -233,7 +234,7 @@ export default class Deploy extends AuthCommand {
 
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
-      if (preview || output || verbose) {
+      if (preview || output) {
         this.log(this.formatPreview(data, project, verbose))
       }
       if (!preview) {
