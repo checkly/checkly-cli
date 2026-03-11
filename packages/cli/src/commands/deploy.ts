@@ -228,7 +228,7 @@ export default class Deploy extends AuthCommand {
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
       if (preview || output) {
-        this.log(this.formatPreview(data, project))
+        this.log(this.formatPreview(data, project, output))
       }
       if (!preview) {
         await setTimeout(500)
@@ -250,7 +250,7 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: ProjectDeployResponse, project: Project): string {
+  private formatPreview (previewData: ProjectDeployResponse, project: Project, verbose = false): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
@@ -327,10 +327,10 @@ export default class Deploy extends AuthCommand {
       output.push(chalk.bold.green('Create:'))
       for (const { logicalId, physicalId, construct } of sortedCreating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
-        if ((construct as any).name) {
+        if (verbose && (construct as any).name) {
           output.push(`      name: ${(construct as any).name}`)
         }
-        if (physicalId) {
+        if (verbose && physicalId) {
           output.push(`      id: ${physicalId}`)
         }
       }
@@ -355,10 +355,10 @@ export default class Deploy extends AuthCommand {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
       for (const { logicalId, physicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
-        if ((construct as any).name) {
+        if (verbose && (construct as any).name) {
           output.push(`      name: ${(construct as any).name}`)
         }
-        if (physicalId) {
+        if (verbose && physicalId) {
           output.push(`      id: ${physicalId}`)
         }
       }
