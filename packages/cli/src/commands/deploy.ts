@@ -47,7 +47,7 @@ export default class Deploy extends AuthCommand {
     }),
     'verbose': Flags.boolean({
       char: 'v',
-      description: 'Shows deploy output with resource names and IDs. Implies --output.',
+      description: 'Show resource names and IDs in the deploy output.',
       default: false,
     }),
     'schedule-on-deploy': Flags.boolean({
