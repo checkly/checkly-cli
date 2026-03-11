@@ -307,7 +307,7 @@ Skip (testOnly):
         },
       })
       // Deploy a check (testOnly=true)
-      const { stdout } = await runDeploy(fixt, ['--force', '--output'], {
+      const { stdout } = await runDeploy(fixt, ['--force', '--output', '--verbose'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,

@@ -45,6 +45,11 @@ export default class Deploy extends AuthCommand {
       description: 'Shows the changes made after the deploy command.',
       default: false,
     }),
+    'verbose': Flags.boolean({
+      char: 'v',
+      description: 'Used with --output. Shows resource names and IDs in the deploy output.',
+      default: false,
+    }),
     'schedule-on-deploy': Flags.boolean({
       description: 'Enables automatic check scheduling after a deploy.',
       default: true,
@@ -85,6 +90,7 @@ export default class Deploy extends AuthCommand {
       preview,
       'schedule-on-deploy': scheduleOnDeploy,
       output,
+      verbose,
       config: configFilename,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'debug-bundle': debugBundle,
@@ -228,7 +234,7 @@ export default class Deploy extends AuthCommand {
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
       if (preview || output) {
-        this.log(this.formatPreview(data, project, output))
+        this.log(this.formatPreview(data, project, verbose))
       }
       if (!preview) {
         await setTimeout(500)
