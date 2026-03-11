@@ -47,7 +47,7 @@ export default class Deploy extends AuthCommand {
     }),
     'verbose': Flags.boolean({
       char: 'v',
-      description: 'Used with --output. Shows resource names and IDs in the deploy output.',
+      description: 'Shows deploy output with resource names and IDs. Implies --output.',
       default: false,
     }),
     'schedule-on-deploy': Flags.boolean({
@@ -233,7 +233,7 @@ export default class Deploy extends AuthCommand {
 
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
-      if (preview || output) {
+      if (preview || output || verbose) {
         this.log(this.formatPreview(data, project, verbose))
       }
       if (!preview) {
