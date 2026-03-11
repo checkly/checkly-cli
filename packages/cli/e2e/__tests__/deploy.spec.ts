@@ -317,12 +317,16 @@ Skip (testOnly):
       })
       // Moving the check to testOnly causes it to be deleted.
       // The check should only be listed under "Delete" and not "Skip".
-      expect(stdout).toContain('Delete:\n    Check: testonly-true-check')
+      expect(stdout).toContain(
+        `Delete:
+    Check: testonly-true-check`)
       expect(stdout).toContain('Update and Unchanged:')
-      expect(stdout).toContain('ApiCheck: not-testonly-default-check')
-      expect(stdout).toMatch(/ApiCheck: not-testonly-default-check\n\s+name:/)
-      expect(stdout).toContain('ApiCheck: not-testonly-false-check')
-      expect(stdout).toMatch(/ApiCheck: not-testonly-false-check\n\s+name:/)
+      expect(stdout).toContain(
+        `ApiCheck: not-testonly-default-check
+      name: TestOnly=false (default) Check`)
+      expect(stdout).toContain(
+        `ApiCheck: not-testonly-false-check
+      name: TestOnly=false Check`)
     })
   })
 
