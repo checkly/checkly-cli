@@ -317,16 +317,19 @@ Skip (testOnly):
       })
       // Moving the check to testOnly causes it to be deleted.
       // The check should only be listed under "Delete" and not "Skip".
-      expect(stdout).toContain(
-        `Delete:
-    Check: testonly-true-check`)
-      expect(stdout).toContain('Update and Unchanged:')
-      expect(stdout).toContain(
-        `ApiCheck: not-testonly-default-check
-      name: TestOnly=false (default) Check`)
-      expect(stdout).toContain(
-        `ApiCheck: not-testonly-false-check
-      name: TestOnly=false Check`)
+      const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      expect(stdout).toMatch(new RegExp(
+        `Delete:\n`
+        + `    Check: testonly-true-check\n`
+        + `\n`
+        + `Update and Unchanged:\n`
+        + `    ApiCheck: not-testonly-default-check\n`
+        + `      name: TestOnly=false \\(default\\) Check\n`
+        + `      id: ${uuid}\n`
+        + `    ApiCheck: not-testonly-false-check\n`
+        + `      name: TestOnly=false Check\n`
+        + `      id: ${uuid}`,
+      ))
     })
   })
 
