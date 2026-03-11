@@ -307,7 +307,7 @@ Skip (testOnly):
         },
       })
       // Deploy a check (testOnly=true)
-      const { stdout } = await runDeploy(fixt, ['--force', '--output'], {
+      const { stdout } = await runDeploy(fixt, ['--force', '--output', '--verbose'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -317,13 +317,19 @@ Skip (testOnly):
       })
       // Moving the check to testOnly causes it to be deleted.
       // The check should only be listed under "Delete" and not "Skip".
-      expect(stdout).toContain(
-        `Delete:
-    Check: testonly-true-check
-
-Update and Unchanged:
-    ApiCheck: not-testonly-default-check
-    ApiCheck: not-testonly-false-check`)
+      const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      expect(stdout).toMatch(new RegExp(
+        `Delete:\n`
+        + `    Check: testonly-true-check\n`
+        + `\n`
+        + `Update and Unchanged:\n`
+        + `    ApiCheck: not-testonly-default-check\n`
+        + `      name: TestOnly=false \\(default\\) Check\n`
+        + `      id: ${uuid}\n`
+        + `    ApiCheck: not-testonly-false-check\n`
+        + `      name: TestOnly=false Check\n`
+        + `      id: ${uuid}`,
+      ))
     })
   })
 
