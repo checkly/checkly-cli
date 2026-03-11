@@ -5,6 +5,7 @@ import {
   apiCheckResult,
   apiCheckResultWithError,
   browserCheckResult,
+  browserCheckResultWithObjectErrors,
   multiStepCheckResult,
   minimalCheckResult,
 } from './__fixtures__/fixtures'
@@ -94,6 +95,21 @@ describe('formatResultDetail', () => {
       expect(result).toContain('screenshot')
       expect(result).toContain('trace')
       expect(result).toContain('video')
+    })
+  })
+
+  describe('Browser check result with object errors', () => {
+    it('renders error message instead of [object Object]', () => {
+      const result = stripAnsi(formatResultDetail(browserCheckResultWithObjectErrors, 'terminal'))
+      expect(result).toContain('ERRORS')
+      expect(result).toContain('expect(received).toBe(expected)')
+      expect(result).not.toContain('[object Object]')
+    })
+
+    it('renders error message in markdown', () => {
+      const result = formatResultDetail(browserCheckResultWithObjectErrors, 'md')
+      expect(result).toContain('expect(received).toBe(expected)')
+      expect(result).not.toContain('[object Object]')
     })
   })
 
