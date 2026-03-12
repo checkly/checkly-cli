@@ -31,7 +31,7 @@ export interface PaginationInfo {
   total: number
 }
 
-function resolveStatus (check: CheckWithStatus, format: OutputFormat): string {
+export function resolveStatus (check: CheckWithStatus, format: OutputFormat): string {
   if (!check.activated) return format === 'terminal' ? chalk.dim('inactive') : 'inactive'
   if (!check.status) return format === 'terminal' ? chalk.dim('-') : 'unknown'
   const failing = check.status.hasFailures || check.status.hasErrors
