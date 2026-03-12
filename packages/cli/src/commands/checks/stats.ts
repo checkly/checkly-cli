@@ -103,7 +103,16 @@ export default class ChecksStats extends AuthCommand {
       }
 
       if (checksWithStatus.length === 0) {
-        this.log('No checks found.')
+        if (flags.output === 'json') {
+          const totalPages = 0
+          this.log(JSON.stringify({
+            data: [],
+            pagination: { page, limit, total: 0, totalPages },
+            range,
+          }, null, 2))
+        } else {
+          this.log('No checks found.')
+        }
         return
       }
 
