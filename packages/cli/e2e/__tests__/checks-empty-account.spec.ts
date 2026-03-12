@@ -49,6 +49,29 @@ describe.skipIf(!apiKey || !accountId)('checks commands on empty account', () =>
     expect(result.stdout).toContain('No checks matching')
   })
 
+  it('should show "No checks found." for checks stats', async () => {
+    const result = await runChecklyCli({
+      args: ['checks', 'stats'],
+      apiKey,
+      accountId,
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('No checks found.')
+  })
+
+  it('should return empty JSON for checks stats --output json', async () => {
+    const result = await runChecklyCli({
+      args: ['checks', 'stats', '--output', 'json'],
+      apiKey,
+      accountId,
+    })
+    expect(result.status).toBe(0)
+    const parsed = JSON.parse(result.stdout)
+    expect(parsed.data).toEqual([])
+    expect(parsed.pagination.total).toBe(0)
+    expect(parsed.range).toBe('last24Hours')
+  })
+
   it('should fail gracefully for checks get on empty account', async () => {
     const result = await runChecklyCli({
       args: ['checks', 'get', '00000000-0000-0000-0000-000000000000'],
