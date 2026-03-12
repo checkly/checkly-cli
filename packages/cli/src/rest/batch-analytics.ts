@@ -17,6 +17,9 @@ export interface BatchAnalyticsResult {
   packetLoss_p99: number | null
 }
 
+// Subset of QuickRange — excludes last30Days and thisMonth because their rolling windows
+// defeat ClickHouse caching under concurrency. lastMonth is kept because its data is frozen
+// (past calendar month), giving it a long cache TTL that holds up well.
 export type BatchQuickRange = 'last24Hours' | 'last7Days' | 'thisWeek' | 'lastWeek' | 'lastMonth'
 
 export const batchQuickRangeValues: BatchQuickRange[] = [
