@@ -16,12 +16,12 @@ export function visWidth (value: string): number {
 
 const RIGHT_ALIGN_GAP = 2
 
-export function padColumn (value: string, width: number, align: 'left' | 'right' = 'left'): string {
+export function padColumn (value: string, width: number, align: 'left' | 'right' = 'left', trailingGap = true): string {
   if (align === 'right') {
-    // Right-align within (width - gap), then append fixed gap for column separation
-    const contentWidth = width - RIGHT_ALIGN_GAP
+    const gap = trailingGap ? RIGHT_ALIGN_GAP : 0
+    const contentWidth = width - gap
     const leadPad = Math.max(0, contentWidth - visWidth(value))
-    return ' '.repeat(leadPad) + value + ' '.repeat(RIGHT_ALIGN_GAP)
+    return ' '.repeat(leadPad) + value + ' '.repeat(gap)
   }
   const padding = Math.max(0, width - visWidth(value))
   return value + ' '.repeat(padding)
@@ -177,17 +177,20 @@ export function renderTable<T> (
   }
 
   // Terminal
+  const lastIdx = columns.length - 1
   const headerParts = columns.map((col, i) => {
     const text = chalk.bold(col.header.toUpperCase())
-    if (i >= columns.length - 1 || !col.width) return text
-    return padColumn(text, col.width, col.align)
+    if (!col.width) return text
+    if (i === lastIdx && col.align !== 'right') return text
+    return padColumn(text, col.width, col.align, i < lastIdx)
   })
 
   const dataRows = rows.map(row =>
     columns.map((col, i) => {
       const val = col.value(row, format)
-      if (i >= columns.length - 1 || !col.width) return val
-      return padColumn(val, col.width, col.align)
+      if (!col.width) return val
+      if (i === lastIdx && col.align !== 'right') return val
+      return padColumn(val, col.width, col.align, i < lastIdx)
     }).join(''),
   )
 

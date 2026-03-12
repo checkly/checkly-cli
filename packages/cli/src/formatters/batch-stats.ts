@@ -13,20 +13,12 @@ const ICMP_TYPE = 'ICMP'
 const DASH = '—'
 
 /**
- * Format a number with commas as thousands separator.
- * e.g. 1240 → "1,240"
- */
-function formatWithCommas (n: number): string {
-  return n.toLocaleString('en-US')
-}
-
-/**
  * Format a metric value for the batch stats table.
  *
  * Unlike the single-check detail view, the table needs consistent formatting
  * within each column for visual scanning. Key differences from formatMetricValue:
- * - ms values always stay in ms with commas (never switch to seconds),
- *   so "340ms" and "1,240ms" decimal-align when right-justified.
+ * - ms values always display as seconds with 2 decimal places (e.g. 0.34s, 14.71s)
+ *   so the suffix and decimal structure are identical across rows for alignment.
  * - Percentages always use .toFixed(2) + "%" — already consistent.
  */
 function formatTableMetric (key: string, value: number, format: OutputFormat): string {
@@ -40,7 +32,7 @@ function formatTableMetric (key: string, value: number, format: OutputFormat): s
 
   const unit = findUnit(key)
   if (unit === 'ms') {
-    const display = `${formatWithCommas(Math.round(value))}ms`
+    const display = `${(value / 1000).toFixed(3)}s`
     if (format === 'md') return display
     if (value < 1000) return chalk.green(display)
     if (value < 5000) return chalk.yellow(display)
