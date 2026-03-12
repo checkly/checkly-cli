@@ -3,7 +3,7 @@ import type { BatchAnalyticsResult } from '../rest/batch-analytics'
 import { type CheckWithStatus, type PaginationInfo, resolveStatus } from './checks'
 import type { OutputFormat, ColumnDef } from './render'
 import { renderTable, truncateToWidth, visWidth } from './render'
-import { formatMetricValue, rangeLabels } from './analytics'
+import { findUnit, rangeLabels } from './analytics'
 import type { QuickRange } from '../rest/analytics'
 
 export type StatsRow = CheckWithStatus & { analytics?: BatchAnalyticsResult }
@@ -11,6 +11,50 @@ export type StatsRow = CheckWithStatus & { analytics?: BatchAnalyticsResult }
 const TIMING_TYPES = new Set(['API', 'BROWSER', 'PLAYWRIGHT', 'MULTI_STEP', 'URL', 'TCP', 'DNS'])
 const ICMP_TYPE = 'ICMP'
 const DASH = '—'
+
+/**
+ * Format a number with commas as thousands separator.
+ * e.g. 1240 → "1,240"
+ */
+function formatWithCommas (n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+/**
+ * Format a metric value for the batch stats table.
+ *
+ * Unlike the single-check detail view, the table needs consistent formatting
+ * within each column for visual scanning. Key differences from formatMetricValue:
+ * - ms values always stay in ms with commas (never switch to seconds),
+ *   so "340ms" and "1,240ms" decimal-align when right-justified.
+ * - Percentages always use .toFixed(2) + "%" — already consistent.
+ */
+function formatTableMetric (key: string, value: number, format: OutputFormat): string {
+  if (key === 'availability') {
+    const display = `${value.toFixed(2)}%`
+    if (format === 'md') return display
+    if (value >= 99.9) return chalk.green(display)
+    if (value >= 99) return chalk.yellow(display)
+    return chalk.red(display)
+  }
+
+  const unit = findUnit(key)
+  if (unit === 'ms') {
+    const display = `${formatWithCommas(Math.round(value))}ms`
+    if (format === 'md') return display
+    if (value < 1000) return chalk.green(display)
+    if (value < 5000) return chalk.yellow(display)
+    return chalk.red(display)
+  }
+
+  if (unit === 'percentage') {
+    const display = `${value.toFixed(2)}%`
+    if (format === 'md') return display
+    return value <= 1 ? chalk.green(display) : chalk.red(display)
+  }
+
+  return value.toFixed(2)
+}
 
 function metricOrDash (
   key: string,
@@ -21,7 +65,7 @@ function metricOrDash (
   if (!applicable || value == null) {
     return format === 'terminal' ? chalk.dim(DASH) : DASH
   }
-  return formatMetricValue(key, value, format)
+  return formatTableMetric(key, value, format)
 }
 
 function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsRow>[] {
