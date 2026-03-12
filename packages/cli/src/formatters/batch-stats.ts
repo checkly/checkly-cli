@@ -35,26 +35,31 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
       { header: 'Status', value: (r, fmt) => resolveStatus(r, fmt) },
       {
         header: 'Availability',
+        align: 'right',
         value: (r, fmt) => metricOrDash('availability', r.analytics?.availability ?? null, fmt, true),
       },
     ]
     if (hasTiming) {
       cols.push({
         header: 'Resp (avg)',
+        align: 'right',
         value: (r, fmt) => metricOrDash('responseTime_avg', r.analytics?.responseTime_avg ?? null, fmt, TIMING_TYPES.has(r.checkType)),
       })
       cols.push({
         header: 'Resp (p95)',
+        align: 'right',
         value: (r, fmt) => metricOrDash('responseTime_p95', r.analytics?.responseTime_p95 ?? null, fmt, TIMING_TYPES.has(r.checkType)),
       })
     }
     if (hasIcmp) {
       cols.push({
         header: 'Latency (avg)',
+        align: 'right',
         value: (r, fmt) => metricOrDash('latency_avg', r.analytics?.latency_avg ?? null, fmt, r.checkType === ICMP_TYPE),
       })
       cols.push({
         header: 'Packet Loss',
+        align: 'right',
         value: (r, fmt) => metricOrDash('packetLoss_avg', r.analytics?.packetLoss_avg ?? null, fmt, r.checkType === ICMP_TYPE),
       })
     }
@@ -94,6 +99,7 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
     {
       header: 'Avail',
       width: availWidth,
+      align: 'right',
       value: (r, fmt) => metricOrDash('availability', r.analytics?.availability ?? null, fmt, true),
     },
   ]
@@ -102,11 +108,13 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
     cols.push({
       header: 'Resp (avg)',
       width: metricWidth,
+      align: 'right',
       value: (r, fmt) => metricOrDash('responseTime_avg', r.analytics?.responseTime_avg ?? null, fmt, TIMING_TYPES.has(r.checkType)),
     })
     cols.push({
       header: 'Resp (p95)',
       width: metricWidth,
+      align: 'right',
       value: (r, fmt) => metricOrDash('responseTime_p95', r.analytics?.responseTime_p95 ?? null, fmt, TIMING_TYPES.has(r.checkType)),
     })
   }
@@ -115,11 +123,13 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
     cols.push({
       header: 'Latency',
       width: metricWidth,
+      align: 'right',
       value: (r, fmt) => metricOrDash('latency_avg', r.analytics?.latency_avg ?? null, fmt, r.checkType === ICMP_TYPE),
     })
     cols.push({
       header: 'Pkt Loss',
       width: metricWidth,
+      align: 'right',
       value: (r, fmt) => metricOrDash('packetLoss_avg', r.analytics?.packetLoss_avg ?? null, fmt, r.checkType === ICMP_TYPE),
     })
   }

@@ -14,8 +14,9 @@ export function visWidth (value: string): number {
   return stringWidth(stripAnsi(value))
 }
 
-export function padColumn (value: string, width: number): string {
+export function padColumn (value: string, width: number, align: 'left' | 'right' = 'left'): string {
   const padding = Math.max(0, width - visWidth(value))
+  if (align === 'right') return ' '.repeat(padding) + value
   return value + ' '.repeat(padding)
 }
 
@@ -106,6 +107,7 @@ export interface DetailField<T> {
 export interface ColumnDef<T> {
   header: string
   width?: number
+  align?: 'left' | 'right'
   value: (item: T, format: OutputFormat) => string
 }
 
@@ -160,7 +162,7 @@ export function renderTable<T> (
 ): string {
   if (format === 'md') {
     const header = '| ' + columns.map(c => c.header).join(' | ') + ' |'
-    const separator = '| ' + columns.map(() => '---').join(' | ') + ' |'
+    const separator = '| ' + columns.map(c => c.align === 'right' ? '---:' : '---').join(' | ') + ' |'
     const dataRows = rows.map(row =>
       '| ' + columns.map(c => c.value(row, format)).join(' | ') + ' |',
     )
@@ -170,13 +172,15 @@ export function renderTable<T> (
   // Terminal
   const headerParts = columns.map((col, i) => {
     const text = chalk.bold(col.header.toUpperCase())
-    return (i < columns.length - 1 && col.width) ? padColumn(text, col.width) : text
+    if (i >= columns.length - 1 || !col.width) return text
+    return padColumn(text, col.width, col.align)
   })
 
   const dataRows = rows.map(row =>
     columns.map((col, i) => {
       const val = col.value(row, format)
-      return (i < columns.length - 1 && col.width) ? padColumn(val, col.width) : val
+      if (i >= columns.length - 1 || !col.width) return val
+      return padColumn(val, col.width, col.align)
     }).join(''),
   )
 
