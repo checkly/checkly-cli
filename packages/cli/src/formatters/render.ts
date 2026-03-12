@@ -14,9 +14,16 @@ export function visWidth (value: string): number {
   return stringWidth(stripAnsi(value))
 }
 
+const RIGHT_ALIGN_GAP = 2
+
 export function padColumn (value: string, width: number, align: 'left' | 'right' = 'left'): string {
+  if (align === 'right') {
+    // Right-align within (width - gap), then append fixed gap for column separation
+    const contentWidth = width - RIGHT_ALIGN_GAP
+    const leadPad = Math.max(0, contentWidth - visWidth(value))
+    return ' '.repeat(leadPad) + value + ' '.repeat(RIGHT_ALIGN_GAP)
+  }
   const padding = Math.max(0, width - visWidth(value))
-  if (align === 'right') return ' '.repeat(padding) + value
   return value + ' '.repeat(padding)
 }
 
