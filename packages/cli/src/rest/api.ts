@@ -21,6 +21,7 @@ import ErrorGroups from './error-groups'
 import StatusPages from './status-pages'
 import Incidents from './incidents'
 import Analytics from './analytics'
+import BatchAnalytics from './batch-analytics'
 import { handleErrorResponse, UnauthorizedError } from './errors'
 import { detectOperator } from '../helpers/cli-mode'
 
@@ -121,3 +122,4 @@ export const errorGroups = new ErrorGroups(api)
 export const statusPages = new StatusPages(api)
 export const incidents = new Incidents(api)
 export const analytics = new Analytics(api)
+export const batchAnalytics = new BatchAnalytics(api)
