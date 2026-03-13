@@ -4,6 +4,7 @@ import { BaseCommand } from '../baseCommand'
 // Import all non-hidden command classes
 import ChecksList from '../checks/list'
 import ChecksGet from '../checks/get'
+import ChecksStats from '../checks/stats'
 import StatusPagesList from '../status-pages/list'
 import StatusPagesGet from '../status-pages/get'
 import IncidentsList from '../incidents/list'
@@ -36,6 +37,7 @@ import SyncPlaywright from '../sync-playwright'
 const commands: Array<[string, typeof BaseCommand]> = [
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
+  ['checks stats', ChecksStats],
   ['status-pages list', StatusPagesList],
   ['status-pages get', StatusPagesGet],
   ['incidents list', IncidentsList],

@@ -3,7 +3,7 @@ import { formatMs } from './render'
 import type { OutputFormat } from './render'
 import type { AnalyticsResponse, AnalyticsSeriesEntry, QuickRange } from '../rest/analytics'
 
-const rangeLabels: Record<QuickRange, string> = {
+export const rangeLabels: Record<QuickRange, string> = {
   last24Hours: 'last 24 hours',
   last7Days: 'last 7 days',
   last30Days: 'last 30 days',
