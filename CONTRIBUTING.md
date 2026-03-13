@@ -87,7 +87,17 @@ triggered and a new experimental version can be installed by executing:
 npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
 ```
 
+> **Note:** Canary builds authenticate to npm using the `NPM_TOKEN` secret (a long-lived token). This is because the canary workflow (`release-canary.yml`) is a separate workflow file from the one configured as a trusted publisher on npmjs.com.
+
 ## Releasing
+
+### NPM authentication
+
+The release workflow (`release.yml`) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
+
+Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. There is no secret to rotate for releases.
+
+The canary workflow (`release-canary.yml`) still uses the `NPM_TOKEN` secret because npm only allows one trusted publisher entry per package, and it is bound to `release.yml`.
 
 ### Releasing `checkly` packages
 
