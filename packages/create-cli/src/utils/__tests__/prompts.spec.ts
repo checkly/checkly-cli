@@ -12,6 +12,7 @@ import {
   askCreateInitialBrowserCheck,
   askInstallDependencies,
   askInitializeGit,
+  askPlaywrightConfigPath,
 } from '../prompts'
 import * as directoryUtils from '../../utils/directory'
 
@@ -68,5 +69,50 @@ describe('prompts', () => {
       expect(cancelled).toBeUndefined()
     }
     expect(onCancel).toBeCalledTimes(availableTemplates.length)
+  })
+
+  it('should ask to select a playwright config path', async () => {
+    const projectDir = path.resolve(__dirname, './fixtures/playwright-multi')
+    const candidates = [
+      path.join(projectDir, 'playwright.config.ts'),
+      path.join(projectDir, 'staging/playwright.config.ts'),
+    ]
+
+    // Select first candidate
+    prompts.inject([candidates[0]])
+    const { playwrightConfigPath } = await askPlaywrightConfigPath(candidates, projectDir, onCancel)
+    expect(playwrightConfigPath).toBe(candidates[0])
+  })
+
+  it('should ask to select custom when choosing custom option', async () => {
+    const projectDir = path.resolve(__dirname, './fixtures/playwright-multi')
+    const candidates = [
+      path.join(projectDir, 'playwright.config.ts'),
+    ]
+
+    // Select custom (index 1 = last item), then provide a valid path
+    prompts.inject(['__custom__', 'playwright.config.ts'])
+    const { playwrightConfigPath } = await askPlaywrightConfigPath(candidates, projectDir, onCancel)
+    expect(playwrightConfigPath).toBe(path.resolve(projectDir, 'playwright.config.ts'))
+  })
+
+  it('should skip playwright config when user selects Skip', async () => {
+    const projectDir = path.resolve(__dirname, './fixtures/playwright-multi')
+    const candidates = [
+      path.join(projectDir, 'playwright.config.ts'),
+      path.join(projectDir, 'staging/playwright.config.ts'),
+    ]
+
+    prompts.inject(['__skip__'])
+    const { playwrightConfigPath } = await askPlaywrightConfigPath(candidates, projectDir, onCancel)
+    expect(playwrightConfigPath).toBeUndefined()
+  })
+
+  it('should fall back to custom input when no candidates', async () => {
+    const projectDir = path.resolve(__dirname, './fixtures/playwright-multi')
+
+    prompts.inject(['staging/playwright.config.ts'])
+    const { playwrightConfigPath } = await askPlaywrightConfigPath([], projectDir, onCancel)
+    expect(playwrightConfigPath).toBe(path.resolve(projectDir, 'staging/playwright.config.ts'))
   })
 })

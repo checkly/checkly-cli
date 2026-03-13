@@ -93,3 +93,26 @@ function addOrReplacePlaywrightConfig (ast: any, node: any) {
     ast.properties.push(node)
   }
 }
+
+export function updatePlaywrightConfigPath (dirPath: string, relativePath: string) {
+  const checklyConfig = getChecklyConfigFile(dirPath)
+  if (!checklyConfig) {
+    return
+  }
+
+  const ast = recast.parse(checklyConfig.checklyConfig)
+  const checksAst = findPropertyByName(ast, 'checks')
+  if (!checksAst) {
+    return
+  }
+
+  const configPathProp = findPropertyByName(checksAst.value, 'playwrightConfigPath')
+  if (configPathProp) {
+    configPathProp.value = recast.types.builders.literal(relativePath)
+  }
+
+  fs.writeFileSync(
+    path.join(dirPath, checklyConfig.fileName),
+    recast.print(ast, { tabWidth: 2 }).code,
+  )
+}
