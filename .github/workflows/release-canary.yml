@@ -18,6 +18,10 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
+      - name: Upgrade npm for trusted publishing support
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm --version)"
       # Extract the dynamic value from the canary label if present
       - name: Extract CANARY_TAG
         id: extract-canary
