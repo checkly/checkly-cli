@@ -39,8 +39,10 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-        env:
-            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Upgrade npm for trusted publishing support
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm --version)"
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
@@ -107,7 +109,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-              # Ensure that the README is published with the package
+      - name: Upgrade npm for trusted publishing support
+        run: |
+          npm install -g npm@latest
+          echo "npm version: $(npm --version)"
+      # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: npm ci
       - name: Set version and publish 'cli' package
