@@ -80,11 +80,14 @@ export async function installDependenciesAndInitGit (
   await initGit(projectDirectory)
 }
 
-export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig }:
-{ projectDirectory: string, playwrightConfig: string }) {
+export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig, onCancel }:
+{ projectDirectory: string, playwrightConfig: string, onCancel: () => void }) {
   debug('Check if playwright config exists in project')
-  const { shouldCopyPlaywrightConfig } = await askCopyPlaywrightProject(projectDirectory)
+  // The boilerplate template hardcodes playwrightConfigPath: './playwright.config.ts',
+  // update it to the path the user selected.
+  const { shouldCopyPlaywrightConfig } = await askCopyPlaywrightProject(onCancel)
   if (shouldCopyPlaywrightConfig) {
+    playwright.updatePlaywrightConfigPath(projectDirectory, `./${playwrightConfig}`)
     await playwright.copyPlaywrightConfig(projectDirectory, playwrightConfig)
   }
 }

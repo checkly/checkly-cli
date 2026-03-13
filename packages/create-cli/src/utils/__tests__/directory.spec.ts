@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { describe, expect, test } from 'vitest'
 
-import { hasPackageJsonFile, isValidProjectDirectory, readPackageJson } from '../directory'
+import { collectConfigPaths, hasPackageJsonFile, isValidProjectDirectory, readPackageJson } from '../directory'
 
 describe('isValidProjectDirectory()', () => {
   type TestTuple = [string, boolean]
@@ -27,6 +27,27 @@ describe('hasPackageJsonFile()', () => {
   ]
   test.each(cases)('directory %s should return valid = %s', (dir, expected) => {
     expect(hasPackageJsonFile(dir)).toEqual(expected)
+  })
+})
+
+describe('collectConfigPaths()', () => {
+  const suffixes = ['playwright.config.ts', 'playwright.config.js']
+
+  test('finds configs recursively, sorted by depth then ts over js', () => {
+    const fixtureDir = path.join(__dirname, './fixtures/playwright-multi')
+    const results = collectConfigPaths(fixtureDir, suffixes)
+      .map(r => path.relative(fixtureDir, r).split(path.sep).join('/'))
+    expect(results).toEqual([
+      'playwright.config.ts',
+      'playwright.config.js',
+      'staging/playwright.config.ts',
+      'dev/playwright.config.js',
+    ])
+  })
+
+  test('returns empty array when no matches', () => {
+    const results = collectConfigPaths(path.join(__dirname, './fixtures/empty-project'), suffixes)
+    expect(results).toEqual([])
   })
 })
 
