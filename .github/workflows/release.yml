@@ -107,8 +107,6 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Upgrade npm for trusted publishing support
         run: |
           npm install -g npm@latest
