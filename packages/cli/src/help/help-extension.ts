@@ -27,7 +27,11 @@ export default class ChecklyHelpClass extends Help {
         }
       }
 
-      const topicRows = [...topicNames].map(name => [name, explicitTopics.get(name)])
+      // Exclude topics that have a matching top-level command (e.g. skills index)
+      const topLevelIds = new Set(commands.filter(c => !c.id.includes(':')).map(c => c.id))
+      const topicRows = [...topicNames]
+        .filter(name => !topLevelIds.has(name))
+        .map(name => [name, explicitTopics.get(name)])
 
       return commands
         // discard commands with ':' indicating they are under a topic

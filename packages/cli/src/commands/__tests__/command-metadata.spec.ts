@@ -33,6 +33,7 @@ import ImportCommit from '../import/commit'
 import ImportCancel from '../import/cancel'
 import PwTest from '../pw-test'
 import SyncPlaywright from '../sync-playwright'
+import SkillsInstall from '../skills/install'
 
 const commands: Array<[string, typeof BaseCommand]> = [
   ['checks list', ChecksList],
@@ -66,6 +67,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['import cancel', ImportCancel],
   ['pw-test', PwTest],
   ['sync-playwright', SyncPlaywright],
+  ['skills install', SkillsInstall],
 ]
 
 describe('command metadata', () => {
