@@ -62,15 +62,18 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     if (this.isNonInteractive()) {
+      const flagCol = '--target '.length
       const maxLen = Math.max(...VALID_TARGETS.map(t => t.length))
-      const pad = (s: string) => s.padEnd(maxLen + 2)
+      const descCol = flagCol + maxLen + 2
+      const padTo = (flag: string, arg: string) =>
+        `  ${(flag + ' ' + arg).padEnd(descCol)}`
 
       this.log('Non-interactive mode detected. Use one of the following flags:\n')
       for (const [name, dir] of Object.entries(PLATFORM_TARGETS)) {
-        this.log(`  --target ${pad(name)}Install to ${dir}/`)
+        this.log(`${padTo('--target', name)}Install to ${dir}/`)
       }
-      this.log(`  --path ${pad('<dir>')}Install to a custom directory`)
-      this.log(`  --force ${pad('')}Overwrite existing SKILL.md without confirmation`)
+      this.log(`${padTo('--path', '<dir>')}Install to a custom directory`)
+      this.log(`${padTo('--force', '')}Overwrite existing SKILL.md without confirmation`)
       this.log('\nExample: npx checkly skills install --target claude --force')
       return
     }
