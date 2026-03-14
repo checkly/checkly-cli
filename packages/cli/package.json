@@ -76,9 +76,6 @@
       "import": {
         "description": "Import existing resources from your Checkly account to your project."
       },
-      "skills": {
-        "description": "Explore Checkly AI agent skills, actions and reference documentation."
-      },
       "status-pages": {
         "description": "List and manage status pages in your Checkly account."
       }
