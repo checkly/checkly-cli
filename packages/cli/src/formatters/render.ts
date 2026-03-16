@@ -14,7 +14,15 @@ export function visWidth (value: string): number {
   return stringWidth(stripAnsi(value))
 }
 
-export function padColumn (value: string, width: number): string {
+const RIGHT_ALIGN_GAP = 2
+
+export function padColumn (value: string, width: number, align: 'left' | 'right' = 'left', trailingGap = true): string {
+  if (align === 'right') {
+    const gap = trailingGap ? RIGHT_ALIGN_GAP : 0
+    const contentWidth = width - gap
+    const leadPad = Math.max(0, contentWidth - visWidth(value))
+    return ' '.repeat(leadPad) + value + ' '.repeat(gap)
+  }
   const padding = Math.max(0, width - visWidth(value))
   return value + ' '.repeat(padding)
 }
@@ -106,6 +114,7 @@ export interface DetailField<T> {
 export interface ColumnDef<T> {
   header: string
   width?: number
+  align?: 'left' | 'right'
   value: (item: T, format: OutputFormat) => string
 }
 
@@ -160,7 +169,7 @@ export function renderTable<T> (
 ): string {
   if (format === 'md') {
     const header = '| ' + columns.map(c => c.header).join(' | ') + ' |'
-    const separator = '| ' + columns.map(() => '---').join(' | ') + ' |'
+    const separator = '| ' + columns.map(c => c.align === 'right' ? '---:' : '---').join(' | ') + ' |'
     const dataRows = rows.map(row =>
       '| ' + columns.map(c => c.value(row, format)).join(' | ') + ' |',
     )
@@ -168,15 +177,20 @@ export function renderTable<T> (
   }
 
   // Terminal
+  const lastIdx = columns.length - 1
   const headerParts = columns.map((col, i) => {
     const text = chalk.bold(col.header.toUpperCase())
-    return (i < columns.length - 1 && col.width) ? padColumn(text, col.width) : text
+    if (!col.width) return text
+    if (i === lastIdx && col.align !== 'right') return text
+    return padColumn(text, col.width, col.align, i < lastIdx)
   })
 
   const dataRows = rows.map(row =>
     columns.map((col, i) => {
       const val = col.value(row, format)
-      return (i < columns.length - 1 && col.width) ? padColumn(val, col.width) : val
+      if (!col.width) return val
+      if (i === lastIdx && col.align !== 'right') return val
+      return padColumn(val, col.width, col.align, i < lastIdx)
     }).join(''),
   )
 

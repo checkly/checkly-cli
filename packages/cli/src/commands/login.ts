@@ -25,6 +25,7 @@ export const selectAccount = async (
 
 export default class Login extends BaseCommand {
   static hidden = false
+  static idempotent = true
   static description = 'Login to your Checkly account or create a new one.'
 
   private _checkExistingCredentials = async () => {

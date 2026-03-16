@@ -31,7 +31,7 @@ export interface PaginationInfo {
   total: number
 }
 
-function resolveStatus (check: CheckWithStatus, format: OutputFormat): string {
+export function resolveStatus (check: CheckWithStatus, format: OutputFormat): string {
   if (!check.activated) return format === 'terminal' ? chalk.dim('inactive') : 'inactive'
   if (!check.status) return format === 'terminal' ? chalk.dim('-') : 'unknown'
   const failing = check.status.hasFailures || check.status.hasErrors
@@ -114,7 +114,7 @@ export function formatNavigationHints (pagination: PaginationInfo, activeFilters
   }
   lines.push(`  ${chalk.dim('View check:')}   checkly checks get <id>`)
   if (activeFilters.length === 0) {
-    lines.push(`  ${chalk.dim('Filter:')}       checkly checks list --tag <tag> --type <type> --search <name>`)
+    lines.push(`  ${chalk.dim('Filter:')}       checkly checks list --tag <tag> --type <type> --status <status> --search <name>`)
   }
 
   return lines.join('\n')

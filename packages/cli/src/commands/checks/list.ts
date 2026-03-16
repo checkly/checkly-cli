@@ -5,6 +5,7 @@ import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import type { CheckWithStatus } from '../../formatters/checks'
 import type { OutputFormat } from '../../formatters/render'
+import { allCheckTypes } from '../../constants'
 import {
   formatChecks,
   formatSummaryBar,
@@ -14,6 +15,8 @@ import {
 
 export default class ChecksList extends AuthCommand {
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'List all checks in your account.'
 
   static flags = {
@@ -31,6 +34,7 @@ export default class ChecksList extends AuthCommand {
       char: 't',
       description: 'Filter by tag. Can be specified multiple times.',
       multiple: true,
+      delimiter: ',',
     }),
     'search': Flags.string({
       char: 's',
@@ -38,7 +42,11 @@ export default class ChecksList extends AuthCommand {
     }),
     'type': Flags.string({
       description: 'Filter by check type.',
-      options: ['API', 'BROWSER', 'MULTI_STEP', 'HEARTBEAT', 'PLAYWRIGHT', 'TCP', 'DNS', 'ICMP', 'URL'],
+      options: allCheckTypes,
+    }),
+    'status': Flags.string({
+      description: 'Filter by check status.',
+      options: ['passing', 'failing', 'degraded'],
     }),
     'hide-id': Flags.boolean({
       description: 'Hide check IDs in table output.',
@@ -61,6 +69,7 @@ export default class ChecksList extends AuthCommand {
           tag: flags.tag,
           checkType: flags.type,
           search: flags.search,
+          status: flags.status,
         }),
         api.checkStatuses.fetchAll().catch(() => []),
       ])
@@ -75,6 +84,7 @@ export default class ChecksList extends AuthCommand {
       if (flags.tag) activeFilters.push(...flags.tag.map(t => `tag=${t}`))
       if (flags.search) activeFilters.push(`search="${flags.search}"`)
       if (flags.type) activeFilters.push(`type=${flags.type}`)
+      if (flags.status) activeFilters.push(`status=${flags.status}`)
 
       // JSON output
       if (flags.output === 'json') {

@@ -24,8 +24,8 @@ export class PlaywrightConfigExpander {
     // If projects is definited, ignore root settings
     const projects = playwrightConfig.projects ?? [playwrightConfig]
     const found = new Set<string>()
+    playwrightConfig.files.forEach(file => found.add(file))
     for (const project of projects) {
-      project.files.forEach(file => found.add(file))
       // Cache the files by test dir
       const files = await this.collectFiles(cachedFiles, project.testDir, ignoredFiles)
       const matcher = this.createFileMatcher(Array.from(project.testMatch))

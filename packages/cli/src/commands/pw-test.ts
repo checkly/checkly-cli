@@ -43,6 +43,8 @@ import { Bundler } from '../services/check-parser/bundler'
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
+  static readOnly = true
+  static idempotent = true
   static description = 'Test your Playwright Tests on Checkly.'
   static flags = {
     'location': Flags.string({
@@ -74,6 +76,8 @@ export default class PwTestCommand extends AuthCommand {
     'reporter': Flags.string({
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
+      multiple: true,
+      delimiter: ',',
     }),
     'config': Flags.string({
       description: commonMessages.configFile,
@@ -175,7 +179,7 @@ export default class PwTestCommand extends AuthCommand {
       privateRunLocation,
     }, api, config.getAccountId())
 
-    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType, checklyConfig.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)

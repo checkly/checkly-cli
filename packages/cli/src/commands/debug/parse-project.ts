@@ -73,6 +73,7 @@ export default class ParseProjectCommand extends Command {
     'inject-private-location': Flags.string({
       description: 'Pretend that the given private location exists (e.g., "70c4ded4-2229-45a7-acf4-6b1eb56a86df:my-external-private-location").',
       multiple: true,
+      delimiter: ',',
       default: [],
     }),
   }

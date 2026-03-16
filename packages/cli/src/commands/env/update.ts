@@ -5,6 +5,7 @@ import { AuthCommand } from '../authCommand'
 
 export default class EnvUpdate extends AuthCommand {
   static hidden = false
+  static idempotent = true
   static description = 'Update environment variable via "checkly env update <key> <value>".'
 
   static flags = {

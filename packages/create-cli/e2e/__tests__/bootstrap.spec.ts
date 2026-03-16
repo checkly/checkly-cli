@@ -291,9 +291,10 @@ describe('bootstrap', () => {
 
   it('Should copy the playwright config', async () => {
     const directory = path.join(__dirname, 'fixtures', 'playwright-project')
+    const playwrightConfigPath = path.join(directory, 'playwright.config.ts')
     const commandOutput = await runChecklyCreateCli({
       directory,
-      promptsInjection: [true, false, false, true],
+      promptsInjection: [true, false, false, true, playwrightConfigPath],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })

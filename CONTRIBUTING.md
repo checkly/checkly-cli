@@ -57,6 +57,27 @@ You can use the current branch of the code against any examples in the `/example
 2. Run `npm create checkly -- --template boilerplate-project`
 3. Just use `npx checkly` as normal.
 
+## AI context and agent skills
+
+The CLI ships agent skills (`skills/checkly/SKILL.md`) and serves reference docs via `npx checkly skills`. The source files live in `packages/cli/src/ai-context/` and are processed at build time.
+
+When modifying AI context sources (`src/ai-context/skill.md`, `src/ai-context/references/`, or `src/ai-context/context.ts`):
+
+1. Run the full prepare step from the `packages/cli` directory:
+   ```bash
+   npm run prepare --workspace packages/cli
+   ```
+   This compiles TypeScript, generates examples from fixtures, and runs `prepare-ai-context.ts` to produce the output in `dist/ai-context/`.
+
+2. Copy the generated public skill to the tracked location:
+   ```bash
+   cp packages/cli/dist/ai-context/public-skills/checkly/SKILL.md skills/checkly/SKILL.md
+   ```
+
+3. Commit both your source changes and the updated `skills/checkly/SKILL.md`.
+
+The `skills/checkly/SKILL.md` file is the published copy that agents load. If you forget to regenerate it, CI will flag it as out of date.
+
 ## Prerelease experimental version
 
 To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
@@ -66,7 +87,17 @@ triggered and a new experimental version can be installed by executing:
 npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
 ```
 
+> **Note:** Canary builds authenticate to npm using the `NPM_TOKEN` secret (a long-lived token). This is because the canary workflow (`release-canary.yml`) is a separate workflow file from the one configured as a trusted publisher on npmjs.com.
+
 ## Releasing
+
+### NPM authentication
+
+The release workflow (`release.yml`) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
+
+Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. There is no secret to rotate for releases.
+
+The canary workflow (`release-canary.yml`) still uses the `NPM_TOKEN` secret because npm only allows one trusted publisher entry per package, and it is bound to `release.yml`.
 
 ### Releasing `checkly` packages
 
@@ -77,7 +108,8 @@ To release packages to NPM:
 1. Publish a Github Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). **Uncheck "Set as the latest release"** — the workflow will mark it as latest automatically after attaching the `checkly.rules.md` asset.
 2. When release is published the Github action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
 3. Test the prerelease version to make sure that it's working.
-    * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
+    * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
+    * Ensure your project `package.json` has `"checkly": "4.6.2-prerelease-c6e8165"`
 4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published. The workflow will then automatically attach `checkly.rules.md` to the GitHub Release and mark it as latest (if the version is higher than the current latest).
 
 ### Catching issues in prerelease

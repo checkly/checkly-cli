@@ -3,6 +3,8 @@ import * as path from 'path'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
 import { loadFile } from './fileloader'
 
+export const PLAYWRIGHT_CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js']
+
 export interface PackageJson {
   name: string
   devDependencies: {
@@ -14,9 +16,8 @@ export function hasPackageJsonFile (dirPath: string) {
   return fs.existsSync(path.join(dirPath, 'package.json'))
 }
 
-export function getPlaywrightConfig (dirPath: string) {
-  const playwrightConfigFiles = ['playwright.config.ts', 'playwright.config.js']
-  return playwrightConfigFiles.find(config => fs.existsSync(path.join(dirPath, config)))
+export function getPlaywrightConfig (dirPath: string): string | undefined {
+  return PLAYWRIGHT_CONFIG_FILES.find(config => fs.existsSync(path.join(dirPath, config)))
 }
 
 export function readPackageJson (dirPath: string): PackageJson {
@@ -96,4 +97,24 @@ export function generateProjectName (): string {
     length: 2,
     style: 'lowerCase',
   })
+}
+
+// Recursively find config files matching the given suffixes, excluding node_modules and dot-prefixed dirs.
+// Results are sorted by path depth, then suffix priority (first suffix wins), then alphabetically.
+export function collectConfigPaths (dir: string, suffixes: string[]): string[] {
+  const entries = fs.readdirSync(dir, { recursive: true, withFileTypes: true })
+  const results = entries
+    .filter(e => e.isFile() && suffixes.some(s => e.name.endsWith(s)))
+    .map(e => path.join(e.parentPath, e.name))
+    .filter(p => {
+      const rel = path.relative(dir, p)
+      return !rel.split(path.sep).some(seg => seg === 'node_modules' || seg.startsWith('.'))
+    })
+  const segmentCount = (p: string) => path.relative(dir, p).split(path.sep).length
+  const suffixPriority = (p: string) => suffixes.findIndex(s => p.endsWith(s))
+  return results.sort((a, b) =>
+    segmentCount(a) - segmentCount(b)
+    || suffixPriority(a) - suffixPriority(b)
+    || a.localeCompare(b),
+  )
 }

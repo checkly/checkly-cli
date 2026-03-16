@@ -172,7 +172,7 @@
           "request": {
             "id": 1000001,
             "method": "GET",
-            "url": "https://api.example.com/v1/products",
+            "url": "INSERT_URL",
             "protocol": null,
             "port": null,
             "body": "",
@@ -462,8 +462,8 @@
               }
             ],
             "ipFamily": "IPv4",
-            "hostname": "tcp.example.com",
-            "url": "tcp.example.com"
+            "hostname": "INSERT_HOSTNAME",
+            "url": "INSERT_URL"
           },
           "privateLocationAssignments": [],
           "alertChannelSubscriptions": [],
@@ -549,7 +549,7 @@
           "request": {
             "id": 1000003,
             "method": "GET",
-            "url": "https://example.com",
+            "url": "INSERT_URL",
             "protocol": null,
             "port": null,
             "body": "",
@@ -658,7 +658,7 @@
           "request": {
             "id": 4194121,
             "method": "GET",
-            "url": "https://checklyhq.com",
+            "url": "INSERT_URL",
             "protocol": null,
             "port": null,
             "body": "",
@@ -771,7 +771,7 @@
           "runParallel": false,
           "triggerIncident": null,
           "request": {
-            "query": "welcome.checklyhq.com",
+            "query": "INSERT_HOSTNAME",
             "recordType": "AAAA",
             "assertions": [
               {
@@ -836,7 +836,7 @@
           "runParallel": false,
           "triggerIncident": null,
           "request": {
-            "hostname": "1.1.1.1",
+            "hostname": "INSERT_HOSTNAME",
             "ipFamily": "IPv4",
             "pingCount": 10,
             "assertions": [
