@@ -26,6 +26,10 @@ Agent Skills are a standardized format for giving AI agents specialized knowledg
 - Build dashboards and status pages
 - Follow monitoring-as-code best practices with the Checkly CLI
 
+## Installing This Skill
+
+Run `npx checkly skills install` to install the skill into your project. The command supports Claude Code, Cursor, Codex and more out of the box, or you can specify a custom path.
+
 ## Using This Skill
 
 AI agents can load this skill to gain expertise in Checkly monitoring. The skill follows the [Agent Skills specification](https://agentskills.io) with:
