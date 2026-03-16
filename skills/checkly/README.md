@@ -28,7 +28,7 @@ Agent Skills are a standardized format for giving AI agents specialized knowledg
 
 ## Installing This Skill
 
-Run `npx checkly skills install` to install the skill into your project. The command supports Claude Code, Cursor, and Windsurf out of the box, or you can specify a custom path.
+Run `npx checkly skills install` to install the skill into your project. The command supports Claude Code, Cursor, Codex and more out of the box, or you can specify a custom path.
 
 ## Using This Skill
 

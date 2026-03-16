@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('fs/promises', () => ({
   readFile: vi.fn(),
@@ -12,8 +12,13 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({})),
 }))
 
+vi.mock('../../../helpers/cli-mode', () => ({
+  detectCliMode: vi.fn(() => 'interactive'),
+}))
+
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import prompts from 'prompts'
+import { detectCliMode } from '../../../helpers/cli-mode'
 import SkillsInstall from '../install'
 
 const SKILL_CONTENT = '# Test Skill Content\nThis is a test skill.'
@@ -42,6 +47,7 @@ describe('skills install', () => {
     vi.mocked(mkdir).mockResolvedValue(undefined)
     // File does not exist by default
     vi.mocked(access).mockRejectedValue(new Error('ENOENT'))
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
   })
 
   describe('--target flag', () => {
@@ -180,29 +186,6 @@ describe('skills install', () => {
   })
 
   describe('overwrite confirmation', () => {
-    let originalStdinTTY: boolean | undefined
-    let originalStdoutTTY: boolean | undefined
-    let originalCI: string | undefined
-    let originalNonInteractive: string | undefined
-
-    beforeEach(() => {
-      originalStdinTTY = process.stdin.isTTY
-      originalStdoutTTY = process.stdout.isTTY
-      originalCI = process.env.CI
-      originalNonInteractive = process.env.CHECKLY_NON_INTERACTIVE
-      process.stdin.isTTY = true as any
-      process.stdout.isTTY = true as any
-      delete process.env.CI
-      delete process.env.CHECKLY_NON_INTERACTIVE
-    })
-
-    afterEach(() => {
-      process.stdin.isTTY = originalStdinTTY as any
-      process.stdout.isTTY = originalStdoutTTY as any
-      process.env.CI = originalCI
-      process.env.CHECKLY_NON_INTERACTIVE = originalNonInteractive
-    })
-
     it('skips writing when user declines overwrite', async () => {
       vi.mocked(access).mockResolvedValue(undefined)
       vi.mocked(prompts).mockResolvedValueOnce({ overwrite: false })
@@ -239,19 +222,8 @@ describe('skills install', () => {
   })
 
   describe('non-interactive mode', () => {
-    let originalStdinTTY: boolean | undefined
-    let originalStdoutTTY: boolean | undefined
-
     beforeEach(() => {
-      originalStdinTTY = process.stdin.isTTY
-      originalStdoutTTY = process.stdout.isTTY
-      process.stdin.isTTY = false as any
-      process.stdout.isTTY = false as any
-    })
-
-    afterEach(() => {
-      process.stdin.isTTY = originalStdinTTY as any
-      process.stdout.isTTY = originalStdoutTTY as any
+      vi.mocked(detectCliMode).mockReturnValue('agent')
     })
 
     it('prints usage guidance when no flags provided', async () => {
@@ -266,6 +238,18 @@ describe('skills install', () => {
       expect(logged.some(m => m.includes('--target github-copilot'))).toBe(true)
       expect(logged.some(m => m.includes('--target goose'))).toBe(true)
       expect(logged.some(m => m.includes('--path'))).toBe(true)
+      expect(writeFile).not.toHaveBeenCalled()
+    })
+
+    it('also prints usage guidance in ci mode', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+
+      const cmd = createCommand()
+
+      await cmd.run()
+
+      const logged = getLogged(cmd)
+      expect(logged.some(m => m.includes('--target claude'))).toBe(true)
       expect(writeFile).not.toHaveBeenCalled()
     })
 
@@ -298,29 +282,6 @@ describe('skills install', () => {
   })
 
   describe('interactive mode', () => {
-    let originalStdinTTY: boolean | undefined
-    let originalStdoutTTY: boolean | undefined
-    let originalCI: string | undefined
-    let originalNonInteractive: string | undefined
-
-    beforeEach(() => {
-      originalStdinTTY = process.stdin.isTTY
-      originalStdoutTTY = process.stdout.isTTY
-      originalCI = process.env.CI
-      originalNonInteractive = process.env.CHECKLY_NON_INTERACTIVE
-      process.stdin.isTTY = true as any
-      process.stdout.isTTY = true as any
-      delete process.env.CI
-      delete process.env.CHECKLY_NON_INTERACTIVE
-    })
-
-    afterEach(() => {
-      process.stdin.isTTY = originalStdinTTY as any
-      process.stdout.isTTY = originalStdoutTTY as any
-      process.env.CI = originalCI
-      process.env.CHECKLY_NON_INTERACTIVE = originalNonInteractive
-    })
-
     it('cancels when user selects nothing', async () => {
       vi.mocked(prompts).mockResolvedValueOnce({ target: undefined })
 

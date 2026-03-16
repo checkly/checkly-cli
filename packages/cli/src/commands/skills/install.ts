@@ -4,6 +4,7 @@ import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import prompts from 'prompts'
 
+import { detectCliMode } from '../../helpers/cli-mode'
 import { BaseCommand } from '../baseCommand'
 
 const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
@@ -61,7 +62,7 @@ export default class SkillsInstall extends BaseCommand {
       return
     }
 
-    if (this.isNonInteractive()) {
+    if (detectCliMode() !== 'interactive') {
       const flagCol = '--target '.length
       const maxLen = Math.max(...VALID_TARGETS.map(t => t.length))
       const descCol = flagCol + maxLen + 2
@@ -177,13 +178,6 @@ export default class SkillsInstall extends BaseCommand {
     this.style.shortSuccess(`Installed Checkly agent skill to: ${targetPath}`)
   }
 
-  private isNonInteractive (): boolean {
-    return !process.stdin.isTTY
-      || !process.stdout.isTTY
-      || !!process.env.CI
-      || !!process.env.CHECKLY_NON_INTERACTIVE
-  }
-
   private async confirmOverwrite (targetPath: string): Promise<boolean> {
     try {
       await access(targetPath, constants.F_OK)
@@ -191,7 +185,7 @@ export default class SkillsInstall extends BaseCommand {
       return true
     }
 
-    if (this.isNonInteractive()) {
+    if (detectCliMode() !== 'interactive') {
       this.log(`Skill file already exists at ${targetPath}. Use --force to overwrite.`)
       return false
     }
