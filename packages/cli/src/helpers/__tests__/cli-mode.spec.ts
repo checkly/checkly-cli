@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { detectOperator, detectCliMode } from '../cli-mode'
 
 const operatorEnvVars = [
-  'CLAUDECODE', 'CURSOR_TRACE_ID', 'TERM_PROGRAM', 'GITHUB_COPILOT',
-  'AIDER', 'WINDSURF', 'CODEIUM_ENV', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI',
+  'CLAUDECODE', 'CURSOR_TRACE_ID', 'CURSOR_AGENT', 'TERM_PROGRAM', 'GITHUB_COPILOT',
+  'AIDER', 'WINDSURF', 'CODEIUM_ENV', 'CLINE_ACTIVE', 'CODEX_SANDBOX', 'CODEX_THREAD_ID',
+  'GEMINI_CLI', 'OPENCODE', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI',
 ]
 
 describe('detectOperator', () => {
@@ -20,8 +21,13 @@ describe('detectOperator', () => {
     expect(detectOperator()).toBe('claude-code')
   })
 
-  it('detects Cursor', () => {
+  it('detects Cursor via CURSOR_TRACE_ID', () => {
     process.env.CURSOR_TRACE_ID = 'some-trace-id'
+    expect(detectOperator()).toBe('cursor')
+  })
+
+  it('detects Cursor via CURSOR_AGENT', () => {
+    process.env.CURSOR_AGENT = '1'
     expect(detectOperator()).toBe('cursor')
   })
 
@@ -63,6 +69,31 @@ describe('detectOperator', () => {
   it('detects GitLab CI', () => {
     process.env.GITLAB_CI = 'true'
     expect(detectOperator()).toBe('gitlab-ci')
+  })
+
+  it('detects Cline', () => {
+    process.env.CLINE_ACTIVE = '1'
+    expect(detectOperator()).toBe('cline')
+  })
+
+  it('detects Codex CLI via CODEX_SANDBOX', () => {
+    process.env.CODEX_SANDBOX = '1'
+    expect(detectOperator()).toBe('codex-cli')
+  })
+
+  it('detects Codex CLI via CODEX_THREAD_ID', () => {
+    process.env.CODEX_THREAD_ID = 'thread-123'
+    expect(detectOperator()).toBe('codex-cli')
+  })
+
+  it('detects Gemini CLI', () => {
+    process.env.GEMINI_CLI = '1'
+    expect(detectOperator()).toBe('gemini-cli')
+  })
+
+  it('detects OpenCode', () => {
+    process.env.OPENCODE = '1'
+    expect(detectOperator()).toBe('opencode')
   })
 
   it('detects generic CI', () => {
@@ -115,6 +146,26 @@ describe('detectCliMode', () => {
 
   it('returns "agent" when operator is github-copilot', () => {
     process.env.GITHUB_COPILOT = '1'
+    expect(detectCliMode()).toBe('agent')
+  })
+
+  it('returns "agent" when operator is cline', () => {
+    process.env.CLINE_ACTIVE = '1'
+    expect(detectCliMode()).toBe('agent')
+  })
+
+  it('returns "agent" when operator is codex-cli', () => {
+    process.env.CODEX_SANDBOX = '1'
+    expect(detectCliMode()).toBe('agent')
+  })
+
+  it('returns "agent" when operator is gemini-cli', () => {
+    process.env.GEMINI_CLI = '1'
+    expect(detectCliMode()).toBe('agent')
+  })
+
+  it('returns "agent" when operator is opencode', () => {
+    process.env.OPENCODE = '1'
     expect(detectCliMode()).toBe('agent')
   })
 
