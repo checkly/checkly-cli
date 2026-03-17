@@ -10,5 +10,13 @@ export default class Whoami extends AuthCommand {
     const account = this.account
     const { data: user } = await api.user.get()
     this.log(`You are currently on account "${account.name}" (${account.id}) as ${user.name}.`)
+    if (account.planDisplayName) {
+      this.log(`Plan: ${account.planDisplayName}`)
+    }
+    const addons = account.addons ?? {}
+    const addonNames = Object.values(addons).map(a => a.tierDisplayName)
+    if (addonNames.length > 0) {
+      this.log(`Add-ons: ${addonNames.join(', ')}`)
+    }
   }
 }

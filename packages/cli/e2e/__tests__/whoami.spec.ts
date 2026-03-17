@@ -11,5 +11,6 @@ describe('whomai', () => {
       accountId: config.get('accountId'),
     })
     expect(stdout).toContain(config.get('accountName'))
+    expect(stdout).toContain('Plan:')
   })
 })
