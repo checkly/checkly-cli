@@ -101,6 +101,12 @@ describe('detectOperator', () => {
     expect(detectOperator()).toBe('ci')
   })
 
+  it('prioritizes Cline over VS Code (Cline is a VS Code extension)', () => {
+    process.env.CLINE_ACTIVE = '1'
+    process.env.TERM_PROGRAM = 'vscode'
+    expect(detectOperator()).toBe('cline')
+  })
+
   it('prioritizes Claude Code over CI', () => {
     process.env.CLAUDECODE = '1'
     process.env.CI = 'true'

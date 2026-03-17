@@ -14,7 +14,6 @@ const CI_OPERATORS: ReadonlySet<string> = new Set([
 export function detectOperator (): string {
   if (process.env.CLAUDECODE) return 'claude-code'
   if (process.env.CURSOR_TRACE_ID || process.env.CURSOR_AGENT) return 'cursor'
-  if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
   if (process.env.GITHUB_COPILOT) return 'github-copilot'
   if (process.env.AIDER) return 'aider'
   if (process.env.WINDSURF || process.env.CODEIUM_ENV) return 'windsurf'
@@ -22,6 +21,7 @@ export function detectOperator (): string {
   if (process.env.CODEX_SANDBOX || process.env.CODEX_THREAD_ID) return 'codex-cli'
   if (process.env.GEMINI_CLI) return 'gemini-cli'
   if (process.env.OPENCODE) return 'opencode'
+  if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
   if (process.env.GITHUB_ACTIONS) return 'github-actions'
   if (process.env.GITLAB_CI) return 'gitlab-ci'
   if (process.env.CI) return 'ci'
