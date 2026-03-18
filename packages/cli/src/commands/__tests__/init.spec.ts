@@ -201,7 +201,7 @@ describe('Init command', () => {
       expect(runBoilerplateSetup).not.toHaveBeenCalled()
     })
 
-    it('skill already installed: shows prompt directly without asking to install', async () => {
+    it('skill already installed: refreshes silently without prompting', async () => {
       vi.mocked(detectProjectContext).mockReturnValue({
         ...existingContext,
         hasSkillInstalled: true,
@@ -211,9 +211,9 @@ describe('Init command', () => {
 
       await cmd.run()
 
-      // Should NOT prompt for skill install (runSkillInstallStep not called for existing skill)
+      // Should NOT prompt for skill install or show starter prompt
       expect(runSkillInstallStep).not.toHaveBeenCalled()
-      expect(displayStarterPrompt).toHaveBeenCalled()
+      expect(displayStarterPrompt).not.toHaveBeenCalled()
       expect(createConfig).not.toHaveBeenCalled()
       expect(copyChecks).not.toHaveBeenCalled()
     })
