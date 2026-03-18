@@ -113,7 +113,7 @@ export default class Init extends BaseCommand {
       const { wantBoilerplate } = await prompts({
         type: 'confirm',
         name: 'wantBoilerplate',
-        message: 'Create example checks to see how Checkly works?',
+        message: 'Create a Checkly config and some demo checks to get you started?',
         initial: true,
       }, { onCancel: onCancel(log) })
 
@@ -129,7 +129,7 @@ export default class Init extends BaseCommand {
       const { wantBoilerplate } = await prompts({
         type: 'confirm',
         name: 'wantBoilerplate',
-        message: 'Create a Checkly config and example checks in your project?',
+        message: 'Create a Checkly config and some demo checks to get you started?',
         initial: true,
       }, { onCancel: onCancel(log) })
 

@@ -120,7 +120,7 @@ describe('Init command', () => {
       expect(greeting).toHaveBeenCalledWith('1.0.0')
       expect(displayStarterPrompt).toHaveBeenCalledWith('prompt-text', expect.any(Function))
       expect(prompts).toHaveBeenCalledWith(
-        expect.objectContaining({ message: expect.stringContaining('example checks') }),
+        expect.objectContaining({ message: expect.stringContaining('demo checks') }),
         expect.any(Object),
       )
       expect(cmd.log).toHaveBeenCalledWith('footer')
@@ -154,7 +154,8 @@ describe('Init command', () => {
       }))
     })
 
-    it('skill declined: creates config + checks + deps, no prompt display', async () => {
+    it('skill declined + wants examples: creates config + checks + deps, no prompt display', async () => {
+      vi.mocked(prompts).mockResolvedValue({ wantBoilerplate: true })
       const cmd = createCommand()
 
       await cmd.run()
@@ -164,6 +165,17 @@ describe('Init command', () => {
       expect(runDepsInstall).toHaveBeenCalled()
       expect(displayStarterPrompt).not.toHaveBeenCalled()
       expect(cmd.log).toHaveBeenCalledWith('footer')
+    })
+
+    it('skill declined + declines examples: only installs deps', async () => {
+      vi.mocked(prompts).mockResolvedValue({ wantBoilerplate: false })
+      const cmd = createCommand()
+
+      await cmd.run()
+
+      expect(createConfig).not.toHaveBeenCalled()
+      expect(copyChecks).not.toHaveBeenCalled()
+      expect(runDepsInstall).toHaveBeenCalled()
     })
 
     it('skill declined + PW config: shows playwrightHint', async () => {
