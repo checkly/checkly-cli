@@ -7,18 +7,14 @@ import {
   formatPlanSummary,
   formatEntitlementDetail,
   formatFilteredEntitlements,
+  getEntitlementUpgradeUrl,
+  CONTACT_SALES_URL,
 } from '../../formatters/account-plan'
 import type { Entitlement } from '../../rest/entitlements'
 
-function withUpgradeUrl (e: Entitlement, upgradeUrl: string, contactSalesUrl: string) {
+function withUpgradeUrl (e: Entitlement, checkoutUrl: string) {
   if (e.enabled) return e
-  let url = contactSalesUrl
-  if (e.requiredPlan && e.requiredPlan !== 'CONTRACT') {
-    url = upgradeUrl
-  } else if (e.requiredAddon) {
-    url = upgradeUrl
-  }
-  return { ...e, upgradeUrl: url }
+  return { ...e, upgradeUrl: getEntitlementUpgradeUrl(e, checkoutUrl) }
 }
 
 export default class AccountPlan extends AuthCommand {
@@ -72,8 +68,7 @@ export default class AccountPlan extends AuthCommand {
     }
 
     const { accountId } = api.getDefaults()
-    const upgradeUrl = `https://app.checklyhq.com/accounts/${accountId}/billing/checkout`
-    const contactSalesUrl = 'https://www.checklyhq.com/contact-sales/'
+    const checkoutUrl = `https://app.checklyhq.com/accounts/${accountId}/billing/checkout`
 
     // Single key lookup
     if (args.key) {
@@ -83,12 +78,12 @@ export default class AccountPlan extends AuthCommand {
       }
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify(withUpgradeUrl(entitlement, upgradeUrl, contactSalesUrl), null, 2))
+        this.log(JSON.stringify(withUpgradeUrl(entitlement, checkoutUrl), null, 2))
         return
       }
 
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-      this.log(formatEntitlementDetail(plan, entitlement, fmt, upgradeUrl))
+      this.log(formatEntitlementDetail(plan, entitlement, fmt, checkoutUrl))
       return
     }
 
@@ -115,11 +110,16 @@ export default class AccountPlan extends AuthCommand {
 
     // JSON output (respects filters)
     if (flags.output === 'json') {
-      const enriched = filtered.map(e => withUpgradeUrl(e, upgradeUrl, contactSalesUrl))
+      const enriched = filtered.map(e => withUpgradeUrl(e, checkoutUrl))
       if (hasFilters) {
         this.log(JSON.stringify(enriched, null, 2))
       } else {
-        this.log(JSON.stringify({ ...plan, upgradeUrl, contactSalesUrl, entitlements: enriched }, null, 2))
+        this.log(JSON.stringify({
+          ...plan,
+          checkoutUrl,
+          contactSalesUrl: CONTACT_SALES_URL,
+          entitlements: enriched,
+        }, null, 2))
       }
       return
     }
@@ -128,11 +128,11 @@ export default class AccountPlan extends AuthCommand {
 
     // Filtered view
     if (hasFilters) {
-      this.log(formatFilteredEntitlements(plan, filtered, fmt, upgradeUrl))
+      this.log(formatFilteredEntitlements(plan, filtered, fmt, checkoutUrl))
       return
     }
 
     // Default summary view
-    this.log(formatPlanSummary(plan, fmt, upgradeUrl))
+    this.log(formatPlanSummary(plan, fmt, checkoutUrl))
   }
 }

@@ -141,7 +141,7 @@ describe('checkly account plan', () => {
     expect(result.stdout).toContain('billing/checkout')
   })
 
-  it('should include upgradeUrl in JSON output', async () => {
+  it('should include checkoutUrl and contactSalesUrl in JSON output', async () => {
     const result = await runChecklyCli({
       args: ['account', 'plan', '--output', 'json'],
       apiKey: config.get('apiKey'),
@@ -149,8 +149,10 @@ describe('checkly account plan', () => {
     })
     expect(result.status).toBe(0)
     const parsed = JSON.parse(result.stdout)
-    expect(parsed).toHaveProperty('upgradeUrl')
-    expect(parsed.upgradeUrl).toContain('billing/checkout')
+    expect(parsed).toHaveProperty('checkoutUrl')
+    expect(parsed.checkoutUrl).toContain('billing/checkout')
+    expect(parsed).toHaveProperty('contactSalesUrl')
+    expect(parsed.contactSalesUrl).toContain('contact-sales')
   })
 
   it('should filter with --disabled flag', async () => {

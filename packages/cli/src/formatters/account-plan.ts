@@ -72,8 +72,20 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 
 const NAME_WIDTH = 50
 const UPGRADE_WIDTH = 45
-const CONTACT_SALES_URL = 'https://www.checklyhq.com/contact-sales/'
+export const CONTACT_SALES_URL = 'https://www.checklyhq.com/contact-sales/'
 const CONTACT_SALES_LABEL = 'Contact sales'
+
+/**
+ * Returns the appropriate upgrade URL for a disabled entitlement:
+ * - CONTRACT plan → contact sales
+ * - Self-serve plan/addon → billing checkout
+ * - No upgrade data → contact sales (fallback)
+ */
+export function getEntitlementUpgradeUrl (e: Entitlement, checkoutUrl: string): string {
+  if (e.requiredPlan === 'CONTRACT') return CONTACT_SALES_URL
+  if (e.requiredPlan || e.requiredAddon) return checkoutUrl
+  return CONTACT_SALES_URL
+}
 
 function upgradeLabel (e: Entitlement): string {
   if (e.enabled) return '-'
@@ -173,11 +185,7 @@ const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   },
   {
     label: 'Upgrade Link',
-    value: e => {
-      if (e.enabled) return null
-      if (e.requiredPlan === 'CONTRACT') return CONTACT_SALES_URL
-      return formatUpgradePath(e) ? upgradeUrl : CONTACT_SALES_URL
-    },
+    value: e => e.enabled ? null : getEntitlementUpgradeUrl(e, upgradeUrl),
   },
 ]
 
