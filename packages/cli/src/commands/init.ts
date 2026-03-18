@@ -6,7 +6,6 @@ import { detectCliMode } from '../helpers/cli-mode'
 import {
   detectProjectContext,
   runSkillInstallStep,
-  runBoilerplateSetup,
   runDepsInstall,
   createConfig,
   copyChecks,
@@ -14,6 +13,7 @@ import {
   displayStarterPrompt,
   greeting,
   footer,
+  agentFooter,
   playwrightHint,
 } from '../helpers/onboarding'
 import { readSkillFile, writeSkillToTarget } from './skills/install'
@@ -73,7 +73,8 @@ export default class Init extends BaseCommand {
     // === CI MODE ===
     if (cliMode === 'ci') {
       if (!context.hasChecklyConfig) {
-        await runBoilerplateSetup(projectDir, log, { skipPrompts: true })
+        createConfig(projectDir, log)
+        await runDepsInstall(projectDir, log, { skipPrompts: true })
       }
       return
     }
@@ -82,20 +83,17 @@ export default class Init extends BaseCommand {
     log(greeting(this.config.version))
 
     if (context.hasChecklyConfig) {
-      // ── STATE 2 or 3: Existing Checkly project ──
       await this.runExistingProjectFlow(projectDir, context, log)
     } else {
-      // ── STATE 1: Brand new ──
       await this.runNewProjectFlow(projectDir, context, log)
-      log(footer())
     }
   }
 
   /**
    * Brand new project — full onboarding:
    * 1. Skill install (branch point)
-   * 2a. If skill installed: show AI prompt, optionally offer boilerplate + deps separately
-   * 2b. If skill declined: config + boilerplate + deps (each prompted)
+   * 2a. Skill installed: show prompt, agent-first conclusion
+   * 2b. Skill declined: config + demo checks + deps (each prompted), manual footer
    */
   private async runNewProjectFlow (
     projectDir: string,
@@ -105,35 +103,20 @@ export default class Init extends BaseCommand {
     const skillResult = await runSkillInstallStep(log)
 
     if (skillResult.installed) {
-      // Agent-enhanced path: show starter prompt
+      // Agent-enhanced path: prompt + agent-first conclusion
       const promptText = await this.loadStarterPrompt(projectDir, context)
       await displayStarterPrompt(promptText, log)
-
-      // Offer boilerplate separately
-      const { wantBoilerplate } = await prompts({
-        type: 'confirm',
-        name: 'wantBoilerplate',
-        message: 'Create a Checkly config and some demo checks to get you started?',
-        initial: true,
-      }, { onCancel: onCancel(log) })
-
-      if (wantBoilerplate) {
-        createConfig(projectDir, log)
-        copyChecks(projectDir, log)
-      }
-
-      // Offer deps separately
-      await runDepsInstall(projectDir, log)
+      log(agentFooter(skillResult.platform))
     } else {
       // Deterministic path — ask before creating files
-      const { wantBoilerplate } = await prompts({
+      const { wantExamples } = await prompts({
         type: 'confirm',
-        name: 'wantBoilerplate',
+        name: 'wantExamples',
         message: 'Create a Checkly config and some demo checks to get you started?',
         initial: true,
       }, { onCancel: onCancel(log) })
 
-      if (wantBoilerplate) {
+      if (wantExamples) {
         createConfig(projectDir, log)
         copyChecks(projectDir, log)
       }
@@ -143,15 +126,15 @@ export default class Init extends BaseCommand {
       if (context.hasPlaywrightConfig) {
         log(playwrightHint())
       }
+
+      log(footer())
     }
   }
 
   /**
-   * Existing Checkly project:
-   * - If skill already installed: show AI prompt directly (refresh skill silently)
-   * - If no skill: offer skill install, then AI prompt or just done
-   * - No boilerplate (they already have checks)
-   * - No fresh dep install (offer upgrade hint instead)
+   * Existing Checkly project — no boilerplate, no deps install:
+   * - State 3 (has skill): refresh silently, agent-first conclusion
+   * - State 2 (no skill): offer skill install, then appropriate conclusion
    */
   private async runExistingProjectFlow (
     projectDir: string,
@@ -161,28 +144,52 @@ export default class Init extends BaseCommand {
     log(chalk.dim('  Checkly is already configured in this project.\n'))
 
     if (context.hasSkillInstalled) {
-      // State 3: Has Checkly + has skill → refresh skill silently
+      // State 3: refresh skill silently, show agent-first conclusion
       log(chalk.dim('  Updating your Checkly skill to the latest version...'))
-      const skillResult = await this.silentSkillRefresh(log)
+      const refreshResult = await this.silentSkillRefresh(log)
+
+      if (refreshResult.installed) {
+        log(chalk.green('✓') + ` Skill updated at ${refreshResult.targetPath}`)
+      }
+
+      // Derive platform from existing skill path
+      const platform = this.platformFromSkillPath(context.skillPath)
+
+      log('')
+      log(chalk.green.bold('  You\'re all set!') + ' Here are some things you can do next:')
+      log('')
+      log(`  ${chalk.bold('npx checkly test --record')}  Run your checks locally`)
+      log(`  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`)
+      log(`  ${chalk.bold('npx checkly skills')}        View available agent actions`)
+      if (platform) {
+        log('')
+        log(chalk.dim(`  Your ${platform} skill is up to date.`))
+      }
+      log('')
+      log(chalk.dim('  Docs:  https://checklyhq.com/docs/cli'))
+      log(chalk.dim('  Slack: https://checklyhq.com/slack'))
+    } else {
+      // State 2: offer skill install
+      const skillResult = await runSkillInstallStep(log)
 
       if (skillResult.installed) {
-        log(chalk.green('✓') + ` Skill updated at ${skillResult.targetPath}`)
+        // They just installed the skill — show agent-first conclusion
+        const promptText = await this.loadStarterPrompt(projectDir, context)
+        await displayStarterPrompt(promptText, log)
+        log(agentFooter(skillResult.platform))
+      } else {
+        // Declined skill — show manual next steps
+        log('')
+        log(chalk.green.bold('  You\'re all set!') + ' Here are some things you can do next:')
+        log('')
+        log(`  ${chalk.bold('npx checkly test --record')}  Run your checks locally`)
+        log(`  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`)
+        log(`  ${chalk.bold('npx checkly skills')}        View available agent actions`)
+        log('')
+        log(chalk.dim('  Docs:  https://checklyhq.com/docs/cli'))
+        log(chalk.dim('  Slack: https://checklyhq.com/slack'))
       }
-    } else {
-      // State 2: Has Checkly, no skill → offer skill install
-      await runSkillInstallStep(log)
     }
-
-    // Suggest next steps for existing projects
-    log('')
-    log(chalk.green.bold('  You\'re all set!') + ' Here are some things you can do next:')
-    log('')
-    log(`  ${chalk.bold('npx checkly test --record')}  Run your checks locally`)
-    log(`  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`)
-    log(`  ${chalk.bold('npx checkly skills')}        View available agent actions`)
-    log('')
-    log(chalk.dim('  Docs:  https://checklyhq.com/docs/cli'))
-    log(chalk.dim('  Slack: https://checklyhq.com/slack'))
   }
 
   private loadStarterPrompt (
@@ -197,9 +204,6 @@ export default class Init extends BaseCommand {
     return loadPromptTemplate(templateName, variables)
   }
 
-  /**
-   * Silently refresh the skill file using the detected platform from the existing path.
-   */
   private async silentSkillRefresh (
     log: (msg: string) => void,
   ): Promise<{ installed: boolean, targetPath: string | null }> {
@@ -210,7 +214,6 @@ export default class Init extends BaseCommand {
         return { installed: false, targetPath: null }
       }
 
-      // Extract the relative directory from the existing skill path
       const { dirname, relative } = await import('path')
       const targetDir = relative(process.cwd(), dirname(context.skillPath))
       const content = await readSkillFile()
@@ -220,5 +223,21 @@ export default class Init extends BaseCommand {
       log(chalk.dim('  Could not update skill file.'))
       return { installed: false, targetPath: null }
     }
+  }
+
+  /**
+   * Derive a friendly platform name from the existing skill path.
+   * e.g. ".claude/skills/checkly/SKILL.md" → "Claude Code"
+   */
+  private platformFromSkillPath (skillPath: string | null): string | null {
+    if (!skillPath) return null
+    if (skillPath.includes('.claude/')) return 'Claude Code'
+    if (skillPath.includes('.cursor/')) return 'Cursor'
+    if (skillPath.includes('.windsurf/')) return 'Windsurf'
+    if (skillPath.includes('.goose/')) return 'Goose'
+    if (skillPath.includes('.continue/')) return 'Continue'
+    if (skillPath.includes('.roo/')) return 'Roo'
+    if (skillPath.includes('.agents/')) return 'AI agent'
+    return null
   }
 }
