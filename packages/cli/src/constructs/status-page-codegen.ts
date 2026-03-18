@@ -12,6 +12,7 @@ export interface StatusPageCardResource {
 export interface StatusPageResource {
   id: string
   name: string
+  description?: string
   url: string
   cards: StatusPageCardResource[]
   customDomain?: string
@@ -42,6 +43,9 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.string('name', resource.name)
+          if (resource.description) {
+            builder.string('description', resource.description)
+          }
           builder.string('url', resource.url)
 
           builder.array('cards', builder => {

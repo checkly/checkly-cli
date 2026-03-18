@@ -17,6 +17,7 @@ export interface StatusPageCard {
 export interface StatusPage {
   id: string
   name: string
+  description?: string | null
   url: string
   customDomain: string | null
   isPrivate: boolean
