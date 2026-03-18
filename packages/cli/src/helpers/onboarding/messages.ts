@@ -1,31 +1,15 @@
 import chalk from 'chalk'
 
-function raccoonBanner (version: string): string {
-  const b = chalk.hex('#0075FF')
-  const d = chalk.hex('#002F66')
-  const w = chalk.whiteBright
-
-  // Raccoon face on blue rounded box — based on Checkly SVG logo
-  // Features: white pointed ears, dark eye mask with white eye dots, dark nose, blue body
-  const title = `  ${chalk.bold.hex('#0075FF')('checkly')} ${chalk.dim(`v${version}`)}`
-  const tagline = '  Monitoring as code, AI-native.'
+export function greeting (version: string): string {
+  const title = chalk.bold.hex('#0075FF')('checkly') + ' ' + chalk.dim(`v${version}`)
+  const tagline = 'Monitoring as code, AI-native.'
 
   return [
     '',
-    `    ${w('▄')}          ${w('▄')}`,
-    `   ${w('██')}${b('▄▄▄▄▄▄')}${w('██')}`,
-    `   ${w('█')}${d('██')}${w('████')}${d('██')}${w('█')}${title}`,
-    `   ${w('█')}${d('█')}${w('◉')}${d('█')}${w('██')}${d('█')}${w('◉')}${d('█')}${w('█')}`,
-    `   ${b('█')}${d('███')}${w('████')}${d('███')}${b('█')}${tagline}`,
-    `   ${b('██')}${d('█')}${w('█▀▀█')}${d('█')}${b('██')}`,
-    `   ${b('████████████')}`,
-    `   ${b(' ▀▀▀▀▀▀▀▀▀▀')}`,
+    `  ${title}`,
+    `  ${tagline}`,
     '',
   ].join('\n')
-}
-
-export function greeting (version: string): string {
-  return raccoonBanner(version)
 }
 
 export function footer (): string {
