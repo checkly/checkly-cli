@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import type { Entitlement, AccountPlan } from '../rest/entitlements'
+import type { Entitlement, AccountPlan, AccountLocations } from '../rest/entitlements'
 import {
   type OutputFormat,
   type ColumnDef,
@@ -16,9 +16,62 @@ function formatEnabled (enabled: boolean, format: OutputFormat): string {
   return enabled ? chalk.green(label) : chalk.red(label)
 }
 
+// --- Upgrade path helper ---
+
+export function formatUpgradePath (e: Entitlement): string | null {
+  if (e.enabled) return null
+  const parts: string[] = []
+
+  if (e.requiredPlan) {
+    const planName = e.requiredPlanDisplayName || titleCase(e.requiredPlan)
+    parts.push(`${planName} plan`)
+  }
+
+  if (e.requiredAddon) {
+    const addonName = e.requiredAddon.displayName || titleCase(e.requiredAddon.name)
+    const tierName = e.requiredAddon.tierDisplayName || titleCase(e.requiredAddon.tier.replace(/^TIER_/, ''))
+    parts.push(`${addonName} ${tierName} add-on`)
+  }
+
+  return parts.length > 0 ? parts.join(' + ') : null
+}
+
+function titleCase (s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+}
+
+// --- Locations helper ---
+
+export function formatLocations (locations: AccountLocations, format: OutputFormat): string {
+  const available = locations.all.filter(l => l.available)
+  const total = locations.all.length
+  const summary = `${available.length} of ${total} available (max ${locations.maxPerCheck} per check)`
+
+  const lines: string[] = []
+  if (format === 'md') {
+    lines.push(`**Locations:** ${summary}`)
+  } else {
+    lines.push(`${chalk.bold('Locations:')} ${summary}`)
+  }
+
+  // Only list individual names when not all are available
+  if (available.length < total && available.length > 0) {
+    const names = available.map(l => l.name).join(', ')
+    if (format === 'md') {
+      lines.push('')
+      lines.push(names)
+    } else {
+      lines.push(`  ${names}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
 // --- Column definitions ---
 
 const NAME_WIDTH = 50
+const UPGRADE_WIDTH = 40
 
 const meteredColumns: ColumnDef<Entitlement>[] = [
   {
@@ -31,6 +84,11 @@ const meteredColumns: ColumnDef<Entitlement>[] = [
     width: 10,
     align: 'right',
     value: e => e.quantity !== undefined ? String(e.quantity) : '-',
+  },
+  {
+    header: 'Required Upgrade',
+    width: UPGRADE_WIDTH,
+    value: e => formatUpgradePath(e) ?? '-',
   },
   {
     header: 'Key',
@@ -48,6 +106,11 @@ const flagColumns: ColumnDef<Entitlement>[] = [
     header: 'Enabled',
     width: 10,
     value: (e, format) => formatEnabled(e.enabled, format),
+  },
+  {
+    header: 'Required Upgrade',
+    width: UPGRADE_WIDTH,
+    value: e => formatUpgradePath(e) ?? '-',
   },
   {
     header: 'Key',
@@ -78,6 +141,11 @@ const mixedColumns: ColumnDef<Entitlement>[] = [
     value: e => e.type === 'metered' && e.quantity !== undefined ? String(e.quantity) : '-',
   },
   {
+    header: 'Required Upgrade',
+    width: UPGRADE_WIDTH,
+    value: e => formatUpgradePath(e) ?? '-',
+  },
+  {
     header: 'Key',
     value: e => chalk.dim(e.key),
   },
@@ -85,7 +153,7 @@ const mixedColumns: ColumnDef<Entitlement>[] = [
 
 // --- Detail view fields ---
 
-const detailFields: DetailField<Entitlement>[] = [
+const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   { label: 'Key', value: e => e.key },
   { label: 'Name', value: e => e.name },
   { label: 'Description', value: e => e.description },
@@ -98,17 +166,37 @@ const detailFields: DetailField<Entitlement>[] = [
     label: 'Limit',
     value: e => e.type === 'metered' && e.quantity !== undefined ? String(e.quantity) : null,
   },
+  {
+    label: 'Required Upgrade',
+    value: e => formatUpgradePath(e),
+  },
+  {
+    label: 'Upgrade Link',
+    value: e => !e.enabled && formatUpgradePath(e) ? upgradeUrl : null,
+  },
 ]
 
 // --- Public formatting functions ---
 
-export function formatPlanHeader (plan: AccountPlan, format: OutputFormat): string {
+export function formatPlanHeader (plan: AccountPlan, format: OutputFormat, upgradeUrl?: string): string {
   const lines: string[] = []
 
   if (format === 'md') {
     lines.push(`# Plan: ${plan.planDisplayName}`)
+    if (upgradeUrl) {
+      lines.push(`Upgrade: ${upgradeUrl}`)
+    }
   } else {
     lines.push(`${chalk.bold('Plan:')} ${plan.planDisplayName}`)
+    if (upgradeUrl) {
+      lines.push(`${chalk.bold('Upgrade:')} ${chalk.underline(upgradeUrl)}`)
+    }
+  }
+
+  // Locations
+  if (plan.locations) {
+    lines.push('')
+    lines.push(formatLocations(plan.locations, format))
   }
 
   const addonEntries: string[] = []
@@ -138,7 +226,7 @@ export function formatPlanHeader (plan: AccountPlan, format: OutputFormat): stri
   return lines.join('\n')
 }
 
-export function formatPlanSummary (plan: AccountPlan, format: OutputFormat): string {
+export function formatPlanSummary (plan: AccountPlan, format: OutputFormat, upgradeUrl?: string): string {
   const metered: Entitlement[] = []
   const enabledFlags: Entitlement[] = []
   const disabledFlags: Entitlement[] = []
@@ -157,7 +245,7 @@ export function formatPlanSummary (plan: AccountPlan, format: OutputFormat): str
 
   const lines: string[] = []
 
-  lines.push(formatPlanHeader(plan, format))
+  lines.push(formatPlanHeader(plan, format, upgradeUrl))
   lines.push('')
 
   // Metered entitlements table
@@ -174,10 +262,10 @@ export function formatPlanSummary (plan: AccountPlan, format: OutputFormat): str
   const flagSummary = `${enabledFlags.length} additional features enabled, ${disabledFlags.length} not included in your plan.`
   if (format === 'md') {
     lines.push(flagSummary)
-    lines.push('Use `--type flag` to see feature details, `--type metered` to see limits, or `--search` to filter.')
+    lines.push('Use `--type flag` to see feature details, `--disabled` to see only missing features, or `--search` to filter.')
   } else {
     lines.push(flagSummary)
-    lines.push(chalk.dim('Use --type flag to see feature details, --type metered to see limits, or --search to filter.'))
+    lines.push(chalk.dim('Use --type flag to see feature details, --disabled to see only missing features, or --search to filter.'))
   }
 
   return lines.join('\n')
@@ -187,12 +275,13 @@ export function formatEntitlementDetail (
   plan: AccountPlan,
   entitlement: Entitlement,
   format: OutputFormat,
+  upgradeUrl?: string,
 ): string {
   const lines: string[] = []
 
-  lines.push(formatPlanHeader(plan, format))
+  lines.push(formatPlanHeader(plan, format, upgradeUrl))
   lines.push('')
-  lines.push(renderDetailFields('Entitlement', detailFields, entitlement, format))
+  lines.push(renderDetailFields('Entitlement', detailFields(upgradeUrl || ''), entitlement, format))
 
   return lines.join('\n')
 }
@@ -201,10 +290,11 @@ export function formatFilteredEntitlements (
   plan: AccountPlan,
   filtered: Entitlement[],
   format: OutputFormat,
+  upgradeUrl?: string,
 ): string {
   const lines: string[] = []
 
-  lines.push(formatPlanHeader(plan, format))
+  lines.push(formatPlanHeader(plan, format, upgradeUrl))
   lines.push('')
 
   if (filtered.length === 0) {
