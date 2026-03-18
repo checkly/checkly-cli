@@ -8,6 +8,18 @@ import {
   formatEntitlementDetail,
   formatFilteredEntitlements,
 } from '../../formatters/account-plan'
+import type { Entitlement } from '../../rest/entitlements'
+
+function withUpgradeUrl (e: Entitlement, upgradeUrl: string, contactSalesUrl: string) {
+  if (e.enabled) return e
+  let url = contactSalesUrl
+  if (e.requiredPlan && e.requiredPlan !== 'CONTRACT') {
+    url = upgradeUrl
+  } else if (e.requiredAddon) {
+    url = upgradeUrl
+  }
+  return { ...e, upgradeUrl: url }
+}
 
 export default class AccountPlan extends AuthCommand {
   static coreCommand = false
@@ -61,6 +73,7 @@ export default class AccountPlan extends AuthCommand {
 
     const { accountId } = api.getDefaults()
     const upgradeUrl = `https://app.checklyhq.com/accounts/${accountId}/billing/checkout`
+    const contactSalesUrl = 'https://www.checklyhq.com/contact-sales/'
 
     // Single key lookup
     if (args.key) {
@@ -70,7 +83,7 @@ export default class AccountPlan extends AuthCommand {
       }
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify(entitlement, null, 2))
+        this.log(JSON.stringify(withUpgradeUrl(entitlement, upgradeUrl, contactSalesUrl), null, 2))
         return
       }
 
@@ -102,10 +115,11 @@ export default class AccountPlan extends AuthCommand {
 
     // JSON output (respects filters)
     if (flags.output === 'json') {
+      const enriched = filtered.map(e => withUpgradeUrl(e, upgradeUrl, contactSalesUrl))
       if (hasFilters) {
-        this.log(JSON.stringify(filtered, null, 2))
+        this.log(JSON.stringify(enriched, null, 2))
       } else {
-        this.log(JSON.stringify({ ...plan, upgradeUrl }, null, 2))
+        this.log(JSON.stringify({ ...plan, upgradeUrl, contactSalesUrl, entitlements: enriched }, null, 2))
       }
       return
     }
