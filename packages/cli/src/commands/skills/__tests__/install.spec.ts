@@ -19,7 +19,7 @@ vi.mock('../../../helpers/cli-mode', () => ({
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import prompts from 'prompts'
 import { detectCliMode } from '../../../helpers/cli-mode'
-import SkillsInstall from '../install'
+import SkillsInstall, { PLATFORM_TARGETS, readSkillFile, SKILL_FILE_PATH, writeSkillToTarget } from '../install'
 
 const SKILL_CONTENT = '# Test Skill Content\nThis is a test skill.'
 
@@ -278,6 +278,60 @@ describe('skills install', () => {
       expect(prompts).not.toHaveBeenCalled()
       expect(writeFile).not.toHaveBeenCalled()
       expect(getLogged(cmd).some(m => m.includes('--force'))).toBe(true)
+    })
+  })
+
+  describe('PLATFORM_TARGETS', () => {
+    it('has expected platform keys', () => {
+      expect(PLATFORM_TARGETS).toHaveProperty('claude')
+      expect(PLATFORM_TARGETS).toHaveProperty('cursor')
+      expect(PLATFORM_TARGETS).toHaveProperty('windsurf')
+      expect(PLATFORM_TARGETS).toHaveProperty('github-copilot')
+      expect(PLATFORM_TARGETS).toHaveProperty('goose')
+      expect(PLATFORM_TARGETS).toHaveProperty('codex')
+      expect(PLATFORM_TARGETS).toHaveProperty('gemini-cli')
+    })
+  })
+
+  describe('readSkillFile()', () => {
+    it('reads from the correct path and returns content', async () => {
+      const result = await readSkillFile()
+
+      expect(readFile).toHaveBeenCalledWith(SKILL_FILE_PATH, 'utf8')
+      expect(result).toBe(SKILL_CONTENT)
+    })
+
+    it('throws on read failure', async () => {
+      vi.mocked(readFile).mockRejectedValue(new Error('ENOENT'))
+
+      await expect(readSkillFile()).rejects.toThrow('Failed to read skill file')
+    })
+  })
+
+  describe('writeSkillToTarget()', () => {
+    it('creates directory and writes file, returns path', async () => {
+      const result = await writeSkillToTarget('some/dir', 'content')
+
+      const expectedDir = join(process.cwd(), 'some/dir')
+      expect(mkdir).toHaveBeenCalledWith(expectedDir, { recursive: true })
+      expect(writeFile).toHaveBeenCalledWith(
+        join(expectedDir, 'SKILL.md'),
+        'content',
+        'utf8',
+      )
+      expect(result).toBe(join(expectedDir, 'SKILL.md'))
+    })
+
+    it('throws on mkdir failure', async () => {
+      vi.mocked(mkdir).mockRejectedValue(new Error('EACCES'))
+
+      await expect(writeSkillToTarget('some/dir', 'content')).rejects.toThrow('Failed to create directory')
+    })
+
+    it('throws on writeFile failure', async () => {
+      vi.mocked(writeFile).mockRejectedValue(new Error('EACCES'))
+
+      await expect(writeSkillToTarget('some/dir', 'content')).rejects.toThrow('Failed to write skill file')
     })
   })
 

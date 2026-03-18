@@ -7,10 +7,10 @@ import prompts from 'prompts'
 import { detectCliMode } from '../../helpers/cli-mode'
 import { BaseCommand } from '../baseCommand'
 
-const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
+export const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'
 
-const PLATFORM_TARGETS: Record<string, string> = {
+export const PLATFORM_TARGETS: Record<string, string> = {
   'amp': '.agents/skills/checkly',
   'claude': '.claude/skills/checkly',
   'cline': '.agents/skills/checkly',
@@ -26,6 +26,33 @@ const PLATFORM_TARGETS: Record<string, string> = {
 }
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
+
+export async function readSkillFile (): Promise<string> {
+  try {
+    return await readFile(SKILL_FILE_PATH, 'utf8')
+  } catch {
+    throw new Error(`Failed to read skill file at ${SKILL_FILE_PATH}`)
+  }
+}
+
+export async function writeSkillToTarget (targetDir: string, content: string): Promise<string> {
+  const absoluteDir = join(process.cwd(), targetDir)
+  const targetPath = join(absoluteDir, SKILL_FILENAME)
+
+  try {
+    await mkdir(absoluteDir, { recursive: true })
+  } catch {
+    throw new Error(`Failed to create directory ${absoluteDir}`)
+  }
+
+  try {
+    await writeFile(targetPath, content, 'utf8')
+  } catch {
+    throw new Error(`Failed to write skill file to ${targetPath}`)
+  }
+
+  return targetPath
+}
 
 export default class SkillsInstall extends BaseCommand {
   static hidden = false
@@ -90,9 +117,9 @@ export default class SkillsInstall extends BaseCommand {
 
   private async readSkillFile (): Promise<string> {
     try {
-      return await readFile(SKILL_FILE_PATH, 'utf8')
-    } catch {
-      this.error(`Failed to read skill file at ${SKILL_FILE_PATH}`)
+      return await readSkillFile()
+    } catch (err: any) {
+      this.error(err.message)
     }
   }
 
@@ -155,12 +182,6 @@ export default class SkillsInstall extends BaseCommand {
     const absoluteDir = join(process.cwd(), targetDir)
     const targetPath = join(absoluteDir, SKILL_FILENAME)
 
-    try {
-      await mkdir(absoluteDir, { recursive: true })
-    } catch {
-      this.error(`Failed to create directory ${absoluteDir}`)
-    }
-
     if (!force) {
       const shouldOverwrite = await this.confirmOverwrite(targetPath)
       if (!shouldOverwrite) {
@@ -170,12 +191,11 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     try {
-      await writeFile(targetPath, content, 'utf8')
-    } catch {
-      this.error(`Failed to write skill file to ${targetPath}`)
+      const writtenPath = await writeSkillToTarget(targetDir, content)
+      this.style.shortSuccess(`Installed Checkly agent skill to: ${writtenPath}`)
+    } catch (err: any) {
+      this.error(err.message)
     }
-
-    this.style.shortSuccess(`Installed Checkly agent skill to: ${targetPath}`)
   }
 
   private async confirmOverwrite (targetPath: string): Promise<boolean> {
