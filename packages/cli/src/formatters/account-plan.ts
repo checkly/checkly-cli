@@ -73,6 +73,12 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 const NAME_WIDTH = 50
 const UPGRADE_WIDTH = 40
 
+const upgradeColumn: ColumnDef<Entitlement> = {
+  header: 'Required Upgrade',
+  width: UPGRADE_WIDTH,
+  value: e => formatUpgradePath(e) ?? '-',
+}
+
 const meteredColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
@@ -85,11 +91,7 @@ const meteredColumns: ColumnDef<Entitlement>[] = [
     align: 'right',
     value: e => e.quantity !== undefined ? String(e.quantity) : '-',
   },
-  {
-    header: 'Required Upgrade',
-    width: UPGRADE_WIDTH,
-    value: e => formatUpgradePath(e) ?? '-',
-  },
+  upgradeColumn,
   {
     header: 'Key',
     value: e => chalk.dim(e.key),
@@ -107,11 +109,7 @@ const flagColumns: ColumnDef<Entitlement>[] = [
     width: 10,
     value: (e, format) => formatEnabled(e.enabled, format),
   },
-  {
-    header: 'Required Upgrade',
-    width: UPGRADE_WIDTH,
-    value: e => formatUpgradePath(e) ?? '-',
-  },
+  upgradeColumn,
   {
     header: 'Key',
     value: e => chalk.dim(e.key),
@@ -140,11 +138,7 @@ const mixedColumns: ColumnDef<Entitlement>[] = [
     align: 'right',
     value: e => e.type === 'metered' && e.quantity !== undefined ? String(e.quantity) : '-',
   },
-  {
-    header: 'Required Upgrade',
-    width: UPGRADE_WIDTH,
-    value: e => formatUpgradePath(e) ?? '-',
-  },
+  upgradeColumn,
   {
     header: 'Key',
     value: e => chalk.dim(e.key),

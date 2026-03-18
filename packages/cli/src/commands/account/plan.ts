@@ -9,12 +9,6 @@ import {
   formatFilteredEntitlements,
 } from '../../formatters/account-plan'
 
-function buildUpgradeUrl (): string {
-  const { baseURL, accountId } = api.getDefaults()
-  const appUrl = baseURL.replace(/api/, 'app')
-  return `${appUrl}/accounts/${accountId}/billing/checkout`
-}
-
 export default class AccountPlan extends AuthCommand {
   static coreCommand = false
   static hidden = false
@@ -65,7 +59,7 @@ export default class AccountPlan extends AuthCommand {
       return
     }
 
-    const upgradeUrl = buildUpgradeUrl()
+    const upgradeUrl = `${api.getAccountAppUrl()}/billing/checkout`
 
     // Single key lookup
     if (args.key) {
