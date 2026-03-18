@@ -141,6 +141,14 @@ describe('formatEntitlementDetail', () => {
     expect(plain).not.toContain('Required Upgrade:')
     expect(plain).not.toContain('Upgrade Link:')
   })
+
+  it('shows Contact sales for disabled entitlement with no upgrade data', () => {
+    const result = formatEntitlementDetail(hobbyPlan, disabledFlagNoUpgradeData, 'terminal', 'https://example.com')
+    const plain = stripAnsi(result)
+    expect(plain).toContain('Required Upgrade:')
+    expect(plain).toContain('Contact sales')
+    expect(plain).toContain('checklyhq.com/contact-sales')
+  })
 })
 
 describe('formatFilteredEntitlements', () => {
@@ -150,6 +158,7 @@ describe('formatFilteredEntitlements', () => {
     const plain = stripAnsi(result)
     expect(plain).toContain('REQUIRED UPGRADE')
     expect(plain).toContain('Team plan')
+    expect(plain).toContain('Contact sales')
   })
 
   it('includes REQUIRED UPGRADE column in metered table', () => {

@@ -72,11 +72,18 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 
 const NAME_WIDTH = 50
 const UPGRADE_WIDTH = 45
+const CONTACT_SALES_URL = 'https://www.checklyhq.com/contact-sales/'
+const CONTACT_SALES_LABEL = 'Contact sales'
+
+function upgradeLabel (e: Entitlement): string {
+  if (e.enabled) return '-'
+  return formatUpgradePath(e) ?? CONTACT_SALES_LABEL
+}
 
 const upgradeColumn: ColumnDef<Entitlement> = {
   header: 'Required Upgrade',
   width: UPGRADE_WIDTH,
-  value: e => formatUpgradePath(e) ?? '-',
+  value: e => upgradeLabel(e),
 }
 
 const meteredColumns: ColumnDef<Entitlement>[] = [
@@ -162,11 +169,11 @@ const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   },
   {
     label: 'Required Upgrade',
-    value: e => formatUpgradePath(e),
+    value: e => e.enabled ? null : (formatUpgradePath(e) ?? CONTACT_SALES_LABEL),
   },
   {
     label: 'Upgrade Link',
-    value: e => !e.enabled && formatUpgradePath(e) ? upgradeUrl : null,
+    value: e => !e.enabled ? (formatUpgradePath(e) ? upgradeUrl : CONTACT_SALES_URL) : null,
   },
 ]
 
