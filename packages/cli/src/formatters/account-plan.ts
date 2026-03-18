@@ -71,7 +71,7 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 // --- Column definitions ---
 
 const NAME_WIDTH = 50
-const UPGRADE_WIDTH = 40
+const UPGRADE_WIDTH = 45
 
 const upgradeColumn: ColumnDef<Entitlement> = {
   header: 'Required Upgrade',
