@@ -89,12 +89,15 @@ describe('formatLocations', () => {
 })
 
 describe('formatPlanHeader', () => {
-  it('includes billing link', () => {
+  it('includes both upgrade links', () => {
     const result = formatPlanHeader(hobbyPlan, 'terminal', 'https://app.checklyhq.com/accounts/abc123/billing/checkout')
     const plain = stripAnsi(result)
     expect(plain).toContain('Plan:')
     expect(plain).toContain('Hobby')
+    expect(plain).toContain('Self-service upgrade:')
     expect(plain).toContain('https://app.checklyhq.com/accounts/abc123/billing/checkout')
+    expect(plain).toContain('For Enterprise:')
+    expect(plain).toContain('checklyhq.com/contact-sales')
   })
 
   it('includes locations when present', () => {
@@ -127,12 +130,29 @@ describe('formatPlanSummary', () => {
 })
 
 describe('formatEntitlementDetail', () => {
-  it('shows Required Upgrade for disabled entitlement', () => {
+  it('shows Required Upgrade with checkout link for self-serve entitlement', () => {
     const result = formatEntitlementDetail(hobbyPlan, disabledFlagPlanOnly, 'terminal', 'https://example.com')
     const plain = stripAnsi(result)
     expect(plain).toContain('Required Upgrade:')
     expect(plain).toContain('Team plan')
     expect(plain).toContain('Upgrade Link:')
+    expect(plain).toContain('https://example.com')
+  })
+
+  it('shows contact sales link for enterprise entitlement', () => {
+    const enterpriseEntitlement = {
+      ...disabledFlagPlanOnly,
+      requiredPlan: 'CONTRACT',
+      requiredPlanDisplayName: 'Enterprise',
+    }
+    const result = formatEntitlementDetail(hobbyPlan, enterpriseEntitlement, 'terminal', 'https://example.com')
+    const plain = stripAnsi(result)
+    expect(plain).toContain('Required Upgrade:')
+    expect(plain).toContain('Enterprise plan')
+    // The Upgrade Link field should point to contact sales, not checkout
+    const upgradeLineMatch = plain.match(/Upgrade Link:\s+(.+)/)
+    expect(upgradeLineMatch).toBeTruthy()
+    expect(upgradeLineMatch![1]).toContain('checklyhq.com/contact-sales')
   })
 
   it('omits Required Upgrade for enabled entitlement', () => {

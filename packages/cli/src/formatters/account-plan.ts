@@ -173,7 +173,11 @@ const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   },
   {
     label: 'Upgrade Link',
-    value: e => !e.enabled ? (formatUpgradePath(e) ? upgradeUrl : CONTACT_SALES_URL) : null,
+    value: e => {
+      if (e.enabled) return null
+      if (e.requiredPlan === 'CONTRACT') return CONTACT_SALES_URL
+      return formatUpgradePath(e) ? upgradeUrl : CONTACT_SALES_URL
+    },
   },
 ]
 
@@ -185,12 +189,14 @@ export function formatPlanHeader (plan: AccountPlan, format: OutputFormat, upgra
   if (format === 'md') {
     lines.push(`# Plan: ${plan.planDisplayName}`)
     if (upgradeUrl) {
-      lines.push(`Upgrade: ${upgradeUrl}`)
+      lines.push(`Self-service upgrade: ${upgradeUrl}`)
+      lines.push(`For Enterprise: ${CONTACT_SALES_URL}`)
     }
   } else {
     lines.push(`${chalk.bold('Plan:')} ${plan.planDisplayName}`)
     if (upgradeUrl) {
-      lines.push(`${chalk.bold('Upgrade:')} ${chalk.underline(upgradeUrl)}`)
+      lines.push(`${chalk.bold('Self-service upgrade:')} ${chalk.underline(upgradeUrl)}`)
+      lines.push(`${chalk.bold('For Enterprise:')} ${chalk.underline(CONTACT_SALES_URL)}`)
     }
   }
 
