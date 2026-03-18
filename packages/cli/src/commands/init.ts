@@ -100,6 +100,9 @@ export default class Init extends BaseCommand {
     const skillResult = await runSkillInstallStep(log)
 
     if (skillResult.installed) {
+      // Install deps first — saves the agent from doing it
+      await runDepsInstall(projectDir, log)
+
       const promptText = await this.loadStarterPrompt(projectDir, context, 'new')
       await displayStarterPrompt(promptText, log)
       log(agentFooter(skillResult.platform, context.hasPlaywrightConfig))

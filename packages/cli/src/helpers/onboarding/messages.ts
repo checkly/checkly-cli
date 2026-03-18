@@ -69,8 +69,8 @@ export function agentFooter (platform: string | null, hasPlaywright: boolean = f
 
   lines.push(
     '',
-    chalk.dim('  Your agent will use the installed skill to create a tailored'),
-    chalk.dim('  Checkly setup — config, checks, and dependencies — based on your project.'),
+    chalk.dim('  Dependencies are installed. Your agent will use the skill to create'),
+    chalk.dim('  a tailored Checkly setup — config and checks — based on your project.'),
   )
 
   if (hasPlaywright) {

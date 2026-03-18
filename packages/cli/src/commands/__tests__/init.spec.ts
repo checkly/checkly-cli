@@ -98,14 +98,15 @@ describe('Init command', () => {
   })
 
   describe('pristine project', () => {
-    it('skill installed: prompt + agent footer, no boilerplate/deps', async () => {
+    it('skill installed: deps + prompt + agent footer, no boilerplate', async () => {
       vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/t' })
       const cmd = createCommand()
       await cmd.run()
+      expect(runDepsInstall).toHaveBeenCalled()
       expect(displayStarterPrompt).toHaveBeenCalled()
       expect(agentFooter).toHaveBeenCalledWith('claude', false)
       expect(createConfig).not.toHaveBeenCalled()
-      expect(runDepsInstall).not.toHaveBeenCalled()
+      expect(copyChecks).not.toHaveBeenCalled()
     })
 
     it('skill installed + PW: playwright prompt + agent footer with PW flag', async () => {
