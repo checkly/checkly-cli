@@ -7,7 +7,20 @@ export interface ProjectContext {
   playwrightConfigPath: string | null
   hasChecklyConfig: boolean
   hasChecksDir: boolean
+  hasSkillInstalled: boolean
+  skillPath: string | null
 }
+
+// Known directories where SKILL.md can be installed
+const SKILL_DIRECTORIES = [
+  '.claude/skills/checkly',
+  '.cursor/skills/checkly',
+  '.windsurf/skills/checkly',
+  '.agents/skills/checkly',
+  '.continue/skills/checkly',
+  '.goose/skills/checkly',
+  '.roo/skills/checkly',
+]
 
 const PLAYWRIGHT_CONFIG_NAMES = [
   'playwright.config.ts',
@@ -45,11 +58,22 @@ export function detectProjectContext (projectDir: string): ProjectContext {
 
   const hasChecksDir = existsSync(join(projectDir, '__checks__'))
 
+  let skillPath: string | null = null
+  for (const dir of SKILL_DIRECTORIES) {
+    const fullPath = join(projectDir, dir, 'SKILL.md')
+    if (existsSync(fullPath)) {
+      skillPath = fullPath
+      break
+    }
+  }
+
   return {
     isExistingProject,
     hasPlaywrightConfig: playwrightConfigPath !== null,
     playwrightConfigPath,
     hasChecklyConfig,
     hasChecksDir,
+    hasSkillInstalled: skillPath !== null,
+    skillPath,
   }
 }

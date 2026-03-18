@@ -13,6 +13,10 @@ export interface BoilerplateOptions {
   configOnly?: boolean
 }
 
+export interface DepsInstallOptions {
+  skipPrompts?: boolean
+}
+
 function sanitizeLogicalId (name: string): string {
   return name
     .replace(/[^a-zA-Z0-9-]/g, '-')
@@ -65,7 +69,7 @@ function addDepsToPackageJson (projectDir: string, log: (msg: string) => void): 
   }
 }
 
-function createConfig (projectDir: string, log: (msg: string) => void): void {
+export function createConfig (projectDir: string, log: (msg: string) => void): void {
   const configPath = join(projectDir, 'checkly.config.ts')
   if (existsSync(configPath)) {
     log(chalk.yellow('checkly.config.ts already exists, skipping'))
@@ -87,7 +91,7 @@ function createConfig (projectDir: string, log: (msg: string) => void): void {
   log(chalk.green('✓') + ' Created checkly.config.ts')
 }
 
-function copyChecks (projectDir: string, log: (msg: string) => void): void {
+export function copyChecks (projectDir: string, log: (msg: string) => void): void {
   const checksDir = join(projectDir, '__checks__')
   if (existsSync(checksDir)) {
     log(chalk.yellow('__checks__/ already exists, skipping'))
@@ -98,6 +102,55 @@ function copyChecks (projectDir: string, log: (msg: string) => void): void {
     log(chalk.green('✓') + ' Created __checks__/ with example checks')
   } catch {
     log(chalk.red('Could not copy example checks.'))
+  }
+}
+
+export { detectPM }
+
+export async function runDepsInstall (
+  projectDir: string,
+  log: (msg: string) => void,
+  options: DepsInstallOptions = {},
+): Promise<void> {
+  const pm = detectPM()
+
+  if (options.skipPrompts) {
+    if (!addDepsToPackageJson(projectDir, log)) {
+      return
+    }
+    try {
+      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
+      log(chalk.green('✓') + ' Installed dependencies')
+    } catch (error: any) {
+      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
+    }
+    return
+  }
+
+  const { install } = await prompts({
+    type: 'confirm',
+    name: 'install',
+    message: `Install dependencies using ${pm.name}? (${pm.name} add -D checkly jiti)`,
+    initial: true,
+  }, {
+    onCancel: () => {
+      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+      process.exit(0)
+    },
+  })
+
+  if (install) {
+    if (!addDepsToPackageJson(projectDir, log)) {
+      return
+    }
+    try {
+      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
+      log(chalk.green('✓') + ' Installed dependencies')
+    } catch (error: any) {
+      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
+    }
+  } else {
+    log(`\nTo install dependencies later, run:\n  ${chalk.bold(pm.installCmd)}`)
   }
 }
 
