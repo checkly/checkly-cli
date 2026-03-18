@@ -151,27 +151,19 @@ export default class Init extends BaseCommand {
     log(chalk.dim('  Checkly is already configured in this project.\n'))
 
     if (context.hasSkillInstalled) {
-      // State 3: Has Checkly + has skill → refresh skill silently, show AI prompt
+      // State 3: Has Checkly + has skill → refresh skill silently
       log(chalk.dim('  Updating your Checkly skill to the latest version...'))
       const skillResult = await this.silentSkillRefresh(log)
 
       if (skillResult.installed) {
-        log(chalk.green('✓') + ` Skill updated at ${skillResult.targetPath}\n`)
+        log(chalk.green('✓') + ` Skill updated at ${skillResult.targetPath}`)
       }
-
-      const promptText = await this.loadStarterPrompt(projectDir, context)
-      await displayStarterPrompt(promptText, log)
     } else {
       // State 2: Has Checkly, no skill → offer skill install
-      const skillResult = await runSkillInstallStep(log)
-
-      if (skillResult.installed) {
-        const promptText = await this.loadStarterPrompt(projectDir, context)
-        await displayStarterPrompt(promptText, log)
-      }
+      await runSkillInstallStep(log)
     }
 
-    // Acknowledge and suggest next steps for existing projects
+    // Suggest next steps for existing projects
     log('')
     log(chalk.green.bold('  You\'re all set!') + ' Here are some things you can do next:')
     log('')
@@ -181,14 +173,6 @@ export default class Init extends BaseCommand {
     log('')
     log(chalk.dim('  Docs:  https://checklyhq.com/docs/cli'))
     log(chalk.dim('  Slack: https://checklyhq.com/slack'))
-    log('')
-
-    await prompts({
-      type: 'confirm',
-      name: 'done',
-      message: 'Press Enter to exit',
-      initial: true,
-    }, { onCancel: onCancel(log) })
   }
 
   private loadStarterPrompt (
