@@ -4,6 +4,8 @@ import { join } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
+
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
 const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')
 const BOILERPLATE_CHECKS_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/__checks__')
@@ -25,18 +27,10 @@ function sanitizeLogicalId (name: string): string {
     || 'checkly-project'
 }
 
-function detectPM (): { name: string, installCmd: string } {
-  const agent = process.env.npm_config_user_agent ?? ''
-  if (agent.startsWith('pnpm')) {
-    return { name: 'pnpm', installCmd: 'pnpm install' }
-  }
-  if (agent.startsWith('yarn')) {
-    return { name: 'yarn', installCmd: 'yarn install' }
-  }
-  if (agent.startsWith('bun')) {
-    return { name: 'bun', installCmd: 'bun install' }
-  }
-  return { name: 'npm', installCmd: 'npm install' }
+async function detectPM (projectDir: string): Promise<{ name: string, installCmd: string }> {
+  const pm = await detectPackageManager(projectDir)
+  const runnable = pm.installCommand()
+  return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }
 
 function getProjectName (projectDir: string): string {
@@ -105,14 +99,12 @@ export function copyChecks (projectDir: string, log: (msg: string) => void): voi
   }
 }
 
-export { detectPM }
-
 export async function runDepsInstall (
   projectDir: string,
   log: (msg: string) => void,
   options: DepsInstallOptions = {},
 ): Promise<void> {
-  const pm = detectPM()
+  const pm = await detectPM(projectDir)
 
   if (options.skipPrompts) {
     if (!addDepsToPackageJson(projectDir, log)) {
@@ -165,7 +157,7 @@ export async function runBoilerplateSetup (
     copyChecks(projectDir, log)
   }
 
-  const pm = detectPM()
+  const pm = await detectPM(projectDir)
 
   if (options.skipPrompts) {
     if (!addDepsToPackageJson(projectDir, log)) {

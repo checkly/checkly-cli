@@ -15,10 +15,18 @@ vi.mock('prompts', () => ({
   default: vi.fn(),
 }))
 
+vi.mock('../../../services/check-parser/package-files/package-manager', () => ({
+  detectPackageManager: vi.fn().mockResolvedValue({
+    name: 'npm',
+    installCommand: () => ({ executable: 'npm', args: ['install'], unsafeDisplayCommand: 'npm install' }),
+  }),
+}))
+
 import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { execSync } from 'child_process'
 import prompts from 'prompts'
 import { join } from 'path'
+import { detectPackageManager } from '../../../services/check-parser/package-files/package-manager'
 import { runBoilerplateSetup } from '../boilerplate'
 
 const mockExistsSync = vi.mocked(existsSync)
@@ -40,6 +48,12 @@ describe('runBoilerplateSetup', () => {
     vi.clearAllMocks()
     logs = []
     delete process.env.npm_config_user_agent
+
+    // Default PM detection returns npm
+    vi.mocked(detectPackageManager).mockResolvedValue({
+      name: 'npm',
+      installCommand: () => ({ executable: 'npm', args: ['install'], unsafeDisplayCommand: 'npm install' }),
+    } as any)
 
     // Default: config template readable, package.json exists
     mockReadFileSync.mockImplementation(path => {
@@ -130,7 +144,10 @@ describe('runBoilerplateSetup', () => {
   })
 
   it('shows exact install command with detected PM name', async () => {
-    process.env.npm_config_user_agent = 'pnpm/8.0.0'
+    vi.mocked(detectPackageManager).mockResolvedValue({
+      name: 'pnpm',
+      installCommand: () => ({ executable: 'pnpm', args: ['install'], unsafeDisplayCommand: 'pnpm install' }),
+    } as any)
     mockPrompts.mockResolvedValue({ install: false })
 
     await runBoilerplateSetup(projectDir, log)
@@ -172,8 +189,11 @@ describe('runBoilerplateSetup', () => {
     expect(logs.some(l => l.includes('npm install'))).toBe(true)
   })
 
-  it('detects yarn from npm_config_user_agent', async () => {
-    process.env.npm_config_user_agent = 'yarn/1.22.0'
+  it('detects yarn via detectPackageManager', async () => {
+    vi.mocked(detectPackageManager).mockResolvedValue({
+      name: 'yarn',
+      installCommand: () => ({ executable: 'yarn', args: ['install'], unsafeDisplayCommand: 'yarn install' }),
+    } as any)
     mockPrompts.mockResolvedValue({ install: false })
 
     await runBoilerplateSetup(projectDir, log)
@@ -181,8 +201,11 @@ describe('runBoilerplateSetup', () => {
     expect(logs.some(l => l.includes('yarn'))).toBe(true)
   })
 
-  it('detects bun from npm_config_user_agent', async () => {
-    process.env.npm_config_user_agent = 'bun/1.0.0'
+  it('detects bun via detectPackageManager', async () => {
+    vi.mocked(detectPackageManager).mockResolvedValue({
+      name: 'bun',
+      installCommand: () => ({ executable: 'bun', args: ['install'], unsafeDisplayCommand: 'bun install' }),
+    } as any)
     mockPrompts.mockResolvedValue({ install: false })
 
     await runBoilerplateSetup(projectDir, log)
