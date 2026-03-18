@@ -18,7 +18,7 @@
     "clean:gen": "rimraf ./gen",
     "clean": "npm run clean:dist && npm run clean:gen",
     "prepack": "npx oclif manifest",
-    "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && ts-node ./scripts/prepare-ai-context.ts",
+    "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && ts-node ./scripts/prepare-ai-context.ts && cp -r src/ai-context/onboarding-boilerplate dist/ai-context/onboarding-boilerplate && cp -r src/ai-context/onboarding-prompts dist/ai-context/onboarding-prompts",
     "prepare:dist": "tsc --build",
     "prepare": "npm run clean && npm run prepare:dist && npm run prepare:ai-context",
     "test": "npm pack && vitest --run",
