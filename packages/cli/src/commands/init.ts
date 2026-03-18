@@ -192,7 +192,7 @@ export default class Init extends BaseCommand {
     } else if (action === 'deploy') {
       log(chalk.dim(`\n  Run: ${chalk.bold('npx checkly deploy')}\n`))
     } else if (action === 'upgrade') {
-      const { detectPackageManager } = await import('../services/check-parser/package-files/package-manager')
+      const { detectPackageManager } = await import('../services/check-parser/package-files/package-manager.js')
       const pm = await detectPackageManager(projectDir)
       const cmd = pm.name === 'yarn' ? 'yarn add -D' : `${pm.name} add -D`
       log(chalk.dim(`\n  Run: ${chalk.bold(`${cmd} checkly@latest`)}\n`))
