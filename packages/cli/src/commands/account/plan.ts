@@ -45,59 +45,65 @@ export default class AccountPlan extends AuthCommand {
       this.error('Cannot use --type or --search when looking up a specific entitlement key.')
     }
 
+    let plan
     try {
-      const { data: plan } = await api.entitlements.getAll()
+      const resp = await api.entitlements.getAll()
+      plan = resp.data
+    } catch (err: any) {
+      this.style.longError('Failed to fetch account plan.', err)
+      process.exitCode = 1
+      return
+    }
 
-      // Single key lookup
-      if (args.key) {
-        const entitlement = plan.entitlements.find(e => e.key === args.key)
-        if (!entitlement) {
-          this.error(`Entitlement "${args.key}" not found. Use "checkly account plan" to see available keys.`)
-        }
-
-        if (flags.output === 'json') {
-          this.log(JSON.stringify(entitlement, null, 2))
-          return
-        }
-
-        const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-        this.log(formatEntitlementDetail(plan, entitlement, fmt))
-        return
+    // Single key lookup
+    if (args.key) {
+      const entitlement = plan.entitlements.find(e => e.key === args.key)
+      if (!entitlement) {
+        this.error(`Entitlement "${args.key}" not found. Use "checkly account plan" to see available keys.`)
       }
 
-      // Full JSON output
       if (flags.output === 'json') {
-        this.log(JSON.stringify(plan, null, 2))
+        this.log(JSON.stringify(entitlement, null, 2))
         return
       }
 
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-
-      // Filtered view
-      if (flags.type || flags.search) {
-        let filtered = plan.entitlements
-
-        if (flags.type) {
-          filtered = filtered.filter(e => e.type === flags.type)
-        }
-
-        if (flags.search) {
-          const term = flags.search.toLowerCase()
-          filtered = filtered.filter(e =>
-            e.name.toLowerCase().includes(term)
-            || e.description.toLowerCase().includes(term),
-          )
-        }
-
-        this.log(formatFilteredEntitlements(plan, filtered, fmt))
-        return
-      }
-
-      // Default summary view
-      this.log(formatPlanSummary(plan, fmt))
-    } catch (err: any) {
-      this.style.longError('Failed to fetch account plan.', err)
-      process.exitCode = 1
+      this.log(formatEntitlementDetail(plan, entitlement, fmt))
+      return
     }
+
+    // Apply filters (--type and --search)
+    const hasFilters = flags.type || flags.search
+    let filtered = plan.entitlements
+
+    if (flags.type) {
+      filtered = filtered.filter(e => e.type === flags.type)
+    }
+
+    if (flags.search) {
+      const term = flags.search.toLowerCase()
+      filtered = filtered.filter(e =>
+        e.key.toLowerCase().includes(term)
+        || e.name.toLowerCase().includes(term)
+        || e.description.toLowerCase().includes(term),
+      )
+    }
+
+    // JSON output (respects filters)
+    if (flags.output === 'json') {
+      this.log(JSON.stringify(hasFilters ? filtered : plan, null, 2))
+      return
+    }
+
+    const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
+
+    // Filtered view
+    if (hasFilters) {
+      this.log(formatFilteredEntitlements(plan, filtered, fmt))
+      return
+    }
+
+    // Default summary view
+    this.log(formatPlanSummary(plan, fmt))
   }
 }
