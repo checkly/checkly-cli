@@ -1,0 +1,1 @@
+This project at {{projectPath}} already has Checkly configured and a Playwright test suite at {{playwrightConfigPath}}. Help me with my next steps — investigate the current checks and their status, review my Playwright tests for opportunities to add new browser checks, or help me improve the existing monitoring setup.

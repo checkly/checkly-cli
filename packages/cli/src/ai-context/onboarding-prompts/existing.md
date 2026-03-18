@@ -1,0 +1,1 @@
+This project at {{projectPath}} already has Checkly configured. Help me with my next steps — investigate the current checks and their status, look for opportunities to add new checks based on recent code changes, or help me improve the existing monitoring setup.

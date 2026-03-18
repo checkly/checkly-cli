@@ -12,19 +12,34 @@ export function greeting (version: string): string {
   ].join('\n')
 }
 
-export function footer (): string {
-  return [
+export function footer (hasPlaywright: boolean = false): string {
+  const lines = [
     '',
     chalk.green.bold('All done! Next steps:'),
     '',
     `  ${chalk.bold('npx checkly login')}         Log in or create a free account`,
     `  ${chalk.bold('npx checkly test --record')}  Dry run your checks and record results`,
     `  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`,
+  ]
+
+  if (hasPlaywright) {
+    lines.push(
+      '',
+      chalk.cyan('  You have a Playwright test suite — you can also:'),
+      `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
+      chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
+      chalk.dim('    https://checklyhq.com/docs/playwright-reporter/'),
+    )
+  }
+
+  lines.push(
     '',
     chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
     chalk.dim('  Slack: https://checklyhq.com/slack'),
     '',
-  ].join('\n')
+  )
+
+  return lines.join('\n')
 }
 
 const PLATFORM_HINTS: Record<string, string> = {
@@ -37,7 +52,7 @@ const PLATFORM_HINTS: Record<string, string> = {
   'amp': 'Open Amp and paste the prompt to get started.',
 }
 
-export function agentFooter (platform: string | null): string {
+export function agentFooter (platform: string | null, hasPlaywright: boolean = false): string {
   const hint = platform ? PLATFORM_HINTS[platform] : null
 
   const lines = [
@@ -56,6 +71,18 @@ export function agentFooter (platform: string | null): string {
     '',
     chalk.dim('  Your agent will use the installed skill to create a tailored'),
     chalk.dim('  Checkly setup — config, checks, and dependencies — based on your project.'),
+  )
+
+  if (hasPlaywright) {
+    lines.push(
+      '',
+      chalk.dim('  Since you have Playwright, your agent can also:'),
+      chalk.dim(`    ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`),
+      chalk.dim('    Install the Checkly Playwright Reporter for trace uploads'),
+    )
+  }
+
+  lines.push(
     '',
     chalk.dim('  Prefer to set up manually? Here are the commands:'),
     chalk.dim(`    ${chalk.bold('npx checkly login')}         Log in or create a free account`),
@@ -70,12 +97,30 @@ export function agentFooter (platform: string | null): string {
   return lines.join('\n')
 }
 
+export function existingProjectFooter (): string {
+  return [
+    '',
+    chalk.green.bold('  You\'re all set!'),
+    '',
+    `  ${chalk.bold('npx checkly test --record')}  Run your checks locally`,
+    `  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`,
+    `  ${chalk.bold('npx checkly skills')}        View available agent actions`,
+    '',
+    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
+    chalk.dim('  Slack: https://checklyhq.com/slack'),
+    '',
+  ].join('\n')
+}
+
 export function playwrightHint (): string {
   return [
     '',
-    chalk.cyan('  We noticed you have a Playwright config.'),
-    chalk.cyan('  An AI coding agent can help configure Checkly to use your'),
-    chalk.cyan(`  Playwright settings — run ${chalk.bold('npx checkly skills install')} to set up.`),
+    chalk.cyan('  You have a Playwright test suite. You can also:'),
+    `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
+    chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
+    chalk.dim('    https://checklyhq.com/docs/playwright-reporter/'),
+    '',
+    chalk.cyan(`  An AI agent can help configure this — run ${chalk.bold('npx checkly skills install')}`),
     '',
   ].join('\n')
 }

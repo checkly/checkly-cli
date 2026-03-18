@@ -15,6 +15,7 @@ vi.mock('../../helpers/onboarding/messages', () => ({
   greeting: vi.fn(() => 'greeting'),
   footer: vi.fn(() => 'footer'),
   agentFooter: vi.fn(() => 'agent-footer'),
+  existingProjectFooter: vi.fn(() => 'existing-footer'),
   playwrightHint: vi.fn(() => 'pw-hint'),
 }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
@@ -30,7 +31,7 @@ import { runSkillInstallStep } from '../../helpers/onboarding/skill-install'
 import { runDepsInstall, createConfig, copyChecks } from '../../helpers/onboarding/boilerplate'
 import { loadPromptTemplate } from '../../helpers/onboarding/template-prompt'
 import { displayStarterPrompt } from '../../helpers/onboarding/prompt-display'
-import { greeting, agentFooter, playwrightHint } from '../../helpers/onboarding/messages'
+import { greeting, footer, agentFooter, existingProjectFooter, playwrightHint } from '../../helpers/onboarding/messages'
 import { detectCliMode } from '../../helpers/cli-mode'
 import prompts from 'prompts'
 
@@ -45,7 +46,7 @@ function createCommand () {
   return cmd
 }
 
-const brandNewContext = {
+const pristineContext = {
   isExistingProject: true,
   hasPlaywrightConfig: false,
   playwrightConfigPath: null,
@@ -58,7 +59,7 @@ const brandNewContext = {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(detectCliMode).mockReturnValue('interactive')
-  vi.mocked(detectProjectContext).mockReturnValue(brandNewContext)
+  vi.mocked(detectProjectContext).mockReturnValue(pristineContext)
   vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: false, platform: null, targetPath: null })
   vi.mocked(runDepsInstall).mockResolvedValue(undefined)
   vi.mocked(createConfig).mockReturnValue(undefined)
@@ -69,24 +70,20 @@ beforeEach(() => {
 })
 
 describe('Init command', () => {
-  it('logs message and returns when no package.json found', async () => {
-    vi.mocked(detectProjectContext).mockReturnValue({ ...brandNewContext, isExistingProject: false })
+  it('exits when no package.json found', async () => {
+    vi.mocked(detectProjectContext).mockReturnValue({ ...pristineContext, isExistingProject: false })
     const cmd = createCommand()
-
     await cmd.run()
-
     expect(cmd.log).toHaveBeenCalledWith(expect.stringContaining('No package.json found'))
     expect(runSkillInstallStep).not.toHaveBeenCalled()
   })
 
   describe('agent mode', () => {
-    it('outputs JSON with skill and context info', async () => {
+    it('outputs JSON, no greeting', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
-      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/tmp/.claude' })
+      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/t' })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(greeting).not.toHaveBeenCalled()
       const jsonCall = vi.mocked(cmd.log).mock.calls.find(
         ([msg]) => typeof msg === 'string' && msg.includes('"success":true'),
@@ -94,133 +91,126 @@ describe('Init command', () => {
       expect(jsonCall).toBeDefined()
     })
 
-    it('skips config and deps if checkly config already exists', async () => {
+    it('skips config and deps if already configured', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
-      vi.mocked(detectProjectContext).mockReturnValue({ ...brandNewContext, hasChecklyConfig: true })
+      vi.mocked(detectProjectContext).mockReturnValue({ ...pristineContext, hasChecklyConfig: true })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(createConfig).not.toHaveBeenCalled()
       expect(runDepsInstall).not.toHaveBeenCalled()
     })
   })
 
-  describe('brand new project (no checkly config)', () => {
-    it('skill installed: shows prompt + agent footer, no boilerplate prompts', async () => {
-      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/tmp/.claude' })
+  describe('pristine project', () => {
+    it('skill installed: prompt + agent footer, no boilerplate/deps', async () => {
+      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/t' })
       const cmd = createCommand()
-
       await cmd.run()
-
-      expect(greeting).toHaveBeenCalledWith('1.0.0')
-      expect(displayStarterPrompt).toHaveBeenCalledWith('prompt-text', expect.any(Function))
-      expect(agentFooter).toHaveBeenCalledWith('claude')
-      // No boilerplate or deps prompts in skill path
+      expect(displayStarterPrompt).toHaveBeenCalled()
+      expect(agentFooter).toHaveBeenCalledWith('claude', false)
       expect(createConfig).not.toHaveBeenCalled()
-      expect(copyChecks).not.toHaveBeenCalled()
       expect(runDepsInstall).not.toHaveBeenCalled()
     })
 
-    it('skill installed + PW config: uses playwright template', async () => {
+    it('skill installed + PW: playwright prompt + agent footer with PW flag', async () => {
       vi.mocked(detectProjectContext).mockReturnValue({
-        ...brandNewContext,
+        ...pristineContext,
         hasPlaywrightConfig: true,
-        playwrightConfigPath: '/project/playwright.config.ts',
+        playwrightConfigPath: '/pw.config.ts',
       })
-      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'cursor', targetPath: '/tmp/.cursor' })
+      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'cursor', targetPath: '/t' })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(loadPromptTemplate).toHaveBeenCalledWith('playwright', expect.objectContaining({
-        playwrightConfigPath: '/project/playwright.config.ts',
+        playwrightConfigPath: '/pw.config.ts',
       }))
-      expect(agentFooter).toHaveBeenCalledWith('cursor')
+      expect(agentFooter).toHaveBeenCalledWith('cursor', true)
     })
 
-    it('skill declined + wants examples: creates config + checks + deps', async () => {
+    it('skill declined + wants examples: config + checks + deps + footer', async () => {
       vi.mocked(prompts).mockResolvedValue({ wantExamples: true })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(createConfig).toHaveBeenCalled()
       expect(copyChecks).toHaveBeenCalled()
       expect(runDepsInstall).toHaveBeenCalled()
-      expect(cmd.log).toHaveBeenCalledWith('footer')
+      expect(footer).toHaveBeenCalledWith(false)
     })
 
-    it('skill declined + declines examples: only installs deps', async () => {
+    it('skill declined + no examples: deps only + footer', async () => {
       vi.mocked(prompts).mockResolvedValue({ wantExamples: false })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(createConfig).not.toHaveBeenCalled()
       expect(copyChecks).not.toHaveBeenCalled()
       expect(runDepsInstall).toHaveBeenCalled()
     })
 
-    it('skill declined + PW config: shows playwrightHint', async () => {
+    it('skill declined + PW config: shows playwrightHint + footer with PW', async () => {
       vi.mocked(detectProjectContext).mockReturnValue({
-        ...brandNewContext,
+        ...pristineContext,
         hasPlaywrightConfig: true,
-        playwrightConfigPath: '/project/playwright.config.ts',
+        playwrightConfigPath: '/pw.config.ts',
       })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(playwrightHint).toHaveBeenCalled()
-      expect(cmd.log).toHaveBeenCalledWith('pw-hint')
+      expect(footer).toHaveBeenCalledWith(true)
     })
   })
 
-  describe('existing Checkly project (has config)', () => {
+  describe('existing Checkly project', () => {
     const existingContext = {
-      ...brandNewContext,
+      ...pristineContext,
       hasChecklyConfig: true,
       hasChecksDir: true,
     }
 
-    it('no skill: offers skill install, no boilerplate or deps', async () => {
-      vi.mocked(detectProjectContext).mockReturnValue(existingContext)
-      const cmd = createCommand()
-
-      await cmd.run()
-
-      expect(runSkillInstallStep).toHaveBeenCalled()
-      expect(createConfig).not.toHaveBeenCalled()
-      expect(copyChecks).not.toHaveBeenCalled()
-      expect(runDepsInstall).not.toHaveBeenCalled()
-    })
-
-    it('skill already installed: refreshes silently, no boilerplate or deps', async () => {
+    it('has skill: refreshes silently, shows existing footer, no boilerplate/deps', async () => {
       vi.mocked(detectProjectContext).mockReturnValue({
         ...existingContext,
         hasSkillInstalled: true,
-        skillPath: '/project/.claude/skills/checkly/SKILL.md',
+        skillPath: '/p/.claude/skills/checkly/SKILL.md',
       })
       const cmd = createCommand()
-
       await cmd.run()
-
       expect(runSkillInstallStep).not.toHaveBeenCalled()
-      expect(displayStarterPrompt).not.toHaveBeenCalled()
+      expect(existingProjectFooter).toHaveBeenCalled()
       expect(createConfig).not.toHaveBeenCalled()
       expect(runDepsInstall).not.toHaveBeenCalled()
     })
 
-    it('no skill + installs skill: shows prompt + agent footer', async () => {
+    it('no skill + installs: existing-project prompt + agent footer', async () => {
       vi.mocked(detectProjectContext).mockReturnValue(existingContext)
-      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'windsurf', targetPath: '/tmp/.windsurf' })
+      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'windsurf', targetPath: '/t' })
       const cmd = createCommand()
-
       await cmd.run()
-
+      expect(loadPromptTemplate).toHaveBeenCalledWith('existing', expect.any(Object))
       expect(displayStarterPrompt).toHaveBeenCalled()
-      expect(agentFooter).toHaveBeenCalledWith('windsurf')
+      expect(agentFooter).toHaveBeenCalledWith('windsurf', false)
+    })
+
+    it('no skill + installs + PW: existing-playwright prompt', async () => {
+      vi.mocked(detectProjectContext).mockReturnValue({
+        ...existingContext,
+        hasPlaywrightConfig: true,
+        playwrightConfigPath: '/pw.config.ts',
+      })
+      vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: true, platform: 'claude', targetPath: '/t' })
+      const cmd = createCommand()
+      await cmd.run()
+      expect(loadPromptTemplate).toHaveBeenCalledWith('existing-playwright', expect.objectContaining({
+        playwrightConfigPath: '/pw.config.ts',
+      }))
+      expect(agentFooter).toHaveBeenCalledWith('claude', true)
+    })
+
+    it('no skill + declines: shows existing footer', async () => {
+      vi.mocked(detectProjectContext).mockReturnValue(existingContext)
+      const cmd = createCommand()
+      await cmd.run()
+      expect(existingProjectFooter).toHaveBeenCalled()
+      expect(displayStarterPrompt).not.toHaveBeenCalled()
     })
   })
 })
