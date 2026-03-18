@@ -35,11 +35,6 @@ export function getDefaults () {
   return { baseURL, accountId, Authorization, apiKey }
 }
 
-export function getAccountAppUrl (): string {
-  const { baseURL, accountId } = getDefaults()
-  return `${baseURL.replace(/api/, 'app')}/accounts/${accountId}`
-}
-
 export async function validateAuthentication (): Promise<Account | undefined> {
   // This internal environment variable allows auth checks to be skipped
   // when using e.g. debug flags that don't actually need to authenticate

@@ -59,7 +59,8 @@ export default class AccountPlan extends AuthCommand {
       return
     }
 
-    const upgradeUrl = `${api.getAccountAppUrl()}/billing/checkout`
+    const { accountId } = api.getDefaults()
+    const upgradeUrl = `https://app.checklyhq.com/accounts/${accountId}/billing/checkout`
 
     // Single key lookup
     if (args.key) {

@@ -51,7 +51,7 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
   if (format === 'md') {
     lines.push(`**Locations:** ${summary}`)
   } else {
-    lines.push(`${chalk.bold('Locations:')} ${summary}`)
+    lines.push(`${chalk.cyan.bold('Locations:')} ${summary}`)
   }
 
   // Only list individual names when not all are available
@@ -61,7 +61,7 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
       lines.push('')
       lines.push(names)
     } else {
-      lines.push(`  ${names}`)
+      lines.push(`  ${chalk.dim(names)}`)
     }
   }
 
@@ -181,6 +181,23 @@ const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   },
 ]
 
+// --- Row highlighting ---
+
+/**
+ * Post-process a rendered table to highlight rows where the entitlement
+ * is disabled (needs an upgrade). Applies magenta to the full row.
+ * Line 0 is the header — left untouched.
+ */
+function highlightDisabledRows (tableStr: string, items: Entitlement[]): string {
+  const tableLines = tableStr.split('\n')
+  return tableLines.map((line, i) => {
+    if (i === 0) return line // header row
+    const item = items[i - 1]
+    if (item && !item.enabled) return chalk.magenta(line)
+    return line
+  }).join('\n')
+}
+
 // --- Public formatting functions ---
 
 export function formatPlanHeader (plan: AccountPlan, format: OutputFormat, upgradeUrl?: string): string {
@@ -193,10 +210,10 @@ export function formatPlanHeader (plan: AccountPlan, format: OutputFormat, upgra
       lines.push(`For Enterprise: ${CONTACT_SALES_URL}`)
     }
   } else {
-    lines.push(`${chalk.bold('Plan:')} ${plan.planDisplayName}`)
+    lines.push(`${chalk.cyan.bold('Plan:')} ${chalk.bold(plan.planDisplayName)}`)
     if (upgradeUrl) {
-      lines.push(`${chalk.bold('Self-service upgrade:')} ${chalk.underline(upgradeUrl)}`)
-      lines.push(`${chalk.bold('For Enterprise:')} ${chalk.underline(CONTACT_SALES_URL)}`)
+      lines.push(`${chalk.cyan.bold('Self-service upgrade:')} ${chalk.underline(upgradeUrl)}`)
+      lines.push(`${chalk.cyan.bold('For Enterprise:')} ${chalk.underline(CONTACT_SALES_URL)}`)
     }
   }
 
@@ -223,7 +240,7 @@ export function formatPlanHeader (plan: AccountPlan, format: OutputFormat, upgra
         lines.push(`- ${entry}`)
       }
     } else {
-      lines.push(chalk.bold('Add-ons:'))
+      lines.push(chalk.cyan.bold('Add-ons:'))
       for (const entry of addonEntries) {
         lines.push(`  ${entry}`)
       }
@@ -259,19 +276,22 @@ export function formatPlanSummary (plan: AccountPlan, format: OutputFormat, upgr
   if (format === 'md') {
     lines.push(`## Metered entitlements (${enabledMeteredCount} of ${metered.length} enabled)`)
   } else {
-    lines.push(chalk.bold(`Metered entitlements (${enabledMeteredCount} of ${metered.length} enabled):`))
+    lines.push(chalk.cyan.bold(`Metered entitlements (${enabledMeteredCount} of ${metered.length} enabled):`))
   }
   lines.push('')
-  lines.push(renderTable(meteredColumns, metered, format))
+  const tableStr = renderTable(meteredColumns, metered, format)
+  lines.push(format === 'terminal' ? highlightDisabledRows(tableStr, metered) : tableStr)
 
   // Flag summary line
   lines.push('')
-  const flagSummary = `${enabledFlags.length} additional features enabled, ${disabledFlags.length} not included in your plan.`
   if (format === 'md') {
-    lines.push(flagSummary)
+    lines.push(`${enabledFlags.length} additional features enabled, ${disabledFlags.length} not included in your plan.`)
     lines.push('Use `--type flag` to see feature details, `--disabled` to see only missing features, or `--search` to filter.')
   } else {
-    lines.push(flagSummary)
+    lines.push(
+      `${chalk.green.bold(String(enabledFlags.length))} additional features enabled, `
+      + `${chalk.magenta.bold(String(disabledFlags.length))} not included in your plan.`,
+    )
     lines.push(chalk.dim('Use --type flag to see feature details, --disabled to see only missing features, or --search to filter.'))
   }
 
@@ -313,13 +333,15 @@ export function formatFilteredEntitlements (
   const hasMetered = filtered.some(e => e.type === 'metered')
   const hasFlags = filtered.some(e => e.type === 'flag')
 
+  let tableStr: string
   if (hasMetered && !hasFlags) {
-    lines.push(renderTable(meteredColumns, filtered, format))
+    tableStr = renderTable(meteredColumns, filtered, format)
   } else if (hasFlags && !hasMetered) {
-    lines.push(renderTable(flagColumns, filtered, format))
+    tableStr = renderTable(flagColumns, filtered, format)
   } else {
-    lines.push(renderTable(mixedColumns, filtered, format))
+    tableStr = renderTable(mixedColumns, filtered, format)
   }
+  lines.push(format === 'terminal' ? highlightDisabledRows(tableStr, filtered) : tableStr)
 
   lines.push('')
   lines.push(`${filtered.length} entitlement${filtered.length === 1 ? '' : 's'} shown.`)
