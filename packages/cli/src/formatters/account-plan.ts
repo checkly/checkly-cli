@@ -18,10 +18,12 @@ function formatEnabled (enabled: boolean, format: OutputFormat): string {
 
 // --- Column definitions ---
 
+const NAME_WIDTH = 50
+
 const meteredColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: 45,
+    width: NAME_WIDTH,
     value: e => e.name,
   },
   {
@@ -30,12 +32,16 @@ const meteredColumns: ColumnDef<Entitlement>[] = [
     align: 'right',
     value: e => e.quantity !== undefined ? String(e.quantity) : '-',
   },
+  {
+    header: 'Key',
+    value: e => chalk.dim(e.key),
+  },
 ]
 
 const flagColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: 45,
+    width: NAME_WIDTH,
     value: e => e.name,
   },
   {
@@ -43,12 +49,16 @@ const flagColumns: ColumnDef<Entitlement>[] = [
     width: 10,
     value: (e, format) => formatEnabled(e.enabled, format),
   },
+  {
+    header: 'Key',
+    value: e => chalk.dim(e.key),
+  },
 ]
 
 const mixedColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: 45,
+    width: NAME_WIDTH,
     value: e => e.name,
   },
   {
@@ -66,6 +76,10 @@ const mixedColumns: ColumnDef<Entitlement>[] = [
     width: 10,
     align: 'right',
     value: e => e.type === 'metered' && e.quantity !== undefined ? String(e.quantity) : '-',
+  },
+  {
+    header: 'Key',
+    value: e => chalk.dim(e.key),
   },
 ]
 
@@ -160,10 +174,10 @@ export function formatPlanSummary (plan: AccountPlan, format: OutputFormat): str
   const flagSummary = `${enabledFlags.length} additional features enabled, ${disabledFlags.length} not included in your plan.`
   if (format === 'md') {
     lines.push(flagSummary)
-    lines.push('Use `--type flag` to see all features, or `--search` to filter.')
+    lines.push('Use `--type flag` to see feature details, `--type metered` to see limits, or `--search` to filter.')
   } else {
     lines.push(flagSummary)
-    lines.push(chalk.dim('Use --type flag to see all features, or --search to filter.'))
+    lines.push(chalk.dim('Use --type flag to see feature details, --type metered to see limits, or --search to filter.'))
   }
 
   return lines.join('\n')
