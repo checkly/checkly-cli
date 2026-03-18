@@ -108,8 +108,8 @@ describe('checkly account plan', () => {
       apiKey: config.get('apiKey'),
       accountId: config.get('accountId'),
     })
-    expect(result.status).toBe(1)
-    expect(result.stdout).toContain('not found')
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('not found')
   })
 
   it('should fail when combining key with --type', async () => {
