@@ -24,6 +24,7 @@ vi.mock('../../../services/check-parser/package-files/package-manager', () => ({
 
 vi.mock('../prompts-helpers', () => ({
   makeOnCancel: vi.fn(() => vi.fn()),
+  successMessage: vi.fn((msg: string) => `OK ${msg}`),
 }))
 
 import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'

@@ -5,7 +5,7 @@ import chalk from 'chalk'
 import prompts from 'prompts'
 
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
-import { makeOnCancel } from './prompts-helpers'
+import { makeOnCancel, successMessage } from './prompts-helpers'
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
 const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')
@@ -29,6 +29,7 @@ async function detectPM (projectDir: string): Promise<{ name: string, installCmd
   return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }
 
+// Using direct readFileSync instead of PackageJsonFile to avoid async overhead for a known local path
 function getProjectName (projectDir: string): string {
   const pkgPath = join(projectDir, 'package.json')
   if (existsSync(pkgPath)) {
@@ -77,7 +78,7 @@ export function createConfig (projectDir: string, log: (msg: string) => void): v
     .replaceAll('{{projectName}}', projectName)
     .replaceAll('{{logicalId}}', logicalId)
   writeFileSync(configPath, content)
-  log(chalk.green('✓') + ' Created checkly.config.ts')
+  log(successMessage('Created checkly.config.ts'))
 }
 
 export function copyChecks (projectDir: string, log: (msg: string) => void): void {
@@ -88,7 +89,7 @@ export function copyChecks (projectDir: string, log: (msg: string) => void): voi
   }
   try {
     cpSync(BOILERPLATE_CHECKS_PATH, checksDir, { recursive: true })
-    log(chalk.green('✓') + ' Created __checks__/ with example checks')
+    log(successMessage('Created __checks__/ with example checks'))
   } catch {
     log(chalk.red('Could not copy example checks.'))
   }
@@ -121,7 +122,7 @@ export async function runDepsInstall (
     }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(chalk.green('✓') + ' Installed dependencies')
+      log(successMessage('Installed dependencies'))
     } catch (error: any) {
       log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
     }
@@ -143,7 +144,7 @@ export async function runDepsInstall (
     }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(chalk.green('✓') + ' Installed dependencies')
+      log(successMessage('Installed dependencies'))
     } catch (error: any) {
       log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
     }

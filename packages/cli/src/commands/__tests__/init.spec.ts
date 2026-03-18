@@ -18,7 +18,10 @@ vi.mock('../../helpers/onboarding/messages', () => ({
   playwrightHint: vi.fn(() => 'pw-hint'),
 }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
-vi.mock('../../helpers/onboarding/prompts-helpers', () => ({ makeOnCancel: vi.fn(() => vi.fn()) }))
+vi.mock('../../helpers/onboarding/prompts-helpers', () => ({
+  makeOnCancel: vi.fn(() => vi.fn()),
+  successMessage: vi.fn((msg: string) => `OK ${msg}`),
+}))
 vi.mock('prompts', () => ({ default: vi.fn() }))
 
 import { detectProjectContext } from '../../helpers/onboarding/detect-project'

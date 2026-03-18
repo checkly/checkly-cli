@@ -14,6 +14,7 @@ import {
   loadPromptTemplate,
   displayStarterPrompt,
   makeOnCancel,
+  successMessage,
   greeting,
   footer,
   agentFooter,
@@ -152,7 +153,7 @@ export default class Init extends BaseCommand {
       const refreshResult = await refreshSkill(context.skillPath!, log)
 
       if (refreshResult.installed) {
-        log(chalk.green('✓') + ` Skill updated at ${refreshResult.targetPath}`)
+        log(successMessage(`Skill updated at ${refreshResult.targetPath}`))
       }
 
       log(existingProjectFooter())

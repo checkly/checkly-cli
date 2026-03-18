@@ -2,6 +2,8 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 
 import { PLATFORM_TARGETS } from '../../commands/skills/install'
+import { findPlaywrightConfigPath } from '../../services/util'
+import { defaultFilenames as CHECKLY_CONFIG_NAMES } from '../../services/checkly-config-loader'
 
 export interface ProjectContext {
   isExistingProject: boolean
@@ -16,39 +18,14 @@ export interface ProjectContext {
 // Derive from PLATFORM_TARGETS so they stay in sync automatically
 const SKILL_DIRECTORIES = [...new Set(Object.values(PLATFORM_TARGETS))]
 
-const PLAYWRIGHT_CONFIG_NAMES = [
-  'playwright.config.ts',
-  'playwright.config.js',
-  'playwright.config.mts',
-  'playwright.config.mjs',
-]
-
-const CHECKLY_CONFIG_NAMES = [
-  'checkly.config.ts',
-  'checkly.config.js',
-  'checkly.config.mts',
-  'checkly.config.mjs',
-]
-
 export function detectProjectContext (projectDir: string): ProjectContext {
   const isExistingProject = existsSync(join(projectDir, 'package.json'))
 
-  let playwrightConfigPath: string | null = null
-  for (const name of PLAYWRIGHT_CONFIG_NAMES) {
-    const fullPath = join(projectDir, name)
-    if (existsSync(fullPath)) {
-      playwrightConfigPath = fullPath
-      break
-    }
-  }
+  const playwrightConfigPath = findPlaywrightConfigPath(projectDir) ?? null
 
-  let hasChecklyConfig = false
-  for (const name of CHECKLY_CONFIG_NAMES) {
-    if (existsSync(join(projectDir, name))) {
-      hasChecklyConfig = true
-      break
-    }
-  }
+  const hasChecklyConfig = CHECKLY_CONFIG_NAMES.some(
+    name => existsSync(join(projectDir, name)),
+  )
 
   const hasChecksDir = existsSync(join(projectDir, '__checks__'))
 

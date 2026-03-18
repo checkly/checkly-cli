@@ -321,7 +321,7 @@ export function getPlaywrightConfigPath (
 }
 
 export function findPlaywrightConfigPath (dir: string): string | undefined {
-  return ['playwright.config.ts', 'playwright.config.js']
+  return ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs']
     .map(file => path.resolve(dir, file))
     .find(filePath => existsSync(filePath))
 }

@@ -2,7 +2,7 @@ import { dirname, relative } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName } from '../../commands/skills/install'
+import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName, promptForPlatformTarget } from '../../commands/skills/install'
 import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode'
 import { makeOnCancel } from './prompts-helpers'
 
@@ -11,8 +11,6 @@ export interface SkillInstallResult {
   platform: string | null
   targetPath: string | null
 }
-
-const CUSTOM_PATH_VALUE = '__custom__'
 
 export function runSkillInstallStep (
   log: (msg: string) => void,
@@ -80,50 +78,15 @@ async function runInteractiveInstall (
     return { installed: false, platform: null, targetPath: null }
   }
 
-  const choices = [
-    ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
-      title: `${formatPlatformName(platform)} ${chalk.dim(`(${dir}/)`)}`,
-      value: platform,
-    })),
-    {
-      title: 'Custom path',
-      value: CUSTOM_PATH_VALUE,
-    },
-  ]
+  const targetDir = await promptForPlatformTarget(makeOnCancel(log))
 
-  const { platform } = await prompts({
-    type: 'select',
-    name: 'platform',
-    message: 'Which AI coding agent do you use?',
-    choices,
-    initial: 0,
-  }, {
-    onCancel: makeOnCancel(log),
-  })
-
-  if (platform === undefined) {
+  if (!targetDir) {
     return { installed: false, platform: null, targetPath: null }
   }
 
-  let targetDir: string
-
-  if (platform === CUSTOM_PATH_VALUE) {
-    const { customPath } = await prompts({
-      type: 'text',
-      name: 'customPath',
-      message: 'Enter the target directory:',
-    }, {
-      onCancel: makeOnCancel(log),
-    })
-
-    if (!customPath) {
-      return { installed: false, platform: null, targetPath: null }
-    }
-
-    targetDir = customPath
-  } else {
-    targetDir = PLATFORM_TARGETS[platform]
-  }
+  // Determine which platform was selected (if any) by reverse-looking up the directory
+  const platformEntry = Object.entries(PLATFORM_TARGETS).find(([, dir]) => dir === targetDir)
+  const platform = platformEntry ? platformEntry[0] : null
 
   try {
     const content = await readSkillFile()
@@ -133,7 +96,7 @@ async function runInteractiveInstall (
 
     return {
       installed: true,
-      platform: platform === CUSTOM_PATH_VALUE ? null : platform,
+      platform,
       targetPath,
     }
   } catch (error: any) {

@@ -337,7 +337,7 @@ describe('skills install', () => {
 
   describe('interactive mode', () => {
     it('cancels when user selects nothing', async () => {
-      vi.mocked(prompts).mockResolvedValueOnce({ target: undefined })
+      vi.mocked(prompts).mockResolvedValueOnce({ platform: undefined })
 
       const cmd = createCommand()
 
@@ -348,7 +348,7 @@ describe('skills install', () => {
     })
 
     it('installs to selected platform directory', async () => {
-      vi.mocked(prompts).mockResolvedValueOnce({ target: '.claude/skills/checkly' })
+      vi.mocked(prompts).mockResolvedValueOnce({ platform: 'claude' })
 
       const cmd = createCommand()
 
@@ -364,7 +364,7 @@ describe('skills install', () => {
 
     it('prompts for custom path when selected', async () => {
       vi.mocked(prompts)
-        .mockResolvedValueOnce({ target: '__custom__' })
+        .mockResolvedValueOnce({ platform: '__custom__' })
         .mockResolvedValueOnce({ customPath: 'my/custom/dir' })
 
       const cmd = createCommand()
@@ -381,7 +381,7 @@ describe('skills install', () => {
 
     it('cancels when custom path is empty', async () => {
       vi.mocked(prompts)
-        .mockResolvedValueOnce({ target: '__custom__' })
+        .mockResolvedValueOnce({ platform: '__custom__' })
         .mockResolvedValueOnce({ customPath: '' })
 
       const cmd = createCommand()

@@ -8,6 +8,7 @@ vi.mock('../../../commands/skills/install', () => ({
   readSkillFile: vi.fn(),
   writeSkillToTarget: vi.fn(),
   formatPlatformName: vi.fn((name: string) => name.charAt(0).toUpperCase() + name.slice(1)),
+  promptForPlatformTarget: vi.fn(),
 }))
 
 vi.mock('../../cli-mode', () => ({
@@ -24,7 +25,7 @@ vi.mock('prompts', () => ({
 }))
 
 import prompts from 'prompts'
-import { readSkillFile, writeSkillToTarget } from '../../../commands/skills/install'
+import { readSkillFile, writeSkillToTarget, promptForPlatformTarget } from '../../../commands/skills/install'
 import { detectCliMode, detectOperator } from '../../cli-mode'
 import { runSkillInstallStep } from '../skill-install'
 
@@ -33,6 +34,7 @@ const mockDetectOperator = vi.mocked(detectOperator)
 const mockReadSkillFile = vi.mocked(readSkillFile)
 const mockWriteSkillToTarget = vi.mocked(writeSkillToTarget)
 const mockPrompts = vi.mocked(prompts)
+const mockPromptForPlatformTarget = vi.mocked(promptForPlatformTarget)
 
 describe('runSkillInstallStep', () => {
   let logs: string[]
@@ -51,22 +53,18 @@ describe('runSkillInstallStep', () => {
       mockDetectCliMode.mockReturnValue('interactive')
     })
 
-    it('prompts for install, prompts for platform, writes skill file', async () => {
-      mockPrompts
-        .mockResolvedValueOnce({ install: true })
-        .mockResolvedValueOnce({ platform: 'claude' })
+    it('prompts for install, uses promptForPlatformTarget, writes skill file', async () => {
+      mockPrompts.mockResolvedValueOnce({ install: true })
+      mockPromptForPlatformTarget.mockResolvedValue('.claude/skills/checkly')
 
       const result = await runSkillInstallStep(log)
 
-      expect(mockPrompts).toHaveBeenCalledTimes(2)
+      expect(mockPrompts).toHaveBeenCalledTimes(1)
       expect(mockPrompts).toHaveBeenNthCalledWith(1, expect.objectContaining({
         type: 'confirm',
         name: 'install',
       }), expect.objectContaining({ onCancel: expect.any(Function) }))
-      expect(mockPrompts).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        type: 'select',
-        name: 'platform',
-      }), expect.objectContaining({ onCancel: expect.any(Function) }))
+      expect(mockPromptForPlatformTarget).toHaveBeenCalledWith(expect.any(Function))
       expect(mockReadSkillFile).toHaveBeenCalled()
       expect(mockWriteSkillToTarget).toHaveBeenCalledWith('.claude/skills/checkly', '# Checkly Skill')
       expect(result).toEqual({
@@ -82,6 +80,7 @@ describe('runSkillInstallStep', () => {
       const result = await runSkillInstallStep(log)
 
       expect(mockPrompts).toHaveBeenCalledTimes(1)
+      expect(mockPromptForPlatformTarget).not.toHaveBeenCalled()
       expect(mockReadSkillFile).not.toHaveBeenCalled()
       expect(mockWriteSkillToTarget).not.toHaveBeenCalled()
       expect(result).toEqual({
@@ -91,25 +90,33 @@ describe('runSkillInstallStep', () => {
       })
     })
 
-    it('prompts for custom path when user selects custom path option', async () => {
+    it('handles custom path (no matching platform)', async () => {
       mockWriteSkillToTarget.mockResolvedValue('/project/my/custom/path/SKILL.md')
-      mockPrompts
-        .mockResolvedValueOnce({ install: true })
-        .mockResolvedValueOnce({ platform: '__custom__' })
-        .mockResolvedValueOnce({ customPath: 'my/custom/path' })
+      mockPrompts.mockResolvedValueOnce({ install: true })
+      mockPromptForPlatformTarget.mockResolvedValue('my/custom/path')
 
       const result = await runSkillInstallStep(log)
 
-      expect(mockPrompts).toHaveBeenCalledTimes(3)
-      expect(mockPrompts).toHaveBeenNthCalledWith(3, expect.objectContaining({
-        type: 'text',
-        name: 'customPath',
-      }), expect.objectContaining({ onCancel: expect.any(Function) }))
+      expect(mockPromptForPlatformTarget).toHaveBeenCalledWith(expect.any(Function))
       expect(mockWriteSkillToTarget).toHaveBeenCalledWith('my/custom/path', '# Checkly Skill')
       expect(result).toEqual({
         installed: true,
         platform: null,
         targetPath: '/project/my/custom/path/SKILL.md',
+      })
+    })
+
+    it('returns installed false when promptForPlatformTarget returns undefined', async () => {
+      mockPrompts.mockResolvedValueOnce({ install: true })
+      mockPromptForPlatformTarget.mockResolvedValue(undefined)
+
+      const result = await runSkillInstallStep(log)
+
+      expect(mockReadSkillFile).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        installed: false,
+        platform: null,
+        targetPath: null,
       })
     })
   })

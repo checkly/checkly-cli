@@ -1,4 +1,5 @@
 import { Flags } from '@oclif/core'
+import chalk from 'chalk'
 import { constants } from 'fs'
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -59,6 +60,44 @@ export function formatPlatformName (platform: string): string {
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+export async function promptForPlatformTarget (
+  onCancel?: () => void,
+): Promise<string | undefined> {
+  const choices = [
+    ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
+      title: `${formatPlatformName(platform)} ${chalk.dim(`(${dir}/)`)}`,
+      value: platform,
+    })),
+    {
+      title: 'Custom path',
+      value: '__custom__',
+    },
+  ]
+
+  const promptOptions = onCancel ? { onCancel } : {}
+
+  const { platform } = await prompts({
+    type: 'select',
+    name: 'platform',
+    message: 'Which AI coding agent do you use?',
+    choices,
+    initial: 0,
+  }, promptOptions)
+
+  if (platform === undefined) return undefined
+
+  if (platform === '__custom__') {
+    const { customPath } = await prompts({
+      type: 'text',
+      name: 'customPath',
+      message: 'Enter the target directory:',
+    }, promptOptions)
+    return customPath || undefined
+  }
+
+  return PLATFORM_TARGETS[platform]
 }
 
 export default class SkillsInstall extends BaseCommand {
@@ -149,40 +188,8 @@ export default class SkillsInstall extends BaseCommand {
     return undefined
   }
 
-  private async promptForTarget (): Promise<string | undefined> {
-    const choices = [
-      ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
-        title: `${formatPlatformName(platform)} (${dir}/)`,
-        value: dir,
-      })),
-      {
-        title: 'Custom path',
-        value: '__custom__',
-      },
-    ]
-
-    const { target } = await prompts({
-      type: 'select',
-      name: 'target',
-      message: 'Where do you want to install the Checkly agent skill?',
-      choices,
-      initial: 0,
-    })
-
-    if (target === undefined) {
-      return undefined
-    }
-
-    if (target === '__custom__') {
-      const { customPath } = await prompts({
-        type: 'text',
-        name: 'customPath',
-        message: 'Enter the target directory:',
-      })
-      return customPath || undefined
-    }
-
-    return target
+  private promptForTarget (): Promise<string | undefined> {
+    return promptForPlatformTarget()
   }
 
   private async installSkill (content: string, targetDir: string, force: boolean): Promise<void> {
