@@ -54,6 +54,13 @@ export async function writeSkillToTarget (targetDir: string, content: string): P
   return targetPath
 }
 
+export function formatPlatformName (platform: string): string {
+  return platform
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 export default class SkillsInstall extends BaseCommand {
   static hidden = false
   static idempotent = true
@@ -145,7 +152,7 @@ export default class SkillsInstall extends BaseCommand {
   private async promptForTarget (): Promise<string | undefined> {
     const choices = [
       ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
-        title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} (${dir}/)`,
+        title: `${formatPlatformName(platform)} (${dir}/)`,
         value: dir,
       })),
       {

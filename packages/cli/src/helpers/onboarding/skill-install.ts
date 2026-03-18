@@ -2,7 +2,7 @@ import { dirname, relative } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget } from '../../commands/skills/install'
+import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName } from '../../commands/skills/install'
 import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode'
 import { makeOnCancel } from './prompts-helpers'
 
@@ -13,13 +13,6 @@ export interface SkillInstallResult {
 }
 
 const CUSTOM_PATH_VALUE = '__custom__'
-
-function formatPlatformName (platform: string): string {
-  return platform
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
 
 export function runSkillInstallStep (
   log: (msg: string) => void,

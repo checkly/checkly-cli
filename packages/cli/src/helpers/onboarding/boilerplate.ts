@@ -74,8 +74,8 @@ export function createConfig (projectDir: string, log: (msg: string) => void): v
   const projectName = getProjectName(projectDir)
   const logicalId = sanitizeLogicalId(projectName)
   const content = template
-    .replace('{{projectName}}', projectName)
-    .replace('{{logicalId}}', logicalId)
+    .replaceAll('{{projectName}}', projectName)
+    .replaceAll('{{logicalId}}', logicalId)
   writeFileSync(configPath, content)
   log(chalk.green('✓') + ' Created checkly.config.ts')
 }

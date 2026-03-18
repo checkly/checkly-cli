@@ -7,6 +7,7 @@ vi.mock('../../../commands/skills/install', () => ({
   },
   readSkillFile: vi.fn(),
   writeSkillToTarget: vi.fn(),
+  formatPlatformName: vi.fn((name: string) => name.charAt(0).toUpperCase() + name.slice(1)),
 }))
 
 vi.mock('../../cli-mode', () => ({

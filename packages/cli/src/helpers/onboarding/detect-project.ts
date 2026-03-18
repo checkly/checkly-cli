@@ -1,6 +1,8 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
 
+import { PLATFORM_TARGETS } from '../../commands/skills/install'
+
 export interface ProjectContext {
   isExistingProject: boolean
   hasPlaywrightConfig: boolean
@@ -11,16 +13,8 @@ export interface ProjectContext {
   skillPath: string | null
 }
 
-// Known directories where SKILL.md can be installed
-const SKILL_DIRECTORIES = [
-  '.claude/skills/checkly',
-  '.cursor/skills/checkly',
-  '.windsurf/skills/checkly',
-  '.agents/skills/checkly',
-  '.continue/skills/checkly',
-  '.goose/skills/checkly',
-  '.roo/skills/checkly',
-]
+// Derive from PLATFORM_TARGETS so they stay in sync automatically
+const SKILL_DIRECTORIES = [...new Set(Object.values(PLATFORM_TARGETS))]
 
 const PLAYWRIGHT_CONFIG_NAMES = [
   'playwright.config.ts',
