@@ -9,7 +9,7 @@ function raccoonBanner (version: string): string {
 
   // Raccoon peeking over blue rounded box — matches the Checkly logo
   const title = `  ${chalk.bold.hex('#0070EB')('checkly')} ${chalk.dim(`v${version}`)}`
-  const tagline = `  ${'Let\'s set up Checkly for monitoring and testing.'}`
+  const tagline = `  ${'Monitoring as code, AI-native.'}`
 
   return [
     '',

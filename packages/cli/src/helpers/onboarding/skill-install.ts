@@ -67,7 +67,9 @@ async function runInteractiveInstall (
   log: (msg: string) => void,
 ): Promise<SkillInstallResult> {
   log('')
-  log(chalk.dim('  A skill teaches your AI coding agent how to use Checkly effectively.'))
+  log(`  Checkly is an ${chalk.bold('AI-native monitoring as code')} platform.`)
+  log(`  For the best experience, your AI coding agent needs a ${chalk.bold('skill')} — a small`)
+  log('  file that teaches it how to create and manage checks using this CLI.')
   log('')
 
   const { install } = await prompts({
