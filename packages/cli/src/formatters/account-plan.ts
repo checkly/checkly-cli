@@ -341,7 +341,10 @@ export function formatFilteredEntitlements (
   } else {
     tableStr = renderTable(mixedColumns, filtered, format)
   }
-  lines.push(format === 'terminal' ? highlightDisabledRows(tableStr, filtered) : tableStr)
+  // Only highlight disabled rows when there's a mix — if everything is disabled
+  // (e.g. --disabled filter), the pink becomes noise rather than signal.
+  const hasMix = filtered.some(e => e.enabled) && filtered.some(e => !e.enabled)
+  lines.push(format === 'terminal' && hasMix ? highlightDisabledRows(tableStr, filtered) : tableStr)
 
   lines.push('')
   lines.push(`${filtered.length} entitlement${filtered.length === 1 ? '' : 's'} shown.`)
