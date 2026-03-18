@@ -125,9 +125,19 @@ export default class Init extends BaseCommand {
       // Offer deps separately
       await runDepsInstall(projectDir, log)
     } else {
-      // Deterministic path
-      createConfig(projectDir, log)
-      copyChecks(projectDir, log)
+      // Deterministic path — ask before creating files
+      const { wantBoilerplate } = await prompts({
+        type: 'confirm',
+        name: 'wantBoilerplate',
+        message: 'Create a Checkly config and example checks in your project?',
+        initial: true,
+      }, { onCancel: onCancel(log) })
+
+      if (wantBoilerplate) {
+        createConfig(projectDir, log)
+        copyChecks(projectDir, log)
+      }
+
       await runDepsInstall(projectDir, log)
 
       if (context.hasPlaywrightConfig) {
