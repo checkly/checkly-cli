@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Init from '../init'
 
 vi.mock('../../helpers/onboarding/detect-project', () => ({ detectProjectContext: vi.fn() }))
-vi.mock('../../helpers/onboarding/skill-install', () => ({ runSkillInstallStep: vi.fn() }))
+vi.mock('../../helpers/onboarding/skill-install', () => ({ runSkillInstallStep: vi.fn(), refreshSkill: vi.fn() }))
 vi.mock('../../helpers/onboarding/boilerplate', () => ({
-  runBoilerplateSetup: vi.fn(),
   runDepsInstall: vi.fn(),
   createConfig: vi.fn(),
   copyChecks: vi.fn(),
@@ -19,15 +18,11 @@ vi.mock('../../helpers/onboarding/messages', () => ({
   playwrightHint: vi.fn(() => 'pw-hint'),
 }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
-vi.mock('../skills/install', () => ({
-  readSkillFile: vi.fn(),
-  writeSkillToTarget: vi.fn(),
-  PLATFORM_TARGETS: {},
-}))
+vi.mock('../../helpers/onboarding/prompts-helpers', () => ({ makeOnCancel: vi.fn(() => vi.fn()) }))
 vi.mock('prompts', () => ({ default: vi.fn() }))
 
 import { detectProjectContext } from '../../helpers/onboarding/detect-project'
-import { runSkillInstallStep } from '../../helpers/onboarding/skill-install'
+import { runSkillInstallStep, refreshSkill } from '../../helpers/onboarding/skill-install'
 import { runDepsInstall, createConfig, copyChecks } from '../../helpers/onboarding/boilerplate'
 import { loadPromptTemplate } from '../../helpers/onboarding/template-prompt'
 import { displayStarterPrompt } from '../../helpers/onboarding/prompt-display'
@@ -61,6 +56,7 @@ beforeEach(() => {
   vi.mocked(detectCliMode).mockReturnValue('interactive')
   vi.mocked(detectProjectContext).mockReturnValue(pristineContext)
   vi.mocked(runSkillInstallStep).mockResolvedValue({ installed: false, platform: null, targetPath: null })
+  vi.mocked(refreshSkill).mockResolvedValue({ installed: false, targetPath: null })
   vi.mocked(runDepsInstall).mockResolvedValue(undefined)
   vi.mocked(createConfig).mockReturnValue(undefined)
   vi.mocked(copyChecks).mockReturnValue(undefined)

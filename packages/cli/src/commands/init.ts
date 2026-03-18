@@ -7,23 +7,19 @@ import {
   detectProjectContext,
   type ProjectContext,
   runSkillInstallStep,
+  refreshSkill,
   runDepsInstall,
   createConfig,
   copyChecks,
   loadPromptTemplate,
   displayStarterPrompt,
+  makeOnCancel,
   greeting,
   footer,
   agentFooter,
   existingProjectFooter,
   playwrightHint,
 } from '../helpers/onboarding'
-import { readSkillFile, writeSkillToTarget } from './skills/install'
-
-const onCancel = (log: (msg: string) => void) => () => {
-  log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-  process.exit(0)
-}
 
 export default class Init extends BaseCommand {
   static description = 'Initialize Checkly in your project'
@@ -114,7 +110,7 @@ export default class Init extends BaseCommand {
         name: 'wantExamples',
         message: 'Create a Checkly config and some demo checks to get you started?',
         initial: true,
-      }, { onCancel: onCancel(log) })
+      }, { onCancel: makeOnCancel(log) })
 
       if (wantExamples) {
         createConfig(projectDir, log)
@@ -150,7 +146,7 @@ export default class Init extends BaseCommand {
     if (context.hasSkillInstalled) {
       // Refresh skill silently
       log(chalk.dim('  Updating your Checkly skill to the latest version...'))
-      const refreshResult = await this.silentSkillRefresh(log)
+      const refreshResult = await refreshSkill(context.skillPath!, log)
 
       if (refreshResult.installed) {
         log(chalk.green('✓') + ` Skill updated at ${refreshResult.targetPath}`)
@@ -191,26 +187,5 @@ export default class Init extends BaseCommand {
       variables.playwrightConfigPath = context.playwrightConfigPath
     }
     return loadPromptTemplate(templateName, variables)
-  }
-
-  private async silentSkillRefresh (
-    log: (msg: string) => void,
-  ): Promise<{ installed: boolean, targetPath: string | null }> {
-    try {
-      const context = detectProjectContext(process.cwd())
-
-      if (!context.skillPath) {
-        return { installed: false, targetPath: null }
-      }
-
-      const { dirname, relative } = await import('path')
-      const targetDir = relative(process.cwd(), dirname(context.skillPath))
-      const content = await readSkillFile()
-      const targetPath = await writeSkillToTarget(targetDir, content)
-      return { installed: true, targetPath }
-    } catch {
-      log(chalk.dim('  Could not update skill file.'))
-      return { installed: false, targetPath: null }
-    }
   }
 }

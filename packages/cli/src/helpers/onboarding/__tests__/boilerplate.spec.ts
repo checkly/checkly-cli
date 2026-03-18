@@ -22,12 +22,16 @@ vi.mock('../../../services/check-parser/package-files/package-manager', () => ({
   }),
 }))
 
+vi.mock('../prompts-helpers', () => ({
+  makeOnCancel: vi.fn(() => vi.fn()),
+}))
+
 import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { execSync } from 'child_process'
 import prompts from 'prompts'
 import { join } from 'path'
 import { detectPackageManager } from '../../../services/check-parser/package-files/package-manager'
-import { runBoilerplateSetup } from '../boilerplate'
+import { createConfig, copyChecks, runDepsInstall } from '../boilerplate'
 
 const mockExistsSync = vi.mocked(existsSync)
 const mockReadFileSync = vi.mocked(readFileSync)
@@ -40,7 +44,7 @@ const projectDir = '/test/project'
 const configTemplate = `projectName: '{{projectName}}', logicalId: '{{logicalId}}'`
 const packageJson = JSON.stringify({ name: 'my-cool-app', devDependencies: {} })
 
-describe('runBoilerplateSetup', () => {
+describe('boilerplate', () => {
   let logs: string[]
   const log = (msg: string) => logs.push(msg)
 
@@ -70,160 +74,160 @@ describe('runBoilerplateSetup', () => {
     mockPrompts.mockResolvedValue({ install: false })
   })
 
-  it('creates checkly.config.ts with project name and logicalId replaced', async () => {
-    await runBoilerplateSetup(projectDir, log)
+  describe('createConfig', () => {
+    it('creates checkly.config.ts with project name and logicalId replaced', () => {
+      createConfig(projectDir, log)
 
-    const writeCall = mockWriteFileSync.mock.calls.find(
-      ([path]) => path.toString().endsWith('checkly.config.ts'),
-    )
-    expect(writeCall).toBeDefined()
-    const content = writeCall![1] as string
-    expect(content).toContain('projectName: \'my-cool-app\'')
-    expect(content).toContain('logicalId: \'my-cool-app\'')
-    expect(content).not.toContain('{{projectName}}')
-    expect(content).not.toContain('{{logicalId}}')
-  })
-
-  it('sanitizes logicalId by replacing non-alphanumeric chars with hyphens', async () => {
-    mockReadFileSync.mockImplementation(path => {
-      const p = path.toString()
-      if (p.includes('checkly-config-template')) return configTemplate
-      if (p.endsWith('package.json')) return JSON.stringify({ name: '@scope/my app!', devDependencies: {} })
-      return ''
+      const writeCall = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      expect(writeCall).toBeDefined()
+      const content = writeCall![1] as string
+      expect(content).toContain('projectName: \'my-cool-app\'')
+      expect(content).toContain('logicalId: \'my-cool-app\'')
+      expect(content).not.toContain('{{projectName}}')
+      expect(content).not.toContain('{{logicalId}}')
     })
 
-    await runBoilerplateSetup(projectDir, log)
+    it('sanitizes logicalId by replacing non-alphanumeric chars with hyphens', () => {
+      mockReadFileSync.mockImplementation(path => {
+        const p = path.toString()
+        if (p.includes('checkly-config-template')) return configTemplate
+        if (p.endsWith('package.json')) return JSON.stringify({ name: '@scope/my app!', devDependencies: {} })
+        return ''
+      })
 
-    const writeCall = mockWriteFileSync.mock.calls.find(
-      ([path]) => path.toString().endsWith('checkly.config.ts'),
-    )
-    const content = writeCall![1] as string
-    expect(content).toContain('logicalId: \'scope-my-app\'')
-  })
+      createConfig(projectDir, log)
 
-  it('copies __checks__ directory', async () => {
-    await runBoilerplateSetup(projectDir, log)
-
-    expect(mockCpSync).toHaveBeenCalledWith(
-      expect.stringContaining('__checks__'),
-      join(projectDir, '__checks__'),
-      { recursive: true },
-    )
-    expect(logs.some(l => l.includes('__checks__'))).toBe(true)
-  })
-
-  it('skips config if checkly.config.ts already exists', async () => {
-    mockExistsSync.mockImplementation(path => {
-      const p = path.toString()
-      if (p.endsWith('checkly.config.ts')) return true
-      if (p.endsWith('package.json')) return true
-      return false
+      const writeCall = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      const content = writeCall![1] as string
+      expect(content).toContain('logicalId: \'scope-my-app\'')
     })
 
-    await runBoilerplateSetup(projectDir, log)
+    it('skips config if checkly.config.ts already exists', () => {
+      mockExistsSync.mockImplementation(path => {
+        const p = path.toString()
+        if (p.endsWith('checkly.config.ts')) return true
+        if (p.endsWith('package.json')) return true
+        return false
+      })
 
-    const configWrite = mockWriteFileSync.mock.calls.find(
-      ([path]) => path.toString().endsWith('checkly.config.ts'),
-    )
-    expect(configWrite).toBeUndefined()
-    expect(logs.some(l => l.includes('already exists') && l.includes('checkly.config.ts'))).toBe(true)
+      createConfig(projectDir, log)
+
+      const configWrite = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      expect(configWrite).toBeUndefined()
+      expect(logs.some(l => l.includes('already exists') && l.includes('checkly.config.ts'))).toBe(true)
+    })
   })
 
-  it('skips __checks__ if directory already exists', async () => {
-    mockExistsSync.mockImplementation(path => {
-      const p = path.toString()
-      if (p.endsWith('__checks__')) return true
-      if (p.endsWith('package.json')) return true
-      return false
+  describe('copyChecks', () => {
+    it('copies __checks__ directory', () => {
+      copyChecks(projectDir, log)
+
+      expect(mockCpSync).toHaveBeenCalledWith(
+        expect.stringContaining('__checks__'),
+        join(projectDir, '__checks__'),
+        { recursive: true },
+      )
+      expect(logs.some(l => l.includes('__checks__'))).toBe(true)
     })
 
-    await runBoilerplateSetup(projectDir, log)
+    it('skips __checks__ if directory already exists', () => {
+      mockExistsSync.mockImplementation(path => {
+        const p = path.toString()
+        if (p.endsWith('__checks__')) return true
+        if (p.endsWith('package.json')) return true
+        return false
+      })
 
-    expect(mockCpSync).not.toHaveBeenCalled()
-    expect(logs.some(l => l.includes('already exists') && l.includes('__checks__'))).toBe(true)
+      copyChecks(projectDir, log)
+
+      expect(mockCpSync).not.toHaveBeenCalled()
+      expect(logs.some(l => l.includes('already exists') && l.includes('__checks__'))).toBe(true)
+    })
   })
 
-  it('shows exact install command with detected PM name', async () => {
-    vi.mocked(detectPackageManager).mockResolvedValue({
-      name: 'pnpm',
-      installCommand: () => ({ executable: 'pnpm', args: ['install'], unsafeDisplayCommand: 'pnpm install' }),
-    } as any)
-    mockPrompts.mockResolvedValue({ install: false })
+  describe('runDepsInstall', () => {
+    it('shows exact install command with detected PM name', async () => {
+      vi.mocked(detectPackageManager).mockResolvedValue({
+        name: 'pnpm',
+        installCommand: () => ({ executable: 'pnpm', args: ['install'], unsafeDisplayCommand: 'pnpm install' }),
+      } as any)
+      mockPrompts.mockResolvedValue({ install: false })
 
-    await runBoilerplateSetup(projectDir, log)
+      await runDepsInstall(projectDir, log)
 
-    expect(logs.some(l => l.includes('pnpm'))).toBe(true)
-  })
-
-  it('shows explicit instructions when deps declined', async () => {
-    mockPrompts.mockResolvedValue({ install: false })
-
-    await runBoilerplateSetup(projectDir, log)
-
-    expect(logs.some(l => l.includes('npm install'))).toBe(true)
-  })
-
-  it('configOnly: true skips __checks__ copy', async () => {
-    await runBoilerplateSetup(projectDir, log, { configOnly: true })
-
-    expect(mockCpSync).not.toHaveBeenCalled()
-  })
-
-  it('skipPrompts: true installs deps without asking', async () => {
-    await runBoilerplateSetup(projectDir, log, { skipPrompts: true })
-
-    expect(mockPrompts).not.toHaveBeenCalled()
-    expect(mockExecSync).toHaveBeenCalledWith('npm install', { cwd: projectDir, stdio: 'pipe' })
-    expect(logs.some(l => l.includes('Installed dependencies'))).toBe(true)
-  })
-
-  it('handles install failure gracefully', async () => {
-    mockPrompts.mockResolvedValue({ install: true })
-    mockExecSync.mockImplementation(() => {
-      throw new Error('install failed')
+      expect(logs.some(l => l.includes('pnpm'))).toBe(true)
     })
 
-    await runBoilerplateSetup(projectDir, log)
+    it('shows explicit instructions when deps declined', async () => {
+      mockPrompts.mockResolvedValue({ install: false })
 
-    expect(logs.some(l => l.includes('Failed to install'))).toBe(true)
-    expect(logs.some(l => l.includes('npm install'))).toBe(true)
-  })
+      await runDepsInstall(projectDir, log)
 
-  it('detects yarn via detectPackageManager', async () => {
-    vi.mocked(detectPackageManager).mockResolvedValue({
-      name: 'yarn',
-      installCommand: () => ({ executable: 'yarn', args: ['install'], unsafeDisplayCommand: 'yarn install' }),
-    } as any)
-    mockPrompts.mockResolvedValue({ install: false })
+      expect(logs.some(l => l.includes('npm install'))).toBe(true)
+    })
 
-    await runBoilerplateSetup(projectDir, log)
+    it('skipPrompts: true installs deps without asking', async () => {
+      await runDepsInstall(projectDir, log, { skipPrompts: true })
 
-    expect(logs.some(l => l.includes('yarn'))).toBe(true)
-  })
+      expect(mockPrompts).not.toHaveBeenCalled()
+      expect(mockExecSync).toHaveBeenCalledWith('npm install', { cwd: projectDir, stdio: 'pipe' })
+      expect(logs.some(l => l.includes('Installed dependencies'))).toBe(true)
+    })
 
-  it('detects bun via detectPackageManager', async () => {
-    vi.mocked(detectPackageManager).mockResolvedValue({
-      name: 'bun',
-      installCommand: () => ({ executable: 'bun', args: ['install'], unsafeDisplayCommand: 'bun install' }),
-    } as any)
-    mockPrompts.mockResolvedValue({ install: false })
+    it('handles install failure gracefully', async () => {
+      mockPrompts.mockResolvedValue({ install: true })
+      mockExecSync.mockImplementation(() => {
+        throw new Error('install failed')
+      })
 
-    await runBoilerplateSetup(projectDir, log)
+      await runDepsInstall(projectDir, log)
 
-    expect(logs.some(l => l.includes('bun'))).toBe(true)
-  })
+      expect(logs.some(l => l.includes('Failed to install'))).toBe(true)
+      expect(logs.some(l => l.includes('npm install'))).toBe(true)
+    })
 
-  it('adds checkly and jiti as devDependencies before installing', async () => {
-    mockPrompts.mockResolvedValue({ install: true })
+    it('detects yarn via detectPackageManager', async () => {
+      vi.mocked(detectPackageManager).mockResolvedValue({
+        name: 'yarn',
+        installCommand: () => ({ executable: 'yarn', args: ['install'], unsafeDisplayCommand: 'yarn install' }),
+      } as any)
+      mockPrompts.mockResolvedValue({ install: false })
 
-    await runBoilerplateSetup(projectDir, log)
+      await runDepsInstall(projectDir, log)
 
-    const pkgWrite = mockWriteFileSync.mock.calls.find(
-      ([path]) => path.toString().endsWith('package.json'),
-    )
-    expect(pkgWrite).toBeDefined()
-    const written = JSON.parse(pkgWrite![1] as string)
-    expect(written.devDependencies.checkly).toBe('latest')
-    expect(written.devDependencies.jiti).toBe('latest')
+      expect(logs.some(l => l.includes('yarn'))).toBe(true)
+    })
+
+    it('detects bun via detectPackageManager', async () => {
+      vi.mocked(detectPackageManager).mockResolvedValue({
+        name: 'bun',
+        installCommand: () => ({ executable: 'bun', args: ['install'], unsafeDisplayCommand: 'bun install' }),
+      } as any)
+      mockPrompts.mockResolvedValue({ install: false })
+
+      await runDepsInstall(projectDir, log)
+
+      expect(logs.some(l => l.includes('bun'))).toBe(true)
+    })
+
+    it('adds checkly and jiti as devDependencies before installing', async () => {
+      mockPrompts.mockResolvedValue({ install: true })
+
+      await runDepsInstall(projectDir, log)
+
+      const pkgWrite = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('package.json'),
+      )
+      expect(pkgWrite).toBeDefined()
+      const written = JSON.parse(pkgWrite![1] as string)
+      expect(written.devDependencies.checkly).toBe('latest')
+      expect(written.devDependencies.jiti).toBe('latest')
+    })
   })
 })

@@ -5,15 +5,11 @@ import chalk from 'chalk'
 import prompts from 'prompts'
 
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
+import { makeOnCancel } from './prompts-helpers'
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
 const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')
 const BOILERPLATE_CHECKS_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/__checks__')
-
-export interface BoilerplateOptions {
-  skipPrompts?: boolean
-  configOnly?: boolean
-}
 
 export interface DepsInstallOptions {
   skipPrompts?: boolean
@@ -48,10 +44,9 @@ function getProjectName (projectDir: string): string {
   return 'my-project'
 }
 
-function addDepsToPackageJson (projectDir: string, log: (msg: string) => void): boolean {
+function addDepsToPackageJson (projectDir: string, pkg: Record<string, any>, log: (msg: string) => void): boolean {
   const pkgPath = join(projectDir, 'package.json')
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
     pkg.devDependencies = pkg.devDependencies ?? {}
     pkg.devDependencies.checkly = 'latest'
     pkg.devDependencies.jiti = 'latest'
@@ -99,15 +94,29 @@ export function copyChecks (projectDir: string, log: (msg: string) => void): voi
   }
 }
 
+function readPackageJson (projectDir: string): Record<string, any> | null {
+  const pkgPath = join(projectDir, 'package.json')
+  try {
+    return JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
 export async function runDepsInstall (
   projectDir: string,
   log: (msg: string) => void,
   options: DepsInstallOptions = {},
 ): Promise<void> {
   const pm = await detectPM(projectDir)
+  const pkg = readPackageJson(projectDir)
+  if (!pkg) {
+    log(chalk.red('Could not read package.json — it may contain invalid JSON.'))
+    return
+  }
 
   if (options.skipPrompts) {
-    if (!addDepsToPackageJson(projectDir, log)) {
+    if (!addDepsToPackageJson(projectDir, pkg, log)) {
       return
     }
     try {
@@ -125,67 +134,11 @@ export async function runDepsInstall (
     message: `Install dependencies using ${pm.name}? (${pm.name} add -D checkly jiti)`,
     initial: true,
   }, {
-    onCancel: () => {
-      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-      process.exit(0)
-    },
+    onCancel: makeOnCancel(log),
   })
 
   if (install) {
-    if (!addDepsToPackageJson(projectDir, log)) {
-      return
-    }
-    try {
-      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(chalk.green('✓') + ' Installed dependencies')
-    } catch (error: any) {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
-    }
-  } else {
-    log(`\nTo install dependencies later, run:\n  ${chalk.bold(pm.installCmd)}`)
-  }
-}
-
-export async function runBoilerplateSetup (
-  projectDir: string,
-  log: (msg: string) => void,
-  options: BoilerplateOptions = {},
-): Promise<void> {
-  createConfig(projectDir, log)
-
-  if (!options.configOnly) {
-    copyChecks(projectDir, log)
-  }
-
-  const pm = await detectPM(projectDir)
-
-  if (options.skipPrompts) {
-    if (!addDepsToPackageJson(projectDir, log)) {
-      return
-    }
-    try {
-      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(chalk.green('✓') + ' Installed dependencies')
-    } catch (error: any) {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
-    }
-    return
-  }
-
-  const { install } = await prompts({
-    type: 'confirm',
-    name: 'install',
-    message: `Install dependencies using ${pm.name}? (${pm.name} add -D checkly jiti)`,
-    initial: true,
-  }, {
-    onCancel: () => {
-      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-      process.exit(0)
-    },
-  })
-
-  if (install) {
-    if (!addDepsToPackageJson(projectDir, log)) {
+    if (!addDepsToPackageJson(projectDir, pkg, log)) {
       return
     }
     try {

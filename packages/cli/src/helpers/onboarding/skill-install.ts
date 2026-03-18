@@ -1,8 +1,10 @@
+import { dirname, relative } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
 import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget } from '../../commands/skills/install'
 import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode'
+import { makeOnCancel } from './prompts-helpers'
 
 export interface SkillInstallResult {
   installed: boolean
@@ -78,10 +80,7 @@ async function runInteractiveInstall (
     message: 'Install the Checkly skill for your AI coding agent?',
     initial: true,
   }, {
-    onCancel: () => {
-      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-      process.exit(0)
-    },
+    onCancel: makeOnCancel(log),
   })
 
   if (!install) {
@@ -106,10 +105,7 @@ async function runInteractiveInstall (
     choices,
     initial: 0,
   }, {
-    onCancel: () => {
-      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-      process.exit(0)
-    },
+    onCancel: makeOnCancel(log),
   })
 
   if (platform === undefined) {
@@ -124,10 +120,7 @@ async function runInteractiveInstall (
       name: 'customPath',
       message: 'Enter the target directory:',
     }, {
-      onCancel: () => {
-        log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-        process.exit(0)
-      },
+      onCancel: makeOnCancel(log),
     })
 
     if (!customPath) {
@@ -153,5 +146,20 @@ async function runInteractiveInstall (
   } catch (error: any) {
     log(chalk.red(`Could not install skill: ${error.message || String(error)}`))
     return { installed: false, platform: null, targetPath: null }
+  }
+}
+
+export async function refreshSkill (
+  skillPath: string,
+  log: (msg: string) => void,
+): Promise<{ installed: boolean, targetPath: string | null }> {
+  try {
+    const targetDir = relative(process.cwd(), dirname(skillPath))
+    const content = await readSkillFile()
+    const targetPath = await writeSkillToTarget(targetDir, content)
+    return { installed: true, targetPath }
+  } catch {
+    log(chalk.dim('  Could not update skill file.'))
+    return { installed: false, targetPath: null }
   }
 }
