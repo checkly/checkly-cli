@@ -84,7 +84,7 @@ describe('runBoilerplateSetup', () => {
       ([path]) => path.toString().endsWith('checkly.config.ts'),
     )
     const content = writeCall![1] as string
-    expect(content).toContain('logicalId: \'-scope-my-app-\'')
+    expect(content).toContain('logicalId: \'scope-my-app\'')
   })
 
   it('copies __checks__ directory', async () => {

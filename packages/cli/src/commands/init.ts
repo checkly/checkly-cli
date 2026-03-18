@@ -1,3 +1,4 @@
+import chalk from 'chalk'
 import { BaseCommand } from './baseCommand'
 import { detectCliMode } from '../helpers/cli-mode'
 import {
@@ -32,20 +33,43 @@ export default class Init extends BaseCommand {
 
     // === AGENT MODE ===
     if (cliMode === 'agent') {
-      const skillResult = await runSkillInstallStep(log)
-      await runBoilerplateSetup(projectDir, log, { skipPrompts: true, configOnly: true })
-      this.log(JSON.stringify({
-        success: true,
-        skillInstalled: skillResult.installed,
-        playwrightConfigDetected: context.hasPlaywrightConfig,
-        playwrightConfigPath: context.playwrightConfigPath,
-        hint: 'Run npx checkly skills for detailed agent guidance',
-      }))
+      try {
+        const noop = () => {} // suppress human-readable output
+        const skillResult = await runSkillInstallStep(noop)
+        await runBoilerplateSetup(projectDir, noop, { skipPrompts: true, configOnly: true })
+        this.log(JSON.stringify({
+          success: true,
+          skillInstalled: skillResult.installed,
+          skillPlatform: skillResult.platform,
+          skillTargetPath: skillResult.targetPath,
+          playwrightConfigDetected: context.hasPlaywrightConfig,
+          playwrightConfigPath: context.playwrightConfigPath,
+          hasChecklyConfig: context.hasChecklyConfig,
+          hasChecksDir: context.hasChecksDir,
+          hint: 'Run npx checkly skills for detailed agent guidance',
+        }))
+      } catch (error: any) {
+        this.log(JSON.stringify({
+          success: false,
+          error: error.message || String(error),
+        }))
+      }
+      return
+    }
+
+    // === CI MODE ===
+    if (cliMode === 'ci') {
+      await runBoilerplateSetup(projectDir, (msg: string) => this.log(msg), { skipPrompts: true })
       return
     }
 
     // === INTERACTIVE MODE ===
     log(greeting(this.config.version))
+
+    if (context.hasChecklyConfig) {
+      log(chalk.yellow('\n  Checkly is already configured in this project.'))
+      log(chalk.yellow('  Existing files will be preserved.\n'))
+    }
 
     // Step 1: Skill installation (branch point)
     const skillResult = await runSkillInstallStep(log)
@@ -66,6 +90,11 @@ export default class Init extends BaseCommand {
         name: 'alsoBoilerplate',
         message: 'Would you also like us to create boilerplate checks and install dependencies?',
         initial: false,
+      }, {
+        onCancel: () => {
+          log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+          process.exit(0)
+        },
       })
 
       if (alsoBoilerplate) {

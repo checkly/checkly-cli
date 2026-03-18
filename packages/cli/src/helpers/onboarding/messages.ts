@@ -16,7 +16,7 @@ export function footer (): string {
     chalk.green.bold('All done! Next steps:'),
     '',
     `  ${chalk.bold('npx checkly login')}       Log in or create a free account`,
-    `  ${chalk.bold('npx checkly test')}        Dry run your checks`,
+    `  ${chalk.bold('npx checkly test --record')}  Dry run your checks and record results`,
     `  ${chalk.bold('npx checkly deploy')}      Deploy checks to Checkly`,
     '',
     chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),

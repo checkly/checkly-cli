@@ -41,9 +41,10 @@ export async function displayStarterPrompt (
       name: 'action',
       message: 'View full prompt?',
       choices: [
-        { title: 'Continue (prompt is in clipboard)', value: 'continue' },
+        { title: copied ? 'Continue (prompt is in clipboard)' : 'Continue', value: 'continue' },
         { title: 'Show full prompt', value: 'expand' },
       ],
+      initial: copied ? 0 : 1,
     })
 
     if (action === 'expand') {

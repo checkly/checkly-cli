@@ -14,7 +14,11 @@ export interface BoilerplateOptions {
 }
 
 function sanitizeLogicalId (name: string): string {
-  return name.replace(/[^a-zA-Z0-9-]/g, '-')
+  return name
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'checkly-project'
 }
 
 function detectPM (): { name: string, installCmd: string } {
@@ -46,13 +50,19 @@ function getProjectName (projectDir: string): string {
   return 'my-project'
 }
 
-function addDepsToPackageJson (projectDir: string): void {
+function addDepsToPackageJson (projectDir: string, log: (msg: string) => void): boolean {
   const pkgPath = join(projectDir, 'package.json')
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-  pkg.devDependencies = pkg.devDependencies ?? {}
-  pkg.devDependencies.checkly = 'latest'
-  pkg.devDependencies.jiti = 'latest'
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+    pkg.devDependencies = pkg.devDependencies ?? {}
+    pkg.devDependencies.checkly = 'latest'
+    pkg.devDependencies.jiti = 'latest'
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+    return true
+  } catch {
+    log(chalk.red('Could not update package.json — it may contain invalid JSON.'))
+    return false
+  }
 }
 
 function createConfig (projectDir: string, log: (msg: string) => void): void {
@@ -61,7 +71,13 @@ function createConfig (projectDir: string, log: (msg: string) => void): void {
     log(chalk.yellow('checkly.config.ts already exists, skipping'))
     return
   }
-  const template = readFileSync(CONFIG_TEMPLATE_PATH, 'utf-8')
+  let template: string
+  try {
+    template = readFileSync(CONFIG_TEMPLATE_PATH, 'utf-8')
+  } catch {
+    log(chalk.red('Could not read config template. Try reinstalling the checkly package.'))
+    return
+  }
   const projectName = getProjectName(projectDir)
   const logicalId = sanitizeLogicalId(projectName)
   const content = template
@@ -77,8 +93,12 @@ function copyChecks (projectDir: string, log: (msg: string) => void): void {
     log(chalk.yellow('__checks__/ already exists, skipping'))
     return
   }
-  cpSync(BOILERPLATE_CHECKS_PATH, checksDir, { recursive: true })
-  log(chalk.green('✓') + ' Created __checks__/ with example checks')
+  try {
+    cpSync(BOILERPLATE_CHECKS_PATH, checksDir, { recursive: true })
+    log(chalk.green('✓') + ' Created __checks__/ with example checks')
+  } catch {
+    log(chalk.red('Could not copy example checks.'))
+  }
 }
 
 export async function runBoilerplateSetup (
@@ -95,31 +115,39 @@ export async function runBoilerplateSetup (
   const pm = detectPM()
 
   if (options.skipPrompts) {
-    addDepsToPackageJson(projectDir)
+    if (!addDepsToPackageJson(projectDir, log)) {
+      return
+    }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
       log(chalk.green('✓') + ' Installed dependencies')
-    } catch {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually.`))
+    } catch (error: any) {
+      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
     }
     return
   }
 
-  log(`\nInstall dependencies using ${chalk.bold(pm.name)}?`)
   const { install } = await prompts({
     type: 'confirm',
     name: 'install',
-    message: `Run ${chalk.bold(pm.installCmd)}?`,
+    message: `Install dependencies using ${pm.name}? (${pm.name} add -D checkly jiti)`,
     initial: true,
+  }, {
+    onCancel: () => {
+      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+      process.exit(0)
+    },
   })
 
   if (install) {
-    addDepsToPackageJson(projectDir)
+    if (!addDepsToPackageJson(projectDir, log)) {
+      return
+    }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
       log(chalk.green('✓') + ' Installed dependencies')
-    } catch {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually.`))
+    } catch (error: any) {
+      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
     }
   } else {
     log(`\nTo install dependencies later, run:\n  ${chalk.bold(pm.installCmd)}`)

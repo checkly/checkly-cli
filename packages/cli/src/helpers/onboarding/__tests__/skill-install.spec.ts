@@ -61,11 +61,11 @@ describe('runSkillInstallStep', () => {
       expect(mockPrompts).toHaveBeenNthCalledWith(1, expect.objectContaining({
         type: 'confirm',
         name: 'install',
-      }))
+      }), expect.objectContaining({ onCancel: expect.any(Function) }))
       expect(mockPrompts).toHaveBeenNthCalledWith(2, expect.objectContaining({
         type: 'select',
         name: 'platform',
-      }))
+      }), expect.objectContaining({ onCancel: expect.any(Function) }))
       expect(mockReadSkillFile).toHaveBeenCalled()
       expect(mockWriteSkillToTarget).toHaveBeenCalledWith('.claude/skills/checkly', '# Checkly Skill')
       expect(result).toEqual({
@@ -103,7 +103,7 @@ describe('runSkillInstallStep', () => {
       expect(mockPrompts).toHaveBeenNthCalledWith(3, expect.objectContaining({
         type: 'text',
         name: 'customPath',
-      }))
+      }), expect.objectContaining({ onCancel: expect.any(Function) }))
       expect(mockWriteSkillToTarget).toHaveBeenCalledWith('my/custom/path', '# Checkly Skill')
       expect(result).toEqual({
         installed: true,

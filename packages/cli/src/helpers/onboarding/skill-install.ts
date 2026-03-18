@@ -50,22 +50,36 @@ async function runAgentInstall (
     return { installed: false, platform: null, targetPath: null }
   }
 
-  const content = await readSkillFile()
-  const targetPath = await writeSkillToTarget(targetDir, content)
+  try {
+    const content = await readSkillFile()
+    const targetPath = await writeSkillToTarget(targetDir, content)
 
-  log(chalk.green(`Installed Checkly skill for ${formatPlatformName(platform)} at ${targetPath}`))
+    log(chalk.green(`Installed Checkly skill for ${formatPlatformName(platform)} at ${targetPath}`))
 
-  return { installed: true, platform, targetPath }
+    return { installed: true, platform, targetPath }
+  } catch (error: any) {
+    log(chalk.red(`Could not install skill: ${error.message || String(error)}`))
+    return { installed: false, platform: null, targetPath: null }
+  }
 }
 
 async function runInteractiveInstall (
   log: (msg: string) => void,
 ): Promise<SkillInstallResult> {
+  log('')
+  log(chalk.dim('  A skill teaches your AI coding agent how to use Checkly effectively.'))
+  log('')
+
   const { install } = await prompts({
     type: 'confirm',
     name: 'install',
-    message: 'Install the Checkly skill?',
+    message: 'Install the Checkly skill for your AI coding agent?',
     initial: true,
+  }, {
+    onCancel: () => {
+      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+      process.exit(0)
+    },
   })
 
   if (!install) {
@@ -86,9 +100,14 @@ async function runInteractiveInstall (
   const { platform } = await prompts({
     type: 'select',
     name: 'platform',
-    message: 'Select a platform:',
+    message: 'Which AI coding agent do you use?',
     choices,
     initial: 0,
+  }, {
+    onCancel: () => {
+      log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+      process.exit(0)
+    },
   })
 
   if (platform === undefined) {
@@ -102,6 +121,11 @@ async function runInteractiveInstall (
       type: 'text',
       name: 'customPath',
       message: 'Enter the target directory:',
+    }, {
+      onCancel: () => {
+        log('\nSetup cancelled. Run npx checkly init anytime to try again.')
+        process.exit(0)
+      },
     })
 
     if (!customPath) {
@@ -113,14 +137,19 @@ async function runInteractiveInstall (
     targetDir = PLATFORM_TARGETS[platform]
   }
 
-  const content = await readSkillFile()
-  const targetPath = await writeSkillToTarget(targetDir, content)
+  try {
+    const content = await readSkillFile()
+    const targetPath = await writeSkillToTarget(targetDir, content)
 
-  log(chalk.green(`Installed Checkly skill at ${targetPath}`))
+    log(chalk.green(`Installed Checkly skill at ${targetPath}`))
 
-  return {
-    installed: true,
-    platform: platform === CUSTOM_PATH_VALUE ? null : platform,
-    targetPath,
+    return {
+      installed: true,
+      platform: platform === CUSTOM_PATH_VALUE ? null : platform,
+      targetPath,
+    }
+  } catch (error: any) {
+    log(chalk.red(`Could not install skill: ${error.message || String(error)}`))
+    return { installed: false, platform: null, targetPath: null }
   }
 }
