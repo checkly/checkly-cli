@@ -1,0 +1,1 @@
+Initialize Checkly in this project at {{projectPath}}. I have an existing Playwright test suite with a config at {{playwrightConfigPath}} — use my Playwright configuration to set up Checkly browser checks that align with my existing test setup. Also look at the project structure and endpoints to create relevant API checks or URL monitors.
