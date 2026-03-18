@@ -87,10 +87,8 @@ export default class Init extends BaseCommand {
     } else {
       // ── STATE 1: Brand new ──
       await this.runNewProjectFlow(projectDir, context, log)
+      log(footer())
     }
-
-    // Footer
-    log(footer())
   }
 
   /**
@@ -173,30 +171,24 @@ export default class Init extends BaseCommand {
       }
     }
 
-    // Offer quick actions for existing projects
+    // Acknowledge and suggest next steps for existing projects
     log('')
-    const { action } = await prompts({
-      type: 'select',
-      name: 'action',
-      message: 'What would you like to do?',
-      choices: [
-        { title: 'Nothing — I\'m all set', value: 'done' },
-        { title: `Test checks locally ${chalk.dim('(npx checkly test --record)')}`, value: 'test' },
-        { title: `Deploy checks ${chalk.dim('(npx checkly deploy)')}`, value: 'deploy' },
-        { title: `Upgrade checkly package ${chalk.dim('(to latest)')}`, value: 'upgrade' },
-      ],
-    }, { onCancel: onCancel(log) })
+    log(chalk.green.bold('  You\'re all set!') + ' Here are some things you can do next:')
+    log('')
+    log(`  ${chalk.bold('npx checkly test --record')}  Run your checks locally`)
+    log(`  ${chalk.bold('npx checkly deploy')}      Deploy checks to Checkly`)
+    log(`  ${chalk.bold('npx checkly skills')}      View available agent actions`)
+    log('')
+    log(chalk.dim('  Docs:  https://checklyhq.com/docs/cli'))
+    log(chalk.dim('  Slack: https://checklyhq.com/slack'))
+    log('')
 
-    if (action === 'test') {
-      log(chalk.dim(`\n  Run: ${chalk.bold('npx checkly test --record')}\n`))
-    } else if (action === 'deploy') {
-      log(chalk.dim(`\n  Run: ${chalk.bold('npx checkly deploy')}\n`))
-    } else if (action === 'upgrade') {
-      const { detectPackageManager } = await import('../services/check-parser/package-files/package-manager.js')
-      const pm = await detectPackageManager(projectDir)
-      const cmd = pm.name === 'yarn' ? 'yarn add -D' : `${pm.name} add -D`
-      log(chalk.dim(`\n  Run: ${chalk.bold(`${cmd} checkly@latest`)}\n`))
-    }
+    await prompts({
+      type: 'confirm',
+      name: 'done',
+      message: 'Press Enter to exit',
+      initial: true,
+    }, { onCancel: onCancel(log) })
   }
 
   private loadStarterPrompt (
