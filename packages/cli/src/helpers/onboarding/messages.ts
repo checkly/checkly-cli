@@ -1,13 +1,31 @@
 import chalk from 'chalk'
 
-export function greeting (version: string): string {
+const brand = chalk.hex('#0070EB')
+
+function raccoonBanner (version: string): string {
+  const b = brand
+  const d = chalk.hex('#1A2B4A')
+  const w = chalk.whiteBright
+
+  // Raccoon peeking over blue rounded box — matches the Checkly logo
+  const title = `  ${chalk.bold.hex('#0070EB')('checkly')} ${chalk.dim(`v${version}`)}`
+  const tagline = `  ${'Let\'s set up Checkly for monitoring and testing.'}`
+
   return [
     '',
-    `${chalk.black.bgCyan.bold(' checkly ')} v${version}`,
-    '',
-    'Let\'s set up Checkly for monitoring and testing.',
+    `    ${w('▄▄')}      ${w('▄▄')}`,
+    `   ${w('█')}${d('█')}${w('█')}${b('▄▄▄▄')}${w('█')}${d('█')}${w('█')}${title}`,
+    `   ${w('█')}${d('██')}${b('████')}${d('██')}${w('█')}`,
+    `    ${w('█')}${d('▀')}${w('▄▄')}${d('▀')}${w('█')}${tagline}`,
+    `${b(' ▄▄▄▄▄')}${w('▀▄▄▀')}${b('▄▄▄▄▄')}`,
+    `${b(' ██████████████')}`,
+    `${b(' ▀▀▀▀▀▀▀▀▀▀▀▀▀▀')}`,
     '',
   ].join('\n')
+}
+
+export function greeting (version: string): string {
+  return raccoonBanner(version)
 }
 
 export function footer (): string {
