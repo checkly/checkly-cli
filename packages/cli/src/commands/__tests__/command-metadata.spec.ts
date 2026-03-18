@@ -4,6 +4,7 @@ import { BaseCommand } from '../baseCommand'
 // Import all non-hidden command classes
 import ChecksList from '../checks/list'
 import ChecksGet from '../checks/get'
+import ChecksStats from '../checks/stats'
 import StatusPagesList from '../status-pages/list'
 import StatusPagesGet from '../status-pages/get'
 import IncidentsList from '../incidents/list'
@@ -32,10 +33,14 @@ import ImportCommit from '../import/commit'
 import ImportCancel from '../import/cancel'
 import PwTest from '../pw-test'
 import SyncPlaywright from '../sync-playwright'
+import SkillsInstall from '../skills/install'
+import AccountPlan from '../account/plan'
 
 const commands: Array<[string, typeof BaseCommand]> = [
+  ['account plan', AccountPlan],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
+  ['checks stats', ChecksStats],
   ['status-pages list', StatusPagesList],
   ['status-pages get', StatusPagesGet],
   ['incidents list', IncidentsList],
@@ -64,6 +69,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['import cancel', ImportCancel],
   ['pw-test', PwTest],
   ['sync-playwright', SyncPlaywright],
+  ['skills install', SkillsInstall],
 ]
 
 describe('command metadata', () => {

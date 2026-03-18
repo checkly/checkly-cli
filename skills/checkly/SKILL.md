@@ -10,6 +10,8 @@ metadata:
 
 The Checkly CLI provides all the required information via the `npx checkly skills` command.
 
+Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
+
 Use `npx checkly skills` to list all available actions, and `npx checkly skills <action>` to access up-to-date information on how to use the Checkly CLI for each action.
 
 ## Progressive Disclosure via `npx checkly skills`

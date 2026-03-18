@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import * as path from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
@@ -84,7 +85,68 @@ export function askCopyPlaywrightProject (onCancel: any): Promise<{ shouldCopyPl
   return prompts({
     type: 'confirm',
     name: 'shouldCopyPlaywrightConfig',
-    message: 'It looks like you have a Playwright config file. Would you like to copy your settings to your Checkly config file?',
+    message: 'Would you like to copy your Playwright settings to your Checkly config file?',
     initial: true,
   }, { onCancel })
+}
+
+export async function askPlaywrightConfigPath (
+  candidates: string[],
+  projectDir: string,
+  onCancel: any,
+): Promise<{ playwrightConfigPath: string | undefined }> {
+  // Nothing to suggest, fallthrough to custom input.
+  if (candidates.length === 0) {
+    return askCustomPlaywrightConfigPath(projectDir, onCancel)
+  }
+
+  const CUSTOM_VALUE = '__custom__'
+  const SKIP_VALUE = '__skip__'
+  const choices = [
+    ...candidates.map(c => ({
+      title: `./${path.relative(projectDir, c)}`,
+      value: c,
+    })),
+    { title: 'Custom path', value: CUSTOM_VALUE },
+    { title: 'Skip', value: SKIP_VALUE },
+  ]
+
+  const { playwrightConfigPath } = await prompts({
+    type: 'select',
+    name: 'playwrightConfigPath',
+    message: 'Which Playwright config file would you like to use?',
+    choices,
+    initial: 0,
+  }, { onCancel })
+
+  if (playwrightConfigPath === CUSTOM_VALUE) {
+    return askCustomPlaywrightConfigPath(projectDir, onCancel)
+  }
+
+  if (playwrightConfigPath === SKIP_VALUE) {
+    return { playwrightConfigPath: undefined }
+  }
+
+  return { playwrightConfigPath }
+}
+
+async function askCustomPlaywrightConfigPath (
+  projectDir: string,
+  onCancel: any,
+): Promise<{ playwrightConfigPath: string | undefined }> {
+  const { playwrightConfigPath } = await prompts({
+    type: 'text',
+    name: 'playwrightConfigPath',
+    message: 'Enter the path to your Playwright config file:',
+    validate (val: string) {
+      const resolved = path.resolve(projectDir, val)
+      if (!fs.existsSync(resolved)) {
+        return `File not found: ${chalk.bold(resolved)}`
+      }
+      return true
+    },
+    format: (val: string) => path.resolve(projectDir, val),
+  }, { onCancel })
+
+  return { playwrightConfigPath }
 }

@@ -1,9 +1,10 @@
+import * as path from 'path'
 import axios from 'axios'
 import chalk from 'chalk'
 import prompts from 'prompts'
 import { Command, Flags } from '@oclif/core'
 import { getUserGreeting, header, footer, hint } from '../utils/messages'
-import { getPlaywrightConfig, hasPackageJsonFile } from '../utils/directory'
+import { collectConfigPaths, getPlaywrightConfig, hasPackageJsonFile, PLAYWRIGHT_CONFIG_FILES } from '../utils/directory'
 import {
   copyPlaywrightConfig,
   createProject,
@@ -11,6 +12,7 @@ import {
   installDependenciesAndInitGit,
   installWithinProject,
 } from '../utils/installation'
+import { askPlaywrightConfigPath } from '../utils/prompts'
 
 /**
  * This code is heavily inspired by the amazing create-astro package over at
@@ -115,10 +117,20 @@ export default class Bootstrap extends Command {
 
     await installDependenciesAndInitGit({ projectDirectory })
 
-    const playwrightConfig = getPlaywrightConfig(projectDirectory)
-    // Only prompt playwright copy when not using exampels
+    let playwrightConfig: string | undefined
+    if (interactive) {
+      const candidates = collectConfigPaths(projectDirectory, PLAYWRIGHT_CONFIG_FILES)
+      const { playwrightConfigPath } = await askPlaywrightConfigPath(candidates, projectDirectory, onCancel)
+      playwrightConfig = playwrightConfigPath
+        ? path.relative(projectDirectory, playwrightConfigPath)
+        : undefined
+    } else {
+      playwrightConfig = getPlaywrightConfig(projectDirectory)
+    }
+
+    // Only prompt playwright copy when not using examples
     if (playwrightConfig && existingProject) {
-      await copyPlaywrightConfig({ projectDirectory, playwrightConfig })
+      await copyPlaywrightConfig({ projectDirectory, playwrightConfig, onCancel })
     }
 
     // Show appropriate footer
