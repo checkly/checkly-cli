@@ -24,6 +24,12 @@ The skill is structured for efficient context usage:
 
 Agents load what they need for each task.
 
+## Plan Awareness
+
+Before configuring checks, run `npx checkly account plan --output json` to see what features, locations, and limits are available on the current plan. Disabled features include an `upgradeUrl` pointing to the self-service checkout page or the enterprise contact sales page — share these with the user when they need a feature that's not on their plan.
+
+Run `npx checkly skills manage` for the full reference.
+
 ## Confirmation Protocol
 
 Write commands (e.g. `incidents create`, `deploy`, `destroy`) return exit code 2 with a `confirmation_required` JSON envelope instead of executing. **Always present the `changes` to the user and wait for approval before running the `confirmCommand`.** Never auto-append `--force`. This applies to every write command individually — updates and resolutions need confirmation too, not just the initial create.

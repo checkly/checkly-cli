@@ -67,9 +67,13 @@ Flags:
 
 ## Status pages
 
-Use `npx checkly status-pages list` to find status page IDs and their services. Use `--output json` to get machine-readable service IDs for incident creation.
+Use `npx checkly status-pages list` to find status page IDs, and `npx checkly status-pages get` for full details including cards and services.
 
 ```bash
 npx checkly status-pages list
 npx checkly status-pages list --output json
+npx checkly status-pages get <status-page-id>
+npx checkly status-pages get <status-page-id> --output json
 ```
+
+Use `--output json` to get machine-readable service IDs for incident creation.

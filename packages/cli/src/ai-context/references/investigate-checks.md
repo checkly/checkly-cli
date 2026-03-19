@@ -37,6 +37,28 @@ npx checkly checks get <check-id> --result <result-id>
 npx checkly checks get <check-id> --error-group <error-group-id>
 ```
 
+## Check analytics and stats
+
+```bash
+npx checkly checks stats
+npx checkly checks stats --range last7Days --tag production
+npx checkly checks stats <check-id-1> <check-id-2>
+npx checkly checks stats --output json
+```
+
+Shows availability, response times, error counts, and other metrics for your checks.
+
+Flags:
+- `-r, --range <range>` — time range: `last24Hours` (default), `last7Days`, `thisWeek`, `lastWeek`, `lastMonth`
+- `-t, --tag <tag>` — filter by tag (repeat for multiple)
+- `--type <type>` — filter by check type
+- `-s, --search <name>` — filter by name
+- `-l, --limit <n>` — max checks to return (1-100, default 25)
+- `-p, --page <n>` — page number
+- `-o, --output <format>` — `table` (default), `json`, or `md`
+
+Pass one or more check IDs as positional arguments to get stats for specific checks only.
+
 ## Trigger checks
 
 ```bash
