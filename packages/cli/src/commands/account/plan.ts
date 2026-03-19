@@ -108,19 +108,15 @@ export default class AccountPlan extends AuthCommand {
       )
     }
 
-    // JSON output (respects filters)
+    // JSON output (always includes plan context + locations)
     if (flags.output === 'json') {
       const enriched = filtered.map(e => withUpgradeUrl(e, checkoutUrl))
-      if (hasFilters) {
-        this.log(JSON.stringify(enriched, null, 2))
-      } else {
-        this.log(JSON.stringify({
-          ...plan,
-          checkoutUrl,
-          contactSalesUrl: CONTACT_SALES_URL,
-          entitlements: enriched,
-        }, null, 2))
-      }
+      this.log(JSON.stringify({
+        ...plan,
+        checkoutUrl,
+        contactSalesUrl: CONTACT_SALES_URL,
+        entitlements: enriched,
+      }, null, 2))
       return
     }
 
