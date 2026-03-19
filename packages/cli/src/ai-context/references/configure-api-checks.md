@@ -8,6 +8,7 @@
 - Referenced `setup-script.ts` and `teardown-script.ts` for API checks must be plain ts files and not export anything.
 - Check in the code if API endpoints require authentication.
 - **Important:** The target URL must be publicly accessible. Checks run on Checkly's cloud infrastructure, not locally. If the user is developing against localhost, suggest a tunneling tool (ngrok, cloudflare tunnel) or a preview/staging deployment.
+- **Plan-gated properties:** `retryStrategy`, `runParallel`, and higher frequencies may not be available on all plans. Check entitlements matching `API_CHECKS_*` before using these. Omit any property whose entitlement is disabled. See `npx checkly skills manage` for details.
 
 <!-- EXAMPLE: API_CHECK -->
 
