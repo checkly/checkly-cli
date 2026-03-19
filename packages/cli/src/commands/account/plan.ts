@@ -7,7 +7,15 @@ import {
   formatPlanSummary,
   formatEntitlementDetail,
   formatFilteredEntitlements,
+  getEntitlementUpgradeUrl,
+  CONTACT_SALES_URL,
 } from '../../formatters/account-plan'
+import type { Entitlement } from '../../rest/entitlements'
+
+function withUpgradeUrl (e: Entitlement, checkoutUrl: string) {
+  if (e.enabled) return e
+  return { ...e, upgradeUrl: getEntitlementUpgradeUrl(e, checkoutUrl) }
+}
 
 export default class AccountPlan extends AuthCommand {
   static coreCommand = false
@@ -33,6 +41,10 @@ export default class AccountPlan extends AuthCommand {
       char: 's',
       description: 'Search entitlements by name or description.',
     }),
+    disabled: Flags.boolean({
+      description: 'Show only entitlements not included in your plan.',
+      default: false,
+    }),
     output: outputFlag({ default: 'table' }),
   }
 
@@ -40,9 +52,9 @@ export default class AccountPlan extends AuthCommand {
     const { args, flags } = await this.parse(AccountPlan)
     this.style.outputFormat = flags.output
 
-    // Validate: key arg is mutually exclusive with --type and --search
-    if (args.key && (flags.type || flags.search)) {
-      this.error('Cannot use --type or --search when looking up a specific entitlement key.')
+    // Validate: key arg is mutually exclusive with --type, --search, and --disabled
+    if (args.key && (flags.type || flags.search || flags.disabled)) {
+      this.error('Cannot use --type, --search, or --disabled when looking up a specific entitlement key.')
     }
 
     let plan
@@ -55,6 +67,9 @@ export default class AccountPlan extends AuthCommand {
       return
     }
 
+    const { accountId } = api.getDefaults()
+    const checkoutUrl = `https://app.checklyhq.com/accounts/${accountId}/billing/checkout`
+
     // Single key lookup
     if (args.key) {
       const entitlement = plan.entitlements.find(e => e.key === args.key)
@@ -63,18 +78,22 @@ export default class AccountPlan extends AuthCommand {
       }
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify(entitlement, null, 2))
+        this.log(JSON.stringify(withUpgradeUrl(entitlement, checkoutUrl), null, 2))
         return
       }
 
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-      this.log(formatEntitlementDetail(plan, entitlement, fmt))
+      this.log(formatEntitlementDetail(plan, entitlement, fmt, checkoutUrl))
       return
     }
 
-    // Apply filters (--type and --search)
-    const hasFilters = flags.type || flags.search
+    // Apply filters (--type, --search, --disabled)
+    const hasFilters = flags.type || flags.search || flags.disabled
     let filtered = plan.entitlements
+
+    if (flags.disabled) {
+      filtered = filtered.filter(e => !e.enabled)
+    }
 
     if (flags.type) {
       filtered = filtered.filter(e => e.type === flags.type)
@@ -91,7 +110,17 @@ export default class AccountPlan extends AuthCommand {
 
     // JSON output (respects filters)
     if (flags.output === 'json') {
-      this.log(JSON.stringify(hasFilters ? filtered : plan, null, 2))
+      const enriched = filtered.map(e => withUpgradeUrl(e, checkoutUrl))
+      if (hasFilters) {
+        this.log(JSON.stringify(enriched, null, 2))
+      } else {
+        this.log(JSON.stringify({
+          ...plan,
+          checkoutUrl,
+          contactSalesUrl: CONTACT_SALES_URL,
+          entitlements: enriched,
+        }, null, 2))
+      }
       return
     }
 
@@ -99,11 +128,11 @@ export default class AccountPlan extends AuthCommand {
 
     // Filtered view
     if (hasFilters) {
-      this.log(formatFilteredEntitlements(plan, filtered, fmt))
+      this.log(formatFilteredEntitlements(plan, filtered, fmt, checkoutUrl))
       return
     }
 
     // Default summary view
-    this.log(formatPlanSummary(plan, fmt))
+    this.log(formatPlanSummary(plan, fmt, checkoutUrl))
   }
 }

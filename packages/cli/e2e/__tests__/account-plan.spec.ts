@@ -120,4 +120,67 @@ describe('checkly account plan', () => {
     })
     expect(result.status).not.toBe(0)
   })
+
+  it('should show REQUIRED UPGRADE column in summary view', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('REQUIRED UPGRADE')
+  })
+
+  it('should show billing checkout link', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('billing/checkout')
+  })
+
+  it('should include checkoutUrl and contactSalesUrl in JSON output', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan', '--output', 'json'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).toBe(0)
+    const parsed = JSON.parse(result.stdout)
+    expect(parsed).toHaveProperty('checkoutUrl')
+    expect(parsed.checkoutUrl).toContain('billing/checkout')
+    expect(parsed).toHaveProperty('contactSalesUrl')
+    expect(parsed.contactSalesUrl).toContain('contact-sales')
+  })
+
+  it('should filter with --disabled flag', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan', '--disabled'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('entitlement')
+  })
+
+  it('should combine --disabled with --type', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan', '--disabled', '--type', 'flag'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('REQUIRED UPGRADE')
+  })
+
+  it('should fail when combining key with --disabled', async () => {
+    const result = await runChecklyCli({
+      args: ['account', 'plan', 'BROWSER_CHECKS', '--disabled'],
+      apiKey: config.get('apiKey'),
+      accountId: config.get('accountId'),
+    })
+    expect(result.status).not.toBe(0)
+  })
 })

@@ -5,6 +5,13 @@ export interface Addon {
   tierDisplayName: string
 }
 
+export interface RequiredAddon {
+  name: string
+  displayName: string
+  tier: string
+  tierDisplayName: string
+}
+
 export interface Entitlement {
   key: string
   name: string
@@ -12,6 +19,20 @@ export interface Entitlement {
   type: 'metered' | 'flag'
   enabled: boolean
   quantity?: number
+  requiredPlan?: string
+  requiredPlanDisplayName?: string
+  requiredAddon?: RequiredAddon
+}
+
+export interface Location {
+  id: string
+  name: string
+  available: boolean
+}
+
+export interface AccountLocations {
+  all: Location[]
+  maxPerCheck: number
 }
 
 export interface AccountPlan {
@@ -21,6 +42,7 @@ export interface AccountPlan {
     communicate?: Addon
     resolve?: Addon
   }
+  locations?: AccountLocations
   entitlements: Entitlement[]
 }
 
