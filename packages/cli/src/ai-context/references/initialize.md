@@ -70,7 +70,25 @@ Run `npx checkly skills configure alert-channels` to access up-to-date informati
    - **next to the resource** — place the `check.ts` files next to page routes, api endpoints etc.
 
 
-#### Step 3 — Create the config file
+#### Step 3 — Check your account plan
+
+Before writing checks, verify what your account can do:
+
+```bash
+npx checkly account plan --output json
+```
+
+This shows your entitlements, limits, and available locations. Use this data when creating the config:
+
+- **Only use locations** from `locations.all` where `available` is `true`. Using unavailable locations will cause deploy failures.
+- **Check feature availability** before configuring constructs like private locations, advanced alert channels, or higher-frequency schedules.
+- **Respect metered limits** — the `quantity` field shows maximums for each metered feature.
+
+If a feature the user wants is disabled, the response includes an `upgradeUrl` — share it so they can upgrade their plan.
+
+Run `npx checkly skills manage plan` for the full reference.
+
+#### Step 4 — Create the config file
 
 Run the following command to retrieve the configure skill reference:
 
@@ -80,13 +98,13 @@ npx checkly skills configure
 
 Use the output to create a `checkly.config.ts` (or `checkly.config.js` if the user chose JavaScript) in the project root.
 
-Adjust the `checkMatch` property according to previous selection.
+Adjust the `checkMatch` property according to previous selection. Use only locations verified as available in the previous step.
 
 Present the generated configuration to the user and ask if it looks correct. Allow the user to make changes.
 
 Congratulate the user on completing the config. Now it's time to test the configuration and turn everything into monitoring!
 
-#### Step 4: Log in to Checkly CLI
+#### Step 5: Log in to Checkly CLI
 
 To use the Checkly CLI the user needs to be logged in. Run the following command:
 
@@ -101,7 +119,7 @@ If the user is NOT logged in, present two options:
 - **Option A: Interactive login** — The user runs `npx checkly login` themselves. This command opens a browser for OAuth authentication and cannot be completed by an AI agent. Tell the user to run the command, complete the browser flow, and let you know when they're done so you can re-run `npx checkly whoami` to verify.
 - **Option B: Environment variables (recommended for agentic / CI use)** — The user sets `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` as environment variables. They can create an API key in the Checkly dashboard under **User Settings > API Keys**. Once both variables are set, re-run `npx checkly whoami` to verify.
 
-#### Step 5: Summarize and test the new monitoring configuration
+#### Step 6: Summarize and test the new monitoring configuration
 
 Read the generated `checkly.config.ts` (or `checkly.config.js`) and summarize the configured checks, locations, and frequencies.
 

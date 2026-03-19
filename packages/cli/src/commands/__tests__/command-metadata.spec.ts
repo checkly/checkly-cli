@@ -33,8 +33,11 @@ import ImportCommit from '../import/commit'
 import ImportCancel from '../import/cancel'
 import PwTest from '../pw-test'
 import SyncPlaywright from '../sync-playwright'
+import SkillsInstall from '../skills/install'
+import AccountPlan from '../account/plan'
 
 const commands: Array<[string, typeof BaseCommand]> = [
+  ['account plan', AccountPlan],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
   ['checks stats', ChecksStats],
@@ -66,6 +69,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['import cancel', ImportCancel],
   ['pw-test', PwTest],
   ['sync-playwright', SyncPlaywright],
+  ['skills install', SkillsInstall],
 ]
 
 describe('command metadata', () => {

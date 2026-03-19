@@ -63,6 +63,13 @@ export const COMMUNICATE_REFERENCES = [
   },
 ] as const
 
+export const MANAGE_REFERENCES = [
+  {
+    id: 'manage-plan',
+    description: 'Check account plan, entitlements, feature limits, and available locations (`account plan`)',
+  },
+] as const
+
 export const SKILL = {
   name: 'checkly',
   description: 'Get all the information and context to let your agent initialize, set up, create, test and manage your monitoring checks using the Checkly CLI.',
@@ -87,6 +94,11 @@ export const ACTIONS = [
     id: 'communicate',
     description: 'Open incidents and lead customer communications via status pages.',
     references: COMMUNICATE_REFERENCES,
+  },
+  {
+    id: 'manage',
+    description: 'Understand your account plan, entitlements, and feature limits.',
+    references: MANAGE_REFERENCES,
   },
 ] as const
 

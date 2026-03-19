@@ -10,6 +10,8 @@ metadata:
 
 The Checkly CLI provides all the required information via the `npx checkly skills` command.
 
+Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
+
 Use `npx checkly skills` to list all available actions, and `npx checkly skills <action>` to access up-to-date information on how to use the Checkly CLI for each action.
 
 ## Progressive Disclosure via `npx checkly skills`
@@ -21,6 +23,12 @@ The skill is structured for efficient context usage:
 3. **Reference Commands** (loaded on demand): Detailed construct documentation with examples
 
 Agents load what they need for each task.
+
+## Plan Awareness
+
+Before configuring checks, run `npx checkly account plan --output json` to see what features, locations, and limits are available on the current plan. Disabled features include an `upgradeUrl` pointing to the self-service checkout page or the enterprise contact sales page — share these with the user when they need a feature that's not on their plan.
+
+Run `npx checkly skills manage` for the full reference.
 
 ## Confirmation Protocol
 

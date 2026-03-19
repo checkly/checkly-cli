@@ -1,9 +1,17 @@
 import type { AxiosInstance } from 'axios'
 
+export interface AddonTier {
+  tier: string
+  tierDisplayName: string
+}
+
 export interface Account {
   id: string
   name: string
   runtimeId: string
+  plan?: string
+  planDisplayName?: string
+  addons?: Record<string, AddonTier>
 }
 
 class Accounts {

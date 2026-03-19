@@ -22,6 +22,7 @@ import StatusPages from './status-pages'
 import Incidents from './incidents'
 import Analytics from './analytics'
 import BatchAnalytics from './batch-analytics'
+import Entitlements from './entitlements'
 import { handleErrorResponse, UnauthorizedError } from './errors'
 import { detectOperator } from '../helpers/cli-mode'
 
@@ -123,3 +124,4 @@ export const statusPages = new StatusPages(api)
 export const incidents = new Incidents(api)
 export const analytics = new Analytics(api)
 export const batchAnalytics = new BatchAnalytics(api)
+export const entitlements = new Entitlements(api)

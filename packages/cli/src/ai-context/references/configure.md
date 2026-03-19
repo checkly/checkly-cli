@@ -46,6 +46,18 @@ If the Checkly CLI is installed (`npx checkly version`), use `npx checkly skills
 
 <!-- REFERENCE_COMMANDS -->
 
+## Check Locations and Plan Entitlements
+
+Not all features and locations are available on all plans. **Before configuring checks, run:**
+
+```bash
+npx checkly account plan --output json
+```
+
+This returns your exact entitlements and available locations. Use only locations where `available` is `true` in the `locations.all` array. If a feature is disabled, the response includes an `upgradeUrl` to share with the user.
+
+Run `npx checkly skills manage plan` for the full reference.
+
 ## Testing and Debugging
 
 - Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, use `--record` to persist results, and use `--verbose` to see all errors.
