@@ -7,6 +7,7 @@
 - If endpoints require authentication ask the user which authentication method to use and then generate a setupScript to authenticate the given requests.
 - Referenced `setup-script.ts` and `teardown-script.ts` for API checks must be plain ts files and not export anything.
 - Check in the code if API endpoints require authentication.
+- **Plan-gated properties:** `retryStrategy`, `runParallel`, and higher frequencies may not be available on all plans. Check entitlements matching `API_CHECKS_*` before using these. Omit any property whose entitlement is disabled. See `npx checkly skills manage` for details.
 
 <!-- EXAMPLE: API_CHECK -->
 
