@@ -10,7 +10,7 @@ function playwrightBlock (): string[] {
     `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
     '',
     chalk('  You can also install the ') + chalk.bold.cyan('Checkly Playwright Reporter') + chalk(' to upload traces:'),
-    chalk('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+    chalk.cyan('  https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
   ]
 }
 
@@ -19,16 +19,17 @@ function playwrightBlockDimmed (): string[] {
     '',
     chalk.dim('  Since you have Playwright, your agent can also:'),
     chalk.dim(`    ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`),
+    '',
     chalk.dim(`    Install the ${chalk.bold('Checkly Playwright Reporter')} for trace uploads`),
-    chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+    chalk.cyan.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
   ]
 }
 
 function docsBlock (): string[] {
   return [
     '',
-    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
-    chalk.dim('  Slack: https://checklyhq.com/slack'),
+    chalk.dim('  Docs:  ') + chalk.dim.cyan('https://checklyhq.com/docs/cli'),
+    chalk.dim('  Slack: ') + chalk.dim.cyan('https://checklyhq.com/slack'),
     '',
   ]
 }
@@ -52,9 +53,9 @@ export function footer (hasPlaywright: boolean = false): string {
     '',
     chalk.green.bold('All done! Next steps:'),
     '',
-    `  ${chalk.bold('npx checkly login')}         Log in or create a free account`,
+    `  ${chalk.bold('npx checkly login')}          Log in or create a free account`,
     `  ${chalk.bold('npx checkly test --record')}  Dry run your checks and record results`,
-    `  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`,
+    `  ${chalk.bold('npx checkly deploy')}         Deploy checks to Checkly`,
   ]
 
   if (hasPlaywright) {
@@ -103,9 +104,9 @@ export function agentFooter (platform: string | null, hasPlaywright: boolean = f
   lines.push(
     '',
     chalk.dim('  Prefer to set up manually? Here are the commands:'),
-    chalk.dim(`    ${chalk.bold('npx checkly login')}         Log in or create a free account`),
+    chalk.dim(`    ${chalk.bold('npx checkly login')}          Log in or create a free account`),
     chalk.dim(`    ${chalk.bold('npx checkly test --record')}  Dry run your checks`),
-    chalk.dim(`    ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`),
+    chalk.dim(`    ${chalk.bold('npx checkly deploy')}         Deploy checks to Checkly`),
   )
 
   lines.push(...docsBlock())
@@ -118,8 +119,8 @@ export function existingProjectFooter (hasPlaywright: boolean = false): string {
     chalk.green.bold('  You\'re all set!'),
     '',
     `  ${chalk.bold('npx checkly test --record')}  Run your checks locally`,
-    `  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`,
-    `  ${chalk.bold('npx checkly skills')}        View available agent actions`,
+    `  ${chalk.bold('npx checkly deploy')}         Deploy checks to Checkly`,
+    `  ${chalk.bold('npx checkly skills')}         View available agent actions`,
   ]
 
   if (hasPlaywright) {
