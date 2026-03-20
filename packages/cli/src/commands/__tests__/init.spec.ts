@@ -23,6 +23,10 @@ vi.mock('../../helpers/onboarding/prompts-helpers', () => ({
   successMessage: vi.fn((msg: string) => `OK ${msg}`),
 }))
 vi.mock('prompts', () => ({ default: vi.fn() }))
+vi.mock('fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('fs')>()
+  return { ...actual, writeFileSync: vi.fn() }
+})
 
 import { detectProjectContext } from '../../helpers/onboarding/detect-project'
 import { runSkillInstallStep, refreshSkill } from '../../helpers/onboarding/skill-install'
