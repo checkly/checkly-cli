@@ -1,5 +1,40 @@
 import chalk from 'chalk'
 
+// ─── Shared blocks (single source of truth) ──────────────────────────
+
+function playwrightBlock (): string[] {
+  return [
+    '',
+    chalk.cyan('  You have a Playwright test suite — you can also:'),
+    '',
+    `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
+    '',
+    chalk('  You can also install the ') + chalk.bold.cyan('Checkly Playwright Reporter') + chalk(' to upload traces:'),
+    chalk('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+  ]
+}
+
+function playwrightBlockDimmed (): string[] {
+  return [
+    '',
+    chalk.dim('  Since you have Playwright, your agent can also:'),
+    chalk.dim(`    ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`),
+    chalk.dim(`    Install the ${chalk.bold('Checkly Playwright Reporter')} for trace uploads`),
+    chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+  ]
+}
+
+function docsBlock (): string[] {
+  return [
+    '',
+    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
+    chalk.dim('  Slack: https://checklyhq.com/slack'),
+    '',
+  ]
+}
+
+// ─── Exported message functions ───────────────────────────────────────
+
 export function greeting (version: string): string {
   const title = chalk.bold.hex('#0075FF')('checkly') + ' ' + chalk.dim(`v${version}`)
   const tagline = 'Monitoring as code, AI-native.'
@@ -23,22 +58,10 @@ export function footer (hasPlaywright: boolean = false): string {
   ]
 
   if (hasPlaywright) {
-    lines.push(
-      '',
-      chalk.cyan('  You have a Playwright test suite — you can also:'),
-      `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
-      chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
-      chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
-    )
+    lines.push(...playwrightBlock())
   }
 
-  lines.push(
-    '',
-    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
-    chalk.dim('  Slack: https://checklyhq.com/slack'),
-    '',
-  )
-
+  lines.push(...docsBlock())
   return lines.join('\n')
 }
 
@@ -74,12 +97,7 @@ export function agentFooter (platform: string | null, hasPlaywright: boolean = f
   )
 
   if (hasPlaywright) {
-    lines.push(
-      '',
-      chalk.dim('  Since you have Playwright, your agent can also:'),
-      chalk.dim(`    ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`),
-      chalk.dim('    Install the Checkly Playwright Reporter for trace uploads'),
-    )
+    lines.push(...playwrightBlockDimmed())
   }
 
   lines.push(
@@ -88,12 +106,9 @@ export function agentFooter (platform: string | null, hasPlaywright: boolean = f
     chalk.dim(`    ${chalk.bold('npx checkly login')}         Log in or create a free account`),
     chalk.dim(`    ${chalk.bold('npx checkly test --record')}  Dry run your checks`),
     chalk.dim(`    ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`),
-    '',
-    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
-    chalk.dim('  Slack: https://checklyhq.com/slack'),
-    '',
   )
 
+  lines.push(...docsBlock())
   return lines.join('\n')
 }
 
@@ -108,32 +123,16 @@ export function existingProjectFooter (hasPlaywright: boolean = false): string {
   ]
 
   if (hasPlaywright) {
-    lines.push(
-      '',
-      chalk.cyan('  You have a Playwright test suite — you can also:'),
-      `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
-      chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
-      chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
-    )
+    lines.push(...playwrightBlock())
   }
 
-  lines.push(
-    '',
-    chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
-    chalk.dim('  Slack: https://checklyhq.com/slack'),
-    '',
-  )
-
+  lines.push(...docsBlock())
   return lines.join('\n')
 }
 
 export function playwrightHint (): string {
   return [
-    '',
-    chalk.cyan('  You have a Playwright test suite. You can also:'),
-    `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
-    chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
-    chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+    ...playwrightBlock(),
     '',
     chalk.cyan(`  An AI agent can help configure this — run ${chalk.bold('npx checkly skills install')}`),
     '',
