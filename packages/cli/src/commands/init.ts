@@ -36,8 +36,34 @@ export default class Init extends BaseCommand {
     const log = (msg: string) => this.log(msg)
 
     if (!context.isExistingProject) {
-      this.log('No package.json found. For new projects, use: npm create checkly@latest')
-      return
+      if (cliMode !== 'interactive') {
+        this.log('No package.json found.')
+        return
+      }
+
+      const { createPkg } = await prompts({
+        type: 'confirm',
+        name: 'createPkg',
+        message: 'No package.json found. Create one to get started?',
+        initial: true,
+      }, { onCancel: makeOnCancel(log) })
+
+      if (!createPkg) {
+        return
+      }
+
+      const { writeFileSync } = await import('fs')
+      const { join, basename } = await import('path')
+      const name = basename(projectDir)
+      writeFileSync(join(projectDir, 'package.json'), JSON.stringify({
+        name,
+        version: '1.0.0',
+        private: true,
+      }, null, 2) + '\n')
+      log(successMessage('Created package.json'))
+
+      // Re-detect now that package.json exists
+      Object.assign(context, detectProjectContext(projectDir))
     }
 
     // === AGENT MODE ===

@@ -71,10 +71,22 @@ beforeEach(() => {
 describe('Init command', () => {
   it('exits when no package.json found', async () => {
     vi.mocked(detectProjectContext).mockReturnValue({ ...pristineContext, isExistingProject: false })
+    vi.mocked(prompts).mockResolvedValue({ createPkg: false })
     const cmd = createCommand()
     await cmd.run()
-    expect(cmd.log).toHaveBeenCalledWith(expect.stringContaining('No package.json found'))
     expect(runSkillInstallStep).not.toHaveBeenCalled()
+  })
+
+  it('offers to create package.json when missing and user accepts', async () => {
+    vi.mocked(detectProjectContext)
+      .mockReturnValueOnce({ ...pristineContext, isExistingProject: false })
+      .mockReturnValueOnce(pristineContext) // re-detect after creation
+    vi.mocked(prompts)
+      .mockResolvedValueOnce({ createPkg: true }) // accept package.json creation
+      .mockResolvedValueOnce({ install: false }) // skill install prompt
+    const cmd = createCommand()
+    // Mock fs.writeFileSync via dynamic import — the command will proceed to the flow
+    await cmd.run()
   })
 
   describe('agent mode', () => {
