@@ -13,7 +13,6 @@ import { Session } from '../constructs/project'
 import semver from 'semver'
 import { existsSync } from 'fs'
 import { detectNearestPackageJson } from './check-parser/package-files/package-manager'
-import { Bundler } from './check-parser/bundler'
 
 export interface GitInformation {
   commitId: string
