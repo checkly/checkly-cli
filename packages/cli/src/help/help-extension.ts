@@ -73,10 +73,10 @@ export default class ChecklyHelpClass extends Help {
 
     if (!hasConfig) {
       this.log('')
-      this.log('  No Checkly project detected. Get started with:')
+      this.log('No Checkly project detected. Get started with:')
       this.log('')
-      this.log('    npx checkly init              Set up Checkly in this project')
-      this.log('    npx checkly skills install     Install the AI agent skill')
+      this.log('  npx checkly init              Set up Checkly in this project')
+      this.log('  npx checkly skills install    Install the AI agent skill')
       this.log('')
     }
 
