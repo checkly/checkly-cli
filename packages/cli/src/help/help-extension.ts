@@ -1,3 +1,5 @@
+import { existsSync } from 'fs'
+import { join } from 'path'
 import { Command, Help } from '@oclif/core'
 import { Topic } from '@oclif/core/interfaces'
 import examples from './examples'
@@ -62,6 +64,20 @@ export default class ChecklyHelpClass extends Help {
           ? `${this.config.bin} is deprecated`
           : `${this.config.bin} is in ${state}.\n`,
       )
+    }
+
+    // Nudge when no Checkly project is detected
+    const cwd = process.cwd()
+    const hasConfig = ['checkly.config.ts', 'checkly.config.js', 'checkly.config.mts', 'checkly.config.mjs']
+      .some(name => existsSync(join(cwd, name)))
+
+    if (!hasConfig) {
+      this.log('')
+      this.log('  No Checkly project detected. Get started with:')
+      this.log('')
+      this.log('    npx checkly init              Set up Checkly in this project')
+      this.log('    npx checkly skills install     Install the AI agent skill')
+      this.log('')
     }
 
     this.log(this.formatRoot())
