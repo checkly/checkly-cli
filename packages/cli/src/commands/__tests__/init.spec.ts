@@ -134,7 +134,7 @@ describe('Init command', () => {
       expect(createConfig).toHaveBeenCalled()
       expect(copyChecks).toHaveBeenCalled()
       expect(runDepsInstall).toHaveBeenCalled()
-      expect(footer).toHaveBeenCalledWith(false)
+      expect(footer).toHaveBeenCalled()
     })
 
     it('skill declined + no examples: deps only + footer', async () => {
@@ -146,7 +146,7 @@ describe('Init command', () => {
       expect(runDepsInstall).toHaveBeenCalled()
     })
 
-    it('skill declined + PW config: shows playwrightHint + footer with PW', async () => {
+    it('skill declined + PW config: shows playwrightHint + footer (no double PW)', async () => {
       vi.mocked(detectProjectContext).mockReturnValue({
         ...pristineContext,
         hasPlaywrightConfig: true,
@@ -155,7 +155,8 @@ describe('Init command', () => {
       const cmd = createCommand()
       await cmd.run()
       expect(playwrightHint).toHaveBeenCalled()
-      expect(footer).toHaveBeenCalledWith(true)
+      // footer() called without hasPlaywright — playwrightHint already covers it
+      expect(footer).toHaveBeenCalled()
     })
   })
 

@@ -127,7 +127,8 @@ export default class Init extends BaseCommand {
         log(playwrightHint())
       }
 
-      log(footer(context.hasPlaywrightConfig))
+      // Don't pass hasPlaywright to footer — playwrightHint() already covers it
+      log(footer())
     }
   }
 
