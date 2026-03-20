@@ -1,8 +1,10 @@
 import chalk from 'chalk'
+import { Flags } from '@oclif/core'
 import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand'
 import { detectCliMode } from '../helpers/cli-mode'
+import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget } from './skills/install'
 import {
   detectProjectContext,
   type ProjectContext,
@@ -22,18 +24,48 @@ import {
   playwrightHint,
 } from '../helpers/onboarding'
 
+const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
+
 export default class Init extends BaseCommand {
   static description = 'Initialize Checkly in your project'
-  static examples = ['$ npx checkly init']
+  static examples = [
+    '$ npx checkly init',
+    '$ npx checkly init --target claude',
+    '$ CI=true npx checkly init',
+  ]
+
   static hidden = false
   static coreCommand = true
   static idempotent = true
 
+  static flags = {
+    target: Flags.string({
+      char: 't',
+      description: `Install the Checkly skill for a specific AI agent (${VALID_TARGETS.join(', ')}).`,
+    }),
+  }
+
   async run (): Promise<void> {
+    const { flags } = await this.parse(Init)
     const cliMode = detectCliMode()
     const projectDir = process.cwd()
     const context = detectProjectContext(projectDir)
     const log = (msg: string) => this.log(msg)
+
+    // Handle --target flag: install skill non-interactively and continue
+    if (flags.target) {
+      const targetDir = PLATFORM_TARGETS[flags.target]
+      if (!targetDir) {
+        this.error(`Unknown target "${flags.target}". Available: ${VALID_TARGETS.join(', ')}`)
+      }
+      try {
+        const content = await readSkillFile()
+        const targetPath = await writeSkillToTarget(targetDir, content)
+        log(successMessage(`Installed Checkly skill to ${targetPath}`))
+      } catch (error: any) {
+        log(chalk.red(`Could not install skill: ${error.message}`))
+      }
+    }
 
     if (!context.isExistingProject) {
       if (cliMode !== 'interactive') {
@@ -100,6 +132,11 @@ export default class Init extends BaseCommand {
       if (!context.hasChecklyConfig) {
         createConfig(projectDir, log)
         await runDepsInstall(projectDir, log, { skipPrompts: true })
+      }
+      if (!flags.target) {
+        log('\nTo install the AI agent skill, run:')
+        log('  npx checkly skills install --target <agent> --force')
+        log(`  Available agents: ${VALID_TARGETS.join(', ')}`)
       }
       return
     }
