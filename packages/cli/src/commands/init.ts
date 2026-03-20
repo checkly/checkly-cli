@@ -156,7 +156,7 @@ export default class Init extends BaseCommand {
         log(successMessage(`Skill updated at ${refreshResult.targetPath}`))
       }
 
-      log(existingProjectFooter())
+      log(existingProjectFooter(context.hasPlaywrightConfig))
     } else {
       // Offer skill install
       const skillResult = await runSkillInstallStep(log)
@@ -167,7 +167,7 @@ export default class Init extends BaseCommand {
         await displayStarterPrompt(promptText, log)
         log(agentFooter(skillResult.platform, context.hasPlaywrightConfig))
       } else {
-        log(existingProjectFooter())
+        log(existingProjectFooter(context.hasPlaywrightConfig))
       }
     }
   }

@@ -28,7 +28,7 @@ export function footer (hasPlaywright: boolean = false): string {
       chalk.cyan('  You have a Playwright test suite — you can also:'),
       `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
       chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
-      chalk.dim('    https://checklyhq.com/docs/playwright-reporter/'),
+      chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
     )
   }
 
@@ -97,19 +97,34 @@ export function agentFooter (platform: string | null, hasPlaywright: boolean = f
   return lines.join('\n')
 }
 
-export function existingProjectFooter (): string {
-  return [
+export function existingProjectFooter (hasPlaywright: boolean = false): string {
+  const lines = [
     '',
     chalk.green.bold('  You\'re all set!'),
     '',
     `  ${chalk.bold('npx checkly test --record')}  Run your checks locally`,
     `  ${chalk.bold('npx checkly deploy')}        Deploy checks to Checkly`,
     `  ${chalk.bold('npx checkly skills')}        View available agent actions`,
+  ]
+
+  if (hasPlaywright) {
+    lines.push(
+      '',
+      chalk.cyan('  You have a Playwright test suite — you can also:'),
+      `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
+      chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
+      chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
+    )
+  }
+
+  lines.push(
     '',
     chalk.dim('  Docs:  https://checklyhq.com/docs/cli'),
     chalk.dim('  Slack: https://checklyhq.com/slack'),
     '',
-  ].join('\n')
+  )
+
+  return lines.join('\n')
 }
 
 export function playwrightHint (): string {
@@ -118,7 +133,7 @@ export function playwrightHint (): string {
     chalk.cyan('  You have a Playwright test suite. You can also:'),
     `  ${chalk.bold('npx checkly pw-test')}       Run Playwright tests on Checkly infrastructure`,
     chalk.dim('  Or install the Checkly Playwright Reporter to upload traces:'),
-    chalk.dim('    https://checklyhq.com/docs/playwright-reporter/'),
+    chalk.dim('    https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
     '',
     chalk.cyan(`  An AI agent can help configure this — run ${chalk.bold('npx checkly skills install')}`),
     '',
