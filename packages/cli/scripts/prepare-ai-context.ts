@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'fs/promises'
+import { cp, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { ACTIONS, EXAMPLE_CONFIGS } from '../src/ai-context/context'
 
@@ -170,6 +170,13 @@ async function prepareContext () {
     // Copy README
     const readme = await readFile(join(AI_CONTEXT_DIR, 'README.md'), 'utf8')
     await writeOutput(readme, PUBLIC_SKILL_DIR, 'README.md')
+
+    // Copy onboarding assets to dist
+    for (const dir of ['onboarding-boilerplate', 'onboarding-prompts']) {
+      await cp(join(AI_CONTEXT_DIR, dir), join(RULES_OUTPUT_DIR, dir), { recursive: true })
+      // eslint-disable-next-line no-console
+      console.log(`Copied ${dir} to ${join(RULES_OUTPUT_DIR, dir)}`)
+    }
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to prepare AI context:', error)

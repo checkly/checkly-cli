@@ -116,7 +116,7 @@ If the user is logged in, verify the information and if it's the correct account
 
 If the user is NOT logged in, present two options (lead with env vars — they work for agents, CI, and interactive use):
 
-- **Option A: Environment variables (recommended)** — The user sets `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` as environment variables. They can create an API key in the Checkly dashboard under **User Settings > API Keys**. This is the recommended approach as it works in all contexts (agentic, CI/CD, and interactive). Once both variables are set, re-run `npx checkly whoami` to verify.
+- **Option A: Environment variables (recommended)** — The user sets `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` as environment variables. They can create an API key at https://app.checklyhq.com/accounts/settings/user/api-keys. This is the recommended approach as it works in all contexts (agentic, CI/CD, and interactive). Once both variables are set, re-run `npx checkly whoami` to verify.
 - **Option B: Interactive login** — The user runs `npx checkly login` themselves. This command opens a browser for OAuth authentication and **cannot be completed by an AI agent**. Tell the user to run the command, complete the browser flow, and let you know when they're done so you can re-run `npx checkly whoami` to verify.
 
 #### Step 6: Summarize and test the new monitoring configuration

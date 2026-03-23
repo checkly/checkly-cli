@@ -135,7 +135,7 @@ export function playwrightHint (): string {
   return [
     ...playwrightBlock(),
     '',
-    chalk.cyan(`  An AI agent can help configure this — run ${chalk.bold('npx checkly skills install')}`),
+    chalk.cyan(`  An AI agent can help configure Playwright checks — run ${chalk.bold('npx checkly skills install')}`),
     '',
   ].join('\n')
 }

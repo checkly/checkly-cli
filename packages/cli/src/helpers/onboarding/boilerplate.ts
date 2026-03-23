@@ -4,7 +4,7 @@ import { join } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
+import { detectPackageManager as resolvePackageManager } from '../../services/check-parser/package-files/package-manager'
 import { makeOnCancel, successMessage } from './prompts-helpers'
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
@@ -23,8 +23,8 @@ function sanitizeLogicalId (name: string): string {
     || 'checkly-project'
 }
 
-async function detectPM (projectDir: string): Promise<{ name: string, installCmd: string }> {
-  const pm = await detectPackageManager(projectDir)
+async function detectPackageManager (projectDir: string): Promise<{ name: string, installCmd: string }> {
+  const pm = await resolvePackageManager(projectDir)
   const runnable = pm.installCommand()
   return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }
@@ -109,7 +109,7 @@ export async function runDepsInstall (
   log: (msg: string) => void,
   options: DepsInstallOptions = {},
 ): Promise<void> {
-  const pm = await detectPM(projectDir)
+  const pm = await detectPackageManager(projectDir)
   const pkg = readPackageJson(projectDir)
   if (!pkg) {
     log(chalk.red('Could not read package.json — it may contain invalid JSON.'))
