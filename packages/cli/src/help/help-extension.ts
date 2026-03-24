@@ -79,7 +79,7 @@ export default class ChecklyHelpClass extends Help {
     `))
 
     const skillsCommands = this.renderList(
-      skills.map(s => s ? [s.command, s.description] : ['', '']),
+      skills.map(s => [s.command, s.description]),
       {
         spacer: '\n',
         stripAnsi: this.opts.stripAnsi,

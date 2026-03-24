@@ -3,14 +3,13 @@ type Skill = {
   description: string
 }
 
-export const skillsDescription = 'The CLI provides product documentation and agent workflows via the `npx checkly skills` command\n'
+export const skillsDescription = 'The CLI provides product documentation and agent workflows via the `npx checkly skills` command.\n'
 
-export const skills: Array<Skill | null> = [
+export const skills: Array<Skill> = [
   {
     command: 'npx checkly skills install',
     description: 'Install the Checkly agent skill into your project',
   },
-  null,
   {
     command: 'npx checkly skills',
     description: 'Show available documentation and workflows',
