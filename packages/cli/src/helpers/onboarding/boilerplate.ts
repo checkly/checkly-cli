@@ -24,7 +24,9 @@ function sanitizeLogicalId (name: string): string {
 }
 
 async function detectPackageManager (projectDir: string): Promise<{ name: string, installCmd: string }> {
-  const pm = await resolvePackageManager(projectDir)
+  // Skip user agent detection — when invoked via npx, it always reports npm
+  // regardless of the project's actual package manager. Lockfile/config detection is reliable.
+  const pm = await resolvePackageManager(projectDir, { skipUserAgent: true })
   const runnable = pm.installCommand()
   return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }
@@ -116,10 +118,13 @@ export async function runDepsInstall (
     return
   }
 
+  // Always add checkly and jiti to package.json — even if user declines running install
+  if (!addDepsToPackageJson(projectDir, pkg, log)) {
+    return
+  }
+  log(successMessage('Added checkly and jiti to package.json'))
+
   if (options.skipPrompts) {
-    if (!addDepsToPackageJson(projectDir, pkg, log)) {
-      return
-    }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
       log(successMessage('Installed dependencies'))
@@ -132,16 +137,13 @@ export async function runDepsInstall (
   const { install } = await prompts({
     type: 'confirm',
     name: 'install',
-    message: `Install dependencies using ${pm.name}? (${pm.name} add -D checkly jiti)`,
+    message: `Run ${pm.name} install to install them now?`,
     initial: true,
   }, {
     onCancel: makeOnCancel(log),
   })
 
   if (install) {
-    if (!addDepsToPackageJson(projectDir, pkg, log)) {
-      return
-    }
     try {
       execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
       log(successMessage('Installed dependencies'))
@@ -149,6 +151,6 @@ export async function runDepsInstall (
       log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
     }
   } else {
-    log(`\nTo install dependencies later, run:\n  ${chalk.bold(pm.installCmd)}`)
+    log(`\nRun ${chalk.bold(pm.installCmd)} when you're ready.`)
   }
 }
