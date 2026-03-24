@@ -1,7 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
-import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -15,6 +14,7 @@ import {
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
+import { forceFlag } from '../helpers/flags'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
@@ -50,11 +50,7 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
-    'force': Flags.boolean({
-      char: 'f',
-      description: commonMessages.forceMode,
-      default: false,
-    }),
+    'force': forceFlag(),
     'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
@@ -214,15 +210,23 @@ export default class Deploy extends AuthCommand {
       return
     }
 
-    if (!force && !preview) {
-      const { confirm } = await prompts({
-        name: 'confirm',
-        type: 'confirm',
-        message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
-      })
-      if (!confirm) {
-        return
-      }
+    if (!preview) {
+      await this.confirmOrAbort({
+        command: 'deploy',
+        description: 'Deploy project to Checkly',
+        changes: [
+          `Will deploy project "${project.name}" to account "${account.name}"`,
+          scheduleOnDeploy
+            ? 'Checks will be scheduled after deploy'
+            : 'Checks will NOT be scheduled after deploy',
+        ],
+        flags,
+        classification: {
+          readOnly: Deploy.readOnly,
+          destructive: Deploy.destructive,
+          idempotent: Deploy.idempotent,
+        },
+      }, { force })
     }
 
     try {
