@@ -114,6 +114,9 @@ describe('destroy confirmation flow', () => {
     ).rejects.toThrow('EXIT_0')
 
     expect(api.projects.deleteProject).not.toHaveBeenCalled()
+    expect(ctx.log).toHaveBeenCalledWith(
+      expect.stringContaining('doesn\'t match the expected project name'),
+    )
   })
 
   it('has correct metadata', () => {

@@ -39,6 +39,7 @@ export function buildConfirmCommand (
 
   for (const [key, value] of Object.entries(flags)) {
     if (OMITTED_FLAGS.has(key)) continue
+    if (value === undefined || value === null) continue
 
     if (Array.isArray(value)) {
       for (const item of value) {

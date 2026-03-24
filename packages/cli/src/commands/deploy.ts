@@ -215,9 +215,9 @@ export default class Deploy extends AuthCommand {
         command: 'deploy',
         description: 'Deploy project to Checkly',
         changes: [
-          `Will deploy project "${project.name}" to account "${account.name}"`,
+          `Deploy project "${project.name}" to account "${account.name}"`,
           scheduleOnDeploy
-            ? 'Checks will be scheduled after deploy'
+            ? 'Schedule checks after deploy'
             : 'Checks will NOT be scheduled after deploy',
         ],
         flags,
