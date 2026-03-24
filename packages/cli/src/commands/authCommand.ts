@@ -26,7 +26,7 @@ export abstract class AuthCommand extends BaseCommand {
 
   protected async confirmOrAbort (
     preview: CommandPreview,
-    options: { force: boolean, dryRun: boolean },
+    options: { force: boolean, dryRun?: boolean, interactiveConfirm?: () => Promise<boolean> },
   ): Promise<void> {
     const CommandClass = this.constructor as typeof BaseCommand
 
@@ -47,12 +47,12 @@ export abstract class AuthCommand extends BaseCommand {
     if (mode === 'interactive') {
       this.log(formatPreviewForTerminal(preview))
       this.log()
-      const { confirm } = await prompts({
-        name: 'confirm',
-        type: 'confirm',
-        message: 'Proceed?',
-      })
-      if (!confirm) {
+
+      const confirmed = options.interactiveConfirm
+        ? await options.interactiveConfirm()
+        : (await prompts({ name: 'confirm', type: 'confirm', message: 'Proceed?' })).confirm
+
+      if (!confirmed) {
         return this.exit(0)
       }
       return

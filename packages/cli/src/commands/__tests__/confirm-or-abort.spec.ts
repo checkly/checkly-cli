@@ -180,4 +180,69 @@ describe('confirmOrAbort', () => {
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
   })
+
+  it('calls interactiveConfirm instead of default prompt when provided', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    const customConfirm = vi.fn().mockResolvedValue(true)
+    const ctx = createMockCommand()
+
+    await AuthCommand.prototype.confirmOrAbort.call(
+      { ...ctx, constructor: AuthCommand } as any,
+      basePreview,
+      { force: false, interactiveConfirm: customConfirm },
+    )
+
+    expect(customConfirm).toHaveBeenCalledTimes(1)
+    expect(prompts).not.toHaveBeenCalled()
+    expect(ctx.exit).not.toHaveBeenCalled()
+  })
+
+  it('exits 0 when interactiveConfirm returns false', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    const customConfirm = vi.fn().mockResolvedValue(false)
+    const ctx = createMockCommand()
+
+    await expect(
+      AuthCommand.prototype.confirmOrAbort.call(
+        { ...ctx, constructor: AuthCommand } as any,
+        basePreview,
+        { force: false, interactiveConfirm: customConfirm },
+      ),
+    ).rejects.toThrow('EXIT_0')
+
+    expect(customConfirm).toHaveBeenCalledTimes(1)
+    expect(ctx.exit).toHaveBeenCalledWith(0)
+  })
+
+  it('ignores interactiveConfirm in agent mode and exits 2', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const customConfirm = vi.fn().mockResolvedValue(true)
+    const ctx = createMockCommand()
+
+    await expect(
+      AuthCommand.prototype.confirmOrAbort.call(
+        { ...ctx, constructor: AuthCommand } as any,
+        basePreview,
+        { force: false, interactiveConfirm: customConfirm },
+      ),
+    ).rejects.toThrow('EXIT_2')
+
+    expect(customConfirm).not.toHaveBeenCalled()
+  })
+
+  it('works without dryRun option (defaults to falsy)', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const ctx = createMockCommand()
+
+    await expect(
+      AuthCommand.prototype.confirmOrAbort.call(
+        { ...ctx, constructor: AuthCommand } as any,
+        basePreview,
+        { force: false },
+      ),
+    ).rejects.toThrow('EXIT_2')
+
+    const output = JSON.parse(ctx.logged[0])
+    expect(output.status).toBe('confirmation_required')
+  })
 })
