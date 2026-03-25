@@ -4,7 +4,7 @@ import { join } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { detectPackageManager as resolvePackageManager } from '../../services/check-parser/package-files/package-manager'
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
 import { makeOnCancel, successMessage } from './prompts-helpers'
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
@@ -23,10 +23,10 @@ function sanitizeLogicalId (name: string): string {
     || 'checkly-project'
 }
 
-async function detectPackageManager (projectDir: string): Promise<{ name: string, installCmd: string }> {
+async function detectProjectPackageManager (projectDir: string): Promise<{ name: string, installCmd: string }> {
   // Skip user agent detection — when invoked via npx, it always reports npm
   // regardless of the project's actual package manager. Lockfile/config detection is reliable.
-  const pm = await resolvePackageManager(projectDir, { skipUserAgent: true })
+  const pm = await detectPackageManager(projectDir, { skipUserAgent: true })
   const runnable = pm.installCommand()
   return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }
@@ -111,7 +111,7 @@ export async function runDepsInstall (
   log: (msg: string) => void,
   options: DepsInstallOptions = {},
 ): Promise<void> {
-  const pm = await detectPackageManager(projectDir)
+  const pm = await detectProjectPackageManager(projectDir)
   const pkg = readPackageJson(projectDir)
   if (!pkg) {
     log(chalk.red('Could not read package.json — it may contain invalid JSON.'))
