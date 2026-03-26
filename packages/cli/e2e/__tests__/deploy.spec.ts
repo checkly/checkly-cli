@@ -349,7 +349,7 @@ Update and Unchanged:
         })
       } catch (err: any) {
         if (err instanceof ExecaError) {
-          expect(err.stdout).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
+          expect(`${err.stdout}\n${err.stderr}`).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
         } else {
           throw err
         }
