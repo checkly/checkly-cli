@@ -1,6 +1,7 @@
 import { Command, Help } from '@oclif/core'
-import examples from './examples'
 import { Topic } from '@oclif/core/interfaces'
+import examples from './examples'
+import { skills, skillsDescription } from './skills'
 
 export default class ChecklyHelpClass extends Help {
   protected formatAllCommands (commands: Array<Command.Loadable>,
@@ -76,6 +77,16 @@ export default class ChecklyHelpClass extends Help {
   CHECKLY_ACCOUNT_ID    Checkly account ID.
   CHECKLY_API_KEY       Checkly User API Key.
     `))
+
+    const skillsCommands = this.renderList(
+      skills.map(s => [s.command, s.description]),
+      {
+        spacer: '\n',
+        stripAnsi: this.opts.stripAnsi,
+        indentation: 2,
+      })
+    this.log(this.section('DOCS & AGENT SKILLS', skillsDescription + '\n' + skillsCommands))
+    this.log('')
 
     const examplesString = examples.reduce((accumulator, example) => {
       return accumulator + `${example.description}\n\n${this.indent('$ ' + example.command)}\n\n`
