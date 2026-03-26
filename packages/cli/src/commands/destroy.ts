@@ -31,7 +31,7 @@ export default class Destroy extends AuthCommand {
       command: 'destroy',
       description: 'Destroy all project resources',
       changes: [
-        `Will permanently delete all resources in project "${checklyConfig.projectName}"`,
+        `PERMANENTLY delete ALL resources associated with the project "${checklyConfig.projectName}"`,
         `Account: "${account.name}"`,
       ],
       flags,
