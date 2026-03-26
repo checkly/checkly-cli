@@ -4,7 +4,11 @@ import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand'
 import { detectCliMode } from '../helpers/cli-mode'
-import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget } from './skills/install'
+import {
+  PLATFORM_TARGETS,
+  readSkillFile,
+  writeSkillToTarget,
+} from './skills/install'
 import {
   detectProjectContext,
   type ProjectContext,
@@ -20,8 +24,8 @@ import {
   greeting,
   footer,
   agentFooter,
+  noSkillWarning,
   existingProjectFooter,
-  playwrightHint,
 } from '../helpers/onboarding'
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
@@ -52,18 +56,27 @@ export default class Init extends BaseCommand {
     const context = detectProjectContext(projectDir)
     const log = (msg: string) => this.log(msg)
 
-    // Handle --target flag: install skill non-interactively and continue
+    // Handle --target flag: install skill non-interactively
     if (flags.target) {
       const targetDir = PLATFORM_TARGETS[flags.target]
       if (!targetDir) {
-        this.error(`Unknown target "${flags.target}". Available: ${VALID_TARGETS.join(', ')}`)
+        this.error(
+          `Unknown target "${flags.target}". `
+          + `Available: ${VALID_TARGETS.join(', ')}`,
+        )
       }
       try {
         const content = await readSkillFile()
-        const targetPath = await writeSkillToTarget(targetDir, content)
-        log(successMessage(`Installed Checkly skill to ${targetPath}`))
+        const targetPath = await writeSkillToTarget(
+          targetDir, content,
+        )
+        log(successMessage(
+          `Installed Checkly skill to ${targetPath}`,
+        ))
       } catch (error: any) {
-        log(chalk.red(`Could not install skill: ${error.message}`))
+        log(chalk.red(
+          `Could not install skill: ${error.message}`,
+        ))
       }
     }
 
@@ -76,7 +89,7 @@ export default class Init extends BaseCommand {
       const { createPkg } = await prompts({
         type: 'confirm',
         name: 'createPkg',
-        message: 'No package.json found. Create one to get started?',
+        message: 'No package.json found. Create one?',
         initial: true,
       }, { onCancel: makeOnCancel(log) })
 
@@ -87,11 +100,14 @@ export default class Init extends BaseCommand {
       const { writeFileSync } = await import('fs')
       const { join, basename } = await import('path')
       const name = basename(projectDir)
-      writeFileSync(join(projectDir, 'package.json'), JSON.stringify({
-        name,
-        version: '1.0.0',
-        private: true,
-      }, null, 2) + '\n')
+      writeFileSync(
+        join(projectDir, 'package.json'),
+        JSON.stringify({
+          name,
+          version: '1.0.0',
+          private: true,
+        }, null, 2) + '\n',
+      )
       log(successMessage('Created package.json'))
 
       // Re-detect now that package.json exists
@@ -105,18 +121,22 @@ export default class Init extends BaseCommand {
         const skillResult = await runSkillInstallStep(noop)
         if (!context.hasChecklyConfig) {
           createConfig(projectDir, noop)
-          await runDepsInstall(projectDir, noop, { skipPrompts: true })
+          await runDepsInstall(
+            projectDir, noop, { skipPrompts: true },
+          )
         }
         this.log(JSON.stringify({
           success: true,
           skillInstalled: skillResult.installed,
           skillPlatform: skillResult.platform,
           skillTargetPath: skillResult.targetPath,
-          playwrightConfigDetected: context.hasPlaywrightConfig,
-          playwrightConfigPath: context.playwrightConfigPath,
+          playwrightConfigDetected:
+            context.hasPlaywrightConfig,
+          playwrightConfigPath:
+            context.playwrightConfigPath,
           hasChecklyConfig: context.hasChecklyConfig,
           hasChecksDir: context.hasChecksDir,
-          hint: 'Run npx checkly skills for detailed agent guidance',
+          hint: 'Run npx checkly skills for agent guidance',
         }))
       } catch (error: any) {
         this.log(JSON.stringify({
@@ -131,12 +151,15 @@ export default class Init extends BaseCommand {
     if (cliMode === 'ci') {
       if (!context.hasChecklyConfig) {
         createConfig(projectDir, log)
-        await runDepsInstall(projectDir, log, { skipPrompts: true })
+        await runDepsInstall(
+          projectDir, log, { skipPrompts: true },
+        )
       }
       if (!flags.target) {
         log('\nTo install the AI agent skill, run:')
-        log('  npx checkly skills install --target <agent> --force')
-        log(`  Available agents: ${VALID_TARGETS.join(', ')}`)
+        log('  npx checkly skills install'
+          + ' --target <agent> --force')
+        log(`  Available: ${VALID_TARGETS.join(', ')}`)
       }
       return
     }
@@ -145,114 +168,130 @@ export default class Init extends BaseCommand {
     log(greeting(this.config.version))
 
     if (context.hasChecklyConfig) {
-      await this.runExistingProjectFlow(projectDir, context, log)
+      await this.runExistingProjectFlow(
+        projectDir, context, log,
+      )
     } else {
-      await this.runNewProjectFlow(projectDir, context, log)
+      await this.runNewProjectFlow(
+        projectDir, context, log,
+      )
     }
   }
 
-  // ─── PRISTINE PROJECT ───────────────────────────────────────────────
-  //
-  // Skill installed → prompt (base or PW-aware) + agent footer
-  // Skill declined  → demo checks? → config → deps → manual footer
-  //
+  // ─── NEW PROJECT ────────────────────────────────────────────
+
   private async runNewProjectFlow (
+    projectDir: string,
+    context: ProjectContext,
+    log: (msg: string) => void,
+  ): Promise<void> {
+    const { wantAgent } = await prompts({
+      type: 'confirm',
+      name: 'wantAgent',
+      message:
+        'Do you want your AI agent to set up Checkly?',
+      initial: true,
+    }, { onCancel: makeOnCancel(log) })
+
+    if (wantAgent) {
+      await this.runAIPath(projectDir, context, log)
+    } else {
+      await this.runManualPath(projectDir, context, log)
+    }
+  }
+
+  private async runAIPath (
     projectDir: string,
     context: ProjectContext,
     log: (msg: string) => void,
   ): Promise<void> {
     const skillResult = await runSkillInstallStep(log)
 
-    if (skillResult.installed) {
-      // Install deps first — saves the agent from doing it
-      await runDepsInstall(projectDir, log)
+    // Always create config — the agent builds on it
+    createConfig(projectDir, log)
+    await runDepsInstall(projectDir, log)
 
-      const promptText = await this.loadStarterPrompt(projectDir, context, 'new')
-      await displayStarterPrompt(promptText, log)
-      log(agentFooter(skillResult.platform, context.hasPlaywrightConfig))
-    } else {
-      // Deterministic path
-      const { wantExamples } = await prompts({
-        type: 'confirm',
-        name: 'wantExamples',
-        message: 'Create a Checkly config and some demo checks to get you started?',
-        initial: true,
-      }, { onCancel: makeOnCancel(log) })
-
-      if (wantExamples) {
-        createConfig(projectDir, log)
-        copyChecks(projectDir, log)
-      }
-
-      await runDepsInstall(projectDir, log)
-
-      if (context.hasPlaywrightConfig) {
-        log(playwrightHint())
-      }
-
-      // Don't pass hasPlaywright to footer — playwrightHint() already covers it
-      log(footer())
+    if (!skillResult.installed) {
+      log(noSkillWarning())
     }
+
+    const promptText = await this.loadStarterPrompt(
+      projectDir, context,
+    )
+    await displayStarterPrompt(promptText, log)
+    log(agentFooter(
+      skillResult.platform,
+      context.hasPlaywrightConfig,
+    ))
   }
 
-  // ─── EXISTING CHECKLY PROJECT ───────────────────────────────────────
-  //
-  // Has skill    → refresh silently → concise next steps
-  // No skill     → offer install
-  //   Installed  → existing-project prompt + agent footer
-  //   Declined   → concise next steps
-  //
-  // Never: boilerplate, demo checks, or deps install
-  //
+  private async runManualPath (
+    projectDir: string,
+    context: ProjectContext,
+    log: (msg: string) => void,
+  ): Promise<void> {
+    // Config is mandatory
+    createConfig(projectDir, log)
+
+    const { wantExamples } = await prompts({
+      type: 'confirm',
+      name: 'wantExamples',
+      message: 'Add some demo checks to get started?',
+      initial: true,
+    }, { onCancel: makeOnCancel(log) })
+
+    if (wantExamples) {
+      copyChecks(projectDir, log)
+    }
+
+    await runDepsInstall(projectDir, log)
+    log(footer(context.hasPlaywrightConfig))
+  }
+
+  // ─── EXISTING PROJECT ───────────────────────────────────────
+
   private async runExistingProjectFlow (
     projectDir: string,
     context: ProjectContext,
     log: (msg: string) => void,
   ): Promise<void> {
-    log(chalk.dim('  Checkly is already configured in this project.\n'))
+    log(chalk.dim('  Checkly is already configured.\n'))
 
     if (context.hasSkillInstalled) {
-      // Refresh skill silently
-      log(chalk.dim('  Updating your Checkly skill to the latest version...'))
-      const refreshResult = await refreshSkill(context.skillPath!, log)
-
-      if (refreshResult.installed) {
-        log(successMessage(`Skill updated at ${refreshResult.targetPath}`))
+      log(chalk.dim(
+        '  Updating skill to the latest version...',
+      ))
+      const result = await refreshSkill(
+        context.skillPath!, log,
+      )
+      if (result.installed) {
+        log(successMessage(
+          `Skill updated at ${result.targetPath}`,
+        ))
       }
-
-      log(existingProjectFooter(context.hasPlaywrightConfig))
     } else {
-      // Offer skill install
-      const skillResult = await runSkillInstallStep(log)
-
-      if (skillResult.installed) {
-        // Existing-project prompt (investigate, new checks, review changes)
-        const promptText = await this.loadStarterPrompt(projectDir, context, 'existing')
-        await displayStarterPrompt(promptText, log)
-        log(agentFooter(skillResult.platform, context.hasPlaywrightConfig))
-      } else {
-        log(existingProjectFooter(context.hasPlaywrightConfig))
-      }
+      await runSkillInstallStep(log)
     }
+
+    log(existingProjectFooter(context.hasPlaywrightConfig))
   }
 
-  // ─── HELPERS ────────────────────────────────────────────────────────
+  // ─── HELPERS ────────────────────────────────────────────────
 
   private loadStarterPrompt (
     projectDir: string,
     context: ProjectContext,
-    projectState: 'new' | 'existing',
   ): Promise<string> {
-    let templateName: string
-    if (projectState === 'existing') {
-      templateName = context.hasPlaywrightConfig ? 'existing-playwright' : 'existing'
-    } else {
-      templateName = context.hasPlaywrightConfig ? 'playwright' : 'base'
-    }
+    const templateName = context.hasPlaywrightConfig
+      ? 'playwright'
+      : 'base'
 
-    const variables: Record<string, string> = { projectPath: projectDir }
+    const variables: Record<string, string> = {
+      projectPath: projectDir,
+    }
     if (context.playwrightConfigPath) {
-      variables.playwrightConfigPath = context.playwrightConfigPath
+      variables.playwrightConfigPath =
+        context.playwrightConfigPath
     }
     return loadPromptTemplate(templateName, variables)
   }
