@@ -74,7 +74,6 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    this.style.actionStart('Parsing your project')
     const { flags } = await this.parse(Deploy)
     const {
       force,
@@ -92,6 +91,28 @@ export default class Deploy extends AuthCommand {
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
     const account = this.account
+
+    if (!preview) {
+      await this.confirmOrAbort({
+        command: 'deploy',
+        description: 'Deploy project to Checkly',
+        changes: [
+          `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
+          scheduleOnDeploy
+            ? 'Schedule checks after deploy'
+            : 'Checks will NOT be scheduled after deploy',
+        ],
+        flags,
+        classification: {
+          readOnly: Deploy.readOnly,
+          destructive: Deploy.destructive,
+          idempotent: Deploy.idempotent,
+        },
+      }, { force })
+    }
+
+    this.style.actionStart('Parsing your project')
+
     const availableRuntimes = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
@@ -208,25 +229,6 @@ export default class Deploy extends AuthCommand {
       await fs.writeFile(debugBundleOutputFile, output, 'utf8')
       this.log(`Successfully wrote debug bundle to "${debugBundleOutputFile}".`)
       return
-    }
-
-    if (!preview) {
-      await this.confirmOrAbort({
-        command: 'deploy',
-        description: 'Deploy project to Checkly',
-        changes: [
-          `Deploy project "${project.name}" to account "${account.name}"`,
-          scheduleOnDeploy
-            ? 'Schedule checks after deploy'
-            : 'Checks will NOT be scheduled after deploy',
-        ],
-        flags,
-        classification: {
-          readOnly: Deploy.readOnly,
-          destructive: Deploy.destructive,
-          idempotent: Deploy.idempotent,
-        },
-      }, { force })
     }
 
     try {

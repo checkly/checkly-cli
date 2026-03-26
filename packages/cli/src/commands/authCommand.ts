@@ -20,7 +20,7 @@ export abstract class AuthCommand extends BaseCommand {
   }
 
   protected async init (): Promise<any> {
-    super.init()
+    await super.init()
     this.#account = await api.validateAuthentication()
   }
 
