@@ -106,6 +106,17 @@ describe('runSkillInstallStep', () => {
       })
     })
 
+    it('does not log preamble text before prompting', async () => {
+      mockPrompts.mockResolvedValueOnce({ install: false })
+
+      await runSkillInstallStep(log)
+
+      // No "AI-native" explainer — that context is provided by init.ts now
+      const allOutput = logs.join('\n')
+      expect(allOutput).not.toContain('AI-native Monitoring as Code')
+      expect(allOutput).not.toContain('teaches it how to')
+    })
+
     it('returns installed false when promptForPlatformTarget returns undefined', async () => {
       mockPrompts.mockResolvedValueOnce({ install: true })
       mockPromptForPlatformTarget.mockResolvedValue(undefined)
