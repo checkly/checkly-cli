@@ -340,7 +340,7 @@ Update and Unchanged:
     it('Should terminate when no resources are found', async () => {
       expect.assertions(1)
       try {
-        await runDeploy(fixt, [], {
+        await runDeploy(fixt, ['--force'], {
           env: {
             PROJECT_LOGICAL_ID: projectLogicalId,
             PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
