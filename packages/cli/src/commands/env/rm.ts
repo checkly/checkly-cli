@@ -28,7 +28,7 @@ export default class EnvRm extends AuthCommand {
       command: 'env rm',
       description: 'Delete environment variable',
       changes: [
-        `Will delete environment variable "${envVariableKey}"`,
+        `Delete environment variable "${envVariableKey}"`,
       ],
       flags,
       args,
