@@ -39,6 +39,35 @@ describe('displayStarterPrompt', () => {
     expect(allOutput).toContain('Set up monitoring.')
   })
 
+  it('wraps prompt lines to the 80 character display width', async () => {
+    mockPrompts.mockResolvedValue({ copy: false })
+    const text = 'Initialize Checkly in this project and set up monitoring checks tailored to the codebase with a sentence long enough to wrap.'
+
+    await displayStarterPrompt(text, log)
+
+    const promptLines = logs
+      .join('\n')
+      .split('\n')
+      .filter(line => line.startsWith('  ') && !line.includes('Starter prompt'))
+
+    expect(promptLines.length).toBeGreaterThan(1)
+    expect(promptLines.every(line => line.length <= 80)).toBe(true)
+  })
+
+  it('hard-wraps long path segments that exceed the prompt width', async () => {
+    mockPrompts.mockResolvedValue({ copy: false })
+    const text = 'Path /Users/herve/Dev/checkly/checkly-cli/projects/with-a-very-long-directory-name-that-needs-wrapping should stay within bounds.'
+
+    await displayStarterPrompt(text, log)
+
+    const promptLines = logs
+      .join('\n')
+      .split('\n')
+      .filter(line => line.startsWith('  ') && !line.includes('Starter prompt'))
+
+    expect(promptLines.every(line => line.length <= 80)).toBe(true)
+  })
+
   it('asks to copy to clipboard and copies on yes', async () => {
     mockCopyToClipboard.mockReturnValue(true)
     mockPrompts.mockResolvedValue({ copy: true })
@@ -54,7 +83,7 @@ describe('displayStarterPrompt', () => {
     )
     expect(mockCopyToClipboard).toHaveBeenCalledWith('prompt text')
     const allOutput = logs.join('\n')
-    expect(allOutput).toContain('Copied')
+    expect(allOutput).toContain('The prompt is copied to your clipboard!')
   })
 
   it('does not copy when user declines', async () => {

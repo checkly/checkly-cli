@@ -1,7 +1,10 @@
 import chalk from 'chalk'
+import { wrap } from '../wrap'
 
-// All output lines stay within 72 visible characters for split-view
+// All output lines stay within 80 visible characters for split-view
 // terminal compatibility.
+
+const WARNING_WRAP_WIDTH = 80
 
 // ─── Shared blocks (single source of truth) ────────────────────
 
@@ -98,6 +101,7 @@ const PLATFORM_HINTS: Record<string, string> = {
 export function agentFooter (
   platform: string | null,
   hasPlaywright: boolean = false,
+  copiedPrompt: boolean = false,
 ): string {
   const hint = platform ? PLATFORM_HINTS[platform] : null
 
@@ -110,7 +114,11 @@ export function agentFooter (
   if (hint) {
     lines.push(`  ${hint}`)
   } else {
-    lines.push('  Paste the prompt into your AI agent.')
+    if (copiedPrompt) {
+      lines.push('  Paste the prompt into your AI agent.')
+    } else {
+      lines.push('  Copy the prompt above and paste it into your AI agent.')
+    }
   }
 
   lines.push(
@@ -138,8 +146,11 @@ export function agentFooter (
 export function noSkillWarning (): string {
   return [
     '',
-    chalk.yellow('  Note: without the skill, your agent won\'t'),
-    chalk.yellow('  have Checkly-specific knowledge.'),
+    chalk.yellow(wrap(
+      'Note: without the skill, your agent won\'t have Checkly-specific knowledge.',
+      { length: WARNING_WRAP_WIDTH, prefix: '  ' },
+    )),
+    '',
     chalk.dim('  You can install it later with:'),
     chalk.dim(`  ${chalk.bold('npx checkly skills install')}`),
     '',

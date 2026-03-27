@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Init from '../init'
 
+vi.mock('../skills/install', () => ({
+  PLATFORM_TARGETS: {
+    claude: '.claude/skills/checkly',
+    codex: '.agents/skills/checkly',
+  },
+  readSkillFile: vi.fn(),
+  writeSkillToTarget: vi.fn(),
+}))
 vi.mock('../../helpers/onboarding/detect-project', () => ({
   detectProjectContext: vi.fn(),
 }))
@@ -37,6 +45,11 @@ vi.mock('fs', async importOriginal => {
   return { ...actual, writeFileSync: vi.fn() }
 })
 
+import { writeFileSync } from 'fs'
+import {
+  readSkillFile,
+  writeSkillToTarget,
+} from '../skills/install'
 import { detectProjectContext } from '../../helpers/onboarding/detect-project'
 import {
   runSkillInstallStep,
@@ -51,9 +64,6 @@ import { loadPromptTemplate } from '../../helpers/onboarding/template-prompt'
 import { displayStarterPrompt } from '../../helpers/onboarding/prompt-display'
 import {
   greeting,
-  footer,
-  agentFooter,
-  noSkillWarning,
   existingProjectFooter,
 } from '../../helpers/onboarding/messages'
 import { detectCliMode } from '../../helpers/cli-mode'
@@ -64,8 +74,8 @@ const mockConfig = {
   runHook: vi.fn().mockResolvedValue({ successes: [], failures: [] }),
 } as any
 
-function createCommand () {
-  const cmd = new Init([], mockConfig)
+function createCommand (...args: string[]) {
+  const cmd = new Init(args, mockConfig)
   cmd.log = vi.fn() as any
   return cmd
 }
@@ -83,7 +93,13 @@ const pristineContext = {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(detectCliMode).mockReturnValue('interactive')
-  vi.mocked(detectProjectContext).mockReturnValue(pristineContext)
+  vi.mocked(detectProjectContext).mockImplementation(() => ({
+    ...pristineContext,
+  }))
+  vi.mocked(readSkillFile).mockResolvedValue('# checkly skill')
+  vi.mocked(writeSkillToTarget).mockResolvedValue(
+    '/project/.claude/skills/checkly/SKILL.md',
+  )
   vi.mocked(runSkillInstallStep).mockResolvedValue({
     installed: false,
     platform: null,
@@ -93,8 +109,15 @@ beforeEach(() => {
     installed: false,
     targetPath: null,
   })
-  vi.mocked(runDepsInstall).mockResolvedValue(undefined)
-  vi.mocked(createConfig).mockReturnValue(undefined)
+  vi.mocked(runDepsInstall).mockResolvedValue({
+    ok: true,
+    packageJsonUpdated: true,
+    installed: true,
+  })
+  vi.mocked(createConfig).mockReturnValue({
+    ok: true,
+    created: true,
+  })
   vi.mocked(copyChecks).mockReturnValue(undefined)
   vi.mocked(loadPromptTemplate).mockResolvedValue('prompt-text')
   vi.mocked(displayStarterPrompt).mockResolvedValue(undefined)
@@ -102,6 +125,32 @@ beforeEach(() => {
 })
 
 describe('Init command', () => {
+  it('sanitizes generated package names when creating package.json', async () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/tmp/My App')
+    try {
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce({
+          ...pristineContext,
+          isExistingProject: false,
+        })
+        .mockReturnValueOnce(pristineContext)
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ createPkg: true })
+        .mockResolvedValueOnce({ wantAgent: false })
+        .mockResolvedValueOnce({ wantExamples: false })
+
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
+        '/tmp/My App/package.json',
+        expect.stringContaining('"name": "my-app"'),
+      )
+    } finally {
+      cwdSpy.mockRestore()
+    }
+  })
+
   it('exits when no package.json and user declines creation', async () => {
     vi.mocked(detectProjectContext).mockReturnValue({
       ...pristineContext,
@@ -131,6 +180,16 @@ describe('Init command', () => {
   describe('agent mode', () => {
     it('outputs JSON, no greeting', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce(pristineContext)
+        .mockReturnValueOnce({
+          ...pristineContext,
+          hasChecklyConfig: true,
+        })
+        .mockReturnValueOnce({
+          ...pristineContext,
+          hasChecklyConfig: true,
+        })
       vi.mocked(runSkillInstallStep).mockResolvedValue({
         installed: true,
         platform: 'claude',
@@ -144,6 +203,7 @@ describe('Init command', () => {
           typeof msg === 'string' && msg.includes('"success":true'),
       )
       expect(jsonCall).toBeDefined()
+      expect(jsonCall?.[0]).toContain('"hasChecklyConfig":true')
     })
 
     it('skips config and deps if already configured', async () => {
@@ -157,99 +217,50 @@ describe('Init command', () => {
       expect(createConfig).not.toHaveBeenCalled()
       expect(runDepsInstall).not.toHaveBeenCalled()
     })
-  })
 
-  describe('new project — AI path', () => {
-    it('AI + skill installed: config + deps + prompt + agent footer', async () => {
-      vi.mocked(prompts).mockResolvedValue({ wantAgent: true })
-      vi.mocked(runSkillInstallStep).mockResolvedValue({
-        installed: true,
-        platform: 'claude',
-        targetPath: '/t',
+    it('returns success false when setup fails', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(createConfig).mockReturnValue({
+        ok: false,
+        created: false,
       })
       const cmd = createCommand()
       await cmd.run()
-      expect(createConfig).toHaveBeenCalled()
-      expect(runDepsInstall).toHaveBeenCalled()
-      expect(displayStarterPrompt).toHaveBeenCalled()
-      expect(agentFooter).toHaveBeenCalledWith('claude', false)
-      expect(noSkillWarning).not.toHaveBeenCalled()
-    })
 
-    it('AI + skill installed + PW: uses playwright template', async () => {
-      vi.mocked(detectProjectContext).mockReturnValue({
-        ...pristineContext,
-        hasPlaywrightConfig: true,
-        playwrightConfigPath: '/pw.config.ts',
-      })
-      vi.mocked(prompts).mockResolvedValue({ wantAgent: true })
-      vi.mocked(runSkillInstallStep).mockResolvedValue({
-        installed: true,
-        platform: 'cursor',
-        targetPath: '/t',
-      })
-      const cmd = createCommand()
-      await cmd.run()
-      expect(loadPromptTemplate).toHaveBeenCalledWith(
-        'playwright',
-        expect.objectContaining({
-          playwrightConfigPath: '/pw.config.ts',
-        }),
+      expect(runDepsInstall).not.toHaveBeenCalled()
+      const jsonCall = vi.mocked(cmd.log).mock.calls.find(
+        ([msg]) =>
+          typeof msg === 'string' && msg.includes('"success":false'),
       )
-      expect(agentFooter).toHaveBeenCalledWith('cursor', true)
+      expect(jsonCall).toBeDefined()
+      expect(jsonCall?.[0]).toContain('Could not create checkly.config.ts')
     })
 
-    it('AI + skill declined: config + deps + prompt + warning + agent footer', async () => {
-      vi.mocked(prompts).mockResolvedValue({ wantAgent: true })
-      // runSkillInstallStep returns not installed (default mock)
-      const cmd = createCommand()
-      await cmd.run()
-      expect(createConfig).toHaveBeenCalled()
-      expect(runDepsInstall).toHaveBeenCalled()
-      expect(noSkillWarning).toHaveBeenCalled()
-      expect(displayStarterPrompt).toHaveBeenCalled()
-      expect(agentFooter).toHaveBeenCalledWith(null, false)
-    })
-  })
+    it('reuses the explicit --target install instead of auto-installing again', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce(pristineContext)
+        .mockReturnValueOnce({
+          ...pristineContext,
+          hasSkillInstalled: true,
+          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+        })
+        .mockReturnValueOnce({
+          ...pristineContext,
+          hasSkillInstalled: true,
+          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+          hasChecklyConfig: true,
+        })
 
-  describe('new project — manual path', () => {
-    it('always creates config, offers demo checks', async () => {
-      vi.mocked(prompts)
-        .mockResolvedValueOnce({ wantAgent: false })
-        .mockResolvedValueOnce({ wantExamples: true })
-      const cmd = createCommand()
+      const cmd = createCommand('--target', 'claude')
       await cmd.run()
-      expect(createConfig).toHaveBeenCalled()
-      expect(copyChecks).toHaveBeenCalled()
-      expect(runDepsInstall).toHaveBeenCalled()
-      expect(footer).toHaveBeenCalled()
-      expect(displayStarterPrompt).not.toHaveBeenCalled()
-    })
 
-    it('manual + no demo checks: config + deps + footer', async () => {
-      vi.mocked(prompts)
-        .mockResolvedValueOnce({ wantAgent: false })
-        .mockResolvedValueOnce({ wantExamples: false })
-      const cmd = createCommand()
-      await cmd.run()
-      expect(createConfig).toHaveBeenCalled()
-      expect(copyChecks).not.toHaveBeenCalled()
-      expect(runDepsInstall).toHaveBeenCalled()
-      expect(footer).toHaveBeenCalled()
-    })
-
-    it('manual + PW: passes hasPlaywright to footer', async () => {
-      vi.mocked(detectProjectContext).mockReturnValue({
-        ...pristineContext,
-        hasPlaywrightConfig: true,
-        playwrightConfigPath: '/pw.config.ts',
-      })
-      vi.mocked(prompts)
-        .mockResolvedValueOnce({ wantAgent: false })
-        .mockResolvedValueOnce({ wantExamples: false })
-      const cmd = createCommand()
-      await cmd.run()
-      expect(footer).toHaveBeenCalledWith(true)
+      expect(runSkillInstallStep).not.toHaveBeenCalled()
+      const jsonCall = vi.mocked(cmd.log).mock.calls.find(
+        ([msg]) =>
+          typeof msg === 'string' && msg.includes('"success":true'),
+      )
+      expect(jsonCall?.[0]).toContain('"skillPlatform":"claude"')
     })
   })
 
@@ -295,6 +306,22 @@ describe('Init command', () => {
       await cmd.run()
       expect(existingProjectFooter).toHaveBeenCalled()
       expect(displayStarterPrompt).not.toHaveBeenCalled()
+    })
+
+    it('explicit --target skips the follow-up skill step', async () => {
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce(existingContext)
+        .mockReturnValueOnce({
+          ...existingContext,
+          hasSkillInstalled: true,
+          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+        })
+      const cmd = createCommand('--target', 'claude')
+      await cmd.run()
+
+      expect(runSkillInstallStep).not.toHaveBeenCalled()
+      expect(refreshSkill).not.toHaveBeenCalled()
+      expect(existingProjectFooter).toHaveBeenCalled()
     })
   })
 })

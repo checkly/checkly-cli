@@ -32,7 +32,11 @@ import { execSync } from 'child_process'
 import prompts from 'prompts'
 import { join } from 'path'
 import { detectPackageManager } from '../../../services/check-parser/package-files/package-manager'
-import { createConfig, copyChecks, runDepsInstall } from '../boilerplate'
+import {
+  createConfig,
+  copyChecks,
+  runDepsInstall,
+} from '../boilerplate'
 
 const mockExistsSync = vi.mocked(existsSync)
 const mockReadFileSync = vi.mocked(readFileSync)
@@ -77,11 +81,12 @@ describe('boilerplate', () => {
 
   describe('createConfig', () => {
     it('creates checkly.config.ts with project name and logicalId replaced', () => {
-      createConfig(projectDir, log)
+      const result = createConfig(projectDir, log)
 
       const writeCall = mockWriteFileSync.mock.calls.find(
         ([path]) => path.toString().endsWith('checkly.config.ts'),
       )
+      expect(result).toEqual({ ok: true, created: true })
       expect(writeCall).toBeDefined()
       const content = writeCall![1] as string
       expect(content).toContain('projectName: \'my-cool-app\'')
@@ -115,13 +120,30 @@ describe('boilerplate', () => {
         return false
       })
 
-      createConfig(projectDir, log)
+      const result = createConfig(projectDir, log)
 
       const configWrite = mockWriteFileSync.mock.calls.find(
         ([path]) => path.toString().endsWith('checkly.config.ts'),
       )
+      expect(result).toEqual({ ok: true, created: false })
       expect(configWrite).toBeUndefined()
       expect(logs.some(l => l.includes('already exists') && l.includes('checkly.config.ts'))).toBe(true)
+    })
+
+    it('returns not ok if the template cannot be read', () => {
+      mockReadFileSync.mockImplementation(path => {
+        const p = path.toString()
+        if (p.includes('checkly-config-template')) {
+          throw new Error('ENOENT')
+        }
+        if (p.endsWith('package.json')) return packageJson
+        return ''
+      })
+
+      const result = createConfig(projectDir, log)
+
+      expect(result).toEqual({ ok: false, created: false })
+      expect(logs.some(l => l.includes('Could not read config template'))).toBe(true)
     })
   })
 
@@ -174,8 +196,13 @@ describe('boilerplate', () => {
     })
 
     it('skipPrompts: true installs deps without asking', async () => {
-      await runDepsInstall(projectDir, log, { skipPrompts: true })
+      const result = await runDepsInstall(projectDir, log, { skipPrompts: true })
 
+      expect(result).toEqual({
+        ok: true,
+        packageJsonUpdated: true,
+        installed: true,
+      })
       expect(mockPrompts).not.toHaveBeenCalled()
       expect(mockExecSync).toHaveBeenCalledWith('npm install', { cwd: projectDir, stdio: 'pipe' })
       expect(logs.some(l => l.includes('Installed dependencies'))).toBe(true)
@@ -187,8 +214,13 @@ describe('boilerplate', () => {
         throw new Error('install failed')
       })
 
-      await runDepsInstall(projectDir, log)
+      const result = await runDepsInstall(projectDir, log)
 
+      expect(result).toEqual({
+        ok: false,
+        packageJsonUpdated: true,
+        installed: false,
+      })
       expect(logs.some(l => l.includes('Failed to install'))).toBe(true)
       expect(logs.some(l => l.includes('npm install'))).toBe(true)
     })

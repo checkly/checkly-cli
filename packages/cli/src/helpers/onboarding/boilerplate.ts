@@ -15,6 +15,17 @@ export interface DepsInstallOptions {
   skipPrompts?: boolean
 }
 
+export interface ConfigCreationResult {
+  ok: boolean
+  created: boolean
+}
+
+export interface DepsInstallResult {
+  ok: boolean
+  packageJsonUpdated: boolean
+  installed: boolean
+}
+
 function sanitizeLogicalId (name: string): string {
   return name
     .replace(/[^a-zA-Z0-9-]/g, '-')
@@ -61,26 +72,35 @@ function addDepsToPackageJson (projectDir: string, pkg: Record<string, any>, log
   }
 }
 
-export function createConfig (projectDir: string, log: (msg: string) => void): void {
+export function createConfig (
+  projectDir: string,
+  log: (msg: string) => void,
+): ConfigCreationResult {
   const configPath = join(projectDir, 'checkly.config.ts')
   if (existsSync(configPath)) {
     log(chalk.yellow('checkly.config.ts already exists, skipping'))
-    return
+    return { ok: true, created: false }
   }
   let template: string
   try {
     template = readFileSync(CONFIG_TEMPLATE_PATH, 'utf-8')
   } catch {
     log(chalk.red('Could not read config template. Try reinstalling the checkly package.'))
-    return
+    return { ok: false, created: false }
   }
   const projectName = getProjectName(projectDir)
   const logicalId = sanitizeLogicalId(projectName)
   const content = template
     .replaceAll('{{projectName}}', projectName)
     .replaceAll('{{logicalId}}', logicalId)
-  writeFileSync(configPath, content)
+  try {
+    writeFileSync(configPath, content)
+  } catch {
+    log(chalk.red('Could not write checkly.config.ts.'))
+    return { ok: false, created: false }
+  }
   log(successMessage('Created checkly.config.ts'))
+  return { ok: true, created: true }
 }
 
 export function copyChecks (projectDir: string, log: (msg: string) => void): void {
@@ -106,32 +126,59 @@ function readPackageJson (projectDir: string): Record<string, any> | null {
   }
 }
 
+function installDependencies (
+  projectDir: string,
+  installCmd: string,
+  log: (msg: string) => void,
+): DepsInstallResult {
+  try {
+    execSync(installCmd, { cwd: projectDir, stdio: 'pipe' })
+    log(successMessage('Installed dependencies'))
+    return {
+      ok: true,
+      packageJsonUpdated: true,
+      installed: true,
+    }
+  } catch (error: any) {
+    log(chalk.red(
+      `Failed to install dependencies. Run ${chalk.bold(installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`,
+    ))
+    return {
+      ok: false,
+      packageJsonUpdated: true,
+      installed: false,
+    }
+  }
+}
+
 export async function runDepsInstall (
   projectDir: string,
   log: (msg: string) => void,
   options: DepsInstallOptions = {},
-): Promise<void> {
+): Promise<DepsInstallResult> {
   const pm = await detectProjectPackageManager(projectDir)
   const pkg = readPackageJson(projectDir)
   if (!pkg) {
     log(chalk.red('Could not read package.json — it may contain invalid JSON.'))
-    return
+    return {
+      ok: false,
+      packageJsonUpdated: false,
+      installed: false,
+    }
   }
 
   // Always add checkly and jiti to package.json — even if user declines running install
   if (!addDepsToPackageJson(projectDir, pkg, log)) {
-    return
+    return {
+      ok: false,
+      packageJsonUpdated: false,
+      installed: false,
+    }
   }
   log(successMessage('Added checkly and jiti to package.json'))
 
   if (options.skipPrompts) {
-    try {
-      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(successMessage('Installed dependencies'))
-    } catch (error: any) {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
-    }
-    return
+    return installDependencies(projectDir, pm.installCmd, log)
   }
 
   const { install } = await prompts({
@@ -144,13 +191,13 @@ export async function runDepsInstall (
   })
 
   if (install) {
-    try {
-      execSync(pm.installCmd, { cwd: projectDir, stdio: 'pipe' })
-      log(successMessage('Installed dependencies'))
-    } catch (error: any) {
-      log(chalk.red(`Failed to install dependencies. Run ${chalk.bold(pm.installCmd)} manually. ${error.message?.slice(0, 200) ?? ''}`))
-    }
-  } else {
-    log(`\nRun ${chalk.bold(pm.installCmd)} when you're ready.`)
+    return installDependencies(projectDir, pm.installCmd, log)
+  }
+
+  log(`\nRun ${chalk.bold(pm.installCmd)} when you're ready.`)
+  return {
+    ok: true,
+    packageJsonUpdated: true,
+    installed: false,
   }
 }
