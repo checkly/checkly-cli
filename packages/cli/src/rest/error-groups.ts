@@ -1,5 +1,32 @@
 import type { AxiosInstance } from 'axios'
 
+export interface RcaEvidence {
+  artifacts: Array<{ name: string, type: string }>
+  description: string
+}
+
+export interface RcaReferenceLink {
+  url: string
+  title: string
+}
+
+export interface RootCauseAnalysis {
+  id: string
+  created_at: string
+  analysis: {
+    classification: string
+    rootCause: string
+    userImpact: string
+    codeFix: string | null
+    evidence: RcaEvidence[] | null
+    referenceLinks: RcaReferenceLink[] | null
+  }
+  provider: string
+  model: string
+  durationMs: number
+  userContext: Array<{ text: string, type: string }> | null
+}
+
 export interface ErrorGroup {
   id: string
   checkId: string
@@ -9,6 +36,7 @@ export interface ErrorGroup {
   firstSeen: string
   lastSeen: string
   archivedUntilNextEvent: boolean
+  rootCauseAnalyses?: RootCauseAnalysis[]
 }
 
 class ErrorGroups {
