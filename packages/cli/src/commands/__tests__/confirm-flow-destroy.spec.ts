@@ -119,6 +119,23 @@ describe('destroy confirmation flow', () => {
     )
   })
 
+  it('aborts silently when interactive confirmation is cancelled', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    vi.mocked(prompts).mockResolvedValue({ projectName: undefined })
+    const ctx = createCommandContext({
+      flags: { force: false },
+    })
+
+    await expect(
+      Destroy.prototype.run.call(ctx as any),
+    ).rejects.toThrow('EXIT_0')
+
+    expect(api.projects.deleteProject).not.toHaveBeenCalled()
+    expect(ctx.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('doesn\'t match the expected project name'),
+    )
+  })
+
   it('has correct metadata', () => {
     expect(Destroy.destructive).toBe(true)
     expect(Destroy.readOnly).toBe(false)

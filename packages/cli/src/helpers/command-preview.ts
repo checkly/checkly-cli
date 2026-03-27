@@ -71,6 +71,10 @@ export function formatPreviewForAgent (
 }
 
 export function formatPreviewForTerminal (preview: CommandPreview): string {
+  if (preview.changes.length === 1) {
+    return `This will ${preview.changes[0]}`
+  }
+
   const lines: string[] = []
   lines.push('This will:')
   for (const change of preview.changes) {

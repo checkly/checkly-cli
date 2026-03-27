@@ -28,7 +28,10 @@ describe('AuthCommand.init', () => {
     expect(api.validateAuthentication).not.toHaveBeenCalled()
 
     releaseBaseInit()
-    await expect(initPromise).rejects.toThrow('Cannot write private member #account')
+    // This intentionally invokes AuthCommand.init with a fake `this`, so the
+    // eventual rejection is incidental. The behavior under test is that auth
+    // validation does not begin until BaseCommand.init has finished.
+    await expect(initPromise).rejects.toThrow()
 
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
 
