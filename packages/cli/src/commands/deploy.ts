@@ -45,6 +45,11 @@ export default class Deploy extends AuthCommand {
       description: 'Shows the changes made after the deploy command.',
       default: false,
     }),
+    'verbose': Flags.boolean({
+      char: 'v',
+      description: 'Show resource names and IDs in the deploy output.',
+      default: false,
+    }),
     'schedule-on-deploy': Flags.boolean({
       description: 'Enables automatic check scheduling after a deploy.',
       default: true,
@@ -84,12 +89,14 @@ export default class Deploy extends AuthCommand {
       force,
       preview,
       'schedule-on-deploy': scheduleOnDeploy,
-      output,
+      output: outputFlag,
+      verbose,
       config: configFilename,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'debug-bundle': debugBundle,
       'debug-bundle-output-file': debugBundleOutputFile,
     } = flags
+    const output = outputFlag || verbose
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -228,7 +235,7 @@ export default class Deploy extends AuthCommand {
     try {
       const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
       if (preview || output) {
-        this.log(this.formatPreview(data, project))
+        this.log(this.formatPreview(data, project, verbose))
       }
       if (!preview) {
         await setTimeout(500)
@@ -250,7 +257,7 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: ProjectDeployResponse, project: Project): string {
+  private formatPreview (previewData: ProjectDeployResponse, project: Project, verbose = false): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
@@ -258,7 +265,7 @@ export default class Deploy extends AuthCommand {
     const creating = []
     const deleting: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
-      const { type, logicalId, action } = change
+      const { type, logicalId, physicalId, action } = change
       if ([
         AlertChannelSubscription.__checklyType,
         PrivateLocationCheckAssignment.__checklyType,
@@ -270,9 +277,9 @@ export default class Deploy extends AuthCommand {
       }
       const construct = project.data[type as keyof ProjectData][logicalId]
       if (action === ResourceDeployStatus.UPDATE) {
-        updating.push({ resourceType: type, logicalId, construct })
+        updating.push({ resourceType: type, logicalId, physicalId, construct })
       } else if (action === ResourceDeployStatus.CREATE) {
-        creating.push({ resourceType: type, logicalId, construct })
+        creating.push({ resourceType: type, logicalId, physicalId, construct })
       } else if (action === ResourceDeployStatus.DELETE) {
         // Since the resource is being deleted, the construct isn't in the project.
         deleting.push({ resourceType: type, logicalId })
@@ -325,8 +332,14 @@ export default class Deploy extends AuthCommand {
 
     if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
       output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, construct } of sortedCreating) {
+      for (const { logicalId, physicalId, construct } of sortedCreating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
+        if (verbose && (construct as any).name) {
+          output.push(`      name: ${(construct as any).name}`)
+        }
+        if (verbose && physicalId) {
+          output.push(`      id: ${physicalId}`)
+        }
       }
       output.push('')
     }
@@ -347,8 +360,14 @@ export default class Deploy extends AuthCommand {
     }
     if (sortedUpdating.length) {
       output.push(chalk.bold.magenta('Update and Unchanged:'))
-      for (const { logicalId, construct } of sortedUpdating) {
+      for (const { logicalId, physicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
+        if (verbose && (construct as any).name) {
+          output.push(`      name: ${(construct as any).name}`)
+        }
+        if (verbose && physicalId) {
+          output.push(`      id: ${physicalId}`)
+        }
       }
       output.push('')
     }
