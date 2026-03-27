@@ -8,6 +8,7 @@ export const CheckTypes = {
   ICMP: 'ICMP',
   DNS: 'DNS',
   URL: 'URL',
+  AGENTIC: 'AGENTIC',
 } as const
 
 export type CheckType = typeof CheckTypes[keyof typeof CheckTypes]
