@@ -1,7 +1,7 @@
 import type { Check } from '../../rest/checks'
 import type { CheckStatus } from '../../rest/check-statuses'
 import type { CheckResult, ApiCheckResult, BrowserCheckResult, MultiStepCheckResult } from '../../rest/check-results'
-import type { ErrorGroup } from '../../rest/error-groups'
+import type { ErrorGroup, RootCauseAnalysis } from '../../rest/error-groups'
 import type { CheckWithStatus } from '../checks'
 
 // --- Check statuses ---
@@ -387,4 +387,76 @@ export const archivedErrorGroup: ErrorGroup = {
   firstSeen: '2025-05-01T00:00:00.000Z',
   lastSeen: '2025-05-15T00:00:00.000Z',
   archivedUntilNextEvent: true,
+}
+
+// --- Root cause analyses ---
+
+export const sampleRca: RootCauseAnalysis = {
+  id: 'rca-1',
+  created_at: '2025-06-15T10:00:00.000Z',
+  analysis: {
+    classification: 'INFRASTRUCTURE_ERROR',
+    rootCause: 'The upstream API returned HTTP 503 Service Unavailable after a long server processing time (~28s TTFB), indicating a transient backend issue.',
+    userImpact: 'Users in ap-south-1 cannot trigger checks via the API. Requests fail with 503 after ~28 seconds.',
+    codeFix: 'Add retry logic with exponential backoff for transient 503 responses.',
+    evidence: [
+      {
+        artifacts: [{ name: 'HTTP_REQUEST', type: 'REQUEST' }],
+        description: 'The HTTP request completed with status 503 Service Unavailable.',
+      },
+      {
+        artifacts: [{ name: 'TIMING_PHASES', type: 'TIMINGS' }],
+        description: 'DNS and TCP times are sub-2ms while TTFB is ~28.2s.',
+      },
+      {
+        artifacts: [
+          { name: 'TRACE_ROUTE', type: 'TRACE' },
+          { name: 'PACKET_CAPTURE', type: 'BINARY' },
+        ],
+        description: 'No sustained network outage; the failure is on the application side.',
+      },
+    ],
+    referenceLinks: [
+      { url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503', title: 'HTTP 503 Service Unavailable' },
+    ],
+  },
+  provider: 'openai',
+  model: 'gpt-5.1',
+  durationMs: 9459,
+  userContext: [{ text: 'checkly-backend', type: 'TAG' }],
+}
+
+export const sampleRcaMinimal: RootCauseAnalysis = {
+  id: 'rca-2',
+  created_at: '2025-06-14T08:00:00.000Z',
+  analysis: {
+    classification: 'APPLICATION_ERROR',
+    rootCause: 'The API endpoint /users returns 404 because the route was removed in a recent deployment.',
+    userImpact: 'User profile pages fail to load.',
+    codeFix: null,
+    evidence: null,
+    referenceLinks: null,
+  },
+  provider: 'openai',
+  model: 'gpt-5.1',
+  durationMs: 5000,
+  userContext: null,
+}
+
+export const errorGroupWithRca: ErrorGroup = {
+  ...activeErrorGroup,
+  id: 'eg-rca-1',
+  rootCauseAnalyses: [sampleRca],
+}
+
+export const errorGroupWithMultipleRcas: ErrorGroup = {
+  ...activeErrorGroup,
+  id: 'eg-rca-2',
+  rootCauseAnalyses: [sampleRca, sampleRcaMinimal],
+}
+
+export const errorGroupWithoutRca: ErrorGroup = {
+  ...activeErrorGroup,
+  id: 'eg-no-rca',
+  rootCauseAnalyses: [],
 }
