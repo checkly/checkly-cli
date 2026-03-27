@@ -321,6 +321,7 @@ function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] 
       },
       { header: 'First Seen', value: eg => eg.firstSeen },
       { header: 'Last Seen', value: eg => eg.lastSeen },
+      { header: 'RCA', value: eg => (eg.rootCauseAnalyses?.length ?? 0) > 0 ? 'Yes' : '-' },
       { header: 'ID', value: eg => eg.id },
     ]
   }
@@ -338,7 +339,13 @@ function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] 
     },
     {
       header: 'Last Seen',
+      width: 14,
       value: eg => chalk.dim(timeAgo(eg.lastSeen)),
+    },
+    {
+      header: 'RCA',
+      width: 6,
+      value: eg => (eg.rootCauseAnalyses?.length ?? 0) > 0 ? chalk.cyan('Yes') : chalk.dim('-'),
     },
   ]
 }
