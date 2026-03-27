@@ -1,0 +1,1 @@
+Initialize Checkly in this project at {{projectPath}}. I already have a Playwright test suite with a config at {{playwrightConfigPath}} — analyze them to identify what can be reused as a Checkly Playwright Check Suites to monitor critical flows of my application. Also inspect the project structure and endpoints for relevant API checks or URL monitors.

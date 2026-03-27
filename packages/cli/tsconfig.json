@@ -16,6 +16,7 @@
   ],
   "exclude": [
     "src/**/__tests__",
+    "src/ai-context/onboarding-boilerplate",
     "e2e"
   ]
 }

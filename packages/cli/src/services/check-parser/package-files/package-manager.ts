@@ -554,6 +554,8 @@ export const knownPackageManagers: PackageManagerDetector[] = [
 export interface DetectOptions {
   detectors?: PackageManagerDetector[]
   root?: string
+  /** Skip npm_config_user_agent detection. Use when the invoking command (e.g. npx) sets a user agent that doesn't match the project's actual package manager. */
+  skipUserAgent?: boolean
 }
 
 export async function detectPackageManager (
@@ -562,12 +564,14 @@ export async function detectPackageManager (
 ): Promise<PackageManager> {
   const detectors = options?.detectors ?? knownPackageManagers
 
-  // Try user agent first.
-  const userAgent = process.env['npm_config_user_agent']
-  if (userAgent !== undefined) {
-    for (const detector of detectors) {
-      if (detector.detectUserAgent(userAgent)) {
-        return detector
+  // Try user agent first (unless skipped — e.g. when invoked via npx which always reports npm).
+  if (!options?.skipUserAgent) {
+    const userAgent = process.env['npm_config_user_agent']
+    if (userAgent !== undefined) {
+      for (const detector of detectors) {
+        if (detector.detectUserAgent(userAgent)) {
+          return detector
+        }
       }
     }
   }
