@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { stripAnsi } from '../render'
-import { formatRcaDetail, transformErrorGroupForJson } from '../rca'
+import { formatRcaDetail, formatRcaPending, formatRcaCompleted, transformErrorGroupForJson } from '../rca'
 import {
   sampleRca,
   sampleRcaMinimal,
@@ -124,5 +124,59 @@ describe('transformErrorGroupForJson', () => {
     expect(rca).toHaveProperty('model')
     expect(rca).toHaveProperty('durationMs')
     expect(rca).toHaveProperty('created_at')
+  })
+})
+
+describe('formatRcaPending', () => {
+  const pendingInfo = {
+    rcaId: 'rca-123',
+    errorGroupId: 'eg-456',
+    checkId: 'check-789',
+  }
+
+  it('renders pending state in terminal', () => {
+    const result = stripAnsi(formatRcaPending(pendingInfo, 'terminal'))
+    expect(result).toContain('Root cause analysis triggered')
+    expect(result).toContain('rca-123')
+    expect(result).toContain('eg-456')
+    expect(result).toContain('pending')
+    expect(result).toContain('checkly rca get rca-123 --watch')
+    expect(result).toContain('checkly checks get check-789 --error-group eg-456')
+  })
+
+  it('renders pending state in json', () => {
+    const result = formatRcaPending(pendingInfo, 'json')
+    const parsed = JSON.parse(result)
+    expect(parsed.id).toBe('rca-123')
+    expect(parsed.status).toBe('pending')
+    expect(parsed.errorGroupId).toBe('eg-456')
+  })
+
+  it('renders pending state in markdown', () => {
+    const result = formatRcaPending(pendingInfo, 'md')
+    expect(result).toContain('# Root Cause Analysis')
+    expect(result).toContain('pending')
+    expect(result).toContain('rca-123')
+  })
+})
+
+describe('formatRcaCompleted', () => {
+  it('renders completed RCA in terminal', () => {
+    const result = stripAnsi(formatRcaCompleted(sampleRca, 'terminal'))
+    expect(result).toContain('ROOT CAUSE ANALYSIS')
+    expect(result).toContain('INFRASTRUCTURE_ERROR')
+  })
+
+  it('renders completed RCA in json', () => {
+    const result = formatRcaCompleted(sampleRca, 'json')
+    const parsed = JSON.parse(result)
+    expect(parsed.id).toBe('rca-1')
+    expect(parsed.analysis.classification).toBe('INFRASTRUCTURE_ERROR')
+  })
+
+  it('renders completed RCA in markdown', () => {
+    const result = formatRcaCompleted(sampleRca, 'md')
+    expect(result).toContain('## Root Cause Analysis')
+    expect(result).toContain('INFRASTRUCTURE_ERROR')
   })
 })
