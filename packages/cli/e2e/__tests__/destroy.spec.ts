@@ -34,7 +34,7 @@ describe('destroy', () => {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       timeout: 10000,
     })
-    expect(result.stdout).toContain('Please confirm by typing the project name "Deploy Project"')
+    expect(result.stdout).toContain('Type the project name "Deploy Project" to confirm:')
   })
 
   it('Shouldn fail confirming to destroy', async () => {

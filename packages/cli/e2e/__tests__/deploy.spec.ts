@@ -99,12 +99,9 @@ describe('deploy', { timeout: 45_000 }, () => {
   // Create a unique ID suffix to support parallel test executions
   let projectLogicalId: string
   let privateLocationSlugname: string
-  let latestVersion = ''
   // Cleanup projects that may have not been deleted in previous runs
   beforeAll(async () => {
     await cleanupProjects()
-    const packageInformation = await axios.get('https://registry.npmjs.org/checkly/latest')
-    latestVersion = packageInformation.data.version
   })
   beforeEach(() => {
     projectLogicalId = `e2e-test-deploy-project-${uuidv4()}`
@@ -161,8 +158,8 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       expect(stderr).toBe('')
-      // expect the version to be overriden with latest from NPM
-      expect(stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'`)
+      // Non-interactive runs should no longer emit the local-dev version notice.
+      expect(stdout).not.toContain('Notice: replacing version')
 
       const checks = await getAllResources('checks')
       const checkGroups = await getAllResources('check-groups')
@@ -343,7 +340,7 @@ Update and Unchanged:
     it('Should terminate when no resources are found', async () => {
       expect.assertions(1)
       try {
-        await runDeploy(fixt, [], {
+        await runDeploy(fixt, ['--force'], {
           env: {
             PROJECT_LOGICAL_ID: projectLogicalId,
             PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -352,7 +349,7 @@ Update and Unchanged:
         })
       } catch (err: any) {
         if (err instanceof ExecaError) {
-          expect(err.stderr).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
+          expect(`${err.stdout}\n${err.stderr}`).toContain('Failed to deploy your project. Unable to find constructs to deploy.')
         } else {
           throw err
         }
