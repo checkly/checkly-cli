@@ -347,6 +347,7 @@ function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] 
       width: 6,
       value: eg => (eg.rootCauseAnalyses?.length ?? 0) > 0 ? chalk.cyan('Yes') : chalk.dim('-'),
     },
+    { header: 'Error Group ID', value: eg => chalk.dim(eg.id) },
   ]
 }
 

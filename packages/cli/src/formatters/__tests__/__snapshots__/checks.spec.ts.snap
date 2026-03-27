@@ -84,8 +84,8 @@ exports[`formatErrorGroups > renders markdown error groups > error-groups-md 1`]
 
 exports[`formatErrorGroups > renders terminal error groups > error-groups-terminal 1`] = `
 "ERROR GROUPS
-ERROR                                                       FIRST SEEN    LAST SEEN     RCA
-TimeoutError: page.click: Timeout 30000ms exceeded          14d ago       5m ago        -"
+ERROR                                                       FIRST SEEN    LAST SEEN     RCA   ERROR GROUP ID
+TimeoutError: page.click: Timeout 30000ms exceeded          14d ago       5m ago        -     eg-1"
 `;
 
 exports[`formatResults > renders markdown table > results-table-md 1`] = `
