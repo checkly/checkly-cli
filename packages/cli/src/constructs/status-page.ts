@@ -22,6 +22,10 @@ export interface StatusPageProps {
    */
   name: string
   /**
+   * An optional description displayed on the status page. Maximum 500 characters.
+   */
+  description?: string
+  /**
    * The URL of the status page.
    */
   url: string
@@ -56,6 +60,7 @@ export interface StatusPageProps {
  */
 export class StatusPage extends Construct {
   name: string
+  description?: string
   cards: StatusPageCardProps[]
   url: string
   customDomain?: string
@@ -77,6 +82,7 @@ export class StatusPage extends Construct {
   constructor (logicalId: string, props: StatusPageProps) {
     super(StatusPage.__checklyType, logicalId)
     this.name = props.name
+    this.description = props.description
     this.url = props.url
     this.cards = props.cards
     this.customDomain = props.customDomain
@@ -95,6 +101,7 @@ export class StatusPage extends Construct {
   synthesize (): any | null {
     return {
       name: this.name,
+      description: this.description,
       url: this.url,
       customDomain: this.customDomain,
       logo: this.logo,
