@@ -58,8 +58,17 @@ describe('formatPreviewForAgent', () => {
 })
 
 describe('formatPreviewForTerminal', () => {
+  it('formats a single change inline', () => {
+    const result = formatPreviewForTerminal({
+      ...samplePreview,
+      changes: ['PERMANENTLY delete ALL resources associated with the project "Acme" in account "Test"'],
+    })
+    expect(result).toBe('This will PERMANENTLY delete ALL resources associated with the project "Acme" in account "Test"')
+  })
+
   it('formats changes as a bulleted list', () => {
     const result = formatPreviewForTerminal(samplePreview)
+    expect(result).toContain('This will:')
     expect(result).toContain('Will create incident "DB outage"')
     expect(result).toContain('Affected services')
     expect(result).toContain('Will notify subscribers')

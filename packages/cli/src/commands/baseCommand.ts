@@ -78,7 +78,6 @@ export abstract class BaseCommand extends Command {
     if (version === '0.0.1-dev' || version?.startsWith('0.0.0')) {
       try {
         const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
-        this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'. If you wish to test with a different version, please pass the CHECKLY_CLI_VERSION environment variable.\n`)
         version = packageInformation.version
       } catch {
         // No-op

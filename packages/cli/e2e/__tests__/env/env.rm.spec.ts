@@ -50,8 +50,8 @@ describe('checkly env rm', () => {
       directory: path.join(__dirname, '../fixtures/check-parse-error'),
       timeout: 5000,
     })
-    // expect that 'testenvvars' is in the output
-    expect(result.stdout).toContain('Are you sure you want to delete environment variable')
+    expect(result.stdout).toContain(`Delete environment variable "testenvvarsrm-${executionId}"`)
+    expect(result.stdout).toContain('Proceed?')
   })
 
   it('should throw an error because testenvvarsrm env variable does not exist', async () => {

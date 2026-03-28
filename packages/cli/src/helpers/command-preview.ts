@@ -39,6 +39,7 @@ export function buildConfirmCommand (
 
   for (const [key, value] of Object.entries(flags)) {
     if (OMITTED_FLAGS.has(key)) continue
+    if (value === undefined || value === null) continue
 
     if (Array.isArray(value)) {
       for (const item of value) {
@@ -70,6 +71,10 @@ export function formatPreviewForAgent (
 }
 
 export function formatPreviewForTerminal (preview: CommandPreview): string {
+  if (preview.changes.length === 1) {
+    return `This will ${preview.changes[0]}`
+  }
+
   const lines: string[] = []
   lines.push('This will:')
   for (const change of preview.changes) {

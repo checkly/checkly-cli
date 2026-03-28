@@ -1,7 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api'
-import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand'
 import { parseProject } from '../services/project-parser'
@@ -15,6 +14,7 @@ import {
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util'
 import commonMessages from '../messages/common-messages'
+import { forceFlag } from '../helpers/flags'
 import { ProjectDeployResponse } from '../rest/projects'
 import { uploadSnapshots } from '../services/snapshot-service'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
@@ -50,11 +50,7 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
-    'force': Flags.boolean({
-      char: 'f',
-      description: commonMessages.forceMode,
-      default: false,
-    }),
+    'force': forceFlag(),
     'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
@@ -78,7 +74,6 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    this.style.actionStart('Parsing your project')
     const { flags } = await this.parse(Deploy)
     const {
       force,
@@ -96,6 +91,28 @@ export default class Deploy extends AuthCommand {
       constructs: checklyConfigConstructs,
     } = await loadChecklyConfig(configDirectory, configFilenames)
     const account = this.account
+
+    if (!preview) {
+      await this.confirmOrAbort({
+        command: 'deploy',
+        description: 'Deploy project to Checkly',
+        changes: [
+          `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
+          scheduleOnDeploy
+            ? 'Schedule checks after deploy'
+            : 'Checks will NOT be scheduled after deploy',
+        ],
+        flags,
+        classification: {
+          readOnly: Deploy.readOnly,
+          destructive: Deploy.destructive,
+          idempotent: Deploy.idempotent,
+        },
+      }, { force })
+    }
+
+    this.style.actionStart('Parsing your project')
+
     const availableRuntimes = await api.runtimes.getAll()
     const project = await parseProject({
       directory: configDirectory,
@@ -212,17 +229,6 @@ export default class Deploy extends AuthCommand {
       await fs.writeFile(debugBundleOutputFile, output, 'utf8')
       this.log(`Successfully wrote debug bundle to "${debugBundleOutputFile}".`)
       return
-    }
-
-    if (!force && !preview) {
-      const { confirm } = await prompts({
-        name: 'confirm',
-        type: 'confirm',
-        message: `You are about to deploy your project "${project.name}" to account "${account.name}". Do you want to continue?`,
-      })
-      if (!confirm) {
-        return
-      }
     }
 
     try {
