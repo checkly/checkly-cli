@@ -149,6 +149,7 @@ describe('deploy confirmation flow', () => {
         'force': false,
         'preview': false,
         'output': false,
+        'verbose': false,
         'config': undefined,
         'schedule-on-deploy': true,
         'verify-runtime-dependencies': true,
