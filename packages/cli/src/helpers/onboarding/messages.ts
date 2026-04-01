@@ -20,8 +20,7 @@ function playwrightBlock (): string[] {
     + chalk.bold.cyan('Checkly Playwright Reporter')
     + chalk(' for'),
     chalk('  trace uploads:'),
-    chalk.cyan('  https://checklyhq.com/docs/detect/')
-    + chalk.cyan('testing/playwright-reporter/'),
+    chalk.cyan('  https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
   ]
 }
 
@@ -34,8 +33,7 @@ function playwrightBlockDimmed (): string[] {
     '',
     chalk.dim(`  Install the ${chalk.bold('Checkly Playwright Reporter')}`),
     chalk.dim('  for trace uploads:'),
-    chalk.cyan.dim('  https://checklyhq.com/docs/detect/'),
-    chalk.cyan.dim('  testing/playwright-reporter/'),
+    chalk.cyan.dim('  https://checklyhq.com/docs/detect/testing/playwright-reporter/'),
   ]
 }
 
