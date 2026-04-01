@@ -4,8 +4,7 @@ import { Command } from '@oclif/core'
 export default class Bootstrap extends Command {
   static description = 'Bootstrap a Checkly project'
 
-  // eslint-disable-next-line require-await
-  async run (): Promise<void> {
+  run (): void {
     this.log('')
     this.log(chalk.yellow.bold('  Heads up!') + ' ' + chalk.yellow('npm create checkly has been replaced by npx checkly init.'))
     this.log('')
