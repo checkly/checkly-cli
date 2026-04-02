@@ -2,7 +2,6 @@ import { Args, Flags } from '@oclif/core'
 import { AuthCommand } from '../authCommand'
 import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
-import { NotFoundError } from '../../rest/errors'
 import { formatRcaCompleted } from '../../formatters/rca'
 
 const POLL_INTERVAL_MS = 2000
@@ -34,37 +33,34 @@ export default class RcaGet extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      // Try to fetch the RCA directly
-      try {
-        const { data: rca } = await api.rca.get(args.id)
+      // Fetch the RCA — 202 means still generating, 200 means complete
+      const response = await api.rca.get(args.id)
+
+      if (response.status !== 202) {
         const fmt = flags.output === 'json' ? 'json' : flags.output === 'md' ? 'md' : 'terminal'
-        this.log(formatRcaCompleted(rca, fmt))
+        this.log(formatRcaCompleted(response.data, fmt))
         return
-      } catch (err: any) {
-        if (!(err instanceof NotFoundError)) {
-          throw err
-        }
+      }
 
-        // 404 — either doesn't exist or still generating
-        if (!flags.watch) {
-          if (flags.output === 'json') {
-            this.log(JSON.stringify({ id: args.id, status: 'pending' }, null, 2))
-          } else {
-            this.log('Root cause analysis is still being generated.')
-            this.log(`Use ${this.config.bin} rca get ${args.id} --watch to wait for completion.`)
-          }
-          return
+      // Still generating
+      if (!flags.watch) {
+        if (flags.output === 'json') {
+          this.log(JSON.stringify({ id: args.id, status: 'pending' }, null, 2))
+        } else {
+          this.log('Root cause analysis is still being generated.')
+          this.log(`Use ${this.config.bin} rca get ${args.id} --watch to wait for completion.`)
         }
+        return
+      }
 
-        if (flags.output !== 'detail') {
-          process.stderr.write(`--watch is not supported with --output ${flags.output}, ignoring\n`)
-          if (flags.output === 'json') {
-            this.log(JSON.stringify({ id: args.id, status: 'pending' }, null, 2))
-          } else {
-            this.log('Root cause analysis is still being generated.')
-          }
-          return
+      if (flags.output !== 'detail') {
+        process.stderr.write(`--watch is not supported with --output ${flags.output}, ignoring\n`)
+        if (flags.output === 'json') {
+          this.log(JSON.stringify({ id: args.id, status: 'pending' }, null, 2))
+        } else {
+          this.log('Root cause analysis is still being generated.')
         }
+        return
       }
 
       // Watch mode: poll until complete
@@ -83,15 +79,11 @@ export default class RcaGet extends AuthCommand {
   private async pollUntilComplete (rcaId: string) {
     while (true) {
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-      try {
-        const { data } = await api.rca.get(rcaId)
-        return data
-      } catch (err: any) {
-        if (err instanceof NotFoundError) {
-          continue
-        }
-        throw err
+      const response = await api.rca.get(rcaId)
+      if (response.status === 202) {
+        continue
       }
+      return response.data
     }
   }
 }

@@ -87,16 +87,11 @@ export default class RcaRun extends AuthCommand {
   private async pollUntilComplete (rcaId: string) {
     while (true) {
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-      try {
-        const { data } = await api.rca.get(rcaId)
-        return data
-      } catch (err: any) {
-        if (err instanceof NotFoundError) {
-          // Still generating — keep polling
-          continue
-        }
-        throw err
+      const response = await api.rca.get(rcaId)
+      if (response.status === 202) {
+        continue
       }
+      return response.data
     }
   }
 }
