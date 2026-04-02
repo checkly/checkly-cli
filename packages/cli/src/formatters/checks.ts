@@ -359,5 +359,17 @@ export function formatErrorGroups (errorGroups: ErrorGroup[], format: OutputForm
   const title = format === 'md'
     ? '## Error Groups\n\n'
     : chalk.bold('ERROR GROUPS') + '\n'
-  return title + renderTable(columns, active, format)
+  const table = title + renderTable(columns, active, format)
+
+  if (format !== 'terminal') return table
+
+  const withoutRca = active.filter(eg => (eg.rootCauseAnalyses?.length ?? 0) === 0)
+  if (withoutRca.length === 0) return table
+
+  const hint = withoutRca.length === 1
+    ? `\n\n  ${chalk.dim('Run root cause analysis:')}  checkly rca run -e ${withoutRca[0].id} -w`
+    : `\n\n  ${chalk.dim('Run root cause analysis on an error group without one:')}\n`
+      + withoutRca.map(eg => `    checkly rca run -e ${eg.id} -w`).join('\n')
+
+  return table + hint
 }

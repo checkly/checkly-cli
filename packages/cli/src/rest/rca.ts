@@ -5,6 +5,8 @@ export interface TriggerRcaResponse {
   id: string
 }
 
+const POLL_INTERVAL_MS = 2000
+
 class Rca {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -19,6 +21,17 @@ class Rca {
 
   get (id: string) {
     return this.api.get<RootCauseAnalysis>(`/v1/root-cause-analyses/${id}`)
+  }
+
+  async pollUntilComplete (id: string): Promise<RootCauseAnalysis> {
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+      const response = await this.get(id)
+      if (response.status === 202) {
+        continue
+      }
+      return response.data
+    }
   }
 }
 

@@ -6,8 +6,6 @@ import * as api from '../../rest/api'
 import { NotFoundError, InadequateEntitlementsError } from '../../rest/errors'
 import { formatRcaPending, formatRcaCompleted } from '../../formatters/rca'
 
-const POLL_INTERVAL_MS = 2000
-
 export default class RcaRun extends AuthCommand {
   static hidden = false
   static readOnly = false
@@ -61,7 +59,7 @@ export default class RcaRun extends AuthCommand {
       this.log('')
       this.style.actionStart('Waiting for root cause analysis...')
 
-      const rca = await this.pollUntilComplete(rcaId)
+      const rca = await api.rca.pollUntilComplete(rcaId)
 
       this.style.actionSuccess()
       this.log(formatRcaCompleted(rca, 'terminal'))
@@ -81,17 +79,6 @@ export default class RcaRun extends AuthCommand {
       }
       this.style.longError('Failed to trigger root cause analysis.', err)
       process.exitCode = 1
-    }
-  }
-
-  private async pollUntilComplete (rcaId: string) {
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-      const response = await api.rca.get(rcaId)
-      if (response.status === 202) {
-        continue
-      }
-      return response.data
     }
   }
 }

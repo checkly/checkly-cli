@@ -4,8 +4,6 @@ import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import { formatRcaCompleted } from '../../formatters/rca'
 
-const POLL_INTERVAL_MS = 2000
-
 export default class RcaGet extends AuthCommand {
   static hidden = false
   static readOnly = true
@@ -66,24 +64,13 @@ export default class RcaGet extends AuthCommand {
       // Watch mode: poll until complete
       this.style.actionStart('Waiting for root cause analysis...')
 
-      const rca = await this.pollUntilComplete(args.id)
+      const rca = await api.rca.pollUntilComplete(args.id)
 
       this.style.actionSuccess()
       this.log(formatRcaCompleted(rca, 'terminal'))
     } catch (err: any) {
       this.style.longError('Failed to retrieve root cause analysis.', err)
       process.exitCode = 1
-    }
-  }
-
-  private async pollUntilComplete (rcaId: string) {
-    while (true) {
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-      const response = await api.rca.get(rcaId)
-      if (response.status === 202) {
-        continue
-      }
-      return response.data
     }
   }
 }
