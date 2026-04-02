@@ -116,6 +116,52 @@ export interface ErrorGroupJsonOutput {
   rootCauseAnalysisCount: number
 }
 
+export interface RcaPendingInfo {
+  rcaId: string
+  errorGroupId: string
+  checkId: string
+}
+
+export function formatRcaPending (info: RcaPendingInfo, format: OutputFormat | 'json'): string {
+  if (format === 'json') {
+    return JSON.stringify({
+      id: info.rcaId,
+      status: 'pending',
+      errorGroupId: info.errorGroupId,
+    }, null, 2)
+  }
+
+  if (format === 'md') {
+    return [
+      '# Root Cause Analysis',
+      '',
+      '| Field | Value |',
+      '| --- | --- |',
+      `| RCA ID | ${info.rcaId} |`,
+      `| Error group | ${info.errorGroupId} |`,
+      '| Status | pending |',
+    ].join('\n')
+  }
+
+  const lines: string[] = []
+  lines.push(chalk.bold('Root cause analysis triggered.'))
+  lines.push('')
+  lines.push(`${label('RCA ID:')}${info.rcaId}`)
+  lines.push(`${label('Error group:')}${info.errorGroupId}`)
+  lines.push(`${label('Status:')}${chalk.yellow('pending')}`)
+  lines.push('')
+  lines.push(`  ${chalk.dim('Watch progress:')}  checkly rca get ${info.rcaId} --watch`)
+  lines.push(`  ${chalk.dim('View result:')}    checkly checks get ${info.checkId} --error-group ${info.errorGroupId}`)
+  return lines.join('\n')
+}
+
+export function formatRcaCompleted (rca: RootCauseAnalysis, format: OutputFormat | 'json'): string {
+  if (format === 'json') {
+    return JSON.stringify(rca, null, 2)
+  }
+  return formatRcaDetail(rca, format)
+}
+
 export function transformErrorGroupForJson (errorGroup: ErrorGroup): ErrorGroupJsonOutput {
   const { rootCauseAnalyses, ...rest } = errorGroup
   const rcas = rootCauseAnalyses ?? []
