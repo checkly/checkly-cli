@@ -61,13 +61,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -152,13 +146,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -252,13 +240,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -420,13 +402,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -529,13 +505,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -638,13 +608,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
