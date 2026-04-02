@@ -60,6 +60,7 @@ describe('help', () => {
   incidents        Create and manage status page incidents.
   login            Login to your Checkly account or create a new one.
   logout           Log out and clear any local credentials.
+  rca              Trigger and retrieve root cause analyses.
   rules            Generate a rules file to use with AI IDEs and Copilots.
   runtimes         List all supported runtimes and dependencies.
   skills           Show Checkly AI skills, actions and their references.
