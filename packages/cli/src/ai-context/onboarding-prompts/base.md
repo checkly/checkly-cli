@@ -1,0 +1,1 @@
+Initialize Checkly in this project at {{projectPath}}. Set up monitoring checks tailored to this codebase — look at the project structure, existing tests, and endpoints to create relevant API checks, browser checks, or URL monitors.

@@ -28,6 +28,19 @@ export function detectOperator (): string {
   return 'manual'
 }
 
+export const OPERATOR_TO_PLATFORM: Record<string, string> = {
+  'claude-code': 'claude',
+  'cursor': 'cursor',
+  'windsurf': 'windsurf',
+  'github-copilot': 'github-copilot',
+  'vscode': 'github-copilot',
+  'cline': 'cline',
+  'codex-cli': 'codex',
+  'gemini-cli': 'gemini-cli',
+  'aider': 'claude',
+  'opencode': 'opencode',
+}
+
 export function detectCliMode (): CliMode {
   const envMode = process.env.CHECKLY_CLI_MODE
   if (envMode && VALID_CLI_MODES.has(envMode)) {

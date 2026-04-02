@@ -1,4 +1,5 @@
 import { Flags } from '@oclif/core'
+import chalk from 'chalk'
 import { constants } from 'fs'
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -7,10 +8,10 @@ import prompts from 'prompts'
 import { detectCliMode } from '../../helpers/cli-mode'
 import { BaseCommand } from '../baseCommand'
 
-const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
+export const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'
 
-const PLATFORM_TARGETS: Record<string, string> = {
+export const PLATFORM_TARGETS: Record<string, string> = {
   'amp': '.agents/skills/checkly',
   'claude': '.claude/skills/checkly',
   'cline': '.agents/skills/checkly',
@@ -26,6 +27,78 @@ const PLATFORM_TARGETS: Record<string, string> = {
 }
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
+
+export async function readSkillFile (): Promise<string> {
+  try {
+    return await readFile(SKILL_FILE_PATH, 'utf8')
+  } catch {
+    throw new Error(`Failed to read skill file at ${SKILL_FILE_PATH}`)
+  }
+}
+
+export async function writeSkillToTarget (targetDir: string, content: string): Promise<string> {
+  const absoluteDir = join(process.cwd(), targetDir)
+  const targetPath = join(absoluteDir, SKILL_FILENAME)
+
+  try {
+    await mkdir(absoluteDir, { recursive: true })
+  } catch {
+    throw new Error(`Failed to create directory ${absoluteDir}`)
+  }
+
+  try {
+    await writeFile(targetPath, content, 'utf8')
+  } catch {
+    throw new Error(`Failed to write skill file to ${targetPath}`)
+  }
+
+  return targetPath
+}
+
+export function formatPlatformName (platform: string): string {
+  return platform
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+export async function promptForPlatformTarget (
+  onCancel?: () => void,
+): Promise<string | undefined> {
+  const choices = [
+    ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
+      title: `${formatPlatformName(platform)} ${chalk.dim(`(${dir}/)`)}`,
+      value: platform,
+    })),
+    {
+      title: 'Custom path',
+      value: '__custom__',
+    },
+  ]
+
+  const promptOptions = onCancel ? { onCancel } : {}
+
+  const { platform } = await prompts({
+    type: 'select',
+    name: 'platform',
+    message: 'Which AI coding agent do you use?',
+    choices,
+    initial: 0,
+  }, promptOptions)
+
+  if (platform === undefined) return undefined
+
+  if (platform === '__custom__') {
+    const { customPath } = await prompts({
+      type: 'text',
+      name: 'customPath',
+      message: 'Enter the target directory:',
+    }, promptOptions)
+    return customPath || undefined
+  }
+
+  return PLATFORM_TARGETS[platform]
+}
 
 export default class SkillsInstall extends BaseCommand {
   static hidden = false
@@ -90,9 +163,9 @@ export default class SkillsInstall extends BaseCommand {
 
   private async readSkillFile (): Promise<string> {
     try {
-      return await readFile(SKILL_FILE_PATH, 'utf8')
-    } catch {
-      this.error(`Failed to read skill file at ${SKILL_FILE_PATH}`)
+      return await readSkillFile()
+    } catch (err: any) {
+      this.error(err.message)
     }
   }
 
@@ -115,51 +188,13 @@ export default class SkillsInstall extends BaseCommand {
     return undefined
   }
 
-  private async promptForTarget (): Promise<string | undefined> {
-    const choices = [
-      ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
-        title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} (${dir}/)`,
-        value: dir,
-      })),
-      {
-        title: 'Custom path',
-        value: '__custom__',
-      },
-    ]
-
-    const { target } = await prompts({
-      type: 'select',
-      name: 'target',
-      message: 'Where do you want to install the Checkly agent skill?',
-      choices,
-      initial: 0,
-    })
-
-    if (target === undefined) {
-      return undefined
-    }
-
-    if (target === '__custom__') {
-      const { customPath } = await prompts({
-        type: 'text',
-        name: 'customPath',
-        message: 'Enter the target directory:',
-      })
-      return customPath || undefined
-    }
-
-    return target
+  private promptForTarget (): Promise<string | undefined> {
+    return promptForPlatformTarget()
   }
 
   private async installSkill (content: string, targetDir: string, force: boolean): Promise<void> {
     const absoluteDir = join(process.cwd(), targetDir)
     const targetPath = join(absoluteDir, SKILL_FILENAME)
-
-    try {
-      await mkdir(absoluteDir, { recursive: true })
-    } catch {
-      this.error(`Failed to create directory ${absoluteDir}`)
-    }
 
     if (!force) {
       const shouldOverwrite = await this.confirmOverwrite(targetPath)
@@ -170,12 +205,11 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     try {
-      await writeFile(targetPath, content, 'utf8')
-    } catch {
-      this.error(`Failed to write skill file to ${targetPath}`)
+      const writtenPath = await writeSkillToTarget(targetDir, content)
+      this.style.shortSuccess(`Installed Checkly agent skill to: ${writtenPath}`)
+    } catch (err: any) {
+      this.error(err.message)
     }
-
-    this.style.shortSuccess(`Installed Checkly agent skill to: ${targetPath}`)
   }
 
   private async confirmOverwrite (targetPath: string): Promise<boolean> {

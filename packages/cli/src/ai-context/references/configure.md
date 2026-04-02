@@ -11,7 +11,7 @@
 
 - Use `npx checkly` instead of installing the Checkly CLI globally.
 - NEVER make up commands that do not exist.
-- Use `npm create checkly@latest` to set up a new Checkly project via the CLI.
+- Use `npx checkly init` to set up Checkly in an existing project.
 
 ## Project Structure
 
@@ -45,6 +45,14 @@ Parse and read further reference documentation when tasked with creating or mana
 If the Checkly CLI is installed (`npx checkly version`), use `npx checkly skills configure [CONSTRUCT]` to access up-to-date information:
 
 <!-- REFERENCE_COMMANDS -->
+
+## Important: Public URL Requirement
+
+All checks (API, Browser, URL monitors) run on **Checkly's cloud infrastructure**, not on the user's local machine. Target URLs must be publicly accessible from the internet.
+
+- `localhost` and private network URLs will **not work** with `npx checkly test` or `npx checkly deploy`
+- For local development, suggest: tunneling tools (ngrok, cloudflare tunnel), preview/staging deployments, or CI preview URLs
+- Always confirm with the user that their target URLs are publicly reachable before creating checks
 
 ## Check Locations and Plan Entitlements
 
