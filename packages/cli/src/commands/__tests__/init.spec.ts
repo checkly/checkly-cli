@@ -1,3 +1,4 @@
+import { join } from 'path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Init from '../init'
 
@@ -143,7 +144,7 @@ describe('Init command', () => {
       await cmd.run()
 
       expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
-        '/tmp/My App/package.json',
+        join('/tmp/My App', 'package.json'),
         expect.stringContaining('"name": "my-app"'),
       )
     } finally {
