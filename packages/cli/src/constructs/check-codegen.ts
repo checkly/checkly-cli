@@ -21,6 +21,7 @@ export interface CheckResource {
   id: string
   checkType: string
   name: string
+  description?: string | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -45,6 +46,10 @@ export function buildCheckProps (
   context: Context,
 ): void {
   builder.string('name', resource.name, { order: -1000 })
+
+  if (resource.description) {
+    builder.string('description', resource.description)
+  }
 
   if (resource.activated !== undefined) {
     builder.boolean('activated', resource.activated)
