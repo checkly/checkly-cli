@@ -31,6 +31,8 @@ import {
   browserCheckResult,
   activeErrorGroup,
   archivedErrorGroup,
+  errorGroupWithRca,
+  errorGroupWithoutRca,
 } from './__fixtures__/fixtures'
 
 // Pin time for timeAgo used in results/error groups
@@ -360,5 +362,28 @@ describe('formatErrorGroups', () => {
 
   it('returns empty string for empty array', () => {
     expect(formatErrorGroups([], 'terminal')).toBe('')
+  })
+
+  it('shows RCA column with Yes for error groups with RCA', () => {
+    const result = stripAnsi(formatErrorGroups([errorGroupWithRca], 'terminal'))
+    expect(result).toContain('RCA')
+    expect(result).toContain('Yes')
+  })
+
+  it('shows RCA column with dash for error groups without RCA', () => {
+    const result = stripAnsi(formatErrorGroups([errorGroupWithoutRca], 'terminal'))
+    expect(result).toContain('RCA')
+    expect(result).toContain('-')
+  })
+
+  it('shows RCA column in markdown', () => {
+    const result = formatErrorGroups([errorGroupWithRca], 'md')
+    expect(result).toContain('| RCA |')
+    expect(result).toContain('Yes')
+  })
+
+  it('shows dash in markdown for error groups without RCA', () => {
+    const result = formatErrorGroups([errorGroupWithoutRca], 'md')
+    expect(result).toContain('| - |')
   })
 })

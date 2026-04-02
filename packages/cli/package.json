@@ -79,6 +79,9 @@
       "import": {
         "description": "Import existing resources from your Checkly account to your project."
       },
+      "rca": {
+        "description": "Trigger and retrieve root cause analyses."
+      },
       "status-pages": {
         "description": "List and manage status pages in your Checkly account."
       }
