@@ -40,21 +40,21 @@ ID:         check-1"
 `;
 
 exports[`formatChecks > renders markdown table > checks-table-md 1`] = `
-"| Name | Type | Status | Freq | Tags | ID |
-| --- | --- | --- | --- | --- | --- |
-| My API Check | API | passing | 10m | production, api | check-1 |
-| Failing Browser Check | BROWSER | failing | 10m | production, browser | check-2 |
-| Inactive Check | API | inactive | 10m | - | check-3 |
-| Muted Check | API | passing (muted) | 10m | production, api | check-4 |"
+"| Name | Description | Type | Status | Freq | Tags | ID |
+| --- | --- | --- | --- | --- | --- | --- |
+| My API Check | - | API | passing | 10m | production, api | check-1 |
+| Failing Browser Check | - | BROWSER | failing | 10m | production, browser | check-2 |
+| Inactive Check | - | API | inactive | 10m | - | check-3 |
+| Muted Check | - | API | passing (muted) | 10m | production, api | check-4 |"
 `;
 
 exports[`formatChecks > renders markdown with pagination > checks-table-md-paginated 1`] = `
-"| Name | Type | Status | Freq | Tags | ID |
-| --- | --- | --- | --- | --- | --- |
-| My API Check | API | passing | 10m | production, api | check-1 |
-| Failing Browser Check | BROWSER | failing | 10m | production, browser | check-2 |
-| Inactive Check | API | inactive | 10m | - | check-3 |
-| Muted Check | API | passing (muted) | 10m | production, api | check-4 |
+"| Name | Description | Type | Status | Freq | Tags | ID |
+| --- | --- | --- | --- | --- | --- | --- |
+| My API Check | - | API | passing | 10m | production, api | check-1 |
+| Failing Browser Check | - | BROWSER | failing | 10m | production, browser | check-2 |
+| Inactive Check | - | API | inactive | 10m | - | check-3 |
+| Muted Check | - | API | passing (muted) | 10m | production, api | check-4 |
 
 *Showing page 1/3 (25 total checks)*"
 `;

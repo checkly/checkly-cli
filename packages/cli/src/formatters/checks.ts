@@ -217,6 +217,7 @@ function buildCheckColumns (
   if (format === 'md') {
     return [
       { header: 'Name', value: c => c.name },
+      { header: 'Description', value: c => c.description || '-' },
       { header: 'Type', value: c => formatCheckType(c.checkType) },
       { header: 'Status', value: (c, fmt) => resolveStatus(c, fmt) },
       { header: 'Freq', value: c => formatFrequency(c.frequency) },
