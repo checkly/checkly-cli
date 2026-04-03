@@ -47,7 +47,7 @@ export function buildCheckProps (
 ): void {
   builder.string('name', resource.name, { order: -1000 })
 
-  if (resource.description) {
+  if (resource.description != null) {
     builder.string('description', resource.description)
   }
 

@@ -12,6 +12,7 @@ import {
   formatDate,
   resolveResultStatus,
   truncateError,
+  escapeMdCell,
   renderDetailFields,
   renderTable,
   type DetailField,
@@ -257,6 +258,24 @@ describe('truncateError', () => {
   })
 })
 
+describe('escapeMdCell', () => {
+  it('escapes pipe characters', () => {
+    expect(escapeMdCell('a | b | c')).toBe('a \\| b \\| c')
+  })
+
+  it('replaces newlines with spaces', () => {
+    expect(escapeMdCell('line one\nline two\nline three')).toBe('line one line two line three')
+  })
+
+  it('handles both pipes and newlines', () => {
+    expect(escapeMdCell('col1 | col2\nnext line')).toBe('col1 \\| col2 next line')
+  })
+
+  it('returns clean strings unchanged', () => {
+    expect(escapeMdCell('hello world')).toBe('hello world')
+  })
+})
+
 describe('renderDetailFields', () => {
   interface TestItem { name: string, age: number, optional?: string }
 
@@ -298,6 +317,14 @@ describe('renderDetailFields', () => {
   it('omits fields that return null in markdown', () => {
     const result = renderDetailFields('Test', fields, { name: 'Alice', age: 30 }, 'md')
     expect(result).not.toContain('Optional')
+  })
+
+  it('escapes pipes and newlines in markdown detail values', () => {
+    const unsafeFields: DetailField<TestItem>[] = [
+      { label: 'Desc', value: () => 'has | pipe\nand newline' },
+    ]
+    const result = renderDetailFields('T', unsafeFields, { name: 'A', age: 1 }, 'md')
+    expect(result).toContain('| Desc | has \\| pipe and newline |')
   })
 
   it('indents multi-line values to align with first line in terminal', () => {
@@ -362,6 +389,15 @@ describe('renderTable', () => {
     expect(result).toContain('| --- | --- |')
     expect(result).toContain('| Alice | 95 |')
     expect(result).toContain('| Bob | 87 |')
+  })
+
+  it('escapes pipes and newlines in markdown table cells', () => {
+    const cols: ColumnDef<Row>[] = [
+      { header: 'Name', value: r => r.name },
+      { header: 'Score', value: () => 'a | b\nc' },
+    ]
+    const result = renderTable(cols, [{ name: 'Alice', score: 1 }], 'md')
+    expect(result).toContain('| Alice | a \\| b c |')
   })
 
   it('handles empty rows in terminal', () => {

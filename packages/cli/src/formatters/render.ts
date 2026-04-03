@@ -10,6 +10,10 @@ export function stripAnsi (value: string): string {
   return value.replace(ANSI_REGEX, '')
 }
 
+export function escapeMdCell (value: string): string {
+  return value.replace(/\|/g, '\\|').replace(/\n/g, ' ')
+}
+
 export function visWidth (value: string): number {
   return stringWidth(stripAnsi(value))
 }
@@ -134,7 +138,7 @@ export function renderDetailFields<T> (
     for (const field of fields) {
       const val = field.value(item, format)
       if (val != null) {
-        lines.push(`| ${field.label} | ${val} |`)
+        lines.push(`| ${field.label} | ${escapeMdCell(val)} |`)
       }
     }
     return lines.join('\n')
@@ -173,7 +177,7 @@ export function renderTable<T> (
     const header = '| ' + columns.map(c => c.header).join(' | ') + ' |'
     const separator = '| ' + columns.map(c => c.align === 'right' ? '---:' : '---').join(' | ') + ' |'
     const dataRows = rows.map(row =>
-      '| ' + columns.map(c => c.value(row, format)).join(' | ') + ' |',
+      '| ' + columns.map(c => escapeMdCell(c.value(row, format))).join(' | ') + ' |',
     )
     return [header, separator, ...dataRows].join('\n')
   }

@@ -290,6 +290,24 @@ describe('formatCheckDetail', () => {
     expect(result).toContain('| Description | - |')
   })
 
+  it('shows empty description in terminal', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = stripAnsi(formatCheckDetail(checkWithEmptyDesc, 'terminal'))
+    expect(result).toContain('Description:')
+  })
+
+  it('shows empty description in markdown', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = formatCheckDetail(checkWithEmptyDesc, 'md')
+    expect(result).toContain('| Description |  |')
+  })
+
+  it('escapes markdown-unsafe description in markdown detail', () => {
+    const checkWithUnsafeDesc = { ...passingCheck, description: 'has | pipe\nand newline' }
+    const result = formatCheckDetail(checkWithUnsafeDesc, 'md')
+    expect(result).toContain('| Description | has \\| pipe and newline |')
+  })
+
   it('shows inactive status for deactivated check', () => {
     const result = stripAnsi(formatCheckDetail(inactiveCheck, 'terminal'))
     expect(result).toContain('inactive')
