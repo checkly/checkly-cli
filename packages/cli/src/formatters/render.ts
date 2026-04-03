@@ -153,17 +153,12 @@ export function renderDetailFields<T> (
   const padWidth = maxLabelLen + 3 // "label:" + at least 2 spaces
 
   const lines = [chalk.bold(title), '']
+  const indent = ' '.repeat(padWidth)
   for (const { label: lbl, value } of resolved) {
     const labelStr = `${lbl}:`
     const padding = ' '.repeat(padWidth - labelStr.length)
-    const valueLines = value.split('\n')
-    const firstLine = `${chalk.dim(labelStr)}${padding}${valueLines[0]}`
-    if (valueLines.length === 1) {
-      lines.push(firstLine)
-    } else {
-      const indent = ' '.repeat(padWidth)
-      lines.push(firstLine, ...valueLines.slice(1).map(l => `${indent}${l}`))
-    }
+    const [first, ...rest] = value.split('\n')
+    lines.push(`${chalk.dim(labelStr)}${padding}${first}`, ...rest.map(l => `${indent}${l}`))
   }
 
   return lines.join('\n')
