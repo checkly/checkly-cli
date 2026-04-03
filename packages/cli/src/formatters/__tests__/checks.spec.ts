@@ -273,6 +273,41 @@ describe('formatCheckDetail', () => {
     expect(result).toContain('check-1')
   })
 
+  it('shows description when present', () => {
+    const checkWithDesc = { ...passingCheck, description: 'Monitors the health endpoint' }
+    const result = stripAnsi(formatCheckDetail(checkWithDesc, 'terminal'))
+    expect(result).toContain('Description')
+    expect(result).toContain('Monitors the health endpoint')
+  })
+
+  it('omits description in terminal when null', () => {
+    const result = stripAnsi(formatCheckDetail(passingCheck, 'terminal'))
+    expect(result).not.toContain('Description')
+  })
+
+  it('shows description as dash in markdown when null', () => {
+    const result = formatCheckDetail(passingCheck, 'md')
+    expect(result).toContain('| Description | - |')
+  })
+
+  it('shows empty description in terminal', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = stripAnsi(formatCheckDetail(checkWithEmptyDesc, 'terminal'))
+    expect(result).toContain('Description:')
+  })
+
+  it('shows empty description in markdown', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = formatCheckDetail(checkWithEmptyDesc, 'md')
+    expect(result).toContain('| Description |  |')
+  })
+
+  it('escapes markdown-unsafe description in markdown detail', () => {
+    const checkWithUnsafeDesc = { ...passingCheck, description: 'has | pipe\nand newline' }
+    const result = formatCheckDetail(checkWithUnsafeDesc, 'md')
+    expect(result).toContain('| Description | has \\| pipe and newline |')
+  })
+
   it('shows inactive status for deactivated check', () => {
     const result = stripAnsi(formatCheckDetail(inactiveCheck, 'terminal'))
     expect(result).toContain('inactive')

@@ -48,6 +48,14 @@ export interface CheckProps {
   name: string
 
   /**
+   * A description of the check. Supports markdown.
+   * Maximum 500 characters.
+   *
+   * @example "Validates the /users endpoint returns correct data and responds within SLA limits."
+   */
+  description?: string | null
+
+  /**
    * Determines whether the check will run periodically after being deployed.
    * Set to `false` to pause a check without deleting it.
    *
@@ -234,6 +242,7 @@ export interface CheckProps {
 
 export abstract class Check extends Construct {
   name: string
+  description?: string | null
   activated?: boolean
   muted?: boolean
   doubleCheck?: boolean
@@ -260,6 +269,7 @@ export abstract class Check extends Construct {
     const config = this.applyConfigDefaults(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = config.name
+    this.description = config.description
     this.activated = config.activated
     this.muted = config.muted
     this.doubleCheck = config.doubleCheck
@@ -422,6 +432,7 @@ export abstract class Check extends Construct {
 
     return {
       name: this.name,
+      ...(this.description != null && { description: this.description }),
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,
