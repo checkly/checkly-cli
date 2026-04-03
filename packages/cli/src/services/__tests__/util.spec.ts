@@ -42,7 +42,7 @@ describe('util', () => {
       representativeConfigFile: undefined,
       installCommand: () => ({ executable: name, args: ['install'], unsafeDisplayCommand: `${name} install` }),
       execCommand: (args: string[]) => ({ executable: name, args, unsafeDisplayCommand: `${name} ${args.join(' ')}` }),
-      lookupWorkspace: async () => undefined,
+      lookupWorkspace: () => Promise.resolve(undefined),
       detector: () => ({}) as any,
     })
 
