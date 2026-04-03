@@ -230,10 +230,13 @@ function buildCheckColumns (
   const termWidth = process.stdout.columns || 120
   const fixedWidth = 12 + 10 + 6
   const idReserve = showId ? 38 : 0
+  const hasDescriptions = checks.some(c => c.description)
   const available = termWidth - fixedWidth - idReserve
   const longestName = Math.max(4, ...checks.map(c => visWidth(c.name)))
   const nameWidth = Math.min(longestName + 2, 42)
-  const tagWidth = Math.max(8, available - nameWidth)
+  const flexSpace = Math.max(8, available - nameWidth)
+  const descWidth = hasDescriptions ? Math.min(30, Math.floor(flexSpace * 0.4)) : 0
+  const tagWidth = flexSpace - descWidth
 
   const columns: ColumnDef<CheckWithStatus>[] = [
     {
@@ -241,6 +244,20 @@ function buildCheckColumns (
       width: nameWidth,
       value: c => truncateToWidth(c.name, nameWidth - 2),
     },
+  ]
+
+  if (hasDescriptions) {
+    columns.push({
+      header: 'Description',
+      width: descWidth,
+      value: c => {
+        if (!c.description) return chalk.dim('-')
+        return truncateToWidth(c.description, descWidth - 2)
+      },
+    })
+  }
+
+  columns.push(
     {
       header: 'Type',
       width: 12,
@@ -256,7 +273,7 @@ function buildCheckColumns (
       width: 6,
       value: c => formatFrequency(c.frequency),
     },
-  ]
+  )
 
   columns.push({
     header: 'Tags',
