@@ -432,7 +432,7 @@ export abstract class Check extends Construct {
 
     return {
       name: this.name,
-      description: this.description ?? null,
+      ...(this.description != null && { description: this.description }),
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,

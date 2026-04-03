@@ -156,7 +156,14 @@ export function renderDetailFields<T> (
   for (const { label: lbl, value } of resolved) {
     const labelStr = `${lbl}:`
     const padding = ' '.repeat(padWidth - labelStr.length)
-    lines.push(`${chalk.dim(labelStr)}${padding}${value}`)
+    const valueLines = value.split('\n')
+    const firstLine = `${chalk.dim(labelStr)}${padding}${valueLines[0]}`
+    if (valueLines.length === 1) {
+      lines.push(firstLine)
+    } else {
+      const indent = ' '.repeat(padWidth)
+      lines.push(firstLine, ...valueLines.slice(1).map(l => `${indent}${l}`))
+    }
   }
 
   return lines.join('\n')

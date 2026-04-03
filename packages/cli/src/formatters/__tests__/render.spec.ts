@@ -300,6 +300,23 @@ describe('renderDetailFields', () => {
     expect(result).not.toContain('Optional')
   })
 
+  it('indents multi-line values to align with first line in terminal', () => {
+    const multiLineFields: DetailField<TestItem>[] = [
+      { label: 'Name', value: item => `${item.name}\nline two\nline three` },
+      { label: 'Age', value: item => String(item.age) },
+    ]
+    const result = stripAnsi(renderDetailFields('T', multiLineFields, { name: 'Alice', age: 1 }, 'terminal'))
+    const lines = result.split('\n').slice(2) // skip title + empty line
+    // First field line: "Name:     Alice"
+    // Continuation lines should be indented to same column as "Alice"
+    const firstFieldLine = lines[0]
+    const match = firstFieldLine.match(/^(\S+:\s+)/)
+    expect(match).toBeTruthy()
+    const indent = match![1].length
+    expect(lines[1]).toBe(' '.repeat(indent) + 'line two')
+    expect(lines[2]).toBe(' '.repeat(indent) + 'line three')
+  })
+
   it('aligns terminal labels to consistent column', () => {
     const result = stripAnsi(renderDetailFields('T', fields, { name: 'A', age: 1, optional: 'x' }, 'terminal'))
     const lines = result.split('\n').slice(2) // skip title + empty line
