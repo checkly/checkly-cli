@@ -124,6 +124,13 @@ export function formatNavigationHints (pagination: PaginationInfo, activeFilters
 
 export const checkDetailFields: DetailField<CheckWithStatus>[] = [
   { label: 'Type', value: c => formatCheckType(c.checkType) },
+  {
+    label: 'Description',
+    value: (c, fmt) => {
+      if (!c.description) return fmt === 'terminal' ? null : '-'
+      return c.description
+    },
+  },
   { label: 'Status', value: (c, fmt) => resolveStatus(c, fmt) },
   { label: 'Active', value: (c, fmt) => boolSymbol(c.activated, fmt) },
   { label: 'Muted', value: (c, fmt) => boolSymbol(c.muted, fmt) },

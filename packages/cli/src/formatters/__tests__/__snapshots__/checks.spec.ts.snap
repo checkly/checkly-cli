@@ -6,6 +6,7 @@ exports[`formatCheckDetail > renders markdown detail > check-detail-md 1`] = `
 | Field | Value |
 | --- | --- |
 | Type | API |
+| Description | - |
 | Status | passing |
 | Active | yes |
 | Muted | - |

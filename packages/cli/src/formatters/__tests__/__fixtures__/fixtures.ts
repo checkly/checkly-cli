@@ -44,6 +44,7 @@ export const degradedStatus: CheckStatus = {
 const baseCheck: Check = {
   id: 'check-1',
   name: 'My API Check',
+  description: null,
   checkType: 'API',
   activated: true,
   muted: false,

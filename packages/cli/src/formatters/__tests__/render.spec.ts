@@ -371,7 +371,7 @@ describe('renderTable', () => {
 describe('field-count parity', () => {
   it('checkDetailFields has expected field count', async () => {
     const { checkDetailFields } = await import('../checks')
-    expect(checkDetailFields).toHaveLength(14)
+    expect(checkDetailFields).toHaveLength(15)
   })
 
   it('resultDetailFields has expected field count', async () => {

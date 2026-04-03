@@ -3,6 +3,7 @@ import type { AxiosInstance } from 'axios'
 export interface Check {
   id: string
   name: string
+  description: string | null
   checkType: string
   activated: boolean
   muted: boolean
