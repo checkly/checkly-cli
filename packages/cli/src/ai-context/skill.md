@@ -34,6 +34,8 @@ Run `npx checkly skills manage` for the full reference.
 
 Write commands (e.g. `incidents create`, `deploy`, `destroy`) return exit code 2 with a `confirmation_required` JSON envelope instead of executing. **Always present the `changes` to the user and wait for approval before running the `confirmCommand`.** Never auto-append `--force`. This applies to every write command individually — updates and resolutions need confirmation too, not just the initial create.
 
+When deploying, use `--verbose` to include resource names and physical IDs (UUIDs) in the output. This is useful for programmatically referencing deployed resources (e.g. running `npx checkly checks get <id>` to inspect a deployed check).
+
 Run `npx checkly skills communicate` for the full protocol details.
 
 <!-- SKILL_COMMANDS -->
