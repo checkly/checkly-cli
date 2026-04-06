@@ -32,7 +32,7 @@ describe('util', () => {
   })
 
   describe('getAutoIncludes()', () => {
-    const basePath = '/project'
+    const basePath = path.resolve('/project')
     const makePm = (name: string): PackageManager => ({
       name,
       representativeLockfile: undefined,
@@ -74,7 +74,7 @@ describe('util', () => {
     })
 
     it('should skip when user includes absolute patches path', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), ['/project/patches/**'])
+      const result = getAutoIncludes(basePath, makePm('pnpm'), [path.join(basePath, 'patches/**')])
       expect(result).toEqual([])
     })
   })
