@@ -42,9 +42,9 @@ describe('util', () => {
       detector: () => ({}) as any,
     })
 
-    it('should return patches/** for pnpm', () => {
+    it('should return patches/*.patch for pnpm', () => {
       const result = getAutoIncludes(makePm('pnpm'), [])
-      expect(result).toEqual(['patches/**'])
+      expect(result).toEqual(['patches/*.patch'])
     })
 
     it('should return empty for npm', () => {
@@ -57,8 +57,8 @@ describe('util', () => {
       expect(result).toEqual([])
     })
 
-    it('should skip when user already includes patches/**', () => {
-      const result = getAutoIncludes(makePm('pnpm'), ['patches/**'])
+    it('should skip when user already includes patches/*.patch', () => {
+      const result = getAutoIncludes(makePm('pnpm'), ['patches/*.patch'])
       expect(result).toEqual([])
     })
 

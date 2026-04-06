@@ -150,7 +150,7 @@ export function getAutoIncludes (
   const autoIncludes: string[] = []
 
   if (packageManager.name === 'pnpm') {
-    const patchesPattern = 'patches/**'
+    const patchesPattern = 'patches/*.patch'
     const alreadyIncluded = existingIncludes.some(p => p === patchesPattern || p.startsWith('patches/'))
     if (!alreadyIncluded) {
       autoIncludes.push(patchesPattern)
