@@ -64,8 +64,38 @@ describe('AgenticCheck', () => {
               name: 'Homepage Health Check',
               prompt: 'Navigate to https://example.com and verify the page loads correctly.',
               activated: true,
+              frequency: 60,
+              locations: ['us-east-1'],
+              runParallel: false,
+            }),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
+  it('should default to a single us-east-1 location and ignore project-level locations', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-locations-override/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: false,
+      }),
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'locations-overridden',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              checkType: 'AGENTIC',
+              locations: ['us-east-1'],
               frequency: 30,
-              locations: ['us-east-1', 'eu-west-1'],
+              runParallel: false,
             }),
           }),
         ]),
@@ -178,7 +208,7 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should fail validation when frequency is less than 30', async () => {
+  it('should fail validation when frequency is not in the supported set', async () => {
     const output = await parseProject(
       fixt,
       '--config',
@@ -190,7 +220,7 @@ describe('AgenticCheck', () => {
         fatal: true,
         observations: expect.arrayContaining([
           expect.objectContaining({
-            message: expect.stringContaining('"frequency" must be at least 30'),
+            message: expect.stringContaining('"frequency" must be one of 30, 60, 120, 180, 360, 720, 1440'),
           }),
         ]),
       }),
