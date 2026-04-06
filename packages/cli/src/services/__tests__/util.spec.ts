@@ -32,6 +32,7 @@ describe('util', () => {
   })
 
   describe('getAutoIncludes()', () => {
+    const basePath = '/project'
     const makePm = (name: string): PackageManager => ({
       name,
       representativeLockfile: undefined,
@@ -43,27 +44,37 @@ describe('util', () => {
     })
 
     it('should return patches/*.patch for pnpm', () => {
-      const result = getAutoIncludes(makePm('pnpm'), [])
+      const result = getAutoIncludes(basePath, makePm('pnpm'), [])
       expect(result).toEqual(['patches/*.patch'])
     })
 
     it('should return empty for npm', () => {
-      const result = getAutoIncludes(makePm('npm'), [])
+      const result = getAutoIncludes(basePath, makePm('npm'), [])
       expect(result).toEqual([])
     })
 
     it('should return empty for yarn', () => {
-      const result = getAutoIncludes(makePm('yarn'), [])
+      const result = getAutoIncludes(basePath, makePm('yarn'), [])
       expect(result).toEqual([])
     })
 
     it('should skip when user already includes patches/*.patch', () => {
-      const result = getAutoIncludes(makePm('pnpm'), ['patches/*.patch'])
+      const result = getAutoIncludes(basePath, makePm('pnpm'), ['patches/*.patch'])
       expect(result).toEqual([])
     })
 
     it('should skip when user already includes a patches/ subpath', () => {
-      const result = getAutoIncludes(makePm('pnpm'), ['patches/some-patch.patch'])
+      const result = getAutoIncludes(basePath, makePm('pnpm'), ['patches/some-patch.patch'])
+      expect(result).toEqual([])
+    })
+
+    it('should skip when user includes ./patches/**', () => {
+      const result = getAutoIncludes(basePath, makePm('pnpm'), ['./patches/**'])
+      expect(result).toEqual([])
+    })
+
+    it('should skip when user includes absolute patches path', () => {
+      const result = getAutoIncludes(basePath, makePm('pnpm'), ['/project/patches/**'])
       expect(result).toEqual([])
     })
   })
