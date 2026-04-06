@@ -1,5 +1,9 @@
 export const REFERENCES = [
   {
+    id: 'configure-agentic-checks',
+    description: 'Agentic Check construct (`AgenticCheck`) for AI-powered prompt-driven monitoring with skill and env var allowlists',
+  },
+  {
     id: 'configure-api-checks',
     description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
   },
