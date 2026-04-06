@@ -171,6 +171,45 @@ Body:
 "
 `;
 
+exports[`formatCheckResult() > Agentic Check result > formats a failing Agentic Check result with assertion details and errors > agentic-check-result-failing-format 1`] = `
+"──Summary───────────────────────────────────────────────────────────────────
+The homepage did not return a 200 status.
+
+──Assertions────────────────────────────────────────────────────────────────
+  ✗ The homepage returns an HTTP 200 status
+      expected "200", got "503"
+
+──Agent Errors──────────────────────────────────────────────────────────────
+  Request failed: 503 Service Unavailable
+
+──Steps (4)─────────────────────────────────────────────────────────────────
+    1 • Starting the check.
+    2 → http_request
+    3 ← http_request
+    4 • Homepage loaded, verifying heading.
+
+──Suggestions───────────────────────────────────────────────────────────────
+  ◆ Also verify the pricing page loads [configuration]"
+`;
+
+exports[`formatCheckResult() > Agentic Check result > formats a passing Agentic Check result with all sections > agentic-check-result-passing-format 1`] = `
+"──Summary───────────────────────────────────────────────────────────────────
+The homepage loaded successfully and all assertions passed.
+
+──Assertions────────────────────────────────────────────────────────────────
+  ✓ The homepage returns an HTTP 200 status
+  ✓ The page heading is "Checkly"
+
+──Steps (4)─────────────────────────────────────────────────────────────────
+    1 • Starting the check.
+    2 → http_request
+    3 ← http_request
+    4 • Homepage loaded, verifying heading.
+
+──Suggestions───────────────────────────────────────────────────────────────
+  ◆ Also verify the pricing page loads [configuration]"
+`;
+
 exports[`formatCheckResult() > Browser Check result > formats a Browser Check result with a scheduleError > browser-check-result-schedule-error-format 1`] = `
 "──Logs──────────────────────────────────────────────────────────────────────
 10:53:15 DEBUG Starting job

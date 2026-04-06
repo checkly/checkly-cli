@@ -176,6 +176,61 @@ export function formatCheckResult (checkResult: any) {
       }
     }
   }
+  if (checkResult.checkType === 'AGENTIC' && checkResult.agenticCheckResult) {
+    const agentic = checkResult.agenticCheckResult
+    if (agentic.summary) {
+      result.push([
+        formatSectionTitle('Summary'),
+        agentic.summary,
+      ])
+    }
+    if (Array.isArray(agentic.assertions) && agentic.assertions.length > 0) {
+      const assertionLines = agentic.assertions.map((a: any) => {
+        const status = a.passed ? '✓' : '✗'
+        const condition = a.condition ?? '(no condition)'
+        if (a.passed) return `  ${status} ${condition}`
+        return `  ${status} ${condition}\n      expected ${JSON.stringify(a.expected ?? '')}, got ${JSON.stringify(a.actual ?? '')}`
+      }).join('\n')
+      result.push([
+        formatSectionTitle('Assertions'),
+        assertionLines,
+      ])
+    }
+    if (Array.isArray(agentic.errors) && agentic.errors.length > 0) {
+      const errorLines = agentic.errors
+        .map((e: any) => e?.error?.message ?? '')
+        .filter((m: string) => m.length > 0)
+      if (errorLines.length > 0) {
+        result.push([
+          formatSectionTitle('Agent Errors'),
+          errorLines.map((m: string) => `  ${m}`).join('\n'),
+        ])
+      }
+    }
+    if (Array.isArray(agentic.steps) && agentic.steps.length > 0) {
+      const stepLines = agentic.steps.map((s: any) => {
+        const seq = s.sequenceNumber != null ? String(s.sequenceNumber).padStart(3) : '  .'
+        if (s.type === 'tool_call') return `  ${seq} → ${s.name ?? '(tool)'}`
+        if (s.type === 'tool_result') return `  ${seq} ← ${s.name ?? '(tool)'}`
+        const preview = (s.output ?? '').replace(/\s+/g, ' ').trim().slice(0, 100)
+        return `  ${seq} • ${preview}`
+      }).join('\n')
+      result.push([
+        formatSectionTitle(`Steps (${agentic.steps.length})`),
+        stepLines,
+      ])
+    }
+    if (Array.isArray(agentic.suggestions) && agentic.suggestions.length > 0) {
+      const suggestionLines = agentic.suggestions.map((s: any) => {
+        const category = s.category ? ` [${s.category}]` : ''
+        return `  ◆ ${s.summary ?? '(no summary)'}${category}`
+      }).join('\n')
+      result.push([
+        formatSectionTitle('Suggestions'),
+        suggestionLines,
+      ])
+    }
+  }
   if (checkResult.checkType === 'ICMP') {
     if (checkResult.checkRunData?.requestError) {
       result.push([

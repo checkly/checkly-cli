@@ -120,6 +120,79 @@ JOB LOG
   ERROR ECONNREFUSED"
 `;
 
+exports[`formatResultDetail > Agentic check result > renders markdown output > agentic-result-detail-md 1`] = `
+"# Homepage Health (Agentic)
+
+| Field | Value |
+| --- | --- |
+| Status | passing |
+| Location | us-east-1 |
+| Response time | 12.00s |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:12.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-7 |
+
+## Agentic Result
+
+**Model:** claude-sonnet-4-5 · **Cost:** $0.0123 · **Tokens:** 1234 in / 567 out
+
+### Summary
+The homepage loaded successfully and all assertions passed.
+
+### Assertions
+| Status | Condition | Expected | Actual |
+| --- | --- | --- | --- |
+| ✓ | The homepage returns an HTTP 200 status | 200 | 200 |
+| ✓ | The page heading is "Checkly" | Checkly | Checkly |
+
+### Suggestions
+- **Also verify the pricing page loads** _(configuration)_
+  - Prompt fragment: \`After the homepage loads, navigate to /pricing and confirm all plans are visible.\`
+
+### Steps (4)
+1. • Starting the check.
+2. → \`http_request\`
+3. ← \`http_request\`
+4. • Homepage loaded, verifying heading."
+`;
+
+exports[`formatResultDetail > Agentic check result > renders terminal output > agentic-result-detail-terminal 1`] = `
+"Homepage Health (Agentic)
+
+Status:         passing
+Location:       us-east-1
+Response time:  12.00s
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:12 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-7
+
+AGENTIC RESULT
+Model:          claude-sonnet-4-5
+Cost:           $0.0123
+Tokens:         1,234 in / 567 out
+
+SUMMARY
+  The homepage loaded successfully and all assertions passed.
+
+ASSERTIONS
+  ✓ The homepage returns an HTTP 200 status
+  ✓ The page heading is "Checkly"
+
+STEPS
+  4 steps recorded
+    1 • Starting the check.
+    2 → http_request
+    3 ← http_request
+    4 • Homepage loaded, verifying heading.
+
+SUGGESTIONS
+  ◆ Also verify the pricing page loads [configuration]"
+`;
+
 exports[`formatResultDetail > Browser check result > renders markdown output > browser-result-detail-md 1`] = `
 "# Failing Browser Check
 

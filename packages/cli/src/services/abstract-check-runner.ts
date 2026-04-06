@@ -174,6 +174,28 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       result.logs = await assets.getLogs(result.assets)
       result.checkRunData = await assets.getCheckRunData(result.assets)
     }
+
+    // Agentic checks carry their structured data on `result.metadata`
+    // (assertions, suggestions, steps, summary, model, cost, tokens) since
+    // the runner-ng family never writes a side-car `check-run-data.json`.
+    // Mirror the backend's REST serializer by lifting that metadata into
+    // `result.agenticCheckResult` so downstream rendering code can branch
+    // on the same typed field whether the data arrived via MQTT (live
+    // path) or via the REST API (stored path).
+    if (result.checkType === 'AGENTIC' && result.metadata) {
+      result.agenticCheckResult = {
+        summary: result.metadata.summary ?? null,
+        prompt: result.metadata.prompt ?? null,
+        model: result.metadata.model ?? null,
+        assertions: result.metadata.assertions ?? [],
+        suggestions: result.metadata.suggestions ?? [],
+        steps: result.metadata.steps ?? [],
+        costUsd: result.metadata.costUsd ?? null,
+        tokensUsed: result.metadata.tokensUsed ?? null,
+        errors: result.metadata.errors ?? [],
+        artifactManifest: result.metadata.artifactManifest ?? null,
+      }
+    }
   }
 
   private allChecksFinished (): Promise<void> {
