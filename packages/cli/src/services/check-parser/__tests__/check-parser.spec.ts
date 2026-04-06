@@ -472,6 +472,23 @@ describe('dependency-parser - parser()', () => {
       })
       await parser.parse(entrypoint)
     })
+
+    it('should silently skip native binary (.node) imports (issue #1274)', async () => {
+      // Native addons are loaded by Node.js at runtime via process.dlopen
+      // and are not parseable as JavaScript. The parser should neither
+      // report them as missing nor include them in the dependency set.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('native-binary-import', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+
+      // The .node file should not appear in the bundled dependencies and
+      // parsing must not throw a DependencyParseError.
+      expect(dependencies.map(d => d.filePath)).not.toContain(toAbsolutePath('native.node'))
+    })
   })
 
   describe('restricted mode', () => {

@@ -129,9 +129,15 @@ export class Workspace {
       return [pattern, PackageJsonFile.FILENAME].join(joiner)
     })
 
+    // Always ignore node_modules when resolving workspace patterns. npm
+    // and yarn both skip node_modules internally when matching workspace
+    // globs, and letting wide patterns like `**` pull in every installed
+    // package causes the parser to walk into transitive dependencies
+    // (including native bindings like fsevents) — see issue #1274.
     const results = await glob(lookup, {
       cwd: root,
       absolute: true,
+      ignore: ['**/node_modules/**'],
     })
 
     const packages: Package[] = []

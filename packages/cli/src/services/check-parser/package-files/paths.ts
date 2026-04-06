@@ -276,6 +276,18 @@ export function isBuiltinPath (importPath: string) {
   return false
 }
 
+/**
+ * Returns true when the import path refers to a native Node.js addon (a
+ * compiled `.node` binary loaded by Node.js at runtime via `process.dlopen`).
+ *
+ * Native addons cannot be parsed as JavaScript and are irrelevant to the
+ * dependency graph we're trying to build, so the resolver should skip them
+ * instead of reporting them as missing dependencies — see issue #1274.
+ */
+export function isNativeBinaryPath (importPath: string) {
+  return importPath.endsWith('.node')
+}
+
 export function isImportsPath (importPath: string) {
   if (importPath.startsWith('#')) {
     return true
