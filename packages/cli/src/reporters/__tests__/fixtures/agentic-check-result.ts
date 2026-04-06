@@ -22,9 +22,6 @@ export const agenticCheckResult = {
   agenticCheckResult: {
     summary: 'The homepage loaded successfully and all assertions passed.',
     prompt: 'Navigate to https://www.checklyhq.com and verify the homepage loads successfully.',
-    model: 'claude-sonnet-4-5',
-    costUsd: 0.0123,
-    tokensUsed: { input: 1234, output: 567 },
     assertions: [
       { condition: 'The homepage returns an HTTP 200 status', passed: true, actual: '200', expected: '200' },
       { condition: 'The page heading is "Checkly"', passed: true, actual: 'Checkly', expected: 'Checkly' },

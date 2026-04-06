@@ -146,11 +146,6 @@ describe('formatResultDetail', () => {
     it('includes summary, assertions, steps, and suggestions sections in terminal', () => {
       const result = stripAnsi(formatResultDetail(agenticCheckResult, 'terminal'))
       expect(result).toContain('AGENTIC RESULT')
-      expect(result).toContain('Model:')
-      expect(result).toContain('claude-sonnet-4-5')
-      expect(result).toContain('Cost:')
-      expect(result).toContain('$0.0123')
-      expect(result).toContain('Tokens:')
       expect(result).toContain('SUMMARY')
       expect(result).toContain('The homepage loaded successfully')
       expect(result).toContain('ASSERTIONS')
@@ -159,6 +154,17 @@ describe('formatResultDetail', () => {
       expect(result).toContain('http_request')
       expect(result).toContain('SUGGESTIONS')
       expect(result).toContain('Also verify the pricing page loads')
+    })
+
+    it('does not render Model, Cost, or Tokens in terminal output', () => {
+      // These fields live in the runner's raw metadata but are intentionally
+      // withheld from the public API response. The CLI mirrors that policy —
+      // adding them back later is backwards-compatible, removing them after
+      // they've been shown to users is not.
+      const result = stripAnsi(formatResultDetail(agenticCheckResult, 'terminal'))
+      expect(result).not.toContain('Model:')
+      expect(result).not.toContain('Cost:')
+      expect(result).not.toContain('Tokens:')
     })
 
     it('renders assertion failures with expected/actual context in terminal', () => {
@@ -177,7 +183,6 @@ describe('formatResultDetail', () => {
       // without crashing and without any of the optional sections.
       const result = stripAnsi(formatResultDetail(agenticCheckResultMinimal, 'terminal'))
       expect(result).toContain('AGENTIC RESULT')
-      expect(result).toContain('Model:')
       expect(result).not.toContain('SUMMARY')
       expect(result).not.toContain('ASSERTIONS')
       expect(result).not.toContain('STEPS')

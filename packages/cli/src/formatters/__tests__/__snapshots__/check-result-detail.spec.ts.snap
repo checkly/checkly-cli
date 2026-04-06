@@ -136,8 +136,6 @@ exports[`formatResultDetail > Agentic check result > renders markdown output > a
 
 ## Agentic Result
 
-**Model:** claude-sonnet-4-5 · **Cost:** $0.0123 · **Tokens:** 1234 in / 567 out
-
 ### Summary
 The homepage loaded successfully and all assertions passed.
 
@@ -171,10 +169,6 @@ Result type:    FINAL
 ID:             result-7
 
 AGENTIC RESULT
-Model:          claude-sonnet-4-5
-Cost:           $0.0123
-Tokens:         1,234 in / 567 out
-
 SUMMARY
   The homepage loaded successfully and all assertions passed.
 

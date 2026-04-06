@@ -310,21 +310,7 @@ function formatAgenticResultTerminal (agentic: AgenticCheckResult): string[] {
 
   lines.push(heading('AGENTIC RESULT', 2, 'terminal'))
 
-  if (agentic.model) {
-    lines.push(`${label('Model:')}${agentic.model}`)
-  }
-  if (typeof agentic.costUsd === 'number') {
-    lines.push(`${label('Cost:')}${formatCostUsd(agentic.costUsd)}`)
-  }
-  if (agentic.tokensUsed) {
-    const { input, output } = agentic.tokensUsed
-    const inputStr = typeof input === 'number' ? input.toLocaleString('en-US') : '-'
-    const outputStr = typeof output === 'number' ? output.toLocaleString('en-US') : '-'
-    lines.push(`${label('Tokens:')}${inputStr} in / ${outputStr} out`)
-  }
-
   if (agentic.summary) {
-    lines.push('')
     lines.push(heading('SUMMARY', 2, 'terminal'))
     lines.push(...wrapText(agentic.summary, '  ', 100))
   }
@@ -417,20 +403,6 @@ function formatAgenticResultMd (agentic: AgenticCheckResult): string[] {
   const lines: string[] = []
 
   lines.push('## Agentic Result')
-
-  const meta: string[] = []
-  if (agentic.model) meta.push(`**Model:** ${agentic.model}`)
-  if (typeof agentic.costUsd === 'number') meta.push(`**Cost:** ${formatCostUsd(agentic.costUsd)}`)
-  if (agentic.tokensUsed) {
-    const { input, output } = agentic.tokensUsed
-    if (typeof input === 'number' || typeof output === 'number') {
-      meta.push(`**Tokens:** ${input ?? '-'} in / ${output ?? '-'} out`)
-    }
-  }
-  if (meta.length > 0) {
-    lines.push('')
-    lines.push(meta.join(' · '))
-  }
 
   if (agentic.summary) {
     lines.push('')
@@ -538,14 +510,6 @@ function appendAssets (
     lines.push(`  ${parts.join(', ')}`)
     lines.push(chalk.dim('  Use --output json to get asset URLs'))
   }
-}
-
-function formatCostUsd (costUsd: number): string {
-  // Agentic runs are typically fractions of a cent to a few cents. Show 4
-  // decimal places so sub-cent costs are legible without trailing zeros
-  // dominating the output.
-  if (costUsd === 0) return '$0'
-  return `$${costUsd.toFixed(4)}`
 }
 
 function wrapText (text: string, indent: string, width: number): string[] {

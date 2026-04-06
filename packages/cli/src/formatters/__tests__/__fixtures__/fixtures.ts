@@ -391,9 +391,6 @@ export const agenticCheckResult: CheckResult = {
   agenticCheckResult: {
     summary: 'The homepage loaded successfully and all assertions passed.',
     prompt: 'Navigate to https://www.checklyhq.com and verify the homepage loads successfully.',
-    model: 'claude-sonnet-4-5',
-    costUsd: 0.0123,
-    tokensUsed: { input: 1234, output: 567 },
     assertions: [
       {
         condition: 'The homepage returns an HTTP 200 status',
@@ -454,9 +451,6 @@ export const agenticCheckResultMinimal: CheckResult = {
     // Empty-but-structured: runner has only produced the envelope so far.
     summary: '',
     prompt: 'Verify the homepage loads.',
-    model: 'claude-sonnet-4-5',
-    costUsd: 0,
-    tokensUsed: { input: 0, output: 0 },
     assertions: [],
     suggestions: [],
     steps: [],
