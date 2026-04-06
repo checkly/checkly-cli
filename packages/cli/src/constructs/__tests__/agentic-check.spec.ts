@@ -66,7 +66,6 @@ describe('AgenticCheck', () => {
               activated: true,
               frequency: 30,
               locations: ['us-east-1', 'eu-west-1'],
-              runParallel: true,
             }),
           }),
         ]),

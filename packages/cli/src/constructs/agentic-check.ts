@@ -4,7 +4,7 @@ import { CheckTypes } from '../constants'
 import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
-export interface AgenticCheckProps extends Omit<CheckProps, 'runParallel'> {
+export interface AgenticCheckProps extends CheckProps {
   /**
    * The prompt that defines what the agentic check should verify.
    * Maximum 10,000 characters.
@@ -83,7 +83,6 @@ export class AgenticCheck extends Check {
       ...super.synthesize(),
       checkType: CheckTypes.AGENTIC,
       prompt: this.prompt,
-      runParallel: true,
     }
   }
 }
