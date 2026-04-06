@@ -84,9 +84,19 @@ export class PackageJsonFile {
       this.#resolveExports(this.jsonFile.data.exports ?? {}, conditions),
     )
 
-    // Exports must always start with "./" - make sure that the path we're
-    // matching against also starts with that prefix.
-    if (!exportPath.startsWith('./')) {
+    // Normalize the export path to the canonical subpath form used by
+    // `exports` keys. Per the Node.js spec, the root subpath is "." and
+    // all other subpaths start with "./". An empty string means the bare
+    // package import (`import x from 'foo'`) and maps to the root subpath.
+    //
+    // Previously the code blindly prepended "./" to everything, turning
+    // "" into "./", which never matched the "." key and made bare imports
+    // silently resolve to zero paths. Packages that also declared `main`
+    // worked anyway because of the fallback in `resolveSourceFile`; other
+    // packages did not.
+    if (exportPath === '' || exportPath === '.') {
+      exportPath = '.'
+    } else if (!exportPath.startsWith('./')) {
       exportPath = `./${exportPath}`
     }
 
