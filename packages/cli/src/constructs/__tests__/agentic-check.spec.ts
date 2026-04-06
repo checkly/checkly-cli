@@ -67,6 +67,55 @@ describe('AgenticCheck', () => {
               frequency: 60,
               locations: ['us-east-1'],
               runParallel: false,
+              agentRuntime: {
+                skills: [],
+                environmentVariables: [],
+              },
+            }),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
+  it('should expose agentRuntime skills and environment variables', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-agent-runtime/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: false,
+      }),
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'agent-runtime-check',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              checkType: 'AGENTIC',
+              agentRuntime: {
+                skills: ['checkly/playwright-skill'],
+                environmentVariables: [
+                  'API_KEY',
+                  { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
+                ],
+              },
+            }),
+          }),
+          expect.objectContaining({
+            logicalId: 'default-agent-runtime',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              checkType: 'AGENTIC',
+              agentRuntime: {
+                skills: [],
+                environmentVariables: [],
+              },
             }),
           }),
         ]),
@@ -221,6 +270,44 @@ describe('AgenticCheck', () => {
         observations: expect.arrayContaining([
           expect.objectContaining({
             message: expect.stringContaining('"frequency" must be one of 30, 60, 120, 180, 360, 720, 1440'),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
+  it('should fail validation when an environment variable name is empty', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-validation-empty-env-var-name/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: true,
+        observations: expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('"agentRuntime.environmentVariables[0]" must have a non-empty name'),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
+  it('should fail validation when an environment variable description exceeds 200 characters', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-validation-description-too-long/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: true,
+        observations: expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('"agentRuntime.environmentVariables[0].description" must be at most 200 characters'),
           }),
         ]),
       }),
