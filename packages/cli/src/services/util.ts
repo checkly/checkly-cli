@@ -144,7 +144,6 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
 }
 
 export function getAutoIncludes (
-  basePath: string,
   packageManager: PackageManager,
   existingIncludes: string[],
 ): string[] {
@@ -154,11 +153,7 @@ export function getAutoIncludes (
     const patchesPattern = 'patches/**'
     const alreadyIncluded = existingIncludes.some(p => p === patchesPattern || p.startsWith('patches/'))
     if (!alreadyIncluded) {
-      const patchesDir = path.join(basePath, 'patches')
-      const exists = fsSync.statSync(patchesDir, { throwIfNoEntry: false })?.isDirectory()
-      if (exists) {
-        autoIncludes.push(patchesPattern)
-      }
+      autoIncludes.push(patchesPattern)
     }
   }
 
@@ -217,7 +212,7 @@ export async function bundlePlayWrightProject (
     }
   }
 
-  const autoIncludes = getAutoIncludes(Session.basePath!, Session.packageManager, include)
+  const autoIncludes = getAutoIncludes(Session.packageManager, include)
   const effectiveIncludes = [...include, ...autoIncludes]
 
   const includedFiles = await findFilesWithPattern(

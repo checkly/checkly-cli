@@ -1,7 +1,5 @@
 import path from 'node:path'
-import fs from 'node:fs/promises'
-import os from 'node:os'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import {
   pathToPosix,
@@ -34,8 +32,6 @@ describe('util', () => {
   })
 
   describe('getAutoIncludes()', () => {
-    let tmpDir: string
-
     const makePm = (name: string): PackageManager => ({
       name,
       representativeLockfile: undefined,
@@ -46,46 +42,28 @@ describe('util', () => {
       detector: () => ({}) as any,
     })
 
-    beforeEach(async () => {
-      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-test-'))
-    })
-
-    afterEach(async () => {
-      await fs.rm(tmpDir, { recursive: true, force: true })
-    })
-
-    it('should return patches/** when pnpm and patches dir exists', async () => {
-      await fs.mkdir(path.join(tmpDir, 'patches'))
-      const result = getAutoIncludes(tmpDir, makePm('pnpm'), [])
+    it('should return patches/** for pnpm', () => {
+      const result = getAutoIncludes(makePm('pnpm'), [])
       expect(result).toEqual(['patches/**'])
     })
 
-    it('should return empty when pnpm but no patches dir', () => {
-      const result = getAutoIncludes(tmpDir, makePm('pnpm'), [])
+    it('should return empty for npm', () => {
+      const result = getAutoIncludes(makePm('npm'), [])
       expect(result).toEqual([])
     })
 
-    it('should return empty for npm even with patches dir', async () => {
-      await fs.mkdir(path.join(tmpDir, 'patches'))
-      const result = getAutoIncludes(tmpDir, makePm('npm'), [])
+    it('should return empty for yarn', () => {
+      const result = getAutoIncludes(makePm('yarn'), [])
       expect(result).toEqual([])
     })
 
-    it('should return empty for yarn even with patches dir', async () => {
-      await fs.mkdir(path.join(tmpDir, 'patches'))
-      const result = getAutoIncludes(tmpDir, makePm('yarn'), [])
+    it('should skip when user already includes patches/**', () => {
+      const result = getAutoIncludes(makePm('pnpm'), ['patches/**'])
       expect(result).toEqual([])
     })
 
-    it('should skip when user already includes patches/**', async () => {
-      await fs.mkdir(path.join(tmpDir, 'patches'))
-      const result = getAutoIncludes(tmpDir, makePm('pnpm'), ['patches/**'])
-      expect(result).toEqual([])
-    })
-
-    it('should skip when user already includes a patches/ subpath', async () => {
-      await fs.mkdir(path.join(tmpDir, 'patches'))
-      const result = getAutoIncludes(tmpDir, makePm('pnpm'), ['patches/some-patch.patch'])
+    it('should skip when user already includes a patches/ subpath', () => {
+      const result = getAutoIncludes(makePm('pnpm'), ['patches/some-patch.patch'])
       expect(result).toEqual([])
     })
   })
