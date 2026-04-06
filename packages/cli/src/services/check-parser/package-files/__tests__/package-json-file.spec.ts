@@ -278,5 +278,80 @@ describe('package.json file', () => {
       expect(paths).toHaveLength(1)
       expect(paths[0].target.path).toBe('./esm.mjs')
     })
+
+    // The resolver is called with exportPath = '' for bare package imports
+    // (e.g. `import x from 'foo'`), which should map to the "." subpath in
+    // the package's exports field. Before the fix, the prefix-prepending
+    // logic turned '' into './', which never matched the '.' key and made
+    // the export lookup silently return zero paths — masked at runtime by
+    // the main-field fallback for packages that also declared `main`.
+
+    it('resolves a plain string exports value on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: './index.js',
+      })
+
+      const { paths } = testFile.resolveExportPath('', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./index.js')
+    })
+
+    it('resolves the "." subpath on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': './lib/main.js',
+        },
+      })
+
+      const { paths } = testFile.resolveExportPath('', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./lib/main.js')
+    })
+
+    it('resolves the "." subpath with single-level conditions on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': {
+            import: './lib/main.mjs',
+            require: './lib/main.cjs',
+            default: './lib/main.js',
+          },
+        } as any,
+      })
+
+      const importResult = testFile.resolveExportPath('', importConditions)
+      expect(importResult.paths).toHaveLength(1)
+      expect(importResult.paths[0].target.path).toBe('./lib/main.mjs')
+
+      const requireResult = testFile.resolveExportPath('', requireConditions)
+      expect(requireResult.paths).toHaveLength(1)
+      expect(requireResult.paths[0].target.path).toBe('./lib/main.cjs')
+    })
+
+    it('accepts "." as an explicit bare-import path', () => {
+      // Callers sometimes pass '.' directly instead of ''. Both should
+      // resolve the same root export without introducing a spurious './.'
+      // lookup.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': './index.js',
+        },
+      })
+
+      const { paths } = testFile.resolveExportPath('.', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./index.js')
+    })
   })
 })
