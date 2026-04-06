@@ -871,29 +871,11 @@
           "retryStrategy": null,
           "runParallel": false,
           "triggerIncident": false,
-          "prompt": "Navigate to https://www.checklyhq.com and verify the homepage loads with the main heading visible. Then navigate to /pricing and confirm at least three plan tiers are displayed.",
+          "prompt": "Navigate to https://www.checklyhq.com/pricing and verify that at least three plan tiers are displayed on the page.",
           "agenticCheckData": {
-            "skills": [
-              "checkly/playwright-skill"
-            ],
-            "selectedEnvironmentVariables": [
-              "ENVIRONMENT_URL",
-              {
-                "key": "TEST_USER_EMAIL",
-                "description": "Login email for the test account"
-              }
-            ],
-            "assertionRules": [
-              {
-                "source": "JSON_BODY",
-                "property": "$.status",
-                "comparison": "EQUALS",
-                "target": "passing",
-                "order": 0,
-                "regex": null,
-                "description": "Overall check result status"
-              }
-            ]
+            "skills": [],
+            "selectedEnvironmentVariables": [],
+            "assertionRules": []
           },
           "alertChannelSubscriptions": [],
           "privateLocations": []

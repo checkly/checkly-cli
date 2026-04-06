@@ -147,6 +147,11 @@ export default defineConfig({
 `,
     reference: 'https://www.checklyhq.com/docs/constructs/project/',
   },
+  AGENTIC_CHECK: {
+    templateString: '<!-- EXAMPLE: AGENTIC_CHECK -->',
+    exampleConfigPath: 'resources/agentic-checks/example-agentic-check.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/agentic-check/',
+  },
   BROWSER_CHECK: {
     templateString: '<!-- EXAMPLE: BROWSER_CHECK -->',
     exampleConfigPath:
