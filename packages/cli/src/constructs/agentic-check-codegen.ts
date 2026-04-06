@@ -23,9 +23,6 @@ type StoredAgenticEnvironmentVariable =
 interface StoredAgenticCheckData {
   skills?: string[] | null
   selectedEnvironmentVariables?: StoredAgenticEnvironmentVariable[] | null
-  // Intentionally not consumed by codegen:
-  // assertionRules?: unknown[]
-  [key: string]: unknown
 }
 
 export interface AgenticCheckResource extends CheckResource {
@@ -51,23 +48,13 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
 
     file.namedImport(construct, 'checkly/constructs')
 
-    // The `AgenticCheck` construct's props type intentionally omits
-    // `locations`, `privateLocations`, `runParallel`, `retryStrategy`,
-    // `shouldFail`, `doubleCheck`, `triggerIncident` and `groupId` — the
-    // platform does not yet honor any of these for agentic checks (see the
-    // construct file for the full rationale). The codegen has to match
-    // that omission: if the generated file contained any of those keys,
-    // it would not type-check against the construct the moment a user
-    // opens it.
-    //
-    // Most of the omitted fields are already conditional in
-    // `buildCheckProps` (they're only emitted when non-false/non-empty),
-    // so we pass a resource copy with `locations` cleared — the rest
-    // never get populated for agentic checks today anyway, and if they
-    // ever do, the fall-through will surface as a typecheck error in the
-    // generated file which is the right place to catch it.
-    // `retryStrategy` is the exception: `buildCheckProps` always emits
-    // it, so we explicitly opt out via `skipRetryStrategy`.
+    // `AgenticCheckProps` omits several fields that the platform does not
+    // yet honor (see `agentic-check.ts` for the full list and rationale).
+    // To keep the generated file type-checking against the construct, clear
+    // `locations` (which the construct hardcodes to a single value) and
+    // skip `retryStrategy` emission. The other omitted fields are already
+    // conditional in `buildCheckProps` and never populated for agentic
+    // checks today.
     const sanitizedResource: AgenticCheckResource = {
       ...resource,
       locations: undefined,
@@ -109,10 +96,8 @@ function buildAgentRuntimeObject (
 ): ((builder: ObjectValueBuilder) => void) | undefined {
   if (!data) return undefined
 
-  const skills = Array.isArray(data.skills) ? data.skills.filter(s => typeof s === 'string' && s.length > 0) : []
-  const storedEnvVars = Array.isArray(data.selectedEnvironmentVariables)
-    ? data.selectedEnvironmentVariables
-    : []
+  const skills = (data.skills ?? []).filter(s => s.length > 0)
+  const storedEnvVars = data.selectedEnvironmentVariables ?? []
 
   if (skills.length === 0 && storedEnvVars.length === 0) {
     return undefined
@@ -132,10 +117,10 @@ function buildAgentRuntimeObject (
         for (const entry of storedEnvVars) {
           if (typeof entry === 'string') {
             arrayBuilder.string(entry)
-          } else if (entry && typeof entry === 'object' && typeof entry.key === 'string') {
+          } else {
             arrayBuilder.object(objectBuilder => {
               objectBuilder.string('name', entry.key)
-              if (typeof entry.description === 'string' && entry.description.length > 0) {
+              if (entry.description) {
                 objectBuilder.string('description', entry.description)
               }
             })
