@@ -27,7 +27,7 @@ Entitlement keys follow the pattern `{CHECK_TYPE}_{FEATURE}` — match them to t
 
 | Check property | Entitlement pattern to search | What to do if disabled |
 |---|---|---|
-| `retryStrategy` | `*_RETRY_STRATEGY_*` and `*_MAX_RETRIES_*` for your check type | Omit `retryStrategy` entirely, or use only `NO_RETRIES` |
+| `retryStrategy` | `*_RETRY_STRATEGY_*` and `*_MAX_RETRIES_*` for your check type | Omit `retryStrategy` entirely, or use `RetryStrategyBuilder.noRetries()` |
 | `runParallel` | `*_SCHEDULING_STRATEGY_PARALLEL` for your check type | Omit `runParallel` or set to `false` (use round-robin) |
 | `frequency` | `*_FREQ_*` for your check type | Use only frequencies where the entitlement is enabled |
 | `locations` | `locations.all` array | Use only locations where `available` is `true` |
