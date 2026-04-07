@@ -77,10 +77,19 @@ export type AgentRuntimeEnvironmentVariable =
  */
 export interface AgentRuntime {
   /**
-   * Skills the agent can use during execution. Each entry is a skill
-   * package name as accepted by `npx checkly skills install`.
+   * Additional skills to load into the agent's runtime, on top of the
+   * defaults the runner provides automatically (currently the
+   * `playwright-cli` skill is preloaded for browser automation).
    *
-   * @example ['checkly/playwright-skill']
+   * Each entry is passed verbatim to `npx skills add` on the runner, so
+   * any third-party skill published to [skills.sh](https://skills.sh)
+   * works — not just Checkly's own. Supported identifier forms:
+   *
+   * - A full skills.sh URL — e.g. `'https://skills.sh/microsoft/playwright-cli/playwright-cli'`
+   * - A `<owner>/<repo>` shorthand — e.g. `'addyosmani/web-quality-skills'`
+   * - A plain skill name registered on skills.sh — e.g. `'cost-optimization'`
+   *
+   * @example ['addyosmani/web-quality-skills']
    */
   skills?: string[]
 

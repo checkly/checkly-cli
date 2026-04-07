@@ -4,7 +4,7 @@ new AgenticCheck('agent-runtime-check', {
   name: 'Agent runtime check',
   prompt: 'Sign in to the test account and verify the dashboard loads.',
   agentRuntime: {
-    skills: ['checkly/playwright-skill'],
+    skills: ['addyosmani/web-quality-skills'],
     environmentVariables: [
       'API_KEY',
       { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },

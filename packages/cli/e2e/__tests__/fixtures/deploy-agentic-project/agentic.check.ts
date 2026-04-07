@@ -19,7 +19,7 @@ new AgenticCheck('agentic-runtime-check', {
   muted: true,
   frequency: 60,
   agentRuntime: {
-    skills: ['checkly/playwright-skill'],
+    skills: ['addyosmani/web-quality-skills'],
     environmentVariables: [
       'ENVIRONMENT_URL',
       { name: 'TEST_USER_EMAIL', description: 'Login email for the test account' },

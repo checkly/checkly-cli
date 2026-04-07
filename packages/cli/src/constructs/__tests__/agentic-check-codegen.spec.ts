@@ -140,14 +140,14 @@ describe('AgenticCheckCodegen', () => {
     it('should emit `agentRuntime.skills` when skills are present', async () => {
       const source = await renderResource(env, baseResource({
         agenticCheckData: {
-          skills: ['checkly/playwright-skill', 'checkly/http-skill'],
+          skills: ['addyosmani/web-quality-skills', 'cost-optimization'],
         },
       }))
 
       expect(source).toContain('agentRuntime: {')
       expect(source).toContain('skills: [')
-      expect(source).toContain('\'checkly/playwright-skill\'')
-      expect(source).toContain('\'checkly/http-skill\'')
+      expect(source).toContain('\'addyosmani/web-quality-skills\'')
+      expect(source).toContain('\'cost-optimization\'')
       // No empty environmentVariables when none are selected.
       expect(source).not.toContain('environmentVariables')
     })
@@ -157,11 +157,11 @@ describe('AgenticCheckCodegen', () => {
       // ever does we don't want them in generated code.
       const source = await renderResource(env, baseResource({
         agenticCheckData: {
-          skills: ['checkly/playwright-skill', ''],
+          skills: ['addyosmani/web-quality-skills', ''],
         },
       }))
 
-      expect(source).toContain('\'checkly/playwright-skill\'')
+      expect(source).toContain('\'addyosmani/web-quality-skills\'')
       expect(source).not.toMatch(/skills:\s*\[[^\]]*''/m)
     })
 
@@ -231,7 +231,7 @@ describe('AgenticCheckCodegen', () => {
       // construct does not accept them, so generated code must not surface
       // them even if the backend includes them in `agenticCheckData`.
       const dataWithAssertions = {
-        skills: ['checkly/playwright-skill'],
+        skills: ['addyosmani/web-quality-skills'],
         assertionRules: [{ id: '1', expression: 'response.status === 200' }],
       }
       const source = await renderResource(env, baseResource({

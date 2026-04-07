@@ -16,9 +16,15 @@
 
 ```typescript
 agentRuntime: {
-  // Skills the agent is allowed to load. Each entry is a skill ID
-  // installed on the account (see `npx checkly skills install`).
-  skills: ['checkly/playwright-skill'],
+  // Additional skills to load on top of the runner's defaults (the
+  // `playwright-cli` skill is preloaded automatically — you don't need
+  // to declare it). Each entry is passed verbatim to `npx skills add`
+  // on the runner, so any third-party skill published to https://skills.sh
+  // works — not just Checkly's own. Supported identifier forms:
+  //   - full URL form:   'https://skills.sh/microsoft/playwright-cli/playwright-cli'
+  //   - owner/repo form: 'addyosmani/web-quality-skills'
+  //   - plain name:      'cost-optimization'
+  skills: ['addyosmani/web-quality-skills'],
 
   // Environment variables the agent is allowed to read at runtime.
   // Anything not listed here is hidden from the agent process — even
@@ -36,7 +42,8 @@ agentRuntime: {
 
 - Only declare env vars the agent **needs**. Adding a variable to `environmentVariables` exposes it to the model and to anything the model invokes via skills.
 - Descriptions are not just documentation — they steer the model's decisions. Use them to disambiguate variables that have non-obvious names.
-- Skills must already be installed on the Checkly account (managed via the Checkly app or `npx checkly skills install`). The CLI does not validate the skill ID at deploy time.
+- The runner installs each skill via `npx skills add` at the start of every check run. The CLI does not validate the skill identifier at deploy time, so a typo will not surface until the first run.
+- The `playwright-cli` skill is preloaded for every agentic check. Only declare additional skills here.
 
 ## Assertion rules
 
