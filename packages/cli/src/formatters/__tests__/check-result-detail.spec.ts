@@ -8,6 +8,9 @@ import {
   browserCheckResultWithObjectErrors,
   multiStepCheckResult,
   minimalCheckResult,
+  agenticCheckResult,
+  agenticCheckResultWithFailures,
+  agenticCheckResultMinimal,
 } from './__fixtures__/fixtures'
 
 // Pin time for formatDate used in result detail
@@ -126,6 +129,75 @@ describe('formatResultDetail', () => {
       expect(result).toContain('Payment step failed')
       expect(result).toContain('JOB LOG')
       expect(result).toContain('ASSETS')
+    })
+  })
+
+  describe('Agentic check result', () => {
+    it('renders terminal output', () => {
+      const result = stripAnsi(formatResultDetail(agenticCheckResult, 'terminal'))
+      expect(result).toMatchSnapshot('agentic-result-detail-terminal')
+    })
+
+    it('renders markdown output', () => {
+      const result = formatResultDetail(agenticCheckResult, 'md')
+      expect(result).toMatchSnapshot('agentic-result-detail-md')
+    })
+
+    it('includes summary, assertions, steps, and suggestions sections in terminal', () => {
+      const result = stripAnsi(formatResultDetail(agenticCheckResult, 'terminal'))
+      expect(result).toContain('AGENTIC RESULT')
+      expect(result).toContain('SUMMARY')
+      expect(result).toContain('The homepage loaded successfully')
+      expect(result).toContain('ASSERTIONS')
+      expect(result).toContain('The homepage returns an HTTP 200 status')
+      expect(result).toContain('STEPS')
+      expect(result).toContain('http_request')
+      expect(result).toContain('SUGGESTIONS')
+      expect(result).toContain('Also verify the pricing page loads')
+    })
+
+    it('does not render Model, Cost, or Tokens in terminal output', () => {
+      // These fields live in the runner's raw metadata but are intentionally
+      // withheld from the public API response. The CLI mirrors that policy —
+      // adding them back later is backwards-compatible, removing them after
+      // they've been shown to users is not.
+      const result = stripAnsi(formatResultDetail(agenticCheckResult, 'terminal'))
+      expect(result).not.toContain('Model:')
+      expect(result).not.toContain('Cost:')
+      expect(result).not.toContain('Tokens:')
+    })
+
+    it('renders assertion failures with expected/actual context in terminal', () => {
+      const result = stripAnsi(formatResultDetail(agenticCheckResultWithFailures, 'terminal'))
+      expect(result).toContain('ASSERTIONS')
+      expect(result).toContain('The homepage returns an HTTP 200 status')
+      expect(result).toContain('expected "200"')
+      expect(result).toContain('got "503"')
+      expect(result).toContain('ERRORS')
+      expect(result).toContain('503 Service Unavailable')
+    })
+
+    it('renders cleanly when metadata is empty-but-structured', () => {
+      // A check that has only produced the envelope (no assertions/steps/
+      // suggestions yet) should still render the AGENTIC RESULT header
+      // without crashing and without any of the optional sections.
+      const result = stripAnsi(formatResultDetail(agenticCheckResultMinimal, 'terminal'))
+      expect(result).toContain('AGENTIC RESULT')
+      expect(result).not.toContain('SUMMARY')
+      expect(result).not.toContain('ASSERTIONS')
+      expect(result).not.toContain('STEPS')
+      expect(result).not.toContain('SUGGESTIONS')
+      expect(result).not.toContain('ERRORS')
+    })
+
+    it('renders markdown tables for assertions', () => {
+      const result = formatResultDetail(agenticCheckResult, 'md')
+      expect(result).toContain('## Agentic Result')
+      expect(result).toContain('### Summary')
+      expect(result).toContain('### Assertions')
+      expect(result).toContain('| Status | Condition | Expected | Actual |')
+      expect(result).toContain('### Suggestions')
+      expect(result).toContain('### Steps')
     })
   })
 
