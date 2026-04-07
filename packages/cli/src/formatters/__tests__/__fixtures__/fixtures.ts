@@ -1,6 +1,12 @@
 import type { Check } from '../../rest/checks'
 import type { CheckStatus } from '../../rest/check-statuses'
-import type { CheckResult, ApiCheckResult, BrowserCheckResult, MultiStepCheckResult } from '../../rest/check-results'
+import type {
+  CheckResult,
+  ApiCheckResult,
+  BrowserCheckResult,
+  MultiStepCheckResult,
+  AgenticCheckResult,
+} from '../../rest/check-results'
 import type { ErrorGroup, RootCauseAnalysis } from '../../rest/error-groups'
 import type { CheckWithStatus } from '../checks'
 
@@ -364,6 +370,92 @@ export const minimalCheckResult: CheckResult = {
   checkRunId: 1004,
   attempts: 1,
   resultType: 'FINAL',
+}
+
+export const agenticCheckResult: CheckResult = {
+  id: 'result-7',
+  checkId: 'check-7',
+  name: 'Homepage Health (Agentic)',
+  hasFailures: false,
+  hasErrors: false,
+  isDegraded: null,
+  overMaxResponseTime: null,
+  runLocation: 'us-east-1',
+  startedAt: '2025-06-15T12:00:00.000Z',
+  stoppedAt: '2025-06-15T12:00:12.000Z',
+  created_at: '2025-06-15T12:00:12.000Z',
+  responseTime: 12000,
+  checkRunId: 1007,
+  attempts: 1,
+  resultType: 'FINAL',
+  agenticCheckResult: {
+    summary: 'The homepage loaded successfully and all assertions passed.',
+    prompt: 'Navigate to https://www.checklyhq.com and verify the homepage loads successfully.',
+    assertions: [
+      {
+        condition: 'The homepage returns an HTTP 200 status',
+        passed: true,
+        actual: '200',
+        expected: '200',
+      },
+      {
+        condition: 'The page heading is "Checkly"',
+        passed: true,
+        actual: 'Checkly',
+        expected: 'Checkly',
+      },
+    ],
+    suggestions: [
+      {
+        summary: 'Also verify the pricing page loads',
+        prompt: 'After the homepage loads, navigate to /pricing and confirm all plans are visible.',
+        secrets: [],
+        category: 'configuration',
+      },
+    ],
+    steps: [
+      { type: 'message', output: 'Starting the check.', timestamp: '2025-06-15T12:00:00.100Z', sequenceNumber: 1 },
+      { type: 'tool_call', name: 'http_request', input: { method: 'GET', url: 'https://www.checklyhq.com' }, timestamp: '2025-06-15T12:00:00.200Z', sequenceNumber: 2 },
+      { type: 'tool_result', name: 'http_request', output: '200 OK', timestamp: '2025-06-15T12:00:01.500Z', sequenceNumber: 3 },
+      { type: 'message', output: 'Homepage loaded, verifying heading.', timestamp: '2025-06-15T12:00:01.600Z', sequenceNumber: 4 },
+    ],
+    errors: [],
+  } as AgenticCheckResult,
+}
+
+export const agenticCheckResultWithFailures: CheckResult = {
+  ...agenticCheckResult,
+  id: 'result-8',
+  hasFailures: true,
+  agenticCheckResult: {
+    ...agenticCheckResult.agenticCheckResult!,
+    summary: 'The homepage did not return a 200 status.',
+    assertions: [
+      {
+        condition: 'The homepage returns an HTTP 200 status',
+        passed: false,
+        actual: '503',
+        expected: '200',
+      },
+    ],
+    errors: [
+      { error: { message: 'Request failed: 503 Service Unavailable' } },
+    ],
+  } as AgenticCheckResult,
+}
+
+export const agenticCheckResultMinimal: CheckResult = {
+  ...agenticCheckResult,
+  id: 'result-9',
+  agenticCheckResult: {
+    // Empty-but-structured: runner has only produced the envelope so far.
+    summary: '',
+    prompt: 'Verify the homepage loads.',
+    assertions: [],
+    suggestions: [],
+    steps: [],
+    errors: [],
+  } as AgenticCheckResult,
 }
 
 // --- Error groups ---
