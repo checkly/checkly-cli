@@ -20,6 +20,7 @@ export interface CheckResult {
   apiCheckResult?: ApiCheckResult | null
   browserCheckResult?: BrowserCheckResult | null
   multiStepCheckResult?: MultiStepCheckResult | null
+  agenticCheckResult?: AgenticCheckResult | null
 }
 
 // --- API check result ---
@@ -114,6 +115,56 @@ export interface MultiStepCheckResult {
   jobAssets: string[] | null
   playwrightTestTraces?: string[]
   playwrightTestJsonReportFile?: string
+}
+
+// --- Agentic check result ---
+
+export interface AgenticAssertion {
+  condition?: string | null
+  passed?: boolean | null
+  actual?: string | null
+  expected?: string | null
+}
+
+export interface AgenticSuggestion {
+  summary?: string | null
+  prompt?: string | null
+  secrets?: string[] | null
+  category?: 'credentials' | 'endpoint' | 'configuration' | null
+}
+
+export interface AgenticStep {
+  type?: 'tool_call' | 'tool_result' | 'message' | null
+  name?: string | null
+  input?: Record<string, unknown> | null
+  output?: string | null
+  timestamp?: string | null
+  sequenceNumber?: number | null
+}
+
+/**
+ * The agentic check result shape returned by the public API for AGENTIC
+ * checks. Every field is optional/nullable on purpose: the agentic product
+ * is still early-stage, and the backend may reshape this payload under a
+ * new API version. Consumers should degrade gracefully when fields are
+ * missing rather than assume a particular structure.
+ *
+ * Note: `model`, `costUsd`, and `tokensUsed` exist in the runner's raw
+ * metadata but are intentionally NOT part of the public response shape.
+ * The backend strips them from the serialized response today, and the CLI
+ * does not render them even if they ever re-appear on an envelope it
+ * receives.
+ */
+export interface AgenticCheckResult {
+  summary?: string | null
+  prompt?: string | null
+  assertions?: AgenticAssertion[] | null
+  suggestions?: AgenticSuggestion[] | null
+  steps?: AgenticStep[] | null
+  errors?: Array<{ error?: { message?: string | null } | null }> | null
+  artifactManifest?: Record<string, string> | null
+  jobLog?: unknown | null
+  jobAssets?: string[] | null
 }
 
 export interface CheckResultsPage {

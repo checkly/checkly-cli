@@ -5,6 +5,7 @@ import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus }
 import { simpleCheckFixture } from './fixtures/simple-check'
 import { apiCheckResult } from './fixtures/api-check-result'
 import { browserCheckResult } from './fixtures/browser-check-result'
+import { agenticCheckResult, agenticCheckResultWithFailures } from './fixtures/agentic-check-result'
 
 function stripAnsi (input: string): string {
   return input.replace(
@@ -88,6 +89,39 @@ describe('formatCheckResult()', () => {
       basicBrowserCheckResult.scheduleError = 'There was a scheduling error'
       expect(stripAnsi(formatCheckResult(basicBrowserCheckResult)))
         .toMatchSnapshot('browser-check-result-schedule-error-format')
+    })
+  })
+  describe('Agentic Check result', () => {
+    it('formats a passing Agentic Check result with all sections', () => {
+      expect(stripAnsi(formatCheckResult(agenticCheckResult)))
+        .toMatchSnapshot('agentic-check-result-passing-format')
+    })
+    it('formats a failing Agentic Check result with assertion details and errors', () => {
+      expect(stripAnsi(formatCheckResult(agenticCheckResultWithFailures)))
+        .toMatchSnapshot('agentic-check-result-failing-format')
+    })
+    it('includes the human-readable section titles', () => {
+      const output = stripAnsi(formatCheckResult(agenticCheckResult))
+      expect(output).toContain('Summary')
+      expect(output).toContain('Assertions')
+      expect(output).toContain('Steps (4)')
+      expect(output).toContain('Suggestions')
+      expect(output).toContain('✓ The homepage returns an HTTP 200 status')
+    })
+    it('renders assertion failures with expected/actual context', () => {
+      const output = stripAnsi(formatCheckResult(agenticCheckResultWithFailures))
+      expect(output).toContain('✗ The homepage returns an HTTP 200 status')
+      expect(output).toContain('expected "200", got "503"')
+      expect(output).toContain('Agent Errors')
+      expect(output).toContain('503 Service Unavailable')
+    })
+    it('skips agentic rendering if agenticCheckResult is missing', () => {
+      // This guards the branch-entry condition — a result that somehow lacks
+      // agenticCheckResult should not crash or render an empty AGENTIC block.
+      const withoutTypedField = { ...agenticCheckResult, agenticCheckResult: undefined }
+      const output = stripAnsi(formatCheckResult(withoutTypedField))
+      expect(output).not.toContain('Summary')
+      expect(output).not.toContain('Assertions')
     })
   })
 })
