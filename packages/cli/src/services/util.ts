@@ -12,7 +12,7 @@ import { PlaywrightConfig } from './playwright-config'
 import { Session } from '../constructs/project'
 import semver from 'semver'
 import { existsSync } from 'fs'
-import { detectNearestPackageJson } from './check-parser/package-files/package-manager'
+import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager'
 
 export interface GitInformation {
   commitId: string
@@ -143,6 +143,25 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
   return cleaned && semver.valid(cleaned) ? cleaned : undefined
 }
 
+export function getAutoIncludes (
+  basePath: string,
+  packageManager: PackageManager,
+  existingIncludes: string[],
+): string[] {
+  const autoIncludes: string[] = []
+
+  if (packageManager.name === 'pnpm') {
+    const patchesPattern = 'patches/*.patch'
+    const patchesDir = path.join(basePath, 'patches')
+    const alreadyIncluded = existingIncludes.some(p => path.resolve(basePath, p).startsWith(patchesDir))
+    if (!alreadyIncluded) {
+      autoIncludes.push(patchesPattern)
+    }
+  }
+
+  return autoIncludes
+}
+
 export async function bundlePlayWrightProject (
   playwrightConfig: string,
   include: string[],
@@ -195,10 +214,13 @@ export async function bundlePlayWrightProject (
     }
   }
 
+  const autoIncludes = getAutoIncludes(Session.basePath!, Session.packageManager, include)
+  const effectiveIncludes = [...include, ...autoIncludes]
+
   const includedFiles = await findFilesWithPattern(
     // FIXME: Shouldn't the pattern be relative to the Playwright check?
     Session.basePath!,
-    include,
+    effectiveIncludes,
     ignoredFiles,
   )
 

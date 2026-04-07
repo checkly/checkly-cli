@@ -6,7 +6,7 @@ import { SourceFile } from './source-file'
 import { PackageJsonFile } from './package-json-file'
 import { TSConfigFile } from './tsconfig-json-file'
 import { JSConfigFile } from './jsconfig-json-file'
-import { isBuiltinPath, isImportsPath, isLocalPath, PathResult, splitExternalPath } from './paths'
+import { isBuiltinPath, isImportsPath, isLocalPath, isNativeBinaryPath, PathResult, splitExternalPath } from './paths'
 import { FileLoader, LoadFile } from './loader'
 import { JsonSourceFile } from './json-source-file'
 import { JsonTextSourceFile } from './json-text-source-file'
@@ -521,6 +521,15 @@ export class PackageFilesResolver {
         resolved.external.push({
           importPath,
         })
+        continue resolve
+      }
+
+      // Native addon imports (e.g. fsevents.js doing `require('./fsevents.node')`)
+      // are loaded by Node.js at runtime via process.dlopen. They are not
+      // JavaScript and cannot be bundled, so skip them silently rather than
+      // reporting them as missing dependencies — see issue #1274.
+      if (isNativeBinaryPath(importPath)) {
+        debug('Skipping native binary %s', importPath)
         continue resolve
       }
 
