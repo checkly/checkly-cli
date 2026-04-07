@@ -193,11 +193,11 @@ class Projects {
   /**
    * @throws {ProjectNotFoundError} If the project does not exist.
    */
-  async deleteProject (logicalId: string, { abandonResources = false } = {}) {
+  async deleteProject (logicalId: string, { preserveResources = false } = {}) {
     try {
       const logicalIdParam = encodeURIComponent(logicalId)
       return await this.api.delete(`/next/projects/${logicalIdParam}`, {
-        params: { abandonResources },
+        params: { preserveResources },
       })
     } catch (err) {
       if (err instanceof NotFoundError) {

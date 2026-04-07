@@ -18,8 +18,8 @@ export default class Destroy extends AuthCommand {
       char: 'c',
       description: commonMessages.configFile,
     }),
-    'abandon-resources': Flags.boolean({
-      description: 'Keep all project resources (checks, groups, dashboards, etc.) when destroying the project. Resources become normal account-level resources.',
+    'preserve-resources': Flags.boolean({
+      description: 'Preserve all project resources (checks, groups, dashboards, etc.) when destroying the project. Resources become normal account-level resources.',
       default: false,
     }),
   }
@@ -28,7 +28,7 @@ export default class Destroy extends AuthCommand {
     const { flags } = await this.parse(Destroy)
     const {
       config: configFilename,
-      'abandon-resources': abandonResources,
+      'preserve-resources': preserveResources,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
@@ -36,12 +36,12 @@ export default class Destroy extends AuthCommand {
 
     await this.confirmOrAbort({
       command: 'destroy',
-      description: abandonResources
-        ? 'Destroy project but keep resources'
+      description: preserveResources
+        ? 'Destroy project but preserve resources'
         : 'Destroy all project resources',
       changes: [
-        abandonResources
-          ? `Delete the project "${checklyConfig.projectName}" in account "${account.name}" but keep all resources as normal account-level resources`
+        preserveResources
+          ? `Delete the project "${checklyConfig.projectName}" in account "${account.name}" but preserve all resources as normal account-level resources`
           : `PERMANENTLY delete ALL resources associated with the project "${checklyConfig.projectName}" in account "${account.name}"`,
       ],
       flags,
@@ -70,9 +70,9 @@ export default class Destroy extends AuthCommand {
     })
 
     try {
-      await api.projects.deleteProject(checklyConfig.logicalId, { abandonResources })
-      this.log(abandonResources
-        ? `Project "${checklyConfig.projectName}" has been successfully deleted. All resources have been kept as account-level resources.`
+      await api.projects.deleteProject(checklyConfig.logicalId, { preserveResources })
+      this.log(preserveResources
+        ? `Project "${checklyConfig.projectName}" has been successfully deleted. All resources have been preserved as account-level resources.`
         : `All resources associated with project "${checklyConfig.projectName}" have been successfully deleted.`)
     } catch (err: any) {
       this.style.longError(`Your project could not be destroyed.`, err)
