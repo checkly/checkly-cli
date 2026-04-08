@@ -22,11 +22,17 @@ export class Runnable {
   }
 }
 
+export interface AddCommandOptions {
+  packages: string[]
+  saveDev?: boolean
+}
+
 export interface PackageManager {
   get name (): string
   get representativeLockfile (): string | undefined
   get representativeConfigFile (): string | undefined
   installCommand (): Runnable
+  addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
   detector (): PackageManagerDetector
@@ -44,6 +50,7 @@ export abstract class PackageManagerDetector {
   abstract detectConfigFile (dir: string): Promise<string>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
+  abstract addCommand (options: AddCommandOptions): Runnable
   abstract execCommand (args: string[]): Runnable
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
   detector (): PackageManagerDetector {
@@ -87,6 +94,14 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('npm', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('npm', [
+      'install',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -137,6 +152,14 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return new Runnable('cnpm', ['install'])
   }
 
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('cnpm', [
+      'install',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
+  }
+
   execCommand (args: string[]): Runnable {
     return new Runnable('npx', args)
   }
@@ -181,6 +204,14 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('pnpm', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('pnpm', [
+      'add',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -301,6 +332,14 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return new Runnable('yarn', ['install'])
   }
 
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('yarn', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
+  }
+
   execCommand (args: string[]): Runnable {
     return new Runnable('yarn', args)
   }
@@ -345,6 +384,14 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('deno', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('deno', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -436,6 +483,14 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('bun', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('bun', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
