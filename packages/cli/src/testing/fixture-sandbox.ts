@@ -6,7 +6,7 @@ import Debug from 'debug'
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 
-import { detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
+import { detectNearestLockfile, detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
 
 export interface CreateFixtureSandboxOptions {
   /**
@@ -113,7 +113,9 @@ export class FixtureSandbox {
     if (installPackages && injectPackedSelf) {
       debug('Injecting containing package')
 
-      const lockfile = packageManager.representativeLockfile
+      const { lockfile } = await detectNearestLockfile(root, {
+        detectors: [packageManager.detector()],
+      })
 
       // Take a backup of the original package.json so that we can restore
       // it later.
@@ -123,12 +125,7 @@ export class FixtureSandbox {
       )
 
       // Same for the lockfile.
-      if (lockfile) {
-        await fs.cp(
-          path.join(root, lockfile),
-          path.join(root, `${lockfile}.backup`),
-        )
-      }
+      await fs.cp(lockfile, `${lockfile}.backup`)
 
       const packageJson = await detectNearestPackageJson(__dirname)
 
@@ -153,12 +150,7 @@ export class FixtureSandbox {
       )
 
       // Restore original lockfile.
-      if (lockfile) {
-        await fs.rename(
-          path.join(root, `${lockfile}.backup`),
-          path.join(root, lockfile),
-        )
-      }
+      await fs.rename(`${lockfile}.backup`, lockfile)
     }
 
     return new FixtureSandbox({

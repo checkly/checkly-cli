@@ -29,7 +29,7 @@ export interface AddCommandOptions {
 
 export interface PackageManager {
   get name (): string
-  get representativeLockfile (): string | undefined
+  get representativeLockfiles (): string[]
   get representativeConfigFile (): string | undefined
   installCommand (): Runnable
   addCommand (options: AddCommandOptions): Runnable
@@ -44,9 +44,20 @@ export abstract class PackageManagerDetector {
   abstract get name (): string
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
-  abstract get representativeLockfile (): string | undefined
+  abstract get representativeLockfiles (): string[]
   abstract get representativeConfigFile (): string | undefined
-  abstract detectLockfile (dir: string): Promise<string>
+
+  async detectLockfile (dir: string): Promise<string> {
+    for (const lockfile of this.representativeLockfiles) {
+      try {
+        return await accessR(path.join(dir, lockfile))
+      } catch {
+        continue
+      }
+    }
+    throw new NotDetectedError()
+  }
+
   abstract detectConfigFile (dir: string): Promise<string>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
@@ -71,16 +82,12 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'package-lock.json'
+  get representativeLockfiles (): string[] {
+    return ['package-lock.json']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -126,17 +133,12 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): undefined {
-    return
+  get representativeLockfiles (): string[] {
+    return []
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  // eslint-disable-next-line require-await
-  async detectLockfile (): Promise<string> {
-    throw new NotDetectedError()
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -182,16 +184,12 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'pnpm-lock.yaml'
+  get representativeLockfiles (): string[] {
+    return ['pnpm-lock.yaml']
   }
 
   get representativeConfigFile (): string {
     return 'pnpm-workspace.yaml'
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectConfigFile (dir: string): Promise<string> {
@@ -307,16 +305,12 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'yarn.lock'
+  get representativeLockfiles (): string[] {
+    return ['yarn.lock']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -362,16 +356,12 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
     return process.versions.deno !== undefined
   }
 
-  get representativeLockfile (): string {
-    return 'deno.lock'
+  get representativeLockfiles (): string[] {
+    return ['deno.lock']
   }
 
   get representativeConfigFile (): string {
     return 'deno.json'
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectConfigFile (dir: string): Promise<string> {
@@ -460,16 +450,12 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return process.versions.bun !== undefined
   }
 
-  get representativeLockfile (): string {
-    return 'bun.lockb'
+  get representativeLockfiles (): string[] {
+    return ['bun.lock', 'bun.lockb']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -731,9 +717,7 @@ export async function detectNearestLockfile (
     }
   }
 
-  const lockfiles = detectors.reduce<string[]>((acc, detector) => {
-    return acc.concat(detector.representativeLockfile ?? [])
-  }, [])
+  const lockfiles = detectors.flatMap(detector => detector.representativeLockfiles)
 
   throw new NoLockfileFoundError(searchPaths, lockfiles)
 }
