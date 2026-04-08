@@ -115,6 +115,7 @@ export class FixtureSandbox {
 
       const { lockfile } = await detectNearestLockfile(root, {
         detectors: [packageManager.detector()],
+        root,
       })
 
       // Take a backup of the original package.json so that we can restore
