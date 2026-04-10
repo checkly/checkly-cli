@@ -24,7 +24,7 @@ export type Reminders = {
   /**
    * Interval between reminder notifications in minutes.
    * @defaultValue 5
-   * @enum [5, 10, 15, 30]
+   * @enum [1, 2, 3, 4, 5, 10, 15, 30]
    */
   interval?: number
 }
