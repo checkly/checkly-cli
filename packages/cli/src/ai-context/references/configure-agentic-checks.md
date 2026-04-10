@@ -29,7 +29,7 @@ agentRuntime: {
   // Environment variables the agent is allowed to read at runtime.
   // Anything not listed here is hidden from the agent process — even
   // if it's defined at the project or check level.
-  environmentVariables: [
+  exposeEnvironmentVariables: [
     // Bare string form: variable name only.
     'ENVIRONMENT_URL',
     // Object form: pair the variable with a description so the agent
@@ -40,7 +40,7 @@ agentRuntime: {
 },
 ```
 
-- Only declare env vars the agent **needs**. Adding a variable to `environmentVariables` exposes it to the model and to anything the model invokes via skills.
+- Only declare env vars the agent **needs**. Adding a variable to `exposeEnvironmentVariables` exposes it to the model and to anything the model invokes via skills.
 - Descriptions are not just documentation — they steer the model's decisions. Use them to disambiguate variables that have non-obvious names.
 - The runner installs each skill via `npx skills add` at the start of every check run. The CLI does not validate the skill identifier at deploy time, so a typo will not surface until the first run.
 - The `playwright-cli` skill is preloaded for every agentic check. Only declare additional skills here.

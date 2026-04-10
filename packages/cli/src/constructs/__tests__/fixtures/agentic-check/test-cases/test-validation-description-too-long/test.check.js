@@ -4,7 +4,7 @@ new AgenticCheck('long-description', {
   name: 'Description too long',
   prompt: 'Verify the homepage loads.',
   agentRuntime: {
-    environmentVariables: [
+    exposeEnvironmentVariables: [
       { name: 'API_KEY', description: 'x'.repeat(201) },
     ],
   },

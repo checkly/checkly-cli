@@ -69,7 +69,7 @@ describe('AgenticCheck', () => {
               runParallel: false,
               agentRuntime: {
                 skills: [],
-                environmentVariables: [],
+                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -99,7 +99,7 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: ['addyosmani/web-quality-skills'],
-                environmentVariables: [
+                exposeEnvironmentVariables: [
                   'API_KEY',
                   { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
                 ],
@@ -114,7 +114,7 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: [],
-                environmentVariables: [],
+                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -288,7 +288,7 @@ describe('AgenticCheck', () => {
         fatal: true,
         observations: expect.arrayContaining([
           expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.environmentVariables[0]" must have a non-empty name'),
+            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0]" must have a non-empty name'),
           }),
         ]),
       }),
@@ -307,7 +307,7 @@ describe('AgenticCheck', () => {
         fatal: true,
         observations: expect.arrayContaining([
           expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.environmentVariables[0].description" must be at most 200 characters'),
+            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0].description" must be at most 200 characters'),
           }),
         ]),
       }),

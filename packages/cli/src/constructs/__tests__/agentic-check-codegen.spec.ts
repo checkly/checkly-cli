@@ -148,8 +148,8 @@ describe('AgenticCheckCodegen', () => {
       expect(source).toContain('skills: [')
       expect(source).toContain('\'addyosmani/web-quality-skills\'')
       expect(source).toContain('\'cost-optimization\'')
-      // No empty environmentVariables when none are selected.
-      expect(source).not.toContain('environmentVariables')
+      // No empty exposeEnvironmentVariables when none are selected.
+      expect(source).not.toContain('exposeEnvironmentVariables')
     })
 
     it('should drop empty skill names', async () => {
@@ -165,14 +165,14 @@ describe('AgenticCheckCodegen', () => {
       expect(source).not.toMatch(/skills:\s*\[[^\]]*''/m)
     })
 
-    it('should emit `agentRuntime.environmentVariables` for bare-string entries', async () => {
+    it('should emit `agentRuntime.exposeEnvironmentVariables` for bare-string entries', async () => {
       const source = await renderResource(env, baseResource({
         agenticCheckData: {
           selectedEnvironmentVariables: ['ENVIRONMENT_URL', 'API_KEY'],
         },
       }))
 
-      expect(source).toContain('environmentVariables: [')
+      expect(source).toContain('exposeEnvironmentVariables: [')
       expect(source).toContain('\'ENVIRONMENT_URL\'')
       expect(source).toContain('\'API_KEY\'')
       // Bare strings should not be expanded into objects. The only `name:`

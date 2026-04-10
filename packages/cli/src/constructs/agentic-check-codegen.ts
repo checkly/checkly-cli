@@ -87,7 +87,7 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
 /**
  * Build an `agentRuntime: { ... }` object literal for the codegen output,
  * reverse-translating the backend's storage shape (`selectedEnvironmentVariables`
- * with `key`) into the CLI construct's shape (`environmentVariables` with
+ * with `key`) into the CLI construct's shape (`exposeEnvironmentVariables` with
  * `name`). Returns `undefined` when the input contains nothing worth
  * emitting, so the caller can skip the property entirely.
  */
@@ -113,7 +113,7 @@ function buildAgentRuntimeObject (
     }
 
     if (storedEnvVars.length > 0) {
-      builder.array('environmentVariables', arrayBuilder => {
+      builder.array('exposeEnvironmentVariables', arrayBuilder => {
         for (const entry of storedEnvVars) {
           if (typeof entry === 'string') {
             arrayBuilder.string(entry)

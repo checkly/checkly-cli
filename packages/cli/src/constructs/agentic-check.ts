@@ -107,13 +107,13 @@ export interface AgentRuntime {
    *
    * @example
    * ```typescript
-   * environmentVariables: [
+   * exposeEnvironmentVariables: [
    *   'API_KEY',
    *   { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
    * ]
    * ```
    */
-  environmentVariables?: AgentRuntimeEnvironmentVariable[]
+  exposeEnvironmentVariables?: AgentRuntimeEnvironmentVariable[]
 }
 
 /**
@@ -274,14 +274,14 @@ export class AgenticCheck extends Check {
       }
     }
 
-    if (this.agentRuntime?.environmentVariables) {
-      for (const [index, entry] of this.agentRuntime.environmentVariables.entries()) {
+    if (this.agentRuntime?.exposeEnvironmentVariables) {
+      for (const [index, entry] of this.agentRuntime.exposeEnvironmentVariables.entries()) {
         const name = typeof entry === 'string' ? entry : entry?.name
         if (typeof name !== 'string' || name.trim().length === 0) {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.environmentVariables',
+            'agentRuntime.exposeEnvironmentVariables',
             new Error(
-              `"agentRuntime.environmentVariables[${index}]" must have a non-empty name.`,
+              `"agentRuntime.exposeEnvironmentVariables[${index}]" must have a non-empty name.`,
             ),
           ))
           continue
@@ -291,9 +291,9 @@ export class AgenticCheck extends Check {
           && typeof entry.description === 'string'
           && entry.description.length > MAX_ENV_VAR_DESCRIPTION_LENGTH) {
           diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.environmentVariables',
+            'agentRuntime.exposeEnvironmentVariables',
             new Error(
-              `"agentRuntime.environmentVariables[${index}].description" must be at most `
+              `"agentRuntime.exposeEnvironmentVariables[${index}].description" must be at most `
               + `${MAX_ENV_VAR_DESCRIPTION_LENGTH} characters, got ${entry.description.length}.`,
             ),
           ))
@@ -313,7 +313,7 @@ export class AgenticCheck extends Check {
       // them", not "preserve whatever was there before".
       agentRuntime: {
         skills: this.agentRuntime?.skills ?? [],
-        environmentVariables: this.agentRuntime?.environmentVariables ?? [],
+        exposeEnvironmentVariables: this.agentRuntime?.exposeEnvironmentVariables ?? [],
       },
     }
   }
