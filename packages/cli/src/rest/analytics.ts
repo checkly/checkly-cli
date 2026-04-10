@@ -7,7 +7,9 @@ export const quickRangeValues: QuickRange[] = [
   'last24Hours', 'last7Days', 'last30Days', 'thisWeek', 'thisMonth', 'lastWeek', 'lastMonth',
 ]
 
-const checkTypeToPath: Record<CheckType, string> = {
+// AGENTIC is intentionally absent: agentic checks have no per-check analytics
+// endpoint, so callers fall through to the `if (!pathSegment)` branch below.
+const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.API]: 'api-checks',
   [CheckTypes.BROWSER]: 'browser-checks',
   [CheckTypes.PLAYWRIGHT]: 'playwright-checks',
@@ -21,7 +23,7 @@ const checkTypeToPath: Record<CheckType, string> = {
 }
 
 // Default aggregated metrics per check type
-const defaultMetrics: Record<CheckType, string[]> = {
+const defaultMetrics: Partial<Record<CheckType, string[]>> = {
   [CheckTypes.API]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
   [CheckTypes.BROWSER]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
   [CheckTypes.PLAYWRIGHT]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
