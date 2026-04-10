@@ -80,15 +80,6 @@ function generateSkillCommands (): string {
       action.description,
     ]
 
-    if ('references' in action) {
-      for (const ref of action.references) {
-        const refId = ref.id.replace(`${action.id}-`, '')
-        lines.push('')
-        lines.push(`#### \`npx checkly skills ${action.id} ${refId}\``)
-        lines.push(ref.description)
-      }
-    }
-
     return lines.join('\n')
   }).join('\n\n')
 }
