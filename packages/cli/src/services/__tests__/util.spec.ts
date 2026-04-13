@@ -35,7 +35,7 @@ describe('util', () => {
     const basePath = path.resolve('/project')
     const makePm = (name: string): PackageManager => ({
       name,
-      representativeLockfile: undefined,
+      representativeLockfiles: [],
       representativeConfigFile: undefined,
       installCommand: () => ({ executable: name, args: ['install'], unsafeDisplayCommand: `${name} install` }),
       execCommand: (args: string[]) => ({ executable: name, args, unsafeDisplayCommand: `${name} ${args.join(' ')}` }),
