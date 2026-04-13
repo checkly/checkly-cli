@@ -19,6 +19,7 @@ const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.ICMP]: 'icmp',
   [CheckTypes.DNS]: 'dns',
   [CheckTypes.URL]: 'url-monitors',
+  [CheckTypes.AGENTIC]: 'agentic-checks',
 }
 
 // Default aggregated metrics per check type
@@ -32,6 +33,7 @@ const defaultMetrics: Partial<Record<CheckType, string[]>> = {
   [CheckTypes.DNS]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.ICMP]: ['availability', 'packetLoss_avg', 'latencyAvg_avg', 'latencyAvg_p50', 'latencyAvg_p95', 'latencyAvg_p99'],
   [CheckTypes.HEARTBEAT]: ['availability'],
+  [CheckTypes.AGENTIC]: ['availability'],
 }
 
 export type GroupBy = 'runLocation' | 'statusCode'

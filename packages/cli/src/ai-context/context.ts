@@ -1,5 +1,9 @@
 export const REFERENCES = [
   {
+    id: 'configure-agentic-checks',
+    description: 'Agentic Check construct (`AgenticCheck`) for AI-powered prompt-driven monitoring with skill and env var allowlists',
+  },
+  {
     id: 'configure-api-checks',
     description: 'Api Check construct (`ApiCheck`), assertions, and authentication setup scripts',
   },
@@ -146,6 +150,11 @@ export default defineConfig({
 })
 `,
     reference: 'https://www.checklyhq.com/docs/constructs/project/',
+  },
+  AGENTIC_CHECK: {
+    templateString: '<!-- EXAMPLE: AGENTIC_CHECK -->',
+    exampleConfigPath: 'resources/agentic-checks/example-agentic-check.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/agentic-check/',
   },
   BROWSER_CHECK: {
     templateString: '<!-- EXAMPLE: BROWSER_CHECK -->',
