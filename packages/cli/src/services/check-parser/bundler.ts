@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, WriteStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -10,6 +9,7 @@ import Debug from 'debug'
 import * as uuid from 'uuid'
 
 import { checklyStorage } from '../../rest/api'
+import { computeWorkspaceCacheHash } from './cache-hash'
 import { File } from './parser'
 import { Workspace } from './package-files/workspace'
 
@@ -262,11 +262,7 @@ export class Bundler {
       tempDir,
     } = options
 
-    const cacheHashFile = workspace.lockfile.isOk()
-      ? workspace.lockfile.ok()
-      : workspace.root.packageJsonPath
-
-    const cacheHash = await getCacheHash(cacheHashFile)
+    const cacheHash = await computeWorkspaceCacheHash(workspace)
 
     return new Bundler({
       tempDir,
@@ -331,13 +327,6 @@ async function createArchiver (): Promise<Archiver> {
   } else {
     throw new Error('Unable to initialize archiver: neither TarArchive nor default export found')
   }
-}
-
-export async function getCacheHash (lockFile: string): Promise<string> {
-  const fileBuffer = await fs.readFile(lockFile)
-  const hash = createHash('sha256')
-  hash.update(fileBuffer)
-  return hash.digest('hex')
 }
 
 export class BundlePathMarker {
