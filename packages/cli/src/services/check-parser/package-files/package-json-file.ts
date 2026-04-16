@@ -16,12 +16,22 @@ type ConditionKey =
   // Allow any string value, but keep auto complete for known values.
   | (string & Record<never, never>)
 
+// Per the Node.js spec, an exports target can be a string, null (to block
+// the export), an array of fallback targets, or an object of nested
+// conditions. Conditions can themselves contain any of these recursively.
+// See https://nodejs.org/api/packages.html#conditional-exports
+type ExportTarget =
+  | string
+  | null
+  | ExportTarget[]
+  | { [K in ConditionKey]?: ExportTarget }
+
 type Exports =
   | string
-  | Record<string, string | Record<ConditionKey, string>>
+  | Record<string, ExportTarget>
 
 type Imports =
-  | Record<string, string | Record<ConditionKey, string>>
+  | Record<string, ExportTarget>
 
 type Schema = {
   name?: string
@@ -74,9 +84,19 @@ export class PackageJsonFile {
       this.#resolveExports(this.jsonFile.data.exports ?? {}, conditions),
     )
 
-    // Exports must always start with "./" - make sure that the path we're
-    // matching against also starts with that prefix.
-    if (!exportPath.startsWith('./')) {
+    // Normalize the export path to the canonical subpath form used by
+    // `exports` keys. Per the Node.js spec, the root subpath is "." and
+    // all other subpaths start with "./". An empty string means the bare
+    // package import (`import x from 'foo'`) and maps to the root subpath.
+    //
+    // Previously the code blindly prepended "./" to everything, turning
+    // "" into "./", which never matched the "." key and made bare imports
+    // silently resolve to zero paths. Packages that also declared `main`
+    // worked anyway because of the fallback in `resolveSourceFile`; other
+    // packages did not.
+    if (exportPath === '' || exportPath === '.') {
+      exportPath = '.'
+    } else if (!exportPath.startsWith('./')) {
       exportPath = `./${exportPath}`
     }
 
@@ -92,28 +112,62 @@ export class PackageJsonFile {
 
     const resolved: Record<string, string[]> = {}
 
-    Resolve:
-    for (const [from, rules] of Object.entries(exports)) {
-      if (typeof rules === 'string') {
-        resolved[from] = [rules]
-        continue Resolve
-      }
-
-      for (const [condition, to] of Object.entries(rules)) {
-        if (conditions.includes(condition)) {
-          resolved[from] = [to]
-          continue Resolve
-        }
-      }
-
-      const fallback = rules['default']
-      if (fallback) {
-        resolved[from] = [fallback]
-        continue Resolve
+    for (const [from, target] of Object.entries(exports)) {
+      const resolvedTarget = this.#resolveExportTarget(target, conditions)
+      if (resolvedTarget !== undefined) {
+        resolved[from] = [resolvedTarget]
       }
     }
 
     return resolved
+  }
+
+  /**
+   * Recursively resolves an export target against the provided conditions,
+   * following the Node.js conditional exports resolution algorithm.
+   *
+   * Returns the first matching string target, or `undefined` if the target
+   * resolves to `null` (blocked export) or cannot be resolved for the given
+   * conditions.
+   */
+  #resolveExportTarget (target: ExportTarget, conditions: ConditionKey[]): string | undefined {
+    // null explicitly blocks an export.
+    if (target === null) {
+      return undefined
+    }
+
+    // Direct string target — we're done.
+    if (typeof target === 'string') {
+      return target
+    }
+
+    // Array — try each fallback in order until one resolves.
+    if (Array.isArray(target)) {
+      for (const item of target) {
+        const resolvedItem = this.#resolveExportTarget(item, conditions)
+        if (resolvedItem !== undefined) {
+          return resolvedItem
+        }
+      }
+      return undefined
+    }
+
+    // Object — iterate conditions in insertion order (per the Node.js spec,
+    // `default` is expected to be the last key in a condition object).
+    if (typeof target === 'object') {
+      for (const [condition, nested] of Object.entries(target)) {
+        if (!conditions.includes(condition)) {
+          continue
+        }
+        const resolvedNested = this.#resolveExportTarget(nested as ExportTarget, conditions)
+        if (resolvedNested !== undefined) {
+          return resolvedNested
+        }
+      }
+      return undefined
+    }
+
+    return undefined
   }
 
   public get meta () {

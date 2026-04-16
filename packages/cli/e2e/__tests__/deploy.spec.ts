@@ -261,6 +261,69 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
   })
 
+  describe('deploy-agentic-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'deploy-agentic-project'),
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('Should preview an agentic check deployment', async () => {
+      // Use --preview so the test doesn't depend on the e2e account being
+      // entitled to actually create agentic checks. The plan still goes
+      // through full server-side validation, so we get coverage of the
+      // deploy round-trip without leaving resources behind.
+      const { stdout } = await runDeploy(fixt, ['--preview'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+          CHECKLY_CLI_VERSION: undefined,
+        },
+      })
+
+      expect(stdout).toContain(
+        `Create:
+    AgenticCheck: agentic-pricing-check
+    AgenticCheck: agentic-runtime-check
+`)
+    })
+
+    it('Should deploy and re-read an agentic check', async () => {
+      const { stderr, stdout } = await runDeploy(fixt, ['--force'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+          CHECKLY_CLI_VERSION: undefined,
+        },
+      })
+
+      expect(stderr).toBe('')
+      expect(stdout).not.toContain('Notice: replacing version')
+
+      const checks = await getAllResources('checks')
+      const pricingCheck = checks.find(({ name }: { name: string }) =>
+        name === 'Agentic Pricing Check')
+      const runtimeCheck = checks.find(({ name }: { name: string }) =>
+        name === 'Agentic Runtime Check')
+
+      expect(pricingCheck).toBeDefined()
+      expect(pricingCheck.checkType).toEqual('AGENTIC')
+      // The construct hardcodes a single location for agentic checks.
+      expect(pricingCheck.locations).toEqual(['us-east-1'])
+      expect(pricingCheck.tags).toEqual(expect.arrayContaining(['e2e', 'agentic']))
+
+      expect(runtimeCheck).toBeDefined()
+      expect(runtimeCheck.checkType).toEqual('AGENTIC')
+      expect(runtimeCheck.locations).toEqual(['us-east-1'])
+    })
+  })
+
   describe('test-only-project', () => {
     let fixt: FixtureSandbox
 

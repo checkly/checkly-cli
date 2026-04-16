@@ -11,6 +11,7 @@ export default defineConfig({
       '**/*-fixtures/**',
       '**/node_modules/**',
       '**/dist/**',
+      '**/onboarding-boilerplate/**',
     ],
   },
 })

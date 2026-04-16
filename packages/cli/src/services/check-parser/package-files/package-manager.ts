@@ -22,11 +22,17 @@ export class Runnable {
   }
 }
 
+export interface AddCommandOptions {
+  packages: string[]
+  saveDev?: boolean
+}
+
 export interface PackageManager {
   get name (): string
-  get representativeLockfile (): string | undefined
+  get representativeLockfiles (): string[]
   get representativeConfigFile (): string | undefined
   installCommand (): Runnable
+  addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
   detector (): PackageManagerDetector
@@ -38,12 +44,24 @@ export abstract class PackageManagerDetector {
   abstract get name (): string
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
-  abstract get representativeLockfile (): string | undefined
+  abstract get representativeLockfiles (): string[]
   abstract get representativeConfigFile (): string | undefined
-  abstract detectLockfile (dir: string): Promise<string>
+
+  async detectLockfile (dir: string): Promise<string> {
+    for (const lockfile of this.representativeLockfiles) {
+      try {
+        return await accessR(path.join(dir, lockfile))
+      } catch {
+        continue
+      }
+    }
+    throw new NotDetectedError()
+  }
+
   abstract detectConfigFile (dir: string): Promise<string>
   abstract detectExecutable (lookup: PathLookup): Promise<void>
   abstract installCommand (): Runnable
+  abstract addCommand (options: AddCommandOptions): Runnable
   abstract execCommand (args: string[]): Runnable
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
   detector (): PackageManagerDetector {
@@ -64,16 +82,12 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'package-lock.json'
+  get representativeLockfiles (): string[] {
+    return ['package-lock.json']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -87,6 +101,14 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('npm', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('npm', [
+      'install',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -111,17 +133,12 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): undefined {
-    return
+  get representativeLockfiles (): string[] {
+    return []
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  // eslint-disable-next-line require-await
-  async detectLockfile (): Promise<string> {
-    throw new NotDetectedError()
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -135,6 +152,14 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('cnpm', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('cnpm', [
+      'install',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -159,16 +184,12 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'pnpm-lock.yaml'
+  get representativeLockfiles (): string[] {
+    return ['pnpm-lock.yaml']
   }
 
   get representativeConfigFile (): string {
     return 'pnpm-workspace.yaml'
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectConfigFile (dir: string): Promise<string> {
@@ -181,6 +202,14 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('pnpm', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('pnpm', [
+      'add',
+      ...options.saveDev ? ['--save-dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -276,16 +305,12 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return false
   }
 
-  get representativeLockfile (): string {
-    return 'yarn.lock'
+  get representativeLockfiles (): string[] {
+    return ['yarn.lock']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -299,6 +324,14 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('yarn', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('yarn', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -323,16 +356,12 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
     return process.versions.deno !== undefined
   }
 
-  get representativeLockfile (): string {
-    return 'deno.lock'
+  get representativeLockfiles (): string[] {
+    return ['deno.lock']
   }
 
   get representativeConfigFile (): string {
     return 'deno.json'
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   async detectConfigFile (dir: string): Promise<string> {
@@ -345,6 +374,14 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('deno', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('deno', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -413,16 +450,12 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return process.versions.bun !== undefined
   }
 
-  get representativeLockfile (): string {
-    return 'bun.lockb'
+  get representativeLockfiles (): string[] {
+    return ['bun.lock', 'bun.lockb']
   }
 
   get representativeConfigFile (): undefined {
     return
-  }
-
-  async detectLockfile (dir: string): Promise<string> {
-    return await accessR(path.join(dir, this.representativeLockfile))
   }
 
   // eslint-disable-next-line require-await, @typescript-eslint/no-unused-vars
@@ -436,6 +469,14 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('bun', ['install'])
+  }
+
+  addCommand (options: AddCommandOptions): Runnable {
+    return new Runnable('bun', [
+      'add',
+      ...options.saveDev ? ['--dev'] : [],
+      ...options.packages,
+    ])
   }
 
   execCommand (args: string[]): Runnable {
@@ -554,6 +595,8 @@ export const knownPackageManagers: PackageManagerDetector[] = [
 export interface DetectOptions {
   detectors?: PackageManagerDetector[]
   root?: string
+  /** Skip npm_config_user_agent detection. Use when the invoking command (e.g. npx) sets a user agent that doesn't match the project's actual package manager. */
+  skipUserAgent?: boolean
 }
 
 export async function detectPackageManager (
@@ -562,12 +605,14 @@ export async function detectPackageManager (
 ): Promise<PackageManager> {
   const detectors = options?.detectors ?? knownPackageManagers
 
-  // Try user agent first.
-  const userAgent = process.env['npm_config_user_agent']
-  if (userAgent !== undefined) {
-    for (const detector of detectors) {
-      if (detector.detectUserAgent(userAgent)) {
-        return detector
+  // Try user agent first (unless skipped — e.g. when invoked via npx which always reports npm).
+  if (!options?.skipUserAgent) {
+    const userAgent = process.env['npm_config_user_agent']
+    if (userAgent !== undefined) {
+      for (const detector of detectors) {
+        if (detector.detectUserAgent(userAgent)) {
+          return detector
+        }
       }
     }
   }
@@ -672,9 +717,7 @@ export async function detectNearestLockfile (
     }
   }
 
-  const lockfiles = detectors.reduce<string[]>((acc, detector) => {
-    return acc.concat(detector.representativeLockfile ?? [])
-  }, [])
+  const lockfiles = detectors.flatMap(detector => detector.representativeLockfiles)
 
   throw new NoLockfileFoundError(searchPaths, lockfiles)
 }

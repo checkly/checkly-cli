@@ -12,6 +12,7 @@ import {
   formatDate,
   resolveResultStatus,
   truncateError,
+  escapeMdCell,
   renderDetailFields,
   renderTable,
   type DetailField,
@@ -257,6 +258,24 @@ describe('truncateError', () => {
   })
 })
 
+describe('escapeMdCell', () => {
+  it('escapes pipe characters', () => {
+    expect(escapeMdCell('a | b | c')).toBe('a \\| b \\| c')
+  })
+
+  it('replaces newlines with spaces', () => {
+    expect(escapeMdCell('line one\nline two\nline three')).toBe('line one line two line three')
+  })
+
+  it('handles both pipes and newlines', () => {
+    expect(escapeMdCell('col1 | col2\nnext line')).toBe('col1 \\| col2 next line')
+  })
+
+  it('returns clean strings unchanged', () => {
+    expect(escapeMdCell('hello world')).toBe('hello world')
+  })
+})
+
 describe('renderDetailFields', () => {
   interface TestItem { name: string, age: number, optional?: string }
 
@@ -298,6 +317,31 @@ describe('renderDetailFields', () => {
   it('omits fields that return null in markdown', () => {
     const result = renderDetailFields('Test', fields, { name: 'Alice', age: 30 }, 'md')
     expect(result).not.toContain('Optional')
+  })
+
+  it('escapes pipes and newlines in markdown detail values', () => {
+    const unsafeFields: DetailField<TestItem>[] = [
+      { label: 'Desc', value: () => 'has | pipe\nand newline' },
+    ]
+    const result = renderDetailFields('T', unsafeFields, { name: 'A', age: 1 }, 'md')
+    expect(result).toContain('| Desc | has \\| pipe and newline |')
+  })
+
+  it('indents multi-line values to align with first line in terminal', () => {
+    const multiLineFields: DetailField<TestItem>[] = [
+      { label: 'Name', value: item => `${item.name}\nline two\nline three` },
+      { label: 'Age', value: item => String(item.age) },
+    ]
+    const result = stripAnsi(renderDetailFields('T', multiLineFields, { name: 'Alice', age: 1 }, 'terminal'))
+    const lines = result.split('\n').slice(2) // skip title + empty line
+    // First field line: "Name:     Alice"
+    // Continuation lines should be indented to same column as "Alice"
+    const firstFieldLine = lines[0]
+    const match = firstFieldLine.match(/^(\S+:\s+)/)
+    expect(match).toBeTruthy()
+    const indent = match![1].length
+    expect(lines[1]).toBe(' '.repeat(indent) + 'line two')
+    expect(lines[2]).toBe(' '.repeat(indent) + 'line three')
   })
 
   it('aligns terminal labels to consistent column', () => {
@@ -347,6 +391,15 @@ describe('renderTable', () => {
     expect(result).toContain('| Bob | 87 |')
   })
 
+  it('escapes pipes and newlines in markdown table cells', () => {
+    const cols: ColumnDef<Row>[] = [
+      { header: 'Name', value: r => r.name },
+      { header: 'Score', value: () => 'a | b\nc' },
+    ]
+    const result = renderTable(cols, [{ name: 'Alice', score: 1 }], 'md')
+    expect(result).toContain('| Alice | a \\| b c |')
+  })
+
   it('handles empty rows in terminal', () => {
     const result = stripAnsi(renderTable(columns, [], 'terminal'))
     const lines = result.split('\n')
@@ -371,7 +424,7 @@ describe('renderTable', () => {
 describe('field-count parity', () => {
   it('checkDetailFields has expected field count', async () => {
     const { checkDetailFields } = await import('../checks')
-    expect(checkDetailFields).toHaveLength(14)
+    expect(checkDetailFields).toHaveLength(15)
   })
 
   it('resultDetailFields has expected field count', async () => {

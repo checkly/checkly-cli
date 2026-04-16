@@ -79,4 +79,279 @@ describe('package.json file', () => {
       checkly: '^5',
     })
   })
+
+  describe('resolveExportPath', () => {
+    const importConditions = ['import', 'node', 'module-sync', 'default']
+    const requireConditions = ['require', 'node', 'module-sync', 'default']
+
+    it('resolves a string subpath', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './sub': './lib/sub.js',
+        },
+      })
+
+      const { paths } = testFile.resolveExportPath('./sub', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./lib/sub.js')
+    })
+
+    it('resolves a single-level conditional export (import/require/default)', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './x': {
+            import: './lib/x.mjs',
+            require: './lib/x.cjs',
+            default: './lib/x.js',
+          },
+        } as any,
+      })
+
+      const importResult = testFile.resolveExportPath('./x', importConditions)
+      expect(importResult.paths).toHaveLength(1)
+      expect(importResult.paths[0].target.path).toBe('./lib/x.mjs')
+
+      const requireResult = testFile.resolveExportPath('./x', requireConditions)
+      expect(requireResult.paths).toHaveLength(1)
+      expect(requireResult.paths[0].target.path).toBe('./lib/x.cjs')
+    })
+
+    it('resolves rimraf-style nested conditional exports (issue #1274)', () => {
+      // Reproduces bug #1274: when import/require contain nested
+      // { types, default } objects, the old resolver blew up with
+      // "spec.split is not a function".
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'rimraf',
+        version: '6.0.0',
+        exports: {
+          './main': {
+            import: {
+              types: './dist/esm/index.d.ts',
+              default: './dist/esm/index.js',
+            },
+            require: {
+              types: './dist/commonjs/index.d.ts',
+              default: './dist/commonjs/index.js',
+            },
+          },
+        } as any,
+      })
+
+      const importResult = testFile.resolveExportPath('./main', importConditions)
+      expect(importResult.paths).toHaveLength(1)
+      expect(importResult.paths[0].target.path).toBe('./dist/esm/index.js')
+
+      const requireResult = testFile.resolveExportPath('./main', requireConditions)
+      expect(requireResult.paths).toHaveLength(1)
+      expect(requireResult.paths[0].target.path).toBe('./dist/commonjs/index.js')
+    })
+
+    it('resolves dotenv v17-style nested conditional exports (issue #1274)', () => {
+      // dotenv v17's exports nests import/require inside each subpath with
+      // { types, default } objects.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'dotenv',
+        version: '17.0.0',
+        exports: {
+          './main': {
+            require: {
+              types: './lib/main.d.ts',
+              default: './lib/main.js',
+            },
+            import: {
+              types: './lib/main.d.ts',
+              default: './lib/main.js',
+            },
+            default: './lib/main.js',
+          },
+        } as any,
+      })
+
+      const result = testFile.resolveExportPath('./main', importConditions)
+      expect(result.paths).toHaveLength(1)
+      expect(result.paths[0].target.path).toBe('./lib/main.js')
+    })
+
+    it('does not throw on nested conditional exports even when the subpath is not requested', () => {
+      // Guard against the original crash: even just building the resolver
+      // used to throw because of the nested `{ types, default }` object
+      // being fed to PathResolver.matcherForPath. This test asserts that
+      // constructing the resolver succeeds regardless of which subpath
+      // is requested.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'rimraf',
+        version: '6.0.0',
+        exports: {
+          './package.json': './package.json',
+          './main': {
+            import: {
+              types: './dist/esm/index.d.ts',
+              default: './dist/esm/index.js',
+            },
+            require: {
+              types: './dist/commonjs/index.d.ts',
+              default: './dist/commonjs/index.js',
+            },
+          },
+        } as any,
+      })
+
+      expect(() => testFile.resolveExportPath('./package.json', importConditions))
+        .not.toThrow()
+    })
+
+    it('falls back to default when no condition matches', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './x': {
+            // None of import/require/node/default match 'browser'.
+            browser: './lib/x.browser.js',
+            default: './lib/x.js',
+          },
+        } as any,
+      })
+
+      const { paths } = testFile.resolveExportPath('./x', importConditions)
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./lib/x.js')
+    })
+
+    it('falls back to nested default when the outer condition matches but has no direct target', () => {
+      // Nested conditions where `import` matches but the nested object
+      // has only `types` + `default` — we should pick the nested default.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './x': {
+            import: {
+              types: './esm.d.ts',
+              default: './esm.js',
+            },
+          },
+        } as any,
+      })
+
+      const { paths } = testFile.resolveExportPath('./x', importConditions)
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./esm.js')
+    })
+
+    it('treats null export target as "no export"', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './a': './a.js',
+          // Per Node.js spec, null blocks a path — treat as unresolved.
+          './b': null,
+        } as any,
+      })
+
+      const aResult = testFile.resolveExportPath('./a', importConditions)
+      expect(aResult.paths).toHaveLength(1)
+      expect(aResult.paths[0].target.path).toBe('./a.js')
+
+      const bResult = testFile.resolveExportPath('./b', importConditions)
+      expect(bResult.paths).toHaveLength(0)
+    })
+
+    it('resolves array fallback targets (first valid wins)', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          './x': {
+            import: ['./esm.mjs', './fallback.mjs'],
+          },
+        } as any,
+      })
+
+      const { paths } = testFile.resolveExportPath('./x', importConditions)
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./esm.mjs')
+    })
+
+    // The resolver is called with exportPath = '' for bare package imports
+    // (e.g. `import x from 'foo'`), which should map to the "." subpath in
+    // the package's exports field. Before the fix, the prefix-prepending
+    // logic turned '' into './', which never matched the '.' key and made
+    // the export lookup silently return zero paths — masked at runtime by
+    // the main-field fallback for packages that also declared `main`.
+
+    it('resolves a plain string exports value on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: './index.js',
+      })
+
+      const { paths } = testFile.resolveExportPath('', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./index.js')
+    })
+
+    it('resolves the "." subpath on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': './lib/main.js',
+        },
+      })
+
+      const { paths } = testFile.resolveExportPath('', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./lib/main.js')
+    })
+
+    it('resolves the "." subpath with single-level conditions on a bare import', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': {
+            import: './lib/main.mjs',
+            require: './lib/main.cjs',
+            default: './lib/main.js',
+          },
+        } as any,
+      })
+
+      const importResult = testFile.resolveExportPath('', importConditions)
+      expect(importResult.paths).toHaveLength(1)
+      expect(importResult.paths[0].target.path).toBe('./lib/main.mjs')
+
+      const requireResult = testFile.resolveExportPath('', requireConditions)
+      expect(requireResult.paths).toHaveLength(1)
+      expect(requireResult.paths[0].target.path).toBe('./lib/main.cjs')
+    })
+
+    it('accepts "." as an explicit bare-import path', () => {
+      // Callers sometimes pass '.' directly instead of ''. Both should
+      // resolve the same root export without introducing a spurious './.'
+      // lookup.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        exports: {
+          '.': './index.js',
+        },
+      })
+
+      const { paths } = testFile.resolveExportPath('.', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./index.js')
+    })
+  })
 })

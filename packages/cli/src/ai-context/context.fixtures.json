@@ -61,13 +61,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -152,13 +146,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -252,13 +240,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -420,13 +402,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -529,13 +505,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -638,13 +608,7 @@
           "scriptPath": null,
           "setupScriptPath": null,
           "tearDownScriptPath": null,
-          "retryStrategy": {
-            "type": "LINEAR",
-            "maxRetries": 2,
-            "sameRegion": true,
-            "baseBackoffSeconds": 60,
-            "maxDurationSeconds": 600
-          },
+          "retryStrategy": null,
           "requestCount": 0,
           "runParallel": true,
           "playwrightConfig": null,
@@ -855,6 +819,63 @@
                 "comparison": "LESS_THAN"
               }
             ]
+          },
+          "alertChannelSubscriptions": [],
+          "privateLocations": []
+        }
+      },
+      {
+        "logicalId": "example-agentic-check",
+        "physicalId": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        "type": "check",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          "checkType": "AGENTIC",
+          "name": "Example Agentic Check",
+          "frequency": 60,
+          "frequencyOffset": 0,
+          "activated": true,
+          "muted": false,
+          "shouldFail": false,
+          "locations": [
+            "us-east-1"
+          ],
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-10-28T17:25:17.037Z",
+          "updated_at": null,
+          "tags": [
+            "app:webshop"
+          ],
+          "alertSettings": {
+            "reminders": {
+              "amount": 0,
+              "interval": 5
+            },
+            "escalationType": "RUN_BASED",
+            "runBasedEscalation": {
+              "failedRunThreshold": 1
+            },
+            "timeBasedEscalation": {
+              "minutesFailingThreshold": 5
+            },
+            "parallelRunFailureThreshold": {
+              "enabled": false,
+              "percentage": 10
+            }
+          },
+          "useGlobalAlertSettings": true,
+          "groupId": null,
+          "groupOrder": null,
+          "retryStrategy": null,
+          "runParallel": false,
+          "triggerIncident": false,
+          "prompt": "Navigate to https://www.checklyhq.com/pricing and verify that at least three plan tiers are displayed on the page.",
+          "agenticCheckData": {
+            "skills": [],
+            "selectedEnvironmentVariables": [],
+            "assertionRules": []
           },
           "alertChannelSubscriptions": [],
           "privateLocations": []

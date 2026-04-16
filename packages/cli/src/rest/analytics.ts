@@ -7,7 +7,9 @@ export const quickRangeValues: QuickRange[] = [
   'last24Hours', 'last7Days', 'last30Days', 'thisWeek', 'thisMonth', 'lastWeek', 'lastMonth',
 ]
 
-const checkTypeToPath: Record<CheckType, string> = {
+// AGENTIC is intentionally absent: agentic checks have no per-check analytics
+// endpoint, so callers fall through to the `if (!pathSegment)` branch below.
+const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.API]: 'api-checks',
   [CheckTypes.BROWSER]: 'browser-checks',
   [CheckTypes.PLAYWRIGHT]: 'playwright-checks',
@@ -17,10 +19,11 @@ const checkTypeToPath: Record<CheckType, string> = {
   [CheckTypes.ICMP]: 'icmp',
   [CheckTypes.DNS]: 'dns',
   [CheckTypes.URL]: 'url-monitors',
+  [CheckTypes.AGENTIC]: 'agentic-checks',
 }
 
 // Default aggregated metrics per check type
-const defaultMetrics: Record<CheckType, string[]> = {
+const defaultMetrics: Partial<Record<CheckType, string[]>> = {
   [CheckTypes.API]: ['availability', 'responseTime_avg', 'responseTime_p50', 'responseTime_p95', 'responseTime_p99'],
   [CheckTypes.BROWSER]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
   [CheckTypes.PLAYWRIGHT]: ['availability', 'LCP_avg', 'CLS_avg', 'TBT_avg', 'responseTime_avg', 'responseTime_p95'],
@@ -30,6 +33,7 @@ const defaultMetrics: Record<CheckType, string[]> = {
   [CheckTypes.DNS]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.ICMP]: ['availability', 'packetLoss_avg', 'latencyAvg_avg', 'latencyAvg_p50', 'latencyAvg_p95', 'latencyAvg_p99'],
   [CheckTypes.HEARTBEAT]: ['availability'],
+  [CheckTypes.AGENTIC]: ['availability'],
 }
 
 export type GroupBy = 'runLocation' | 'statusCode'

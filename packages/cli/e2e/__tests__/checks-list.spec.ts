@@ -33,7 +33,7 @@ describe('checkly checks list', () => {
       accountId: config.get('accountId'),
     })
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('| Name | Type | Status |')
+    expect(result.stdout).toContain('| Name | Description | Type | Status |')
   })
 
   it('should respect --limit flag', async () => {

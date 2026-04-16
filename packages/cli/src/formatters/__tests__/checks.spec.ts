@@ -31,6 +31,8 @@ import {
   browserCheckResult,
   activeErrorGroup,
   archivedErrorGroup,
+  errorGroupWithRca,
+  errorGroupWithoutRca,
 } from './__fixtures__/fixtures'
 
 // Pin time for timeAgo used in results/error groups
@@ -271,6 +273,41 @@ describe('formatCheckDetail', () => {
     expect(result).toContain('check-1')
   })
 
+  it('shows description when present', () => {
+    const checkWithDesc = { ...passingCheck, description: 'Monitors the health endpoint' }
+    const result = stripAnsi(formatCheckDetail(checkWithDesc, 'terminal'))
+    expect(result).toContain('Description')
+    expect(result).toContain('Monitors the health endpoint')
+  })
+
+  it('omits description in terminal when null', () => {
+    const result = stripAnsi(formatCheckDetail(passingCheck, 'terminal'))
+    expect(result).not.toContain('Description')
+  })
+
+  it('shows description as dash in markdown when null', () => {
+    const result = formatCheckDetail(passingCheck, 'md')
+    expect(result).toContain('| Description | - |')
+  })
+
+  it('shows empty description in terminal', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = stripAnsi(formatCheckDetail(checkWithEmptyDesc, 'terminal'))
+    expect(result).toContain('Description:')
+  })
+
+  it('shows empty description in markdown', () => {
+    const checkWithEmptyDesc = { ...passingCheck, description: '' }
+    const result = formatCheckDetail(checkWithEmptyDesc, 'md')
+    expect(result).toContain('| Description |  |')
+  })
+
+  it('escapes markdown-unsafe description in markdown detail', () => {
+    const checkWithUnsafeDesc = { ...passingCheck, description: 'has | pipe\nand newline' }
+    const result = formatCheckDetail(checkWithUnsafeDesc, 'md')
+    expect(result).toContain('| Description | has \\| pipe and newline |')
+  })
+
   it('shows inactive status for deactivated check', () => {
     const result = stripAnsi(formatCheckDetail(inactiveCheck, 'terminal'))
     expect(result).toContain('inactive')
@@ -360,5 +397,28 @@ describe('formatErrorGroups', () => {
 
   it('returns empty string for empty array', () => {
     expect(formatErrorGroups([], 'terminal')).toBe('')
+  })
+
+  it('shows RCA column with Yes for error groups with RCA', () => {
+    const result = stripAnsi(formatErrorGroups([errorGroupWithRca], 'terminal'))
+    expect(result).toContain('RCA')
+    expect(result).toContain('Yes')
+  })
+
+  it('shows RCA column with dash for error groups without RCA', () => {
+    const result = stripAnsi(formatErrorGroups([errorGroupWithoutRca], 'terminal'))
+    expect(result).toContain('RCA')
+    expect(result).toContain('-')
+  })
+
+  it('shows RCA column in markdown', () => {
+    const result = formatErrorGroups([errorGroupWithRca], 'md')
+    expect(result).toContain('| RCA |')
+    expect(result).toContain('Yes')
+  })
+
+  it('shows dash in markdown for error groups without RCA', () => {
+    const result = formatErrorGroups([errorGroupWithoutRca], 'md')
+    expect(result).toContain('| - |')
   })
 })

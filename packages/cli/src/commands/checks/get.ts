@@ -11,6 +11,7 @@ import {
   formatErrorGroups,
 } from '../../formatters/checks'
 import { formatResultDetail } from '../../formatters/check-result-detail'
+import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca'
 import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics'
 import { formatAnalyticsSection } from '../../formatters/analytics'
 
@@ -102,7 +103,8 @@ export default class ChecksGet extends AuthCommand {
 
       if (flags.output === 'json') {
         const analytics = analyticsResp ?? null
-        this.log(JSON.stringify({ check, status, results, nextId, errorGroups, analytics }, null, 2))
+        const errorGroupsJson = errorGroups.map(transformErrorGroupForJson)
+        this.log(JSON.stringify({ check, status, results, nextId, errorGroups: errorGroupsJson, analytics }, null, 2))
         return
       }
 
@@ -190,7 +192,7 @@ export default class ChecksGet extends AuthCommand {
     ])
 
     if (outputFormat === 'json') {
-      this.log(JSON.stringify(errorGroup, null, 2))
+      this.log(JSON.stringify(transformErrorGroupForJson(errorGroup), null, 2))
       return
     }
 
@@ -225,6 +227,12 @@ export default class ChecksGet extends AuthCommand {
       if (check.scriptPath) {
         lines.push(`| Source file | ${check.scriptPath} |`)
       }
+      const rcasMd = errorGroup.rootCauseAnalyses ?? []
+      if (rcasMd.length > 0) {
+        lines.push('', formatRcaDetail(rcasMd[0], fmt))
+        const hintMd = formatRcaHint(rcasMd.length, fmt)
+        if (hintMd) lines.push('', hintMd)
+      }
       this.log(lines.join('\n'))
       return
     }
@@ -248,6 +256,14 @@ export default class ChecksGet extends AuthCommand {
 
     if (check.scriptPath) {
       output.push(`${chalk.dim('Source file:')}   ${chalk.cyan(check.scriptPath)}`)
+    }
+
+    const rcas = errorGroup.rootCauseAnalyses ?? []
+    if (rcas.length > 0) {
+      output.push('')
+      output.push(formatRcaDetail(rcas[0], fmt))
+      const hint = formatRcaHint(rcas.length, fmt)
+      if (hint) output.push('', hint)
     }
 
     output.push('')

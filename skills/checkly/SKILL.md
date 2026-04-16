@@ -1,7 +1,7 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages.
-allowed-tools: Bash(npx:checkly:*) Bash(npm:create:checkly@latest) Bash(npm:install:*)
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages.
+allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
 metadata:
   author: checkly
 ---
@@ -43,6 +43,9 @@ Learn how to initialize and set up a new Checkly CLI project from scratch.
 
 ### `npx checkly skills configure`
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
+
+#### `npx checkly skills configure agentic-checks`
+Agentic Check construct (`AgenticCheck`) for AI-powered prompt-driven monitoring with skill and env var allowlists
 
 #### `npx checkly skills configure api-checks`
 Api Check construct (`ApiCheck`), assertions, and authentication setup scripts

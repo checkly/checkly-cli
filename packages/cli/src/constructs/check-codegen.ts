@@ -1,5 +1,6 @@
 import { Codegen, Context } from './internal/codegen'
 import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen'
+import { AgenticCheckCodegen, AgenticCheckResource } from './agentic-check-codegen'
 import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen'
@@ -21,6 +22,7 @@ export interface CheckResource {
   id: string
   checkType: string
   name: string
+  description?: string | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -37,14 +39,39 @@ export interface CheckResource {
   runParallel?: boolean
 }
 
+/**
+ * Options controlling which common check fields `buildCheckProps` emits.
+ *
+ * The defaults match the historical behavior — every field is emitted if
+ * the resource provides it. Individual check types can opt out of specific
+ * fields when their construct's props type does not accept them. For
+ * example, `AgenticCheck` omits `retryStrategy` from its props, so its
+ * codegen passes `skipRetryStrategy: true` to avoid emitting code that
+ * would not type-check against the construct.
+ */
+export interface BuildCheckPropsOptions {
+  /**
+   * Skip emitting the `retryStrategy` property. Unlike most fields in
+   * `buildCheckProps`, `retryStrategy` is emitted unconditionally (null is
+   * rendered as `RetryStrategyBuilder.noRetries()`), so opting out requires
+   * an explicit flag.
+   */
+  skipRetryStrategy?: boolean
+}
+
 export function buildCheckProps (
   program: Program,
   genfile: GeneratedFile,
   builder: ObjectValueBuilder,
   resource: CheckResource,
   context: Context,
+  options: BuildCheckPropsOptions = {},
 ): void {
   builder.string('name', resource.name, { order: -1000 })
+
+  if (resource.description != null) {
+    builder.string('description', resource.description)
+  }
 
   if (resource.activated !== undefined) {
     builder.boolean('activated', resource.activated)
@@ -171,7 +198,9 @@ export function buildCheckProps (
     builder.boolean('testOnly', resource.testOnly)
   }
 
-  builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+  if (!options.skipRetryStrategy) {
+    builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+  }
 
   if (resource.runParallel !== undefined && resource.runParallel !== false) {
     builder.boolean('runParallel', resource.runParallel)
@@ -209,6 +238,7 @@ export function buildRuntimeCheckProps (
 }
 
 export class CheckCodegen extends Codegen<CheckResource> {
+  agenticCheckCodegen: AgenticCheckCodegen
   apiCheckCodegen: ApiCheckCodegen
   browserCheckCodegen: BrowserCheckCodegen
   checkGroupCodegen: CheckGroupCodegen
@@ -221,6 +251,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
 
   constructor (program: Program) {
     super(program)
+    this.agenticCheckCodegen = new AgenticCheckCodegen(program)
     this.apiCheckCodegen = new ApiCheckCodegen(program)
     this.browserCheckCodegen = new BrowserCheckCodegen(program)
     this.checkGroupCodegen = new CheckGroupCodegen(program)
@@ -236,6 +267,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
     const { checkType } = resource
 
     switch (checkType) {
+      case 'AGENTIC':
+        return this.agenticCheckCodegen.describe(resource as AgenticCheckResource)
       case 'BROWSER':
         return this.browserCheckCodegen.describe(resource as BrowserCheckResource)
       case 'API':
@@ -261,6 +294,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
     const { checkType } = resource
 
     switch (checkType) {
+      case 'AGENTIC':
+        this.agenticCheckCodegen.gencode(logicalId, resource as AgenticCheckResource, context)
+        return
       case 'BROWSER':
         this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource, context)
         return
