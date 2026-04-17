@@ -24,7 +24,6 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 3. This applies to **every** write command, not just the first one. Incident updates and resolutions also require confirmation.
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
-6. When deploying, use `--verbose` to include resource names and physical IDs (UUIDs) in the output. This is useful for programmatically referencing deployed resources (e.g. running `npx checkly checks get <id>` to inspect a deployed check).
 
 ## Available Commands
 
