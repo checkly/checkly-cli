@@ -1,6 +1,6 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages.
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements and feature limits.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
 metadata:
   author: checkly
@@ -8,11 +8,11 @@ metadata:
 
 # Checkly
 
-The Checkly CLI provides all the required information via the `npx checkly skills` command.
+**Required:** Before answering any Checkly question, run `npx checkly skills` to get the current and up-to-date action list. Do not rely on memory or prior context — the CLI is the source of truth and actions might change between releases.
+
+Then run `npx checkly skills <action>` to load up-to-date details for the action you need.
 
 Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
-
-Use `npx checkly skills` to list all available actions, and `npx checkly skills <action>` to access up-to-date information on how to use the Checkly CLI for each action.
 
 ## Progressive Disclosure via `npx checkly skills`
 
@@ -42,59 +42,11 @@ Learn how to initialize and set up a new Checkly CLI project from scratch.
 ### `npx checkly skills configure`
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
 
-#### `npx checkly skills configure agentic-checks`
-Agentic Check construct (`AgenticCheck`) for AI-powered prompt-driven monitoring with skill and env var allowlists
-
-#### `npx checkly skills configure api-checks`
-Api Check construct (`ApiCheck`), assertions, and authentication setup scripts
-
-#### `npx checkly skills configure browser-checks`
-Browser Check construct (`BrowserCheck`) with Playwright test files
-
-#### `npx checkly skills configure playwright-checks`
-Playwright Check Suite construct (`PlaywrightCheck`) for multi-browser test suites
-
-#### `npx checkly skills configure multistep-checks`
-Multistep Check construct (`MultiStepCheck`) for complex user flows
-
-#### `npx checkly skills configure tcp-monitors`
-TCP Monitor construct (`TcpMonitor`) with assertions
-
-#### `npx checkly skills configure url-monitors`
-URL Monitor construct (`UrlMonitor`) with assertions
-
-#### `npx checkly skills configure dns-monitors`
-DNS Monitor construct (`DnsMonitor`) with assertions
-
-#### `npx checkly skills configure icmp-monitors`
-ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions
-
-#### `npx checkly skills configure heartbeat-monitors`
-Heartbeat Monitor construct (`HeartbeatMonitor`)
-
-#### `npx checkly skills configure check-groups`
-CheckGroupV2 construct (`CheckGroupV2`) for organizing checks
-
-#### `npx checkly skills configure alert-channels`
-Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels
-
-#### `npx checkly skills configure supporting-constructs`
-Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)
-
 ### `npx checkly skills investigate`
 Access check status, analyze failures, and investigate errors.
-
-#### `npx checkly skills investigate checks`
-Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs
 
 ### `npx checkly skills communicate`
 Open incidents and lead customer communications via status pages.
 
-#### `npx checkly skills communicate incidents`
-Incident lifecycle (`incidents create`, `update`, `resolve`, `list`) and status pages
-
 ### `npx checkly skills manage`
 Understand your account plan, entitlements, and feature limits.
-
-#### `npx checkly skills manage plan`
-Check account plan, entitlements, feature limits, and available locations (`account plan`)

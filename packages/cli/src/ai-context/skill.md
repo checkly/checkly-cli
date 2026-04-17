@@ -1,6 +1,6 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages.
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements and feature limits.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
 metadata:
   author: checkly
@@ -8,11 +8,11 @@ metadata:
 
 # Checkly
 
-The Checkly CLI provides all the required information via the `npx checkly skills` command.
+**Required:** Before answering any Checkly question, run `npx checkly skills` to get the current and up-to-date action list. Do not rely on memory or prior context — the CLI is the source of truth and actions might change between releases.
+
+Then run `npx checkly skills <action>` to load up-to-date details for the action you need.
 
 Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
-
-Use `npx checkly skills` to list all available actions, and `npx checkly skills <action>` to access up-to-date information on how to use the Checkly CLI for each action.
 
 ## Progressive Disclosure via `npx checkly skills`
 
