@@ -399,8 +399,10 @@ Update and Unchanged:
         },
       })
       const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      // Each test uses a fresh projectLogicalId (see beforeEach), so the
+      // first deploy in this test renders as Create, not Update.
       expect(stdout).toMatch(new RegExp(
-        `Update and Unchanged:\n`
+        `Create:\n`
         + `    ApiCheck: not-testonly-default-check\n`
         + `      name: TestOnly=false \\(default\\) Check\n`
         + `      id: ${uuid}\n`
