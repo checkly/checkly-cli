@@ -384,6 +384,32 @@ Skip (testOnly):
 Update and Unchanged:
     ApiCheck: not-testonly-default-check
     ApiCheck: not-testonly-false-check`)
+      // --output without --verbose should not show name or id
+      expect(stdout).not.toContain('name:')
+      expect(stdout).not.toContain('id:')
+    })
+
+    it('Should show resource name and id with --verbose', async () => {
+      const { stdout } = await runDeploy(fixt, ['--force', '--verbose'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+          TEST_ONLY: 'true',
+          CHECKLY_CLI_VERSION: '4.8.0',
+        },
+      })
+      const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+      // Each test uses a fresh projectLogicalId (see beforeEach), so the
+      // first deploy in this test renders as Create, not Update.
+      expect(stdout).toMatch(new RegExp(
+        `Create:\n`
+        + `    ApiCheck: not-testonly-default-check\n`
+        + `      name: TestOnly=false \\(default\\) Check\n`
+        + `      id: ${uuid}\n`
+        + `    ApiCheck: not-testonly-false-check\n`
+        + `      name: TestOnly=false Check\n`
+        + `      id: ${uuid}`,
+      ))
     })
   })
 

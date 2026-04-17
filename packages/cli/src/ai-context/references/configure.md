@@ -69,3 +69,7 @@ Run `npx checkly skills manage plan` for the full reference.
 ## Testing and Debugging
 
 - Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, use `--record` to persist results, and use `--verbose` to see all errors.
+
+## Deploying
+
+- Deploy checks using the `npx checkly deploy` command. Use `--output` to see the created, updated, and deleted resources. Use `--verbose` to also include each resource's name and physical ID (UUID), which is useful for programmatically referencing deployed resources (e.g. `npx checkly checks get <id>`).
