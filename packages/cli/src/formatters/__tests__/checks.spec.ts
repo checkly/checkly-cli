@@ -70,6 +70,19 @@ describe('formatSummaryBar', () => {
     expect(result).not.toContain('failing')
     expect(result).not.toContain('degraded')
   })
+
+  it('uses totalChecks (not activeCheckIds.size) for the total display', () => {
+    // Regression test: when --status filter is active, summary bar should show the
+    // server-reported filtered total, not the current-page count.
+    // e.g. `checkly checks list --status failing` with 1 failing check (7 total)
+    // should show "1 failing  (1 total checks)", not "6 passing  1 failing  (1 total checks)"
+    const statuses = [passingStatus, failingStatus]
+    const activeIds = new Set(['check-2']) // only the failing check
+    const result = stripAnsi(formatSummaryBar(statuses, 1, activeIds))
+    expect(result).toContain('1 failing')
+    expect(result).not.toContain('passing')
+    expect(result).toContain('1 total checks') // totalChecks, not activeIds.size
+  })
 })
 
 describe('formatTypeBreakdown', () => {

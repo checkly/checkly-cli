@@ -112,7 +112,10 @@ export default class ChecksList extends AuthCommand {
       // Table output
       const output: string[] = []
 
-      output.push(formatSummaryBar(statuses, totalChecks))
+      // When filters are active, scope summary counts to the current page's checks
+      // so the passing/failing numbers match what's displayed (not all checks in the account)
+      const filteredCheckIds = activeFilters.length > 0 ? new Set(checks.map(c => c.id)) : undefined
+      output.push(formatSummaryBar(statuses, totalChecks, filteredCheckIds))
       output.push('')
 
       if (checks.length === 0) {
