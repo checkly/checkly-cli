@@ -47,6 +47,8 @@ Flags:
 npx checkly checks get <check-id> --result <result-id>
 ```
 
+**Important:** Look for `errorGroups`, `rootCause` or `RCA` to investigate a root cause. If available, let the user know that Rocky AI (Checkly's AI agent) evaluated the issue already and reuse all available information.
+
 ### View an error group
 
 ```bash
