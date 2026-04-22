@@ -55,23 +55,26 @@ function boolSymbol (value: boolean, format: OutputFormat): string {
 
 // --- Summary bar (terminal only) ---
 
-export function formatSummaryBar (statuses: CheckStatus[], totalChecks: number, activeCheckIds?: Set<string>): string {
-  const counted = activeCheckIds
-    ? statuses.filter(s => activeCheckIds.has(s.checkId))
-    : statuses
-  const passing = counted.filter(s => !s.hasFailures && !s.hasErrors && !s.isDegraded).length
-  const degraded = counted.filter(s => s.isDegraded && !s.hasFailures && !s.hasErrors).length
-  const failing = counted.filter(s => s.hasFailures || s.hasErrors).length
+export function getActivatedStatuses (checks: Check[], statuses: CheckStatus[]): CheckStatus[] {
+  const activated = new Set(checks.filter(c => c.activated).map(c => c.id))
+  return statuses.filter(s => activated.has(s.checkId))
+}
+
+export function formatSummaryBar (checks: Check[], statuses: CheckStatus[]): string {
+  const activated = getActivatedStatuses(checks, statuses)
+  const passing = activated.filter(s => !s.hasFailures && !s.hasErrors && !s.isDegraded).length
+  const degraded = activated.filter(s => s.isDegraded && !s.hasFailures && !s.hasErrors).length
+  const failing = activated.filter(s => s.hasFailures || s.hasErrors).length
+  const inactive = checks.filter(c => !c.activated).length
 
   const parts: string[] = []
   if (passing > 0) parts.push(chalk.green(`${logSymbols.success} ${passing} passing`))
   if (degraded > 0) parts.push(chalk.yellow(`${logSymbols.warning} ${degraded} degraded`))
   if (failing > 0) parts.push(chalk.red(`${logSymbols.error} ${failing} failing`))
+  if (inactive > 0) parts.push(chalk.dim(`⊘ ${inactive} inactive`))
 
-  const displayTotal = activeCheckIds ? activeCheckIds.size : totalChecks
-  const total = chalk.dim(`(${displayTotal} total checks)`)
-  if (parts.length === 0) return total
-  return parts.join('    ') + '    ' + total
+  if (parts.length === 0) return ''
+  return chalk.dim('Account wide:') + '  ' + parts.join('    ')
 }
 
 // --- Type breakdown (terminal only) ---

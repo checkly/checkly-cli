@@ -9,7 +9,9 @@ import {
   formatCheckDetail,
   formatResults,
   formatErrorGroups,
+  getActivatedStatuses,
 } from '../checks'
+import { scenario } from '../../rest/__tests__/__fixtures__/api'
 import {
   passingCheck,
   failingCheck,
@@ -45,30 +47,53 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+describe('getActivatedStatuses', () => {
+  it('excludes statuses whose check is deactivated', () => {
+    const { checks, statuses } = scenario('mixed')
+    const deactivatedIds = new Set(checks.filter(c => !c.activated).map(c => c.id))
+    const result = getActivatedStatuses(checks, statuses)
+    // mixed: 16 statuses (13 active + 3 stale on deactivated). Expected: 13.
+    expect(result).toHaveLength(13)
+    expect(result.every(s => !deactivatedIds.has(s.checkId))).toBe(true)
+  })
+
+  it('returns empty for an all-deactivated account', () => {
+    const { checks, statuses } = scenario('all-deactivated')
+    expect(getActivatedStatuses(checks, statuses)).toEqual([])
+  })
+})
+
 describe('formatSummaryBar', () => {
-  it('shows counts for passing, degraded, and failing', () => {
-    const statuses = [passingStatus, failingStatus, degradedStatus]
-    const result = stripAnsi(formatSummaryBar(statuses, 10))
-    expect(result).toContain('1 passing')
-    expect(result).toContain('1 degraded')
-    expect(result).toContain('1 failing')
-    expect(result).toContain('10 total checks')
+  it('renders account-wide 4-bucket bar with "Account wide:" prefix and no total label', () => {
+    const { checks, statuses } = scenario('mixed')
+    const result = stripAnsi(formatSummaryBar(checks, statuses))
+    // mixed: 8 passing, 2 degraded, 3 failing, 1 no-status (not counted),
+    //        5 deactivated -> all in inactive bucket.
+    expect(result).toContain('Account wide:')
+    expect(result).toContain('8 passing')
+    expect(result).toContain('2 degraded')
+    expect(result).toContain('3 failing')
+    expect(result).toContain('5 inactive')
+    expect(result).not.toContain('total checks')
   })
 
-  it('counts hasErrors status as failing', () => {
-    const statuses = [passingStatus, errorStatus]
-    const result = stripAnsi(formatSummaryBar(statuses, 2))
-    expect(result).toContain('1 passing')
-    expect(result).toContain('1 failing')
+  it('does not count stale passing statuses on deactivated checks as passing', () => {
+    // Regression: 3 of the 5 deactivated checks carry stale hasFailures=false statuses.
+    // Before the fix they leaked into the passing count. With all-deactivated only the
+    // inactive bucket should remain.
+    const { checks, statuses } = scenario('all-deactivated')
+    expect(stripAnsi(formatSummaryBar(checks, statuses))).toBe('Account wide:  ⊘ 5 inactive')
   })
 
-  it('filters by activeCheckIds when provided', () => {
-    const statuses = [passingStatus, failingStatus, degradedStatus]
-    const activeIds = new Set(['check-1'])
-    const result = stripAnsi(formatSummaryBar(statuses, 3, activeIds))
-    expect(result).toContain('1 passing')
-    expect(result).not.toContain('failing')
-    expect(result).not.toContain('degraded')
+  it('hides zero-count buckets', () => {
+    const { checks, statuses } = scenario('all-passing')
+    const result = stripAnsi(formatSummaryBar(checks, statuses))
+    expect(result).toContain('6 passing')
+    expect(result).not.toMatch(/degraded|failing|inactive/)
+  })
+
+  it('returns an empty string when the account has no checks', () => {
+    expect(formatSummaryBar([], [])).toBe('')
   })
 })
 

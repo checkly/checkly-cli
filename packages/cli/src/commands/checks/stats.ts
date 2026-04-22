@@ -3,6 +3,8 @@ import { AuthCommand } from '../authCommand'
 import { outputFlag } from '../../helpers/flags'
 import * as api from '../../rest/api'
 import { batchQuickRangeValues, type BatchQuickRange } from '../../rest/batch-analytics'
+import type { Check } from '../../rest/checks'
+import type { CheckStatus } from '../../rest/check-statuses'
 import type { CheckWithStatus, PaginationInfo } from '../../formatters/checks'
 import { formatSummaryBar, formatPaginationInfo } from '../../formatters/checks'
 import type { OutputFormat } from '../../formatters/render'
@@ -72,22 +74,25 @@ export default class ChecksStats extends AuthCommand {
 
       let checksWithStatus: CheckWithStatus[]
       let totalChecks: number
+      let allChecks: Check[]
+      let allStatuses: CheckStatus[]
 
       if (explicitIds.length > 0) {
         // Fetch all checks (paginate through all pages), filter to requested IDs
-        const [allChecks, statuses] = await Promise.all([
+        ;[allChecks, allStatuses] = await Promise.all([
           api.checks.fetchAll(),
           api.checkStatuses.fetchAll().catch(() => []),
         ])
-        const statusMap = new Map(statuses.map(s => [s.checkId, s]))
+        const statusMap = new Map(allStatuses.map(s => [s.checkId, s]))
         const idSet = new Set(explicitIds)
         checksWithStatus = allChecks
           .filter(c => idSet.has(c.id))
           .map(c => ({ ...c, status: statusMap.get(c.id) }))
         totalChecks = checksWithStatus.length
       } else {
-        // Paginated fetch with filters
-        const [paginated, statuses] = await Promise.all([
+        // Paginated fetch with filters for the table; account-wide fetch drives
+        // the summary bar, which doesn't react to filters.
+        const paginatedResult = await Promise.all([
           api.checks.getAllPaginated({
             limit,
             page,
@@ -95,9 +100,13 @@ export default class ChecksStats extends AuthCommand {
             checkType: flags.type,
             search: flags.search,
           }),
+          api.checks.fetchAll(),
           api.checkStatuses.fetchAll().catch(() => []),
         ])
-        const statusMap = new Map(statuses.map(s => [s.checkId, s]))
+        const paginated = paginatedResult[0]
+        allChecks = paginatedResult[1]
+        allStatuses = paginatedResult[2]
+        const statusMap = new Map(allStatuses.map(s => [s.checkId, s]))
         checksWithStatus = paginated.checks.map(c => ({ ...c, status: statusMap.get(c.id) }))
         totalChecks = paginated.total
       }
@@ -161,11 +170,7 @@ export default class ChecksStats extends AuthCommand {
 
       // Terminal output
       const output: string[] = []
-      const statuses = checksWithStatus
-        .map(c => c.status)
-        .filter((s): s is NonNullable<typeof s> => s != null)
-      const activeCheckIds = new Set(checksWithStatus.map(c => c.id))
-      output.push(formatSummaryBar(statuses, totalChecks, activeCheckIds))
+      output.push(formatSummaryBar(allChecks, allStatuses))
       output.push('')
       output.push(formatBatchStats(rows, range, fmt))
       output.push('')
