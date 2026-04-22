@@ -48,33 +48,28 @@ afterEach(() => {
 })
 
 describe('getActivatedStatuses', () => {
-  it('excludes statuses for deactivated checks even when the endpoint returns them', () => {
+  it('excludes statuses whose check is deactivated', () => {
     const { checks, statuses } = scenario('mixed')
-
-    const result = getActivatedStatuses(checks, statuses)
-
-    // mixed fixture: 14 activated, 5 deactivated. Input statuses: 16 (13 for
-    // activated checks + 3 stale statuses on deactivated ones). Expected: 13.
-    expect(result).toHaveLength(13)
     const deactivatedIds = new Set(checks.filter(c => !c.activated).map(c => c.id))
-    for (const s of result) {
-      expect(deactivatedIds.has(s.checkId)).toBe(false)
-    }
+    const result = getActivatedStatuses(checks, statuses)
+    // mixed: 16 statuses (13 active + 3 stale on deactivated). Expected: 13.
+    expect(result).toHaveLength(13)
+    expect(result.every(s => !deactivatedIds.has(s.checkId))).toBe(true)
   })
 
-  it('returns empty when every check is deactivated', () => {
+  it('returns empty for an all-deactivated account', () => {
     const { checks, statuses } = scenario('all-deactivated')
     expect(getActivatedStatuses(checks, statuses)).toEqual([])
   })
 })
 
 describe('formatSummaryBar', () => {
-  it('renders 4 account-wide buckets (passing/degraded/failing/inactive) with no total label', () => {
+  it('renders account-wide 4-bucket bar with "Account:" prefix and no total label', () => {
     const { checks, statuses } = scenario('mixed')
     const result = stripAnsi(formatSummaryBar(checks, statuses))
-
-    // mixed: 14 active (8 passing, 2 degraded, 3 failing, 1 no-status),
-    //        5 deactivated -> all count as inactive regardless of stale status.
+    // mixed: 8 passing, 2 degraded, 3 failing, 1 no-status (not counted),
+    //        5 deactivated -> all in inactive bucket.
+    expect(result).toContain('Account:')
     expect(result).toContain('8 passing')
     expect(result).toContain('2 degraded')
     expect(result).toContain('3 failing')
@@ -82,38 +77,23 @@ describe('formatSummaryBar', () => {
     expect(result).not.toContain('total checks')
   })
 
-  it('prefixes the bar with "Account:" so the scope is explicit even when filters are applied', () => {
-    const { checks, statuses } = scenario('mixed')
-    const result = stripAnsi(formatSummaryBar(checks, statuses))
-    expect(result.startsWith('Account:')).toBe(true)
-  })
-
-  it('shows only the inactive bucket when every check is deactivated', () => {
+  it('does not count stale passing statuses on deactivated checks as passing', () => {
+    // Regression: 3 of the 5 deactivated checks carry stale hasFailures=false statuses.
+    // Before the fix they leaked into the passing count. With all-deactivated only the
+    // inactive bucket should remain.
     const { checks, statuses } = scenario('all-deactivated')
-    const result = stripAnsi(formatSummaryBar(checks, statuses))
-    expect(result).toBe('Account:  ⊘ 5 inactive')
+    expect(stripAnsi(formatSummaryBar(checks, statuses))).toBe('Account:  ⊘ 5 inactive')
   })
 
   it('hides zero-count buckets', () => {
     const { checks, statuses } = scenario('all-passing')
     const result = stripAnsi(formatSummaryBar(checks, statuses))
     expect(result).toContain('6 passing')
-    expect(result).not.toContain('degraded')
-    expect(result).not.toContain('failing')
-    expect(result).not.toContain('inactive')
+    expect(result).not.toMatch(/degraded|failing|inactive/)
   })
 
-  it('returns empty string when there are no checks at all', () => {
-    const { checks, statuses } = scenario('empty')
-    expect(formatSummaryBar(checks, statuses)).toBe('')
-  })
-
-  it('does not count deactivated checks as passing even if they carry stale passing statuses', () => {
-    const { checks, statuses } = scenario('all-deactivated')
-    // 3 of the 5 deactivated checks have hasFailures=false/hasErrors=false/isDegraded=false
-    // in their status entries. Prior to the fix they would have been counted as passing.
-    const result = stripAnsi(formatSummaryBar(checks, statuses))
-    expect(result).not.toContain('passing')
+  it('returns an empty string when the account has no checks', () => {
+    expect(formatSummaryBar([], [])).toBe('')
   })
 })
 
