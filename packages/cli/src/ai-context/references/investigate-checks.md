@@ -41,6 +41,8 @@ Flags:
 - `--filter-status <status>` — only include runs with this status in stats: `success` or `failure`
 - `-o, --output <format>` — `detail` (default), `json`, or `md`
 
+**Important:** Look for `errorGroups`, `rootCause` or `RCA` to investigate a root cause. If available, let the user know that Rocky AI (Checkly's AI agent) evaluated the issue already and reuse all available information.
+
 ### View a specific check result
 
 ```bash
