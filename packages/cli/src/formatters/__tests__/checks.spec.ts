@@ -64,12 +64,12 @@ describe('getActivatedStatuses', () => {
 })
 
 describe('formatSummaryBar', () => {
-  it('renders account-wide 4-bucket bar with "Account:" prefix and no total label', () => {
+  it('renders account-wide 4-bucket bar with "Account wide:" prefix and no total label', () => {
     const { checks, statuses } = scenario('mixed')
     const result = stripAnsi(formatSummaryBar(checks, statuses))
     // mixed: 8 passing, 2 degraded, 3 failing, 1 no-status (not counted),
     //        5 deactivated -> all in inactive bucket.
-    expect(result).toContain('Account:')
+    expect(result).toContain('Account wide:')
     expect(result).toContain('8 passing')
     expect(result).toContain('2 degraded')
     expect(result).toContain('3 failing')
@@ -82,7 +82,7 @@ describe('formatSummaryBar', () => {
     // Before the fix they leaked into the passing count. With all-deactivated only the
     // inactive bucket should remain.
     const { checks, statuses } = scenario('all-deactivated')
-    expect(stripAnsi(formatSummaryBar(checks, statuses))).toBe('Account:  ⊘ 5 inactive')
+    expect(stripAnsi(formatSummaryBar(checks, statuses))).toBe('Account wide:  ⊘ 5 inactive')
   })
 
   it('hides zero-count buckets', () => {

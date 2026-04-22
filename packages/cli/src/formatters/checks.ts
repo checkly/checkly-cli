@@ -74,7 +74,7 @@ export function formatSummaryBar (checks: Check[], statuses: CheckStatus[]): str
   if (inactive > 0) parts.push(chalk.dim(`⊘ ${inactive} inactive`))
 
   if (parts.length === 0) return ''
-  return chalk.dim('Account:') + '  ' + parts.join('    ')
+  return chalk.dim('Account wide:') + '  ' + parts.join('    ')
 }
 
 // --- Type breakdown (terminal only) ---
