@@ -97,6 +97,11 @@ export default class Trigger extends AuthCommand {
       description: 'Force a fresh install of dependencies and update the cached version.',
       default: false,
     }),
+    'detach': Flags.boolean({
+      char: 'd',
+      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -116,6 +121,7 @@ export default class Trigger extends AuthCommand {
       'test-session-name': testSessionName,
       retries,
       'refresh-cache': refreshCache,
+      'detach': detach,
     } = flags
     const envVars = await getEnvs(envFile, env)
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -152,6 +158,7 @@ export default class Trigger extends AuthCommand {
       testSessionName,
       testRetryStrategy,
       refreshCache,
+      detach,
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
@@ -191,6 +198,10 @@ export default class Trigger extends AuthCommand {
       }
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
+    })
+    runner.on(Events.CANCEL, async testSessionId => {
+      if (!testSessionId) return
+      await api.cancel.cancelTestSession({ testSessionId })
     })
     await runner.run()
   }
