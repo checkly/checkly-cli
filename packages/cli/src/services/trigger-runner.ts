@@ -27,8 +27,9 @@ export default class TriggerRunner extends AbstractCheckRunner {
     testSessionName: string | undefined,
     testRetryStrategy: RetryStrategy | null,
     refreshCache?: boolean,
+    detach?: boolean,
   ) {
-    super(accountId, timeout, verbose)
+    super(accountId, timeout, verbose, detach ?? false)
     this.shouldRecord = shouldRecord
     this.location = location
     this.targetTags = targetTags
