@@ -151,7 +151,10 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean } = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numDegraded: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
+    const counts = {
+      numFailed: 0, numPassed: 0, numDegraded: 0,
+      numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
+    }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
@@ -169,6 +172,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numFailed++
         } else if (result.isDegraded) {
           counts.numDegraded++
+        } else if (result.isCancelled) {
+          counts.numCancelled++
         } else {
           counts.numPassed++
         }
@@ -185,6 +190,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+        counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
 
@@ -203,7 +209,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printBriefSummary () {
-    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0 }
+    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [, { result }] of checkMap.entries()) {
@@ -213,6 +219,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numFailed++
         } else if (result.isDegraded) {
           counts.numDegraded++
+        } else if (result.isCancelled) {
+          counts.numCancelled++
         } else {
           counts.numPassed++
         }
@@ -223,6 +231,7 @@ export default abstract class AbstractListReporter implements Reporter {
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
       counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
       counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+      counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
       counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
       `${this.numChecks} total`,
     ].filter(Boolean).join(', '))

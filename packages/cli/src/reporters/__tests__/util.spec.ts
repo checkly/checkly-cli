@@ -143,4 +143,19 @@ describe('resultToCheckStatus()', () => {
     expect(resultToCheckStatus({ hasFailures: false, isDegraded: true, hasErrors: false }))
       .toBe(CheckStatus.DEGRADED)
   })
+  it('returns cancelled when isCancelled is true', () => {
+    expect(resultToCheckStatus({ isCancelled: true }))
+      .toBe(CheckStatus.CANCELLED)
+  })
+  it('returns cancelled when isCancelled is true even if hasFailures is also true', () => {
+    expect(resultToCheckStatus({ isCancelled: true, hasFailures: true }))
+      .toBe(CheckStatus.CANCELLED)
+  })
+})
+
+describe('formatCheckTitle() with CANCELLED status', () => {
+  it('should use the ⊘ symbol for a cancelled check title', () => {
+    const result = stripAnsi(formatCheckTitle(CheckStatus.CANCELLED, simpleCheckFixture))
+    expect(result).toContain('⊘')
+  })
 })

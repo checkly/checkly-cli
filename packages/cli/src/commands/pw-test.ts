@@ -118,6 +118,11 @@ export default class PwTestCommand extends AuthCommand {
       description: 'Force a fresh install of dependencies and update the cached version.',
       default: false,
     }),
+    'detach': Flags.boolean({
+      char: 'd',
+      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -143,6 +148,7 @@ export default class PwTestCommand extends AuthCommand {
       'frequency': frequency,
       'install-command': installCommand,
       'refresh-cache': refreshCache,
+      'detach': detach,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const pwPathFlag = this.getConfigPath(playwrightFlags)
@@ -315,6 +321,7 @@ export default class PwTestCommand extends AuthCommand {
       null, // testRetryStrategy
       streamLogs,
       refreshCache,
+      detach,
     )
 
     runner.on(Events.RUN_STARTED,
@@ -336,6 +343,11 @@ export default class PwTestCommand extends AuthCommand {
         sourceFile: check.getSourceFile(),
         ...result,
       }, links))
+    })
+
+    runner.on(Events.CANCEL, async testSessionId => {
+      if (!testSessionId) return
+      await api.cancel.cancelTestSession({ testSessionId })
     })
 
     const noTestsFoundChecks = new Set<string>()

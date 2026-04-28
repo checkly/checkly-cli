@@ -118,6 +118,11 @@ export default class Test extends AuthCommand {
       description: 'Force a fresh install of dependencies and update the cached version.',
       default: false,
     }),
+    'detach': Flags.boolean({
+      char: 'd',
+      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      default: false,
+    }),
   }
 
   static args = {
@@ -153,6 +158,7 @@ export default class Test extends AuthCommand {
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'refresh-cache': refreshCache,
+      'detach': detach,
     } = flags
     const filePatterns = argv as string[]
 
@@ -366,7 +372,13 @@ export default class Test extends AuthCommand {
       testRetryStrategy,
       undefined,
       refreshCache,
+      detach,
     )
+
+    runner.on(Events.CANCEL, async testSessionId => {
+      if (!testSessionId) return
+      await api.cancel.cancelTestSession({ testSessionId })
+    })
 
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>

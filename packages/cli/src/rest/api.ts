@@ -24,6 +24,7 @@ import Analytics from './analytics'
 import BatchAnalytics from './batch-analytics'
 import Entitlements from './entitlements'
 import Rca from './rca'
+import Cancel from './cancel'
 import { handleErrorResponse, UnauthorizedError } from './errors'
 import { detectOperator } from '../helpers/cli-mode'
 
@@ -127,3 +128,4 @@ export const analytics = new Analytics(api)
 export const batchAnalytics = new BatchAnalytics(api)
 export const entitlements = new Entitlements(api)
 export const rca = new Rca(api)
+export const cancel = new Cancel(api)
