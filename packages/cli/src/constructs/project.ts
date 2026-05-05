@@ -4,7 +4,6 @@ import * as api from '../rest/api'
 import { CheckConfigDefaults } from '../services/checkly-config-loader'
 import { Parser } from '../services/check-parser/parser'
 import { Construct } from './construct'
-import { ValidationError } from './validator-error'
 
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
@@ -64,6 +63,7 @@ export class Project extends Construct {
   repoUrl?: string
   logicalId: string
   testOnlyAllowed = false
+  duplicateResources: Array<{ type: string, logicalId: string }> = []
   data: ProjectData = {
     'check': {},
     'check-group': {},
@@ -99,6 +99,13 @@ export class Project extends Construct {
 
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
+
+    for (const { type, logicalId } of this.duplicateResources) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'logicalId',
+        new Error(`A ${type} with logicalId "${logicalId}" already exists.`),
+      ))
+    }
 
     if (!this.name) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
@@ -136,7 +143,8 @@ export class Project extends Construct {
         return
       }
 
-      throw new Error(`Resource of type '${type}' with logical id '${logicalId}' already exists.`)
+      this.duplicateResources.push({ type, logicalId })
+      return
     }
 
     this.data[type as keyof ProjectData][logicalId] = resource
@@ -348,10 +356,6 @@ export class Session {
   }
 
   static validateCreateConstruct (construct: Construct) {
-    if (typeof construct.logicalId !== 'string') {
-      throw new ValidationError(`The "logicalId" of a ${construct.type} construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
-    }
-
     if (construct.type === Project.__checklyType) {
       // Creating the construct is allowed - We're creating the project.
     } else if (Session.project) {
