@@ -834,13 +834,15 @@
           "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
           "checkType": "AGENTIC",
           "name": "Example Agentic Check",
-          "frequency": 60,
+          "frequency": 5,
           "frequencyOffset": 0,
           "activated": true,
           "muted": false,
           "shouldFail": false,
           "locations": [
-            "us-east-1"
+            "us-east-1",
+            "eu-west-1",
+            "ap-southeast-1"
           ],
           "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
           "created_at": "2025-10-28T17:25:17.037Z",

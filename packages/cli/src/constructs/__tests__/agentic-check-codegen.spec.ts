@@ -88,15 +88,14 @@ describe('AgenticCheckCodegen', () => {
       expect(source).toContain('prompt: \'Verify the homepage loads.\'')
     })
 
-    it('should not emit `locations` even when the backend returns one', async () => {
-      // The backend forces a single location for agentic checks today and
-      // the construct hardcodes it. Surfacing it in generated code would
-      // break type-checking against `AgenticCheckProps`.
+    it('should emit `locations` when the backend returns them', async () => {
       const source = await renderResource(env, baseResource({
-        locations: ['us-east-1'],
+        locations: ['us-east-1', 'eu-west-1'],
       }))
 
-      expect(source).not.toContain('locations')
+      expect(source).toContain('locations: [')
+      expect(source).toContain('\'us-east-1\'')
+      expect(source).toContain('\'eu-west-1\'')
     })
 
     it('should not emit `retryStrategy`', async () => {

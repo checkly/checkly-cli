@@ -6,33 +6,16 @@ import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 /**
- * Frequency values (in minutes) currently supported for agentic checks.
- * Mirrors the values exposed in the Checkly webapp's agentic check builder.
+ * Frequencies for agentic checks are accepted locally and enforced by the
+ * backend according to the account's entitlements.
  */
-const ALLOWED_AGENTIC_FREQUENCIES = [30, 60, 120, 180, 360, 720, 1440] as const
+export type AgenticCheckFrequency = number | Frequency
 
 /**
- * Frequencies (in minutes) currently supported for agentic checks: 30, 60, 120,
- * 180, 360, 720 or 1440. The matching `Frequency` constants
- * (`EVERY_30M`, `EVERY_1H`, `EVERY_2H`, `EVERY_3H`, `EVERY_6H`, `EVERY_12H`,
- * `EVERY_24H`) are also accepted.
+ * Backwards-compatible default for checks that do not set a location and do
+ * not inherit one from the project config.
  */
-export type AgenticCheckFrequency =
-  | 30
-  | 60
-  | 120
-  | 180
-  | 360
-  | 720
-  | 1440
-  | Frequency
-
-/**
- * The single location agentic checks currently run from. Until the platform
- * supports running agentic checks from multiple locations, this value is
- * forced server-side and the construct does not let users override it.
- */
-const AGENTIC_CHECK_LOCATION = 'us-east-1'
+const DEFAULT_AGENTIC_CHECK_LOCATION = 'us-east-1'
 
 /**
  * Maximum length of an environment variable description, in characters.
@@ -121,13 +104,12 @@ export interface AgentRuntime {
  *
  * Agentic checks intentionally expose only the subset of options that the
  * Checkly platform currently supports for them. Properties such as
- * `locations`, `privateLocations`, `runParallel`, `retryStrategy`,
- * `shouldFail`, `doubleCheck`, `triggerIncident` and `groupId` are omitted
- * because the platform does not yet honor them for agentic checks. They will
- * be added back as additive, non-breaking changes once support lands.
+ * `privateLocations`, `runParallel`, `retryStrategy`, `shouldFail`,
+ * `doubleCheck`, `triggerIncident` and `groupId` are omitted because the
+ * platform does not yet honor them for agentic checks. They will be added back
+ * as additive, non-breaking changes once support lands.
  */
 export interface AgenticCheckProps extends Omit<CheckProps,
-  | 'locations'
   | 'privateLocations'
   | 'runParallel'
   | 'retryStrategy'
@@ -144,14 +126,15 @@ export interface AgenticCheckProps extends Omit<CheckProps,
   prompt: string
 
   /**
-   * How often the check should run. Agentic checks currently support a
-   * restricted set of frequencies. Defaults to {@link Frequency.EVERY_30M}.
+   * How often the check should run. The backend enforces the fastest allowed
+   * cadence according to the account's entitlements. Defaults to
+   * {@link Frequency.EVERY_30M}.
    *
    * @example
    * ```typescript
-   * frequency: Frequency.EVERY_1H
+   * frequency: Frequency.EVERY_5M
    * // or equivalently
-   * frequency: 60
+   * frequency: 5
    * ```
    */
   frequency?: AgenticCheckFrequency
@@ -204,12 +187,14 @@ export class AgenticCheck extends Check {
     this.prompt = props.prompt
     this.agentRuntime = props.agentRuntime
 
+    // Preserve the old implicit single-region behavior for checks that do not
+    // set locations directly and do not inherit project-level locations.
+    this.locations ??= [DEFAULT_AGENTIC_CHECK_LOCATION]
+
     // Defensive overrides: even though these props are omitted from the type,
     // `Check.applyConfigDefaults()` may pull them in from the project-level
-    // `checks` config defaults. Force them to the only values the platform
-    // currently honors so the construct never claims to support something
-    // it doesn't.
-    this.locations = [AGENTIC_CHECK_LOCATION]
+    // `checks` config defaults. Force them to values the platform currently
+    // honors so the construct never claims to support something it doesn't.
     this.privateLocations = undefined
     this.runParallel = false
     this.retryStrategy = undefined
@@ -242,17 +227,6 @@ export class AgenticCheck extends Check {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'prompt',
         new Error(`"prompt" must be at most 10000 characters, got ${this.prompt.length}.`),
-      ))
-    }
-
-    if (this.frequency !== undefined
-      && !(ALLOWED_AGENTIC_FREQUENCIES as readonly number[]).includes(this.frequency)) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'frequency',
-        new Error(
-          `"frequency" must be one of ${ALLOWED_AGENTIC_FREQUENCIES.join(', ')} `
-          + `for agentic checks, got ${this.frequency}.`,
-        ),
       ))
     }
 

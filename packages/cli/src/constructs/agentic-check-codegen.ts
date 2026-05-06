@@ -48,18 +48,6 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
 
     file.namedImport(construct, 'checkly/constructs')
 
-    // `AgenticCheckProps` omits several fields that the platform does not
-    // yet honor (see `agentic-check.ts` for the full list and rationale).
-    // To keep the generated file type-checking against the construct, clear
-    // `locations` (which the construct hardcodes to a single value) and
-    // skip `retryStrategy` emission. The other omitted fields are already
-    // conditional in `buildCheckProps` and never populated for agentic
-    // checks today.
-    const sanitizedResource: AgenticCheckResource = {
-      ...resource,
-      locations: undefined,
-    }
-
     file.section(expr(ident(construct), builder => {
       builder.new(builder => {
         builder.string(logicalId)
@@ -75,7 +63,7 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
             builder.object('agentRuntime', agentRuntimeValue)
           }
 
-          buildCheckProps(this.program, file, builder, sanitizedResource, context, {
+          buildCheckProps(this.program, file, builder, resource, context, {
             skipRetryStrategy: true,
           })
         })

@@ -4,8 +4,8 @@
 - Agentic checks are AI-powered: instead of writing code, you describe what the check should do in natural language with the `prompt` property. The agent decides how to satisfy the prompt at runtime.
 - Write prompts as concrete imperative steps, not vague goals. Tell the agent which URL to navigate to and what specific signals confirm success — for example, "Navigate to https://example.com/pricing and verify that at least three plan tiers are displayed", not "Check that pricing works".
 - Keep prompts under 10000 characters. The construct will fail validation otherwise.
-- **Frequency is restricted.** Only `30`, `60`, `120`, `180`, `360`, `720`, or `1440` minutes are accepted (matching `Frequency.EVERY_30M`, `EVERY_1H`, `EVERY_2H`, `EVERY_3H`, `EVERY_6H`, `EVERY_12H`, `EVERY_24H`). Anything else fails validation.
-- **Locations are not configurable.** Agentic checks currently run from a single fixed location. The construct hardcodes it — do not pass `locations` or `privateLocations`.
+- **Frequency is entitlement-gated by the backend.** You can configure the same `frequency` values as other checks, including `Frequency.EVERY_5M` / `5`. The backend enforces the fastest cadence available to the account.
+- **Locations are entitlement-gated by the backend.** You can pass `locations` just like other public checks. The backend enforces the allowed number of regions for the account. `privateLocations` are not supported.
 - **Several common check fields are intentionally omitted** from `AgenticCheckProps`: `runParallel`, `retryStrategy`, `shouldFail`, `doubleCheck`, `triggerIncident`, and `groupId`. The platform does not yet honor these for agentic checks. Setting them in the construct is a TypeScript error.
 - **Important:** The target URL must be publicly accessible. Checks run on Checkly's cloud infrastructure, not locally. If the user is developing against localhost, suggest a tunneling tool (ngrok, cloudflare tunnel) or a preview/staging deployment.
 - **Plan-gated:** Agentic checks require the `AGENTIC_CHECKS` entitlement on the account. Run `npx checkly skills manage` to check entitlements before using.
