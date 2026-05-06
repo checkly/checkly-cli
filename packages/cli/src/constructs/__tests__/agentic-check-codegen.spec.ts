@@ -126,11 +126,10 @@ describe('AgenticCheckCodegen', () => {
       expect(source).not.toContain('agentRuntime')
     })
 
-    it('should not emit `agentRuntime` when skills and env vars are both empty', async () => {
+    it('should not emit `agentRuntime` when skills are empty', async () => {
       const source = await renderResource(env, baseResource({
         agenticCheckData: {
           skills: [],
-          selectedEnvironmentVariables: [],
         },
       }))
       expect(source).not.toContain('agentRuntime')
@@ -147,8 +146,6 @@ describe('AgenticCheckCodegen', () => {
       expect(source).toContain('skills: [')
       expect(source).toContain('\'addyosmani/web-quality-skills\'')
       expect(source).toContain('\'cost-optimization\'')
-      // No empty exposeEnvironmentVariables when none are selected.
-      expect(source).not.toContain('exposeEnvironmentVariables')
     })
 
     it('should drop empty skill names', async () => {
@@ -162,67 +159,6 @@ describe('AgenticCheckCodegen', () => {
 
       expect(source).toContain('\'addyosmani/web-quality-skills\'')
       expect(source).not.toMatch(/skills:\s*\[[^\]]*''/m)
-    })
-
-    it('should emit `agentRuntime.exposeEnvironmentVariables` for bare-string entries', async () => {
-      const source = await renderResource(env, baseResource({
-        agenticCheckData: {
-          selectedEnvironmentVariables: ['ENVIRONMENT_URL', 'API_KEY'],
-        },
-      }))
-
-      expect(source).toContain('exposeEnvironmentVariables: [')
-      expect(source).toContain('\'ENVIRONMENT_URL\'')
-      expect(source).toContain('\'API_KEY\'')
-      // Bare strings should not be expanded into objects. The only `name:`
-      // we expect in the file is the top-level `name: 'Agentic Check'`.
-      expect((source.match(/name:/g) ?? []).length).toEqual(1)
-    })
-
-    it('should reverse-translate `key` into `name` for object-form entries', async () => {
-      // The backend stores selected env vars as `{ key, description? }` but
-      // the construct exposes `{ name, description? }`. The codegen has to
-      // translate on the way out so the generated file matches the construct
-      // type.
-      const source = await renderResource(env, baseResource({
-        agenticCheckData: {
-          selectedEnvironmentVariables: [
-            { key: 'TEST_USER_EMAIL', description: 'Login email for the test account' },
-          ],
-        },
-      }))
-
-      expect(source).toContain('name: \'TEST_USER_EMAIL\'')
-      expect(source).toContain('description: \'Login email for the test account\'')
-      expect(source).not.toContain('key:')
-    })
-
-    it('should omit `description` when not provided on object-form entries', async () => {
-      const source = await renderResource(env, baseResource({
-        agenticCheckData: {
-          selectedEnvironmentVariables: [
-            { key: 'PLAIN_KEY' },
-          ],
-        },
-      }))
-
-      expect(source).toContain('name: \'PLAIN_KEY\'')
-      expect(source).not.toContain('description')
-    })
-
-    it('should support a mix of bare-string and object-form env vars', async () => {
-      const source = await renderResource(env, baseResource({
-        agenticCheckData: {
-          selectedEnvironmentVariables: [
-            'ENVIRONMENT_URL',
-            { key: 'TEST_USER_EMAIL', description: 'Login email' },
-          ],
-        },
-      }))
-
-      expect(source).toContain('\'ENVIRONMENT_URL\'')
-      expect(source).toContain('name: \'TEST_USER_EMAIL\'')
-      expect(source).toContain('description: \'Login email\'')
     })
 
     it('should never emit `assertionRules`', async () => {

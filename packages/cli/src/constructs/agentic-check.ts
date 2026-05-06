@@ -18,45 +18,10 @@ export type AgenticCheckFrequency = number | Frequency
 const DEFAULT_AGENTIC_CHECK_LOCATION = 'us-east-1'
 
 /**
- * Maximum length of an environment variable description, in characters.
- * Matches the truncation length applied by the agentic runner.
- */
-const MAX_ENV_VAR_DESCRIPTION_LENGTH = 200
-
-/**
- * An environment variable the agent is permitted to read at runtime.
- *
- * Use the bare string form when the variable name is self-explanatory, or
- * the object form to provide a `description` that helps the agent understand
- * what the variable is for. Descriptions are passed to the model so it can
- * make better decisions about when to read the variable.
- *
- * @example
- * ```typescript
- * 'API_KEY'
- * { name: 'TOKEN_42', description: 'Feature flag service auth token' }
- * ```
- */
-export type AgentRuntimeEnvironmentVariable =
-  | string
-  | {
-    /** The environment variable name. */
-    name: string
-    /**
-     * Optional human-readable explanation of what the variable is for.
-     * Passed to the agent so it can decide when to read the variable.
-     * Truncated to {@link MAX_ENV_VAR_DESCRIPTION_LENGTH} characters.
-     */
-    description?: string
-  }
-
-/**
  * Configures the runtime context the agent has access to during a check.
  *
- * `agentRuntime` is the explicit allowlist of resources the agent may use
- * at execution time. Anything not declared here is unavailable to the agent.
- * Treat it as a security boundary: the smaller the runtime surface, the
- * smaller the blast radius of any prompt injection.
+ * `agentRuntime` lets you add extra skills on top of the defaults the runner
+ * provides automatically.
  */
 export interface AgentRuntime {
   /**
@@ -75,28 +40,6 @@ export interface AgentRuntime {
    * @example ['addyosmani/web-quality-skills']
    */
   skills?: string[]
-
-  /**
-   * Environment variables the agent is permitted to read at runtime.
-   *
-   * **Variables not listed here are not exposed to the agent**, even if
-   * they exist in the Checkly account. This is the primary defense against
-   * prompt injection: an attacker who controls content the agent reads
-   * cannot exfiltrate secrets the agent never had access to.
-   *
-   * Each entry is either a bare variable name, or an object with a
-   * `name` and an optional `description`. Descriptions help the agent
-   * understand what each variable is for.
-   *
-   * @example
-   * ```typescript
-   * exposeEnvironmentVariables: [
-   *   'API_KEY',
-   *   { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
-   * ]
-   * ```
-   */
-  exposeEnvironmentVariables?: AgentRuntimeEnvironmentVariable[]
 }
 
 /**
@@ -140,14 +83,7 @@ export interface AgenticCheckProps extends Omit<CheckProps,
   frequency?: AgenticCheckFrequency
 
   /**
-   * Configures the runtime context the agent has access to during execution:
-   * which skills it can use, which environment variables it can read, and
-   * (in the future) other access surfaces such as network policies or tool
-   * allowlists.
-   *
-   * Treat `agentRuntime` as a security boundary. Anything not declared here
-   * is unavailable to the agent at runtime, which keeps the blast radius of
-   * any prompt injection as small as possible.
+   * Configures additional skills the agent can use during execution.
    */
   agentRuntime?: AgentRuntime
 }
@@ -247,33 +183,6 @@ export class AgenticCheck extends Check {
         }
       }
     }
-
-    if (this.agentRuntime?.exposeEnvironmentVariables) {
-      for (const [index, entry] of this.agentRuntime.exposeEnvironmentVariables.entries()) {
-        const name = typeof entry === 'string' ? entry : entry?.name
-        if (typeof name !== 'string' || name.trim().length === 0) {
-          diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.exposeEnvironmentVariables',
-            new Error(
-              `"agentRuntime.exposeEnvironmentVariables[${index}]" must have a non-empty name.`,
-            ),
-          ))
-          continue
-        }
-
-        if (typeof entry !== 'string'
-          && typeof entry.description === 'string'
-          && entry.description.length > MAX_ENV_VAR_DESCRIPTION_LENGTH) {
-          diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.exposeEnvironmentVariables',
-            new Error(
-              `"agentRuntime.exposeEnvironmentVariables[${index}].description" must be at most `
-              + `${MAX_ENV_VAR_DESCRIPTION_LENGTH} characters, got ${entry.description.length}.`,
-            ),
-          ))
-        }
-      }
-    }
   }
 
   synthesize () {
@@ -281,13 +190,11 @@ export class AgenticCheck extends Check {
       ...super.synthesize(),
       checkType: CheckTypes.AGENTIC,
       prompt: this.prompt,
-      // Always emit `agentRuntime` so the backend has an explicit, complete
-      // picture of the runtime surface the user wants. The CLI is the source
-      // of truth: omitted skills/env vars mean "the agent should not have
-      // them", not "preserve whatever was there before".
+      // Always emit `agentRuntime` so the backend has an explicit picture of
+      // the skills the user wants. Omitted skills mean "the agent should not
+      // have them", not "preserve whatever was there before".
       agentRuntime: {
         skills: this.agentRuntime?.skills ?? [],
-        exposeEnvironmentVariables: this.agentRuntime?.exposeEnvironmentVariables ?? [],
       },
     }
   }

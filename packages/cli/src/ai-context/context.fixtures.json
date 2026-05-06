@@ -876,7 +876,6 @@
           "prompt": "Navigate to https://www.checklyhq.com/pricing and verify that at least three plan tiers are displayed on the page.",
           "agenticCheckData": {
             "skills": [],
-            "selectedEnvironmentVariables": [],
             "assertionRules": []
           },
           "alertChannelSubscriptions": [],

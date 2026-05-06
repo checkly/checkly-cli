@@ -69,7 +69,6 @@ describe('AgenticCheck', () => {
               runParallel: false,
               agentRuntime: {
                 skills: [],
-                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -78,7 +77,7 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should expose agentRuntime skills and environment variables', async () => {
+  it('should expose agentRuntime skills', async () => {
     const output = await parseProject(
       fixt,
       '--config',
@@ -99,10 +98,6 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: ['addyosmani/web-quality-skills'],
-                exposeEnvironmentVariables: [
-                  'API_KEY',
-                  { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
-                ],
               },
             }),
           }),
@@ -114,7 +109,6 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: [],
-                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -308,44 +302,6 @@ describe('AgenticCheck', () => {
               frequency: 5,
               locations: ['us-east-1'],
             }),
-          }),
-        ]),
-      }),
-    }))
-  }, DEFAULT_TEST_TIMEOUT)
-
-  it('should fail validation when an environment variable name is empty', async () => {
-    const output = await parseProject(
-      fixt,
-      '--config',
-      fixt.abspath('test-cases/test-validation-empty-env-var-name/checkly.config.js'),
-    )
-
-    expect(output).toEqual(expect.objectContaining({
-      diagnostics: expect.objectContaining({
-        fatal: true,
-        observations: expect.arrayContaining([
-          expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0]" must have a non-empty name'),
-          }),
-        ]),
-      }),
-    }))
-  }, DEFAULT_TEST_TIMEOUT)
-
-  it('should fail validation when an environment variable description exceeds 200 characters', async () => {
-    const output = await parseProject(
-      fixt,
-      '--config',
-      fixt.abspath('test-cases/test-validation-description-too-long/checkly.config.js'),
-    )
-
-    expect(output).toEqual(expect.objectContaining({
-      diagnostics: expect.objectContaining({
-        fatal: true,
-        observations: expect.arrayContaining([
-          expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0].description" must be at most 200 characters'),
           }),
         ]),
       }),

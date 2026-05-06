@@ -3,17 +3,6 @@ import { expr, ident, ObjectValueBuilder } from '../sourcegen'
 import { buildCheckProps, CheckResource } from './check-codegen'
 
 /**
- * Shape of a `selectedEnvironmentVariables` entry as stored on the backend
- * inside `agenticCheckData`. The runner accepts two forms — a bare variable
- * name, or an object with `key` and an optional `description`. The CLI
- * construct uses `name` (not `key`), so the codegen translates object-form
- * entries during emission.
- */
-type StoredAgenticEnvironmentVariable =
-  | string
-  | { key: string, description?: string }
-
-/**
  * Shape of `agenticCheckData` as stored on the backend and returned to the
  * CLI during `checkly import`. Only fields the construct exposes are read.
  * `assertionRules` is deliberately ignored — the agent generates those on
@@ -22,7 +11,6 @@ type StoredAgenticEnvironmentVariable =
  */
 interface StoredAgenticCheckData {
   skills?: string[] | null
-  selectedEnvironmentVariables?: StoredAgenticEnvironmentVariable[] | null
 }
 
 export interface AgenticCheckResource extends CheckResource {
@@ -54,10 +42,9 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
         builder.object(builder => {
           builder.string('prompt', resource.prompt)
 
-          // Emit agentRuntime only when there's something meaningful to
-          // carry. An imported check with no skills and no selected env
-          // vars would otherwise produce an empty `agentRuntime: {}` block,
-          // which is noise in the generated code.
+          // Emit agentRuntime only when there's something meaningful to carry.
+          // An imported check with no skills would otherwise produce an empty
+          // `agentRuntime: {}` block, which is noise in the generated code.
           const agentRuntimeValue = buildAgentRuntimeObject(resource.agenticCheckData)
           if (agentRuntimeValue !== undefined) {
             builder.object('agentRuntime', agentRuntimeValue)
@@ -74,10 +61,8 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
 
 /**
  * Build an `agentRuntime: { ... }` object literal for the codegen output,
- * reverse-translating the backend's storage shape (`selectedEnvironmentVariables`
- * with `key`) into the CLI construct's shape (`exposeEnvironmentVariables` with
- * `name`). Returns `undefined` when the input contains nothing worth
- * emitting, so the caller can skip the property entirely.
+ * returning `undefined` when the input contains nothing worth emitting so the
+ * caller can skip the property entirely.
  */
 function buildAgentRuntimeObject (
   data: StoredAgenticCheckData | null | undefined,
@@ -85,9 +70,8 @@ function buildAgentRuntimeObject (
   if (!data) return undefined
 
   const skills = (data.skills ?? []).filter(s => s.length > 0)
-  const storedEnvVars = data.selectedEnvironmentVariables ?? []
 
-  if (skills.length === 0 && storedEnvVars.length === 0) {
+  if (skills.length === 0) {
     return undefined
   }
 
@@ -96,23 +80,6 @@ function buildAgentRuntimeObject (
       builder.array('skills', arrayBuilder => {
         for (const skill of skills) {
           arrayBuilder.string(skill)
-        }
-      })
-    }
-
-    if (storedEnvVars.length > 0) {
-      builder.array('exposeEnvironmentVariables', arrayBuilder => {
-        for (const entry of storedEnvVars) {
-          if (typeof entry === 'string') {
-            arrayBuilder.string(entry)
-          } else {
-            arrayBuilder.object(objectBuilder => {
-              objectBuilder.string('name', entry.key)
-              if (entry.description) {
-                objectBuilder.string('description', entry.description)
-              }
-            })
-          }
         }
       })
     }
