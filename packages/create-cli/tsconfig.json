@@ -3,6 +3,7 @@
     "incremental": true,
     "declaration": true,
     "importHelpers": true,
+    "ignoreDeprecations": "6.0",
     "module": "commonjs",
     "esModuleInterop": true,
     "outDir": "dist",

@@ -28,6 +28,7 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
           },
           compilerOptions: {
             module: 'CommonJS',
+            ignoreDeprecations: '6.0',
           },
         })
         debug(`Successfully initialized loader`)

@@ -80,5 +80,13 @@
     "typescript": "^6.0.3",
     "uuid": "^11.1.1",
     "vitest": "^4.1.5"
+  },
+  "peerDependencies": {
+    "ts-node": ">=10"
+  },
+  "peerDependenciesMeta": {
+    "ts-node": {
+      "optional": true
+    }
   }
 }

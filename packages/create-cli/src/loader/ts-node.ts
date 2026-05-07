@@ -22,6 +22,7 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
           },
           compilerOptions: {
             module: 'CommonJS',
+            ignoreDeprecations: '6.0',
           },
         })
         TSNodeFileLoader.state = new InitializedTSNodeFileLoaderState(service)
