@@ -6,74 +6,22 @@ import { Diagnostics } from './diagnostics'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
 
 /**
- * Frequency values (in minutes) currently supported for agentic checks.
- * Mirrors the values exposed in the Checkly webapp's agentic check builder.
+ * Frequencies for agentic checks are accepted locally and enforced by the
+ * backend according to the account's entitlements.
  */
-const ALLOWED_AGENTIC_FREQUENCIES = [30, 60, 120, 180, 360, 720, 1440] as const
+export type AgenticCheckFrequency = number | Frequency
 
 /**
- * Frequencies (in minutes) currently supported for agentic checks: 30, 60, 120,
- * 180, 360, 720 or 1440. The matching `Frequency` constants
- * (`EVERY_30M`, `EVERY_1H`, `EVERY_2H`, `EVERY_3H`, `EVERY_6H`, `EVERY_12H`,
- * `EVERY_24H`) are also accepted.
+ * Backwards-compatible default for checks that do not set a location and do
+ * not inherit one from the project config.
  */
-export type AgenticCheckFrequency =
-  | 30
-  | 60
-  | 120
-  | 180
-  | 360
-  | 720
-  | 1440
-  | Frequency
-
-/**
- * The single location agentic checks currently run from. Until the platform
- * supports running agentic checks from multiple locations, this value is
- * forced server-side and the construct does not let users override it.
- */
-const AGENTIC_CHECK_LOCATION = 'us-east-1'
-
-/**
- * Maximum length of an environment variable description, in characters.
- * Matches the truncation length applied by the agentic runner.
- */
-const MAX_ENV_VAR_DESCRIPTION_LENGTH = 200
-
-/**
- * An environment variable the agent is permitted to read at runtime.
- *
- * Use the bare string form when the variable name is self-explanatory, or
- * the object form to provide a `description` that helps the agent understand
- * what the variable is for. Descriptions are passed to the model so it can
- * make better decisions about when to read the variable.
- *
- * @example
- * ```typescript
- * 'API_KEY'
- * { name: 'TOKEN_42', description: 'Feature flag service auth token' }
- * ```
- */
-export type AgentRuntimeEnvironmentVariable =
-  | string
-  | {
-    /** The environment variable name. */
-    name: string
-    /**
-     * Optional human-readable explanation of what the variable is for.
-     * Passed to the agent so it can decide when to read the variable.
-     * Truncated to {@link MAX_ENV_VAR_DESCRIPTION_LENGTH} characters.
-     */
-    description?: string
-  }
+const DEFAULT_AGENTIC_CHECK_LOCATION = 'us-east-1'
 
 /**
  * Configures the runtime context the agent has access to during a check.
  *
- * `agentRuntime` is the explicit allowlist of resources the agent may use
- * at execution time. Anything not declared here is unavailable to the agent.
- * Treat it as a security boundary: the smaller the runtime surface, the
- * smaller the blast radius of any prompt injection.
+ * `agentRuntime` lets you add extra skills on top of the defaults the runner
+ * provides automatically.
  */
 export interface AgentRuntime {
   /**
@@ -92,28 +40,6 @@ export interface AgentRuntime {
    * @example ['addyosmani/web-quality-skills']
    */
   skills?: string[]
-
-  /**
-   * Environment variables the agent is permitted to read at runtime.
-   *
-   * **Variables not listed here are not exposed to the agent**, even if
-   * they exist in the Checkly account. This is the primary defense against
-   * prompt injection: an attacker who controls content the agent reads
-   * cannot exfiltrate secrets the agent never had access to.
-   *
-   * Each entry is either a bare variable name, or an object with a
-   * `name` and an optional `description`. Descriptions help the agent
-   * understand what each variable is for.
-   *
-   * @example
-   * ```typescript
-   * exposeEnvironmentVariables: [
-   *   'API_KEY',
-   *   { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
-   * ]
-   * ```
-   */
-  exposeEnvironmentVariables?: AgentRuntimeEnvironmentVariable[]
 }
 
 /**
@@ -121,13 +47,12 @@ export interface AgentRuntime {
  *
  * Agentic checks intentionally expose only the subset of options that the
  * Checkly platform currently supports for them. Properties such as
- * `locations`, `privateLocations`, `runParallel`, `retryStrategy`,
- * `shouldFail`, `doubleCheck`, `triggerIncident` and `groupId` are omitted
- * because the platform does not yet honor them for agentic checks. They will
- * be added back as additive, non-breaking changes once support lands.
+ * `privateLocations`, `runParallel`, `retryStrategy`, `shouldFail`,
+ * `doubleCheck`, `triggerIncident` and `groupId` are omitted because the
+ * platform does not yet honor them for agentic checks. They will be added back
+ * as additive, non-breaking changes once support lands.
  */
 export interface AgenticCheckProps extends Omit<CheckProps,
-  | 'locations'
   | 'privateLocations'
   | 'runParallel'
   | 'retryStrategy'
@@ -144,27 +69,21 @@ export interface AgenticCheckProps extends Omit<CheckProps,
   prompt: string
 
   /**
-   * How often the check should run. Agentic checks currently support a
-   * restricted set of frequencies. Defaults to {@link Frequency.EVERY_30M}.
+   * How often the check should run. The backend enforces the fastest allowed
+   * cadence according to the account's entitlements. Defaults to
+   * {@link Frequency.EVERY_30M}.
    *
    * @example
    * ```typescript
-   * frequency: Frequency.EVERY_1H
+   * frequency: Frequency.EVERY_5M
    * // or equivalently
-   * frequency: 60
+   * frequency: 5
    * ```
    */
   frequency?: AgenticCheckFrequency
 
   /**
-   * Configures the runtime context the agent has access to during execution:
-   * which skills it can use, which environment variables it can read, and
-   * (in the future) other access surfaces such as network policies or tool
-   * allowlists.
-   *
-   * Treat `agentRuntime` as a security boundary. Anything not declared here
-   * is unavailable to the agent at runtime, which keeps the blast radius of
-   * any prompt injection as small as possible.
+   * Configures additional skills the agent can use during execution.
    */
   agentRuntime?: AgentRuntime
 }
@@ -204,12 +123,14 @@ export class AgenticCheck extends Check {
     this.prompt = props.prompt
     this.agentRuntime = props.agentRuntime
 
+    // Preserve the old implicit single-region behavior for checks that do not
+    // set locations directly and do not inherit project-level locations.
+    this.locations ??= [DEFAULT_AGENTIC_CHECK_LOCATION]
+
     // Defensive overrides: even though these props are omitted from the type,
     // `Check.applyConfigDefaults()` may pull them in from the project-level
-    // `checks` config defaults. Force them to the only values the platform
-    // currently honors so the construct never claims to support something
-    // it doesn't.
-    this.locations = [AGENTIC_CHECK_LOCATION]
+    // `checks` config defaults. Force them to values the platform currently
+    // honors so the construct never claims to support something it doesn't.
     this.privateLocations = undefined
     this.runParallel = false
     this.retryStrategy = undefined
@@ -245,17 +166,6 @@ export class AgenticCheck extends Check {
       ))
     }
 
-    if (this.frequency !== undefined
-      && !(ALLOWED_AGENTIC_FREQUENCIES as readonly number[]).includes(this.frequency)) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'frequency',
-        new Error(
-          `"frequency" must be one of ${ALLOWED_AGENTIC_FREQUENCIES.join(', ')} `
-          + `for agentic checks, got ${this.frequency}.`,
-        ),
-      ))
-    }
-
     this.validateAgentRuntime(diagnostics)
   }
 
@@ -273,33 +183,6 @@ export class AgenticCheck extends Check {
         }
       }
     }
-
-    if (this.agentRuntime?.exposeEnvironmentVariables) {
-      for (const [index, entry] of this.agentRuntime.exposeEnvironmentVariables.entries()) {
-        const name = typeof entry === 'string' ? entry : entry?.name
-        if (typeof name !== 'string' || name.trim().length === 0) {
-          diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.exposeEnvironmentVariables',
-            new Error(
-              `"agentRuntime.exposeEnvironmentVariables[${index}]" must have a non-empty name.`,
-            ),
-          ))
-          continue
-        }
-
-        if (typeof entry !== 'string'
-          && typeof entry.description === 'string'
-          && entry.description.length > MAX_ENV_VAR_DESCRIPTION_LENGTH) {
-          diagnostics.add(new InvalidPropertyValueDiagnostic(
-            'agentRuntime.exposeEnvironmentVariables',
-            new Error(
-              `"agentRuntime.exposeEnvironmentVariables[${index}].description" must be at most `
-              + `${MAX_ENV_VAR_DESCRIPTION_LENGTH} characters, got ${entry.description.length}.`,
-            ),
-          ))
-        }
-      }
-    }
   }
 
   synthesize () {
@@ -307,13 +190,11 @@ export class AgenticCheck extends Check {
       ...super.synthesize(),
       checkType: CheckTypes.AGENTIC,
       prompt: this.prompt,
-      // Always emit `agentRuntime` so the backend has an explicit, complete
-      // picture of the runtime surface the user wants. The CLI is the source
-      // of truth: omitted skills/env vars mean "the agent should not have
-      // them", not "preserve whatever was there before".
+      // Always emit `agentRuntime` so the backend has an explicit picture of
+      // the skills the user wants. Omitted skills mean "the agent should not
+      // have them", not "preserve whatever was there before".
       agentRuntime: {
         skills: this.agentRuntime?.skills ?? [],
-        exposeEnvironmentVariables: this.agentRuntime?.exposeEnvironmentVariables ?? [],
       },
     }
   }
