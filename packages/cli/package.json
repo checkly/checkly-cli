@@ -132,7 +132,6 @@
     "@types/archiver": "6.0.3",
     "@types/config": "^3.3.5",
     "@types/debug": "^4.1.12",
-    "@types/glob": "^8.1.0",
     "@types/luxon": "^3.7.1",
     "@types/node": "^22.14.1",
     "@types/prompts": "^2.4.9",
