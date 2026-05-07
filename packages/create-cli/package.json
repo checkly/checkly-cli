@@ -9,7 +9,7 @@
     "node": "^18.19.0 || >=20.5.0"
   },
   "scripts": {
-    "clean": "rimraf ./dist",
+    "clean": "rimraf ./dist ./tsconfig.tsbuildinfo",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
     "test": "vitest",
@@ -77,7 +77,7 @@
     "cross-env": "^7.0.3",
     "rimraf": "^5.0.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
+    "typescript": "^6.0.3",
     "uuid": "^11.1.0",
     "vitest": "3.1.2"
   }
