@@ -125,7 +125,7 @@
     "recast": "^0.23.11",
     "semver": "^7.7.3",
     "tunnel": "^0.0.6",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
