@@ -118,6 +118,7 @@ export default class Rules extends BaseCommand {
     } catch (error) {
       throw new Error(
         `Failed to read base rules file at ${BASE_RULES_FILE_PATH}: ${error}`,
+        { cause: error },
       )
     }
   }

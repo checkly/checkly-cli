@@ -82,7 +82,7 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
 
       if (err.message?.includes('Unable to compile TypeScript')) {
         throw new Error(`Unable to load file '${filePath}' with 'ts-node' (hint: consider installing 'jiti' for improved TypeScript support)\n${err.stack}`, {
-          cause: err as Error,
+          cause: err,
         })
       }
 

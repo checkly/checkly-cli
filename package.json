@@ -16,15 +16,15 @@
     "packages/*"
   ],
   "devDependencies": {
-    "@commitlint/cli": "^17.8.1",
-    "@commitlint/config-conventional": "^17.8.1",
-    "@eslint/js": "^9.32.0",
-    "@stylistic/eslint-plugin": "5.2.2",
-    "eslint": "^9.32.0",
-    "globals": "16.0.0",
-    "lint-staged": "^15.5.1",
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.0.1",
+    "globals": "^17.6.0",
+    "lint-staged": "^15.5.2",
     "rimraf": "5.0.10",
-    "simple-git-hooks": "^2.12.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript-eslint": "^8.59.2"
   },
   "simple-git-hooks": {
