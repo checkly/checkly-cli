@@ -129,7 +129,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@types/archiver": "6.0.3",
+    "@types/archiver": "^7.0.0",
     "@types/config": "^3.3.5",
     "@types/debug": "^4.1.13",
     "@types/luxon": "^3.7.1",
