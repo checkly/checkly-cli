@@ -145,7 +145,6 @@
     "nanoid": "^3.3.11",
     "oclif": "^4.22.56",
     "rimraf": "^5.0.10",
-    "simple-git-hooks": "^2.12.1",
     "tar": "^7.5.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
