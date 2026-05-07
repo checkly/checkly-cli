@@ -1,5 +1,6 @@
 import prompts from 'prompts'
 import { assets, testSessions } from '../rest/api.js'
+import { printLn } from '../reporters/util.js'
 import { SocketClient } from './socket-client.js'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
@@ -23,6 +24,8 @@ export enum Events {
   MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
   STREAM_LOGS = 'STREAM_LOGS',
   CANCEL = 'CANCEL',
+  CANCEL_PROMPT_SHOWN = 'CANCEL_PROMPT_SHOWN',
+  CANCEL_PROMPT_HIDDEN = 'CANCEL_PROMPT_HIDDEN',
 }
 
 export type PrivateRunLocation = {
@@ -102,17 +105,18 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
             this.forceQuit()
           } else {
             isAskingToCancel = true
+            // emit before pause closes the race against in-flight handlers
+            this.emit(Events.CANCEL_PROMPT_SHOWN)
             this.queue.pause()
             this.askCancelConfirmation(testSessionId).then(cancelled => {
-              if (cancelled) {
-                this.queue.start()
-              } else {
-                // User chose to continue — resume processing and reset so next CTRL+C asks again
-                this.queue.start()
+              if (!cancelled) {
+                // User chose to continue — reset so next CTRL+C asks again
                 isAskingToCancel = false
               }
+              this.emit(Events.CANCEL_PROMPT_HIDDEN)
+              this.queue.start()
             }).catch(err => {
-              process.stderr.write(`\nFailed to cancel: ${err.message}\n`)
+              printLn(`Failed to cancel: ${err.message}`)
               process.exit(1)
             })
           }
@@ -317,7 +321,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
-    process.stdout.write('\n')
+    printLn('')
     const { confirmed } = await prompts({
       type: 'confirm',
       name: 'confirmed',
@@ -330,6 +334,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     }
     if (confirmed) {
       this.emit(Events.CANCEL, testSessionId)
+      printLn('Cancelling test session...', 2)
       return true
     }
     return false
