@@ -381,6 +381,9 @@ export default class Test extends AuthCommand {
       await api.cancel.cancelTestSession({ testSessionId })
     })
 
+    runner.on(Events.CANCEL_PROMPT_SHOWN, () => reporters.forEach(r => r.onCancelPromptShown()))
+    runner.on(Events.CANCEL_PROMPT_HIDDEN, () => reporters.forEach(r => r.onCancelPromptHidden()))
+
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>
         reporters.forEach(r => r.onBegin(checks, testSessionId)),
