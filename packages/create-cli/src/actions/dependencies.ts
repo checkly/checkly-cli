@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import execa from 'execa'
+import { execa } from 'execa'
 import { spinner } from '../utils/terminal.js'
 import { hint } from '../utils/messages.js'
 import { PackageJson } from '../utils/directory.js'

@@ -1,5 +1,5 @@
-import execa from 'execa'
-import passwdUser from 'passwd-user'
+import { execa } from 'execa'
+import { passwdUser } from 'passwd-user'
 
 const environmentVariables = [
   'GIT_AUTHOR_NAME',
