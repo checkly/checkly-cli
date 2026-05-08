@@ -72,6 +72,10 @@ export const MANAGE_REFERENCES = [
     id: 'manage-plan',
     description: 'Check account plan, entitlements, feature limits, and available locations (`account plan`)',
   },
+  {
+    id: 'manage-account-members',
+    description: 'List account members and pending invites (`account members`)',
+  },
 ] as const
 
 export const SKILL = {
@@ -101,7 +105,7 @@ export const ACTIONS = [
   },
   {
     id: 'manage',
-    description: 'Understand your account plan, entitlements, and feature limits.',
+    description: 'Understand your account plan, entitlements, feature limits, members, and pending invites.',
     references: MANAGE_REFERENCES,
   },
 ] as const

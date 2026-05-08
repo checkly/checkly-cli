@@ -35,8 +35,10 @@ import PwTest from '../pw-test'
 import SyncPlaywright from '../sync-playwright'
 import SkillsInstall from '../skills/install'
 import AccountPlan from '../account/plan'
+import AccountMembers from '../account/members'
 
 const commands: Array<[string, typeof BaseCommand]> = [
+  ['account members', AccountMembers],
   ['account plan', AccountPlan],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],

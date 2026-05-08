@@ -1,6 +1,6 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements and feature limits.
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
 metadata:
   author: checkly
@@ -49,4 +49,4 @@ Access check status, analyze failures, and investigate errors.
 Open incidents and lead customer communications via status pages.
 
 ### `npx checkly skills manage`
-Understand your account plan, entitlements, and feature limits.
+Understand your account plan, entitlements, feature limits, members, and pending invites.
