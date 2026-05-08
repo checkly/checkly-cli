@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { execa } from 'execa'
+
 import { lineage } from './walk.js'
 import { shellQuote } from '../../../services/shell.js'
 import { PackageJsonFile } from './package-json-file.js'
@@ -226,8 +228,6 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       } catch {
         continue
       }
-
-      const { execa } = await import('execa')
 
       const pnpmArgs = [
         'list',

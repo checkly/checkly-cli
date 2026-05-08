@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 import Debug from 'debug'
+import { execa } from 'execa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -73,8 +74,6 @@ export class FixtureSandbox {
   }
 
   static async create (options: CreateFixtureSandboxOptions): Promise<FixtureSandbox> {
-    const { execa } = await import('execa')
-
     const {
       source,
       root: maybeRoot,
