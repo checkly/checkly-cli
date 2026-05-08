@@ -3,7 +3,7 @@ import { isIPv6 } from 'node:net'
 import chalk from 'chalk'
 import indentString from 'indent-string'
 import { DateTime } from 'luxon'
-import * as logSymbols from 'log-symbols'
+import logSymbols from 'log-symbols'
 
 import { getDefaults } from '../rest/api.js'
 import { Assertion } from '../constructs/internal/assertion.js'

@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import execa from 'execa'
+import { execa } from 'execa'
 
 const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
 
