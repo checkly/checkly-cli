@@ -3,6 +3,9 @@ import { readFile, writeFile, access, mkdir } from 'fs/promises'
 import path, { join } from 'path'
 import { constants } from 'fs'
 import prompts from 'prompts'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const BASE_RULES_FILE_PATH = join(__dirname, '../ai-context/checkly.rules.md')
 

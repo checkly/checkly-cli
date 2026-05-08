@@ -1,10 +1,14 @@
 import axios from 'axios'
 import prompts from 'prompts'
 import { Command } from '@oclif/core'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
 import { api } from '../rest/api.js'
 import { CommandStyle } from '../helpers/command-style.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
