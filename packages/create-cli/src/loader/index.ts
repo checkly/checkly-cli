@@ -10,4 +10,3 @@ export {
   NativeFileLoader,
   NativeFileLoaderOptions,
 } from './native.js'
-export { TSNodeFileLoader, TSNodeFileLoaderOptions } from './ts-node.js'

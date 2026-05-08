@@ -10,7 +10,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "jiti": "^2.6.1"
-  }
+  "devDependencies": {}
 }
