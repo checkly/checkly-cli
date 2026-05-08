@@ -21,7 +21,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle spec file', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',
@@ -67,7 +67,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle a spec file with snapshots', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',
