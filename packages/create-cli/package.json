@@ -58,14 +58,14 @@
     "@oclif/plugin-help": "^6.2.46",
     "@oclif/plugin-warn-if-update-available": "^3.1.62",
     "axios": "^1.16.0",
-    "chalk": "^4.1.2",
+    "chalk": "^5.6.2",
     "debug": "^4.4.3",
-    "execa": "^5.1.1",
+    "execa": "^9.6.1",
     "giget": "^3.2.0",
     "jiti": "^2.7.0",
     "json5": "^2.2.3",
-    "ora": "^5.4.1",
-    "passwd-user": "^3.0.0",
+    "ora": "^9.4.0",
+    "passwd-user": "^4.0.0",
     "prompts": "^2.4.2",
     "recast": "^0.23.11",
     "unique-names-generator": "^4.7.1"
@@ -79,7 +79,7 @@
     "rimraf": "^5.0.10",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "uuid": "^11.1.1",
+    "uuid": "^14.0.0",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
