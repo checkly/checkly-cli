@@ -1,5 +1,8 @@
 import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const PROMPTS_DIR = join(__dirname, '../../ai-context/onboarding-prompts')
 

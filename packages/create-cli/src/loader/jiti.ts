@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'node:url'
+
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
 import { FileMatch } from './match.js'
+
+const __filename = fileURLToPath(import.meta.url)
 
 interface JitiExports {
   createJiti (id: string, userOptions?: any): Jiti

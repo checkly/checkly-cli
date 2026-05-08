@@ -1,8 +1,11 @@
 import Debug from 'debug'
+import { fileURLToPath } from 'node:url'
 
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
 import { FileMatch } from './match.js'
 import { preferenceDelta } from './config.js'
+
+const __filename = fileURLToPath(import.meta.url)
 
 const debug = Debug('checkly:cli:loader:jiti')
 

@@ -2,11 +2,14 @@ import { Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { constants } from 'fs'
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import prompts from 'prompts'
+import { fileURLToPath } from 'node:url'
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { BaseCommand } from '../baseCommand.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'

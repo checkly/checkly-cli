@@ -1,8 +1,11 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 import Debug from 'debug'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 

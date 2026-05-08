@@ -7,6 +7,9 @@ import { getDefaults as getApiDefaults } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import * as fs from 'fs'
 import * as path from 'path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export type AuthMode = 'signup' | 'login'
 
