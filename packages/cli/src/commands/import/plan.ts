@@ -7,6 +7,7 @@ import prompts from 'prompts'
 import chalk from 'chalk'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
+import { execa } from 'execa'
 
 import { LOGICAL_ID_PATTERN } from '../../constants.js'
 import * as api from '../../rest/api.js'
@@ -722,8 +723,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #interactiveNpmInstall (dirPath: string, forcePackageManager?: PackageManager): Promise<void> {
-    const { execa } = await import('execa')
-
     const packageManager = forcePackageManager ?? await (async () => {
       try {
         this.style.actionStart(`Detecting package manager`)
