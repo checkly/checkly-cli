@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
+import { createRequire } from 'node:module'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
@@ -242,8 +243,8 @@ export async function bundlePlayWrightProject (
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
+    const require = createRequire(import.meta.url)
     const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const playwrightPkg = require(playwrightPath)
     const version = normalizeVersion(playwrightPkg.version)
 

@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module'
+
 import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
 import { FileMatch } from './match.js'
 
@@ -76,7 +78,7 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
     try {
       this.service.enabled(true)
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const require = createRequire(import.meta.url)
       const moduleExports = require(filePath)
       return moduleExports
     } catch (err: any) {
