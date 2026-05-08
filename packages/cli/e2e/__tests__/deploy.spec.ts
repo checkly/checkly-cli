@@ -314,7 +314,7 @@ describe('deploy', { timeout: 45_000 }, () => {
 
       expect(pricingCheck).toBeDefined()
       expect(pricingCheck.checkType).toEqual('AGENTIC')
-      // The construct hardcodes a single location for agentic checks.
+      // The construct keeps a us-east-1 fallback when no location is configured.
       expect(pricingCheck.locations).toEqual(['us-east-1'])
       expect(pricingCheck.tags).toEqual(expect.arrayContaining(['e2e', 'agentic']))
 

@@ -69,7 +69,6 @@ describe('AgenticCheck', () => {
               runParallel: false,
               agentRuntime: {
                 skills: [],
-                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -78,7 +77,7 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should expose agentRuntime skills and environment variables', async () => {
+  it('should expose agentRuntime skills', async () => {
     const output = await parseProject(
       fixt,
       '--config',
@@ -99,10 +98,6 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: ['addyosmani/web-quality-skills'],
-                exposeEnvironmentVariables: [
-                  'API_KEY',
-                  { name: 'TEST_USER_PASSWORD', description: 'Login password for the test account' },
-                ],
               },
             }),
           }),
@@ -114,7 +109,6 @@ describe('AgenticCheck', () => {
               checkType: 'AGENTIC',
               agentRuntime: {
                 skills: [],
-                exposeEnvironmentVariables: [],
               },
             }),
           }),
@@ -123,7 +117,7 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should default to a single us-east-1 location and ignore project-level locations', async () => {
+  it('should apply project-level locations', async () => {
     const output = await parseProject(
       fixt,
       '--config',
@@ -142,7 +136,36 @@ describe('AgenticCheck', () => {
             member: true,
             payload: expect.objectContaining({
               checkType: 'AGENTIC',
-              locations: ['us-east-1'],
+              locations: ['eu-west-1', 'ap-southeast-1'],
+              frequency: 30,
+              runParallel: false,
+            }),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
+  it('should apply check-level locations', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-locations-explicit/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: false,
+      }),
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'locations-explicit',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              checkType: 'AGENTIC',
+              locations: ['us-east-1', 'eu-west-1', 'ap-southeast-1'],
               frequency: 30,
               runParallel: false,
             }),
@@ -257,7 +280,7 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should fail validation when frequency is not in the supported set', async () => {
+  it('should allow faster frequencies so the backend can enforce account entitlements', async () => {
     const output = await parseProject(
       fixt,
       '--config',
@@ -266,48 +289,19 @@ describe('AgenticCheck', () => {
 
     expect(output).toEqual(expect.objectContaining({
       diagnostics: expect.objectContaining({
-        fatal: true,
-        observations: expect.arrayContaining([
-          expect.objectContaining({
-            message: expect.stringContaining('"frequency" must be one of 30, 60, 120, 180, 360, 720, 1440'),
-          }),
-        ]),
+        fatal: false,
       }),
-    }))
-  }, DEFAULT_TEST_TIMEOUT)
-
-  it('should fail validation when an environment variable name is empty', async () => {
-    const output = await parseProject(
-      fixt,
-      '--config',
-      fixt.abspath('test-cases/test-validation-empty-env-var-name/checkly.config.js'),
-    )
-
-    expect(output).toEqual(expect.objectContaining({
-      diagnostics: expect.objectContaining({
-        fatal: true,
-        observations: expect.arrayContaining([
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
           expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0]" must have a non-empty name'),
-          }),
-        ]),
-      }),
-    }))
-  }, DEFAULT_TEST_TIMEOUT)
-
-  it('should fail validation when an environment variable description exceeds 200 characters', async () => {
-    const output = await parseProject(
-      fixt,
-      '--config',
-      fixt.abspath('test-cases/test-validation-description-too-long/checkly.config.js'),
-    )
-
-    expect(output).toEqual(expect.objectContaining({
-      diagnostics: expect.objectContaining({
-        fatal: true,
-        observations: expect.arrayContaining([
-          expect.objectContaining({
-            message: expect.stringContaining('"agentRuntime.exposeEnvironmentVariables[0].description" must be at most 200 characters'),
+            logicalId: 'low-frequency',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              checkType: 'AGENTIC',
+              frequency: 5,
+              locations: ['us-east-1'],
+            }),
           }),
         ]),
       }),
