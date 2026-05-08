@@ -6,7 +6,7 @@ import Debug from 'debug'
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 
-import { detectNearestLockfile, detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
+import { detectNearestLockfile, detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
 
 export interface CreateFixtureSandboxOptions {
   /**

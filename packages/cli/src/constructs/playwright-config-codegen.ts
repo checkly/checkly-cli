@@ -1,5 +1,5 @@
-import { unknown, Value } from '../sourcegen'
-import { PlaywrightConfig } from './playwright-config'
+import { unknown, Value } from '../sourcegen/index.js'
+import { PlaywrightConfig } from './playwright-config.js'
 
 export type PlaywrightConfigResource = PlaywrightConfig
 

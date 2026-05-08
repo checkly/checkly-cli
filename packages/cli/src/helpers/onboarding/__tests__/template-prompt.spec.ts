@@ -5,7 +5,7 @@ vi.mock('fs/promises', () => ({
 }))
 
 import { readFile } from 'fs/promises'
-import { loadPromptTemplate } from '../template-prompt'
+import { loadPromptTemplate } from '../template-prompt.js'
 
 const mockReadFile = vi.mocked(readFile)
 

@@ -1,11 +1,11 @@
 import Debug from 'debug'
-import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile, checkFilesToKeep } from './directory'
-import { askCopyPlaywrightProject, askInitializeProject, askProjectDirectory, askTemplate } from './prompts'
-import { addDevDependecies, installDependencies } from '../actions/dependencies'
-import { copyTemplate } from '../actions/template'
-import { createCustomBrowserCheck } from '../actions/creates'
-import { initGit } from '../actions/git'
-import * as playwright from '../actions/playwright'
+import { copyTemporaryFiles, generateProjectName, usePackageName, readPackageJson, hasPackageJsonFile, checkFilesToKeep } from './directory.js'
+import { askCopyPlaywrightProject, askInitializeProject, askProjectDirectory, askTemplate } from './prompts.js'
+import { addDevDependecies, installDependencies } from '../actions/dependencies.js'
+import { copyTemplate } from '../actions/template.js'
+import { createCustomBrowserCheck } from '../actions/creates.js'
+import { initGit } from '../actions/git.js'
+import * as playwright from '../actions/playwright.js'
 
 const debug = Debug('checkly:create-cli')
 const templateBaseRepo = 'checkly/checkly-cli/examples'

@@ -1,6 +1,6 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident, ObjectValueBuilder } from '../sourcegen'
-import { buildCheckProps, CheckResource } from './check-codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident, ObjectValueBuilder } from '../sourcegen/index.js'
+import { buildCheckProps, CheckResource } from './check-codegen.js'
 
 /**
  * Shape of `agenticCheckData` as stored on the backend and returned to the

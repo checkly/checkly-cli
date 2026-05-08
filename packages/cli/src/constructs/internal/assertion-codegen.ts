@@ -1,5 +1,5 @@
-import { expr, ident, Value } from '../../sourcegen'
-import { Assertion } from './assertion'
+import { expr, ident, Value } from '../../sourcegen/index.js'
+import { Assertion } from './assertion.js'
 
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean

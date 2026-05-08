@@ -1,8 +1,8 @@
 import path from 'node:path'
 
-import { SourceFile } from './source-file'
-import { JsonTextSourceFile } from './json-text-source-file'
-import { PathResolver, ResolveResult } from './paths'
+import { SourceFile } from './source-file.js'
+import { JsonTextSourceFile } from './json-text-source-file.js'
+import { PathResolver, ResolveResult } from './paths.js'
 
 type Module =
   'none' | 'commonjs' | 'amd' | 'system' | 'es6' | 'es2015' | 'es2020'

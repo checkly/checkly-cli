@@ -1,4 +1,4 @@
-import { Parser } from '../../../services/check-parser/parser'
+import { Parser } from '../../../services/check-parser/parser.js'
 
 export class UnsupportedScriptError extends Error {}
 

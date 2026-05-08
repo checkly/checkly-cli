@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
-import { File } from '../parser'
-import { FixtureSandbox } from '../../../testing/fixture-sandbox'
-import { pathToPosix } from '../../util'
+import { File } from '../parser.js'
+import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
+import { pathToPosix } from '../../util.js'
 
 describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
   describe('playwright-project', () => {

@@ -1,5 +1,5 @@
-import { AlertChannel, AlertChannelProps } from './alert-channel'
-import { Session } from './project'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { Session } from './project.js'
 
 export interface SmsAlertChannelProps extends AlertChannelProps {
   /**

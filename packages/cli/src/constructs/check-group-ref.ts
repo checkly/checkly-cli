@@ -1,9 +1,9 @@
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { CheckGroupV1 } from './check-group-v1'
-import { Construct } from './construct'
-import { Diagnostics } from './diagnostics'
-import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics'
-import { Session } from './project'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { CheckGroupV1 } from './check-group-v1.js'
+import { Construct } from './construct.js'
+import { Diagnostics } from './diagnostics.js'
+import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
+import { Session } from './project.js'
 
 /**
  * Creates a reference to an existing Check Group (both v1 and v2).

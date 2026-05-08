@@ -1,6 +1,6 @@
 import type { AxiosInstance } from 'axios'
 
-import { Runtime } from '../runtimes'
+import { Runtime } from '../runtimes/index.js'
 
 class Runtimes {
   api: AxiosInstance

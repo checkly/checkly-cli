@@ -1,5 +1,5 @@
-import { Output } from './output'
-import { Value } from './value'
+import { Output } from './output.js'
+import { Value } from './value.js'
 
 export class ArrayValue extends Value {
   value: Value[]

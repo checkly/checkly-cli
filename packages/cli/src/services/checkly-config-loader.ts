@@ -1,14 +1,14 @@
 import * as path from 'path'
 import fs from 'node:fs/promises'
-import { findPlaywrightConfigPath, getDefaultChecklyConfig, writeChecklyConfigFile } from './util'
-import { CheckProps, RuntimeCheckProps } from '../constructs/check'
-import { PlaywrightCheckProps } from '../constructs/playwright-check'
-import { Session } from '../constructs'
-import { Construct } from '../constructs/construct'
+import { findPlaywrightConfigPath, getDefaultChecklyConfig, writeChecklyConfigFile } from './util.js'
+import { CheckProps, RuntimeCheckProps } from '../constructs/check.js'
+import { PlaywrightCheckProps } from '../constructs/playwright-check.js'
+import { Session } from '../constructs/index.js'
+import { Construct } from '../constructs/construct.js'
 import type { Region } from '..'
-import { ReporterType } from '../reporters/reporter'
-import { PlaywrightConfig } from '../constructs/playwright-config'
-import { FileLoader } from '../loader'
+import { ReporterType } from '../reporters/reporter.js'
+import { PlaywrightConfig } from '../constructs/playwright-config.js'
+import { FileLoader } from '../loader/index.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,

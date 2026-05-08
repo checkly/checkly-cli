@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shellQuote, shellJoin } from '../shell'
+import { shellQuote, shellJoin } from '../shell.js'
 
 describe('shell', () => {
   describe('shellQuote', () => {

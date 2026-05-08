@@ -1,7 +1,7 @@
-import { expr, ident } from '../sourcegen'
-import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
-import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
-import { Codegen, Context } from './internal/codegen'
+import { expr, ident } from '../sourcegen/index.js'
+import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen.js'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
+import { Codegen, Context } from './internal/codegen/index.js'
 
 export interface MultiStepCheckResource extends RuntimeCheckResource {
   checkType: 'MULTI_STEP'

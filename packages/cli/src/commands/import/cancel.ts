@@ -1,12 +1,12 @@
 import { Flags } from '@oclif/core'
 import prompts from 'prompts'
 
-import * as api from '../../rest/api'
-import { AuthCommand } from '../authCommand'
-import commonMessages from '../../messages/common-messages'
-import { splitConfigFilePath } from '../../services/util'
-import { loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan } from '../../rest/projects'
+import * as api from '../../rest/api.js'
+import { AuthCommand } from '../authCommand.js'
+import commonMessages from '../../messages/common-messages.js'
+import { splitConfigFilePath } from '../../services/util.js'
+import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { ImportPlan } from '../../rest/projects.js'
 
 export default class ImportCancelCommand extends AuthCommand {
   static hidden = false

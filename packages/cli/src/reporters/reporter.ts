@@ -1,10 +1,10 @@
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import { RunLocation, SequenceId } from '../services/abstract-check-runner'
-import CiReporter from './ci'
-import DotReporter from './dot'
-import GithubReporter from './github'
-import ListReporter from './list'
-import JsonReporter from './json'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
+import CiReporter from './ci.js'
+import DotReporter from './dot.js'
+import GithubReporter from './github.js'
+import ListReporter from './list.js'
+import JsonReporter from './json.js'
 
 export interface Reporter {
   onBegin(checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string): void

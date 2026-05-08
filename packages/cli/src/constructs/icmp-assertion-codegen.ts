@@ -1,6 +1,6 @@
-import { GeneratedFile, Value } from '../sourcegen'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
-import { IcmpAssertion } from './icmp-assertion'
+import { GeneratedFile, Value } from '../sourcegen/index.js'
+import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { IcmpAssertion } from './icmp-assertion.js'
 
 export function valueForIcmpAssertion (genfile: GeneratedFile, assertion: IcmpAssertion): Value {
   genfile.namedImport('IcmpAssertionBuilder', 'checkly/constructs')

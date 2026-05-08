@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import { Dashboard } from '../index'
-import { Project, Session } from '../project'
-import { Bundler } from '../../services/check-parser/bundler'
+import { Dashboard } from '../index.js'
+import { Project, Session } from '../project.js'
+import { Bundler } from '../../services/check-parser/bundler.js'
 
 describe('Dashboard', () => {
   describe('customCSS', () => {

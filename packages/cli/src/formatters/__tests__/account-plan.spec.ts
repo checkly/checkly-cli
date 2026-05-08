@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripAnsi } from '../render'
+import { stripAnsi } from '../render.js'
 import {
   formatUpgradePath,
   formatLocations,
@@ -7,7 +7,7 @@ import {
   formatPlanSummary,
   formatEntitlementDetail,
   formatFilteredEntitlements,
-} from '../account-plan'
+} from '../account-plan.js'
 import {
   enabledFlag,
   disabledFlagPlanOnly,
@@ -16,7 +16,7 @@ import {
   disabledFlagNoUpgradeData,
   hobbyPlan,
   planWithoutLocations,
-} from './__fixtures__/account-plan-fixtures'
+} from './__fixtures__/account-plan-fixtures.js'
 
 describe('formatUpgradePath', () => {
   it('returns null for enabled entitlements', () => {

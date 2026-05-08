@@ -1,9 +1,9 @@
 import prompts from 'prompts'
 import * as path from 'path'
-import * as api from '../../rest/api'
+import * as api from '../../rest/api.js'
 import { Flags, Args } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { escapeValue } from '../../services/util'
+import { AuthCommand } from '../authCommand.js'
+import { escapeValue } from '../../services/util.js'
 import * as fs from 'fs/promises'
 
 const CONTENTS_PREFIX = '# Created by Checkly CLI\n'

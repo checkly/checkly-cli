@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
-import { PrivateLocation, Diagnostics } from '../index'
-import { Project, Session } from '../project'
+import { PrivateLocation, Diagnostics } from '../index.js'
+import { Project, Session } from '../project.js'
 
 describe('PrivateLocation', () => {
   it('should throw if the same logicalId is used twice', () => {

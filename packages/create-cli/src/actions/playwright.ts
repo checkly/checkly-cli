@@ -1,11 +1,11 @@
 import chalk from 'chalk'
-import { spinner } from '../utils/terminal'
-import { loadPlaywrightConfig } from '../utils/directory'
+import { spinner } from '../utils/terminal.js'
+import { loadPlaywrightConfig } from '../utils/directory.js'
 import * as recast from 'recast'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as ora from 'ora'
-import PlaywrightConfigTemplate from '../utils/playwright-config-template'
+import PlaywrightConfigTemplate from '../utils/playwright-config-template.js'
 export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFileName: string) {
   const copySpinner = spinner('Copying your playwright config')
   try {

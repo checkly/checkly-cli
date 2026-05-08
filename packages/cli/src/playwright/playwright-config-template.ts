@@ -1,4 +1,4 @@
-import { PlaywrightConfig, Use, Expect } from '../constructs/playwright-config'
+import { PlaywrightConfig, Use, Expect } from '../constructs/playwright-config.js'
 import * as JSON5 from 'json5'
 
 export default class PlaywrightConfigTemplate {

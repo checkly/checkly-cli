@@ -1,13 +1,13 @@
-import { valueForAlertChannelFromId } from '../constructs/alert-channel-codegen'
-import { valueForAlertEscalation } from '../constructs/alert-escalation-policy-codegen'
-import { valueForFrequency } from '../constructs/frequency-codegen'
-import { Context } from '../constructs/internal/codegen'
-import { valueForKeyValuePair } from '../constructs/key-value-pair-codegen'
-import { valueForPlaywrightConfig } from '../constructs/playwright-config-codegen'
-import { valueForPrivateLocationFromId } from '../constructs/private-location-codegen'
-import { valueForRetryStrategy } from '../constructs/retry-strategy-codegen'
-import { array, decl, docComment, expr, GeneratedFile, ident, ObjectValueBuilder, Program, StringValue } from '../sourcegen'
-import { ChecklyConfig, CheckConfigDefaults } from './checkly-config-loader'
+import { valueForAlertChannelFromId } from '../constructs/alert-channel-codegen.js'
+import { valueForAlertEscalation } from '../constructs/alert-escalation-policy-codegen.js'
+import { valueForFrequency } from '../constructs/frequency-codegen.js'
+import { Context } from '../constructs/internal/codegen/index.js'
+import { valueForKeyValuePair } from '../constructs/key-value-pair-codegen.js'
+import { valueForPlaywrightConfig } from '../constructs/playwright-config-codegen.js'
+import { valueForPrivateLocationFromId } from '../constructs/private-location-codegen.js'
+import { valueForRetryStrategy } from '../constructs/retry-strategy-codegen.js'
+import { array, decl, docComment, expr, GeneratedFile, ident, ObjectValueBuilder, Program, StringValue } from '../sourcegen/index.js'
+import { ChecklyConfig, CheckConfigDefaults } from './checkly-config-loader.js'
 
 function buildCheckConfigDefaults (
   program: Program,

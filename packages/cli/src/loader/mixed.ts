@@ -1,7 +1,7 @@
 import {
   FileLoader,
   UnsupportedFileLoaderError,
-} from './loader'
+} from './loader.js'
 
 export class MixedFileLoader extends FileLoader {
   loaders: Set<FileLoader>

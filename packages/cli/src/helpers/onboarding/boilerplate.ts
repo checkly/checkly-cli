@@ -4,8 +4,8 @@ import { join } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
-import { makeOnCancel, successMessage } from './prompts-helpers'
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
+import { makeOnCancel, successMessage } from './prompts-helpers.js'
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
 const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')

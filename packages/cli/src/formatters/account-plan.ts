@@ -1,12 +1,12 @@
 import chalk from 'chalk'
-import type { Entitlement, AccountPlan, AccountLocations } from '../rest/entitlements'
+import type { Entitlement, AccountPlan, AccountLocations } from '../rest/entitlements.js'
 import {
   type OutputFormat,
   type ColumnDef,
   type DetailField,
   renderTable,
   renderDetailFields,
-} from './render'
+} from './render.js'
 
 // --- Shared helpers ---
 

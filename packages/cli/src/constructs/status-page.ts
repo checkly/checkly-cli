@@ -1,7 +1,7 @@
-import { Construct } from './construct'
-import { Session } from './project'
-import { StatusPageService } from './status-page-service'
-import { Ref } from './ref'
+import { Construct } from './construct.js'
+import { Session } from './project.js'
+import { StatusPageService } from './status-page-service.js'
+import { Ref } from './ref.js'
 
 export interface StatusPageCardProps {
   /**

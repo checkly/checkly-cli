@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
-import { Frequency } from '../frequency'
-import { valueForFrequency } from '../frequency-codegen'
-import { GeneratedFile, Output } from '../../sourcegen'
+import { Frequency } from '../frequency.js'
+import { valueForFrequency } from '../frequency-codegen.js'
+import { GeneratedFile, Output } from '../../sourcegen/index.js'
 
 describe('Frequency Codegen', () => {
   it('should generate predefined constants', () => {

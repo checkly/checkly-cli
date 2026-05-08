@@ -1,10 +1,10 @@
 import axios from 'axios'
 import prompts from 'prompts'
 import { Command } from '@oclif/core'
-import { api } from '../rest/api'
-import { CommandStyle } from '../helpers/command-style'
-import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file'
-import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager'
+import { api } from '../rest/api.js'
+import { CommandStyle } from '../helpers/command-style.js'
+import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
+import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
 
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean

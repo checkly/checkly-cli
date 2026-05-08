@@ -1,11 +1,11 @@
 import { Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
-import { formatIncidentUpdateDetail } from '../../formatters/incidents'
-import { DEFAULT_RESOLVE_INCIDENT_MESSAGE } from '../../helpers/incidents'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
+import { formatIncidentUpdateDetail } from '../../formatters/incidents.js'
+import { DEFAULT_RESOLVE_INCIDENT_MESSAGE } from '../../helpers/incidents.js'
 
 export default class IncidentsResolve extends AuthCommand {
   static hidden = false

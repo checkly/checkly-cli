@@ -1,9 +1,9 @@
-import { Monitor, MonitorProps } from './monitor'
-import { Session } from './project'
-import { Diagnostics } from './diagnostics'
-import { validateResponseTimes } from './internal/common-diagnostics'
-import { DnsRequest } from './dns-request'
-import { RequiredPropertyDiagnostic } from './construct-diagnostics'
+import { Monitor, MonitorProps } from './monitor.js'
+import { Session } from './project.js'
+import { Diagnostics } from './diagnostics.js'
+import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { DnsRequest } from './dns-request.js'
+import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 
 export interface DnsMonitorProps extends MonitorProps {
   /**

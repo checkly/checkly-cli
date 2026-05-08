@@ -1,7 +1,7 @@
 import prompts from 'prompts'
-import * as api from '../../rest/api'
+import * as api from '../../rest/api.js'
 import { Flags, Args } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
+import { AuthCommand } from '../authCommand.js'
 
 export default class EnvUpdate extends AuthCommand {
   static hidden = false

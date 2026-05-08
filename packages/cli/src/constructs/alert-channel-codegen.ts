@@ -1,13 +1,13 @@
-import { Codegen, Context } from './internal/codegen'
-import { Program, GeneratedFile, ObjectValueBuilder, expr, ident, Value } from '../sourcegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { Program, GeneratedFile, ObjectValueBuilder, expr, ident, Value } from '../sourcegen/index.js'
 
-import { EmailAlertChannelCodegen } from './email-alert-channel-codegen'
-import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen'
-import { PagerdutyAlertChannelCodegen } from './pagerduty-alert-channel-codegen'
-import { PhoneCallAlertChannelCodegen } from './phone-call-alert-channel-codegen'
-import { SlackAlertChannelCodegen } from './slack-alert-channel-codegen'
-import { SmsAlertChannelCodegen } from './sms-alert-channel-codegen'
-import { WebhookAlertChannelCodegen } from './webhook-alert-channel-codegen'
+import { EmailAlertChannelCodegen } from './email-alert-channel-codegen.js'
+import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen.js'
+import { PagerdutyAlertChannelCodegen } from './pagerduty-alert-channel-codegen.js'
+import { PhoneCallAlertChannelCodegen } from './phone-call-alert-channel-codegen.js'
+import { SlackAlertChannelCodegen } from './slack-alert-channel-codegen.js'
+import { SmsAlertChannelCodegen } from './sms-alert-channel-codegen.js'
+import { WebhookAlertChannelCodegen } from './webhook-alert-channel-codegen.js'
 
 export type AlertChannelType =
   'CALL'

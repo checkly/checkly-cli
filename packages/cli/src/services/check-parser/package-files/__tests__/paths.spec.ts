@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { isNativeBinaryPath } from '../paths'
+import { isNativeBinaryPath } from '../paths.js'
 
 describe('isNativeBinaryPath', () => {
   it('returns true for .node imports', () => {

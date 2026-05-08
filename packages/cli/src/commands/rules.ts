@@ -1,4 +1,4 @@
-import { BaseCommand } from './baseCommand'
+import { BaseCommand } from './baseCommand.js'
 import { readFile, writeFile, access, mkdir } from 'fs/promises'
 import path, { join } from 'path'
 import { constants } from 'fs'

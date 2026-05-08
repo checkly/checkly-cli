@@ -1,9 +1,9 @@
 import { type AxiosInstance } from 'axios'
-import { GitInformation } from '../services/util'
-import { RetryStrategy, SharedFile } from '../constructs'
-import { compressJSONPayload } from './util'
-import { SequenceId } from '../services/abstract-check-runner'
-import { ForbiddenError } from './errors'
+import { GitInformation } from '../services/util.js'
+import { RetryStrategy, SharedFile } from '../constructs/index.js'
+import { compressJSONPayload } from './util.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { ForbiddenError } from './errors.js'
 
 type RunTestSessionRequest = {
   name: string

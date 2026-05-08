@@ -1,5 +1,5 @@
-import { Value, expr, ident, ObjectValueBuilder, GeneratedFile } from '../sourcegen'
-import { RetryStrategy, RetryStrategyOptions, RetryStrategyType } from './retry-strategy'
+import { Value, expr, ident, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
+import { RetryStrategy, RetryStrategyOptions, RetryStrategyType } from './retry-strategy.js'
 
 export type RetryStrategyResource = RetryStrategy
 

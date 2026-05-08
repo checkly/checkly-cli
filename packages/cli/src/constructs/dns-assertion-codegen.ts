@@ -1,6 +1,6 @@
-import { GeneratedFile, Value } from '../sourcegen'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
-import { DnsAssertion } from './dns-assertion'
+import { GeneratedFile, Value } from '../sourcegen/index.js'
+import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { DnsAssertion } from './dns-assertion.js'
 
 export function valueForDnsAssertion (genfile: GeneratedFile, assertion: DnsAssertion): Value {
   genfile.namedImport('DnsAssertionBuilder', 'checkly/constructs')

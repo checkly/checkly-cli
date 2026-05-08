@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { PackageJsonFile } from '../package-json-file'
+import { PackageJsonFile } from '../package-json-file.js'
 
 describe('package.json file', () => {
   it('should upsert devDependencies (general use)', () => {

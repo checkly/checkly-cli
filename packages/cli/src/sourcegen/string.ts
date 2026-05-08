@@ -1,7 +1,7 @@
 import { inspect } from 'node:util'
 
-import { Output } from './output'
-import { Value } from './value'
+import { Output } from './output.js'
+import { Value } from './value.js'
 
 export class StringValue extends Value {
   value: string

@@ -1,5 +1,5 @@
-import { IPFamily } from './ip'
-import { UrlAssertion } from './url-assertion'
+import { IPFamily } from './ip.js'
+import { UrlAssertion } from './url-assertion.js'
 
 /**
  * Configuration for a URL monitor HTTP request.

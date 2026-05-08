@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { lineage } from './walk'
-import { shellQuote } from '../../../services/shell'
-import { PackageJsonFile } from './package-json-file'
-import { JsonSourceFile } from './json-source-file'
-import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace'
-import { Err, Ok } from './result'
+import { lineage } from './walk.js'
+import { shellQuote } from '../../../services/shell.js'
+import { PackageJsonFile } from './package-json-file.js'
+import { JsonSourceFile } from './json-source-file.js'
+import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace.js'
+import { Err, Ok } from './result.js'
 
 export class Runnable {
   executable: string

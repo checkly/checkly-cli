@@ -1,5 +1,5 @@
-import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
-import { FileMatch } from './match'
+import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
+import { FileMatch } from './match.js'
 
 interface TSNodeExports {
   register (opts?: any): TSNodeService
