@@ -243,8 +243,8 @@ export async function bundlePlayWrightProject (
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
-    const require = createRequire(import.meta.url)
-    const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
+    const require = createRequire(path.join(cwd, 'noop.js'))
+    const playwrightPath = require.resolve('@playwright/test/package.json')
     const playwrightPkg = require(playwrightPath)
     const version = normalizeVersion(playwrightPkg.version)
 
