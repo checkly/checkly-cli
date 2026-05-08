@@ -176,6 +176,8 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
       return process
     })
     vi.spyOn(process, 'off').mockReturnValue(process)
+    vi.spyOn(process, 'once').mockReturnValue(process)
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const runner = makeRunner(true)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-decline', checks: [] })
@@ -186,51 +188,72 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     await runner.run()
     sigintHandler?.()
 
-    // Give the microtask queue time to settle
-    await new Promise(resolve => setTimeout(resolve, 10))
+    // Wait for the two setImmediate hops + prompt resolution to fully settle
+    await vi.waitFor(() => expect(cancelEvents).toHaveLength(0), { timeout: 500 })
     expect(cancelEvents).toHaveLength(0)
   })
 
-  it('calls forceQuit when prompts returns undefined (e.g. CTRL+C during the prompt)', async () => {
+  it('treats undefined prompt result as decline (no forceQuit, no CANCEL emit)', async () => {
     vi.mocked(prompts).mockResolvedValueOnce({ confirmed: undefined })
 
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
-    // forceQuit calls process.removeAllListeners then process.kill — mock both to avoid terminating the test process
+    vi.spyOn(process, 'once').mockReturnValue(process)
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
     vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const runner = makeRunner(true)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-undefined', checks: [] })
 
+    const cancelEvents: unknown[] = []
+    runner.on(Events.CANCEL, id => cancelEvents.push(id))
+
     await runner.run()
     const sigintHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
     sigintHandler?.()
 
-    await vi.waitFor(() => expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT'))
+    // Wait for the two setImmediate hops + prompt resolution to fully settle
+    await vi.waitFor(() => {
+      expect(killSpy).not.toHaveBeenCalledWith(process.pid, 'SIGINT')
+      expect(cancelEvents).toHaveLength(0)
+    }, { timeout: 500 })
   })
 
-  it('calls forceQuit via onCancel when CTRL+C is pressed during the prompts call', async () => {
-    // Simulate prompts calling onCancel (the second options argument) synchronously
-    vi.mocked(prompts).mockImplementation((_question: any, options: any) => {
-      options?.onCancel?.()
-      return Promise.resolve({ confirmed: undefined })
-    })
+  it('forceQuit fires when a second SIGINT arrives while the prompt is open', async () => {
+    // prompt never resolves — simulates the prompt staying open indefinitely
+    vi.mocked(prompts).mockImplementation(() => new Promise(() => {}))
 
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
-    // forceQuit calls process.removeAllListeners then process.kill — mock both to avoid terminating the test process
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
     vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+
+    // Capture the killOnRepeatedCancel handler registered via process.once('SIGINT', ...)
+    let onceSignalHandler: (() => void) | undefined
+    vi.spyOn(process, 'once').mockImplementation((event: string | symbol, listener: any) => {
+      if (event === 'SIGINT') onceSignalHandler = listener
+      return process
+    })
 
     const runner = makeRunner(true)
-    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-oncancel', checks: [] })
+    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-double-sigint', checks: [] })
 
     await runner.run()
-    const sigintHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
-    sigintHandler?.()
 
-    await vi.waitFor(() => expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT'))
+    const outerSigintHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
+
+    // First SIGINT — opens the prompt (prompt never resolves)
+    outerSigintHandler?.()
+
+    // Wait for askCancelConfirmation to reach process.once registration (past the two setImmediate hops)
+    await vi.waitFor(() => expect(onceSignalHandler).toBeDefined(), { timeout: 500 })
+
+    // Simulate the second SIGINT delivered to the inner once-listener
+    onceSignalHandler!()
+
+    expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT')
   })
 })
 
