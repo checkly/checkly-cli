@@ -162,6 +162,9 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     // First SIGINT — starts the prompt
     sigintHandler?.()
 
+    // Wait past the 100ms debounce window before the second deliberate press
+    await new Promise(resolve => setTimeout(resolve, 110))
+
     // Second SIGINT — must call process.kill(pid, 'SIGINT')
     sigintHandler?.()
     expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT')
@@ -220,40 +223,63 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     }, { timeout: 500 })
   })
 
-  it('forceQuit fires when a second SIGINT arrives while the prompt is open', async () => {
+  it('outer SIGINT handler force-quits on second SIGINT while prompt is open', async () => {
     // prompt never resolves — simulates the prompt staying open indefinitely
     vi.mocked(prompts).mockImplementation(() => new Promise(() => {}))
 
-    const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
-    vi.spyOn(process, 'off').mockReturnValue(process)
-    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
-    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
-    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
-
-    // Capture the killOnRepeatedCancel handler registered via process.once('SIGINT', ...)
-    let onceSignalHandler: (() => void) | undefined
-    vi.spyOn(process, 'once').mockImplementation((event: string | symbol, listener: any) => {
-      if (event === 'SIGINT') onceSignalHandler = listener
+    let sigintHandler: (() => void) | undefined
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
+      if (event === 'SIGINT') sigintHandler = listener
       return process
     })
+    vi.spyOn(process, 'off').mockReturnValue(process)
+    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
 
     const runner = makeRunner(true)
-    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-double-sigint', checks: [] })
+    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-x', checks: [] })
 
     await runner.run()
 
-    const outerSigintHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
+    // First SIGINT — opens prompt (isAskingToCancel becomes true)
+    sigintHandler?.()
 
-    // First SIGINT — opens the prompt (prompt never resolves)
-    outerSigintHandler?.()
+    // Wait past the 100ms debounce window before the second deliberate press
+    await new Promise(resolve => setTimeout(resolve, 110))
 
-    // Wait for askCancelConfirmation to reach process.once registration (past the two setImmediate hops)
-    await vi.waitFor(() => expect(onceSignalHandler).toBeDefined(), { timeout: 500 })
+    // Second SIGINT — outer handler hits isAskingToCancel === true branch → forceQuit
+    sigintHandler?.()
 
-    // Simulate the second SIGINT delivered to the inner once-listener
-    onceSignalHandler!()
+    await vi.waitFor(() => expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT'))
+  })
 
-    expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT')
+  it('debounces duplicate SIGINTs delivered within 100ms', async () => {
+    // Some terminal stacks (Ghostty + fish + Node 22.14+) fire SIGINT twice for
+    // a single Ctrl+C. The handler ignores the second signal if it arrives within
+    // 100ms of the first.
+    vi.mocked(prompts).mockResolvedValue({ confirmed: false })
+
+    let sigintHandler: (() => void) | undefined
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
+      if (event === 'SIGINT') sigintHandler = listener
+      return process
+    })
+    vi.spyOn(process, 'off').mockReturnValue(process)
+
+    const runner = makeRunner(true)
+    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-debounce', checks: [] })
+
+    await runner.run()
+
+    const promptsMock = vi.mocked(prompts)
+    promptsMock.mockClear()
+
+    // Fire SIGINT twice within 10ms — second must be swallowed
+    sigintHandler?.()
+    sigintHandler?.()
+
+    await vi.waitFor(() => expect(promptsMock).toHaveBeenCalledTimes(1), { timeout: 500 })
+    expect(promptsMock).toHaveBeenCalledTimes(1)
   })
 })
 

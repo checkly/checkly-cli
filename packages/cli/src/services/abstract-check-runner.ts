@@ -97,9 +97,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
       )
       let isAskingToCancel = false
+      let lastSigintAt = 0
 
       if (this.detach) {
         sigintHandler = () => {
+          const now = Date.now()
+          if (now - lastSigintAt < 100) {
+            return // ignore duplicate SIGINT within 100ms (some terminals/shells deliver two signals for one Ctrl+C)
+          }
+          lastSigintAt = now
+
           if (isAskingToCancel) {
             // Second CTRL+C while prompt is active — force quit immediately
             this.forceQuit()
@@ -322,41 +329,21 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
     printLn('')
-    // Drain any ^C byte already buffered in stdin before prompts attaches its
-    // keypress listener. Pipe data arrives in the libuv I/O poll phase, after
-    // nextTick — so we install a swallow listener synchronously (before any
-    // yield) and remove it after two setImmediate hops (safely past the I/O
-    // cycle). Without this, terminals like Ghostty that buffer ^C on Ctrl+C
-    // cause prompts to abort immediately on open.
-    await new Promise<void>(resolve => {
-      const swallow = (): void => { /* discard pre-buffered bytes */ }
-      process.stdin.on('data', swallow)
-      setImmediate(() => setImmediate(() => {
-        process.stdin.removeListener('data', swallow)
-        resolve()
-      }))
+    const { confirmed } = await prompts({
+      type: 'confirm',
+      name: 'confirmed',
+      message: 'Stop running checks?',
+      initial: true,
     })
-    const killOnRepeatedCancel = (): void => this.forceQuit()
-    process.once('SIGINT', killOnRepeatedCancel)
-    try {
-      const { confirmed } = await prompts({
-        type: 'confirm',
-        name: 'confirmed',
-        message: 'Stop running checks?',
-        initial: true,
-      })
-      if (confirmed === undefined) {
-        return false
-      }
-      if (confirmed) {
-        this.emit(Events.CANCEL, testSessionId)
-        printLn('Cancelling test session...', 2)
-        return true
-      }
+    if (confirmed === undefined) {
       return false
-    } finally {
-      process.off('SIGINT', killOnRepeatedCancel)
     }
+    if (confirmed) {
+      this.emit(Events.CANCEL, testSessionId)
+      printLn('Cancelling test session...', 2)
+      return true
+    }
+    return false
   }
 
   private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks | undefined> {
