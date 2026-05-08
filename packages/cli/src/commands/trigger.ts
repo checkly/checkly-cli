@@ -5,7 +5,7 @@ import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
 import { loadChecklyConfig } from '../services/checkly-config-loader.js'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util.js'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import TriggerRunner from '../services/trigger-runner.js'
 import {
   RunLocation,

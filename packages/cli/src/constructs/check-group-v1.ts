@@ -6,7 +6,7 @@ import { AlertChannel, AlertChannelRef } from './alert-channel.js'
 import { EnvironmentVariable } from './environment-variable.js'
 import { PrivateLocation, PrivateLocationRef } from './private-location.js'
 import { ApiCheckDefaultConfig } from './api-check.js'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import { type Frequency } from './frequency.js'
 import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

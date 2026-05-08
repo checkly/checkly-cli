@@ -1,6 +1,6 @@
 import { PrivateRunLocation, RunLocation } from '../services/abstract-check-runner.js'
 import { Session } from '../constructs/index.js'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { isCI } from 'ci-info'
 import { DEFAULT_REGION } from './constants.js'

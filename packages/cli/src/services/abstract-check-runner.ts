@@ -4,7 +4,7 @@ import PQueue from 'p-queue'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { MqttClient } from 'mqtt'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import { PlaywrightCheck } from '../constructs/index.js'
 

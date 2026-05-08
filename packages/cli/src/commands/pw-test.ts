@@ -23,7 +23,7 @@ import {
 } from '../services/abstract-check-runner.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import commonMessages from '../messages/common-messages.js'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import path from 'node:path'
 import * as recast from 'recast'
 import {

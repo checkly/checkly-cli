@@ -1,5 +1,5 @@
 import { PrivateLocation, PrivateLocationRef } from './private-location.js'
-import type { Region } from '..'
+import type { Region } from '../index.js'
 import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type RetryStrategyBuilder, // Used for @links in comments.
