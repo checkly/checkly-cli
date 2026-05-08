@@ -322,22 +322,41 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
     printLn('')
-    const { confirmed } = await prompts({
-      type: 'confirm',
-      name: 'confirmed',
-      message: 'Stop running checks?',
-      initial: true,
-    }, { onCancel: () => this.forceQuit() })
-    if (confirmed === undefined) {
-      this.forceQuit()
+    // Drain any ^C byte already buffered in stdin before prompts attaches its
+    // keypress listener. Pipe data arrives in the libuv I/O poll phase, after
+    // nextTick — so we install a swallow listener synchronously (before any
+    // yield) and remove it after two setImmediate hops (safely past the I/O
+    // cycle). Without this, terminals like Ghostty that buffer ^C on Ctrl+C
+    // cause prompts to abort immediately on open.
+    await new Promise<void>(resolve => {
+      const swallow = (): void => { /* discard pre-buffered bytes */ }
+      process.stdin.on('data', swallow)
+      setImmediate(() => setImmediate(() => {
+        process.stdin.removeListener('data', swallow)
+        resolve()
+      }))
+    })
+    const killOnRepeatedCancel = (): void => this.forceQuit()
+    process.once('SIGINT', killOnRepeatedCancel)
+    try {
+      const { confirmed } = await prompts({
+        type: 'confirm',
+        name: 'confirmed',
+        message: 'Stop running checks?',
+        initial: true,
+      })
+      if (confirmed === undefined) {
+        return false
+      }
+      if (confirmed) {
+        this.emit(Events.CANCEL, testSessionId)
+        printLn('Cancelling test session...', 2)
+        return true
+      }
       return false
+    } finally {
+      process.off('SIGINT', killOnRepeatedCancel)
     }
-    if (confirmed) {
-      this.emit(Events.CANCEL, testSessionId)
-      printLn('Cancelling test session...', 2)
-      return true
-    }
-    return false
   }
 
   private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks | undefined> {
