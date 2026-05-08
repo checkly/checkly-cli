@@ -4,7 +4,7 @@ import type { ChecklyConfig } from './services/checkly-config-loader.js'
  *  Supported regions
  */
 
-declare module './' {
+declare module './index.js' {
   export interface Region {
     'us-east-1': string
     'us-east-2': string

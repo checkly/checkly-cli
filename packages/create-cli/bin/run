@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable no-console */
 
 const currentVersion = process.versions.node
 const requiredVersion = parseInt(currentVersion.split('.')[0], 10)
@@ -11,6 +9,6 @@ if (requiredVersion < minimumVersion) {
   process.exit(1)
 }
 
-const { run, handle, flush } = require('@oclif/core')
+const { execute } = await import('@oclif/core')
 
-run().catch(handle).finally(flush)
+await execute({ dir: import.meta.url })

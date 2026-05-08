@@ -1,4 +1,4 @@
-import { Region } from '..'
+import { Region } from '../index.js'
 import { AlertChannel, AlertChannelRef } from './alert-channel.js'
 import { AlertEscalation } from './alert-escalation-policy.js'
 import { CheckGroupRef } from './check-group-ref.js'
