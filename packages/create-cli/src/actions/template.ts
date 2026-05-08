@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import chalk from 'chalk'
 import { downloadTemplate } from 'giget'
-import { spinner } from '../utils/terminal'
+import { spinner } from '../utils/terminal.js'
 
 export interface CopyTemplateProps {
   template: string

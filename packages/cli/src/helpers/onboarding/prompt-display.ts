@@ -1,7 +1,7 @@
 import chalk from 'chalk'
 import prompts from 'prompts'
-import { copyToClipboard } from './clipboard'
-import { makeOnCancel } from './prompts-helpers'
+import { copyToClipboard } from './clipboard.js'
+import { makeOnCancel } from './prompts-helpers.js'
 
 const PROMPT_INDENT = '  '
 const MAX_VISIBLE_WIDTH = 80

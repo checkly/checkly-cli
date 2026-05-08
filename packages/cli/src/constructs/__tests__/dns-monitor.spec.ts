@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
-import { DnsMonitor, CheckGroup, DnsRequest, Diagnostics } from '../index'
-import { Project, Session } from '../project'
-import { Bundler } from '../../services/check-parser/bundler'
+import { DnsMonitor, CheckGroup, DnsRequest, Diagnostics } from '../index.js'
+import { Project, Session } from '../project.js'
+import { Bundler } from '../../services/check-parser/bundler.js'
 
 const request: DnsRequest = {
   recordType: 'A',

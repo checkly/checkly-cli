@@ -1,17 +1,17 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { CheckWithStatus } from '../../formatters/checks'
-import type { OutputFormat } from '../../formatters/render'
-import { allCheckTypes } from '../../constants'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { CheckWithStatus } from '../../formatters/checks.js'
+import type { OutputFormat } from '../../formatters/render.js'
+import { allCheckTypes } from '../../constants.js'
 import {
   formatChecks,
   formatSummaryBar,
   formatPaginationInfo,
   formatNavigationHints,
-} from '../../formatters/checks'
+} from '../../formatters/checks.js'
 
 export default class ChecksList extends AuthCommand {
   static hidden = false

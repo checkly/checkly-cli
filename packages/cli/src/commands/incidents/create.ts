@@ -1,10 +1,10 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
-import { formatIncidentDetail } from '../../formatters/incidents'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag, forceFlag, dryRunFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
+import { formatIncidentDetail } from '../../formatters/incidents.js'
 import {
   DEFAULT_CREATE_INCIDENT_MESSAGE,
   flattenStatusPageServices,
@@ -12,7 +12,7 @@ import {
   type IncidentSeverityOption,
   resolveIncidentServices,
   toIncidentSeverity,
-} from '../../helpers/incidents'
+} from '../../helpers/incidents.js'
 
 export default class IncidentsCreate extends AuthCommand {
   static hidden = false

@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator'
-import { loadFile } from './fileloader'
+import { loadFile } from './fileloader.js'
 
 export const PLAYWRIGHT_CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js']
 

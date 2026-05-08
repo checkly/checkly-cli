@@ -1,10 +1,10 @@
 import chalk from 'chalk'
-import type { BatchAnalyticsResult } from '../rest/batch-analytics'
-import { type CheckWithStatus, type PaginationInfo, resolveStatus } from './checks'
-import type { OutputFormat, ColumnDef } from './render'
-import { renderTable, truncateToWidth, visWidth } from './render'
-import { findUnit, rangeLabels } from './analytics'
-import type { QuickRange } from '../rest/analytics'
+import type { BatchAnalyticsResult } from '../rest/batch-analytics.js'
+import { type CheckWithStatus, type PaginationInfo, resolveStatus } from './checks.js'
+import type { OutputFormat, ColumnDef } from './render.js'
+import { renderTable, truncateToWidth, visWidth } from './render.js'
+import { findUnit, rangeLabels } from './analytics.js'
+import type { QuickRange } from '../rest/analytics.js'
 
 export type StatsRow = CheckWithStatus & { analytics?: BatchAnalyticsResult }
 

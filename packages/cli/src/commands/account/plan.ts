@@ -1,16 +1,16 @@
 import { Args, Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
 import {
   formatPlanSummary,
   formatEntitlementDetail,
   formatFilteredEntitlements,
   getEntitlementUpgradeUrl,
   CONTACT_SALES_URL,
-} from '../../formatters/account-plan'
-import type { Entitlement } from '../../rest/entitlements'
+} from '../../formatters/account-plan.js'
+import type { Entitlement } from '../../rest/entitlements.js'
 
 function withUpgradeUrl (e: Entitlement, checkoutUrl: string) {
   if (e.enabled) return e

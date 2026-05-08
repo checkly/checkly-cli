@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import { Command, Flags } from '@oclif/core'
 
-import { PlaywrightConfig } from '../../services/playwright-config'
-import { Session } from '../../constructs/project'
-import { Parser } from '../../services/check-parser/parser'
+import { PlaywrightConfig } from '../../services/playwright-config.js'
+import { Session } from '../../constructs/project.js'
+import { Parser } from '../../services/check-parser/parser.js'
 
 export default class ParsePlaywrightConfigCommand extends Command {
   static hidden = true

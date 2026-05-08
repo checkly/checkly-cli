@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { detectOperator } from '../../helpers/cli-mode'
+import { detectOperator } from '../../helpers/cli-mode.js'
 
 describe('detectOperator', () => {
   const envVarsToClean = [

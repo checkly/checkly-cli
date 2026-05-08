@@ -1,5 +1,5 @@
-import { BaseCommand } from './baseCommand'
-import ChecklyHelpClass from '../help/help-extension'
+import { BaseCommand } from './baseCommand.js'
+import ChecklyHelpClass from '../help/help-extension.js'
 
 export default class Logout extends BaseCommand {
   static hidden = false

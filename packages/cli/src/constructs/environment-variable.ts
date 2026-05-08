@@ -1,4 +1,4 @@
-import KeyValuePair from './key-value-pair'
+import KeyValuePair from './key-value-pair.js'
 
 /**
  * Represents an environment variable for checks.

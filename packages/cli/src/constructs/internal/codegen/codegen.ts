@@ -1,5 +1,5 @@
-import { Program } from '../../../sourcegen'
-import { Context } from './context'
+import { Program } from '../../../sourcegen/index.js'
+import { Context } from './context.js'
 
 export abstract class Codegen<T> {
   program: Program

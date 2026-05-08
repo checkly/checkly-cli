@@ -1,5 +1,5 @@
-import * as api from '../rest/api'
-import { BaseCommand } from './baseCommand'
+import * as api from '../rest/api.js'
+import { BaseCommand } from './baseCommand.js'
 
 export default class Runtimes extends BaseCommand {
   static hidden = false

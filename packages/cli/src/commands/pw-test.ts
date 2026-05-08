@@ -1,4 +1,4 @@
-import { AuthCommand } from './authCommand'
+import { AuthCommand } from './authCommand.js'
 import {
   findPlaywrightConfigPath,
   getCiInformation,
@@ -6,23 +6,23 @@ import {
   getEnvs,
   getGitInformation,
   splitConfigFilePath, writeChecklyConfigFile,
-} from '../services/util'
-import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader'
-import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags } from '../helpers/test-helper'
-import * as api from '../rest/api'
-import config from '../services/config'
-import { parseProject } from '../services/project-parser'
-import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs'
+} from '../services/util.js'
+import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader.js'
+import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags } from '../helpers/test-helper.js'
+import * as api from '../rest/api.js'
+import config from '../services/config.js'
+import { parseProject } from '../services/project-parser.js'
+import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs/index.js'
 import { Flags } from '@oclif/core'
-import { createReporters, ReporterType } from '../reporters/reporter'
-import TestRunner from '../services/test-runner'
+import { createReporters, ReporterType } from '../reporters/reporter.js'
+import TestRunner from '../services/test-runner.js'
 import {
   DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
   Events,
   SequenceId,
-} from '../services/abstract-check-runner'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import commonMessages from '../messages/common-messages'
+} from '../services/abstract-check-runner.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import commonMessages from '../messages/common-messages.js'
 import type { Region } from '..'
 import path from 'node:path'
 import * as recast from 'recast'
@@ -30,15 +30,15 @@ import {
   addItemToArray, addOrReplaceItem,
   findPropertyByName,
   reWriteChecklyConfigFile,
-} from '../helpers/write-config-helpers'
-import * as acornParser from '../helpers/recast-acorn-parser'
+} from '../helpers/write-config-helpers.js'
+import * as acornParser from '../helpers/recast-acorn-parser.js'
 import * as JSON5 from 'json5'
-import { detectPackageManager } from '../services/check-parser/package-files/package-manager'
-import { DEFAULT_REGION } from '../helpers/constants'
-import { cased } from '../sourcegen'
-import { shellQuote } from '../services/shell'
-import { Runtime } from '../runtimes'
-import { Bundler } from '../services/check-parser/bundler'
+import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
+import { DEFAULT_REGION } from '../helpers/constants.js'
+import { cased } from '../sourcegen/index.js'
+import { shellQuote } from '../services/shell.js'
+import { Runtime } from '../runtimes/index.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true

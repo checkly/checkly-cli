@@ -1,10 +1,10 @@
 import qs from 'node:querystring'
 
-import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps } from './alert-channel-codegen'
-import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
-import { TelegramAlertChannel } from './telegram-alert-channel'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
+import { decl, expr, ident } from '../sourcegen/index.js'
+import { buildAlertChannelProps } from './alert-channel-codegen.js'
+import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen.js'
+import { TelegramAlertChannel } from './telegram-alert-channel.js'
 
 export interface TelegramAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {

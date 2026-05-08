@@ -1,7 +1,7 @@
-import { checkFilesMap } from '../abstract-list'
-import { browserCheckResult } from './fixtures/browser-check-result'
-import { apiCheckResult } from './fixtures/api-check-result'
-import { SequenceId } from '../../services/abstract-check-runner'
+import { checkFilesMap } from '../abstract-list.js'
+import { browserCheckResult } from './fixtures/browser-check-result.js'
+import { apiCheckResult } from './fixtures/api-check-result.js'
+import { SequenceId } from '../../services/abstract-check-runner.js'
 
 export function generateMapAndTestResultIds ({ includeTestResultIds = true, includeRunErrors = false }) {
   if (includeRunErrors) {

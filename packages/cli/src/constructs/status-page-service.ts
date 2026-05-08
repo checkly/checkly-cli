@@ -1,7 +1,7 @@
-import { Construct } from './construct'
-import { Diagnostics } from './diagnostics'
-import { validatePhysicalIdIsUuid } from './internal/common-diagnostics'
-import { Session } from './project'
+import { Construct } from './construct.js'
+import { Diagnostics } from './diagnostics.js'
+import { validatePhysicalIdIsUuid } from './internal/common-diagnostics.js'
+import { Session } from './project.js'
 
 export interface StatusPageServiceProps {
   /**

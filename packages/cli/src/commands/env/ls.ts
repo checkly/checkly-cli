@@ -1,6 +1,6 @@
-import * as api from '../../rest/api'
-import { AuthCommand } from '../authCommand'
-import { escapeValue } from '../../services/util'
+import * as api from '../../rest/api.js'
+import { AuthCommand } from '../authCommand.js'
+import { escapeValue } from '../../services/util.js'
 
 export default class EnvLs extends AuthCommand {
   static hidden = false

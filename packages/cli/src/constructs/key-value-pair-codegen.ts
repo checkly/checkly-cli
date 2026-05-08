@@ -1,6 +1,6 @@
-import { decl, expr, GeneratedFile, ident, object, Program, Value } from '../sourcegen'
-import { Context } from './internal/codegen'
-import KeyValuePair from './key-value-pair'
+import { decl, expr, GeneratedFile, ident, object, Program, Value } from '../sourcegen/index.js'
+import { Context } from './internal/codegen/index.js'
+import KeyValuePair from './key-value-pair.js'
 
 export function valueForKeyValuePair (
   program: Program,

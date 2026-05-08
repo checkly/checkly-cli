@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { Runtime } from './runtime'
+import { Runtime } from './runtime.js'
 
 const SNAPSHOT_DATE = '20260130'
 

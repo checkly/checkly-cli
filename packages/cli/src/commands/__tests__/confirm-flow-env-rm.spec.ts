@@ -13,10 +13,10 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
-import { detectCliMode } from '../../helpers/cli-mode'
-import * as api from '../../rest/api'
-import { AuthCommand } from '../authCommand'
-import EnvRm from '../env/rm'
+import { detectCliMode } from '../../helpers/cli-mode.js'
+import * as api from '../../rest/api.js'
+import { AuthCommand } from '../authCommand.js'
+import EnvRm from '../env/rm.js'
 
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []

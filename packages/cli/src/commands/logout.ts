@@ -1,8 +1,8 @@
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
-import config from '../services/config'
-import { BaseCommand } from './baseCommand'
-import commonMessages from '../messages/common-messages'
+import config from '../services/config.js'
+import { BaseCommand } from './baseCommand.js'
+import commonMessages from '../messages/common-messages.js'
 
 export default class Logout extends BaseCommand {
   static hidden = false

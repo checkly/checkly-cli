@@ -1,15 +1,15 @@
 import { Command, Flags } from '@oclif/core'
 
-import { parseProject } from '../../services/project-parser'
-import { loadChecklyConfig } from '../../services/checkly-config-loader'
+import { parseProject } from '../../services/project-parser.js'
+import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import {
   Diagnostics,
   Session,
-} from '../../constructs'
-import { splitConfigFilePath } from '../../services/util'
-import commonMessages from '../../messages/common-messages'
-import { loadSnapshot, Runtime } from '../../runtimes'
-import { Bundler } from '../../services/check-parser/bundler'
+} from '../../constructs/index.js'
+import { splitConfigFilePath } from '../../services/util.js'
+import commonMessages from '../../messages/common-messages.js'
+import { loadSnapshot, Runtime } from '../../runtimes/index.js'
+import { Bundler } from '../../services/check-parser/bundler.js'
 
 export type ParseProjectOutput = {
   diagnostics: {

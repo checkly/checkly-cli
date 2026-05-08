@@ -1,5 +1,5 @@
 import { type AxiosInstance } from 'axios'
-import { ConflictError, NotFoundError } from './errors'
+import { ConflictError, NotFoundError } from './errors.js'
 
 export interface EnvironmentVariable {
   key: string

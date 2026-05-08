@@ -3,8 +3,8 @@ import {
   formatPreviewForAgent,
   formatPreviewForTerminal,
   buildConfirmCommand,
-} from '../command-preview'
-import type { CommandPreview } from '../command-preview'
+} from '../command-preview.js'
+import type { CommandPreview } from '../command-preview.js'
 
 const samplePreview: CommandPreview = {
   command: 'incidents create',

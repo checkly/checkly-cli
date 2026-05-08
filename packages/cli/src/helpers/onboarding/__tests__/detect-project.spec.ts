@@ -17,8 +17,8 @@ vi.mock('../../../services/checkly-config-loader', () => ({
 
 import { existsSync } from 'fs'
 import { join } from 'path'
-import { findPlaywrightConfigPath } from '../../../services/util'
-import { detectProjectContext } from '../detect-project'
+import { findPlaywrightConfigPath } from '../../../services/util.js'
+import { detectProjectContext } from '../detect-project.js'
 
 const mockExistsSync = vi.mocked(existsSync)
 const mockFindPlaywrightConfigPath = vi.mocked(findPlaywrightConfigPath)

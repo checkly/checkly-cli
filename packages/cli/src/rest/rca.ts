@@ -1,5 +1,5 @@
 import type { AxiosInstance } from 'axios'
-import type { RootCauseAnalysis } from './error-groups'
+import type { RootCauseAnalysis } from './error-groups.js'
 
 export interface TriggerRcaResponse {
   id: string

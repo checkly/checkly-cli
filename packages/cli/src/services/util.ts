@@ -5,14 +5,14 @@ import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
 import { glob } from 'glob'
-import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
-import { File } from './check-parser/parser'
+import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader.js'
+import { File } from './check-parser/parser.js'
 import * as JSON5 from 'json5'
-import { PlaywrightConfig } from './playwright-config'
-import { Session } from '../constructs/project'
+import { PlaywrightConfig } from './playwright-config.js'
+import { Session } from '../constructs/project.js'
 import semver from 'semver'
 import { existsSync } from 'fs'
-import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager'
+import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 
 export interface GitInformation {
   commitId: string

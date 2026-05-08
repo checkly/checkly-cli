@@ -6,8 +6,8 @@ import {
   isFileSync,
   getPlaywrightVersionFromPackage,
   getAutoIncludes,
-} from '../util'
-import { PackageManager } from '../check-parser/package-files/package-manager'
+} from '../util.js'
+import { PackageManager } from '../check-parser/package-files/package-manager.js'
 
 describe('util', () => {
   describe('pathToPosix()', () => {

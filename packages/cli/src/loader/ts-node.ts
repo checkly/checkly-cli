@@ -1,8 +1,8 @@
 import Debug from 'debug'
 
-import { preferenceDelta } from './config'
-import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
-import { FileMatch } from './match'
+import { preferenceDelta } from './config.js'
+import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
+import { FileMatch } from './match.js'
 
 const debug = Debug('checkly:cli:loader:ts-node')
 

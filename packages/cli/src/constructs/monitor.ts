@@ -1,22 +1,22 @@
 import { Region } from '..'
-import { AlertChannel, AlertChannelRef } from './alert-channel'
-import { AlertEscalation } from './alert-escalation-policy'
-import { CheckGroupRef } from './check-group-ref'
-import { CheckGroupV1 } from './check-group-v1'
-import { CheckGroupV2 } from './check-group-v2'
-import { Frequency } from './frequency'
-import { IncidentTrigger } from './incident'
-import { PrivateLocation, PrivateLocationRef } from './private-location'
+import { AlertChannel, AlertChannelRef } from './alert-channel.js'
+import { AlertEscalation } from './alert-escalation-policy.js'
+import { CheckGroupRef } from './check-group-ref.js'
+import { CheckGroupV1 } from './check-group-v1.js'
+import { CheckGroupV2 } from './check-group-v2.js'
+import { Frequency } from './frequency.js'
+import { IncidentTrigger } from './incident.js'
+import { PrivateLocation, PrivateLocationRef } from './private-location.js'
 import {
   ExponentialRetryStrategy,
   FixedRetryStrategy,
   LinearRetryStrategy,
   NoRetriesRetryStrategy,
   SingleRetryRetryStrategy,
-} from './retry-strategy'
-import { Check, CheckProps } from './check'
-import { Diagnostics } from './diagnostics'
-import { validateUnsupportedDoubleCheck } from './internal/common-diagnostics'
+} from './retry-strategy.js'
+import { Check, CheckProps } from './check.js'
+import { Diagnostics } from './diagnostics.js'
+import { validateUnsupportedDoubleCheck } from './internal/common-diagnostics.js'
 
 /**
  * Retry strategies supported by monitors.

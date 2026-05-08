@@ -1,5 +1,5 @@
-import { PackageJsonFile } from './package-json-file'
-import { CoreExtension, FileExtPath, tsCoreExtensionLookupOrder, TSExtension, tsExtensionLookupOrder } from './extension'
+import { PackageJsonFile } from './package-json-file.js'
+import { CoreExtension, FileExtPath, tsCoreExtensionLookupOrder, TSExtension, tsExtensionLookupOrder } from './extension.js'
 
 type Options = {
   plainJs?: boolean

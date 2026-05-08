@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { stripAnsi } from '../render'
+import { stripAnsi } from '../render.js'
 import {
   formatIncidentDetail,
   formatIncidentUpdateDetail,
   formatIncidentsList,
-} from '../incidents'
+} from '../incidents.js'
 import {
   investigatingIncident,
   monitoringUpdate,
   resolvedIncident,
-} from './__fixtures__/incident-fixtures'
+} from './__fixtures__/incident-fixtures.js'
 
 describe('formatIncidentsList', () => {
   describe('terminal', () => {

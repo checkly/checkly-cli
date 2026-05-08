@@ -1,4 +1,4 @@
-import type { ChecklyConfig } from './services/checkly-config-loader'
+import type { ChecklyConfig } from './services/checkly-config-loader.js'
 
 /**
  *  Supported regions

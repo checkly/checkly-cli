@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { detectOperator, detectCliMode } from '../cli-mode'
+import { detectOperator, detectCliMode } from '../cli-mode.js'
 
 const operatorEnvVars = [
   'CLAUDECODE', 'CURSOR_TRACE_ID', 'CURSOR_AGENT', 'TERM_PROGRAM', 'GITHUB_COPILOT',

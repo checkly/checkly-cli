@@ -1,10 +1,10 @@
 import indentString from 'indent-string'
 
-import AbstractListReporter from './abstract-list'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
-import { SequenceId } from '../services/abstract-check-runner'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import commonMessages from '../messages/common-messages'
+import AbstractListReporter from './abstract-list.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import commonMessages from '../messages/common-messages.js'
 
 export default class CiReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {

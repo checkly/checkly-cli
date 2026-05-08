@@ -2,8 +2,8 @@ import { Args } from '@oclif/core'
 import { readFile, readdir } from 'fs/promises'
 import { join } from 'path'
 
-import { ACTIONS, SKILL } from '../../ai-context/context'
-import { BaseCommand } from '../baseCommand'
+import { ACTIONS, SKILL } from '../../ai-context/context.js'
+import { BaseCommand } from '../baseCommand.js'
 
 const REFERENCES_DIR = join(__dirname, '../../ai-context/skills-command/references')
 

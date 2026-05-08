@@ -1,11 +1,11 @@
 import path from 'node:path'
 
-import { LOGICAL_ID_PATTERN } from '../constants'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { Diagnostics } from './diagnostics'
-import { Session } from './project'
-import { Ref } from './ref'
-import { Bundler } from '../services/check-parser/bundler'
+import { LOGICAL_ID_PATTERN } from '../constants.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { Diagnostics } from './diagnostics.js'
+import { Session } from './project.js'
+import { Ref } from './ref.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 /**
  * Base interface for construct-like objects in the Checkly CLI system.

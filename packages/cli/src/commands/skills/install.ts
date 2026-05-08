@@ -5,8 +5,8 @@ import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import prompts from 'prompts'
 
-import { detectCliMode } from '../../helpers/cli-mode'
-import { BaseCommand } from '../baseCommand'
+import { detectCliMode } from '../../helpers/cli-mode.js'
+import { BaseCommand } from '../baseCommand.js'
 
 export const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'

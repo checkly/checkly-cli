@@ -1,7 +1,7 @@
-import { Monitor, MonitorProps } from './monitor'
-import { Session } from './project'
-import { Diagnostics } from './diagnostics'
-import { IcmpRequest } from './icmp-request'
+import { Monitor, MonitorProps } from './monitor.js'
+import { Session } from './project.js'
+import { Diagnostics } from './diagnostics.js'
+import { IcmpRequest } from './icmp-request.js'
 
 export interface IcmpMonitorProps extends MonitorProps {
   /**
