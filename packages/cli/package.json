@@ -17,14 +17,14 @@
   "scripts": {
     "clean:dist": "rimraf ./dist ./tsconfig.tsbuildinfo",
     "clean:gen": "rimraf ./gen",
-    "clean": "npm run clean:dist && npm run clean:gen",
-    "prepack": "npx oclif manifest",
+    "clean": "pnpm run clean:dist && pnpm run clean:gen",
+    "prepack": "pnpm exec oclif manifest",
     "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && jiti ./scripts/prepare-ai-context.ts",
     "prepare:dist": "tsc --build",
-    "prepare": "npm run clean && npm run prepare:dist && npm run prepare:ai-context",
-    "test": "npm pack && vitest --run",
-    "test:e2e": "npm pack && cross-env NODE_CONFIG_DIR=./e2e/config vitest --run -c ./vitest.config.e2e.mts",
-    "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local npm run test:e2e",
+    "prepare": "pnpm run clean && pnpm run prepare:dist && pnpm run prepare:ai-context",
+    "test": "pnpm pack && vitest --run",
+    "test:e2e": "pnpm pack && cross-env NODE_CONFIG_DIR=./e2e/config vitest --run -c ./vitest.config.e2e.mts",
+    "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local pnpm run test:e2e",
     "watch": "tsc --watch"
   },
   "repository": {

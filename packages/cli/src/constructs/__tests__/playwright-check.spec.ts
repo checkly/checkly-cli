@@ -341,9 +341,9 @@ describe('PlaywrightCheck', () => {
         expect(files.sort()).toEqual([
           'lib/setup-util.ts',
           'lib/teardown-util.ts',
-          'package-lock.json',
           'package.json',
           'playwright.config.ts',
+          'pnpm-lock.yaml',
           'setup.ts',
           'teardown.ts',
           'tsconfig.playwright.json',
@@ -393,9 +393,9 @@ describe('PlaywrightCheck', () => {
         expect(files.sort()).toEqual([
           'lib/setup-util.ts',
           'lib/teardown-util.ts',
-          'package-lock.json',
           'package.json',
           'playwright.config.ts',
+          'pnpm-lock.yaml',
           'setup.ts',
           'teardown.ts',
           'tsconfig.playwright.json',
@@ -800,9 +800,9 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       expect(files.sort()).toEqual([
-        'package-lock.json',
         'package.json',
         'playwright.config.ts',
+        'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ])
     }, DEFAULT_TEST_TIMEOUT)
@@ -840,9 +840,9 @@ describe('PlaywrightCheck', () => {
 
       expect(files.sort()).toEqual([
         'fixtures/mock-data.json',
-        'package-lock.json',
         'package.json',
         'playwright.config.ts',
+        'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ])
     }, DEFAULT_TEST_TIMEOUT)
@@ -880,9 +880,9 @@ describe('PlaywrightCheck', () => {
 
       expect(files.sort()).toEqual(expect.arrayContaining([
         'node_modules/checkly/package.json',
-        'package-lock.json',
         'package.json',
         'playwright.config.ts',
+        'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ]))
     }, DEFAULT_TEST_TIMEOUT)
@@ -919,9 +919,9 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       expect(files.sort()).toEqual([
-        'package-lock.json',
         'package.json',
         'playwright.config.ts',
+        'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ])
     }, DEFAULT_TEST_TIMEOUT)
@@ -958,9 +958,9 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       expect(files.sort()).toEqual([
-        'package-lock.json',
         'package.json',
         'playwright.config.ts',
+        'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ])
     }, DEFAULT_TEST_TIMEOUT)

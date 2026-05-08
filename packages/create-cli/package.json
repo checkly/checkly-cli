@@ -12,7 +12,7 @@
   "scripts": {
     "clean": "rimraf ./dist ./tsconfig.tsbuildinfo",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
-    "prepare": "npm run clean && tsc --build",
+    "prepare": "pnpm run clean && tsc --build",
     "test": "vitest",
     "test:e2e": "vitest -c ./vitest.config.e2e.mts",
     "start": "node ./index.mjs",

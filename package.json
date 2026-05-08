@@ -5,16 +5,13 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepack": "npm run prepack --workspaces",
-    "prepare": "npx simple-git-hooks && npm run prepare --workspaces && npm run prepare:ai-context",
+    "prepack": "pnpm -r run prepack",
+    "prepare": "pnpm exec simple-git-hooks && pnpm -r run prepare && pnpm run prepare:ai-context",
     "clean:ai-context": "rimraf skills",
-    "prepare:ai-context": "npm run clean:ai-context && cp -r packages/cli/dist/ai-context/public-skills/. skills",
-    "test": "npm run test --workspaces",
-    "test:e2e": "npm run test:e2e --workspaces"
+    "prepare:ai-context": "pnpm run clean:ai-context && cp -r packages/cli/dist/ai-context/public-skills/. skills",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm -r run test:e2e"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
@@ -28,10 +25,16 @@
     "typescript-eslint": "^8.59.2"
   },
   "simple-git-hooks": {
-    "commit-msg": "npx commitlint --edit",
-    "pre-commit": "npx lint-staged"
+    "commit-msg": "pnpm exec commitlint --edit",
+    "pre-commit": "pnpm exec lint-staged"
   },
   "lint-staged": {
-    "*.{ts,js,mjs}": "npm run lint"
+    "*.{ts,js,mjs}": "pnpm run lint"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "simple-git-hooks"
+    ]
   }
 }

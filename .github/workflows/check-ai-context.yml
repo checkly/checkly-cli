@@ -15,14 +15,15 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-      - run: npm config set fund false && npm set audit false
-      - run: npm ci
-      - run: npm run prepare
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepare
       - name: Check for uncommitted changes in skills/
         run: git diff --exit-code skills/
       - name: Comment on PR if skills/ is out of date
@@ -37,5 +38,5 @@ jobs:
           Please run the following locally and commit the changes:
 
           \`\`\`
-          npm run prepare
+          pnpm run prepare
           \`\`\`"
