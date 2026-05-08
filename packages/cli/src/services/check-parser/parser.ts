@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import * as acorn from 'acorn'
@@ -66,7 +67,7 @@ function getTsParser (): any {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const require = createRequire(import.meta.url)
     tsParser = require('@typescript-eslint/typescript-estree')
     const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
     // Our custom configuration to handle walking errors
