@@ -81,7 +81,7 @@ function getTsParser (): any {
     return tsParser
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Please install "typescript" to use TypeScript-code in check files')
+      throw new Error('Please install "typescript" to use TypeScript-code in check files', { cause: err })
     }
     throw err
   }

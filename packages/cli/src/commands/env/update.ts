@@ -40,19 +40,11 @@ export default class EnvUpdate extends AuthCommand {
     const { locked, secret } = flags
 
     const envVariableName = args.key
-    let envValue = ''
-    // check if env variable arg exists
-    if (args.value) {
-      envValue = args.value
-    } else {
-      const response = await prompts({
-        type: 'password',
-        name: 'value',
-        message: `What is the value of ${envVariableName}?`,
-      })
-
-      envValue = response.value
-    }
+    const envValue = args.value ?? (await prompts({
+      type: 'password',
+      name: 'value',
+      message: `What is the value of ${envVariableName}?`,
+    })).value
     try {
       await api.environmentVariables.update(envVariableName, envValue, locked, secret)
       this.style.shortSuccess(secret

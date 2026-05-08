@@ -3,13 +3,16 @@
     "incremental": true,
     "declaration": true,
     "importHelpers": true,
+    "ignoreDeprecations": "6.0",
     "module": "commonjs",
     "esModuleInterop": true,
     "outDir": "dist",
-    "rootDirs": ["src", "e2e"],
+    "rootDir": "src",
     "strict": true,
     "target": "es2022",
-    "sourceMap": true
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "types": ["node"]
   },
   "include": [
     "src/**/*"

@@ -9,7 +9,7 @@
     "node": "^18.19.0 || >=20.5.0"
   },
   "scripts": {
-    "clean": "rimraf ./dist",
+    "clean": "rimraf ./dist ./tsconfig.tsbuildinfo",
     "prepack": "echo \"Warning: no oclif manifest configured\"",
     "prepare": "npm run clean && tsc --build",
     "test": "vitest",
@@ -53,15 +53,15 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^4.8.0",
-    "@oclif/plugin-help": "^6.2.36",
-    "@oclif/plugin-warn-if-update-available": "^3.1.53",
-    "axios": "^1.13.5",
+    "@oclif/core": "^4.11.1",
+    "@oclif/plugin-help": "^6.2.46",
+    "@oclif/plugin-warn-if-update-available": "^3.1.62",
+    "axios": "^1.16.0",
     "chalk": "^4.1.2",
     "debug": "^4.4.3",
     "execa": "^5.1.1",
-    "giget": "^3.1.2",
-    "jiti": "^2.6.1",
+    "giget": "^3.2.0",
+    "jiti": "^2.7.0",
     "json5": "^2.2.3",
     "ora": "^5.4.1",
     "passwd-user": "^3.0.0",
@@ -70,17 +70,23 @@
     "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
-    "@types/config": "^3.3.5",
-    "@types/debug": "^4.1.12",
-    "@types/node": "^22.14.1",
+    "@types/debug": "^4.1.13",
+    "@types/node": "^22.19.17",
     "@types/prompts": "^2.4.9",
     "@types/uuid": "^10.0.0",
-    "config": "^3.3.12",
-    "cross-env": "^7.0.3",
+    "cross-env": "^10.1.0",
     "rimraf": "^5.0.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
-    "uuid": "^11.1.0",
-    "vitest": "3.1.2"
+    "typescript": "^6.0.3",
+    "uuid": "^11.1.1",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "ts-node": ">=10"
+  },
+  "peerDependenciesMeta": {
+    "ts-node": {
+      "optional": true
+    }
   }
 }

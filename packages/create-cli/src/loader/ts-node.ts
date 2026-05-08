@@ -16,13 +16,24 @@ export class UninitializedTSNodeFileLoaderState extends FileLoader {
     UninitializedTSNodeFileLoaderState.init ??= (async () => {
       try {
         const tsNodeExports: TSNodeExports = await import('ts-node')
+        const compilerOptions: Record<string, string> = {
+          module: 'CommonJS',
+        }
+        try {
+          const ts = await import('typescript')
+          // TS 6 deprecated moduleResolution "node10" (the implicit default for module "CommonJS"),
+          // which causes ts-node to error. Suppress until we drop ts-node in favor of jiti.
+          if (parseInt(ts.version) >= 6) {
+            compilerOptions.ignoreDeprecations = '6.0'
+          }
+        } catch {
+          // typescript not installed — skip version check
+        }
         const service = tsNodeExports.register({
           moduleTypes: {
             '**/*': 'cjs',
           },
-          compilerOptions: {
-            module: 'CommonJS',
-          },
+          compilerOptions,
         })
         TSNodeFileLoader.state = new InitializedTSNodeFileLoaderState(service)
       } catch (err) {
@@ -71,7 +82,7 @@ export class InitializedTSNodeFileLoaderState extends FileLoader {
     } catch (err: any) {
       if (err.message?.includes('Unable to compile TypeScript')) {
         throw new Error(`Unable to load file '${filePath}' with 'ts-node' (hint: consider installing 'jiti' for improved TypeScript support)\n${err.stack}`, {
-          cause: err as Error,
+          cause: err,
         })
       }
 

@@ -56,7 +56,7 @@ export default class Switch extends AuthCommand {
 
       this.log(`Account switched to ${chalk.bold.cyan(name)}`)
     } catch (err: any) {
-      throw new Error(`Failed to switch account. ${err.message}`)
+      throw new Error(`Failed to switch account. ${err.message}`, { cause: err })
     }
   }
 }
