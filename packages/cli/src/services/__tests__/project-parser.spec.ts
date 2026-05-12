@@ -36,6 +36,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'simple-project'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -82,6 +83,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'simple-project-with-pl'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -156,6 +158,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'typescript-project'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -198,6 +201,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'multiple-glob-patterns-project'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -256,6 +260,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'empty-script-project'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -285,6 +290,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'empty-env-project'),
       })
     }, DEFAULT_FIXT_TIMEOUT)
@@ -314,6 +320,7 @@ describe('parseProject()', () => {
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        installPackages: false,
         source: path.join(__dirname, 'project-parser-fixtures', 'multistep-browser-glob-patterns'),
       })
     }, DEFAULT_FIXT_TIMEOUT)

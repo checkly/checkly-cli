@@ -35,6 +35,7 @@ describe('BrowserCheck', () => {
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
+      installPackages: false,
       source: path.join(__dirname, 'fixtures', 'browser-check'),
     })
   }, 180_000)

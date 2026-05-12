@@ -3,8 +3,12 @@ import path from 'node:path'
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
 import { File } from '../parser.js'
-import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
+import { FixtureSandbox, FixtureTemplate } from '../../../testing/fixture-sandbox.js'
 import { pathToPosix } from '../../util.js'
+
+const playwrightTemplate = FixtureTemplate.create('playwright', {
+  devDependencies: { '@playwright/test': '^1.59.1' },
+})
 
 describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
   describe('playwright-project', () => {
@@ -12,6 +16,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: await playwrightTemplate,
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
       })
     }, 180_000)
@@ -58,6 +63,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: await playwrightTemplate,
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
       })
     }, 180_000)
