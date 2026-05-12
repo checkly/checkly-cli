@@ -17,8 +17,8 @@ npx checkly account members --hide-id
 Flags:
 - `--search <term>` — match member names, member emails, and invite emails.
 - `--type <type>` — `member` or `invite` (case-insensitive).
-- `--role <role>` — `OWNER`, `ADMIN`, `READ_WRITE`, `READ_RUN`, or `READ_ONLY` (case-insensitive).
-- `--status <status>` — `ACTIVE`, `PENDING`, or `EXPIRED` (case-insensitive).
+- `--role <role>` — `owner`, `admin`, `read_write`, `read_run`, or `read_only` (case-insensitive).
+- `--status <status>` — `active`, `pending`, or `expired` (case-insensitive).
 - `-l, --limit <n>` — number of rows to return, from 1 to 100.
 - `--next-id <cursor>` — cursor for the next page. Requires `--limit`.
 - `-o, --output <format>` — `table` (default), `json`, or `md`.
@@ -61,4 +61,4 @@ Flags:
 }
 ```
 
-Member roles are `OWNER`, `ADMIN`, `READ_WRITE`, `READ_RUN`, or `READ_ONLY`. Invite roles exclude `OWNER`. Invite statuses are `PENDING` or `EXPIRED`.
+Member roles are returned as `OWNER`, `ADMIN`, `READ_WRITE`, `READ_RUN`, or `READ_ONLY`. Invite roles exclude `OWNER`. Invite statuses are returned as `PENDING` or `EXPIRED`.

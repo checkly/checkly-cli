@@ -18,6 +18,8 @@ import {
 const accountMemberTypes = ['member', 'invite'] as const
 const accountMemberRoles = ['OWNER', 'ADMIN', 'READ_WRITE', 'READ_RUN', 'READ_ONLY'] as const
 const accountMemberStatuses = ['ACTIVE', 'PENDING', 'EXPIRED'] as const
+const accountMemberRoleOptions = accountMemberRoles.map(role => role.toLowerCase())
+const accountMemberStatusOptions = accountMemberStatuses.map(status => status.toLowerCase())
 
 function isAccountMemberType (value: string): value is AccountMemberType {
   return accountMemberTypes.includes(value as AccountMemberType)
@@ -64,10 +66,10 @@ export default class AccountMembers extends AuthCommand {
       description: 'Filter by item type: member or invite.',
     }),
     'role': Flags.string({
-      description: 'Filter by member or invite role.',
+      description: `Filter by member or invite role: ${accountMemberRoleOptions.join(', ')}.`,
     }),
     'status': Flags.string({
-      description: 'Filter by member or invite status.',
+      description: `Filter by member or invite status: ${accountMemberStatusOptions.join(', ')}.`,
     }),
     'limit': Flags.integer({
       char: 'l',
@@ -103,12 +105,12 @@ export default class AccountMembers extends AuthCommand {
 
     const role = normalizeAccountMemberRole(flags.role)
     if (flags.role && !role) {
-      this.error(`Invalid --role "${flags.role}". Valid values: ${accountMemberRoles.join(', ')}.`)
+      this.error(`Invalid --role "${flags.role}". Valid values: ${accountMemberRoleOptions.join(', ')}.`)
     }
 
     const status = normalizeAccountMemberStatus(flags.status)
     if (flags.status && !status) {
-      this.error(`Invalid --status "${flags.status}". Valid values: ${accountMemberStatuses.join(', ')}.`)
+      this.error(`Invalid --status "${flags.status}". Valid values: ${accountMemberStatusOptions.join(', ')}.`)
     }
 
     const params: AccountMembersListParams = {
