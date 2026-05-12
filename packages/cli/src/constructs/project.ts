@@ -330,10 +330,11 @@ export class Session {
           + 'Alternatively, ts-node is also supported:\n\n'
           + `  ${add(['ts-node'])}\n\n`
           + `Please try again after installing one of the supported packages.`,
+          { cause: err },
         )
       }
 
-      throw new Error(`Error loading file '${filePath}'\n${err.stack}`)
+      throw new Error(`Error loading file '${filePath}'\n${err.stack}`, { cause: err })
     }
   }
 

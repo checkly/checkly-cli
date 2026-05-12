@@ -60,7 +60,7 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   } catch (err: any) {
     if (err instanceof UnauthorizedError) {
       throw new Error(`Authentication failed with account id "${accountId}" `
-        + `and API key "...${apiKey?.slice(-4)}"`)
+        + `and API key "...${apiKey?.slice(-4)}"`, { cause: err })
     }
 
     throw err

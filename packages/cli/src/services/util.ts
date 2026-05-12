@@ -86,7 +86,7 @@ export function isFileSync (path: string): boolean {
   try {
     result = fsSync.existsSync(path)
   } catch (err: any) {
-    throw new Error(`Error parsing file path '${path}': ${err}`)
+    throw new Error(`Error parsing file path '${path}': ${err}`, { cause: err })
   }
   return result
 }
@@ -272,7 +272,7 @@ export async function getPlaywrightVersionFromPackage (cwd: string): Promise<str
   } catch (error) {
     // @ts-ignore
     if (error instanceof Error && error.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Could not find @playwright/test package. Make sure it is installed.')
+      throw new Error('Could not find @playwright/test package. Make sure it is installed.', { cause: error })
     }
     throw error
   }

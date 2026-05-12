@@ -405,7 +405,7 @@ async function loadAllPrivateLocationsSlugNames (
 
       // only create the non member private-location if it wasn't already added
       const privateLocationAlreadyCreated = Object.values(project.data['private-location']).find(pl => pl.physicalId === privateLocation.id)
-      let privateLocationLogicalId = ''
+      let privateLocationLogicalId: string
       if (!privateLocationAlreadyCreated) {
         const nonMemberPrivateLocation = PrivateLocation.fromId(privateLocation.id)
         privateLocationLogicalId = nonMemberPrivateLocation.logicalId
@@ -417,13 +417,13 @@ async function loadAllPrivateLocationsSlugNames (
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const assignment = resource instanceof Check
         ? new PrivateLocationCheckAssignment(`private-location-check-assignment#${resource.logicalId}#${privateLocationLogicalId}`, {
-          privateLocationId: Ref.from(privateLocationLogicalId),
-          checkId: Ref.from(resource.logicalId),
-        })
+            privateLocationId: Ref.from(privateLocationLogicalId),
+            checkId: Ref.from(resource.logicalId),
+          })
         : new PrivateLocationGroupAssignment(`private-location-group-assignment#${resource.logicalId}#${privateLocationLogicalId}`, {
-          privateLocationId: Ref.from(privateLocationLogicalId),
-          groupId: Ref.from(resource.logicalId),
-        })
+            privateLocationId: Ref.from(privateLocationLogicalId),
+            groupId: Ref.from(resource.logicalId),
+          })
     })
   })
 }

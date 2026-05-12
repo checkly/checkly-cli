@@ -8,8 +8,7 @@ new AgenticCheck('checkly-pricing-page', {
   name: 'Checkly pricing page',
   prompt:
     'Navigate to https://www.checklyhq.com/pricing and verify that at least three plan tiers are displayed on the page.',
-  // Agentic checks currently run from a single location and follow their own
-  // frequency cadence (30, 60, 120, 180, 360, 720 or 1440 minutes). The
-  // construct hardcodes the location and validates the frequency for you.
-  frequency: 60,
+  // The backend enforces the allowed cadence and region count for your account.
+  frequency: 5,
+  locations: ['us-east-1', 'eu-west-1', 'ap-southeast-1'],
 })

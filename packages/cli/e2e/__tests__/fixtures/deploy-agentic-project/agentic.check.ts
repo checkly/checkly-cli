@@ -20,9 +20,5 @@ new AgenticCheck('agentic-runtime-check', {
   frequency: 60,
   agentRuntime: {
     skills: ['addyosmani/web-quality-skills'],
-    exposeEnvironmentVariables: [
-      'ENVIRONMENT_URL',
-      { name: 'TEST_USER_EMAIL', description: 'Login email for the test account' },
-    ],
   },
 })

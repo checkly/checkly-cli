@@ -21,6 +21,6 @@ export async function loadFile (filePath: string): Promise<any> {
 
     return defaultExport
   } catch (err: any) {
-    throw new Error(`Error loading file '${filePath}'\n${err.stack}`)
+    throw new Error(`Error loading file '${filePath}'\n${err.stack}`, { cause: err })
   }
 }

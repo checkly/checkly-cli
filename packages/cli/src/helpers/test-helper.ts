@@ -48,7 +48,7 @@ export async function preparePrivateRunLocation (
     const { data: account } = await api.accounts.get(accountId)
     throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${account.name}".`)
   } catch (err: any) {
-    throw new Error(`Failed to get private locations. ${err.message}.`)
+    throw new Error(`Failed to get private locations. ${err.message}.`, { cause: err })
   }
 }
 
@@ -64,14 +64,15 @@ export function prepareReportersTypes (
 
 export function splitChecklyAndPlaywrightFlags (args: string[]) {
   const separatorIndex = args.indexOf('--')
-  let checklyFlags: string[] = []
-  let playwrightFlags: string[] = []
+  let checklyFlags: string[]
+  let playwrightFlags: string[]
 
   if (separatorIndex !== -1) {
     checklyFlags = args.slice(0, separatorIndex)
     playwrightFlags = args.slice(separatorIndex + 1)
   } else {
     checklyFlags = args
+    playwrightFlags = []
   }
   return { checklyFlags, playwrightFlags }
 }
