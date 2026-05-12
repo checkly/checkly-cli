@@ -12,6 +12,19 @@ export interface AccountMembersTableOptions {
   showId?: boolean
 }
 
+export function formatCursorPaginationInfo (count: number, nextId: string | null): string {
+  const base = `${count} account member${count !== 1 ? 's' : ''}`
+  if (nextId) {
+    return chalk.dim(`Showing ${base} (more available)`)
+  }
+  return chalk.dim(`Showing ${base}`)
+}
+
+export function formatCursorNavigationHints (nextId: string | null): string {
+  if (!nextId) return ''
+  return `  ${chalk.dim('Next page:')}    checkly account members --limit <limit> --next-id ${nextId}`
+}
+
 function boolSymbol (value: boolean | undefined, format: OutputFormat): string {
   if (value === undefined) return format === 'terminal' ? chalk.dim('-') : '-'
   if (format === 'md') return value ? 'yes' : '-'

@@ -7,8 +7,22 @@ List active account members and pending or expired account invites.
 ```bash
 npx checkly account members
 npx checkly account members --output json
+npx checkly account members --search alice
+npx checkly account members --type invite --status PENDING
+npx checkly account members --role ADMIN
+npx checkly account members --limit 25
 npx checkly account members --hide-id
 ```
+
+Flags:
+- `--search <term>` — match member names, member emails, and invite emails.
+- `--type <type>` — `member` or `invite`.
+- `--role <role>` — `OWNER`, `ADMIN`, `READ_WRITE`, `READ_RUN`, or `READ_ONLY`.
+- `--status <status>` — `ACTIVE`, `PENDING`, or `EXPIRED`.
+- `-l, --limit <n>` — number of rows to return, from 1 to 100.
+- `--next-id <cursor>` — cursor for the next page. Requires `--limit`.
+- `-o, --output <format>` — `table` (default), `json`, or `md`.
+- `--hide-id` — hide member and invite IDs in table output.
 
 ## JSON response shape
 
@@ -41,7 +55,9 @@ npx checkly account members --hide-id
       "updatedAt": "2026-01-03T00:00:00.000Z",
       "expiresAt": "2026-02-03T00:00:00.000Z"
     }
-  ]
+  ],
+  "length": 2,
+  "nextId": null
 }
 ```
 

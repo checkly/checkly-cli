@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { stripAnsi } from '../render'
-import { formatAccountMembers } from '../account-members'
+import {
+  formatAccountMembers,
+  formatCursorNavigationHints,
+  formatCursorPaginationInfo,
+} from '../account-members'
 import type { AccountMember } from '../../rest/account-members'
 
 const activeMember: AccountMember = {
@@ -83,5 +87,16 @@ describe('formatAccountMembers', () => {
     expect(result).not.toContain('ID')
     expect(result).not.toContain('22222222-2222-2222-2222-222222222222')
     expect(result).not.toContain('33333333-3333-3333-3333-333333333333')
+  })
+
+  it('renders cursor pagination info', () => {
+    expect(stripAnsi(formatCursorPaginationInfo(2, 'next-cursor'))).toBe('Showing 2 account members (more available)')
+    expect(stripAnsi(formatCursorPaginationInfo(1, null))).toBe('Showing 1 account member')
+  })
+
+  it('renders next page hint when cursor exists', () => {
+    const result = stripAnsi(formatCursorNavigationHints('next-cursor'))
+
+    expect(result).toContain('--next-id next-cursor')
   })
 })
