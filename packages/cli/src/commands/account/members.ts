@@ -19,6 +19,36 @@ const accountMemberTypes = ['member', 'invite'] as const
 const accountMemberRoles = ['OWNER', 'ADMIN', 'READ_WRITE', 'READ_RUN', 'READ_ONLY'] as const
 const accountMemberStatuses = ['ACTIVE', 'PENDING', 'EXPIRED'] as const
 
+function isAccountMemberType (value: string): value is AccountMemberType {
+  return accountMemberTypes.includes(value as AccountMemberType)
+}
+
+function isAccountMemberRole (value: string): value is AccountMemberRole {
+  return accountMemberRoles.includes(value as AccountMemberRole)
+}
+
+function isAccountMemberStatus (value: string): value is AccountMemberStatus {
+  return accountMemberStatuses.includes(value as AccountMemberStatus)
+}
+
+export function normalizeAccountMemberType (value: string | undefined): AccountMemberType | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim().toLowerCase()
+  return isAccountMemberType(normalized) ? normalized : undefined
+}
+
+export function normalizeAccountMemberRole (value: string | undefined): AccountMemberRole | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim().toUpperCase()
+  return isAccountMemberRole(normalized) ? normalized : undefined
+}
+
+export function normalizeAccountMemberStatus (value: string | undefined): AccountMemberStatus | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim().toUpperCase()
+  return isAccountMemberStatus(normalized) ? normalized : undefined
+}
+
 export default class AccountMembers extends AuthCommand {
   static hidden = false
   static readOnly = true
@@ -31,16 +61,13 @@ export default class AccountMembers extends AuthCommand {
       description: 'Search members and invites by name or email.',
     }),
     'type': Flags.string({
-      description: 'Filter by item type.',
-      options: [...accountMemberTypes],
+      description: 'Filter by item type: member or invite.',
     }),
     'role': Flags.string({
       description: 'Filter by member or invite role.',
-      options: [...accountMemberRoles],
     }),
     'status': Flags.string({
       description: 'Filter by member or invite status.',
-      options: [...accountMemberStatuses],
     }),
     'limit': Flags.integer({
       char: 'l',
@@ -69,11 +96,26 @@ export default class AccountMembers extends AuthCommand {
       this.error('Cannot use --next-id without --limit.')
     }
 
+    const type = normalizeAccountMemberType(flags.type)
+    if (flags.type && !type) {
+      this.error(`Invalid --type "${flags.type}". Valid values: ${accountMemberTypes.join(', ')}.`)
+    }
+
+    const role = normalizeAccountMemberRole(flags.role)
+    if (flags.role && !role) {
+      this.error(`Invalid --role "${flags.role}". Valid values: ${accountMemberRoles.join(', ')}.`)
+    }
+
+    const status = normalizeAccountMemberStatus(flags.status)
+    if (flags.status && !status) {
+      this.error(`Invalid --status "${flags.status}". Valid values: ${accountMemberStatuses.join(', ')}.`)
+    }
+
     const params: AccountMembersListParams = {
       search: flags.search,
-      type: flags.type as AccountMemberType | undefined,
-      role: flags.role as AccountMemberRole | undefined,
-      status: flags.status as AccountMemberStatus | undefined,
+      type,
+      role,
+      status,
       limit,
       nextId: flags['next-id'],
     }
