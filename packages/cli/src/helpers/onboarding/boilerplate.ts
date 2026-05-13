@@ -66,7 +66,6 @@ function addDepsToPackageJson (projectDir: string, pkg: Record<string, any>, log
   try {
     pkg.devDependencies = pkg.devDependencies ?? {}
     pkg.devDependencies.checkly = 'latest'
-    pkg.devDependencies.jiti = 'latest'
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
     return true
   } catch {
@@ -170,7 +169,7 @@ export async function runDepsInstall (
     }
   }
 
-  // Always add checkly and jiti to package.json — even if user declines running install
+  // Always add checkly to package.json — even if user declines running install
   if (!addDepsToPackageJson(projectDir, pkg, log)) {
     return {
       ok: false,
@@ -178,7 +177,7 @@ export async function runDepsInstall (
       installed: false,
     }
   }
-  log(successMessage('Added checkly and jiti to package.json'))
+  log(successMessage('Added checkly to package.json'))
 
   if (options.skipPrompts) {
     return installDependencies(projectDir, pm.installCmd, log)

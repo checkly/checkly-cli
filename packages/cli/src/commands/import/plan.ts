@@ -658,7 +658,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
           const updated = packageJson.upsertDevDependencies({
             checkly: `^${ownPackageJson?.version ?? '6'}`,
-            jiti: '^2',
           })
 
           if (updated) {

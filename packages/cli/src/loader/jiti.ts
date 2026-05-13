@@ -30,6 +30,7 @@ export class UninitializedJitiFileLoaderState extends FileLoader {
         const jitiExports: JitiExports = await import('jiti')
         const jiti = jitiExports.createJiti(__filename, {
           tsx: true,
+          tsconfigPaths: true,
         })
         debug(`Successfully initialized loader`)
         JitiFileLoader.state = new InitializedJitiFileLoaderState(jiti)
