@@ -1,6 +1,6 @@
 # Account Management
 
-Understand your account's plan, entitlements, and limits.
+Understand your account's plan, entitlements, limits, members, and pending invites.
 
 ## Plan-aware workflow
 
