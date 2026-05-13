@@ -249,7 +249,7 @@ describe('boilerplate', () => {
       expect(logs.some(l => l.includes('bun'))).toBe(true)
     })
 
-    it('adds checkly and jiti as devDependencies before installing', async () => {
+    it('adds checkly as a devDependency before installing', async () => {
       mockPrompts.mockResolvedValue({ install: true })
 
       await runDepsInstall(projectDir, log)
@@ -260,7 +260,6 @@ describe('boilerplate', () => {
       expect(pkgWrite).toBeDefined()
       const written = JSON.parse(pkgWrite![1] as string)
       expect(written.devDependencies.checkly).toBe('latest')
-      expect(written.devDependencies.jiti).toBe('latest')
     })
   })
 })
