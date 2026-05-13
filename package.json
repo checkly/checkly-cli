@@ -7,9 +7,7 @@
     "lint:fix": "eslint . --fix",
     "prepack": "pnpm -r run prepack",
     "prepare": "pnpm exec simple-git-hooks",
-    "postprepare": "pnpm run prepare:ai-context",
-    "clean:ai-context": "rimraf skills",
-    "prepare:ai-context": "pnpm run clean:ai-context && cp -r packages/cli/dist/ai-context/public-skills/. skills",
+    "sync:skills": "rimraf skills && cp -r packages/cli/dist/ai-context/public-skills/. skills",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm -r run test:e2e"
   },
