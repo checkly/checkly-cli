@@ -6,7 +6,7 @@ import {
   canonicalizePackageJson,
   composeCacheHash,
   stableJsonEncode,
-} from '../cache-hash'
+} from '../cache-hash.js'
 
 const sha256 = (s: string): Buffer => createHash('sha256').update(s).digest()
 

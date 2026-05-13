@@ -1,12 +1,16 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 import Debug from 'debug'
+import { execa } from 'execa'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 
-import { detectNearestLockfile, detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
+import { detectNearestLockfile, detectNearestPackageJson, detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
 
 export interface CreateFixtureSandboxOptions {
   /**
@@ -70,8 +74,6 @@ export class FixtureSandbox {
   }
 
   static async create (options: CreateFixtureSandboxOptions): Promise<FixtureSandbox> {
-    const { execa } = await import('execa')
-
     const {
       source,
       root: maybeRoot,

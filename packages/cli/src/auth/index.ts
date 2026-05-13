@@ -3,10 +3,13 @@ import * as os from 'os'
 import * as http from 'http'
 import * as crypto from 'crypto'
 import { jwtDecode } from 'jwt-decode'
-import { getDefaults as getApiDefaults } from '../rest/api'
-import { assignProxy } from '../services/proxy'
+import { getDefaults as getApiDefaults } from '../rest/api.js'
+import { assignProxy } from '../services/proxy.js'
 import * as fs from 'fs'
 import * as path from 'path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export type AuthMode = 'signup' | 'login'
 

@@ -1,1 +1,1 @@
-export * from './dep6' // wildcard export
+export * from './dep6.js' // wildcard export

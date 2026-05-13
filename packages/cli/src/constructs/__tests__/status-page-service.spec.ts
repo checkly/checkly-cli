@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
-import { StatusPageService, Diagnostics } from '../index'
-import { Project, Session } from '../project'
+import { StatusPageService, Diagnostics } from '../index.js'
+import { Project, Session } from '../project.js'
 
 describe('StatusPageService', () => {
   it('should throw if the same logicalId is used twice', () => {

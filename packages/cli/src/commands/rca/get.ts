@@ -1,8 +1,8 @@
 import { Args, Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import { formatRcaCompleted } from '../../formatters/rca'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import { formatRcaCompleted } from '../../formatters/rca.js'
 
 export default class RcaGet extends AuthCommand {
   static hidden = false

@@ -1,10 +1,10 @@
 import { Args } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
-import { formatStatusPageDetail } from '../../formatters/status-pages'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
+import { formatStatusPageDetail } from '../../formatters/status-pages.js'
 
 export default class StatusPagesGet extends AuthCommand {
   static hidden = false

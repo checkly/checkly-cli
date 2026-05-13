@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { hasGitDir, hasGitIgnore } from '../utils/directory'
-import execa from 'execa'
-import { askInitializeGit } from '../utils/prompts'
+import { hasGitDir, hasGitIgnore } from '../utils/directory.js'
+import { execa } from 'execa'
+import { askInitializeGit } from '../utils/prompts.js'
 
 export async function initGit (targetDir: string): Promise<void> {
   if (hasGitDir(targetDir)) {

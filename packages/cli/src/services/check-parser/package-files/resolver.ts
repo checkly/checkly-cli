@@ -2,17 +2,17 @@ import path from 'node:path'
 
 import Debug from 'debug'
 
-import { SourceFile } from './source-file'
-import { PackageJsonFile } from './package-json-file'
-import { TSConfigFile } from './tsconfig-json-file'
-import { JSConfigFile } from './jsconfig-json-file'
-import { isBuiltinPath, isImportsPath, isLocalPath, isNativeBinaryPath, PathResult, splitExternalPath } from './paths'
-import { FileLoader, LoadFile } from './loader'
-import { JsonSourceFile } from './json-source-file'
-import { JsonTextSourceFile } from './json-text-source-file'
-import { LookupContext } from './lookup'
-import { lineage, LineageOptions } from './walk'
-import { Package, Workspace } from './workspace'
+import { SourceFile } from './source-file.js'
+import { PackageJsonFile } from './package-json-file.js'
+import { TSConfigFile } from './tsconfig-json-file.js'
+import { JSConfigFile } from './jsconfig-json-file.js'
+import { isBuiltinPath, isImportsPath, isLocalPath, isNativeBinaryPath, PathResult, splitExternalPath } from './paths.js'
+import { FileLoader, LoadFile } from './loader.js'
+import { JsonSourceFile } from './json-source-file.js'
+import { JsonTextSourceFile } from './json-text-source-file.js'
+import { LookupContext } from './lookup.js'
+import { lineage, LineageOptions } from './walk.js'
+import { Package, Workspace } from './workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:resolver')
 

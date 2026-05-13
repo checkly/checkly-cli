@@ -1,4 +1,4 @@
-import { SourceFile } from './source-file'
+import { SourceFile } from './source-file.js'
 
 export class JsonSourceFile<Schema> {
   static #id = 0

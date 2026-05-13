@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { PlaywrightConfig } from '../playwright-config'
+import { PlaywrightConfig } from '../playwright-config.js'
 import { describe, it, expect } from 'vitest'
-import { Session } from '../../constructs'
+import { Session } from '../../constructs/index.js'
 
 const fixturesPath = path.join(__dirname, 'fixtures', 'playwright-configs')
 

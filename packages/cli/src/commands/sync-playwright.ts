@@ -1,12 +1,12 @@
-import { BaseCommand } from './baseCommand'
+import { BaseCommand } from './baseCommand.js'
 import * as recast from 'recast'
-import { getChecklyConfigFile } from '../services/checkly-config-loader'
-import { loadPlaywrightConfig } from '../playwright/playwright-config-loader'
+import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
+import { loadPlaywrightConfig } from '../playwright/playwright-config-loader.js'
 import path from 'path'
 import { ux } from '@oclif/core'
-import PlaywrightConfigTemplate from '../playwright/playwright-config-template'
-import { addOrReplaceItem, findPropertyByName, reWriteChecklyConfigFile } from '../helpers/write-config-helpers'
-import * as acornParser from '../helpers/recast-acorn-parser'
+import PlaywrightConfigTemplate from '../playwright/playwright-config-template.js'
+import { addOrReplaceItem, findPropertyByName, reWriteChecklyConfigFile } from '../helpers/write-config-helpers.js'
+import * as acornParser from '../helpers/recast-acorn-parser.js'
 
 export default class SyncPlaywright extends BaseCommand {
   static hidden = false

@@ -1,8 +1,8 @@
-import { Diagnostics } from './diagnostics'
-import { validateResponseTimes } from './internal/common-diagnostics'
-import { Monitor, MonitorProps } from './monitor'
-import { Session } from './project'
-import { UrlRequest } from './url-request'
+import { Diagnostics } from './diagnostics.js'
+import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { Monitor, MonitorProps } from './monitor.js'
+import { Session } from './project.js'
+import { UrlRequest } from './url-request.js'
 
 /**
  * Configuration properties for UrlMonitor.

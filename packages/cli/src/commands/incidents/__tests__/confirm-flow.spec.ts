@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { StatusPage } from '../../../rest/status-pages'
+import type { StatusPage } from '../../../rest/status-pages.js'
 
 vi.mock('../../../helpers/cli-mode', () => ({
   detectCliMode: vi.fn(() => 'agent'),
@@ -14,13 +14,13 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
-import { detectCliMode } from '../../../helpers/cli-mode'
-import * as api from '../../../rest/api'
-import { AuthCommand } from '../../authCommand'
-import IncidentsCreate from '../create'
-import IncidentsUpdate from '../update'
-import IncidentsResolve from '../resolve'
-import IncidentsList from '../list'
+import { detectCliMode } from '../../../helpers/cli-mode.js'
+import * as api from '../../../rest/api.js'
+import { AuthCommand } from '../../authCommand.js'
+import IncidentsCreate from '../create.js'
+import IncidentsUpdate from '../update.js'
+import IncidentsResolve from '../resolve.js'
+import IncidentsList from '../list.js'
 
 const statusPageFixture: StatusPage = {
   id: 'sp-1',

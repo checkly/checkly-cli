@@ -1,7 +1,7 @@
-import { Comment } from './comment'
-import { IdentifierValue } from './identifier'
-import { Output } from './output'
-import { Value } from './value'
+import { Comment } from './comment.js'
+import { IdentifierValue } from './identifier.js'
+import { Output } from './output.js'
+import { Value } from './value.js'
 
 export abstract class Declaration {
   abstract render (output: Output): void

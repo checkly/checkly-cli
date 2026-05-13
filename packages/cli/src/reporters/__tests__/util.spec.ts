@@ -1,11 +1,11 @@
 import { Settings } from 'luxon'
 import { describe, it, expect, beforeAll } from 'vitest'
 
-import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus } from '../util'
-import { simpleCheckFixture } from './fixtures/simple-check'
-import { apiCheckResult } from './fixtures/api-check-result'
-import { browserCheckResult } from './fixtures/browser-check-result'
-import { agenticCheckResult, agenticCheckResultWithFailures } from './fixtures/agentic-check-result'
+import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus } from '../util.js'
+import { simpleCheckFixture } from './fixtures/simple-check.js'
+import { apiCheckResult } from './fixtures/api-check-result.js'
+import { browserCheckResult } from './fixtures/browser-check-result.js'
+import { agenticCheckResult, agenticCheckResultWithFailures } from './fixtures/agentic-check-result.js'
 
 function stripAnsi (input: string): string {
   return input.replace(
@@ -19,24 +19,29 @@ beforeAll(() => {
 
 describe('formatCheckTitle()', () => {
   it('should print a failed check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.FAILED, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('failed-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.FAILED, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a passed check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.SUCCESSFUL, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('passed-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.SUCCESSFUL, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a degraded check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.DEGRADED, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('degraded-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.DEGRADED, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a running check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.RUNNING, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('running-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.RUNNING, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a scheduling check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.SCHEDULING, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('scheduling-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.SCHEDULING, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
 })
 

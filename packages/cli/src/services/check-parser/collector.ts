@@ -1,4 +1,4 @@
-import { DependencyParseError } from './errors'
+import { DependencyParseError } from './errors.js'
 
 export type UnsupportedNpmDependencies = {
   file: string

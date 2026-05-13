@@ -1,7 +1,7 @@
-import { Bundle } from './construct'
-import { BundlePathMarker } from '../services/check-parser/bundler'
-import { PlaywrightCheck } from './playwright-check'
-import { Ref } from './ref'
+import { Bundle } from './construct.js'
+import { BundlePathMarker } from '../services/check-parser/bundler.js'
+import { PlaywrightCheck } from './playwright-check.js'
+import { Ref } from './ref.js'
 
 export interface PlaywrightCheckBundleProps {
   groupId?: Ref

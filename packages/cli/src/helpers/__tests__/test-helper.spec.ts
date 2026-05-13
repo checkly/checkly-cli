@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { prepareReportersTypes } from '../test-helper'
+import { prepareReportersTypes } from '../test-helper.js'
 
 vi.mock('ci-info', () => ({ isCI: false }))
 

@@ -1,8 +1,8 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
-import { IcmpRequest } from './icmp-request'
-import { valueForIcmpRequest } from './icmp-request-codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
+import { IcmpRequest } from './icmp-request.js'
+import { valueForIcmpRequest } from './icmp-request-codegen.js'
 
 export interface IcmpMonitorResource extends MonitorResource {
   checkType: 'ICMP'

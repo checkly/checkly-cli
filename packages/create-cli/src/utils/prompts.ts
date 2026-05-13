@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
-import { generateProjectName, isValidProjectDirectory } from '../utils/directory'
+import { generateProjectName, isValidProjectDirectory } from '../utils/directory.js'
 
 export const PROJECT_TEMPLATES = [
   { value: 'advanced-project', title: 'An advanced TypeScript project with multiple examples and best practices (recommended)' },

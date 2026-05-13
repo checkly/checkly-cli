@@ -1,8 +1,8 @@
 import chalk from 'chalk'
 import { ux } from '@oclif/core'
 
-import { BaseCommand } from '../commands/baseCommand'
-import { wrap } from './wrap'
+import { BaseCommand } from '../commands/baseCommand.js'
+import { wrap } from './wrap.js'
 import logSymbols from 'log-symbols'
 
 const textWrapOptions = {

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
-import { JsonBuilder } from '../json'
-import { generateMapAndTestResultIds } from './helpers'
+import { JsonBuilder } from '../json.js'
+import { generateMapAndTestResultIds } from './helpers.js'
 
 vi.mock('../../rest/api', () => ({
   getDefaults: () => ({

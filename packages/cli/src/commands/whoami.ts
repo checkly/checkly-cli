@@ -1,5 +1,5 @@
-import * as api from '../rest/api'
-import { AuthCommand } from './authCommand'
+import * as api from '../rest/api.js'
+import { AuthCommand } from './authCommand.js'
 
 export default class Whoami extends AuthCommand {
   static hidden = false

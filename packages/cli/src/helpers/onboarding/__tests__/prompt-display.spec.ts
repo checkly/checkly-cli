@@ -10,9 +10,9 @@ vi.mock('../prompts-helpers', () => ({
   makeOnCancel: vi.fn(() => vi.fn()),
 }))
 
-import { copyToClipboard } from '../clipboard'
+import { copyToClipboard } from '../clipboard.js'
 import prompts from 'prompts'
-import { displayStarterPrompt } from '../prompt-display'
+import { displayStarterPrompt } from '../prompt-display.js'
 
 const mockCopyToClipboard = vi.mocked(copyToClipboard)
 const mockPrompts = vi.mocked(prompts)

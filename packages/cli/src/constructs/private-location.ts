@@ -1,8 +1,8 @@
-import { Construct } from './construct'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { Diagnostics } from './diagnostics'
-import { validatePhysicalIdIsUuid } from './internal/common-diagnostics'
-import { Session } from './project'
+import { Construct } from './construct.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { Diagnostics } from './diagnostics.js'
+import { validatePhysicalIdIsUuid } from './internal/common-diagnostics.js'
+import { Session } from './project.js'
 
 export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow-right' | 'arrow-small-down'
   | 'arrow-small-left' | 'arrow-small-right' | 'arrow-small-up' | 'arrow-up' | 'beaker' | 'bell' | 'bold'

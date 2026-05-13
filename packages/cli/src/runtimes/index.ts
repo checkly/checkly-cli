@@ -1,2 +1,2 @@
-export { Runtime } from './runtime'
-export { loadSnapshot } from './snapshot'
+export { Runtime } from './runtime.js'
+export { loadSnapshot } from './snapshot.js'

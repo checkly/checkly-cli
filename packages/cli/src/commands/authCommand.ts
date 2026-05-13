@@ -1,10 +1,10 @@
 import prompts from 'prompts'
-import { BaseCommand } from './baseCommand'
-import * as api from '../rest/api'
-import { Account } from '../rest/accounts'
-import { detectCliMode } from '../helpers/cli-mode'
-import type { CommandPreview } from '../helpers/command-preview'
-import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview'
+import { BaseCommand } from './baseCommand.js'
+import * as api from '../rest/api.js'
+import { Account } from '../rest/accounts.js'
+import { detectCliMode } from '../helpers/cli-mode.js'
+import type { CommandPreview } from '../helpers/command-preview.js'
+import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
 
 export abstract class AuthCommand extends BaseCommand {
   static hidden = true

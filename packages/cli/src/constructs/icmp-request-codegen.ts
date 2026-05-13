@@ -1,7 +1,7 @@
-import { GeneratedFile, object, Program, Value } from '../sourcegen'
-import { valueForIcmpAssertion } from './icmp-assertion-codegen'
-import { IcmpRequest } from './icmp-request'
-import { Context } from './internal/codegen'
+import { GeneratedFile, object, Program, Value } from '../sourcegen/index.js'
+import { valueForIcmpAssertion } from './icmp-assertion-codegen.js'
+import { IcmpRequest } from './icmp-request.js'
+import { Context } from './internal/codegen/index.js'
 
 export function valueForIcmpRequest (
   program: Program,

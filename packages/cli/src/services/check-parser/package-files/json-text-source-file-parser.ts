@@ -1,5 +1,5 @@
-import { FileMeta, SourceFile } from './source-file'
-import { SourceFileParserFuncState, SourceFileParser } from './source-file-parser'
+import { FileMeta, SourceFile } from './source-file.js'
+import { SourceFileParserFuncState, SourceFileParser } from './source-file-parser.js'
 
 class UninitializedJsonTextSourceFileParserState extends SourceFileParser {
   private static init?: Promise<void>

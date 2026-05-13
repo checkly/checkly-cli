@@ -1,4 +1,4 @@
-import { FileMatch } from './match'
+import { FileMatch } from './match.js'
 
 export interface FileLoaderOptions {
   match?: FileMatch

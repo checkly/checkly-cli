@@ -1,8 +1,8 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
-import { UrlRequest } from './url-request'
-import { valueForUrlRequest } from './url-request-codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
+import { UrlRequest } from './url-request.js'
+import { valueForUrlRequest } from './url-request-codegen.js'
 
 export interface UrlMonitorResource extends MonitorResource {
   checkType: 'URL'

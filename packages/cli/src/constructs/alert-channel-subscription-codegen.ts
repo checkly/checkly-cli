@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
 
 export interface AlertChannelSubscriptionResource {
   alertChannelId: number

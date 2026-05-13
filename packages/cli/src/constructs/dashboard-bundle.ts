@@ -1,5 +1,5 @@
-import { Bundle } from './construct'
-import { Dashboard } from './dashboard'
+import { Bundle } from './construct.js'
+import { Dashboard } from './dashboard.js'
 
 export interface DashboardBundleProps {
   customCSS?: string

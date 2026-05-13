@@ -1,11 +1,11 @@
 import chalk from 'chalk'
-import { spinner } from '../utils/terminal'
-import { loadPlaywrightConfig } from '../utils/directory'
+import { spinner } from '../utils/terminal.js'
+import { loadPlaywrightConfig } from '../utils/directory.js'
 import * as recast from 'recast'
 import * as path from 'path'
 import * as fs from 'fs'
-import * as ora from 'ora'
-import PlaywrightConfigTemplate from '../utils/playwright-config-template'
+import type { Ora } from 'ora'
+import PlaywrightConfigTemplate from '../utils/playwright-config-template.js'
 export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFileName: string) {
   const copySpinner = spinner('Copying your playwright config')
   try {
@@ -36,7 +36,7 @@ export async function copyPlaywrightConfig (dirPath: string, playwrightConfigFil
   copySpinner.succeed()
 }
 
-function handleError (copySpinner: ora.Ora, message: string | unknown) {
+function handleError (copySpinner: Ora, message: string | unknown) {
   copySpinner.text = chalk.red('Something went wrong when copying your playwrightConfig file')
   copySpinner.fail()
   // eslint-disable-next-line

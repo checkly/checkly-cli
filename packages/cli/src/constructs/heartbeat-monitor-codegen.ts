@@ -1,7 +1,7 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
-import { Heartbeat } from './heartbeat-monitor'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
+import { Heartbeat } from './heartbeat-monitor.js'
 
 export interface HeartbeatMonitorResource extends MonitorResource {
   checkType: 'HEARTBEAT'

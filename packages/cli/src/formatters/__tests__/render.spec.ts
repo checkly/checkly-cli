@@ -17,7 +17,7 @@ import {
   renderTable,
   type DetailField,
   type ColumnDef,
-} from '../render'
+} from '../render.js'
 
 describe('stripAnsi', () => {
   it('removes ANSI escape codes', () => {

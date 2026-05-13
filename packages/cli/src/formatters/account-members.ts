@@ -1,12 +1,12 @@
 import chalk from 'chalk'
-import type { AccountMember } from '../rest/account-members'
+import type { AccountMember } from '../rest/account-members.js'
 import {
   type ColumnDef,
   type OutputFormat,
   formatDate,
   renderTable,
   truncateToWidth,
-} from './render'
+} from './render.js'
 
 export interface AccountMembersTableOptions {
   showId?: boolean

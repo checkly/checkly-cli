@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { wrap } from '../wrap'
+import { wrap } from '../wrap.js'
 
 // All output lines stay within 80 visible characters for split-view
 // terminal compatibility.
