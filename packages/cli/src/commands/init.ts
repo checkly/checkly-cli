@@ -363,6 +363,7 @@ export default class Init extends BaseCommand {
       }
     }
 
+    // eslint-disable-next-line no-useless-assignment
     let nextContext = detectProjectContext(projectDir)
 
     const depsResult = await runDepsInstall(

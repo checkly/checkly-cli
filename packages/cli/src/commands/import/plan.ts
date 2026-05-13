@@ -1534,7 +1534,7 @@ function parseFilter (spec: string): ImportPlanFilter {
     }
   } catch (err) {
     if (err instanceof InvalidResourceIdentifierError) {
-      throw new Error(`Invalid resource specifier '${spec}': ${err.message}`)
+      throw new Error(`Invalid resource specifier '${spec}': ${err.message}`, { cause: err })
     }
 
     throw err

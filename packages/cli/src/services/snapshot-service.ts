@@ -30,7 +30,7 @@ export async function pullSnapshots (basePath: string, snapshots?: Snapshot[] | 
       await stream.finished(contentStream)
     }
   } catch (err: any) {
-    throw new Error(`Error downloading snapshots: ${err.message}`)
+    throw new Error(`Error downloading snapshots: ${err.message}`, { cause: err })
   }
 }
 
@@ -59,6 +59,6 @@ export async function uploadSnapshots (rawSnapshots?: Array<{ absolutePath: stri
     }
     return snapshots
   } catch (err: any) {
-    throw new Error(`Error uploading snapshots: ${err.message}`)
+    throw new Error(`Error uploading snapshots: ${err.message}`, { cause: err })
   }
 }

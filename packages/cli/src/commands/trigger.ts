@@ -245,7 +245,7 @@ export default class Trigger extends AuthCommand {
       }
       throw new Error(`The specified private location "${privateLocationSlugName}" was not found on account "${this.account.name}".`)
     } catch (err: any) {
-      throw new Error(`Failed to get private locations. ${err.message}.`)
+      throw new Error(`Failed to get private locations. ${err.message}.`, { cause: err })
     }
   }
 

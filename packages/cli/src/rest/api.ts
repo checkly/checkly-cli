@@ -23,6 +23,7 @@ import Incidents from './incidents'
 import Analytics from './analytics'
 import BatchAnalytics from './batch-analytics'
 import Entitlements from './entitlements'
+import AccountMembers from './account-members'
 import Rca from './rca'
 import Cancel from './cancel'
 import { handleErrorResponse, UnauthorizedError } from './errors'
@@ -60,7 +61,7 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   } catch (err: any) {
     if (err instanceof UnauthorizedError) {
       throw new Error(`Authentication failed with account id "${accountId}" `
-        + `and API key "...${apiKey?.slice(-4)}"`)
+        + `and API key "...${apiKey?.slice(-4)}"`, { cause: err })
     }
 
     throw err
@@ -127,5 +128,6 @@ export const incidents = new Incidents(api)
 export const analytics = new Analytics(api)
 export const batchAnalytics = new BatchAnalytics(api)
 export const entitlements = new Entitlements(api)
+export const accountMembers = new AccountMembers(api)
 export const rca = new Rca(api)
 export const cancel = new Cancel(api)
