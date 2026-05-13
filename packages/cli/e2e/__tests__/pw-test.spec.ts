@@ -77,7 +77,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-B',
-                testCommand: 'npx playwright test --grep @TAG-B',
+                testCommand: 'pnpm playwright test --grep @TAG-B',
                 frequency: 10,
               }),
             ]),
@@ -104,7 +104,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-B',
-                testCommand: 'npx playwright test --grep @TAG-B',
+                testCommand: 'pnpm playwright test --grep @TAG-B',
                 frequency: 5,
               }),
             ]),
@@ -131,7 +131,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-A',
-                testCommand: 'npx playwright test --grep @TAG-A',
+                testCommand: 'pnpm playwright test --grep @TAG-A',
                 installCommand: 'pnpm install',
               }),
             ]),
