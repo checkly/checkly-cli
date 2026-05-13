@@ -14,4 +14,3 @@ export {
   detectNativeTypeScriptSupport,
   hasNativeTypeScriptSupport,
 } from './native.js'
-export { TSNodeFileLoader, TSNodeFileLoaderOptions } from './ts-node.js'

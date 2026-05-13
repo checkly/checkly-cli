@@ -23,7 +23,9 @@ export class UninitializedJitiFileLoaderState extends FileLoader {
     UninitializedJitiFileLoaderState.init ??= (async () => {
       try {
         const jitiExports: JitiExports = await import('jiti')
-        const jiti = jitiExports.createJiti(__filename)
+        const jiti = jitiExports.createJiti(__filename, {
+          tsconfigPaths: true,
+        })
         JitiFileLoader.state = new InitializedJitiFileLoaderState(jiti)
       } catch (err) {
         JitiFileLoader.state = new FailedJitiFileLoaderState(err as Error)
