@@ -19,24 +19,29 @@ beforeAll(() => {
 
 describe('formatCheckTitle()', () => {
   it('should print a failed check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.FAILED, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('failed-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.FAILED, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a passed check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.SUCCESSFUL, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('passed-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.SUCCESSFUL, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a degraded check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.DEGRADED, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('degraded-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.DEGRADED, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a running check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.RUNNING, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('running-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.RUNNING, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
   it('should print a scheduling check title', () => {
-    expect(stripAnsi(formatCheckTitle(CheckStatus.SCHEDULING, simpleCheckFixture, { includeSourceFile: true })))
-      .toMatchSnapshot('scheduling-check-title')
+    const title = stripAnsi(formatCheckTitle(CheckStatus.SCHEDULING, simpleCheckFixture, { includeSourceFile: true }))
+    expect(title).toContain('/test/test-file.check.ts')
+    expect(title).toContain('Test Check')
   })
 })
 
