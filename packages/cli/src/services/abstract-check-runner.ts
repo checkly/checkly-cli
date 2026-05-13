@@ -99,7 +99,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       let isAskingToCancel = false
       let lastSigintAt = 0
 
-      if (this.detach) {
+      if (!this.detach) {
         sigintHandler = () => {
           const now = Date.now()
           if (now - lastSigintAt < 100) {
