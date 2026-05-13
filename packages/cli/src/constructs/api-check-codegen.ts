@@ -1,8 +1,8 @@
-import { Codegen, Context, validateScript } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
-import { Request } from './api-request'
-import { valueForRequest } from './api-request-codegen'
+import { Codegen, Context, validateScript } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
+import { Request } from './api-request.js'
+import { valueForRequest } from './api-request-codegen.js'
 
 export interface ApiCheckResource extends RuntimeCheckResource {
   checkType: 'API'

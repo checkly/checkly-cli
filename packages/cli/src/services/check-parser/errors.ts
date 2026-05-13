@@ -1,4 +1,4 @@
-import { ParseError, UnsupportedNpmDependencies } from './collector'
+import { ParseError, UnsupportedNpmDependencies } from './collector.js'
 
 export class DependencyParseError extends Error {
   entrypoint: string

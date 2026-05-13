@@ -25,9 +25,9 @@ vi.mock('prompts', () => ({
 }))
 
 import prompts from 'prompts'
-import { readSkillFile, writeSkillToTarget, promptForPlatformTarget } from '../../../commands/skills/install'
-import { detectCliMode, detectOperator } from '../../cli-mode'
-import { runSkillInstallStep } from '../skill-install'
+import { readSkillFile, writeSkillToTarget, promptForPlatformTarget } from '../../../commands/skills/install.js'
+import { detectCliMode, detectOperator } from '../../cli-mode.js'
+import { runSkillInstallStep } from '../skill-install.js'
 
 const mockDetectCliMode = vi.mocked(detectCliMode)
 const mockDetectOperator = vi.mocked(detectOperator)

@@ -1,5 +1,5 @@
-import { Package } from './package-files/workspace'
-import { VirtualFile } from './parser'
+import { Package } from './package-files/workspace.js'
+import { VirtualFile } from './parser.js'
 
 export const FAUX_PACKAGE_DESCRIPTION = `This is a placeholder for an `
   + `otherwise unused package that Checkly determined to be needed during `

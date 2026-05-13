@@ -1,7 +1,7 @@
 import {
   Assertion as CoreAssertion,
   NumericAssertionBuilder,
-} from './internal/assertion'
+} from './internal/assertion.js'
 
 /**
  * Sources that can be used for URL monitor assertions.

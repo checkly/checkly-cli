@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { Workspace } from '../workspace'
+import { Workspace } from '../workspace.js'
 
 describe('Workspace.resolvePatterns', () => {
   // Builds a temporary directory tree with both a workspace-style

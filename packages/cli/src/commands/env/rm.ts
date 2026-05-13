@@ -1,7 +1,7 @@
-import * as api from '../../rest/api'
+import * as api from '../../rest/api.js'
 import { Args } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { forceFlag } from '../../helpers/flags'
+import { AuthCommand } from '../authCommand.js'
+import { forceFlag } from '../../helpers/flags.js'
 
 export default class EnvRm extends AuthCommand {
   static hidden = false

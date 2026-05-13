@@ -4,9 +4,9 @@ import path from 'node:path'
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-codegen'
-import { Context } from '../internal/codegen/context'
-import { Program } from '../../sourcegen'
+import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-codegen.js'
+import { Context } from '../internal/codegen/context.js'
+import { Program } from '../../sourcegen/index.js'
 
 interface RenderEnv {
   rootDirectory: string

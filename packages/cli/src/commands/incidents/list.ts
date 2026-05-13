@@ -1,16 +1,16 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
-import { formatIncidentsList } from '../../formatters/incidents'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
+import { formatIncidentsList } from '../../formatters/incidents.js'
 import {
   filterIncidentsByStatus,
   flattenStatusPageServices,
   incidentListStatusOptions,
   type IncidentListStatusOption,
-} from '../../helpers/incidents'
+} from '../../helpers/incidents.js'
 
 export default class IncidentsList extends AuthCommand {
   static hidden = false

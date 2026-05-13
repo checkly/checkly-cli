@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import { Command, Flags } from '@oclif/core'
 
-import { Parser } from '../../services/check-parser/parser'
-import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
-import { DependencyParseError } from '../../services/check-parser/errors'
+import { Parser } from '../../services/check-parser/parser.js'
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
+import { DependencyParseError } from '../../services/check-parser/errors.js'
 
 export default class ParseFileCommand extends Command {
   static hidden = true

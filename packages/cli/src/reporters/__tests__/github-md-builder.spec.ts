@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
-import { GithubMdBuilder } from '../github'
-import { generateMapAndTestResultIds } from './helpers'
+import { GithubMdBuilder } from '../github.js'
+import { generateMapAndTestResultIds } from './helpers.js'
 
 vi.mock('../../rest/api', () => ({
   getDefaults: () => ({

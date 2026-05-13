@@ -1,5 +1,5 @@
-import type { IncidentService, IncidentSeverity, IncidentUpdateStatus, StatusPageIncident } from '../rest/incidents'
-import type { StatusPage, StatusPageService } from '../rest/status-pages'
+import type { IncidentService, IncidentSeverity, IncidentUpdateStatus, StatusPageIncident } from '../rest/incidents.js'
+import type { StatusPage, StatusPageService } from '../rest/status-pages.js'
 
 export const incidentSeverityOptions = ['minor', 'medium', 'major', 'critical'] as const
 export type IncidentSeverityOption = (typeof incidentSeverityOptions)[number]

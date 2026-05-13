@@ -1,25 +1,25 @@
 import { Flags } from '@oclif/core'
 import { isCI } from 'ci-info'
 
-import * as api from '../rest/api'
-import { AuthCommand } from './authCommand'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
-import type { Region } from '..'
-import TriggerRunner from '../services/trigger-runner'
+import * as api from '../rest/api.js'
+import { AuthCommand } from './authCommand.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util.js'
+import type { Region } from '../index.js'
+import TriggerRunner from '../services/trigger-runner.js'
 import {
   RunLocation,
   Events,
   PrivateRunLocation,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
-} from '../services/abstract-check-runner'
-import config from '../services/config'
-import { createReporters, ReporterType } from '../reporters/reporter'
-import { printLn } from '../reporters/util'
-import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions'
-import { Session, RetryStrategyBuilder } from '../constructs'
-import { DEFAULT_REGION } from '../helpers/constants'
+} from '../services/abstract-check-runner.js'
+import config from '../services/config.js'
+import { createReporters, ReporterType } from '../reporters/reporter.js'
+import { printLn } from '../reporters/util.js'
+import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
+import { Session, RetryStrategyBuilder } from '../constructs/index.js'
+import { DEFAULT_REGION } from '../helpers/constants.js'
 
 const MAX_RETRIES = 3
 

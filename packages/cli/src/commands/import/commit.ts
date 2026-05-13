@@ -3,13 +3,13 @@ import prompts from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
-import * as api from '../../rest/api'
-import { AuthCommand } from '../authCommand'
-import commonMessages from '../../messages/common-messages'
-import { splitConfigFilePath } from '../../services/util'
-import { loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan } from '../../rest/projects'
-import { BaseCommand } from '../baseCommand'
+import * as api from '../../rest/api.js'
+import { AuthCommand } from '../authCommand.js'
+import commonMessages from '../../messages/common-messages.js'
+import { splitConfigFilePath } from '../../services/util.js'
+import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { ImportPlan } from '../../rest/projects.js'
+import { BaseCommand } from '../baseCommand.js'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false

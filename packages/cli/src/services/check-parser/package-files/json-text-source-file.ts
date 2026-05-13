@@ -1,6 +1,6 @@
-import { JsonSourceFile } from './json-source-file'
-import { JsonTextSourceFileParser } from './json-text-source-file-parser'
-import { SourceFile } from './source-file'
+import { JsonSourceFile } from './json-source-file.js'
+import { JsonTextSourceFileParser } from './json-text-source-file-parser.js'
+import { SourceFile } from './source-file.js'
 
 export class JsonTextSourceFile<Schema> extends JsonSourceFile<Schema> {
   static #parser = new JsonTextSourceFileParser()

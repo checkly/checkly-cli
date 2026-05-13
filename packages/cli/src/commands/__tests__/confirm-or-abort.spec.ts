@@ -10,13 +10,13 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
-import { detectCliMode } from '../../helpers/cli-mode'
+import { detectCliMode } from '../../helpers/cli-mode.js'
 import prompts from 'prompts'
-import type { CommandPreview } from '../../helpers/command-preview'
+import type { CommandPreview } from '../../helpers/command-preview.js'
 
 // Minimal AuthCommand-like context for testing confirmOrAbort
 // We import the actual method after mocks are set up
-import { AuthCommand } from '../authCommand'
+import { AuthCommand } from '../authCommand.js'
 
 const basePreview: CommandPreview = {
   command: 'incidents create',

@@ -2,12 +2,12 @@ import chalk from 'chalk'
 import indentString from 'indent-string'
 import { DateTime } from 'luxon'
 
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import { Reporter } from './reporter'
-import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
-import type { RunLocation, SequenceId } from '../services/abstract-check-runner'
-import { Check } from '../constructs/check'
-import { testSessions } from '../rest/api'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import { Reporter } from './reporter.js'
+import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import type { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
+import { Check } from '../constructs/check.js'
+import { testSessions } from '../rest/api.js'
 
 // Map from file -> checkRunId -> check+result.
 // This lets us print a structured list of the checks.

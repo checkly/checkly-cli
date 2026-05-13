@@ -1,9 +1,9 @@
-import { Monitor, MonitorProps } from './monitor'
-import { IPFamily } from './ip'
-import { Session } from './project'
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
-import { Diagnostics } from './diagnostics'
-import { validateResponseTimes } from './internal/common-diagnostics'
+import { Monitor, MonitorProps } from './monitor.js'
+import { IPFamily } from './ip.js'
+import { Session } from './project.js'
+import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
+import { Diagnostics } from './diagnostics.js'
+import { validateResponseTimes } from './internal/common-diagnostics.js'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
 

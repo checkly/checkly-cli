@@ -1,4 +1,4 @@
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion'
+import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 
 type IcmpAssertionSource =
   | 'LATENCY'

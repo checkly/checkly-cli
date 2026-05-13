@@ -1,8 +1,8 @@
-import { GeneratedFile, object, Program, Value } from '../sourcegen'
-import { valueForAssertion } from './api-assertion-codegen'
-import { Request } from './api-request'
-import { Context } from './internal/codegen'
-import { valueForKeyValuePair } from './key-value-pair-codegen'
+import { GeneratedFile, object, Program, Value } from '../sourcegen/index.js'
+import { valueForAssertion } from './api-assertion-codegen.js'
+import { Request } from './api-request.js'
+import { Context } from './internal/codegen/index.js'
+import { valueForKeyValuePair } from './key-value-pair-codegen.js'
 
 export function valueForRequest (
   program: Program,

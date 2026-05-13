@@ -1,7 +1,7 @@
 import chalk from 'chalk'
-import AbstractListReporter from './abstract-list'
-import { SequenceId } from '../services/abstract-check-runner'
-import { print, printLn } from './util'
+import AbstractListReporter from './abstract-list.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { print, printLn } from './util.js'
 
 export default class DotReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {

@@ -1,4 +1,4 @@
-import { SourceFile } from './source-file'
+import { SourceFile } from './source-file.js'
 
 export abstract class SourceFileParser {
   abstract parseSourceFile<T = unknown> (sourceFile: SourceFile): Promise<T>

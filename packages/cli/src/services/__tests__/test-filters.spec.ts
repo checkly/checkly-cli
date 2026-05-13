@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../test-filters'
+import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../test-filters.js'
 
 describe('filterByCheckNamePattern()', () => {
   type TestTuple = [string, string, boolean]

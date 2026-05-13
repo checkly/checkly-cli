@@ -1,19 +1,19 @@
 import { Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
 import type {
   AccountMemberRole,
   AccountMemberStatus,
   AccountMemberType,
   AccountMembersListParams,
-} from '../../rest/account-members'
+} from '../../rest/account-members.js'
 import {
   formatAccountMembers,
   formatCursorNavigationHints,
   formatCursorPaginationInfo,
-} from '../../formatters/account-members'
+} from '../../formatters/account-members.js'
 
 const accountMemberTypes = ['member', 'invite'] as const
 const accountMemberRoles = ['OWNER', 'ADMIN', 'READ_WRITE', 'READ_RUN', 'READ_ONLY'] as const

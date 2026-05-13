@@ -1,8 +1,8 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
-import { DnsRequest } from './dns-request'
-import { valueForDnsRequest } from './dns-request-codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
+import { DnsRequest } from './dns-request.js'
+import { valueForDnsRequest } from './dns-request-codegen.js'
 
 export interface DnsMonitorResource extends MonitorResource {
   checkType: 'DNS'

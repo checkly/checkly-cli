@@ -1,7 +1,7 @@
 import chalk from 'chalk'
-import { formatMs } from './render'
-import type { OutputFormat } from './render'
-import type { AnalyticsResponse, AnalyticsSeriesEntry, QuickRange } from '../rest/analytics'
+import { formatMs } from './render.js'
+import type { OutputFormat } from './render.js'
+import type { AnalyticsResponse, AnalyticsSeriesEntry, QuickRange } from '../rest/analytics.js'
 
 export const rangeLabels: Record<QuickRange, string> = {
   last24Hours: 'last 24 hours',

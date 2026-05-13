@@ -1,5 +1,5 @@
-import { Construct } from './construct'
-import { Session } from './project'
+import { Construct } from './construct.js'
+import { Session } from './project.js'
 
 export type MaintenanceWindowRepeatUnit = 'DAY' | 'WEEK' | 'MONTH'
 

@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import type { StatusPage } from '../rest/status-pages'
+import type { StatusPage } from '../rest/status-pages.js'
 import {
   type OutputFormat,
   type ColumnDef,
@@ -7,7 +7,7 @@ import {
   truncateToWidth,
   renderTable,
   renderDetailFields,
-} from './render'
+} from './render.js'
 
 // --- Expanded row type: one row per service, all fields repeated ---
 

@@ -1,5 +1,5 @@
-import { Bundle, Construct } from './construct'
-import { Project, Resources } from './project'
+import { Bundle, Construct } from './construct.js'
+import { Project, Resources } from './project.js'
 
 export type ResourceDataBundle<T> = {
   construct: T

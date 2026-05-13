@@ -1,9 +1,9 @@
 import chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import config from '../services/config'
-import * as api from '../rest/api'
-import { AuthCommand } from './authCommand'
-import { selectAccount } from './login'
+import config from '../services/config.js'
+import * as api from '../rest/api.js'
+import { AuthCommand } from './authCommand.js'
+import { selectAccount } from './login.js'
 
 export default class Switch extends AuthCommand {
   static hidden = false

@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import type { IncidentUpdate, StatusPageIncident } from '../rest/incidents'
+import type { IncidentUpdate, StatusPageIncident } from '../rest/incidents.js'
 import {
   type OutputFormat,
   type ColumnDef,
@@ -9,7 +9,7 @@ import {
   renderDetailFields,
   formatDate,
   timeAgo,
-} from './render'
+} from './render.js'
 
 function normalizeLabel (value: string): string {
   return value.toLowerCase()

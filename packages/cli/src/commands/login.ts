@@ -1,11 +1,11 @@
 import open from 'open'
 import chalk from 'chalk'
-import { BaseCommand } from './baseCommand'
+import { BaseCommand } from './baseCommand.js'
 import prompts from 'prompts'
-import config from '../services/config'
-import * as api from '../rest/api'
-import type { Account } from '../rest/accounts'
-import { AuthContext } from '../auth'
+import config from '../services/config.js'
+import * as api from '../rest/api.js'
+import type { Account } from '../rest/accounts.js'
+import { AuthContext } from '../auth/index.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {

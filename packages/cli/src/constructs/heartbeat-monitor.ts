@@ -1,7 +1,7 @@
-import { Monitor, MonitorProps } from './monitor'
-import { Session } from './project'
+import { Monitor, MonitorProps } from './monitor.js'
+import { Session } from './project.js'
 import { DateTime } from 'luxon'
-import { CheckTypes } from '../constants'
+import { CheckTypes } from '../constants.js'
 
 type TimeUnits = 'seconds' | 'minutes' | 'hours' | 'days'
 

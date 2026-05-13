@@ -1,3 +1,3 @@
-export * as constructs from './constructs'
-export { defineConfig } from './config'
-export type { ChecklyConfig } from './services/checkly-config-loader'
+export * as constructs from './constructs/index.js'
+export { defineConfig } from './config.js'
+export type { ChecklyConfig } from './services/checkly-config-loader.js'

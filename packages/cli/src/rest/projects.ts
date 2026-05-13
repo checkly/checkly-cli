@@ -1,8 +1,8 @@
 import { type AxiosInstance } from 'axios'
-import type { GitInformation } from '../services/util'
-import { compressJSONPayload } from './util'
-import { SharedFile } from '../constructs'
-import { ConflictError, ForbiddenError, NotFoundError } from './errors'
+import type { GitInformation } from '../services/util.js'
+import { compressJSONPayload } from './util.js'
+import { SharedFile } from '../constructs/index.js'
+import { ConflictError, ForbiddenError, NotFoundError } from './errors.js'
 
 export interface Project {
   name: string

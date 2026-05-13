@@ -1,5 +1,5 @@
-import { IcmpAssertion } from './icmp-assertion'
-import { IPFamily } from './ip'
+import { IcmpAssertion } from './icmp-assertion.js'
+import { IPFamily } from './ip.js'
 
 /**
  * Configuration for ICMP ping requests.

@@ -18,8 +18,8 @@ vi.mock('../../../helpers/cli-mode', () => ({
 
 import { access, mkdir, readFile, writeFile } from 'fs/promises'
 import prompts from 'prompts'
-import { detectCliMode } from '../../../helpers/cli-mode'
-import SkillsInstall, { PLATFORM_TARGETS, readSkillFile, SKILL_FILE_PATH, writeSkillToTarget } from '../install'
+import { detectCliMode } from '../../../helpers/cli-mode.js'
+import SkillsInstall, { PLATFORM_TARGETS, readSkillFile, SKILL_FILE_PATH, writeSkillToTarget } from '../install.js'
 
 const SKILL_CONTENT = '# Test Skill Content\nThis is a test skill.'
 

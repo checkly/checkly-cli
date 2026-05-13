@@ -1,4 +1,4 @@
-import KeyValuePair from './key-value-pair'
+import KeyValuePair from './key-value-pair.js'
 
 /**
  * Represents an HTTP header for API checks.

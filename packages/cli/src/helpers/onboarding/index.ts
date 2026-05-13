@@ -1,7 +1,7 @@
-export { detectProjectContext, type ProjectContext } from './detect-project'
-export { loadPromptTemplate, type PromptVariables } from './template-prompt'
-export { displayStarterPrompt } from './prompt-display'
-export { runSkillInstallStep, refreshSkill, type SkillInstallResult } from './skill-install'
+export { detectProjectContext, type ProjectContext } from './detect-project.js'
+export { loadPromptTemplate, type PromptVariables } from './template-prompt.js'
+export { displayStarterPrompt } from './prompt-display.js'
+export { runSkillInstallStep, refreshSkill, type SkillInstallResult } from './skill-install.js'
 export {
   runDepsInstall,
   createConfig,
@@ -9,6 +9,6 @@ export {
   type ConfigCreationResult,
   type DepsInstallOptions,
   type DepsInstallResult,
-} from './boilerplate'
-export { makeOnCancel, successMessage } from './prompts-helpers'
-export { greeting, footer, agentFooter, noSkillWarning, existingProjectFooter } from './messages'
+} from './boilerplate.js'
+export { makeOnCancel, successMessage } from './prompts-helpers.js'
+export { greeting, footer, agentFooter, noSkillWarning, existingProjectFooter } from './messages.js'

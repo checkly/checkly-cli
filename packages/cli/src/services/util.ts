@@ -1,18 +1,19 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
+import { createRequire } from 'node:module'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
 import { glob } from 'glob'
-import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
-import { File } from './check-parser/parser'
-import * as JSON5 from 'json5'
-import { PlaywrightConfig } from './playwright-config'
-import { Session } from '../constructs/project'
+import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader.js'
+import { File } from './check-parser/parser.js'
+import JSON5 from 'json5'
+import { PlaywrightConfig } from './playwright-config.js'
+import { Session } from '../constructs/project.js'
 import semver from 'semver'
 import { existsSync } from 'fs'
-import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager'
+import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 
 export interface GitInformation {
   commitId: string
@@ -242,8 +243,8 @@ export async function bundlePlayWrightProject (
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
+    const require = createRequire(import.meta.url)
     const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const playwrightPkg = require(playwrightPath)
     const version = normalizeVersion(playwrightPkg.version)
 

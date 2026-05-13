@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { stripAnsi } from '../render'
+import { stripAnsi } from '../render.js'
 import {
   formatSummaryBar,
   formatTypeBreakdown,
@@ -9,7 +9,7 @@ import {
   formatCheckDetail,
   formatResults,
   formatErrorGroups,
-} from '../checks'
+} from '../checks.js'
 import {
   passingCheck,
   failingCheck,
@@ -33,7 +33,7 @@ import {
   archivedErrorGroup,
   errorGroupWithRca,
   errorGroupWithoutRca,
-} from './__fixtures__/fixtures'
+} from './__fixtures__/fixtures.js'
 
 // Pin time for timeAgo used in results/error groups
 beforeEach(() => {

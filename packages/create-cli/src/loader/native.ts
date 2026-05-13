@@ -1,5 +1,5 @@
-import { FileLoader, FileLoaderOptions } from './loader'
-import { FileMatch } from './match'
+import { FileLoader, FileLoaderOptions } from './loader.js'
+import { FileMatch } from './match.js'
 
 export type NativeFileLoaderOptions = FileLoaderOptions
 

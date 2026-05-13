@@ -1,4 +1,4 @@
-import { DnsAssertion } from './dns-assertion'
+import { DnsAssertion } from './dns-assertion.js'
 
 export type DnsRecordType =
   | 'A'

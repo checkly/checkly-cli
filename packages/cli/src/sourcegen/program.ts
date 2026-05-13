@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path, { extname } from 'node:path'
 
-import { Comment } from './comment'
-import { Output } from './output'
-import { Value } from './value'
-import { Declaration } from './decl'
+import { Comment } from './comment.js'
+import { Output } from './output.js'
+import { Value } from './value.js'
+import { Declaration } from './decl.js'
 
 type Content = Comment | Declaration | Value
 

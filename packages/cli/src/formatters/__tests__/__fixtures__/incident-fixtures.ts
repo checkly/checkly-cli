@@ -1,4 +1,4 @@
-import type { IncidentUpdate, StatusPageIncident } from '../../../rest/incidents'
+import type { IncidentUpdate, StatusPageIncident } from '../../../rest/incidents.js'
 
 export const investigatingIncident: StatusPageIncident = {
   id: '11111111-1111-1111-1111-111111111111',

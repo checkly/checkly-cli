@@ -1,11 +1,11 @@
 import prompts from 'prompts'
 import { Flags } from '@oclif/core'
-import * as api from '../rest/api'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { AuthCommand } from './authCommand'
-import { splitConfigFilePath } from '../services/util'
-import commonMessages from '../messages/common-messages'
-import { forceFlag } from '../helpers/flags'
+import * as api from '../rest/api.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { AuthCommand } from './authCommand.js'
+import { splitConfigFilePath } from '../services/util.js'
+import commonMessages from '../messages/common-messages.js'
+import { forceFlag } from '../helpers/flags.js'
 
 export default class Destroy extends AuthCommand {
   static hidden = false

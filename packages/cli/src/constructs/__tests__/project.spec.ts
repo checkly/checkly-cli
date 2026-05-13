@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { Session } from '../project'
-import { Construct } from '../construct'
-import { Diagnostics } from '../diagnostics'
+import { Session } from '../project.js'
+import { Construct } from '../construct.js'
+import { Diagnostics } from '../diagnostics.js'
 
 class TestConstruct extends Construct {
   constructor (logicalId: string) {

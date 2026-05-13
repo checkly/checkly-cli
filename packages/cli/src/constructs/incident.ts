@@ -1,4 +1,4 @@
-import { StatusPageService } from './status-page-service'
+import { StatusPageService } from './status-page-service.js'
 
 type IncidentSeverity = 'MINOR' | 'MEDIUM' | 'MAJOR' | 'CRITICAL'
 

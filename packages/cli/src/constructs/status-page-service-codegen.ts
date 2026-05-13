@@ -1,5 +1,5 @@
-import { Codegen, Context } from './internal/codegen'
-import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
 
 export interface StatusPageServiceResource {
   id: string

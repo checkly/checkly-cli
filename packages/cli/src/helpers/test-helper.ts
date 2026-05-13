@@ -1,9 +1,9 @@
-import { PrivateRunLocation, RunLocation } from '../services/abstract-check-runner'
-import { Session } from '../constructs'
-import type { Region } from '..'
-import { ReporterType } from '../reporters/reporter'
+import { PrivateRunLocation, RunLocation } from '../services/abstract-check-runner.js'
+import { Session } from '../constructs/index.js'
+import type { Region } from '../index.js'
+import { ReporterType } from '../reporters/reporter.js'
 import { isCI } from 'ci-info'
-import { DEFAULT_REGION } from './constants'
+import { DEFAULT_REGION } from './constants.js'
 
 export async function prepareRunLocation (
   configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
