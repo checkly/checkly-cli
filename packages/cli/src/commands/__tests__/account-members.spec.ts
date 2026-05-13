@@ -3,7 +3,7 @@ import {
   normalizeAccountMemberRole,
   normalizeAccountMemberStatus,
   normalizeAccountMemberType,
-} from '../account/members'
+} from '../account/members.js'
 
 describe('account members flag normalization', () => {
   it('normalizes type values case-insensitively', () => {
