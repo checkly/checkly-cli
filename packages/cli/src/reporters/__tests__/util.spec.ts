@@ -1,7 +1,7 @@
 import { Settings } from 'luxon'
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach } from 'vitest'
 
-import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus } from '../util.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, resultToCheckStatus, isInteractiveTerminal } from '../util.js'
 import { simpleCheckFixture } from './fixtures/simple-check.js'
 import { apiCheckResult } from './fixtures/api-check-result.js'
 import { browserCheckResult } from './fixtures/browser-check-result.js'
@@ -162,5 +162,88 @@ describe('formatCheckTitle() with CANCELLED status', () => {
   it('should use the ⊘ symbol for a cancelled check title', () => {
     const result = stripAnsi(formatCheckTitle(CheckStatus.CANCELLED, simpleCheckFixture))
     expect(result).toContain('⊘')
+  })
+})
+
+describe('isInteractiveTerminal()', () => {
+  const originalStdinIsTTY = process.stdin.isTTY
+  const originalStdoutIsTTY = process.stdout.isTTY
+  const originalCI = process.env.CI
+  const originalTERM = process.env.TERM
+
+  afterEach(() => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true })
+    Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true })
+    if (originalCI === undefined) {
+      delete process.env.CI
+    } else {
+      process.env.CI = originalCI
+    }
+    if (originalTERM === undefined) {
+      delete process.env.TERM
+    } else {
+      process.env.TERM = originalTERM
+    }
+  })
+
+  function setTTY (stdin: boolean, stdout: boolean) {
+    Object.defineProperty(process.stdin, 'isTTY', { value: stdin, configurable: true })
+    Object.defineProperty(process.stdout, 'isTTY', { value: stdout, configurable: true })
+  }
+
+  it('should return true when stdin and stdout are TTYs and no CI or dumb-term env is set', () => {
+    setTTY(true, true)
+    delete process.env.CI
+    delete process.env.TERM
+
+    expect(isInteractiveTerminal()).toBe(true)
+  })
+
+  it('should return false when stdin is not a TTY', () => {
+    setTTY(false, true)
+    delete process.env.CI
+    delete process.env.TERM
+
+    expect(isInteractiveTerminal()).toBe(false)
+  })
+
+  it('should return false when stdout is not a TTY', () => {
+    setTTY(true, false)
+    delete process.env.CI
+    delete process.env.TERM
+
+    expect(isInteractiveTerminal()).toBe(false)
+  })
+
+  it('should return false when CI=true', () => {
+    setTTY(true, true)
+    process.env.CI = 'true'
+    delete process.env.TERM
+
+    expect(isInteractiveTerminal()).toBe(false)
+  })
+
+  it('should return true when CI is set to a value other than "true"', () => {
+    setTTY(true, true)
+    process.env.CI = '1'
+    delete process.env.TERM
+
+    expect(isInteractiveTerminal()).toBe(true)
+  })
+
+  it('should return false when TERM=dumb', () => {
+    setTTY(true, true)
+    delete process.env.CI
+    process.env.TERM = 'dumb'
+
+    expect(isInteractiveTerminal()).toBe(false)
+  })
+
+  it('should return true when TERM is set to a value other than "dumb"', () => {
+    setTTY(true, true)
+    delete process.env.CI
+    process.env.TERM = 'xterm-256color'
+
+    expect(isInteractiveTerminal()).toBe(true)
   })
 })

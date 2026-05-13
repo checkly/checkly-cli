@@ -1,6 +1,6 @@
 import prompts from 'prompts'
 import { assets, testSessions } from '../rest/api.js'
-import { printLn } from '../reporters/util.js'
+import { isInteractiveTerminal, printLn } from '../reporters/util.js'
 import { SocketClient } from './socket-client.js'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
@@ -328,6 +328,11 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
+    if (!isInteractiveTerminal()) {
+      this.emit(Events.CANCEL, testSessionId)
+      printLn('Cancelling test session...', 2)
+      return true
+    }
     printLn('')
     const { confirmed } = await prompts({
       type: 'confirm',

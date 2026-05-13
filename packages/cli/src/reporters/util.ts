@@ -724,6 +724,13 @@ export function resultToCheckStatus (checkResult: any): CheckStatus {
       : CheckStatus.SUCCESSFUL
 }
 
+export function isInteractiveTerminal (): boolean {
+  return process.stdin.isTTY === true
+    && process.stdout.isTTY === true
+    && process.env.CI !== 'true'
+    && process.env.TERM !== 'dumb'
+}
+
 export function print (text: string) {
   process.stdout.write(text)
 }

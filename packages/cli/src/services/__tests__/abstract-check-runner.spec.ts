@@ -9,6 +9,14 @@ vi.mock('prompts', () => ({
   default: vi.fn(),
 }))
 
+vi.mock('../../reporters/util', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../reporters/util')>()
+  return {
+    ...actual,
+    isInteractiveTerminal: vi.fn(() => true),
+  }
+})
+
 vi.mock('../../rest/api', () => ({
   testSessions: {
     run: vi.fn().mockResolvedValue({ data: { testSessionId: 'ts-123', sequenceIds: {} } }),
@@ -37,6 +45,7 @@ vi.mock('../socket-client', () => ({
 
 import prompts from 'prompts'
 import { SocketClient } from '../socket-client'
+import { isInteractiveTerminal } from '../../reporters/util'
 
 /** Minimal concrete subclass — scheduleChecks immediately returns with zero checks so the runner exits cleanly. */
 class StubCheckRunner extends AbstractCheckRunner {
@@ -77,22 +86,22 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     vi.restoreAllMocks()
   })
 
-  it('registers a SIGINT handler during run() when detach is true', async () => {
+  it('registers a SIGINT handler during run() when detach is false', async () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     await runner.run()
 
     const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
     expect(sigintCalls).toHaveLength(1)
   })
 
-  it('does not register a SIGINT handler during run() when detach is false', async () => {
+  it('does not register a SIGINT handler during run() when detach is true', async () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
-    const runner = makeRunner(false)
+    const runner = makeRunner(true)
     await runner.run()
 
     const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
@@ -103,7 +112,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     const offSpy = vi.spyOn(process, 'off').mockReturnValue(process)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     await runner.run()
 
     const registeredHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
@@ -121,7 +130,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-cancel', checks: [] })
 
     const cancelEvents: unknown[] = []
@@ -152,7 +161,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
     vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-double', checks: [] })
 
     await runner.run()
@@ -182,7 +191,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     vi.spyOn(process, 'once').mockReturnValue(process)
     vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-decline', checks: [] })
 
     const cancelEvents: unknown[] = []
@@ -206,7 +215,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
     vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-undefined', checks: [] })
 
     const cancelEvents: unknown[] = []
@@ -236,7 +245,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as never)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-x', checks: [] })
 
     await runner.run()
@@ -266,7 +275,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     })
     vi.spyOn(process, 'off').mockReturnValue(process)
 
-    const runner = makeRunner(true)
+    const runner = makeRunner(false)
     runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-debounce', checks: [] })
 
     await runner.run()
@@ -280,6 +289,35 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
 
     await vi.waitFor(() => expect(promptsMock).toHaveBeenCalledTimes(1), { timeout: 500 })
     expect(promptsMock).toHaveBeenCalledTimes(1)
+  })
+  it('emits Events.CANCEL immediately without showing a prompts dialog when terminal is non-interactive', async () => {
+    // In non-interactive environments (CI, piped stdin) isInteractiveTerminal() returns false.
+    // The cancel confirmation dialog must be skipped and CANCEL emitted straight away.
+    vi.mocked(isInteractiveTerminal).mockReturnValue(false)
+
+    let sigintHandler: (() => void) | undefined
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
+      if (event === 'SIGINT') sigintHandler = listener
+      return process
+    })
+    vi.spyOn(process, 'off').mockReturnValue(process)
+
+    const runner = makeRunner(false)
+    runner.scheduleChecks = vi.fn().mockResolvedValue({ testSessionId: 'ts-noninteractive', checks: [] })
+
+    const cancelEvents: unknown[] = []
+    runner.on(Events.CANCEL, id => cancelEvents.push(id))
+
+    await runner.run()
+
+    const promptsMock = vi.mocked(prompts)
+    promptsMock.mockClear()
+
+    sigintHandler?.()
+
+    await vi.waitFor(() => expect(cancelEvents).toHaveLength(1))
+    expect(cancelEvents[0]).toBe('ts-noninteractive')
+    expect(promptsMock).not.toHaveBeenCalled()
   })
 })
 
