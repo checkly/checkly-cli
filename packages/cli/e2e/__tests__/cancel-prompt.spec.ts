@@ -57,6 +57,7 @@ describe('cancel-prompt fixture', () => {
     const proc = spawn('npx', ['tsx', fixturePath], {
       env: { ...process.env, FORCE_RAW: '1' },
       stdio: 'pipe',
+      shell: true,
     })
 
     // Act — write ^C immediately so it is buffered before the prompt opens
@@ -78,6 +79,7 @@ describe('cancel-prompt fixture', () => {
     const proc = spawn('npx', ['tsx', fixturePath], {
       env: { ...process.env, FORCE_RAW: '1' },
       stdio: 'pipe',
+      shell: true,
     })
 
     // Act
