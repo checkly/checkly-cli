@@ -32,7 +32,7 @@ import {
   reWriteChecklyConfigFile,
 } from '../helpers/write-config-helpers.js'
 import * as acornParser from '../helpers/recast-acorn-parser.js'
-import * as JSON5 from 'json5'
+import JSON5 from 'json5'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
 import { cased } from '../sourcegen/index.js'
