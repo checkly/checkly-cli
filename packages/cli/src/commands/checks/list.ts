@@ -61,8 +61,9 @@ export default class ChecksList extends AuthCommand {
     const { page, limit } = flags
 
     try {
-      // All filtering is server-side — single paginated API call
-      const [paginated, statuses] = await Promise.all([
+      // Paginated + filtered for the table; full account fetch drives the
+      // account-wide summary bar, which never reacts to filters.
+      const [paginated, allChecks, statuses] = await Promise.all([
         api.checks.getAllPaginated({
           limit,
           page,
@@ -71,6 +72,7 @@ export default class ChecksList extends AuthCommand {
           search: flags.search,
           status: flags.status,
         }),
+        api.checks.fetchAll(),
         api.checkStatuses.fetchAll().catch(() => []),
       ])
 
@@ -112,7 +114,7 @@ export default class ChecksList extends AuthCommand {
       // Table output
       const output: string[] = []
 
-      output.push(formatSummaryBar(statuses, totalChecks))
+      output.push(formatSummaryBar(allChecks, statuses))
       output.push('')
 
       if (checks.length === 0) {

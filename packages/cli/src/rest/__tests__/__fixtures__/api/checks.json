@@ -1,0 +1,490 @@
+[
+  {
+    "id": "check-001",
+    "name": "Check 001",
+    "description": null,
+    "checkType": "API",
+    "activated": true,
+    "muted": false,
+    "frequency": 5,
+    "frequencyOffset": 5,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 1,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "request": {
+      "url": "https://example.com/check-001",
+      "method": "GET"
+    },
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "updated_at": "2025-01-02T00:00:00.000Z"
+  },
+  {
+    "id": "check-002",
+    "name": "Check 002",
+    "description": null,
+    "checkType": "API",
+    "activated": true,
+    "muted": false,
+    "frequency": 60,
+    "frequencyOffset": 412,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 2,
+    "groupOrder": 6,
+    "runtimeId": null,
+    "scriptPath": null,
+    "request": {
+      "url": "https://example.com/check-002",
+      "method": "GET"
+    },
+    "created_at": "2025-01-02T00:00:00.000Z",
+    "updated_at": "2025-01-03T00:00:00.000Z"
+  },
+  {
+    "id": "check-003",
+    "name": "Check 003",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": true,
+    "muted": false,
+    "frequency": 15,
+    "frequencyOffset": 108,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 3,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": "__checks__/check-003.check.ts",
+    "created_at": "2025-01-03T00:00:00.000Z",
+    "updated_at": "2025-01-04T00:00:00.000Z"
+  },
+  {
+    "id": "check-004",
+    "name": "Check 004",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": true,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 90,
+    "locations": [
+      "us-east-1",
+      "us-west-1",
+      "eu-central-1",
+      "ap-south-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1"
+    ],
+    "groupId": 4,
+    "groupOrder": 3,
+    "runtimeId": "2024.02",
+    "scriptPath": "__checks__/check-004.check.ts",
+    "created_at": "2025-01-04T00:00:00.000Z",
+    "updated_at": "2025-01-05T00:00:00.000Z"
+  },
+  {
+    "id": "check-005",
+    "name": "Check 005",
+    "description": null,
+    "checkType": "HEARTBEAT",
+    "activated": true,
+    "muted": false,
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "heartbeat": {
+      "period": 1,
+      "periodUnit": "days",
+      "grace": 1,
+      "graceUnit": "hours"
+    },
+    "created_at": "2025-01-05T00:00:00.000Z",
+    "updated_at": "2025-01-06T00:00:00.000Z"
+  },
+  {
+    "id": "check-006",
+    "name": "Check 006",
+    "description": null,
+    "checkType": "MULTI_STEP",
+    "activated": true,
+    "muted": false,
+    "frequency": 5,
+    "frequencyOffset": 34,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2",
+      "tag-3",
+      "tag-4"
+    ],
+    "groupId": 5,
+    "groupOrder": null,
+    "runtimeId": "2025.04",
+    "scriptPath": "__checks__/check-006.check.ts",
+    "created_at": "2025-01-06T00:00:00.000Z",
+    "updated_at": "2025-01-07T00:00:00.000Z"
+  },
+  {
+    "id": "check-007",
+    "name": "Check 007",
+    "description": null,
+    "checkType": "API",
+    "activated": true,
+    "muted": false,
+    "frequency": 5,
+    "frequencyOffset": 27,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 6,
+    "groupOrder": 25,
+    "runtimeId": "2023.09",
+    "scriptPath": null,
+    "request": {
+      "url": "https://example.com/check-007",
+      "method": "GET"
+    },
+    "created_at": "2025-01-07T00:00:00.000Z",
+    "updated_at": "2025-01-08T00:00:00.000Z"
+  },
+  {
+    "id": "check-008",
+    "name": "Check 008",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": true,
+    "muted": false,
+    "frequency": 5,
+    "frequencyOffset": 42,
+    "locations": [],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 6,
+    "groupOrder": 18,
+    "runtimeId": "2023.02",
+    "scriptPath": "__checks__/check-008.check.ts",
+    "created_at": "2025-01-08T00:00:00.000Z",
+    "updated_at": "2025-01-09T00:00:00.000Z"
+  },
+  {
+    "id": "check-009",
+    "name": "Check 009",
+    "description": null,
+    "checkType": "PLAYWRIGHT",
+    "activated": true,
+    "muted": false,
+    "frequency": 30,
+    "locations": [
+      "us-east-1",
+      "eu-west-1",
+      "ap-southeast-1",
+      "sa-east-1"
+    ],
+    "privateLocations": [],
+    "tags": [],
+    "groupId": 7,
+    "groupOrder": null,
+    "created_at": "2025-01-09T00:00:00.000Z",
+    "updated_at": "2025-01-10T00:00:00.000Z"
+  },
+  {
+    "id": "check-010",
+    "name": "Check 010",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": true,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 83,
+    "locations": [
+      "us-east-1",
+      "eu-west-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 8,
+    "groupOrder": 5,
+    "runtimeId": "2025.04",
+    "scriptPath": "__checks__/check-010.check.ts",
+    "created_at": "2025-01-10T00:00:00.000Z",
+    "updated_at": "2025-01-11T00:00:00.000Z"
+  },
+  {
+    "id": "check-011",
+    "name": "Check 011",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": true,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 76,
+    "locations": [
+      "us-east-1",
+      "eu-west-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2"
+    ],
+    "groupId": 8,
+    "groupOrder": 9,
+    "runtimeId": "2025.04",
+    "scriptPath": "__checks__/check-011.check.ts",
+    "created_at": "2025-01-11T00:00:00.000Z",
+    "updated_at": "2025-01-12T00:00:00.000Z"
+  },
+  {
+    "id": "check-012",
+    "name": "Check 012",
+    "description": null,
+    "checkType": "AGENTIC",
+    "activated": true,
+    "muted": true,
+    "frequency": 30,
+    "frequencyOffset": 178,
+    "locations": [
+      "us-east-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2",
+      "tag-3"
+    ],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "created_at": "2025-01-12T00:00:00.000Z",
+    "updated_at": "2025-01-13T00:00:00.000Z"
+  },
+  {
+    "id": "check-013",
+    "name": "Check 013",
+    "description": null,
+    "checkType": "HEARTBEAT",
+    "activated": true,
+    "muted": false,
+    "tags": [],
+    "heartbeat": {
+      "period": 30,
+      "periodUnit": "seconds",
+      "grace": 30,
+      "graceUnit": "seconds"
+    },
+    "created_at": "2025-01-13T00:00:00.000Z",
+    "updated_at": "2025-01-14T00:00:00.000Z"
+  },
+  {
+    "id": "check-014",
+    "name": "Check 014",
+    "description": null,
+    "checkType": "PLAYWRIGHT",
+    "activated": true,
+    "muted": false,
+    "frequency": 120,
+    "locations": [
+      "us-east-1",
+      "us-east-2",
+      "us-west-1",
+      "us-west-2",
+      "ca-central-1",
+      "sa-east-1",
+      "eu-west-1",
+      "eu-central-1",
+      "eu-west-2",
+      "eu-west-3",
+      "eu-north-1",
+      "eu-south-1",
+      "ap-southeast-1",
+      "ap-northeast-1",
+      "ap-east-1",
+      "ap-southeast-2",
+      "ap-southeast-3",
+      "ap-northeast-2",
+      "ap-northeast-3",
+      "ap-south-1",
+      "af-south-1"
+    ],
+    "privateLocations": [
+      "private-loc-1",
+      "private-loc-2"
+    ],
+    "tags": [
+      "tag-1",
+      "tag-2",
+      "tag-3"
+    ],
+    "groupId": null,
+    "groupOrder": null,
+    "created_at": "2025-01-14T00:00:00.000Z",
+    "updated_at": "2025-01-15T00:00:00.000Z"
+  },
+  {
+    "id": "check-015",
+    "name": "Check 015",
+    "description": null,
+    "checkType": "AGENTIC",
+    "activated": false,
+    "muted": true,
+    "frequency": 30,
+    "frequencyOffset": 183,
+    "locations": [
+      "us-east-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1",
+      "tag-2",
+      "tag-3"
+    ],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "created_at": "2025-01-15T00:00:00.000Z",
+    "updated_at": "2025-01-16T00:00:00.000Z"
+  },
+  {
+    "id": "check-016",
+    "name": "Check 016",
+    "description": null,
+    "checkType": "API",
+    "activated": false,
+    "muted": false,
+    "frequency": 0,
+    "frequencyOffset": 1,
+    "locations": [
+      "us-east-1",
+      "eu-west-1",
+      "ap-southeast-1",
+      "us-east-2",
+      "us-west-1",
+      "us-west-2",
+      "ca-central-1",
+      "sa-east-1",
+      "eu-central-1",
+      "eu-west-2",
+      "eu-west-3",
+      "eu-north-1",
+      "eu-south-1",
+      "af-south-1",
+      "ap-south-1",
+      "ap-northeast-2",
+      "ap-southeast-3",
+      "ap-southeast-2",
+      "ap-east-1",
+      "ap-northeast-3",
+      "ap-northeast-1"
+    ],
+    "privateLocations": [],
+    "tags": [
+      "tag-1"
+    ],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "request": {
+      "url": "https://example.com/check-016",
+      "method": "GET"
+    },
+    "created_at": "2025-01-16T00:00:00.000Z",
+    "updated_at": "2025-01-17T00:00:00.000Z"
+  },
+  {
+    "id": "check-017",
+    "name": "Check 017",
+    "description": null,
+    "checkType": "MULTI_STEP",
+    "activated": false,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 69,
+    "locations": [
+      "eu-central-1",
+      "eu-north-1"
+    ],
+    "privateLocations": [],
+    "tags": [],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "created_at": "2025-01-17T00:00:00.000Z",
+    "updated_at": "2025-01-18T00:00:00.000Z"
+  },
+  {
+    "id": "check-018",
+    "name": "Check 018",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": false,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 26,
+    "locations": [
+      "us-east-1",
+      "us-west-1"
+    ],
+    "privateLocations": [],
+    "tags": [],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "created_at": "2025-01-18T00:00:00.000Z",
+    "updated_at": "2025-01-19T00:00:00.000Z"
+  },
+  {
+    "id": "check-019",
+    "name": "Check 019",
+    "description": null,
+    "checkType": "BROWSER",
+    "activated": false,
+    "muted": false,
+    "frequency": 10,
+    "frequencyOffset": 65,
+    "locations": [
+      "us-east-1",
+      "us-west-1"
+    ],
+    "privateLocations": [],
+    "tags": [],
+    "groupId": null,
+    "groupOrder": null,
+    "runtimeId": null,
+    "scriptPath": null,
+    "created_at": "2025-01-19T00:00:00.000Z",
+    "updated_at": "2025-01-20T00:00:00.000Z"
+  }
+]
