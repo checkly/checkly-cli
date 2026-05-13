@@ -298,7 +298,7 @@ describe('bootstrap', () => {
     const playwrightConfigPath = path.join(directory, 'playwright.config.ts')
     const commandOutput = await runChecklyCreateCli({
       directory,
-      promptsInjection: [true, false, false, true, playwrightConfigPath],
+      promptsInjection: [true, false, false, false, playwrightConfigPath, true],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
