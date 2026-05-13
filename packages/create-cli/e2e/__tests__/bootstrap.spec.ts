@@ -32,10 +32,6 @@ function expectVersionAndName ({
   latestVersion: string
   greeting: string
 }) {
-  if (!commandOutput.stdout) {
-    // eslint-disable-next-line no-console
-    console.error('DEBUG empty stdout — exitCode:', commandOutput.exitCode, 'stderr:', commandOutput.stderr)
-  }
   if (!version) {
     expect(commandOutput.stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
   }

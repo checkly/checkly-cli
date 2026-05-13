@@ -9,6 +9,7 @@ if (requiredVersion < minimumVersion) {
   process.exit(1)
 }
 
-const { execute } = await import('@oclif/core')
+import { execute, settings } from '@oclif/core'
 
+settings.enableAutoTranspile = false
 await execute({ dir: import.meta.url })

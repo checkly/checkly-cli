@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
-import { execute } from '@oclif/core'
+import { execute, settings } from '@oclif/core'
 
+settings.enableAutoTranspile = false
 await execute({ dir: import.meta.url })
