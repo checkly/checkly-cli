@@ -65,6 +65,9 @@ importers:
       archiver:
         specifier: 7.0.1
         version: 7.0.1
+      ast-types:
+        specifier: ^0.16.1
+        version: 0.16.1
       axios:
         specifier: ^1.16.0
         version: 1.16.0(debug@4.4.3)
@@ -137,6 +140,9 @@ importers:
       semver:
         specifier: ^7.7.3
         version: 7.7.4
+      string-width:
+        specifier: ^7.2.0
+        version: 7.2.0
       tunnel:
         specifier: ^0.0.6
         version: 0.0.6
