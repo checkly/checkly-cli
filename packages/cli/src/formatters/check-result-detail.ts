@@ -9,7 +9,7 @@ import type {
   AgenticAssertion,
   AgenticSuggestion,
   AgenticStep,
-} from '../rest/check-results'
+} from '../rest/check-results.js'
 import {
   type OutputFormat,
   type DetailField,
@@ -18,7 +18,7 @@ import {
   resolveResultStatus,
   heading,
   renderDetailFields,
-} from './render'
+} from './render.js'
 
 // --- Helpers ---
 

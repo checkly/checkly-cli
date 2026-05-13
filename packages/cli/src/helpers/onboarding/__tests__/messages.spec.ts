@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { noSkillWarning } from '../messages'
+import { noSkillWarning } from '../messages.js'
 
 describe('noSkillWarning', () => {
   it('wraps the warning sentence later and keeps the spacer line', () => {

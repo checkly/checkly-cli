@@ -1,17 +1,17 @@
-import { PrivateLocation, PrivateLocationRef } from './private-location'
-import type { Region } from '..'
+import { PrivateLocation, PrivateLocationRef } from './private-location.js'
+import type { Region } from '../index.js'
 import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type RetryStrategyBuilder, // Used for @links in comments.
-} from './retry-strategy'
+} from './retry-strategy.js'
 import {
   AlertEscalation,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type AlertEscalationBuilder, // Used for @links in comments.
-} from './alert-escalation-policy'
-import { Diagnostics } from './diagnostics'
-import { CheckGroupV1, CheckGroupV1Props, GroupRetryStrategy } from './check-group-v1'
-import { validateRemovedDoubleCheck } from './internal/common-diagnostics'
+} from './alert-escalation-policy.js'
+import { Diagnostics } from './diagnostics.js'
+import { CheckGroupV1, CheckGroupV1Props, GroupRetryStrategy } from './check-group-v1.js'
+import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
 
 export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalationPolicy'> {
   /**

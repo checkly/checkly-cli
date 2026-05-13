@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'path'
-import { Session } from '../constructs/project'
+import { Session } from '../constructs/project.js'
 
 export async function loadPlaywrightConfig () {
   const filenames = [

@@ -1,5 +1,5 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
 
 export interface DashboardResource {
   tags?: string[]

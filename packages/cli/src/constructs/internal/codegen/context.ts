@@ -1,9 +1,9 @@
 import path, { dirname } from 'node:path'
 
-import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen'
-import { ProgramFile } from '../../../sourcegen/program'
-import { parseSnippetDependencies } from './snippet'
-import { ConstructExport } from '../../project'
+import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen/index.js'
+import { ProgramFile } from '../../../sourcegen/program.js'
+import { parseSnippetDependencies } from './snippet.js'
+import { ConstructExport } from '../../project.js'
 
 export class MissingContextVariableMappingError extends Error {}
 

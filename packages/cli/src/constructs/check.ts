@@ -1,14 +1,14 @@
-import { Ref } from './ref'
-import { Frequency } from './frequency'
-import { Construct } from './construct'
-import { AlertChannel, AlertChannelRef } from './alert-channel'
-import { EnvironmentVariable } from './environment-variable'
-import { AlertChannelSubscription } from './alert-channel-subscription'
-import { Session } from './project'
-import type { Region } from '..'
-import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group'
-import { PrivateLocation, PrivateLocationRef } from './private-location'
-import { PrivateLocationCheckAssignment } from './private-location-check-assignment'
+import { Ref } from './ref.js'
+import { Frequency } from './frequency.js'
+import { Construct } from './construct.js'
+import { AlertChannel, AlertChannelRef } from './alert-channel.js'
+import { EnvironmentVariable } from './environment-variable.js'
+import { AlertChannelSubscription } from './alert-channel-subscription.js'
+import { Session } from './project.js'
+import type { Region } from '../index.js'
+import type { CheckGroupV1, CheckGroupV2, CheckGroupRef } from './check-group.js'
+import { PrivateLocation, PrivateLocationRef } from './private-location.js'
+import { PrivateLocationCheckAssignment } from './private-location-check-assignment.js'
 import {
   ExponentialRetryStrategy,
   FixedRetryStrategy,
@@ -16,14 +16,14 @@ import {
   NoRetriesRetryStrategy,
   RetryStrategy,
   SingleRetryRetryStrategy,
-} from './retry-strategy'
-import { AlertEscalation } from './alert-escalation-policy'
-import { IncidentTrigger } from './incident'
-import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
-import { Diagnostics } from './diagnostics'
-import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
+} from './retry-strategy.js'
+import { AlertEscalation } from './alert-escalation-policy.js'
+import { IncidentTrigger } from './incident.js'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
+import { Diagnostics } from './diagnostics.js'
+import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 
 /**
  * Retry strategies supported by checks.

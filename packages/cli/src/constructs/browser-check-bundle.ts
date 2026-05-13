@@ -1,7 +1,7 @@
-import { Snapshot } from '../services/snapshot-service'
-import { BrowserCheck } from './browser-check'
-import { Bundle } from './construct'
-import { SharedFileRef } from './project'
+import { Snapshot } from '../services/snapshot-service.js'
+import { BrowserCheck } from './browser-check.js'
+import { Bundle } from './construct.js'
+import { SharedFileRef } from './project.js'
 
 export interface BrowserCheckBundleProps {
   script: string

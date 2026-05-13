@@ -1,13 +1,13 @@
-import { object, ObjectValueBuilder } from './objectbuilder'
-import { ArrayValue } from './array'
-import { BooleanValue } from './boolean'
-import { NullValue } from './null'
-import { NumberValue } from './number'
-import { StringValue } from './string'
-import { Value } from './value'
-import { expr, ExpressionValueBuilder } from './exprbuilder'
-import { UndefinedValue } from './undefined'
-import { IdentifierValue } from './identifier'
+import { object, ObjectValueBuilder } from './objectbuilder.js'
+import { ArrayValue } from './array.js'
+import { BooleanValue } from './boolean.js'
+import { NullValue } from './null.js'
+import { NumberValue } from './number.js'
+import { StringValue } from './string.js'
+import { Value } from './value.js'
+import { expr, ExpressionValueBuilder } from './exprbuilder.js'
+import { UndefinedValue } from './undefined.js'
+import { IdentifierValue } from './identifier.js'
 
 export function array (build: (builder: ArrayValueBuilder) => void): ArrayValue {
   const builder = new ArrayValueBuilder()

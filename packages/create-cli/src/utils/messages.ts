@@ -1,6 +1,6 @@
 /* eslint no-console: 'off' */
 import chalk from 'chalk'
-import { getFullName } from './fullname'
+import { getFullName } from './fullname.js'
 
 function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))

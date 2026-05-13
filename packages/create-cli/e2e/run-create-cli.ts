@@ -1,8 +1,10 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-import execa from 'execa'
+import { execa } from 'execa'
 
-const CHECKLY_PATH = path.resolve(path.dirname(__filename), '..', 'bin', 'run')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const CHECKLY_PATH = path.resolve(__dirname, '..', 'bin', 'run')
 
 export async function runChecklyCreateCli (options: {
   directory?: string
@@ -31,7 +33,7 @@ export async function runChecklyCreateCli (options: {
       ...env,
     },
     cwd: directory ?? process.cwd(),
-    encoding: 'utf-8',
+    encoding: 'utf8',
     timeout,
     reject: false,
     shell: process.platform === 'win32',

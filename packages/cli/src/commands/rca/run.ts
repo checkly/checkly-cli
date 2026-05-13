@@ -1,10 +1,10 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
+import { AuthCommand } from '../authCommand.js'
 import { normalizeFlagAliases, outputFlag } from '../../helpers/flags.js'
-import * as api from '../../rest/api'
-import { NotFoundError, InadequateEntitlementsError } from '../../rest/errors'
-import { formatRcaPending, formatRcaCompleted } from '../../formatters/rca'
+import * as api from '../../rest/api.js'
+import { NotFoundError, InadequateEntitlementsError } from '../../rest/errors.js'
+import { formatRcaPending, formatRcaCompleted } from '../../formatters/rca.js'
 
 export default class RcaRun extends AuthCommand {
   static hidden = false

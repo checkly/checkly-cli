@@ -1,13 +1,13 @@
-import { array, ArrayValueBuilder } from './arraybuilder'
-import { BooleanValue } from './boolean'
-import { expr, ExpressionValueBuilder } from './exprbuilder'
-import { IdentifierValue } from './identifier'
-import { NullValue } from './null'
-import { NumberValue } from './number'
-import { ObjectProperty, ObjectPropertyOptions, ObjectValue, ObjectValueOptions } from './object'
-import { StringValue } from './string'
-import { UndefinedValue } from './undefined'
-import { Value } from './value'
+import { array, ArrayValueBuilder } from './arraybuilder.js'
+import { BooleanValue } from './boolean.js'
+import { expr, ExpressionValueBuilder } from './exprbuilder.js'
+import { IdentifierValue } from './identifier.js'
+import { NullValue } from './null.js'
+import { NumberValue } from './number.js'
+import { ObjectProperty, ObjectPropertyOptions, ObjectValue, ObjectValueOptions } from './object.js'
+import { StringValue } from './string.js'
+import { UndefinedValue } from './undefined.js'
+import { Value } from './value.js'
 
 export interface ObjectValueBuilderOptions extends ObjectValueOptions {
   implicitOrder?: boolean

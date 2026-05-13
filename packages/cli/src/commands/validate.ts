@@ -1,12 +1,12 @@
-import * as api from '../rest/api'
+import * as api from '../rest/api.js'
 import { Flags } from '@oclif/core'
-import { AuthCommand } from './authCommand'
-import { parseProject } from '../services/project-parser'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { Diagnostics } from '../constructs'
-import { splitConfigFilePath } from '../services/util'
-import commonMessages from '../messages/common-messages'
-import { Runtime } from '../runtimes'
+import { AuthCommand } from './authCommand.js'
+import { parseProject } from '../services/project-parser.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { Diagnostics } from '../constructs/index.js'
+import { splitConfigFilePath } from '../services/util.js'
+import commonMessages from '../messages/common-messages.js'
+import { Runtime } from '../runtimes/index.js'
 
 export default class Validate extends AuthCommand {
   static coreCommand = true

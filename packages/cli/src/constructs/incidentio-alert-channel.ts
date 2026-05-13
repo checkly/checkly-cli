@@ -1,5 +1,5 @@
-import { WebhookAlertChannel } from './webhook-alert-channel'
-import { AlertChannelProps } from './alert-channel'
+import { WebhookAlertChannel } from './webhook-alert-channel.js'
+import { AlertChannelProps } from './alert-channel.js'
 
 export interface IncidentioAlertChannelProps extends AlertChannelProps {
   /**

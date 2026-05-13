@@ -1,4 +1,4 @@
-import { MixedFileLoader, NativeFileLoader, JitiFileLoader, TSNodeFileLoader } from '../loader'
+import { MixedFileLoader, NativeFileLoader, JitiFileLoader, TSNodeFileLoader } from '../loader/index.js'
 
 const loader = new MixedFileLoader(
   new NativeFileLoader(),

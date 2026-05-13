@@ -1,7 +1,7 @@
-import { Comment } from './comment'
-import { Declaration, IdentifierDeclaration, VariableDeclarationOptions, VariableDeclaration, ExportDeclaration, LeadingCommentDeclaration, TrailingCommentDeclaration, ExportDeclarationOptions } from './decl'
-import { IdentifierValue } from './identifier'
-import { Value } from './value'
+import { Comment } from './comment.js'
+import { Declaration, IdentifierDeclaration, VariableDeclarationOptions, VariableDeclaration, ExportDeclaration, LeadingCommentDeclaration, TrailingCommentDeclaration, ExportDeclarationOptions } from './decl.js'
+import { IdentifierValue } from './identifier.js'
+import { Value } from './value.js'
 
 export function decl (identifier: IdentifierValue, build: (builder: DeclarationBuilder) => void): Declaration {
   const builder = new DeclarationBuilder(identifier)

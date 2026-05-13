@@ -1,9 +1,9 @@
 import chalk from 'chalk'
 import logSymbols from 'log-symbols'
-import type { Check } from '../rest/checks'
-import type { CheckStatus } from '../rest/check-statuses'
-import type { CheckResult } from '../rest/check-results'
-import type { ErrorGroup } from '../rest/error-groups'
+import type { Check } from '../rest/checks.js'
+import type { CheckStatus } from '../rest/check-statuses.js'
+import type { CheckResult } from '../rest/check-results.js'
+import type { ErrorGroup } from '../rest/error-groups.js'
 import {
   type OutputFormat,
   type DetailField,
@@ -19,9 +19,9 @@ import {
   resolveResultStatus,
   renderDetailFields,
   renderTable,
-} from './render'
+} from './render.js'
 
-export { formatFrequency, formatCheckType } from './render'
+export { formatFrequency, formatCheckType } from './render.js'
 
 export type CheckWithStatus = Check & { status?: CheckStatus }
 

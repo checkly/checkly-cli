@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { stripAnsi } from '../render'
+import { stripAnsi } from '../render.js'
 import {
   formatAccountMembers,
   formatCursorNavigationHints,
   formatCursorPaginationInfo,
-} from '../account-members'
-import type { AccountMember } from '../../rest/account-members'
+} from '../account-members.js'
+import type { AccountMember } from '../../rest/account-members.js'
 
 const activeMember: AccountMember = {
   type: 'member',

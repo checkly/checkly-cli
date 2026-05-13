@@ -1,11 +1,11 @@
 import fs from 'node:fs/promises'
 
-import { Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct'
-import { Session } from './project'
-import { Diagnostics } from './diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { DashboardBundle } from './dashboard-bundle'
-import { Bundler } from '../services/check-parser/bundler'
+import { Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
+import { Session } from './project.js'
+import { Diagnostics } from './diagnostics.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { DashboardBundle } from './dashboard-bundle.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 /**
  * Configuration properties for dashboards.

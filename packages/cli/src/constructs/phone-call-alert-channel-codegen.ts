@@ -1,6 +1,6 @@
-import { Codegen, Context } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { decl, expr, ident } from '../sourcegen/index.js'
+import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen.js'
 
 export interface PhoneCallAlertChannelResource extends AlertChannelResource {
   type: 'CALL'

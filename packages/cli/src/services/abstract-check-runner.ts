@@ -1,12 +1,12 @@
-import { assets, testSessions } from '../rest/api'
-import { SocketClient } from './socket-client'
+import { assets, testSessions } from '../rest/api.js'
+import { SocketClient } from './socket-client.js'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { MqttClient } from 'mqtt'
-import type { Region } from '..'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import { PlaywrightCheck } from '../constructs'
+import type { Region } from '../index.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import { PlaywrightCheck } from '../constructs/index.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {

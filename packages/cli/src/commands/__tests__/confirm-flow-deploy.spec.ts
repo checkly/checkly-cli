@@ -38,11 +38,11 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
-import { detectCliMode } from '../../helpers/cli-mode'
-import * as api from '../../rest/api'
-import { parseProject } from '../../services/project-parser'
-import { AuthCommand } from '../authCommand'
-import Deploy from '../deploy'
+import { detectCliMode } from '../../helpers/cli-mode.js'
+import * as api from '../../rest/api.js'
+import { parseProject } from '../../services/project-parser.js'
+import { AuthCommand } from '../authCommand.js'
+import Deploy from '../deploy.js'
 
 function createConfirmContext () {
   const logged: string[] = []

@@ -1,25 +1,25 @@
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
-import * as api from '../rest/api'
+import * as api from '../rest/api.js'
 import { Flags } from '@oclif/core'
-import { AuthCommand } from './authCommand'
-import { parseProject } from '../services/project-parser'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
+import { AuthCommand } from './authCommand.js'
+import { parseProject } from '../services/project-parser.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData, Diagnostics,
   Session,
-} from '../constructs'
+} from '../constructs/index.js'
 import chalk from 'chalk'
-import { splitConfigFilePath, getGitInformation } from '../services/util'
-import commonMessages from '../messages/common-messages'
-import { forceFlag } from '../helpers/flags'
-import { ProjectDeployResponse } from '../rest/projects'
-import { uploadSnapshots } from '../services/snapshot-service'
-import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
-import { Runtime } from '../runtimes'
-import { Bundler } from '../services/check-parser/bundler'
+import { splitConfigFilePath, getGitInformation } from '../services/util.js'
+import commonMessages from '../messages/common-messages.js'
+import { forceFlag } from '../helpers/flags.js'
+import { ProjectDeployResponse } from '../rest/projects.js'
+import { uploadSnapshots } from '../services/snapshot-service.js'
+import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
+import { Runtime } from '../runtimes/index.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 // eslint-disable-next-line no-restricted-syntax
 enum ResourceDeployStatus {

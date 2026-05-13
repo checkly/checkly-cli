@@ -1,9 +1,9 @@
-import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
-import { decl, expr, ident } from '../sourcegen'
-import { buildAlertChannelProps } from './alert-channel-codegen'
-import { HttpHeader } from './http-header'
-import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen'
-import { IncidentioAlertChannel } from './incidentio-alert-channel'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
+import { decl, expr, ident } from '../sourcegen/index.js'
+import { buildAlertChannelProps } from './alert-channel-codegen.js'
+import { HttpHeader } from './http-header.js'
+import { WebhookAlertChannelResource, WebhookAlertChannelResourceConfig } from './webhook-alert-channel-codegen.js'
+import { IncidentioAlertChannel } from './incidentio-alert-channel.js'
 
 export interface IncidentioAlertChannelResource extends WebhookAlertChannelResource {
   config: WebhookAlertChannelResourceConfig & {

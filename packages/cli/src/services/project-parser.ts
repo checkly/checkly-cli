@@ -3,26 +3,26 @@ import Debug from 'debug'
 import {
   findFilesWithPattern, getPlaywrightConfigPath,
   pathToPosix,
-} from './util'
+} from './util.js'
 import {
   Check, BrowserCheck, CheckGroup, Project, Session,
   PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment, MultiStepCheck,
   CheckFilter,
-} from '../constructs'
-import { Ref } from '../constructs/ref'
-import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader'
-import { isEntrypoint, type Construct } from '../constructs/construct'
-import { PlaywrightCheck } from '../constructs/playwright-check'
+} from '../constructs/index.js'
+import { Ref } from '../constructs/ref.js'
+import { CheckConfigDefaults, PlaywrightSlimmedProp } from './checkly-config-loader.js'
+import { isEntrypoint, type Construct } from '../constructs/construct.js'
+import { PlaywrightCheck } from '../constructs/playwright-check.js'
 import {
   detectNearestPackageJson,
   detectPackageManager,
   fauxWorkspaceFromPackageJson,
   NoPackageJsonFoundError,
   PackageManager,
-} from './check-parser/package-files/package-manager'
-import { Err, Ok, Result } from './check-parser/package-files/result'
-import { Workspace } from './check-parser/package-files/workspace'
-import { Runtime } from '../runtimes'
+} from './check-parser/package-files/package-manager.js'
+import { Err, Ok, Result } from './check-parser/package-files/result.js'
+import { Workspace } from './check-parser/package-files/workspace.js'
+import { Runtime } from '../runtimes/index.js'
 
 const debug = Debug('checkly:cli:services:project-parser')
 

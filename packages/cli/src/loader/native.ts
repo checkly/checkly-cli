@@ -1,7 +1,7 @@
-import { BunDetector, DenoDetector } from '../services/check-parser/package-files/package-manager'
-import { pathToPosix } from '../services/util'
-import { FileLoader, FileLoaderOptions } from './loader'
-import { FileMatch } from './match'
+import { BunDetector, DenoDetector } from '../services/check-parser/package-files/package-manager.js'
+import { pathToPosix } from '../services/util.js'
+import { FileLoader, FileLoaderOptions } from './loader.js'
+import { FileMatch } from './match.js'
 
 export { BunDetector, DenoDetector }
 

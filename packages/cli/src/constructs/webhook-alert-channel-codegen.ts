@@ -1,13 +1,13 @@
-import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen'
-import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen'
-import { HttpHeader } from './http-header'
-import { valueForKeyValuePair } from './key-value-pair-codegen'
-import { QueryParam } from './query-param'
+import { decl, expr, GeneratedFile, ident, ObjectValueBuilder, Program } from '../sourcegen/index.js'
+import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-codegen.js'
+import { HttpHeader } from './http-header.js'
+import { valueForKeyValuePair } from './key-value-pair-codegen.js'
+import { QueryParam } from './query-param.js'
 
-import { IncidentioAlertChannelCodegen } from './incidentio-alert-channel-codegen'
-import { MSTeamsAlertChannelCodegen } from './msteams-alert-channel-codegen'
-import { TelegramAlertChannelCodegen } from './telegram-alert-channel-codegen'
-import { Codegen, Context, ImportSafetyViolation } from './internal/codegen'
+import { IncidentioAlertChannelCodegen } from './incidentio-alert-channel-codegen.js'
+import { MSTeamsAlertChannelCodegen } from './msteams-alert-channel-codegen.js'
+import { TelegramAlertChannelCodegen } from './telegram-alert-channel-codegen.js'
+import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
 
 export type WebhookType =
   'WEBHOOK_INCIDENTIO'

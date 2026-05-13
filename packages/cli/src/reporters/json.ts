@@ -1,9 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { CheckRunId, SequenceId } from '../services/abstract-check-runner'
-import { CheckStatus, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
+import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
+import { CheckRunId, SequenceId } from '../services/abstract-check-runner.js'
+import { CheckStatus, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-json-report.json'
 

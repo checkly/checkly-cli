@@ -1,5 +1,5 @@
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { Ref } from './ref'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
+import { Ref } from './ref.js'
 
 export function valueForRef (genfile: GeneratedFile, ref: Ref): Value {
   genfile.namedImport('Ref', 'checkly/constructs')

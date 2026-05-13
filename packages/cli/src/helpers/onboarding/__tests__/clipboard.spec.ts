@@ -5,7 +5,7 @@ vi.mock('child_process', () => ({
 }))
 
 import { execSync } from 'child_process'
-import { copyToClipboard } from '../clipboard'
+import { copyToClipboard } from '../clipboard.js'
 
 const mockExecSync = vi.mocked(execSync)
 

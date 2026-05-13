@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as recast from 'recast'
-import * as acornParser from '../recast-acorn-parser'
-import { findPropertyByName } from '../write-config-helpers'
+import * as acornParser from '../recast-acorn-parser.js'
+import { findPropertyByName } from '../write-config-helpers.js'
 
 const normalizeLineEndings = (str: string) => str.replace(/\r\n/g, '\n')
 

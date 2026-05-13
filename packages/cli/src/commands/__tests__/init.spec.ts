@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import Init from '../init'
+import Init from '../init.js'
 
 vi.mock('../skills/install', () => ({
   PLATFORM_TARGETS: {
@@ -50,24 +50,24 @@ import { writeFileSync } from 'fs'
 import {
   readSkillFile,
   writeSkillToTarget,
-} from '../skills/install'
-import { detectProjectContext } from '../../helpers/onboarding/detect-project'
+} from '../skills/install.js'
+import { detectProjectContext } from '../../helpers/onboarding/detect-project.js'
 import {
   runSkillInstallStep,
   refreshSkill,
-} from '../../helpers/onboarding/skill-install'
+} from '../../helpers/onboarding/skill-install.js'
 import {
   runDepsInstall,
   createConfig,
   copyChecks,
-} from '../../helpers/onboarding/boilerplate'
-import { loadPromptTemplate } from '../../helpers/onboarding/template-prompt'
-import { displayStarterPrompt } from '../../helpers/onboarding/prompt-display'
+} from '../../helpers/onboarding/boilerplate.js'
+import { loadPromptTemplate } from '../../helpers/onboarding/template-prompt.js'
+import { displayStarterPrompt } from '../../helpers/onboarding/prompt-display.js'
 import {
   greeting,
   existingProjectFooter,
-} from '../../helpers/onboarding/messages'
-import { detectCliMode } from '../../helpers/cli-mode'
+} from '../../helpers/onboarding/messages.js'
+import { detectCliMode } from '../../helpers/cli-mode.js'
 import prompts from 'prompts'
 
 const mockConfig = {

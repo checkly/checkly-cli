@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll, beforeAll, beforeEach } from 'vitest'
 import { runChecklyCreateCli } from '../run-create-cli'
 import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
-import { ExecaReturnValue } from 'execa'
+import type { Result as ExecaResult } from 'execa'
 
 const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 
@@ -27,7 +27,7 @@ function expectVersionAndName ({
   latestVersion,
   greeting,
 }: {
-  commandOutput: ExecaReturnValue<string>
+  commandOutput: ExecaResult
   version?: string
   latestVersion: string
   greeting: string
@@ -43,7 +43,7 @@ function expectCompleteCreation ({
   commandOutput,
   projectFolder,
 }: {
-  commandOutput: ExecaReturnValue<string>
+  commandOutput: ExecaResult
   projectFolder: string
 }) {
   expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly

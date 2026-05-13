@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { SequenceId } from '../services/abstract-check-runner'
-import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
-import commonMessages from '../messages/common-messages'
+import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import commonMessages from '../messages/common-messages.js'
 
 const outputFile = './checkly-github-report.md'
 

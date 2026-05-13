@@ -1,13 +1,13 @@
 import * as uuid from 'uuid'
 
-import { testSessions } from '../rest/api'
-import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
-import { GitInformation } from './util'
-import { Check } from '../constructs/check'
-import { RetryStrategy, SharedFile } from '../constructs'
-import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle'
-import { pullSnapshots } from '../services/snapshot-service'
-import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle'
+import { testSessions } from '../rest/api.js'
+import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner.js'
+import { GitInformation } from './util.js'
+import { Check } from '../constructs/check.js'
+import { RetryStrategy, SharedFile } from '../constructs/index.js'
+import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle.js'
+import { pullSnapshots } from '../services/snapshot-service.js'
+import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle.js'
 
 export default class TestRunner extends AbstractCheckRunner {
   projectBundle: ProjectBundle

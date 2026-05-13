@@ -13,8 +13,8 @@ import {
   askInstallDependencies,
   askInitializeGit,
   askPlaywrightConfigPath,
-} from '../prompts'
-import * as directoryUtils from '../../utils/directory'
+} from '../prompts.js'
+import * as directoryUtils from '../../utils/directory.js'
 
 const generateProjectName = vi.spyOn(directoryUtils, 'generateProjectName').mockReturnValue('generated-project-name')
 

@@ -3,8 +3,8 @@ import path from 'node:path'
 
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { FixtureSandbox } from '../../testing/fixture-sandbox'
-import { ParseProjectOutput } from '../../commands/debug/parse-project'
+import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
+import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
 
 async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
   const result = await fixt.run('npx', [

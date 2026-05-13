@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
-import { AlertEscalationBuilder, CheckGroup, CheckGroupV1, CheckGroupV2, Diagnostics } from '../index'
-import { Project, Session } from '../project'
-import { Bundler } from '../../services/check-parser/bundler'
+import { AlertEscalationBuilder, CheckGroup, CheckGroupV1, CheckGroupV2, Diagnostics } from '../index.js'
+import { Project, Session } from '../project.js'
+import { Bundler } from '../../services/check-parser/bundler.js'
 
 describe('CheckGroup', () => {
   describe('v1', () => {
