@@ -1,4 +1,6 @@
+import prompts from 'prompts'
 import { assets, testSessions } from '../rest/api'
+import { isInteractiveTerminal, printLn } from '../reporters/util'
 import { SocketClient } from './socket-client'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
@@ -21,6 +23,9 @@ export enum Events {
   ERROR = 'ERROR',
   MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
   STREAM_LOGS = 'STREAM_LOGS',
+  CANCEL = 'CANCEL',
+  CANCEL_PROMPT_SHOWN = 'CANCEL_PROMPT_SHOWN',
+  CANCEL_PROMPT_HIDDEN = 'CANCEL_PROMPT_HIDDEN',
 }
 
 export type PrivateRunLocation = {
@@ -52,12 +57,14 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   accountId: string
   timeout: number
   verbose: boolean
+  protected detach: boolean
   queue: PQueue
 
   constructor (
     accountId: string,
     timeout: number,
     verbose: boolean,
+    detach: boolean = false,
   ) {
     super()
     this.checks = new Map()
@@ -66,6 +73,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     this.timeout = timeout
     this.verbose = verbose
     this.accountId = accountId
+    this.detach = detach
   }
 
   abstract scheduleChecks (checkRunSuiteId: string): Promise<{
@@ -75,6 +83,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   async run () {
     let socketClient = null
+    let sigintHandler: (() => void) | null = null
     try {
       socketClient = await SocketClient.connect()
 
@@ -87,6 +96,41 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.checks = new Map(
         checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
       )
+      let isAskingToCancel = false
+      let lastSigintAt = 0
+
+      if (!this.detach) {
+        sigintHandler = () => {
+          const now = Date.now()
+          if (now - lastSigintAt < 100) {
+            return // ignore duplicate SIGINT within 100ms (some terminals/shells deliver two signals for one Ctrl+C)
+          }
+          lastSigintAt = now
+
+          if (isAskingToCancel) {
+            // Second CTRL+C while prompt is active — force quit immediately
+            this.forceQuit()
+          } else {
+            isAskingToCancel = true
+            // emit before pause closes the race against in-flight handlers
+            this.emit(Events.CANCEL_PROMPT_SHOWN)
+            this.queue.pause()
+            this.askCancelConfirmation(testSessionId).then(cancelled => {
+              if (!cancelled) {
+                // User chose to continue — reset so next CTRL+C asks again
+                isAskingToCancel = false
+              }
+              this.emit(Events.CANCEL_PROMPT_HIDDEN)
+              this.queue.start()
+            }).catch(err => {
+              printLn(`Failed to cancel: ${err.message}`)
+              process.exit(1)
+            })
+          }
+        }
+
+        process.on('SIGINT', sigintHandler)
+      }
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
       // To ensure that this is the case, we call `setAllTimeouts()` before `queue.start()`.
@@ -110,6 +154,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.disableAllTimeouts()
       this.emit(Events.ERROR, err)
     } finally {
+      if (sigintHandler) {
+        process.off('SIGINT', sigintHandler)
+      }
       if (socketClient) {
         await socketClient.endAsync()
       }
@@ -273,6 +320,43 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     const timeout = this.timeouts.get(timeoutKey)
     clearTimeout(timeout)
     this.timeouts.delete(timeoutKey)
+  }
+
+  private forceQuit (): void {
+    process.removeAllListeners('SIGINT')
+    process.kill(process.pid, 'SIGINT')
+  }
+
+  private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
+    if (!isInteractiveTerminal()) {
+      this.emit(Events.CANCEL, testSessionId)
+      printLn('Cancelling test session...', 2)
+      return true
+    }
+    printLn('')
+    const promptOpts = {
+      type: 'confirm' as const,
+      name: 'confirmed',
+      message: 'Stop running checks?',
+      initial: true,
+      // onRender runs inside the element's render() with `this` bound to the element,
+      // so mutating this.value forces the printed answer to false on Ctrl+C abort.
+      onRender (this: { aborted: boolean, value: unknown }) {
+        if (this.aborted) {
+          this.value = false
+        }
+      },
+    }
+    const { confirmed } = await prompts(promptOpts as Parameters<typeof prompts>[0])
+    if (confirmed === undefined) {
+      return false
+    }
+    if (confirmed) {
+      this.emit(Events.CANCEL, testSessionId)
+      printLn('Cancelling test session...', 2)
+      return true
+    }
+    return false
   }
 
   private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks | undefined> {

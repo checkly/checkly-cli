@@ -16,6 +16,7 @@ export enum CheckStatus {
   FAILED,
   SUCCESSFUL,
   DEGRADED,
+  CANCELLED,
 }
 
 export function formatDuration (ms: number): string {
@@ -55,6 +56,9 @@ export function formatCheckTitle (
     format = chalk.bold.dim
   } else if (status === CheckStatus.RETRIED) {
     statusString = '↺'
+    format = chalk.bold
+  } else if (status === CheckStatus.CANCELLED) {
+    statusString = '⊘'
     format = chalk.bold
   } else {
     statusString = '-'
@@ -710,11 +714,21 @@ function toString (val: any): string {
 }
 
 export function resultToCheckStatus (checkResult: any): CheckStatus {
+  if (checkResult.isCancelled) {
+    return CheckStatus.CANCELLED
+  }
   return checkResult.hasFailures
     ? CheckStatus.FAILED
     : checkResult.isDegraded
       ? CheckStatus.DEGRADED
       : CheckStatus.SUCCESSFUL
+}
+
+export function isInteractiveTerminal (): boolean {
+  return process.stdin.isTTY === true
+    && process.stdout.isTTY === true
+    && process.env.CI !== 'true'
+    && process.env.TERM !== 'dumb'
 }
 
 export function print (text: string) {
