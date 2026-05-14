@@ -19,8 +19,9 @@ export function checklyEnv (overrides?: {
   } = overrides ?? {}
 
   return {
-    // Unset CI so the CLI doesn't switch to non-interactive JSON output
-    CI: undefined,
+    // Force interactive mode so CI env vars (GITHUB_ACTIONS, CI, etc.)
+    // don't make the CLI switch to JSON confirmation output.
+    CHECKLY_CLI_MODE: 'interactive',
     CHECKLY_API_KEY: apiKey,
     CHECKLY_ACCOUNT_ID: accountId,
     CHECKLY_ENV: process.env.CHECKLY_ENV,
