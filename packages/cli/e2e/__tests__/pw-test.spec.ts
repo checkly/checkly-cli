@@ -32,7 +32,7 @@ describe('pw-test', { timeout: 45000 }, () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
-      template: 'playwright',
+      template: 'playwright-1.53',
     })
   }, 180_000)
 
