@@ -152,6 +152,8 @@ export class FixtureSandbox {
     if (source) {
       debug(`Copying sources from ${source}`)
       await fs.cp(source, root, { recursive: true })
+    } else {
+      await fs.writeFile(path.join(root, 'package.json'), '{"private":true}\n')
     }
 
     const packageManager = maybePackageManager
