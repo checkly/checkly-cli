@@ -19,6 +19,8 @@ export function checklyEnv (overrides?: {
   } = overrides ?? {}
 
   return {
+    // Unset CI so the CLI doesn't switch to non-interactive JSON output
+    CI: undefined,
     CHECKLY_API_KEY: apiKey,
     CHECKLY_ACCOUNT_ID: accountId,
     CHECKLY_ENV: process.env.CHECKLY_ENV,
