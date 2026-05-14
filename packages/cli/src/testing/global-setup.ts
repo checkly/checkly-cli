@@ -1,6 +1,7 @@
 import { FixtureTemplate } from './fixture-sandbox.js'
 
 export async function setup () {
+  await FixtureTemplate.create('bare', {})
   await FixtureTemplate.create('playwright', {
     devDependencies: { '@playwright/test': '^1.59.1' },
   })

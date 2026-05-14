@@ -21,11 +21,16 @@ async function symlinkChecklyPackage (nodeModulesDir: string): Promise<void> {
 
   const binDir = path.join(nodeModulesDir, '.bin')
   await fs.mkdir(binDir, { recursive: true })
-  await fs.symlink(
-    path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
-    path.join(binDir, 'checkly'),
-    'file',
-  )
+  const binTarget = path.join(CLI_PACKAGE_ROOT, 'bin', 'run')
+
+  if (process.platform === 'win32') {
+    await fs.writeFile(
+      path.join(binDir, 'checkly.cmd'),
+      `@node "${binTarget}" %*\r\n`,
+    )
+  } else {
+    await fs.symlink(binTarget, path.join(binDir, 'checkly'), 'file')
+  }
 }
 
 function templateEnvKey (key: string): string {
@@ -100,7 +105,7 @@ export class FixtureTemplate {
 }
 
 export interface CreateFixtureSandboxOptions {
-  source: string
+  source?: string
   root?: string
   packageManager?: PackageManager
   installPackages?: boolean
@@ -143,9 +148,11 @@ export class FixtureSandbox {
       : await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-')))
 
     debug(`Using root ${root}`)
-    debug(`Copying sources from ${source}`)
 
-    await fs.cp(source, root, { recursive: true })
+    if (source) {
+      debug(`Copying sources from ${source}`)
+      await fs.cp(source, root, { recursive: true })
+    }
 
     const packageManager = maybePackageManager
       ?? await detectPackageManager(root)
