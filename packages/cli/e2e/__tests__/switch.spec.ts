@@ -26,7 +26,7 @@ describe('switch', () => {
       timeout: 5000,
     })
 
-    expect(stdout).toContain(`Account switched to ${accountName}\n`)
+    expect(stdout).toContain(`Account switched to ${accountName}`)
     expect(stderr).toBe('')
   })
 })

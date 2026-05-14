@@ -44,7 +44,7 @@ describe('checkly env rm', () => {
 
   it('should ask for permision to remove the testenvvarsrm env variable', async () => {
     try {
-      await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`])
+      await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`], { timeout: 5000 })
       expect.unreachable('Expected process to be killed by timeout')
     } catch (err) {
       if (err instanceof ExecaError) {

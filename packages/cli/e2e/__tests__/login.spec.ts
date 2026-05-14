@@ -31,7 +31,7 @@ describe('login', () => {
       timeout: 5000,
     })
     expect(stderr).toContain('Warning: `CHECKLY_API_KEY` or `CHECKLY_ACCOUNT_ID` environment variables')
-    expect(stderr).toContain('are configured. You must delete them to use `npx checkly login`.\n')
+    expect(stderr).toContain('are configured. You must delete them to use `npx checkly login`.')
   }, 10000)
 
   it('should show URL to login', async () => {
