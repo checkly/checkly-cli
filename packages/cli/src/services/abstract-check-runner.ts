@@ -334,12 +334,20 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       return true
     }
     printLn('')
-    const { confirmed } = await prompts({
-      type: 'confirm',
+    const promptOpts = {
+      type: 'confirm' as const,
       name: 'confirmed',
       message: 'Stop running checks?',
       initial: true,
-    })
+      // onRender runs inside the element's render() with `this` bound to the element,
+      // so mutating this.value forces the printed answer to false on Ctrl+C abort.
+      onRender (this: { aborted: boolean, value: unknown }) {
+        if (this.aborted) {
+          this.value = false
+        }
+      },
+    }
+    const { confirmed } = await prompts(promptOpts as Parameters<typeof prompts>[0])
     if (confirmed === undefined) {
       return false
     }
