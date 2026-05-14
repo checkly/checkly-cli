@@ -1,62 +1,90 @@
-import config from 'config'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { ExecaError } from 'execa'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('login', () => {
+  let fixt: FixtureSandbox
+
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({ template: 'bare' })
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
   beforeEach(async () => {
-    await runChecklyCli({
-      args: ['logout'],
-      promptsInjection: [true],
-      timeout: 5000,
-    })
+    try {
+      await runCheckly(fixt, ['logout'], {
+        promptsInjection: [true],
+        timeout: 5000,
+      })
+    } catch {
+      // logout may fail if not logged in, that's fine
+    }
   })
 
   it('should show warning with environment variables are configured', async () => {
-    const { status, stderr } = await runChecklyCli({
-      args: ['login'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
+    const { stderr } = await runCheckly(fixt, ['login'], {
       timeout: 5000,
     })
     expect(stderr).toContain('Warning: `CHECKLY_API_KEY` or `CHECKLY_ACCOUNT_ID` environment variables')
     expect(stderr).toContain('are configured. You must delete them to use `npx checkly login`.\n')
-    expect(status).toBe(0)
   }, 10000)
 
   it('should show URL to login', async () => {
-    const { status, stdout, stderr } = await runChecklyCli({
-      args: ['login'],
-      promptsInjection: ['login', false],
-      timeout: 5000,
-    })
+    try {
+      await runCheckly(fixt, ['login'], {
+        promptsInjection: ['login', false],
+        timeout: 5000,
+        env: {
+          CHECKLY_API_KEY: undefined,
+          CHECKLY_ACCOUNT_ID: undefined,
+        },
+      })
+      expect.unreachable('Expected command to fail due to timeout')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        const { stdout, stderr } = err
 
-    expect(stdout).toContain('Please open the following URL in your browser:')
-    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-    // URL should allow to login
-    expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
+        expect(stdout).toContain('Please open the following URL in your browser:')
+        expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
+        // URL should allow to login
+        expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
 
-    expect(stderr).toBe('')
-
-    // the command should timeout and status shouldn't be 0
-    expect(status).not.toBe(0)
+        expect(stderr).toBe('')
+      } else {
+        throw err
+      }
+    }
   })
 
   it('should show URL to signup', async () => {
-    const { status, stdout, stderr } = await runChecklyCli({
-      args: ['login'],
-      promptsInjection: ['signup', false],
-      timeout: 5000,
-    })
+    try {
+      await runCheckly(fixt, ['login'], {
+        promptsInjection: ['signup', false],
+        timeout: 5000,
+        env: {
+          CHECKLY_API_KEY: undefined,
+          CHECKLY_ACCOUNT_ID: undefined,
+        },
+      })
+      expect.unreachable('Expected command to fail due to timeout')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        const { stdout, stderr } = err
 
-    expect(stdout).toContain('Please open the following URL in your browser:')
-    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-    // URL should allow to signup
-    expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
+        expect(stdout).toContain('Please open the following URL in your browser:')
+        expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
+        // URL should allow to signup
+        expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
 
-    expect(stderr).toBe('')
-
-    // the command should timeout and status shouldn't be 0
-    expect(status).not.toBe(0)
+        expect(stderr).toBe('')
+      } else {
+        throw err
+      }
+    }
   })
 })
