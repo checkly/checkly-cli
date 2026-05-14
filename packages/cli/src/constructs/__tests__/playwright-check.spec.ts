@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { list } from 'tar'
 
-import { FixtureSandbox, FixtureTemplate } from '../../testing/fixture-sandbox.js'
+import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
 import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
 
 async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
@@ -39,14 +39,10 @@ async function listTarFiles (filePath: string): Promise<string[]> {
 
 const DEFAULT_TEST_TIMEOUT = 180_000
 
-const playwrightTemplate = FixtureTemplate.create('playwright', {
-  devDependencies: { '@playwright/test': '^1.59.1' },
-})
-
 describe('PlaywrightCheck', () => {
   it('should synthesize groupName', async () => {
     const fixt = await FixtureSandbox.create({
-      template: await playwrightTemplate,
+      template: 'playwright',
       source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-mapping'),
     })
 
@@ -87,7 +83,7 @@ describe('PlaywrightCheck', () => {
 
   it('should synthesize group', async () => {
     const fixt = await FixtureSandbox.create({
-      template: await playwrightTemplate,
+      template: 'playwright',
       source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-group-mapping'),
     })
 
@@ -125,7 +121,7 @@ describe('PlaywrightCheck', () => {
 
   it('should synthesize groupId', async () => {
     const fixt = await FixtureSandbox.create({
-      template: await playwrightTemplate,
+      template: 'playwright',
       source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupId-mapping'),
     })
 
@@ -164,7 +160,7 @@ describe('PlaywrightCheck', () => {
   describe('validation', () => {
     it('should warn that groupName is deprecated', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-mapping'),
       })
 
@@ -189,7 +185,7 @@ describe('PlaywrightCheck', () => {
 
     it('should error if groupName is not found', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-not-found'),
       })
 
@@ -214,7 +210,7 @@ describe('PlaywrightCheck', () => {
 
     it('should error if both group and groupName are set', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-with-group-conflict'),
       })
 
@@ -239,7 +235,7 @@ describe('PlaywrightCheck', () => {
 
     it('should error if both groupId and groupName are set', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-with-groupId-conflict'),
       })
 
@@ -264,7 +260,7 @@ describe('PlaywrightCheck', () => {
 
     it('should error if retryStrategy is set', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-retryStrategy-not-allowed'),
       })
 
@@ -289,7 +285,7 @@ describe('PlaywrightCheck', () => {
 
     it('should error if doubleCheck is set', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-doubleCheck-not-allowed'),
       })
 
@@ -316,7 +312,7 @@ describe('PlaywrightCheck', () => {
       let fixt: FixtureSandbox
       beforeAll(async () => {
         fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-with-projects'),
         })
       }, DEFAULT_TEST_TIMEOUT)
@@ -369,7 +365,7 @@ describe('PlaywrightCheck', () => {
       let fixt: FixtureSandbox
       beforeAll(async () => {
         fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-global-files-bundling-without-projects'),
         })
       }, DEFAULT_TEST_TIMEOUT)
@@ -421,7 +417,7 @@ describe('PlaywrightCheck', () => {
     describe('headless', () => {
       it('should error if headless: false is set globally', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-headless-false-not-allowed'),
         })
 
@@ -446,7 +442,7 @@ describe('PlaywrightCheck', () => {
 
       it('should error if headless: false is set in a project', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-headless-false-in-project-not-allowed'),
         })
 
@@ -474,7 +470,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not error if headless: true is set', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-headless-true-allowed'),
         })
 
@@ -499,7 +495,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not error if headless is not set', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-headless-unset-allowed'),
         })
 
@@ -526,7 +522,7 @@ describe('PlaywrightCheck', () => {
     describe('webServer', () => {
       it('should warn if webServer is configured in playwright config when running pw-test', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-webServer'),
         })
 
@@ -555,7 +551,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not warn about webServer when not running pw-test command', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-webServer'),
         })
 
@@ -582,7 +578,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not warn about webServer when --include flag is provided', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-webServer'),
         })
 
@@ -613,7 +609,7 @@ describe('PlaywrightCheck', () => {
     describe('installCommand', () => {
       it('should warn when installCommand contains playwright install', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-installCommand-unnecessary-playwright-install-warn'),
         })
 
@@ -639,7 +635,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not warn when installCommand does not contain playwright install', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-installCommand-allowed'),
         })
 
@@ -667,7 +663,7 @@ describe('PlaywrightCheck', () => {
     describe('testCommand', () => {
       it('should warn when testCommand contains playwright install', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-testCommand-unnecessary-playwright-install-warn'),
         })
 
@@ -693,7 +689,7 @@ describe('PlaywrightCheck', () => {
 
       it('should not warn when testCommand does not playwright install', async () => {
         const fixt = await FixtureSandbox.create({
-          template: await playwrightTemplate,
+          template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-testCommand-allowed'),
         })
 
@@ -722,7 +718,7 @@ describe('PlaywrightCheck', () => {
   describe('defaults', () => {
     it('should ignore retryStrategy from session check defaults', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-retryStrategy-default-ignored'),
       })
 
@@ -753,7 +749,7 @@ describe('PlaywrightCheck', () => {
 
     it('should ignore doubleCheck from session check defaults', async () => {
       const fixt = await FixtureSandbox.create({
-        template: await playwrightTemplate,
+        template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-doubleCheck-default-ignored'),
       })
 

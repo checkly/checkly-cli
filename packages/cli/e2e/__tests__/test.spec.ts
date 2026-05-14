@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import * as uuid from 'uuid'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { FixtureSandbox, FixtureTemplate, RunOptions } from '../../src/testing/fixture-sandbox'
+import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
 async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
@@ -33,10 +33,6 @@ async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptio
   return result
 }
 
-const playwrightTemplate = FixtureTemplate.create('playwright', {
-  devDependencies: { '@playwright/test': '^1.59.1' },
-})
-
 describe('test', { timeout: 45000 }, () => {
   describe('test-project', () => {
     let fixt: FixtureSandbox
@@ -44,7 +40,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -131,7 +127,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-parse-error'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -161,7 +157,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -191,7 +187,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -218,7 +214,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'esm-module'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -240,7 +236,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -265,7 +261,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project-missing-snapshots'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -292,7 +288,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'retry-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 

@@ -8,7 +8,7 @@ import { DateTime, Duration } from 'luxon'
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import Projects from '../../src/rest/projects'
-import { FixtureSandbox, FixtureTemplate, RunOptions } from '../../src/testing/fixture-sandbox'
+import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
 async function cleanupProjects (projectLogicalId?: string) {
@@ -95,10 +95,6 @@ async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOpt
   return result
 }
 
-const playwrightTemplate = FixtureTemplate.create('playwright', {
-  devDependencies: { '@playwright/test': '^1.59.1' },
-})
-
 describe('deploy', { timeout: 45_000 }, () => {
   // Create a unique ID suffix to support parallel test executions
   let projectLogicalId: string
@@ -121,7 +117,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -246,7 +242,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -337,7 +333,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -427,7 +423,7 @@ Update and Unchanged:
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'empty-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -461,7 +457,7 @@ Update and Unchanged:
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
-        template: await playwrightTemplate,
+        template: 'playwright',
       })
     }, 180_000)
 

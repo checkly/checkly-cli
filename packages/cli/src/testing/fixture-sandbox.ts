@@ -28,6 +28,10 @@ async function symlinkChecklyPackage (nodeModulesDir: string): Promise<void> {
   )
 }
 
+function templateEnvKey (key: string): string {
+  return `CHECKLY_FIXTURE_TEMPLATE_${key.toUpperCase()}`
+}
+
 export class FixtureTemplate {
   static #cache = new Map<string, FixtureTemplate>()
 
@@ -63,6 +67,24 @@ export class FixtureTemplate {
 
     debug(`Fixture template '${key}' ready`)
 
+    process.env[templateEnvKey(key)] = root
+
+    const template = new FixtureTemplate(root)
+    FixtureTemplate.#cache.set(key, template)
+    return template
+  }
+
+  static use (key: string): FixtureTemplate {
+    const cached = FixtureTemplate.#cache.get(key)
+    if (cached) {
+      return cached
+    }
+
+    const root = process.env[templateEnvKey(key)]
+    if (!root) {
+      throw new Error(`FixtureTemplate '${key}' not found. Create it in globalSetup first.`)
+    }
+
     const template = new FixtureTemplate(root)
     FixtureTemplate.#cache.set(key, template)
     return template
@@ -82,7 +104,7 @@ export interface CreateFixtureSandboxOptions {
   root?: string
   packageManager?: PackageManager
   installPackages?: boolean
-  template?: FixtureTemplate
+  template?: string
 }
 
 interface FixtureSandboxOptions {
@@ -131,12 +153,13 @@ export class FixtureSandbox {
     debug(`Detected package manager ${packageManager.name}`)
 
     if (template) {
-      debug(`Using fixture template from ${template.root}`)
+      const resolvedTemplate = FixtureTemplate.use(template)
+      debug(`Using fixture template '${template}' from ${resolvedTemplate.root}`)
 
       // Symlink node_modules from the template (junction for Windows compat)
       const symlinkType = process.platform === 'win32' ? 'junction' : 'dir'
       await fs.symlink(
-        path.join(template.root, 'node_modules'),
+        path.join(resolvedTemplate.root, 'node_modules'),
         path.join(root, 'node_modules'),
         symlinkType,
       )
@@ -145,7 +168,7 @@ export class FixtureSandbox {
       const hasLockfile = await fs.access(path.join(root, 'pnpm-lock.yaml')).then(() => true, () => false)
       if (!hasLockfile) {
         await fs.copyFile(
-          path.join(template.root, 'pnpm-lock.yaml'),
+          path.join(resolvedTemplate.root, 'pnpm-lock.yaml'),
           path.join(root, 'pnpm-lock.yaml'),
         )
       }
