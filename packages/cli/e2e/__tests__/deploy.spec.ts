@@ -76,7 +76,7 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
 }
 
 async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
-  const result = await fixt.run('npx', [
+  const result = await fixt.run('pnpm', [
     'checkly',
     'deploy',
     ...args,

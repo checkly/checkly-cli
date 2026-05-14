@@ -22,7 +22,7 @@ describe('check parse error', () => {
 
   it('"checkly test" should return a clear error when there are check dependency errors', async () => {
     try {
-      await fixt.run('npx', [
+      await fixt.run('pnpm', [
         'checkly',
         'test',
       ], {
