@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
-import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { FixtureSandbox, FixtureTemplate } from '../../src/testing/fixture-sandbox'
 
 async function runTest (fixt: FixtureSandbox, args: string[]) {
   const result = await fixt.run('npx', [
@@ -26,12 +26,17 @@ async function runTest (fixt: FixtureSandbox, args: string[]) {
   return result
 }
 
+const playwrightTemplate = FixtureTemplate.create('playwright', {
+  devDependencies: { '@playwright/test': '^1.59.1' },
+})
+
 describe('pw-test', { timeout: 45000 }, () => {
   let fixt: FixtureSandbox
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
+      template: await playwrightTemplate,
     })
   }, 180_000)
 
@@ -53,6 +58,7 @@ describe('pw-test', { timeout: 45000 }, () => {
     beforeEach(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
+        template: await playwrightTemplate,
       })
     }, 180_000)
 

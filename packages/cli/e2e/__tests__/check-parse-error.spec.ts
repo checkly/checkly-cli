@@ -12,6 +12,7 @@ describe('check parse error', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'check-parse-error'),
+      installPackages: false,
     })
   }, 180_000)
 
