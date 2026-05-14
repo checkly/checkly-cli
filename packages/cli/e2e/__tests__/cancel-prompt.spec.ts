@@ -54,10 +54,9 @@ function waitForExit (proc: ChildProcessWithoutNullStreams, timeout: number): Pr
 describe('cancel-prompt fixture', () => {
   it('buffered ^C byte before prompt does not auto-abort', async () => {
     // Arrange
-    const proc = spawn('npx', ['tsx', fixturePath], {
-      env: { ...process.env, FORCE_RAW: '1' },
+    const proc = spawn(process.execPath, ['-r', 'ts-node/register', fixturePath], {
+      env: { ...process.env, FORCE_RAW: '1', TS_NODE_TRANSPILE_ONLY: 'true' },
       stdio: 'pipe',
-      shell: true,
     })
 
     // Act — write ^C immediately so it is buffered before the prompt opens
@@ -76,10 +75,9 @@ describe('cancel-prompt fixture', () => {
 
   it('typed y after prompt opens confirms and exits 0', async () => {
     // Arrange
-    const proc = spawn('npx', ['tsx', fixturePath], {
-      env: { ...process.env, FORCE_RAW: '1' },
+    const proc = spawn(process.execPath, ['-r', 'ts-node/register', fixturePath], {
+      env: { ...process.env, FORCE_RAW: '1', TS_NODE_TRANSPILE_ONLY: 'true' },
       stdio: 'pipe',
-      shell: true,
     })
 
     // Act
