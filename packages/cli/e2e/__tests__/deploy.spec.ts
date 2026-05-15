@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from
 
 import Projects from '../../src/rest/projects'
 import { CLI_PACKAGE_ROOT, FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 import { ExecaError } from 'execa'
 
 async function cleanupProjects (projectLogicalId?: string) {
@@ -85,8 +86,7 @@ async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOpt
     extendEnv: false,
     ...options,
     env: {
-      PATH: process.env.PATH,
-      CHECKLY_CLI_MODE: 'interactive',
+      ...checklyEnv(),
       ...options?.env,
     },
   })

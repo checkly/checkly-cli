@@ -4,6 +4,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
 import { CLI_PACKAGE_ROOT, FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 
 async function runTest (fixt: FixtureSandbox, args: string[]) {
   const result = await fixt.run('node', [
@@ -13,10 +14,7 @@ async function runTest (fixt: FixtureSandbox, args: string[]) {
   ], {
     timeout: 180_000,
     extendEnv: false,
-    env: {
-      PATH: process.env.PATH,
-      CHECKLY_CLI_MODE: 'interactive',
-    },
+    env: checklyEnv(),
   })
 
   if (result.exitCode !== 0) {

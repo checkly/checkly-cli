@@ -5,6 +5,7 @@ import * as uuid from 'uuid'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
 import { CLI_PACKAGE_ROOT, FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 import { ExecaError } from 'execa'
 
 async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
@@ -17,9 +18,7 @@ async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptio
     extendEnv: false,
     ...options,
     env: {
-      PATH: process.env.PATH,
-      CHECKLY_CLI_MODE: 'interactive',
-      CHECKLY_CLI_VERSION: '4.8.0',
+      ...checklyEnv(),
       ...options?.env,
     },
   })
