@@ -44,7 +44,7 @@ export function runCheckly (
 ) {
   const { apiKey, accountId, cliVersion, promptsInjection, ...runOptions } = options ?? {}
 
-  return fixt.run('pnpm', ['checkly', ...args], {
+  return fixt.run('node', [fixt.abspath('node_modules/checkly/bin/run'), ...args], {
     timeout: 30_000,
     ...runOptions,
     env: {

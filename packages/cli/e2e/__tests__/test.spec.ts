@@ -8,8 +8,8 @@ import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
 async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
-  const result = await fixt.run('pnpm', [
-    'checkly',
+  const result = await fixt.run('node', [
+    fixt.abspath('node_modules/checkly/bin/run'),
     'test',
     ...args,
   ], {

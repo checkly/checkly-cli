@@ -22,8 +22,8 @@ describe('check parse error', () => {
 
   it('"checkly test" should return a clear error when there are check dependency errors', async () => {
     try {
-      await fixt.run('pnpm', [
-        'checkly',
+      await fixt.run('node', [
+        fixt.abspath('node_modules/checkly/bin/run'),
         'test',
       ], {
         env: {

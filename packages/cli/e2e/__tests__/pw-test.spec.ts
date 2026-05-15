@@ -6,8 +6,8 @@ import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 
 async function runTest (fixt: FixtureSandbox, args: string[]) {
-  const result = await fixt.run('pnpm', [
-    'checkly',
+  const result = await fixt.run('node', [
+    fixt.abspath('node_modules/checkly/bin/run'),
     'pw-test',
     ...args,
   ], {
