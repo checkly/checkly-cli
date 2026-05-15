@@ -1,58 +1,43 @@
-import config from 'config'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('checkly checks list', () => {
+  let fixt: FixtureSandbox
+
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({ template: 'bare' })
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
   it('should list checks with default output', async () => {
-    const result = await runChecklyCli({
-      args: ['checks', 'list'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-    })
-    expect(result.status).toBe(0)
-    expect(result.stdout).toBeTruthy()
+    const { stdout } = await runCheckly(fixt, ['checks', 'list'])
+    expect(stdout).toBeTruthy()
   })
 
   it('should output valid JSON with --output json', async () => {
-    const result = await runChecklyCli({
-      args: ['checks', 'list', '--output', 'json'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-    })
-    expect(result.status).toBe(0)
-    const parsed = JSON.parse(result.stdout)
+    const { stdout } = await runCheckly(fixt, ['checks', 'list', '--output', 'json'])
+    const parsed = JSON.parse(stdout)
     expect(parsed).toHaveProperty('data')
     expect(Array.isArray(parsed.data)).toBe(true)
   })
 
   it('should output markdown with --output md', async () => {
-    const result = await runChecklyCli({
-      args: ['checks', 'list', '--output', 'md'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-    })
-    expect(result.status).toBe(0)
-    expect(result.stdout).toContain('| Name | Description | Type | Status |')
+    const { stdout } = await runCheckly(fixt, ['checks', 'list', '--output', 'md'])
+    expect(stdout).toContain('| Name | Description | Type | Status |')
   })
 
   it('should respect --limit flag', async () => {
-    const allResult = await runChecklyCli({
-      args: ['checks', 'list', '--output', 'json'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-    })
-    expect(allResult.status).toBe(0)
-    const allParsed = JSON.parse(allResult.stdout)
+    const { stdout: allStdout } = await runCheckly(fixt, ['checks', 'list', '--output', 'json'])
+    const allParsed = JSON.parse(allStdout)
     expect(allParsed.data.length).toBeGreaterThan(1)
 
-    const limitedResult = await runChecklyCli({
-      args: ['checks', 'list', '--output', 'json', '--limit', '1'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-    })
-    expect(limitedResult.status).toBe(0)
-    const limitedParsed = JSON.parse(limitedResult.stdout)
+    const { stdout: limitedStdout } = await runCheckly(fixt, ['checks', 'list', '--output', 'json', '--limit', '1'])
+    const limitedParsed = JSON.parse(limitedStdout)
     expect(limitedParsed.data).toHaveLength(1)
   })
 })

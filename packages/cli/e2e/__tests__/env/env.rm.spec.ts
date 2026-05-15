@@ -1,68 +1,73 @@
 import path from 'node:path'
 
-import config from 'config'
 import { nanoid } from 'nanoid'
-import { describe, beforeEach, afterEach, it, expect } from 'vitest'
+import { ExecaError } from 'execa'
+import { describe, beforeAll, afterAll, beforeEach, afterEach, it, expect } from 'vitest'
 
-import { runChecklyCli } from '../../run-checkly'
+import { FixtureSandbox } from '../../../src/testing/fixture-sandbox'
+import { runCheckly } from '../../run-checkly'
 
 const executionId = nanoid(5)
 
+let fixt: FixtureSandbox
+
 async function cleanupEnvVars () {
-  await runChecklyCli({
-    args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
-    apiKey: config.get('apiKey'),
-    accountId: config.get('accountId'),
-    directory: path.join(__dirname, '../fixtures/check-parse-error'),
-  })
+  await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`, '--force']).catch(() => {})
 }
 
 describe('checkly env rm', () => {
-  beforeEach(async () => {
-    await runChecklyCli({
-      args: ['env', 'add', `testenvvarsrm-${executionId}`, 'testvalue'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-      directory: path.join(__dirname, '../fixtures/check-parse-error'),
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({
+      template: 'bare',
+      source: path.join(__dirname, '..', 'fixtures', 'check-parse-error'),
     })
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
   })
+
+  beforeEach(async () => {
+    await runCheckly(fixt, ['env', 'add', `testenvvarsrm-${executionId}`, 'testvalue'])
+  })
+
   // after testing remove the environment variable vi checkly env rm test
   afterEach(async () => {
     await cleanupEnvVars()
   })
 
   it('should remove the testenvvarsrm env variable', async () => {
-    const result = await runChecklyCli({
-      args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-      directory: path.join(__dirname, '../fixtures/check-parse-error'),
-    })
+    const { stdout } = await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'])
     // expect that 'testenvvars' is in the output
-    expect(result.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" deleted.`)
+    expect(stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" deleted.`)
   })
 
   it('should ask for permision to remove the testenvvarsrm env variable', async () => {
-    const result = await runChecklyCli({
-      args: ['env', 'rm', `testenvvarsrm-${executionId}`],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-      directory: path.join(__dirname, '../fixtures/check-parse-error'),
-      timeout: 5000,
-    })
-    expect(result.stdout).toContain(`Delete environment variable "testenvvarsrm-${executionId}"`)
-    expect(result.stdout).toContain('Proceed?')
+    try {
+      await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`], { timeout: 5000 })
+      expect.unreachable('Expected process to be killed by timeout')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect(err.stdout).toContain(`Delete environment variable "testenvvarsrm-${executionId}"`)
+        expect(err.stdout).toContain('Proceed?')
+      } else {
+        throw err
+      }
+    }
   })
 
   it('should throw an error because testenvvarsrm env variable does not exist', async () => {
     await cleanupEnvVars()
-    const result = await runChecklyCli({
-      args: ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-      directory: path.join(__dirname, '../fixtures/check-parse-error'),
-    })
-    // expect that 'testenvvars' does not exist
-    expect(result.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" does not exist.`)
+    try {
+      await runCheckly(fixt, ['env', 'rm', `testenvvarsrm-${executionId}`, '--force'])
+      expect.unreachable('Expected env rm to fail because variable does not exist')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        // expect that 'testenvvars' does not exist
+        expect(err.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" does not exist.`)
+      } else {
+        throw err
+      }
+    }
   })
 })

@@ -1,20 +1,50 @@
 import path from 'node:path'
 
 import config from 'config'
-import { describe, it, expect } from 'vitest'
+import { ExecaError } from 'execa'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { CLI_PACKAGE_ROOT, FixtureSandbox } from '../../src/testing/fixture-sandbox'
 
 describe('check parse error', () => {
-  it('"checkly test" should return a clear error when there are check dependency errors', async () => {
-    const { stderr } = await runChecklyCli({
-      args: ['test'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
-      directory: path.join(__dirname, 'fixtures/check-parse-error'),
-    })
-    const toAbsolutePath = (filename: string) => path.join(__dirname, 'fixtures', 'check-parse-error', filename)
+  let fixt: FixtureSandbox
 
-    expect(stderr.replace(/(\r\n|\n|\r|\s+)/gm, '')).toContain(toAbsolutePath('entrypoint.js'))
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({
+      source: path.join(__dirname, 'fixtures', 'check-parse-error'),
+      installPackages: false,
+    })
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
+  it('"checkly test" should return a clear error when there are check dependency errors', async () => {
+    try {
+      await fixt.run('node', [
+        path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
+        'test',
+      ], {
+        extendEnv: false,
+        env: {
+          PATH: process.env.PATH,
+          CHECKLY_API_KEY: config.get('apiKey') as string,
+          CHECKLY_ACCOUNT_ID: config.get('accountId') as string,
+          CHECKLY_ENV: process.env.CHECKLY_ENV,
+          CHECKLY_CLI_VERSION: '4.8.0',
+        },
+        timeout: 30_000,
+      })
+      expect.unreachable('Expected checkly test to fail with a parse error')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect((err.stderr as unknown as string).replace(/(\r\n|\n|\r|\s+)/gm, '')).toContain(
+          path.join(fixt.root, 'entrypoint.js'),
+        )
+      } else {
+        throw err
+      }
+    }
   })
 })

@@ -246,8 +246,3 @@ exports[`formatCheckResult() > Browser Check result > formats a Browser Check re
 `;
 
 exports[`formatCheckResult() > Browser Check result > formats a basic Browser Check result  > browser-check-result-basic-format 1`] = `""`;
-
-
-
-
-

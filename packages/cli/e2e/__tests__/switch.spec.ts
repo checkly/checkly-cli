@@ -1,15 +1,23 @@
 import config from 'config'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('switch', () => {
+  let fixt: FixtureSandbox
+
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({ template: 'bare' })
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
   it('should switch between user accounts', async () => {
     const accountName = config.get('accountName') as string
-    const { status, stdout, stderr } = await runChecklyCli({
-      args: ['switch'],
-      apiKey: config.get('apiKey'),
-      accountId: config.get('accountId'),
+    const { stdout, stderr } = await runCheckly(fixt, ['switch'], {
       promptsInjection: [{
         id: config.get('accountId') as string,
         name: accountName,
@@ -18,8 +26,7 @@ describe('switch', () => {
       timeout: 5000,
     })
 
-    expect(stdout).toContain(`Account switched to ${accountName}\n`)
+    expect(stdout).toContain(`Account switched to ${accountName}`)
     expect(stderr).toBe('')
-    expect(status).toBe(0)
   })
 })
