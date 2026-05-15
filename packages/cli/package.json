@@ -87,7 +87,7 @@
         "description": "List and manage status pages in your Checkly account."
       }
     },
-    "helpClass": "./dist/help/help-extension"
+    "helpClass": "./dist/help/help-extension.js"
   },
   "bin": {
     "checkly": "./bin/run"
