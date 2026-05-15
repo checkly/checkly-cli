@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..')
+export const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..')
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 

@@ -1,6 +1,8 @@
 import config from 'config'
 
-import type { FixtureSandbox, RunOptions } from '../src/testing/fixture-sandbox.js'
+import path from 'node:path'
+
+import { CLI_PACKAGE_ROOT, type FixtureSandbox, type RunOptions } from '../src/testing/fixture-sandbox.js'
 import type { Account } from '../src/rest/accounts.js'
 
 export function checklyEnv (overrides?: {
@@ -44,7 +46,7 @@ export function runCheckly (
 ) {
   const { apiKey, accountId, cliVersion, promptsInjection, ...runOptions } = options ?? {}
 
-  return fixt.run('node', [fixt.abspath('node_modules/checkly/bin/run'), ...args], {
+  return fixt.run('node', [path.join(CLI_PACKAGE_ROOT, 'bin', 'run'), ...args], {
     timeout: 30_000,
     ...runOptions,
     env: {

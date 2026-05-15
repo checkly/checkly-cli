@@ -4,12 +4,12 @@ import fs from 'node:fs'
 import * as uuid from 'uuid'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
-import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { CLI_PACKAGE_ROOT, FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
 async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
   const result = await fixt.run('node', [
-    fixt.abspath('node_modules/checkly/bin/run'),
+    path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
     'test',
     ...args,
   ], {

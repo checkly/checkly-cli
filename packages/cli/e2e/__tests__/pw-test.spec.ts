@@ -3,11 +3,11 @@ import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
-import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { CLI_PACKAGE_ROOT, FixtureSandbox } from '../../src/testing/fixture-sandbox'
 
 async function runTest (fixt: FixtureSandbox, args: string[]) {
   const result = await fixt.run('node', [
-    fixt.abspath('node_modules/checkly/bin/run'),
+    path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
     'pw-test',
     ...args,
   ], {

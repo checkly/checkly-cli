@@ -4,7 +4,7 @@ import config from 'config'
 import { ExecaError } from 'execa'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { CLI_PACKAGE_ROOT, FixtureSandbox } from '../../src/testing/fixture-sandbox'
 
 describe('check parse error', () => {
   let fixt: FixtureSandbox
@@ -23,7 +23,7 @@ describe('check parse error', () => {
   it('"checkly test" should return a clear error when there are check dependency errors', async () => {
     try {
       await fixt.run('node', [
-        fixt.abspath('node_modules/checkly/bin/run'),
+        path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
         'test',
       ], {
         env: {

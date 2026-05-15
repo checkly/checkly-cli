@@ -8,7 +8,7 @@ import { DateTime, Duration } from 'luxon'
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import Projects from '../../src/rest/projects'
-import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { CLI_PACKAGE_ROOT, FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
 import { ExecaError } from 'execa'
 
 async function cleanupProjects (projectLogicalId?: string) {
@@ -77,7 +77,7 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
 
 async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
   const result = await fixt.run('node', [
-    fixt.abspath('node_modules/checkly/bin/run'),
+    path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
     'deploy',
     ...args,
   ], {
