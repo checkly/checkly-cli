@@ -82,10 +82,16 @@ export class FixtureSandbox {
 
     const root = maybeRoot
       ? await fs.mkdir(maybeRoot, { recursive: true }).then(() => maybeRoot)
-      // tmpdir() on macOS usually returns a path starting with /var which is
-      // a symlink. Resolve the path so that we don't run into path mismatch
-      // issues.
-      : await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-')))
+      : process.platform === 'win32'
+        // fs.realpath uses GetFinalPathNameByHandle on Windows, which fails
+        // with EISDIR on virtual filesystems that don't register with the
+        // Mount Manager (e.g. ImDisk RAM disks). tmpdir() on Windows is
+        // never a symlink, so skipping realpath is safe.
+        ? await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-'))
+        // tmpdir() on macOS usually returns a path starting with /var which is
+        // a symlink. Resolve the path so that we don't run into path mismatch
+        // issues.
+        : await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), 'fixture-sandbox-')))
 
     debug(`Using root ${root}`)
 
