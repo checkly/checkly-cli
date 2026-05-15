@@ -226,6 +226,7 @@ export class FixtureSandbox {
 
 export interface RunOptions {
   env?: Record<string, string | undefined>
+  extendEnv?: boolean
   timeout?: number
   cwd?: string
 }

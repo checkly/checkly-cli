@@ -12,6 +12,11 @@ async function runTest (fixt: FixtureSandbox, args: string[]) {
     ...args,
   ], {
     timeout: 180_000,
+    extendEnv: false,
+    env: {
+      PATH: process.env.PATH,
+      CHECKLY_CLI_MODE: 'interactive',
+    },
   })
 
   if (result.exitCode !== 0) {

@@ -82,7 +82,13 @@ async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOpt
     ...args,
   ], {
     timeout: 120_000,
+    extendEnv: false,
     ...options,
+    env: {
+      PATH: process.env.PATH,
+      CHECKLY_CLI_MODE: 'interactive',
+      ...options?.env,
+    },
   })
 
   if (result.exitCode !== 0) {

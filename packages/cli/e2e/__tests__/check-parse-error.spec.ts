@@ -26,7 +26,9 @@ describe('check parse error', () => {
         path.join(CLI_PACKAGE_ROOT, 'bin', 'run'),
         'test',
       ], {
+        extendEnv: false,
         env: {
+          PATH: process.env.PATH,
           CHECKLY_API_KEY: config.get('apiKey') as string,
           CHECKLY_ACCOUNT_ID: config.get('accountId') as string,
           CHECKLY_ENV: process.env.CHECKLY_ENV,
