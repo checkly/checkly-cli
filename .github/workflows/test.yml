@@ -24,9 +24,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest-x64]
-    name: test - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+        include:
+          - name: ubuntu-latest
+            runner: ubuntu-latest
+          - name: windows-self-hosted-arm64
+            runner: [self-hosted, Windows, ARM64, checkly-cli]
+    name: test - ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v4
@@ -44,7 +48,7 @@ jobs:
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules-test-${{ matrix.os }}
+          name: llm-rules-test-${{ matrix.name }}
           if-no-files-found: error
           path: packages/cli/dist/ai-context/*
           retention-days: 1
