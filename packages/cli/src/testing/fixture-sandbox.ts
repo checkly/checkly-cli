@@ -211,6 +211,7 @@ export class FixtureSandbox {
   async run (executable: string, args: string[], options?: RunOptions) {
     const result = await execa(executable, args, {
       cwd: this.#root,
+      shell: process.platform === 'win32',
       ...options,
     })
     return result
