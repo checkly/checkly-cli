@@ -26,9 +26,8 @@ describe('check parse error', () => {
         'checkly',
         'test',
       ], {
-        extendEnv: false,
         env: {
-          PATH: process.env.PATH,
+          CHECKLY_CLI_MODE: 'interactive',
           CHECKLY_API_KEY: config.get('apiKey') as string,
           CHECKLY_ACCOUNT_ID: config.get('accountId') as string,
           CHECKLY_ENV: process.env.CHECKLY_ENV,

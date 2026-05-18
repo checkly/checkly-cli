@@ -13,7 +13,6 @@ async function runTest (fixt: FixtureSandbox, args: string[]) {
     ...args,
   ], {
     timeout: 180_000,
-    extendEnv: false,
     env: checklyEnv(),
   })
 

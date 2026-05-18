@@ -15,7 +15,6 @@ async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptio
     ...args,
   ], {
     timeout: 120_000,
-    extendEnv: false,
     ...options,
     env: {
       ...checklyEnv(),
