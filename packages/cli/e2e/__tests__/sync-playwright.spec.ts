@@ -15,7 +15,7 @@ describe('sync-playwright', () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-playwright-project'),
-        template: 'bare',
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -51,7 +51,7 @@ describe('sync-playwright', () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-project'),
-        template: 'bare',
+        template: 'playwright',
       })
     }, 180_000)
 
