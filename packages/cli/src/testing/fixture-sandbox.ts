@@ -15,9 +15,8 @@ export const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..')
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
 
 async function symlinkChecklyPackage (nodeModulesDir: string): Promise<void> {
-  const symlinkType = process.platform === 'win32' ? 'junction' : 'dir'
   await fs.mkdir(nodeModulesDir, { recursive: true })
-  await fs.symlink(CLI_PACKAGE_ROOT, path.join(nodeModulesDir, 'checkly'), symlinkType)
+  await fs.symlink(CLI_PACKAGE_ROOT, path.join(nodeModulesDir, 'checkly'), 'dir')
 
   const binDir = path.join(nodeModulesDir, '.bin')
   await fs.mkdir(binDir, { recursive: true })
@@ -165,12 +164,10 @@ export class FixtureSandbox {
       const resolvedTemplate = FixtureTemplate.use(template)
       debug(`Using fixture template '${template}' from ${resolvedTemplate.root}`)
 
-      // Symlink node_modules from the template (junction for Windows compat)
-      const symlinkType = process.platform === 'win32' ? 'junction' : 'dir'
       await fs.symlink(
         path.join(resolvedTemplate.root, 'node_modules'),
         path.join(root, 'node_modules'),
-        symlinkType,
+        'dir',
       )
 
       // Copy lockfile from template if the fixture doesn't have one
