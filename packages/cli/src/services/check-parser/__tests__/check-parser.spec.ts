@@ -23,7 +23,7 @@ describe('dependency-parser - parser()', () => {
     // therefore do not import anything.
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'check-parser-fixtures'),
-      installPackages: false,
+      template: 'bare',
     })
   }, 180_000)
 

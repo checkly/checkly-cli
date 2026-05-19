@@ -274,7 +274,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-agentic-project'),
-        installPackages: false,
+        template: 'bare',
       })
     }, 180_000)
 

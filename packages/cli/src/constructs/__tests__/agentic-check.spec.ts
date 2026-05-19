@@ -34,7 +34,7 @@ describe('AgenticCheck', () => {
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      installPackages: false,
+      template: 'bare',
       source: path.join(__dirname, 'fixtures', 'agentic-check'),
     })
   }, 180_000)

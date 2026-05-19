@@ -10,27 +10,9 @@ import { fileURLToPath } from 'node:url'
 import { detectPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..')
+const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..')
 
 const debug = Debug('checkly:cli:testing:fixture-sandbox')
-
-async function symlinkChecklyPackage (nodeModulesDir: string): Promise<void> {
-  await fs.mkdir(nodeModulesDir, { recursive: true })
-  await fs.symlink(CLI_PACKAGE_ROOT, path.join(nodeModulesDir, 'checkly'), 'dir')
-
-  const binDir = path.join(nodeModulesDir, '.bin')
-  await fs.mkdir(binDir, { recursive: true })
-  const binTarget = path.join(CLI_PACKAGE_ROOT, 'bin', 'run')
-
-  if (process.platform === 'win32') {
-    await fs.writeFile(
-      path.join(binDir, 'checkly.cmd'),
-      `@node "${binTarget}" %*\r\n`,
-    )
-  } else {
-    await fs.symlink(binTarget, path.join(binDir, 'checkly'), 'file')
-  }
-}
 
 function templateEnvKey (key: string): string {
   return `CHECKLY_FIXTURE_TEMPLATE_${key.toUpperCase()}`
@@ -58,16 +40,20 @@ export class FixtureTemplate {
 
     debug(`Creating fixture template '${key}' at ${root}`)
 
+    const tgzPath = path.join(CLI_PACKAGE_ROOT, 'checkly-0.0.1-dev.tgz')
+    await fs.access(tgzPath)
+
     await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
       name: `fixture-template-${key}`,
       private: true,
       dependencies: pkg.dependencies,
-      devDependencies: pkg.devDependencies,
+      devDependencies: {
+        ...pkg.devDependencies,
+        checkly: `file:${tgzPath}`,
+      },
     }, null, 2) + '\n')
 
     await execa('pnpm', ['install', '--ignore-workspace'], { cwd: root })
-
-    await symlinkChecklyPackage(path.join(root, 'node_modules'))
 
     debug(`Fixture template '${key}' ready`)
 
@@ -184,19 +170,6 @@ export class FixtureSandbox {
       debug(`Installing packages via ${unsafeDisplayCommand}`)
 
       await execa(executable, args, { cwd: root })
-
-      const checklyLink = path.join(root, 'node_modules', 'checkly')
-      const linkExists = await fs.access(checklyLink).then(() => true, () => false)
-      if (!linkExists) {
-        await symlinkChecklyPackage(path.join(root, 'node_modules'))
-      }
-    } else {
-      // Even without install, ensure 'checkly' is resolvable from the fixture
-      const checklyLink = path.join(root, 'node_modules', 'checkly')
-      const linkExists = await fs.access(checklyLink).then(() => true, () => false)
-      if (!linkExists) {
-        await symlinkChecklyPackage(path.join(root, 'node_modules'))
-      }
     }
 
     return new FixtureSandbox({ root, packageManager })
