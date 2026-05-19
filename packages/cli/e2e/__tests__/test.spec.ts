@@ -168,8 +168,8 @@ describe('test', { timeout: 45000 }, () => {
         await runTest(fixt, [])
       } catch (err) {
         if (err instanceof ExecaError) {
-          expect((err.stderr as unknown as string).replace(/(\n {4})/gm, ''))
-            .toContain('Error: Resource of type \'check-group\' with logical id \'my-check-group\' already exists.')
+          expect((err.stdout as unknown as string).replace(/(\n {4})/gm, ''))
+            .toContain('A check-group with logicalId "my-check-group" already exists.')
           expect(err.exitCode).toBe(1)
         } else {
           throw err
