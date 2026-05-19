@@ -1,5 +1,7 @@
+import net from 'node:net'
+
 import { ExecaError } from 'execa'
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 import { runCheckly } from '../run-checkly'
@@ -24,6 +26,24 @@ describe('login', () => {
     } catch {
       // logout may fail if not logged in, that's fine
     }
+  })
+
+  afterEach(async () => {
+    // The login command starts a local HTTP server on port 4242 to receive
+    // the OAuth callback. When the test times out, execa kills the process,
+    // but the OS may not release the port immediately. Wait until we can
+    // bind the port before letting the next test start.
+    await new Promise<void>((resolve, reject) => {
+      const deadline = Date.now() + 5000
+      const check = () => {
+        if (Date.now() > deadline) return reject(new Error('Port 4242 not released'))
+        const server = net.createServer()
+        server.once('error', () => setTimeout(check, 200))
+        server.once('listening', () => server.close(resolve))
+        server.listen(4242)
+      }
+      check()
+    })
   })
 
   it('should show warning with environment variables are configured', async () => {
