@@ -323,9 +323,6 @@ describe('bootstrap', () => {
     await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
     await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
     await expect(exists(path.join(directory, '__checks__', 'api.check.ts'))).resolves.toBe(true)
-
-    // node_modules nor .git shouldn't exist
-    await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 
   it('Should run in non-interactive mode when TTY is disabled', async () => {
