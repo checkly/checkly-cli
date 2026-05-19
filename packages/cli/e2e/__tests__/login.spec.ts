@@ -1,6 +1,4 @@
-import net from 'node:net'
-
-import { ExecaError } from 'execa'
+import { execa, ExecaError } from 'execa'
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
 
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
@@ -29,21 +27,17 @@ describe('login', () => {
   })
 
   afterEach(async () => {
-    // The login command starts a local HTTP server on port 4242 to receive
-    // the OAuth callback. When the test times out, execa kills the process,
-    // but the OS may not release the port immediately. Wait until we can
-    // bind the port before letting the next test start.
-    await new Promise<void>((resolve, reject) => {
-      const deadline = Date.now() + 5000
-      const check = () => {
-        if (Date.now() > deadline) return reject(new Error('Port 4242 not released'))
-        const server = net.createServer()
-        server.once('error', () => setTimeout(check, 200))
-        server.once('listening', () => server.close(resolve))
-        server.listen(4242)
-      }
-      check()
-    })
+    // The login command starts a local HTTP server on port 4242. When the
+    // test times out, execa kills pnpm but on Windows the grandchild node
+    // process holding the port survives. Kill it via taskkill.
+    if (process.platform === 'win32') {
+      try {
+        const { stdout } = await execa('netstat', ['-ano'], { reject: false })
+        const line = stdout.split('\n').find(l => l.includes(':4242') && l.includes('LISTENING'))
+        const pid = line?.trim().split(/\s+/).pop()
+        if (pid) await execa('taskkill', ['/F', '/T', '/PID', pid], { reject: false })
+      } catch {}
+    }
   })
 
   it('should show warning with environment variables are configured', async () => {
