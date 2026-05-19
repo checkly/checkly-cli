@@ -19,6 +19,12 @@ class Rca {
     )
   }
 
+  triggerTestSessionErrorGroup (testSessionErrorGroupId: string) {
+    return this.api.post<TriggerRcaResponse>(
+      `/v1/root-cause-analyses/test-session-error-groups/${testSessionErrorGroupId}`,
+    )
+  }
+
   get (id: string) {
     return this.api.get<RootCauseAnalysis>(`/v1/root-cause-analyses/${id}`)
   }

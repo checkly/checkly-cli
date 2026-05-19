@@ -118,40 +118,62 @@ export interface ErrorGroupJsonOutput {
 
 export interface RcaPendingInfo {
   rcaId: string
-  errorGroupId: string
-  checkId: string
+  source: {
+    type: 'error-group'
+    errorGroupId: string
+    checkId: string
+  } | {
+    type: 'test-session-error-group'
+    testSessionErrorGroupId: string
+  }
 }
 
 export function formatRcaPending (info: RcaPendingInfo, format: OutputFormat | 'json'): string {
   if (format === 'json') {
-    return JSON.stringify({
+    const output: Record<string, string> = {
       id: info.rcaId,
       status: 'pending',
-      errorGroupId: info.errorGroupId,
-    }, null, 2)
+    }
+    if (info.source.type === 'error-group') {
+      output.errorGroupId = info.source.errorGroupId
+    } else {
+      output.testSessionErrorGroupId = info.source.testSessionErrorGroupId
+    }
+    return JSON.stringify(output, null, 2)
   }
 
   if (format === 'md') {
+    const sourceLabel = info.source.type === 'error-group' ? 'Error group' : 'Test session error group'
+    const sourceId = info.source.type === 'error-group'
+      ? info.source.errorGroupId
+      : info.source.testSessionErrorGroupId
     return [
       '# Root Cause Analysis',
       '',
       '| Field | Value |',
       '| --- | --- |',
       `| RCA ID | ${info.rcaId} |`,
-      `| Error group | ${info.errorGroupId} |`,
+      `| ${sourceLabel} | ${sourceId} |`,
       '| Status | pending |',
     ].join('\n')
   }
 
   const lines: string[] = []
+  const pendingLabelWidth = 'Test session error group:'.length + 2
   lines.push(chalk.bold('Root cause analysis triggered.'))
   lines.push('')
-  lines.push(`${label('RCA ID:')}${info.rcaId}`)
-  lines.push(`${label('Error group:')}${info.errorGroupId}`)
-  lines.push(`${label('Status:')}${chalk.yellow('pending')}`)
+  lines.push(`${label('RCA ID:', pendingLabelWidth)}${info.rcaId}`)
+  if (info.source.type === 'error-group') {
+    lines.push(`${label('Error group:', pendingLabelWidth)}${info.source.errorGroupId}`)
+  } else {
+    lines.push(`${label('Test session error group:', pendingLabelWidth)}${info.source.testSessionErrorGroupId}`)
+  }
+  lines.push(`${label('Status:', pendingLabelWidth)}${chalk.yellow('pending')}`)
   lines.push('')
   lines.push(`  ${chalk.dim('Watch progress:')}  checkly rca get ${info.rcaId} --watch`)
-  lines.push(`  ${chalk.dim('View result:')}    checkly checks get ${info.checkId} --error-group ${info.errorGroupId}`)
+  if (info.source.type === 'error-group') {
+    lines.push(`  ${chalk.dim('View result:')}    checkly checks get ${info.source.checkId} --error-group ${info.source.errorGroupId}`)
+  }
   return lines.join('\n')
 }
 

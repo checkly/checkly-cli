@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
+import { normalizeFlagAliases, outputFlag } from '../../helpers/flags.js'
 import * as api from '../../rest/api'
 import { NotFoundError, InadequateEntitlementsError } from '../../rest/errors'
 import { formatRcaPending, formatRcaCompleted } from '../../formatters/rca'
@@ -10,13 +10,19 @@ export default class RcaRun extends AuthCommand {
   static hidden = false
   static readOnly = false
   static idempotent = false
-  static description = 'Trigger a root cause analysis for an error group.'
+  static description = 'Trigger a root cause analysis for a check or test session error group.'
+  static usage = 'rca run [-e <value> | -te <value>] [-w] [-o detail|json|md]'
 
   static flags = {
     'error-group': Flags.string({
       char: 'e',
       description: 'The error group ID to analyze.',
-      required: true,
+      exactlyOne: ['error-group', 'test-session-error-group'],
+      exclusive: ['test-session-error-group'],
+    }),
+    'test-session-error-group': Flags.string({
+      description: 'The test session error group ID to analyze.',
+      helpLabel: '-te, --test-session-error-group',
     }),
     'watch': Flags.boolean({
       char: 'w',
@@ -27,20 +33,51 @@ export default class RcaRun extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { flags } = await this.parse(RcaRun)
+    const { flags } = await this.parse(RcaRun, normalizeFlagAliases(this.argv, [
+      { alias: '-te', flag: '--test-session-error-group' },
+    ]))
     this.style.outputFormat = flags.output
 
+    const source = flags['test-session-error-group']
+      ? {
+          type: 'test-session-error-group' as const,
+          id: flags['test-session-error-group'],
+        }
+      : {
+          type: 'error-group' as const,
+          id: flags['error-group']!,
+        }
+
     try {
-      // Fetch the error group to get the checkId for navigation hints
-      const { data: errorGroup } = await api.errorGroups.get(flags['error-group'])
+      let pendingInfo
+      let rcaId: string
 
-      // Trigger the RCA
-      const { data: { id: rcaId } } = await api.rca.trigger(flags['error-group'])
+      if (source.type === 'error-group') {
+        // Fetch the error group to get the checkId for navigation hints
+        const { data: errorGroup } = await api.errorGroups.get(source.id)
 
-      const pendingInfo = {
-        rcaId,
-        errorGroupId: flags['error-group'],
-        checkId: errorGroup.checkId,
+        const response = await api.rca.trigger(source.id)
+        rcaId = response.data.id
+        pendingInfo = {
+          rcaId,
+          source: {
+            type: 'error-group' as const,
+            errorGroupId: source.id,
+            checkId: errorGroup.checkId,
+          },
+        }
+      } else {
+        await api.testSessionErrorGroups.get(source.id)
+
+        const response = await api.rca.triggerTestSessionErrorGroup(source.id)
+        rcaId = response.data.id
+        pendingInfo = {
+          rcaId,
+          source: {
+            type: 'test-session-error-group' as const,
+            testSessionErrorGroupId: source.id,
+          },
+        }
       }
 
       // If not watching, show pending state and exit
@@ -73,7 +110,8 @@ export default class RcaRun extends AuthCommand {
         return
       }
       if (err instanceof NotFoundError) {
-        this.style.shortError(`Error group not found: ${flags['error-group']}`)
+        const label = source.type === 'error-group' ? 'Error group' : 'Test session error group'
+        this.style.shortError(`${label} not found: ${source.id}`)
         process.exitCode = 1
         return
       }
