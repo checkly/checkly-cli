@@ -48,12 +48,12 @@ jobs:
           if-no-files-found: error
           path: packages/cli/dist/ai-context/*
           retention-days: 1
-  test-e2e:
+  test-e2e-checkly:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest-x64]
-    name: test-e2e - ${{ matrix.os }}
+    name: test-e2e - checkly - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -66,10 +66,28 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
-      - run: pnpm run test:e2e
+      - run: pnpm --filter checkly run test:e2e
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
           CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
           CHECKLY_EMPTY_ACCOUNT_ID: ${{ secrets.E2E_EMPTY_CHECKLY_ACCOUNT_ID }}
           CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
+  test-e2e-create-checkly:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest-x64]
+    name: test-e2e - create-checkly - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter create-checkly run test:e2e
