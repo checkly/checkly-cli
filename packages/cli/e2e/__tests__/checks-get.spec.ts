@@ -9,7 +9,7 @@ describe('checkly checks get', () => {
   let checkId: string
 
   beforeAll(async () => {
-    fixt = await FixtureSandbox.create({ template: 'bare' })
+    fixt = await FixtureSandbox.create({})
 
     const { stdout } = await runCheckly(fixt, ['checks', 'list', '--output', 'json', '--limit', '1'])
     const parsed = JSON.parse(stdout)

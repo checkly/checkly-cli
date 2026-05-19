@@ -35,7 +35,6 @@ describe('ApiCheck', () => {
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      template: 'bare',
       source: path.join(__dirname, 'fixtures', 'api-check'),
     })
   }, 180_000)

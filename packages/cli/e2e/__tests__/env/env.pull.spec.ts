@@ -16,7 +16,6 @@ describe('checkly env pull', () => {
   // additionally delete .envPullTest file if it exists
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      template: 'bare',
       source: path.join(__dirname, '..', 'fixtures', 'check-parse-error'),
     })
     await runCheckly(fixt, ['env', 'add', `envPullTest-${executionId}`, 'testvalue'])

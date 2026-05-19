@@ -23,7 +23,7 @@ describe('checkly incidents list', () => {
   let fixt: FixtureSandbox
 
   beforeAll(async () => {
-    fixt = await FixtureSandbox.create({ template: 'bare' })
+    fixt = await FixtureSandbox.create({})
   }, 180_000)
 
   afterAll(async () => {
@@ -70,7 +70,7 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
   let incidentId: string
 
   beforeAll(async () => {
-    fixt = await FixtureSandbox.create({ template: 'bare' })
+    fixt = await FixtureSandbox.create({})
 
     const serviceRes = await api.post('/v1/status-pages/services', { name: 'E2E Test Service' })
     serviceId = serviceRes.data.id

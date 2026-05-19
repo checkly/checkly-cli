@@ -13,7 +13,6 @@ let fixt: FixtureSandbox
 describe('checkly env update', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      template: 'bare',
       source: path.join(__dirname, '..', 'fixtures', 'check-parse-error'),
     })
   }, 180_000)

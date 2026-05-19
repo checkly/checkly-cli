@@ -8,7 +8,7 @@ describe('checkly account plan', () => {
   let fixt: FixtureSandbox
 
   beforeAll(async () => {
-    fixt = await FixtureSandbox.create({ template: 'bare' })
+    fixt = await FixtureSandbox.create({})
   }, 180_000)
 
   afterAll(async () => {

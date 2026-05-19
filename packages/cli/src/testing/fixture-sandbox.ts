@@ -93,7 +93,6 @@ export interface CreateFixtureSandboxOptions {
   source?: string
   root?: string
   packageManager?: PackageManager
-  installPackages?: boolean
   template?: string
 }
 
@@ -124,8 +123,7 @@ export class FixtureSandbox {
       source,
       root: maybeRoot,
       packageManager: maybePackageManager,
-      installPackages = true,
-      template,
+      template = 'bare',
     } = options
 
     const root = maybeRoot
@@ -164,12 +162,6 @@ export class FixtureSandbox {
           path.join(root, 'pnpm-lock.yaml'),
         )
       }
-    } else if (installPackages) {
-      const { executable, args, unsafeDisplayCommand } = packageManager.installCommand()
-
-      debug(`Installing packages via ${unsafeDisplayCommand}`)
-
-      await execa(executable, args, { cwd: root })
     }
 
     return new FixtureSandbox({ root, packageManager })

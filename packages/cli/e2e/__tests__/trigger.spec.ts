@@ -14,7 +14,6 @@ describe('trigger', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'trigger-project'),
-      template: 'bare',
     })
     await runCheckly(fixt, ['deploy', '--force'], {
       env: { EXECUTION_ID: executionId },

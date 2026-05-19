@@ -12,7 +12,6 @@ describe('validate', () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'allowed-config-file-constructs'),
-        template: 'bare',
       })
     }, 180_000)
 

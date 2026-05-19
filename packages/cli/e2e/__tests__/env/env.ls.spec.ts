@@ -12,7 +12,6 @@ describe('checkly env ls', () => {
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      template: 'bare',
       source: path.join(__dirname, '..', 'fixtures', 'check-parse-error'),
     })
     await runCheckly(fixt, ['env', 'add', `testenvvarsls-${executionId}`, 'testvalue'])

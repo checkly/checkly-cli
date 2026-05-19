@@ -14,7 +14,6 @@ describe('destroy', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'deploy-project'),
-      template: 'bare',
     })
   }, 180_000)
 

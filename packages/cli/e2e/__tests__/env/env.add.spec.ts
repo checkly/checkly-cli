@@ -21,7 +21,6 @@ async function cleanupEnvVars () {
 describe('checkly env add', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
-      template: 'bare',
       source: path.join(__dirname, '..', 'fixtures', 'check-parse-error'),
     })
   }, 180_000)
