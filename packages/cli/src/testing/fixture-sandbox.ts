@@ -189,6 +189,7 @@ export class FixtureSandbox {
 export interface RunOptions {
   env?: Record<string, string | undefined>
   extendEnv?: boolean
+  forceKillAfterDelay?: number | false
   timeout?: number
   cwd?: string
 }

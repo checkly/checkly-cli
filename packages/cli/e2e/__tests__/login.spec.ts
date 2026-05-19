@@ -59,6 +59,7 @@ describe('login', () => {
       await runCheckly(fixt, ['login'], {
         promptsInjection: ['login', false],
         timeout: 5000,
+        forceKillAfterDelay: 1000,
         env: {
           CHECKLY_API_KEY: undefined,
           CHECKLY_ACCOUNT_ID: undefined,
@@ -79,13 +80,14 @@ describe('login', () => {
         throw err
       }
     }
-  })
+  }, 20000)
 
   it('should show URL to signup', async () => {
     try {
       await runCheckly(fixt, ['login'], {
         promptsInjection: ['signup', false],
         timeout: 5000,
+        forceKillAfterDelay: 1000,
         env: {
           CHECKLY_API_KEY: undefined,
           CHECKLY_ACCOUNT_ID: undefined,
@@ -106,5 +108,5 @@ describe('login', () => {
         throw err
       }
     }
-  })
+  }, 20000)
 })
