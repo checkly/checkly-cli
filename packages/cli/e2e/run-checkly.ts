@@ -21,6 +21,7 @@ export function checklyEnv (overrides?: {
   return {
     // Force interactive mode so CI env vars (GITHUB_ACTIONS, CI, etc.)
     // don't make the CLI switch to JSON confirmation output.
+    PATH: process.env.PATH,
     CHECKLY_CLI_MODE: 'interactive',
     CHECKLY_API_KEY: apiKey,
     CHECKLY_ACCOUNT_ID: accountId,
@@ -46,6 +47,7 @@ export function runCheckly (
 
   return fixt.run('pnpm', ['checkly', ...args], {
     timeout: 30_000,
+    extendEnv: false,
     ...runOptions,
     env: {
       ...checklyEnv({ apiKey, accountId, cliVersion, promptsInjection }),

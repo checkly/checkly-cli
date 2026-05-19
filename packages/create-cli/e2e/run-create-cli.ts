@@ -39,6 +39,7 @@ export async function runChecklyCreateCli (options: {
     encoding: 'utf8',
     timeout,
     reject: false,
+    extendEnv: false,
     shell: process.platform === 'win32',
   })
 
