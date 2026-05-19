@@ -130,8 +130,11 @@ describe('transformErrorGroupForJson', () => {
 describe('formatRcaPending', () => {
   const pendingInfo = {
     rcaId: 'rca-123',
-    errorGroupId: 'eg-456',
-    checkId: 'check-789',
+    source: {
+      type: 'error-group' as const,
+      errorGroupId: 'eg-456',
+      checkId: 'check-789',
+    },
   }
 
   it('renders pending state in terminal', () => {
@@ -157,6 +160,44 @@ describe('formatRcaPending', () => {
     expect(result).toContain('# Root Cause Analysis')
     expect(result).toContain('pending')
     expect(result).toContain('rca-123')
+  })
+
+  it('renders test session error group pending state', () => {
+    const result = stripAnsi(formatRcaPending({
+      rcaId: 'rca-456',
+      source: {
+        type: 'test-session-error-group',
+        testSessionErrorGroupId: 'tseg-123',
+      },
+    }, 'terminal'))
+
+    expect(result).toContain('Test session error group:')
+    expect(result).toContain('tseg-123')
+    expect(result).toContain('checkly rca get rca-456 --watch')
+    expect(result).not.toContain('checkly checks get')
+
+    const lines = result.split('\n')
+    const rcaLine = lines.find(line => line.includes('RCA ID:'))!
+    const groupLine = lines.find(line => line.includes('Test session error group:'))!
+    const statusLine = lines.find(line => line.includes('Status:'))!
+
+    expect(rcaLine.indexOf('rca-456')).toBe(groupLine.indexOf('tseg-123'))
+    expect(statusLine.indexOf('pending')).toBe(groupLine.indexOf('tseg-123'))
+  })
+
+  it('renders test session error group pending state in json', () => {
+    const result = formatRcaPending({
+      rcaId: 'rca-456',
+      source: {
+        type: 'test-session-error-group',
+        testSessionErrorGroupId: 'tseg-123',
+      },
+    }, 'json')
+
+    const parsed = JSON.parse(result)
+    expect(parsed.id).toBe('rca-456')
+    expect(parsed.status).toBe('pending')
+    expect(parsed.testSessionErrorGroupId).toBe('tseg-123')
   })
 })
 
