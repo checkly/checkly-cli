@@ -56,9 +56,11 @@
     ],
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-warn-if-update-available",
-      "@oclif/plugin-not-found"
+      "@oclif/plugin-warn-if-update-available"
     ],
+    "hooks": {
+      "command_not_found": "./dist/hooks/command-not-found"
+    },
     "warn-if-update-available": {
       "timeoutInDays": 30,
       "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. To update, run `npm install -D checkly@latest`"
@@ -95,7 +97,6 @@
   "dependencies": {
     "@oclif/core": "^4.11.1",
     "@oclif/plugin-help": "^6.2.46",
-    "@oclif/plugin-not-found": "^3.2.82",
     "@oclif/plugin-warn-if-update-available": "^3.1.62",
     "@typescript-eslint/typescript-estree": "^8.59.2",
     "acorn": "^8.16.0",
