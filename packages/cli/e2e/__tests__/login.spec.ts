@@ -1,8 +1,54 @@
-import { execa, ExecaError } from 'execa'
-import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest'
+import { execa } from 'execa'
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
-import { runCheckly } from '../run-checkly'
+import { checklyEnv, runCheckly } from '../run-checkly'
+
+// Run a CLI command that is expected to hang (e.g. waiting for OAuth callback),
+// kill the process tree after a delay, and return stdout/stderr collected so far.
+async function runAndKill (
+  fixt: FixtureSandbox,
+  args: string[],
+  options: { delay: number, env?: Record<string, string | undefined>, promptsInjection?: (string | boolean)[] },
+): Promise<{ stdout: string, stderr: string }> {
+  const { delay, env, promptsInjection } = options
+  const subprocess = execa('pnpm', ['checkly', ...args], {
+    cwd: fixt.root,
+    extendEnv: false,
+    detached: true,
+    env: {
+      ...checklyEnv({ promptsInjection }),
+      ...env,
+    },
+  })
+
+  let stdout = ''
+  let stderr = ''
+  subprocess.stdout?.on('data', (data: Buffer) => {
+    stdout += data.toString()
+  })
+  subprocess.stderr?.on('data', (data: Buffer) => {
+    stderr += data.toString()
+  })
+
+  await new Promise(resolve => setTimeout(resolve, delay))
+
+  // Kill the entire process tree. On Windows, taskkill /T kills the tree.
+  // On Unix, the detached process group lets us kill all children at once.
+  if (process.platform === 'win32') {
+    await execa('taskkill', ['/F', '/T', '/PID', String(subprocess.pid)], { reject: false })
+  } else {
+    try {
+      process.kill(-subprocess.pid!, 'SIGKILL')
+    } catch { /* already dead */ }
+  }
+
+  try {
+    await subprocess
+  } catch { /* expected to fail */ }
+
+  return { stdout, stderr }
+}
 
 describe('login', () => {
   let fixt: FixtureSandbox
@@ -26,20 +72,6 @@ describe('login', () => {
     }
   })
 
-  afterEach(async () => {
-    // The login command starts a local HTTP server on port 4242. When the
-    // test times out, execa kills pnpm but on Windows the grandchild node
-    // process holding the port survives. Kill it via taskkill.
-    if (process.platform === 'win32') {
-      try {
-        const { stdout } = await execa('netstat', ['-ano'], { reject: false })
-        const line = stdout.split('\n').find(l => l.includes(':4242') && l.includes('LISTENING'))
-        const pid = line?.trim().split(/\s+/).pop()
-        if (pid) await execa('taskkill', ['/F', '/T', '/PID', pid], { reject: false })
-      } catch {}
-    }
-  })
-
   it('should show warning with environment variables are configured', async () => {
     const { stderr } = await runCheckly(fixt, ['login'], {
       timeout: 5000,
@@ -49,58 +81,34 @@ describe('login', () => {
   }, 10000)
 
   it('should show URL to login', async () => {
-    try {
-      await runCheckly(fixt, ['login'], {
-        promptsInjection: ['login', false],
-        timeout: 5000,
-        forceKillAfterDelay: 1000,
-        env: {
-          CHECKLY_API_KEY: undefined,
-          CHECKLY_ACCOUNT_ID: undefined,
-        },
-      })
-      expect.unreachable('Expected command to fail due to timeout')
-    } catch (err) {
-      if (err instanceof ExecaError) {
-        const { stdout, stderr } = err
+    const { stdout, stderr } = await runAndKill(fixt, ['login'], {
+      delay: 5000,
+      promptsInjection: ['login', false],
+      env: {
+        CHECKLY_API_KEY: undefined,
+        CHECKLY_ACCOUNT_ID: undefined,
+      },
+    })
 
-        expect(stdout).toContain('Please open the following URL in your browser:')
-        expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-        // URL should allow to login
-        expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
-
-        expect(stderr).toBe('')
-      } else {
-        throw err
-      }
-    }
-  }, 20000)
+    expect(stdout).toContain('Please open the following URL in your browser:')
+    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
+    expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
+    expect(stderr).toBe('')
+  }, 15000)
 
   it('should show URL to signup', async () => {
-    try {
-      await runCheckly(fixt, ['login'], {
-        promptsInjection: ['signup', false],
-        timeout: 5000,
-        forceKillAfterDelay: 1000,
-        env: {
-          CHECKLY_API_KEY: undefined,
-          CHECKLY_ACCOUNT_ID: undefined,
-        },
-      })
-      expect.unreachable('Expected command to fail due to timeout')
-    } catch (err) {
-      if (err instanceof ExecaError) {
-        const { stdout, stderr } = err
+    const { stdout, stderr } = await runAndKill(fixt, ['login'], {
+      delay: 5000,
+      promptsInjection: ['signup', false],
+      env: {
+        CHECKLY_API_KEY: undefined,
+        CHECKLY_ACCOUNT_ID: undefined,
+      },
+    })
 
-        expect(stdout).toContain('Please open the following URL in your browser:')
-        expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-        // URL should allow to signup
-        expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
-
-        expect(stderr).toBe('')
-      } else {
-        throw err
-      }
-    }
-  }, 20000)
+    expect(stdout).toContain('Please open the following URL in your browser:')
+    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
+    expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
+    expect(stderr).toBe('')
+  }, 15000)
 })
