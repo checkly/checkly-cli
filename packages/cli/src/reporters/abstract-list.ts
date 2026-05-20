@@ -26,7 +26,6 @@ export type checkFilesMap = Map<string | undefined, Map<SequenceId, {
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
-  private isCancelling = false
   runLocation: RunLocation
   checkFilesMap?: checkFilesMap
   numChecks?: number
@@ -108,7 +107,6 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   onStreamLogs (check: any, sequenceId: SequenceId, logs: Array<{ timestamp: number, message: string }> | undefined) {
-    if (this.isCancelling) return
     const checkFile = this.checkFilesMap!.get(check.getSourceFile?.())!.get(sequenceId)!
     const logList = logs || []
 
@@ -145,17 +143,6 @@ export default abstract class AbstractListReporter implements Reporter {
     this._printSummary()
   }
 
-  onCancelPromptShown (): void {
-    // clear before setting flag so `_clearString` is still valid
-    this._clearSummary()
-    this.isCancelling = true
-  }
-
-  onCancelPromptHidden (): void {
-    this.isCancelling = false
-    this._printSummary()
-  }
-
   // Clear the summary which was printed by _printStatus from stdout
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
@@ -167,7 +154,6 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printSummary (opts: { skipCheckCount?: boolean } = {}) {
-    if (this.isCancelling) return
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,

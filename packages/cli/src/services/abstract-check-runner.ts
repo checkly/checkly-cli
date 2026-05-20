@@ -1,6 +1,5 @@
-import prompts from 'prompts'
 import { assets, testSessions } from '../rest/api.js'
-import { isInteractiveTerminal, printLn } from '../reporters/util.js'
+import { printLn } from '../reporters/util.js'
 import { SocketClient } from './socket-client.js'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
@@ -24,8 +23,6 @@ export enum Events {
   MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
   STREAM_LOGS = 'STREAM_LOGS',
   CANCEL = 'CANCEL',
-  CANCEL_PROMPT_SHOWN = 'CANCEL_PROMPT_SHOWN',
-  CANCEL_PROMPT_HIDDEN = 'CANCEL_PROMPT_HIDDEN',
 }
 
 export type PrivateRunLocation = {
@@ -96,40 +93,33 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.checks = new Map(
         checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
       )
-      let isAskingToCancel = false
       let lastSigintAt = 0
+      let hasCancelled = false
 
       if (!this.detach) {
         sigintHandler = () => {
           const now = Date.now()
+          // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver two
+          // signals for one Ctrl+C. This window also absorbs the re-raised SIGINT from
+          // `when-exit` (a transitive dependency via conf → atomically → when-exit).
           if (now - lastSigintAt < 100) {
-            return // ignore duplicate SIGINT within 100ms (some terminals/shells deliver two signals for one Ctrl+C)
+            return
           }
           lastSigintAt = now
 
-          if (isAskingToCancel) {
-            // Second CTRL+C while prompt is active — force quit immediately
-            this.forceQuit()
+          if (hasCancelled) {
+            process.exit(1)
           } else {
-            isAskingToCancel = true
-            // emit before pause closes the race against in-flight handlers
-            this.emit(Events.CANCEL_PROMPT_SHOWN)
-            this.queue.pause()
-            this.askCancelConfirmation(testSessionId).then(cancelled => {
-              if (!cancelled) {
-                // User chose to continue — reset so next CTRL+C asks again
-                isAskingToCancel = false
-              }
-              this.emit(Events.CANCEL_PROMPT_HIDDEN)
-              this.queue.start()
-            }).catch(err => {
-              printLn(`Failed to cancel: ${err.message}`)
-              process.exit(1)
-            })
+            hasCancelled = true
+            this.emit(Events.CANCEL, testSessionId)
+            printLn('\nCancelling checks... Use --detach to keep checks running in the cloud.', 2)
           }
         }
 
-        process.on('SIGINT', sigintHandler)
+        // prependListener ensures our handler runs before the one registered by
+        // `when-exit` (transitive dep via conf → atomically), which otherwise
+        // re-raises SIGINT and terminates the process before we can act.
+        process.prependListener('SIGINT', sigintHandler)
       }
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
@@ -320,43 +310,6 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     const timeout = this.timeouts.get(timeoutKey)
     clearTimeout(timeout)
     this.timeouts.delete(timeoutKey)
-  }
-
-  private forceQuit (): void {
-    process.removeAllListeners('SIGINT')
-    process.kill(process.pid, 'SIGINT')
-  }
-
-  private async askCancelConfirmation (testSessionId: string | undefined): Promise<boolean> {
-    if (!isInteractiveTerminal()) {
-      this.emit(Events.CANCEL, testSessionId)
-      printLn('Cancelling test session...', 2)
-      return true
-    }
-    printLn('')
-    const promptOpts = {
-      type: 'confirm' as const,
-      name: 'confirmed',
-      message: 'Stop running checks?',
-      initial: true,
-      // onRender runs inside the element's render() with `this` bound to the element,
-      // so mutating this.value forces the printed answer to false on Ctrl+C abort.
-      onRender (this: { aborted: boolean, value: unknown }) {
-        if (this.aborted) {
-          this.value = false
-        }
-      },
-    }
-    const { confirmed } = await prompts(promptOpts as Parameters<typeof prompts>[0])
-    if (confirmed === undefined) {
-      return false
-    }
-    if (confirmed) {
-      this.emit(Events.CANCEL, testSessionId)
-      printLn('Cancelling test session...', 2)
-      return true
-    }
-    return false
   }
 
   private async getShortLinks (testResultId: string): Promise<TestResultsShortLinks | undefined> {
