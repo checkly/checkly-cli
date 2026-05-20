@@ -6,6 +6,7 @@ describe('cli parse error', () => {
   it('hints at the skills command on unknown flags', async () => {
     const { status, stderr } = await runChecklyCli({
       args: ['checks', 'list', '--does-not-exist'],
+      env: { CHECKLY_SKIP_AUTH: '1' },
     })
 
     expect(status).not.toBe(0)
@@ -16,6 +17,7 @@ describe('cli parse error', () => {
   it('hints at the skills command on invalid flag values', async () => {
     const { status, stderr } = await runChecklyCli({
       args: ['checks', 'list', '--output', 'bogus'],
+      env: { CHECKLY_SKIP_AUTH: '1' },
     })
 
     expect(status).not.toBe(0)
