@@ -31,6 +31,9 @@ async function runAndKill (
     stderr += data.toString()
   })
 
+  // Attach rejection handler immediately to prevent unhandled rejection
+  const done = subprocess.catch(() => {})
+
   await new Promise(resolve => setTimeout(resolve, delay))
 
   // Kill the entire process tree. On Windows, taskkill /T kills pnpm and
@@ -44,10 +47,7 @@ async function runAndKill (
     } catch { /* already dead */ }
   }
 
-  try {
-    await subprocess
-  } catch { /* expected to fail */ }
-
+  await done
   return { stdout, stderr }
 }
 
