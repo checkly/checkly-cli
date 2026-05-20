@@ -351,6 +351,8 @@ export default class PwTestCommand extends AuthCommand {
       await api.cancel.cancelTestSession({ testSessionId })
     })
 
+    runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
+
     const noTestsFoundChecks = new Set<string>()
 
     runner.on(Events.CHECK_SUCCESSFUL,

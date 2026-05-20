@@ -205,6 +205,7 @@ export default class Trigger extends AuthCommand {
       if (!testSessionId) return
       await api.cancel.cancelTestSession({ testSessionId })
     })
+    runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
     await runner.run()
   }
 

@@ -22,6 +22,7 @@ export enum Events {
   MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
   STREAM_LOGS = 'STREAM_LOGS',
   CANCEL = 'CANCEL',
+  DETACH = 'DETACH',
 }
 
 export type PrivateRunLocation = {
@@ -96,33 +97,34 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       let lastSigintAt = 0
       let hasCancelled = false
 
-      if (!this.detach) {
-        // Remove pre-existing SIGINT listeners (e.g. from `when-exit`, a transitive
-        // dependency via conf → atomically) that would re-raise the signal and
-        // terminate the process — especially on Windows where process.kill(pid, 'SIGINT')
-        // is a hard kill. The listeners are restored in the finally block.
-        previousSigintListeners = process.rawListeners('SIGINT') as Array<(...args: any[]) => void>
-        process.removeAllListeners('SIGINT')
+      // Remove pre-existing SIGINT listeners (e.g. from `when-exit`, a transitive
+      // dependency via conf → atomically) that would re-raise the signal and
+      // terminate the process — especially on Windows where process.kill(pid, 'SIGINT')
+      // is a hard kill. The listeners are restored in the finally block.
+      previousSigintListeners = process.rawListeners('SIGINT') as Array<(...args: any[]) => void>
+      process.removeAllListeners('SIGINT')
 
-        sigintHandler = () => {
-          const now = Date.now()
-          // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver
-          // two signals for one Ctrl+C.
-          if (now - lastSigintAt < 100) {
-            return
-          }
-          lastSigintAt = now
-
-          if (hasCancelled) {
-            process.exit(1)
-          } else {
-            hasCancelled = true
-            this.emit(Events.CANCEL, testSessionId)
-          }
+      sigintHandler = () => {
+        const now = Date.now()
+        // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver
+        // two signals for one Ctrl+C.
+        if (now - lastSigintAt < 100) {
+          return
         }
+        lastSigintAt = now
 
-        process.on('SIGINT', sigintHandler)
+        if (this.detach) {
+          this.emit(Events.DETACH)
+          process.exit(0)
+        } else if (hasCancelled) {
+          process.exit(1)
+        } else {
+          hasCancelled = true
+          this.emit(Events.CANCEL, testSessionId)
+        }
       }
+
+      process.on('SIGINT', sigintHandler)
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
       // To ensure that this is the case, we call `setAllTimeouts()` before `queue.start()`.

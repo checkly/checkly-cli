@@ -83,7 +83,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     expect(sigintCalls).toHaveLength(1)
   })
 
-  it('does not register a SIGINT handler during run() when detach is true', async () => {
+  it('registers a SIGINT handler during run() when detach is true', async () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
@@ -91,7 +91,29 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     await runner.run()
 
     const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
-    expect(sigintCalls).toHaveLength(0)
+    expect(sigintCalls).toHaveLength(1)
+  })
+
+  it('emits Events.DETACH and exits with 0 on SIGINT when detach is true', async () => {
+    let sigintHandler: (() => void) | undefined
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
+      if (event === 'SIGINT') sigintHandler = listener
+      return process
+    })
+    vi.spyOn(process, 'off').mockReturnValue(process)
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+
+    const runner = makeRunner(true)
+
+    const detachEvents: unknown[] = []
+    runner.on(Events.DETACH, () => detachEvents.push(true))
+
+    await runner.run()
+
+    sigintHandler?.()
+
+    expect(detachEvents).toHaveLength(1)
+    expect(exitSpy).toHaveBeenCalledWith(0)
   })
 
   it('removes the SIGINT handler in the finally block after run() completes', async () => {

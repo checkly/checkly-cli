@@ -88,4 +88,14 @@ describe('AbstractListReporter', () => {
     expect(summary).toContain('Cancelling checks')
     expect(summary).toContain('--detach')
   })
+
+  it('should include detach message after onDetach', () => {
+    const { reporter } = makeReporterWithOneCheck()
+
+    reporter.onDetach()
+
+    const calls = printLnMock.mock.calls.map(([text]: [string]) => text)
+    const summary = calls.join('\n')
+    expect(summary).toContain('continue running')
+  })
 })
