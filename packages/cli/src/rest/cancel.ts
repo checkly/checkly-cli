@@ -15,11 +15,21 @@ class Cancel {
   }
 
   async cancelTestSession (payload: CancelTestSessionRequest) {
-    return await this.api.post('/v1/cancel', payload)
+    try {
+      return await this.api.post('/v1/cancel', payload)
+    } catch (err: any) {
+      if (err?.response?.status === 403) return
+      throw err
+    }
   }
 
   async cancelCheckSession (payload: CancelCheckSessionRequest) {
-    return await this.api.post('/v1/cancel', payload)
+    try {
+      return await this.api.post('/v1/cancel', payload)
+    } catch (err: any) {
+      if (err?.response?.status === 403) return
+      throw err
+    }
   }
 }
 

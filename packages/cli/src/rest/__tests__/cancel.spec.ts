@@ -31,6 +31,18 @@ describe('Cancel', () => {
       expect(payload).toEqual({ testSessionId: 'ts-xyz' })
       expect(payload).not.toHaveProperty('checkSessionId')
     })
+
+    it('silently ignores a 403 response', async () => {
+      vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 403 } })
+
+      await expect(cancel.cancelTestSession({ testSessionId: 'ts-forbidden' })).resolves.not.toThrow()
+    })
+
+    it('re-throws non-403 errors', async () => {
+      vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 500 } })
+
+      await expect(cancel.cancelTestSession({ testSessionId: 'ts-error' })).rejects.toEqual({ response: { status: 500 } })
+    })
   })
 
   describe('cancelCheckSession()', () => {
