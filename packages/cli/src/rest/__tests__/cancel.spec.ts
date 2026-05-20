@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { AxiosInstance } from 'axios'
-import Cancel from '../cancel'
+import Cancel from '../cancel.js'
 
 function makeAxiosMock (): AxiosInstance {
   return {

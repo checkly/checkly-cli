@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import AbstractCheckRunner, { Events, SequenceId } from '../abstract-check-runner'
+import AbstractCheckRunner, { Events, SequenceId } from '../abstract-check-runner.js'
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be hoisted before any imports that pull these in
@@ -9,15 +9,15 @@ vi.mock('prompts', () => ({
   default: vi.fn(),
 }))
 
-vi.mock('../../reporters/util', async importOriginal => {
-  const actual = await importOriginal<typeof import('../../reporters/util')>()
+vi.mock('../../reporters/util.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../reporters/util.js')>()
   return {
     ...actual,
     isInteractiveTerminal: vi.fn(() => true),
   }
 })
 
-vi.mock('../../rest/api', () => ({
+vi.mock('../../rest/api.js', () => ({
   testSessions: {
     run: vi.fn().mockResolvedValue({ data: { testSessionId: 'ts-123', sequenceIds: {} } }),
     getResultShortLinks: vi.fn().mockResolvedValue({ data: {} }),
@@ -29,7 +29,7 @@ vi.mock('../../rest/api', () => ({
   getDefaults: vi.fn().mockReturnValue({ baseURL: 'https://api.checkly.com', accountId: 'acc-1' }),
 }))
 
-vi.mock('../socket-client', () => ({
+vi.mock('../socket-client.js', () => ({
   SocketClient: {
     connect: vi.fn().mockResolvedValue({
       on: vi.fn(),
@@ -44,8 +44,8 @@ vi.mock('../socket-client', () => ({
 // ---------------------------------------------------------------------------
 
 import prompts from 'prompts'
-import { SocketClient } from '../socket-client'
-import { isInteractiveTerminal } from '../../reporters/util'
+import { SocketClient } from '../socket-client.js'
+import { isInteractiveTerminal } from '../../reporters/util.js'
 
 /** Minimal concrete subclass — scheduleChecks immediately returns with zero checks so the runner exits cleanly. */
 class StubCheckRunner extends AbstractCheckRunner {

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import ListReporter from '../list'
-import type { SequenceId } from '../../services/abstract-check-runner'
+import ListReporter from '../list.js'
+import type { SequenceId } from '../../services/abstract-check-runner.js'
 
-vi.mock('../../rest/api', () => ({
+vi.mock('../../rest/api.js', () => ({
   getDefaults: () => ({
     baseURL: 'https://api.checklyhq.com',
     accountId: 'test-account-123',
@@ -17,8 +17,8 @@ vi.mock('../../rest/api', () => ({
 
 const printLnMock = vi.fn()
 
-vi.mock('../util', async () => {
-  const actual = await vi.importActual<typeof import('../util')>('../util')
+vi.mock('../util.js', async () => {
+  const actual = await vi.importActual<typeof import('../util.js')>('../util.js')
   return {
     ...actual,
     printLn: (...args: Parameters<typeof actual.printLn>) => printLnMock(...args),
