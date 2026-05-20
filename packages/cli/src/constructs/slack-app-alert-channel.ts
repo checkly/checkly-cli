@@ -2,7 +2,7 @@ import { AlertChannel, AlertChannelProps } from './alert-channel.js'
 import { Session } from './project.js'
 
 export interface SlackAppAlertChannelProps extends AlertChannelProps {
-  slackChannels?: string[]
+  slackChannels: string[]
 }
 
 /**
@@ -13,7 +13,7 @@ export interface SlackAppAlertChannelProps extends AlertChannelProps {
  * This class make use of the Alert Channel endpoints.
  */
 export class SlackAppAlertChannel extends AlertChannel {
-  slackChannels?: string[]
+  slackChannels: string[]
   /**
    * Constructs the Slack App Alert Channel instance
    *
