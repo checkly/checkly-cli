@@ -2,7 +2,8 @@ import config from 'config'
 import axios, { type AxiosInstance } from 'axios'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 const apiKey: string = config.get('apiKey')
 const accountId: string = config.get('accountId')
@@ -19,38 +20,42 @@ function createApiClient (): AxiosInstance {
 }
 
 describe('checkly incidents list', () => {
+  let fixt: FixtureSandbox
+
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({})
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
   it('should list incidents as JSON with correct structure', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'all', '--output', 'json'],
+    const { stdout } = await runCheckly(fixt, ['incidents', 'list', '--status', 'all', '--output', 'json'], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const parsed = JSON.parse(result.stdout)
+    const parsed = JSON.parse(stdout)
     expect(parsed).toHaveProperty('data')
     expect(Array.isArray(parsed.data)).toBe(true)
     expect(parsed).toHaveProperty('count')
   })
 
   it('should respect --limit flag', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'all', '--limit', '2', '--output', 'json'],
+    const { stdout } = await runCheckly(fixt, ['incidents', 'list', '--status', 'all', '--limit', '2', '--output', 'json'], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const parsed = JSON.parse(result.stdout)
+    const parsed = JSON.parse(stdout)
     expect(parsed.data.length).toBeLessThanOrEqual(2)
   })
 
   it('should filter by status', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'resolved', '--output', 'json'],
+    const { stdout } = await runCheckly(fixt, ['incidents', 'list', '--status', 'resolved', '--output', 'json'], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const parsed = JSON.parse(result.stdout)
+    const parsed = JSON.parse(stdout)
     for (const incident of parsed.data) {
       expect(incident.lastUpdateStatus).toBe('RESOLVED')
     }
@@ -58,12 +63,15 @@ describe('checkly incidents list', () => {
 })
 
 describe('incidents lifecycle (create → update → resolve → delete)', () => {
+  let fixt: FixtureSandbox
   const api = createApiClient()
   let statusPageId: string
   let serviceId: string
   let incidentId: string
 
   beforeAll(async () => {
+    fixt = await FixtureSandbox.create({})
+
     const serviceRes = await api.post('/v1/status-pages/services', { name: 'E2E Test Service' })
     serviceId = serviceRes.data.id
 
@@ -73,7 +81,7 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
       cards: [{ name: 'Default', services: [{ id: serviceId }] }],
     })
     statusPageId = statusPageRes.data.id
-  }, 30_000)
+  }, 180_000)
 
   afterAll(async () => {
     const cleanups: Promise<void>[] = []
@@ -93,25 +101,24 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
       )
     }
     await Promise.all(cleanups)
+    await fixt?.destroy()
   })
 
   it('should create an incident', async () => {
-    const result = await runChecklyCli({
-      args: [
-        'incidents', 'create',
-        '--status-page-id', statusPageId,
-        '--title', 'e2e-test-incident',
-        '--severity', 'minor',
-        '--message', 'e2e-test-created',
-        '--no-notify-subscribers',
-        '--output', 'json',
-        '--force',
-      ],
+    const { stdout } = await runCheckly(fixt, [
+      'incidents', 'create',
+      '--status-page-id', statusPageId,
+      '--title', 'e2e-test-incident',
+      '--severity', 'minor',
+      '--message', 'e2e-test-created',
+      '--no-notify-subscribers',
+      '--output', 'json',
+      '--force',
+    ], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const incident = JSON.parse(result.stdout)
+    const incident = JSON.parse(stdout)
     expect(incident).toHaveProperty('id')
     expect(incident.name).toBe('e2e-test-incident')
     expect(incident.severity).toBe('MINOR')
@@ -119,49 +126,43 @@ describe('incidents lifecycle (create → update → resolve → delete)', () =>
   })
 
   it('should post a progress update', async () => {
-    const result = await runChecklyCli({
-      args: [
-        'incidents', 'update', incidentId,
-        '--message', 'e2e-root-cause-identified',
-        '--status', 'identified',
-        '--no-notify-subscribers',
-        '--output', 'json',
-        '--force',
-      ],
+    const { stdout } = await runCheckly(fixt, [
+      'incidents', 'update', incidentId,
+      '--message', 'e2e-root-cause-identified',
+      '--status', 'identified',
+      '--no-notify-subscribers',
+      '--output', 'json',
+      '--force',
+    ], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const update = JSON.parse(result.stdout)
+    const update = JSON.parse(stdout)
     expect(update).toHaveProperty('status', 'IDENTIFIED')
     expect(update).toHaveProperty('description', 'e2e-root-cause-identified')
   })
 
   it('should resolve the incident', async () => {
-    const result = await runChecklyCli({
-      args: [
-        'incidents', 'resolve', incidentId,
-        '--message', 'e2e-test-resolved',
-        '--no-notify-subscribers',
-        '--output', 'json',
-        '--force',
-      ],
+    const { stdout } = await runCheckly(fixt, [
+      'incidents', 'resolve', incidentId,
+      '--message', 'e2e-test-resolved',
+      '--no-notify-subscribers',
+      '--output', 'json',
+      '--force',
+    ], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const update = JSON.parse(result.stdout)
+    const update = JSON.parse(stdout)
     expect(update).toHaveProperty('status', 'RESOLVED')
   })
 
   it('should show the incident as resolved in list', async () => {
-    const result = await runChecklyCli({
-      args: ['incidents', 'list', '--status', 'resolved', '--output', 'json'],
+    const { stdout } = await runCheckly(fixt, ['incidents', 'list', '--status', 'resolved', '--output', 'json'], {
       apiKey,
       accountId,
     })
-    expect(result.status, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0)
-    const parsed = JSON.parse(result.stdout)
+    const parsed = JSON.parse(stdout)
     const found = parsed.data.find((i: any) => i.id === incidentId)
     expect(found).toBeDefined()
     expect(found.lastUpdateStatus).toBe('RESOLVED')
