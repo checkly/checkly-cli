@@ -15,7 +15,7 @@ async function runAndKill (
   const subprocess = execa('pnpm', ['checkly', ...args], {
     cwd: fixt.root,
     extendEnv: false,
-    detached: true,
+    detached: process.platform !== 'win32',
     env: {
       ...checklyEnv({ promptsInjection }),
       ...env,
@@ -33,8 +33,9 @@ async function runAndKill (
 
   await new Promise(resolve => setTimeout(resolve, delay))
 
-  // Kill the entire process tree. On Windows, taskkill /T kills the tree.
-  // On Unix, the detached process group lets us kill all children at once.
+  // Kill the entire process tree. On Windows, taskkill /T kills pnpm and
+  // its grandchild node process. detached: true breaks stdio on Windows so
+  // we only use it on Unix where negative PID kills the process group.
   if (process.platform === 'win32') {
     await execa('taskkill', ['/F', '/T', '/PID', String(subprocess.pid)], { reject: false })
   } else {
