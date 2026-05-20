@@ -1,25 +1,26 @@
-/* eslint-disable no-console */
 import path from 'node:path'
 
-import config from 'config'
-import { describe, it, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('validate', () => {
   describe('config', () => {
-    it('should let allowed constructs to be used in config file', async () => {
-      const result = await runChecklyCli({
-        args: ['validate'],
-        apiKey: config.get('apiKey'),
-        accountId: config.get('accountId'),
-        directory: path.join(__dirname, 'fixtures', 'allowed-config-file-constructs'),
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'allowed-config-file-constructs'),
       })
-      if (result.status != 0) {
-        console.error('stderr=', result.stderr)
-        console.error('stdout=', result.stdout)
-      }
-      expect(result.status).toBe(0)
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should let allowed constructs to be used in config file', async () => {
+      await runCheckly(fixt, ['validate'])
     })
   })
 })

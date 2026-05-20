@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from
 
 import Projects from '../../src/rest/projects'
 import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 import { ExecaError } from 'execa'
 
 async function cleanupProjects (projectLogicalId?: string) {
@@ -76,13 +77,17 @@ async function getAllResources (type: 'checks' | 'check-groups' | 'private-locat
 }
 
 async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
-  const result = await fixt.run('npx', [
+  const result = await fixt.run('pnpm', [
     'checkly',
     'deploy',
     ...args,
   ], {
     timeout: 120_000,
     ...options,
+    env: {
+      ...checklyEnv(),
+      ...options?.env,
+    },
   })
 
   if (result.exitCode !== 0) {
@@ -117,6 +122,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -241,6 +247,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'deploy-esm-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -330,6 +337,7 @@ describe('deploy', { timeout: 45_000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -419,6 +427,7 @@ Update and Unchanged:
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'empty-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -452,6 +461,7 @@ Update and Unchanged:
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
+        template: 'playwright',
       })
     }, 180_000)
 

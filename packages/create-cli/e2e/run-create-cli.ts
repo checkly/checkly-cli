@@ -26,6 +26,9 @@ export async function runChecklyCreateCli (options: {
   const result = await execa(CHECKLY_PATH, args, {
     env: {
       PATH: process.env.PATH,
+      // Force npm as the package manager. Without this, pnpm is detected via
+      // PATH and treats the scaffolded project as part of the monorepo workspace.
+      npm_config_user_agent: 'npm/10.0.0 node/v20.0.0',
       CHECKLY_CLI_VERSION: version,
       CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
       CHECKLY_E2E_LOCAL_TEMPLATE_ROOT: path.join(__dirname, '../../../examples'),
@@ -36,6 +39,7 @@ export async function runChecklyCreateCli (options: {
     encoding: 'utf8',
     timeout,
     reject: false,
+    extendEnv: false,
     shell: process.platform === 'win32',
   })
 

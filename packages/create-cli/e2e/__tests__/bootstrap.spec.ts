@@ -32,6 +32,10 @@ function expectVersionAndName ({
   latestVersion: string
   greeting: string
 }) {
+  if (!commandOutput.stdout) {
+    // eslint-disable-next-line no-console
+    console.error('DEBUG empty stdout — exitCode:', commandOutput.exitCode, 'stderr:', commandOutput.stderr)
+  }
   if (!version) {
     expect(commandOutput.stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
   }
@@ -294,7 +298,7 @@ describe('bootstrap', () => {
     const playwrightConfigPath = path.join(directory, 'playwright.config.ts')
     const commandOutput = await runChecklyCreateCli({
       directory,
-      promptsInjection: [true, false, false, true, playwrightConfigPath],
+      promptsInjection: [true, false, false, false, playwrightConfigPath, true],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
@@ -319,9 +323,6 @@ describe('bootstrap', () => {
     await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
     await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
     await expect(exists(path.join(directory, '__checks__', 'api.check.ts'))).resolves.toBe(true)
-
-    // node_modules nor .git shouldn't exist
-    await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 
   it('Should run in non-interactive mode when TTY is disabled', async () => {

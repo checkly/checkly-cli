@@ -5,10 +5,11 @@ import * as uuid from 'uuid'
 import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 
 import { FixtureSandbox, RunOptions } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 import { ExecaError } from 'execa'
 
 async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptions) {
-  const result = await fixt.run('npx', [
+  const result = await fixt.run('pnpm', [
     'checkly',
     'test',
     ...args,
@@ -16,7 +17,7 @@ async function runTest (fixt: FixtureSandbox, args: string[], options?: RunOptio
     timeout: 120_000,
     ...options,
     env: {
-      CHECKLY_CLI_VERSION: '4.8.0',
+      ...checklyEnv(),
       ...options?.env,
     },
   })
@@ -40,6 +41,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -126,6 +128,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-parse-error'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -155,6 +158,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-duplicated-groups'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -184,6 +188,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-only-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -210,6 +215,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'esm-module'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -231,6 +237,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -255,6 +262,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'snapshot-project-missing-snapshots'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -281,6 +289,7 @@ describe('test', { timeout: 45000 }, () => {
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'retry-project'),
+        template: 'playwright',
       })
     }, 180_000)
 
