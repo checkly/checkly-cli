@@ -9,7 +9,7 @@ export interface SlackAppAlertChannelResource extends AlertChannelResource {
   }
 }
 
-const construct = 'SlackAlertChannel'
+const construct = 'SlackAppAlertChannel'
 
 export class SlackAppAlertChannelCodegen extends Codegen<SlackAppAlertChannelResource> {
   describe (resource: SlackAppAlertChannelResource): string {
