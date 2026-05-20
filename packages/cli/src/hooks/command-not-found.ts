@@ -15,9 +15,9 @@ const hook: Hook<'command_not_found'> = async function ({ config, id }) {
     '',
     'Looking for help?',
     '',
-    `Documentation:    ${DOCS_URL}`,
-    `Agent workflows:  run ${skills}`,
     `CLI help:         run ${help}`,
+    `Agent workflows:  run ${skills}`,
+    `Documentation:    ${DOCS_URL}`,
     '',
   ].join('\n'))
 
