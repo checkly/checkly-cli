@@ -201,6 +201,7 @@ export default class Trigger extends AuthCommand {
       process.exitCode = 1
     })
     runner.on(Events.CANCEL, async testSessionId => {
+      reporters.forEach(r => r.onCancel())
       if (!testSessionId) return
       await api.cancel.cancelTestSession({ testSessionId })
     })

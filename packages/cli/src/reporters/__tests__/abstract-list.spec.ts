@@ -77,4 +77,15 @@ describe('AbstractListReporter', () => {
 
     expect(reporter._clearString).not.toBe('')
   })
+
+  it('should include cancellation message with --detach hint after onCancel', () => {
+    const { reporter } = makeReporterWithOneCheck()
+
+    reporter.onCancel()
+
+    const calls = printLnMock.mock.calls.map(([text]: [string]) => text)
+    const summary = calls.join('\n')
+    expect(summary).toContain('Cancelling checks')
+    expect(summary).toContain('--detach')
+  })
 })

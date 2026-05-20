@@ -377,6 +377,7 @@ export default class Test extends AuthCommand {
     )
 
     runner.on(Events.CANCEL, async testSessionId => {
+      reporters.forEach(r => r.onCancel())
       if (!testSessionId) return
       await api.cancel.cancelTestSession({ testSessionId })
     })

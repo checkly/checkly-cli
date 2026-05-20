@@ -26,6 +26,7 @@ export type checkFilesMap = Map<string | undefined, Map<SequenceId, {
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
+  private _isCancelling = false
   runLocation: RunLocation
   checkFilesMap?: checkFilesMap
   numChecks?: number
@@ -143,6 +144,12 @@ export default abstract class AbstractListReporter implements Reporter {
     this._printSummary()
   }
 
+  onCancel (): void {
+    this._isCancelling = true
+    this._clearSummary()
+    this._printSummary()
+  }
+
   // Clear the summary which was printed by _printStatus from stdout
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
@@ -185,6 +192,11 @@ export default abstract class AbstractListReporter implements Reporter {
     }
 
     if (!opts.skipCheckCount) {
+      if (this._isCancelling) {
+        status.push('')
+        status.push(chalk.yellow('Cancelling checks... Use --detach to keep checks running in the cloud.'))
+      }
+
       status.push('')
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,

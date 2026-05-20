@@ -1,5 +1,4 @@
 import { assets, testSessions } from '../rest/api.js'
-import { printLn } from '../reporters/util.js'
 import { SocketClient } from './socket-client.js'
 import PQueue from 'p-queue'
 import * as uuid from 'uuid'
@@ -81,6 +80,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   async run () {
     let socketClient = null
     let sigintHandler: (() => void) | null = null
+    let previousSigintListeners: Array<(...args: any[]) => void> = []
     try {
       socketClient = await SocketClient.connect()
 
@@ -97,11 +97,17 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       let hasCancelled = false
 
       if (!this.detach) {
+        // Remove pre-existing SIGINT listeners (e.g. from `when-exit`, a transitive
+        // dependency via conf → atomically) that would re-raise the signal and
+        // terminate the process — especially on Windows where process.kill(pid, 'SIGINT')
+        // is a hard kill. The listeners are restored in the finally block.
+        previousSigintListeners = process.rawListeners('SIGINT') as Array<(...args: any[]) => void>
+        process.removeAllListeners('SIGINT')
+
         sigintHandler = () => {
           const now = Date.now()
-          // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver two
-          // signals for one Ctrl+C. This window also absorbs the re-raised SIGINT from
-          // `when-exit` (a transitive dependency via conf → atomically → when-exit).
+          // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver
+          // two signals for one Ctrl+C.
           if (now - lastSigintAt < 100) {
             return
           }
@@ -112,14 +118,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           } else {
             hasCancelled = true
             this.emit(Events.CANCEL, testSessionId)
-            printLn('\nCancelling checks... Use --detach to keep checks running in the cloud.', 2)
           }
         }
 
-        // prependListener ensures our handler runs before the one registered by
-        // `when-exit` (transitive dep via conf → atomically), which otherwise
-        // re-raises SIGINT and terminates the process before we can act.
-        process.prependListener('SIGINT', sigintHandler)
+        process.on('SIGINT', sigintHandler)
       }
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
@@ -146,6 +148,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     } finally {
       if (sigintHandler) {
         process.off('SIGINT', sigintHandler)
+        for (const listener of previousSigintListeners) {
+          process.on('SIGINT', listener)
+        }
       }
       if (socketClient) {
         await socketClient.endAsync()

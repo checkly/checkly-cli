@@ -64,6 +64,8 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
       subscribeAsync: vi.fn().mockResolvedValue(undefined),
       endAsync: vi.fn().mockResolvedValue(undefined),
     } as any)
+    vi.spyOn(process, 'rawListeners').mockReturnValue([])
+    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
   })
 
   afterEach(() => {
@@ -71,35 +73,35 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
   })
 
   it('registers a SIGINT handler during run() when detach is false', async () => {
-    const prependSpy = vi.spyOn(process, 'prependListener').mockReturnValue(process)
+    const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
     const runner = makeRunner(false)
     await runner.run()
 
-    const sigintCalls = prependSpy.mock.calls.filter(([event]) => event === 'SIGINT')
+    const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
     expect(sigintCalls).toHaveLength(1)
   })
 
   it('does not register a SIGINT handler during run() when detach is true', async () => {
-    const prependSpy = vi.spyOn(process, 'prependListener').mockReturnValue(process)
+    const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
     const runner = makeRunner(true)
     await runner.run()
 
-    const sigintCalls = prependSpy.mock.calls.filter(([event]) => event === 'SIGINT')
+    const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
     expect(sigintCalls).toHaveLength(0)
   })
 
   it('removes the SIGINT handler in the finally block after run() completes', async () => {
-    const prependSpy = vi.spyOn(process, 'prependListener').mockReturnValue(process)
+    const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     const offSpy = vi.spyOn(process, 'off').mockReturnValue(process)
 
     const runner = makeRunner(false)
     await runner.run()
 
-    const registeredHandler = prependSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
+    const registeredHandler = onSpy.mock.calls.find(([e]) => e === 'SIGINT')?.[1] as (() => void) | undefined
     const removedHandlers = offSpy.mock.calls
       .filter(([event]) => event === 'SIGINT')
       .map(([, listener]) => listener)
@@ -110,7 +112,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
 
   it('emits Events.CANCEL with testSessionId on first SIGINT', async () => {
     let sigintHandler: (() => void) | undefined
-    vi.spyOn(process, 'prependListener').mockImplementation((event: string | symbol, listener: any) => {
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
       if (event === 'SIGINT') sigintHandler = listener
       return process
     })
@@ -130,28 +132,9 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     expect(cancelEvents[0]).toBe('ts-cancel')
   })
 
-  it('prints cancellation message with --detach hint on first SIGINT', async () => {
-    let sigintHandler: (() => void) | undefined
-    vi.spyOn(process, 'prependListener').mockImplementation((event: string | symbol, listener: any) => {
-      if (event === 'SIGINT') sigintHandler = listener
-      return process
-    })
-    vi.spyOn(process, 'off').mockReturnValue(process)
-    const writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
-
-    const runner = makeRunner(false)
-    await runner.run()
-
-    sigintHandler?.()
-
-    const output = writeSpy.mock.calls.map(([text]) => String(text)).join('')
-    expect(output).toContain('Cancelling checks')
-    expect(output).toContain('--detach')
-  })
-
   it('calls process.exit(1) on second SIGINT after cancellation', async () => {
     let sigintHandler: (() => void) | undefined
-    vi.spyOn(process, 'prependListener').mockImplementation((event: string | symbol, listener: any) => {
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
       if (event === 'SIGINT') sigintHandler = listener
       return process
     })
@@ -171,7 +154,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
 
   it('debounces duplicate SIGINTs delivered within 100ms', async () => {
     let sigintHandler: (() => void) | undefined
-    vi.spyOn(process, 'prependListener').mockImplementation((event: string | symbol, listener: any) => {
+    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
       if (event === 'SIGINT') sigintHandler = listener
       return process
     })
@@ -202,7 +185,7 @@ describe('AbstractCheckRunner — SocketClient lifecycle', () => {
   })
 
   it('connects SocketClient at the start of run()', async () => {
-    vi.spyOn(process, 'prependListener').mockReturnValue(process)
+    vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
     const runner = makeRunner()
@@ -212,7 +195,7 @@ describe('AbstractCheckRunner — SocketClient lifecycle', () => {
   })
 
   it('calls endAsync on the socket client in the finally block', async () => {
-    vi.spyOn(process, 'prependListener').mockReturnValue(process)
+    vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
     const mockClient = {
