@@ -4,14 +4,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 
 import { loadChecklyConfig } from '../../src/services/checkly-config-loader'
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { checklyEnv } from '../run-checkly'
 
 async function runTest (fixt: FixtureSandbox, args: string[]) {
-  const result = await fixt.run('npx', [
+  const result = await fixt.run('pnpm', [
     'checkly',
     'pw-test',
     ...args,
   ], {
     timeout: 180_000,
+    env: checklyEnv(),
   })
 
   if (result.exitCode !== 0) {
@@ -32,6 +34,7 @@ describe('pw-test', { timeout: 45000 }, () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
+      template: 'playwright-1.53',
     })
   }, 180_000)
 
@@ -53,6 +56,7 @@ describe('pw-test', { timeout: 45000 }, () => {
     beforeEach(async () => {
       fixt = await FixtureSandbox.create({
         source: path.join(__dirname, 'fixtures', 'test-pwt-native'),
+        template: 'playwright',
       })
     }, 180_000)
 
@@ -77,7 +81,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-B',
-                testCommand: 'npx playwright test --grep @TAG-B',
+                testCommand: 'pnpm playwright test --grep @TAG-B',
                 frequency: 10,
               }),
             ]),
@@ -104,7 +108,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-B',
-                testCommand: 'npx playwright test --grep @TAG-B',
+                testCommand: 'pnpm playwright test --grep @TAG-B',
                 frequency: 5,
               }),
             ]),
@@ -131,7 +135,7 @@ describe('pw-test', { timeout: 45000 }, () => {
             playwrightChecks: expect.arrayContaining([
               expect.objectContaining({
                 name: 'Playwright Test: --grep @TAG-A',
-                testCommand: 'npx playwright test --grep @TAG-A',
+                testCommand: 'pnpm playwright test --grep @TAG-A',
                 installCommand: 'pnpm install',
               }),
             ]),

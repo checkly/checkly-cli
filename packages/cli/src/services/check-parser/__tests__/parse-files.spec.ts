@@ -12,6 +12,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: 'playwright',
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
       })
     }, 180_000)
@@ -21,7 +22,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle spec file', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',
@@ -58,6 +59,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: 'playwright',
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
       })
     }, 180_000)
@@ -67,7 +69,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle a spec file with snapshots', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',

@@ -14,7 +14,6 @@ export function addDevDependecies (projectDirectory: string, packageJson: Packag
 
   Object.assign(packageJson.devDependencies, {
     checkly: 'latest',
-    jiti: '^2',
   })
 
   fs.writeFileSync(path.join(projectDirectory, 'package.json'), JSON.stringify(packageJson, null, 2))

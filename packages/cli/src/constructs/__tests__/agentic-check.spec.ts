@@ -6,7 +6,7 @@ import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
 import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
 
 async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
-  const result = await fixt.run('npx', [
+  const result = await fixt.run('pnpm', [
     'checkly',
     'debug',
     'parse-project',
