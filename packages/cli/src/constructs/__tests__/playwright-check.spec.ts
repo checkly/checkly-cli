@@ -1068,4 +1068,30 @@ describe('PlaywrightCheck', () => {
       expect(files).toContain('patches/some-package+1.0.0.patch')
     }, DEFAULT_TEST_TIMEOUT)
   })
+
+  describe('bundling with absolute include path', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-absolute-include'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should include files specified via absolute path in include', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('fixtures/data.json')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
 })
