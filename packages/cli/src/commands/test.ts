@@ -94,11 +94,12 @@ export default class Test extends AuthCommand {
     }),
     'record': Flags.boolean({
       description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
-      default: false,
+      default: true,
+      allowNo: true,
     }),
     'test-session-name': Flags.string({
       char: 'n',
-      description: 'A name to use when storing results in Checkly with --record.',
+      description: 'A name to use when storing results in Checkly.',
     }),
     'update-snapshots': Flags.boolean({
       char: 'u',
