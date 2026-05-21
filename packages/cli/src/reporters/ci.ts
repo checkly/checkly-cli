@@ -4,7 +4,6 @@ import AbstractListReporter from './abstract-list.js'
 import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
-import commonMessages from '../messages/common-messages.js'
 
 export default class CiReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
@@ -17,9 +16,6 @@ export default class CiReporter extends AbstractListReporter {
     printLn('Finished running all checks:', 2)
     this._printSummary()
     this._printTestSessionsUrl()
-    if (!this.testSessionId) {
-      this._printTip(commonMessages.inlineTips.useRecordFlag)
-    }
   }
 
   onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {
