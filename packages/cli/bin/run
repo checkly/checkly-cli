@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
+import { loadDotenvFile } from '../dist/services/load-dotenv.js'
 import { execute, settings } from '@oclif/core'
 
+await loadDotenvFile()
 settings.enableAutoTranspile = false
 await execute({ dir: import.meta.url })

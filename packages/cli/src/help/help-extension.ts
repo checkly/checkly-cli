@@ -89,7 +89,9 @@ export default class ChecklyHelpClass extends Help {
     }
 
     this.log(this.section('ENVIRONMENT VARIABLES',
-      `Running the CLI from your CI pipeline will need to export variables in the shell:\n
+      `The CLI automatically loads variables from a .env file in the current directory.
+  To disable, set CHECKLY_NO_DOTENV=1.
+
   CHECKLY_ACCOUNT_ID    Checkly account ID.
   CHECKLY_API_KEY       Checkly User API Key.
     `))
