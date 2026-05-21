@@ -47,8 +47,8 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   }
 
   if (!config.hasValidCredentials()) {
-    throw new Error('Run `npx checkly login` or manually set `CHECKLY_API_KEY` '
-      + '& `CHECKLY_ACCOUNT_ID` environment variables to setup authentication.')
+    throw new Error('Run `npx checkly login` or set `CHECKLY_API_KEY` '
+      + '& `CHECKLY_ACCOUNT_ID` in your environment or .env file.')
   }
 
   const accountId = config.getAccountId()
