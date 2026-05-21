@@ -1016,4 +1016,56 @@ describe('PlaywrightCheck', () => {
       expect(files).not.toContain('fixtures/decoy.json')
     }, DEFAULT_TEST_TIMEOUT)
   })
+
+  describe('bundling with pnpm patches auto-include', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-pnpm-patches'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should auto-include patches directory for pnpm projects', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('patches/some-package+1.0.0.patch')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling with pnpm patches auto-include and subdirectory playwright config', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-subdir-pnpm-patches'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should auto-include patches from project root when playwright config is in a subdirectory', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('patches/some-package+1.0.0.patch')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
 })
