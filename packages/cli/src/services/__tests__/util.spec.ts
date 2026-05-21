@@ -44,37 +44,49 @@ describe('util', () => {
     })
 
     it('should return patches/*.patch for pnpm', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), [])
+      const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), [])
       expect(result).toEqual(['patches/*.patch'])
     })
 
     it('should return empty for npm', () => {
-      const result = getAutoIncludes(basePath, makePm('npm'), [])
+      const result = getAutoIncludes(basePath, basePath, makePm('npm'), [])
       expect(result).toEqual([])
     })
 
     it('should return empty for yarn', () => {
-      const result = getAutoIncludes(basePath, makePm('yarn'), [])
+      const result = getAutoIncludes(basePath, basePath, makePm('yarn'), [])
       expect(result).toEqual([])
     })
 
     it('should skip when user already includes patches/*.patch', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), ['patches/*.patch'])
+      const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), ['patches/*.patch'])
       expect(result).toEqual([])
     })
 
     it('should skip when user already includes a patches/ subpath', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), ['patches/some-patch.patch'])
+      const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), ['patches/some-patch.patch'])
       expect(result).toEqual([])
     })
 
     it('should skip when user includes ./patches/**', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), ['./patches/**'])
+      const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), ['./patches/**'])
       expect(result).toEqual([])
     })
 
     it('should skip when user includes absolute patches path', () => {
-      const result = getAutoIncludes(basePath, makePm('pnpm'), [path.join(basePath, 'patches/**')])
+      const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), [path.join(basePath, 'patches/**')])
+      expect(result).toEqual([])
+    })
+
+    it('should return relative pattern when globCwd is a subdirectory', () => {
+      const globCwd = path.resolve('/project/packages/app')
+      const result = getAutoIncludes(basePath, globCwd, makePm('pnpm'), [])
+      expect(result).toEqual(['../../patches/*.patch'])
+    })
+
+    it('should detect alreadyIncluded when patterns are relative to globCwd', () => {
+      const globCwd = path.resolve('/project/packages/app')
+      const result = getAutoIncludes(basePath, globCwd, makePm('pnpm'), ['../../patches/foo.patch'])
       expect(result).toEqual([])
     })
   })
