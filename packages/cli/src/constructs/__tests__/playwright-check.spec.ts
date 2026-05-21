@@ -861,4 +861,65 @@ describe('PlaywrightCheck', () => {
       ])
     }, DEFAULT_TEST_TIMEOUT)
   })
+
+  describe('workingDir bundling', () => {
+    // Regression proof for the "internal error (attempt 2)" failure seen with
+    // monorepo Playwright checks.
+    //
+    // When the Checkly config — and therefore the derived `workingDir` — lives in
+    // a workspace package that the Playwright config's dependency graph never
+    // imports, the bundler (which collects files starting from the Playwright
+    // config) never includes the workingDir. The runner then runs
+    // `cd <workingDir> && <testCommand>` against a directory that is not in the
+    // bundle, the spawn exits instantly, and the run fails with an opaque
+    // "internal error (attempt 2)".
+    //
+    // Fixture: a 3-package npm workspace (root + apps/next-web + packages/consumer)
+    // where the check config lives in apps/next-web and the Playwright project
+    // lives in packages/consumer.
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-workingdir-not-bundled'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('derives workingDir from the check config directory', async () => {
+      const output = await parseProject(fixt, '--config', 'apps/next-web/checkly.config.ts')
+
+      const { workingDir } = output.payload.resources[0].payload as any
+      expect(workingDir).toBe('apps/next-web')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('BUG: omits the derived workingDir from the bundle', async () => {
+      const output = await parseProject(fixt, '--config', 'apps/next-web/checkly.config.ts')
+
+      const { workingDir, codeBundlePath } = output.payload.resources[0].payload as any
+      const files = await listTarFiles(codeBundlePath)
+
+      // The runner executes `cd <workingDir> && <testCommand>`, so the workingDir
+      // must exist in the bundle. It does not: nothing under apps/next-web/ is
+      // bundled. This is the defect behind the runtime failure.
+      expect(workingDir).toBe('apps/next-web')
+      expect(files.some(file => file.startsWith('apps/next-web/'))).toBe(false)
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it.fails('FIXME: should include the workingDir in the bundle (remove .fails once fixed)', async () => {
+      const output = await parseProject(fixt, '--config', 'apps/next-web/checkly.config.ts')
+
+      const { codeBundlePath } = output.payload.resources[0].payload as any
+      const files = await listTarFiles(codeBundlePath)
+
+      // Desired behaviour: at minimum the workingDir's package.json is bundled so
+      // the runner can cd into it. Currently fails — hence `.fails`. Once the
+      // bundler always includes the workingDir, this test starts passing and the
+      // `.fails` marker must be removed.
+      expect(files).toContain('apps/next-web/package.json')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
 })
