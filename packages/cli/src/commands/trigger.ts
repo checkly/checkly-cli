@@ -83,7 +83,7 @@ export default class Trigger extends AuthCommand {
       exclusive: ['env'],
     }),
     'record': Flags.boolean({
-      description: 'Record check results in Checkly as a test session with full logs, traces and videos.',
+      description: '[default: true] Record check results in Checkly as a test session with full logs, traces and videos.',
       default: true,
       allowNo: true,
     }),

@@ -93,7 +93,7 @@ export default class Test extends AuthCommand {
       description: commonMessages.configFile,
     }),
     'record': Flags.boolean({
-      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
+      description: '[default: true] Record test results in Checkly as a test session with full logs, traces and videos.',
       default: true,
       allowNo: true,
     }),
