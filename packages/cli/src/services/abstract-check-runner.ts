@@ -21,6 +21,8 @@ export enum Events {
   ERROR = 'ERROR',
   MAX_SCHEDULING_DELAY_EXCEEDED = 'MAX_SCHEDULING_DELAY_EXCEEDED',
   STREAM_LOGS = 'STREAM_LOGS',
+  CANCEL = 'CANCEL',
+  DETACH = 'DETACH',
 }
 
 export type PrivateRunLocation = {
@@ -52,12 +54,14 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   accountId: string
   timeout: number
   verbose: boolean
+  protected detach: boolean
   queue: PQueue
 
   constructor (
     accountId: string,
     timeout: number,
     verbose: boolean,
+    detach: boolean = false,
   ) {
     super()
     this.checks = new Map()
@@ -66,6 +70,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     this.timeout = timeout
     this.verbose = verbose
     this.accountId = accountId
+    this.detach = detach
   }
 
   abstract scheduleChecks (checkRunSuiteId: string): Promise<{
@@ -75,6 +80,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   async run () {
     let socketClient = null
+    let sigintHandler: (() => void) | null = null
+    let previousSigintListeners: Array<(...args: any[]) => void> = []
     try {
       socketClient = await SocketClient.connect()
 
@@ -87,6 +94,37 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.checks = new Map(
         checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
       )
+      let lastSigintAt = 0
+      let hasCancelled = false
+
+      // Remove pre-existing SIGINT listeners (e.g. from `when-exit`, a transitive
+      // dependency via conf → atomically) that would re-raise the signal and
+      // terminate the process — especially on Windows where process.kill(pid, 'SIGINT')
+      // is a hard kill. The listeners are restored in the finally block.
+      previousSigintListeners = process.rawListeners('SIGINT') as Array<(...args: any[]) => void>
+      process.removeAllListeners('SIGINT')
+
+      sigintHandler = () => {
+        const now = Date.now()
+        // Ignore duplicate SIGINTs within 100ms — some terminals/shells deliver
+        // two signals for one Ctrl+C.
+        if (now - lastSigintAt < 100) {
+          return
+        }
+        lastSigintAt = now
+
+        if (this.detach) {
+          this.emit(Events.DETACH)
+          process.exit(0)
+        } else if (hasCancelled) {
+          process.exit(1)
+        } else {
+          hasCancelled = true
+          this.emit(Events.CANCEL, testSessionId)
+        }
+      }
+
+      process.on('SIGINT', sigintHandler)
 
       // `processMessage()` assumes that `this.timeouts` always has an entry for non-timed-out checks.
       // To ensure that this is the case, we call `setAllTimeouts()` before `queue.start()`.
@@ -110,6 +148,12 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.disableAllTimeouts()
       this.emit(Events.ERROR, err)
     } finally {
+      if (sigintHandler) {
+        process.off('SIGINT', sigintHandler)
+        for (const listener of previousSigintListeners) {
+          process.on('SIGINT', listener)
+        }
+      }
       if (socketClient) {
         await socketClient.endAsync()
       }

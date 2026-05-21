@@ -26,6 +26,8 @@ export type checkFilesMap = Map<string | undefined, Map<SequenceId, {
 
 export default abstract class AbstractListReporter implements Reporter {
   _clearString = ''
+  private _isCancelling = false
+  private _isDetaching = false
   runLocation: RunLocation
   checkFilesMap?: checkFilesMap
   numChecks?: number
@@ -143,15 +145,33 @@ export default abstract class AbstractListReporter implements Reporter {
     this._printSummary()
   }
 
+  onCancel (): void {
+    this._isCancelling = true
+    this._clearSummary()
+    this._printSummary()
+  }
+
+  onDetach (): void {
+    this._isDetaching = true
+    this._clearSummary()
+    this._printSummary()
+  }
+
   // Clear the summary which was printed by _printStatus from stdout
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
-    printLn(this._clearString)
+    if (this._clearString) {
+      printLn(this._clearString)
+      this._clearString = ''
+    }
   }
 
   _printSummary (opts: { skipCheckCount?: boolean } = {}) {
-    const counts = { numFailed: 0, numPassed: 0, numDegraded: 0, numRunning: 0, numRetrying: 0, scheduling: 0 }
+    const counts = {
+      numFailed: 0, numPassed: 0, numDegraded: 0,
+      numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
+    }
     const status = []
     if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
@@ -169,6 +189,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numFailed++
         } else if (result.isDegraded) {
           counts.numDegraded++
+        } else if (result.isCancelled) {
+          counts.numCancelled++
         } else {
           counts.numPassed++
         }
@@ -177,6 +199,16 @@ export default abstract class AbstractListReporter implements Reporter {
     }
 
     if (!opts.skipCheckCount) {
+      if (this._isCancelling) {
+        status.push('')
+        status.push(chalk.yellow('Cancelling checks... Use --detach to keep checks running in the cloud.'))
+      }
+
+      if (this._isDetaching) {
+        status.push('')
+        status.push(chalk.yellow('Checks will continue running in the cloud.'))
+      }
+
       status.push('')
       status.push([
         counts.scheduling ? chalk.bold.blue(`${counts.scheduling} scheduling`) : undefined,
@@ -185,6 +217,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+        counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
 
@@ -203,7 +236,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printBriefSummary () {
-    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0 }
+    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [, { result }] of checkMap.entries()) {
@@ -213,6 +246,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numFailed++
         } else if (result.isDegraded) {
           counts.numDegraded++
+        } else if (result.isCancelled) {
+          counts.numCancelled++
         } else {
           counts.numPassed++
         }
@@ -223,6 +258,7 @@ export default abstract class AbstractListReporter implements Reporter {
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
       counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
       counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+      counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
       counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
       `${this.numChecks} total`,
     ].filter(Boolean).join(', '))
