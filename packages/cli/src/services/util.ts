@@ -190,22 +190,20 @@ export async function bundlePlayWrightProject (
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
 
+  function includeTargets (dirName: string): boolean {
+    return include.some(value => {
+      return value.startsWith(`${dirName}/`) || value.includes(`/${dirName}/`)
+    })
+  }
+
   const defaultIgnores = [
     {
       pattern: '**/node_modules/**',
-      skipIf: () => {
-        return include.some(value => {
-          return value.startsWith('node_modules/')
-        })
-      },
+      skipIf: () => includeTargets('node_modules'),
     },
     {
       pattern: '**/.git/**',
-      skipIf: () => {
-        return include.some(value => {
-          return value.startsWith('.git/')
-        })
-      },
+      skipIf: () => includeTargets('.git'),
     },
   ]
 
