@@ -26,6 +26,7 @@ import BatchAnalytics from './batch-analytics.js'
 import Entitlements from './entitlements.js'
 import AccountMembers from './account-members.js'
 import Rca from './rca.js'
+import Cancel from './cancel.js'
 import { handleErrorResponse, UnauthorizedError } from './errors.js'
 import { detectOperator } from '../helpers/cli-mode.js'
 
@@ -131,3 +132,4 @@ export const batchAnalytics = new BatchAnalytics(api)
 export const entitlements = new Entitlements(api)
 export const accountMembers = new AccountMembers(api)
 export const rca = new Rca(api)
+export const cancel = new Cancel(api)
