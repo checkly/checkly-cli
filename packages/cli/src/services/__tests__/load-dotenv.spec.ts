@@ -78,7 +78,8 @@ describe('loadDotenvFile', () => {
     await expect(loadDotenvFile()).resolves.toBeUndefined()
   })
 
-  it('handles permission errors gracefully', async () => {
+  // fs.chmod(0o000) does not restrict reads on Windows
+  it.skipIf(process.platform === 'win32')('handles permission errors gracefully', async () => {
     const envPath = path.join(tempDir, '.env')
     await fs.writeFile(envPath, 'TEST_DOTENV_A=secret\n')
     await fs.chmod(envPath, 0o000)
