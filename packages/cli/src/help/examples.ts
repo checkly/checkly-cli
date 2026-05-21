@@ -5,8 +5,8 @@ type Example = {
 
 const examples: Array<Example> = [
   {
-    description: 'Record your test session in Checkly with logs, traces and videos.',
-    command: 'npx checkly test --record',
+    description: 'Run your checks on Checkly with full logs, traces and videos.',
+    command: 'npx checkly test',
   },
   {
     description: 'Pass environment variables to your checks.',

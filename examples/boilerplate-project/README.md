@@ -30,9 +30,7 @@ This project has the basic boilerplate files needed to get you started.
 ```
 - Running `npx checkly pw-test` will use the `playwright.config.ts` file and run the test suite in Checkly.
 
-- Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run.
-
-- Running `npx checkly test --record` will run all checks in a test session for you to preview in the UI.
+- Running `npx checkly test` will look for `.check.ts` files and `.spec.ts` in `__checks__` directories and execute them in a dry run. Results are recorded as a test session for you to preview in the UI. Use `--no-record` to skip recording.
 
 - Running `npx checkly deploy` will deploy your checks to Checkly, attach alert channels, and run them on a 10m schedule in the
 region `us-east-1` and `eu-west-1`
