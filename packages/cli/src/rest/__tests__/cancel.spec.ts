@@ -18,18 +18,16 @@ describe('Cancel', () => {
   })
 
   describe('cancelTestSession()', () => {
-    it('calls POST /v1/cancel with the testSessionId payload', async () => {
+    it('calls POST /v1/test-sessions/:id/cancel', async () => {
       await cancel.cancelTestSession({ testSessionId: 'ts-abc' })
 
-      expect(api.post).toHaveBeenCalledWith('/v1/cancel', { testSessionId: 'ts-abc' })
+      expect(api.post).toHaveBeenCalledWith('/v1/test-sessions/ts-abc/cancel', undefined)
     })
 
-    it('calls POST /v1/cancel with only the testSessionId field (not checkSessionId)', async () => {
-      await cancel.cancelTestSession({ testSessionId: 'ts-xyz' })
+    it('passes sequenceId in the body when provided', async () => {
+      await cancel.cancelTestSession({ testSessionId: 'ts-abc', sequenceId: ['seq-1', 'seq-2'] })
 
-      const [, payload] = vi.mocked(api.post).mock.calls[0]
-      expect(payload).toEqual({ testSessionId: 'ts-xyz' })
-      expect(payload).not.toHaveProperty('checkSessionId')
+      expect(api.post).toHaveBeenCalledWith('/v1/test-sessions/ts-abc/cancel', { sequenceId: ['seq-1', 'seq-2'] })
     })
 
     it('silently ignores a 403 response', async () => {
@@ -46,18 +44,16 @@ describe('Cancel', () => {
   })
 
   describe('cancelCheckSession()', () => {
-    it('calls POST /v1/cancel with the checkSessionId payload', async () => {
+    it('calls POST /v1/check-sessions/:id/cancel', async () => {
       await cancel.cancelCheckSession({ checkSessionId: 'cs-abc' })
 
-      expect(api.post).toHaveBeenCalledWith('/v1/cancel', { checkSessionId: 'cs-abc' })
+      expect(api.post).toHaveBeenCalledWith('/v1/check-sessions/cs-abc/cancel', undefined)
     })
 
-    it('calls POST /v1/cancel with only the checkSessionId field (not testSessionId)', async () => {
-      await cancel.cancelCheckSession({ checkSessionId: 'cs-xyz' })
+    it('passes sequenceId in the body when provided', async () => {
+      await cancel.cancelCheckSession({ checkSessionId: 'cs-abc', sequenceId: ['seq-1'] })
 
-      const [, payload] = vi.mocked(api.post).mock.calls[0]
-      expect(payload).toEqual({ checkSessionId: 'cs-xyz' })
-      expect(payload).not.toHaveProperty('testSessionId')
+      expect(api.post).toHaveBeenCalledWith('/v1/check-sessions/cs-abc/cancel', { sequenceId: ['seq-1'] })
     })
   })
 })

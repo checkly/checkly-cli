@@ -1,12 +1,5 @@
 import { type AxiosInstance } from 'axios'
 
-type CancelCheckSessionRequest = {
-  checkSessionId: string
-}
-type CancelTestSessionRequest = {
-  testSessionId: string
-}
-
 class Cancel {
   api: AxiosInstance
 
@@ -14,18 +7,18 @@ class Cancel {
     this.api = api
   }
 
-  async cancelTestSession (payload: CancelTestSessionRequest) {
+  async cancelTestSession ({ testSessionId, sequenceId }: { testSessionId: string, sequenceId?: string[] }) {
     try {
-      return await this.api.post('/v1/cancel', payload)
+      return await this.api.post(`/v1/test-sessions/${testSessionId}/cancel`, sequenceId ? { sequenceId } : undefined)
     } catch (err: any) {
       if (err?.response?.status === 403) return
       throw err
     }
   }
 
-  async cancelCheckSession (payload: CancelCheckSessionRequest) {
+  async cancelCheckSession ({ checkSessionId, sequenceId }: { checkSessionId: string, sequenceId?: string[] }) {
     try {
-      return await this.api.post('/v1/cancel', payload)
+      return await this.api.post(`/v1/check-sessions/${checkSessionId}/cancel`, sequenceId ? { sequenceId } : undefined)
     } catch (err: any) {
       if (err?.response?.status === 403) return
       throw err
