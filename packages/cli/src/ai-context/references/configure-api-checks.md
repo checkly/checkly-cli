@@ -16,13 +16,18 @@
 
 `AssertionBuilder` provides methods to assert on API responses. Available methods:
 
-- `AssertionBuilder.statusCode()` — Assert on HTTP status code. Example: `.equals(200)`, `.isGreaterThan(199)`
-- `AssertionBuilder.jsonBody(path)` — Assert on JSON body using JSONPath. Example: `AssertionBuilder.jsonBody('$.id').isNotNull()`
-- `AssertionBuilder.textBody()` — Assert on raw text body. Example: `.contains('OK')`
-- `AssertionBuilder.headers(name)` — Assert on response headers. Example: `AssertionBuilder.headers('content-type').contains('application/json')`
-- `AssertionBuilder.responseTime()` — Assert on response time in ms. Example: `.isLessThan(2000)`
+- `AssertionBuilder.statusCode()` — Numeric. Assert on HTTP status code. Example: `.equals(200)`, `.greaterThan(199)`
+- `AssertionBuilder.jsonBody(path)` — General. Assert on JSON body using JSONPath. Example: `AssertionBuilder.jsonBody('$.id').isNotNull()`
+- `AssertionBuilder.textBody()` — General. Assert on raw text body. Example: `.contains('OK')`
+- `AssertionBuilder.headers(name)` — General. Assert on response headers. Example: `AssertionBuilder.headers('content-type').contains('application/json')`
+- `AssertionBuilder.responseTime()` — Numeric. Assert on response time in ms. Example: `.lessThan(2000)`
 
-Each method returns a chainable builder with comparison methods: `.equals()`, `.notEquals()`, `.contains()`, `.notContains()`, `.isGreaterThan()`, `.isLessThan()`, `.isEmpty()`, `.isNotEmpty()`, `.isNull()`, `.isNotNull()`
+Two builder types are returned, with different comparators. Use only methods from the matching set — calling a missing method (e.g. `.isNotEmpty()`, `.isGreaterThan()`) compiles but fails at runtime:
+
+- **Numeric** (`statusCode`, `responseTime`): `.equals()`, `.notEquals()`, `.greaterThan()`, `.lessThan()`
+- **General** (`jsonBody`, `textBody`, `headers`): `.equals()`, `.notEquals()`, `.contains()`, `.notContains()`, `.greaterThan()`, `.lessThan()`, `.isEmpty()`, `.notEmpty()`, `.isNull()`, `.isNotNull()`, `.hasKey()`, `.notHasKey()`, `.hasValue()`, `.notHasValue()`
+
+Note the names: `notEmpty` (not `isNotEmpty`), `greaterThan` / `lessThan` (not `isGreaterThan` / `isLessThan`).
 
 ## Authentication Setup Scripts for API Checks
 
