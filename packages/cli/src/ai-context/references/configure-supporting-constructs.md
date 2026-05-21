@@ -19,6 +19,7 @@
 
 - Import the `Dashboard` construct from `checkly/constructs`.
 - Dashboards are used to display the results of your checks on screens external to Checkly.
+- To apply custom styling, set `customCSS` to an entrypoint object so Checkly bundles and hosts the file: `customCSS: { entrypoint: './dashboard.css' }`. Passing a raw string read with `fs.readFileSync` is rejected at deploy time.
 
 <!-- EXAMPLE: DASHBOARD -->
 
