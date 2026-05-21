@@ -75,6 +75,8 @@ The core abstraction is the `Construct` base class (`src/constructs/construct.ts
 
 `Session` is a static class on `Project` that carries global context during check file loading: the current project, available runtimes, check defaults, file loaders, and the path of the currently-loading check file.
 
+To add a new construct, use `/new-monitor` or `/new-alert-channel` for step-by-step checklists.
+
 ### Check discovery and loading
 
 `project-parser.ts` orchestrates discovery: it resolves glob patterns from `checkly.config.ts` (`checkMatch`, `browserCheckMatch`, `multiStepCheckMatch`), dynamically imports each matching file, and the constructs self-register with the `Session`/`Project` during import. File loading uses a pluggable `FileLoader` system (`src/loader/`): `NativeFileLoader` (Node's native TS support), `JitiFileLoader` (jiti), or `MixedFileLoader` (tries both in sequence).
