@@ -282,8 +282,12 @@ export async function findFilesWithPattern (
   pattern: string | string[],
   ignorePattern: string[],
 ): Promise<string[]> {
-  // The files are sorted to make sure that the processing order is deterministic.
-  const files = await glob(pattern, {
+  // Not using pathToPosix here because it strips the drive letter (e.g. C:) that glob
+  // needs to resolve absolute patterns on Windows.
+  const posixPattern = Array.isArray(pattern)
+    ? pattern.map(p => p.replaceAll('\\', '/'))
+    : pattern.replaceAll('\\', '/')
+  const files = await glob(posixPattern, {
     nodir: true,
     cwd: directory,
     ignore: ignorePattern,
