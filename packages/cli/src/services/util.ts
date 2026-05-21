@@ -146,16 +146,17 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
 
 export function getAutoIncludes (
   basePath: string,
+  globCwd: string,
   packageManager: PackageManager,
   existingIncludes: string[],
 ): string[] {
   const autoIncludes: string[] = []
 
   if (packageManager.name === 'pnpm') {
-    const patchesPattern = 'patches/*.patch'
     const patchesDir = path.join(basePath, 'patches')
-    const alreadyIncluded = existingIncludes.some(p => path.resolve(basePath, p).startsWith(patchesDir))
+    const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
     if (!alreadyIncluded) {
+      const patchesPattern = pathToPosix(path.join(path.relative(globCwd, basePath), 'patches', '*.patch'))
       autoIncludes.push(patchesPattern)
     }
   }
@@ -199,7 +200,7 @@ export async function bundlePlayWrightProject (
       },
     },
     {
-      pattern: '.git/**',
+      pattern: '**/.git/**',
       skipIf: () => {
         return include.some(value => {
           return value.startsWith('.git/')
@@ -215,12 +216,11 @@ export async function bundlePlayWrightProject (
     }
   }
 
-  const autoIncludes = getAutoIncludes(Session.basePath!, Session.packageManager, include)
+  const autoIncludes = getAutoIncludes(Session.basePath!, dir, Session.packageManager, include)
   const effectiveIncludes = [...include, ...autoIncludes]
 
   const includedFiles = await findFilesWithPattern(
-    // FIXME: Shouldn't the pattern be relative to the Playwright check?
-    Session.basePath!,
+    dir,
     effectiveIncludes,
     ignoredFiles,
   )
