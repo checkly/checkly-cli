@@ -47,9 +47,6 @@ importers:
       '@oclif/plugin-help':
         specifier: ^6.2.46
         version: 6.2.46
-      '@oclif/plugin-not-found':
-        specifier: ^3.2.82
-        version: 3.2.82(@types/node@22.19.18)
       '@oclif/plugin-warn-if-update-available':
         specifier: ^3.1.62
         version: 3.1.62
