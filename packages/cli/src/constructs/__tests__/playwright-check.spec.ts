@@ -989,4 +989,31 @@ describe('PlaywrightCheck', () => {
       ])
     }, DEFAULT_TEST_TIMEOUT)
   })
+
+  describe('bundling with subdirectory playwright config', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-subdir-include'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should resolve include patterns relative to the playwright config directory', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('subdir/fixtures/data.json')
+      expect(files).not.toContain('fixtures/decoy.json')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
 })
