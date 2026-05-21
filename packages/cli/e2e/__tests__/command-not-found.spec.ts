@@ -1,17 +1,34 @@
-import { describe, it, expect } from 'vitest'
+import { ExecaError } from 'execa'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('command-not-found', () => {
-  it('points users to the docs and skills command for unknown commands', async () => {
-    const { status, stderr } = await runChecklyCli({
-      args: ['does-not-exist'],
-    })
+  let fixt: FixtureSandbox
 
-    expect(status).toBe(127)
-    expect(stderr).toContain('does-not-exist is not a checkly command')
-    expect(stderr).toContain('https://www.checklyhq.com/docs/cli/')
-    expect(stderr).toContain('checkly skills')
-    expect(stderr).toContain('checkly help')
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({})
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
+  it('points users to the docs and skills command for unknown commands', async () => {
+    try {
+      await runCheckly(fixt, ['does-not-exist'])
+      expect.unreachable('Expected command to fail')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect(err.exitCode).toBe(127)
+        expect(err.stderr).toContain('does-not-exist is not a checkly command')
+        expect(err.stderr).toContain('https://www.checklyhq.com/docs/cli/')
+        expect(err.stderr).toContain('checkly skills')
+        expect(err.stderr).toContain('checkly help')
+      } else {
+        throw err
+      }
+    }
   })
 })
