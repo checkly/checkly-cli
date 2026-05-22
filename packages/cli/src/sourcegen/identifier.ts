@@ -1,6 +1,6 @@
-import { Output } from './output'
-import { Value } from './value'
-import { cased, CaseFormat } from './case'
+import { Output } from './output.js'
+import { Value } from './value.js'
+import { cased, CaseFormat } from './case.js'
 
 export class IdentifierValue extends Value {
   value: string

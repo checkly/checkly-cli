@@ -2,9 +2,9 @@ import { dirname, relative } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
 
-import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName, promptForPlatformTarget } from '../../commands/skills/install'
-import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode'
-import { makeOnCancel } from './prompts-helpers'
+import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName, promptForPlatformTarget } from '../../commands/skills/install.js'
+import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode.js'
+import { makeOnCancel } from './prompts-helpers.js'
 
 export interface SkillInstallResult {
   installed: boolean

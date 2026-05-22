@@ -1,15 +1,14 @@
 import indentString from 'indent-string'
 
-import AbstractListReporter from './abstract-list'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
-import { SequenceId } from '../services/abstract-check-runner'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import commonMessages from '../messages/common-messages'
+import AbstractListReporter from './abstract-list.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
 
 export default class CiReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2, 1)
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2)
     this._printSummary({ skipCheckCount: true })
   }
 
@@ -17,9 +16,6 @@ export default class CiReporter extends AbstractListReporter {
     printLn('Finished running all checks:', 2)
     this._printSummary()
     this._printTestSessionsUrl()
-    if (!this.testSessionId) {
-      this._printTip(commonMessages.inlineTips.useRecordFlag)
-    }
   }
 
   onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {

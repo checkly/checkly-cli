@@ -1,6 +1,6 @@
-import { ArgumentsValue } from './args'
-import { Output } from './output'
-import { Value } from './value'
+import { ArgumentsValue } from './args.js'
+import { Output } from './output.js'
+import { Value } from './value.js'
 
 export abstract class ExpressionValue extends Value {
 }

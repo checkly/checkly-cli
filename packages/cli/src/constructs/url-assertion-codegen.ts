@@ -1,6 +1,6 @@
-import { GeneratedFile, Value } from '../sourcegen'
-import { UrlAssertion } from './url-assertion'
-import { valueForNumericAssertion } from './internal/assertion-codegen'
+import { GeneratedFile, Value } from '../sourcegen/index.js'
+import { UrlAssertion } from './url-assertion.js'
+import { valueForNumericAssertion } from './internal/assertion-codegen.js'
 
 export function valueForUrlAssertion (genfile: GeneratedFile, assertion: UrlAssertion): Value {
   genfile.namedImport('UrlAssertionBuilder', 'checkly/constructs')

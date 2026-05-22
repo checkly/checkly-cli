@@ -1,5 +1,5 @@
 import type { AxiosInstance } from 'axios'
-import { CheckTypes, type CheckType } from '../constants'
+import { CheckTypes, type CheckType } from '../constants.js'
 
 export type QuickRange = 'last24Hours' | 'last7Days' | 'last30Days' | 'thisWeek' | 'thisMonth' | 'lastWeek' | 'lastMonth'
 

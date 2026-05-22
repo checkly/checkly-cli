@@ -1,14 +1,14 @@
 import { Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { OutputFormat } from '../../formatters/render'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { OutputFormat } from '../../formatters/render.js'
 import {
   formatStatusPagesExpanded,
   formatStatusPagesCompact,
   formatCursorPaginationInfo,
   formatCursorNavigationHints,
-} from '../../formatters/status-pages'
+} from '../../formatters/status-pages.js'
 
 export default class StatusPagesList extends AuthCommand {
   static hidden = false

@@ -1,34 +1,33 @@
 import path from 'node:path'
 
-import * as api from '../rest/api'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { Parser } from '../services/check-parser/parser'
-import { Construct } from './construct'
-import { ValidationError } from './validator-error'
+import * as api from '../rest/api.js'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { Parser } from '../services/check-parser/parser.js'
+import { Construct } from './construct.js'
+import { ValidationError } from './validator-error.js'
 
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService,
-} from './'
-import { PrivateLocationApi } from '../rest/private-locations'
+} from './/index.js'
+import { PrivateLocationApi } from '../rest/private-locations.js'
 import {
   FileLoader,
   JitiFileLoader,
   MixedFileLoader,
   NativeFileLoader,
-  TSNodeFileLoader,
   UnsupportedFileLoaderError,
-} from '../loader'
-import { Diagnostics } from './diagnostics'
-import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { ProjectBundle, ProjectDataBundle } from './project-bundle'
-import { pathToPosix } from '../services/util'
-import { Workspace } from '../services/check-parser/package-files/workspace'
-import { detectPackageManager, npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager'
-import { Err, Result } from '../services/check-parser/package-files/result'
-import { Runtime } from '../runtimes'
-import { Bundler } from '../services/check-parser/bundler'
+} from '../loader/index.js'
+import { Diagnostics } from './diagnostics.js'
+import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { ProjectBundle, ProjectDataBundle } from './project-bundle.js'
+import { pathToPosix } from '../services/util.js'
+import { Workspace } from '../services/check-parser/package-files/workspace.js'
+import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
+import { Err, Result } from '../services/check-parser/package-files/result.js'
+import { Runtime } from '../runtimes/index.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 export interface ProjectProps {
   /**
@@ -229,7 +228,6 @@ export class Session {
   static loader: FileLoader = new MixedFileLoader(
     new NativeFileLoader(),
     new JitiFileLoader(),
-    new TSNodeFileLoader(),
   )
 
   static project?: Project
@@ -312,24 +310,8 @@ export class Session {
       return defaultExport
     } catch (err: any) {
       if (err instanceof UnsupportedFileLoaderError && /\.[cm]?ts$/.test(filePath)) {
-        // At this point the Session package manager may not have been set up yet.
-        // Detect if needed.
-        const packageManager = Session.basePath
-          ? Session.packageManager
-          : await detectPackageManager(path.dirname(filePath))
-
-        const add = (packages: string[]) => {
-          return packageManager.addCommand({ packages, saveDev: true }).unsafeDisplayCommand
-        }
-
         throw new Error(
-          `Unable to load the TypeScript file '${filePath}'.\n\n`
-          + 'An additional package is required to load TypeScript files.\n\n'
-          + `The recommended TypeScript loader is jiti:\n\n`
-          + `  ${add(['jiti'])}\n\n`
-          + 'Alternatively, ts-node is also supported:\n\n'
-          + `  ${add(['ts-node'])}\n\n`
-          + `Please try again after installing one of the supported packages.`,
+          `Unable to load the TypeScript file '${filePath}'.`,
           { cause: err },
         )
       }

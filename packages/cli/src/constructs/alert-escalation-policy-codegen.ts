@@ -1,5 +1,5 @@
-import { expr, ident, Value, ArgumentsValueBuilder, GeneratedFile } from '../sourcegen'
-import { AlertEscalation } from './alert-escalation-policy'
+import { expr, ident, Value, ArgumentsValueBuilder, GeneratedFile } from '../sourcegen/index.js'
+import { AlertEscalation } from './alert-escalation-policy.js'
 
 export type AlertEscalationResource = AlertEscalation
 

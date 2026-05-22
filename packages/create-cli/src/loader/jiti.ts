@@ -1,5 +1,9 @@
-import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader'
-import { FileMatch } from './match'
+import { fileURLToPath } from 'node:url'
+
+import { FileLoader, FileLoaderOptions, UnsupportedFileLoaderError } from './loader.js'
+import { FileMatch } from './match.js'
+
+const __filename = fileURLToPath(import.meta.url)
 
 interface JitiExports {
   createJiti (id: string, userOptions?: any): Jiti
@@ -19,7 +23,9 @@ export class UninitializedJitiFileLoaderState extends FileLoader {
     UninitializedJitiFileLoaderState.init ??= (async () => {
       try {
         const jitiExports: JitiExports = await import('jiti')
-        const jiti = jitiExports.createJiti(__filename)
+        const jiti = jitiExports.createJiti(__filename, {
+          tsconfigPaths: true,
+        })
         JitiFileLoader.state = new InitializedJitiFileLoaderState(jiti)
       } catch (err) {
         JitiFileLoader.state = new FailedJitiFileLoaderState(err as Error)

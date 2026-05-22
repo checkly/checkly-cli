@@ -1,7 +1,7 @@
-import { GeneratedFile, object, Program, Value } from '../sourcegen'
-import { valueForUrlAssertion } from './url-assertion-codegen'
-import { UrlRequest } from './url-request'
-import { Context } from './internal/codegen'
+import { GeneratedFile, object, Program, Value } from '../sourcegen/index.js'
+import { valueForUrlAssertion } from './url-assertion-codegen.js'
+import { UrlRequest } from './url-request.js'
+import { Context } from './internal/codegen/index.js'
 
 export function valueForUrlRequest (
   program: Program,

@@ -1,6 +1,6 @@
-import { ArgumentsValueBuilder } from './argsbuilder'
-import { CallExpressionValue, ExpressionValue, MemberExpressionValue, NewExpressionValue } from './expr'
-import { Value } from './value'
+import { ArgumentsValueBuilder } from './argsbuilder.js'
+import { CallExpressionValue, ExpressionValue, MemberExpressionValue, NewExpressionValue } from './expr.js'
+import { Value } from './value.js'
 
 export function expr (context: Value, build: (builder: ExpressionValueBuilder) => void): ExpressionValue {
   const builder = new ExpressionValueBuilder(context)

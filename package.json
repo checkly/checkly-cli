@@ -5,33 +5,35 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepack": "npm run prepack --workspaces",
-    "prepare": "npx simple-git-hooks && npm run prepare --workspaces && npm run prepare:ai-context",
-    "clean:ai-context": "rimraf skills",
-    "prepare:ai-context": "npm run clean:ai-context && cp -r packages/cli/dist/ai-context/public-skills/. skills",
-    "test": "npm run test --workspaces",
-    "test:e2e": "npm run test:e2e --workspaces"
+    "prepack": "pnpm -r run prepack",
+    "prepare": "pnpm exec simple-git-hooks",
+    "sync:skills": "rimraf skills && cp -r packages/cli/dist/ai-context/public-skills/. skills",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm -r run test:e2e"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.0.1",
+    "eslint": "^10.4.0",
     "globals": "^17.6.0",
-    "lint-staged": "^15.5.2",
-    "rimraf": "5.0.10",
+    "lint-staged": "^16.4.0",
+    "rimraf": "^6.1.3",
     "simple-git-hooks": "^2.13.1",
-    "typescript-eslint": "^8.59.2"
+    "typescript-eslint": "^8.59.4"
   },
   "simple-git-hooks": {
-    "commit-msg": "npx commitlint --edit",
-    "pre-commit": "npx lint-staged"
+    "commit-msg": "pnpm exec commitlint --edit",
+    "pre-commit": "pnpm exec lint-staged"
   },
   "lint-staged": {
-    "*.{ts,js,mjs}": "npm run lint"
+    "*.{ts,js,mjs}": "pnpm run lint"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "simple-git-hooks"
+    ]
   }
 }

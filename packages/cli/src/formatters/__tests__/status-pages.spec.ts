@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { stripAnsi } from '../render'
+import { stripAnsi } from '../render.js'
 import {
   formatStatusPagesExpanded,
   formatStatusPagesCompact,
   formatCursorPaginationInfo,
   formatCursorNavigationHints,
   formatStatusPageDetail,
-} from '../status-pages'
+} from '../status-pages.js'
 import {
   simpleStatusPage,
   privateStatusPage,
   noCardsStatusPage,
-} from './__fixtures__/status-page-fixtures'
+} from './__fixtures__/status-page-fixtures.js'
 
 describe('formatStatusPagesExpanded', () => {
   describe('terminal', () => {

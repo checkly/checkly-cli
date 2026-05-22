@@ -5,9 +5,9 @@ import {
   InvalidPropertyValueDiagnostic,
   RemovedPropertyDiagnostic,
   UnsupportedPropertyDiagnostic,
-} from '../construct-diagnostics'
-import { Diagnostics, Diagnostic } from '../diagnostics'
-import { RetryStrategy } from '../retry-strategy'
+} from '../construct-diagnostics.js'
+import { Diagnostics, Diagnostic } from '../diagnostics.js'
+import { RetryStrategy } from '../retry-strategy.js'
 
 type RetryStrategyProps = {
   doubleCheck?: boolean

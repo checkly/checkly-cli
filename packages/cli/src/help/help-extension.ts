@@ -2,8 +2,8 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { Command, Help } from '@oclif/core'
 import { Topic } from '@oclif/core/interfaces'
-import examples from './examples'
-import { skills, skillsDescription } from './skills'
+import examples from './examples.js'
+import { skills, skillsDescription } from './skills.js'
 
 export default class ChecklyHelpClass extends Help {
   protected formatAllCommands (commands: Array<Command.Loadable>,
@@ -89,7 +89,9 @@ export default class ChecklyHelpClass extends Help {
     }
 
     this.log(this.section('ENVIRONMENT VARIABLES',
-      `Running the CLI from your CI pipeline will need to export variables in the shell:\n
+      `The CLI automatically loads variables from a .env file in the current directory.
+  To disable, set CHECKLY_NO_DOTENV=1.
+
   CHECKLY_ACCOUNT_ID    Checkly account ID.
   CHECKLY_API_KEY       Checkly User API Key.
     `))

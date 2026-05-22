@@ -1,19 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { runChecklyCli } from '../run-checkly'
+import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
+import { runCheckly } from '../run-checkly'
 
 describe('help', () => {
+  let fixt: FixtureSandbox
+
+  beforeAll(async () => {
+    fixt = await FixtureSandbox.create({})
+  }, 180_000)
+
+  afterAll(async () => {
+    await fixt?.destroy()
+  })
+
   it('should print custom help with examples', async () => {
-    const { stdout } = await runChecklyCli({
-      args: ['--help'],
-    })
+    const { stdout } = await runCheckly(fixt, ['--help'])
     expect(stdout).toContain('EXAMPLES')
   })
 
   it('should print topic help', async () => {
-    const { stdout } = await runChecklyCli({
-      args: ['env', '--help'],
-    })
+    const { stdout } = await runCheckly(fixt, ['env', '--help'])
     // use a 80 char line output
     expect(stdout).toContain(`COMMANDS
   env add     Add environment variable via "checkly env add <key> <value>".
@@ -26,9 +33,7 @@ describe('help', () => {
   })
 
   it('should print import topic help', async () => {
-    const { stdout } = await runChecklyCli({
-      args: ['import', '--help'],
-    })
+    const { stdout } = await runCheckly(fixt, ['import', '--help'])
     // use a 80 char line output
     expect(stdout).toContain(`COMMANDS
   import apply   Attach imported resources into your project in a pending state.
@@ -39,9 +44,7 @@ describe('help', () => {
   })
 
   it('should print core and additional commands and topic', async () => {
-    const { stdout } = await runChecklyCli({
-      args: ['--help'],
-    })
+    const { stdout } = await runCheckly(fixt, ['--help'])
     expect(stdout).toContain(`CORE COMMANDS
   deploy   Deploy your project to your Checkly account.
   init     Initialize Checkly in your project

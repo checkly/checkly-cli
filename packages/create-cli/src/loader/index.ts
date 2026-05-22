@@ -1,13 +1,12 @@
-export { JitiFileLoader, JitiFileLoaderOptions } from './jiti'
+export { JitiFileLoader, JitiFileLoaderOptions } from './jiti.js'
 export {
   FileLoader,
   FileLoaderOptions,
   UnsupportedFileLoaderError,
-} from './loader'
-export { FileMatch, FileMatchFunction } from './match'
-export { MixedFileLoader } from './mixed'
+} from './loader.js'
+export { FileMatch, FileMatchFunction } from './match.js'
+export { MixedFileLoader } from './mixed.js'
 export {
   NativeFileLoader,
   NativeFileLoaderOptions,
-} from './native'
-export { TSNodeFileLoader, TSNodeFileLoaderOptions } from './ts-node'
+} from './native.js'

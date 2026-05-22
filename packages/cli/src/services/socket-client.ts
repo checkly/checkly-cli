@@ -1,5 +1,5 @@
 import * as mqtt from 'mqtt'
-import config from '../services/config'
+import config from '../services/config.js'
 // @ts-ignore
 import { getProxyForUrl } from 'proxy-from-env'
 import { httpsOverHttp, httpsOverHttps } from 'tunnel'

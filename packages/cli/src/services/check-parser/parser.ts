@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import * as acorn from 'acorn'
@@ -7,15 +8,15 @@ import * as walk from 'acorn-walk'
 import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
 import Debug from 'debug'
 
-import { Collector } from './collector'
-import { DependencyParseError } from './errors'
-import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver'
-import type { PlaywrightConfig } from '../playwright-config'
-import { pathToPosix } from '../util'
-import { Package, Workspace } from './package-files/workspace'
-import { isCoreExtension, isTSExtension } from './package-files/extension'
-import { createFauxPackageFiles } from './faux-package'
-import { PlaywrightConfigExpander } from './playwright-config-expander'
+import { Collector } from './collector.js'
+import { DependencyParseError } from './errors.js'
+import { PackageFilesResolver, Dependencies, RawDependency, RawDependencySource } from './package-files/resolver.js'
+import type { PlaywrightConfig } from '../playwright-config.js'
+import { pathToPosix } from '../util.js'
+import { Package, Workspace } from './package-files/workspace.js'
+import { isCoreExtension, isTSExtension } from './package-files/extension.js'
+import { createFauxPackageFiles } from './faux-package.js'
+import { PlaywrightConfigExpander } from './playwright-config-expander.js'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -66,7 +67,7 @@ function getTsParser (): any {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const require = createRequire(import.meta.url)
     tsParser = require('@typescript-eslint/typescript-estree')
     const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
     // Our custom configuration to handle walking errors

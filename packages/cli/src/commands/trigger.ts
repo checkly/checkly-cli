@@ -1,25 +1,25 @@
 import { Flags } from '@oclif/core'
 import { isCI } from 'ci-info'
 
-import * as api from '../rest/api'
-import { AuthCommand } from './authCommand'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util'
-import type { Region } from '..'
-import TriggerRunner from '../services/trigger-runner'
+import * as api from '../rest/api.js'
+import { AuthCommand } from './authCommand.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util.js'
+import type { Region } from '../index.js'
+import TriggerRunner from '../services/trigger-runner.js'
 import {
   RunLocation,
   Events,
   PrivateRunLocation,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
-} from '../services/abstract-check-runner'
-import config from '../services/config'
-import { createReporters, ReporterType } from '../reporters/reporter'
-import { printLn } from '../reporters/util'
-import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions'
-import { Session, RetryStrategyBuilder } from '../constructs'
-import { DEFAULT_REGION } from '../helpers/constants'
+} from '../services/abstract-check-runner.js'
+import config from '../services/config.js'
+import { createReporters, ReporterType } from '../reporters/reporter.js'
+import { printLn } from '../reporters/util.js'
+import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
+import { Session, RetryStrategyBuilder } from '../constructs/index.js'
+import { DEFAULT_REGION } from '../helpers/constants.js'
 
 const MAX_RETRIES = 3
 
@@ -83,18 +83,24 @@ export default class Trigger extends AuthCommand {
       exclusive: ['env'],
     }),
     'record': Flags.boolean({
-      description: 'Record check results in Checkly as a test session with full logs, traces and videos.',
-      default: false,
+      description: '[default: true] Record check results in Checkly as a test session with full logs, traces and videos.',
+      default: true,
+      allowNo: true,
     }),
     'test-session-name': Flags.string({
       char: 'n',
-      description: 'A name to use when storing results in Checkly with --record.',
+      description: 'A name to use when storing results in Checkly.',
     }),
     'retries': Flags.integer({
       description: `[default: 0, max: ${MAX_RETRIES}] How many times to retry a check run.`,
     }),
     'refresh-cache': Flags.boolean({
       description: 'Force a fresh install of dependencies and update the cached version.',
+      default: false,
+    }),
+    'detach': Flags.boolean({
+      char: 'd',
+      description: 'Keep checks running in the cloud after cancelling the CLI process.',
       default: false,
     }),
   }
@@ -116,6 +122,7 @@ export default class Trigger extends AuthCommand {
       'test-session-name': testSessionName,
       retries,
       'refresh-cache': refreshCache,
+      'detach': detach,
     } = flags
     const envVars = await getEnvs(envFile, env)
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -152,6 +159,7 @@ export default class Trigger extends AuthCommand {
       testSessionName,
       testRetryStrategy,
       refreshCache,
+      detach,
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
@@ -192,6 +200,12 @@ export default class Trigger extends AuthCommand {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
+    runner.on(Events.CANCEL, async testSessionId => {
+      reporters.forEach(r => r.onCancel())
+      if (!testSessionId) return
+      await api.cancel.cancelTestSession({ testSessionId })
+    })
+    runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
     await runner.run()
   }
 

@@ -2,13 +2,13 @@ import chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import prompts from 'prompts'
 
-import { BaseCommand } from './baseCommand'
-import { detectCliMode, type CliMode } from '../helpers/cli-mode'
+import { BaseCommand } from './baseCommand.js'
+import { detectCliMode, type CliMode } from '../helpers/cli-mode.js'
 import {
   PLATFORM_TARGETS,
   readSkillFile,
   writeSkillToTarget,
-} from './skills/install'
+} from './skills/install.js'
 import {
   detectProjectContext,
   type ProjectContext,
@@ -27,7 +27,7 @@ import {
   agentFooter,
   noSkillWarning,
   existingProjectFooter,
-} from '../helpers/onboarding'
+} from '../helpers/onboarding/index.js'
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
 

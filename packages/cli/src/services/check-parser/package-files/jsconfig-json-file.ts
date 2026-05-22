@@ -1,7 +1,7 @@
 import path from 'node:path'
 
-import { TSConfigFile, Schema } from './tsconfig-json-file'
-import { JsonSourceFile } from './json-source-file'
+import { TSConfigFile, Schema } from './tsconfig-json-file.js'
+import { JsonSourceFile } from './json-source-file.js'
 
 /**
  * JSConfigFile is essentially the exact same as TSConfigFile but with

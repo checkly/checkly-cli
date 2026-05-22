@@ -1,9 +1,8 @@
-import { MixedFileLoader, NativeFileLoader, JitiFileLoader, TSNodeFileLoader } from '../loader'
+import { MixedFileLoader, NativeFileLoader, JitiFileLoader } from '../loader/index.js'
 
 const loader = new MixedFileLoader(
   new NativeFileLoader(),
   new JitiFileLoader(),
-  new TSNodeFileLoader(),
 )
 
 export async function loadFile (filePath: string): Promise<any> {

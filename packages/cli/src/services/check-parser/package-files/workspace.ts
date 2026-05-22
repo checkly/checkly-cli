@@ -1,7 +1,7 @@
 import { glob } from 'glob'
 
-import { PackageJsonFile } from './package-json-file'
-import { Result } from './result'
+import { PackageJsonFile } from './package-json-file.js'
+import { Result } from './result.js'
 
 export interface PackageOptions {
   /**

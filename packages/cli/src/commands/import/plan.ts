@@ -7,32 +7,33 @@ import prompts from 'prompts'
 import chalk from 'chalk'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
+import { execa } from 'execa'
 
-import { LOGICAL_ID_PATTERN } from '../../constants'
-import * as api from '../../rest/api'
-import { AuthCommand } from '../authCommand'
-import commonMessages from '../../messages/common-messages'
-import { splitConfigFilePath } from '../../services/util'
-import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader'
-import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects'
-import { cased, Comment, docComment, Program } from '../../sourcegen'
-import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen'
-import { Context } from '../../constructs/internal/codegen'
+import { LOGICAL_ID_PATTERN } from '../../constants.js'
+import * as api from '../../rest/api.js'
+import { AuthCommand } from '../authCommand.js'
+import commonMessages from '../../messages/common-messages.js'
+import { splitConfigFilePath } from '../../services/util.js'
+import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects.js'
+import { cased, Comment, docComment, Program } from '../../sourcegen/index.js'
+import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen.js'
+import { Context } from '../../constructs/internal/codegen/index.js'
 import {
   isSnippet,
   isSafeSnippetFilename,
-} from '../../constructs/internal/codegen/snippet'
-import { StaticAuxiliaryFile } from '../../sourcegen/program'
+} from '../../constructs/internal/codegen/snippet.js'
+import { StaticAuxiliaryFile } from '../../sourcegen/program.js'
 import { ExitError } from '@oclif/core/errors'
-import { confirmCommit, performCommitAction } from './commit'
-import { confirmApply, performApplyAction } from './apply'
-import { generateChecklyConfig } from '../../services/checkly-config-codegen'
-import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file'
-import { detectNearestPackageJson, detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager'
-import { parseProject } from '../../services/project-parser'
-import { ConstructExport, Project, Session } from '../../constructs/project'
-import { Diagnostics } from '../../constructs'
-import { Runtime } from '../../runtimes'
+import { confirmCommit, performCommitAction } from './commit.js'
+import { confirmApply, performApplyAction } from './apply.js'
+import { generateChecklyConfig } from '../../services/checkly-config-codegen.js'
+import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file.js'
+import { detectNearestPackageJson, detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager.js'
+import { parseProject } from '../../services/project-parser.js'
+import { ConstructExport, Project, Session } from '../../constructs/project.js'
+import { Diagnostics } from '../../constructs/index.js'
+import { Runtime } from '../../runtimes/index.js'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -657,7 +658,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
           const updated = packageJson.upsertDevDependencies({
             checkly: `^${ownPackageJson?.version ?? '6'}`,
-            jiti: '^2',
           })
 
           if (updated) {
@@ -722,8 +722,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #interactiveNpmInstall (dirPath: string, forcePackageManager?: PackageManager): Promise<void> {
-    const { execa } = await import('execa')
-
     const packageManager = forcePackageManager ?? await (async () => {
       try {
         this.style.actionStart(`Detecting package manager`)

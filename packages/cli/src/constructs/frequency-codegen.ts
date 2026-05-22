@@ -1,5 +1,5 @@
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { Frequency } from './frequency'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
+import { Frequency } from './frequency.js'
 
 interface FrequencyLike {
   frequency: number

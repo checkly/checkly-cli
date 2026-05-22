@@ -1,4 +1,4 @@
-import type { Entitlement, AccountPlan } from '../../../rest/entitlements'
+import type { Entitlement, AccountPlan } from '../../../rest/entitlements.js'
 
 // --- Entitlements ---
 

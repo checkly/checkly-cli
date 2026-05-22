@@ -1,6 +1,6 @@
 import chalk from 'chalk'
-import type { RootCauseAnalysis, ErrorGroup } from '../rest/error-groups'
-import { type OutputFormat, heading } from './render'
+import type { RootCauseAnalysis, ErrorGroup } from '../rest/error-groups.js'
+import { type OutputFormat, heading } from './render.js'
 
 function label (text: string, width = 16): string {
   return chalk.dim(text.padEnd(width))

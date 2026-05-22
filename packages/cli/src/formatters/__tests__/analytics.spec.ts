@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import type { AnalyticsResponse, AnalyticsSeriesEntry } from '../../rest/analytics'
+import type { AnalyticsResponse, AnalyticsSeriesEntry } from '../../rest/analytics.js'
 import {
   extractMetrics,
   findUnit,
   formatMetricValue,
   formatMetricLabel,
   formatAnalyticsSection,
-} from '../analytics'
-import { stripAnsi } from '../render'
+} from '../analytics.js'
+import { stripAnsi } from '../render.js'
 
 const mockSeriesEntry: AnalyticsSeriesEntry = {
   data: {

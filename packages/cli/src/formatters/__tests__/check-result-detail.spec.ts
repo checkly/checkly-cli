@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { stripAnsi } from '../render'
-import { formatResultDetail } from '../check-result-detail'
+import { stripAnsi } from '../render.js'
+import { formatResultDetail } from '../check-result-detail.js'
 import {
   apiCheckResult,
   apiCheckResultWithError,
@@ -11,7 +11,7 @@ import {
   agenticCheckResult,
   agenticCheckResultWithFailures,
   agenticCheckResultMinimal,
-} from './__fixtures__/fixtures'
+} from './__fixtures__/fixtures.js'
 
 // Pin time for formatDate used in result detail
 beforeEach(() => {

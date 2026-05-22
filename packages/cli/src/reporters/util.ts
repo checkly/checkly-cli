@@ -3,10 +3,10 @@ import { isIPv6 } from 'node:net'
 import chalk from 'chalk'
 import indentString from 'indent-string'
 import { DateTime } from 'luxon'
-import * as logSymbols from 'log-symbols'
+import logSymbols from 'log-symbols'
 
-import { getDefaults } from '../rest/api'
-import { Assertion } from '../constructs/internal/assertion'
+import { getDefaults } from '../rest/api.js'
+import { Assertion } from '../constructs/internal/assertion.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
@@ -16,6 +16,7 @@ export enum CheckStatus {
   FAILED,
   SUCCESSFUL,
   DEGRADED,
+  CANCELLED,
 }
 
 export function formatDuration (ms: number): string {
@@ -55,6 +56,9 @@ export function formatCheckTitle (
     format = chalk.bold.dim
   } else if (status === CheckStatus.RETRIED) {
     statusString = '↺'
+    format = chalk.bold
+  } else if (status === CheckStatus.CANCELLED) {
+    statusString = '⊘'
     format = chalk.bold
   } else {
     statusString = '-'
@@ -710,6 +714,9 @@ function toString (val: any): string {
 }
 
 export function resultToCheckStatus (checkResult: any): CheckStatus {
+  if (checkResult.isCancelled) {
+    return CheckStatus.CANCELLED
+  }
   return checkResult.hasFailures
     ? CheckStatus.FAILED
     : checkResult.isDegraded

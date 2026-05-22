@@ -1,8 +1,8 @@
-import { expr, GeneratedFile, ident, Value } from '../sourcegen'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen'
-import { Codegen, Context } from './internal/codegen'
-import { buildMonitorProps, MonitorResource } from './monitor-codegen'
-import { TcpAssertion, TcpRequest } from './tcp-monitor'
+import { expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
+import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
+import { TcpAssertion, TcpRequest } from './tcp-monitor.js'
 
 export interface TcpMonitorResource extends MonitorResource {
   checkType: 'TCP'

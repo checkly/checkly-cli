@@ -3,8 +3,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as stream from 'node:stream/promises'
 
-import { checklyStorage } from '../rest/api'
-import { findFilesRecursively, pathToPosix } from './util'
+import { checklyStorage } from '../rest/api.js'
+import { findFilesRecursively, pathToPosix } from './util.js'
 
 export interface Snapshot {
   key: string

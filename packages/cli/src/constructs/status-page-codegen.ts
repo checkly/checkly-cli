@@ -1,7 +1,7 @@
-import { Codegen, Context } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { StatusPageServiceResource, valueForStatusPageServiceFromId } from './status-page-service-codegen'
-import { StatusPageTheme } from './status-page'
+import { Codegen, Context } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { StatusPageServiceResource, valueForStatusPageServiceFromId } from './status-page-service-codegen.js'
+import { StatusPageTheme } from './status-page.js'
 
 export interface StatusPageCardResource {
   id: string

@@ -68,7 +68,7 @@ Run `npx checkly skills manage plan` for the full reference.
 
 ## Testing and Debugging
 
-- Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, use `--record` to persist results, and use `--verbose` to see all errors.
+- Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, results are recorded by default (use `--no-record` to skip), and use `--verbose` to see all errors.
 
 ## Deploying
 

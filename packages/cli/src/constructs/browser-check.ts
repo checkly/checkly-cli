@@ -1,16 +1,16 @@
 import fs from 'node:fs/promises'
 
-import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check'
-import { Session, SharedFileRef } from './project'
-import { Content, Entrypoint, isContent, isEntrypoint } from './construct'
-import { detectSnapshots } from '../services/snapshot-service'
-import { PlaywrightConfig } from './playwright-config'
-import { Diagnostics } from './diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
-import { BrowserCheckBundle } from './browser-check-bundle'
-import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { Bundler } from '../services/check-parser/bundler'
+import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check.js'
+import { Session, SharedFileRef } from './project.js'
+import { Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
+import { detectSnapshots } from '../services/snapshot-service.js'
+import { PlaywrightConfig } from './playwright-config.js'
+import { Diagnostics } from './diagnostics.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { BrowserCheckBundle } from './browser-check-bundle.js'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 export interface BrowserCheckProps extends RuntimeCheckProps {
   /**

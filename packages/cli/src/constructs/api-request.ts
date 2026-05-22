@@ -1,8 +1,8 @@
-import { Assertion } from './api-assertion'
-import { HttpHeader } from './http-header'
-import { HttpRequestMethod } from './http-request'
-import { IPFamily } from './ip'
-import { QueryParam } from './query-param'
+import { Assertion } from './api-assertion.js'
+import { HttpHeader } from './http-header.js'
+import { HttpRequestMethod } from './http-request.js'
+import { IPFamily } from './ip.js'
+import { QueryParam } from './query-param.js'
 
 /** HTTP request body types supported by API checks */
 export type BodyType = 'JSON' | 'FORM' | 'RAW' | 'GRAPHQL' | 'NONE'

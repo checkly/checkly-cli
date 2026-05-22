@@ -1,7 +1,7 @@
-import { Codegen, Context, validateScript } from './internal/codegen'
-import { expr, ident } from '../sourcegen'
-import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen'
-import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen'
+import { Codegen, Context, validateScript } from './internal/codegen/index.js'
+import { expr, ident } from '../sourcegen/index.js'
+import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
+import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen.js'
 
 export interface BrowserCheckResource extends RuntimeCheckResource {
   checkType: 'BROWSER'

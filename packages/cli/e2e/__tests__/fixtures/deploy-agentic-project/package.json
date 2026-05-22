@@ -1,7 +1,5 @@
 {
   "name": "project",
   "version": "1.0.0",
-  "dependencies": {
-    "jiti": "^2.6.1"
-  }
+  "dependencies": {}
 }

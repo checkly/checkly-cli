@@ -1,16 +1,15 @@
 #!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable no-console */
 
 const currentVersion = process.versions.node
 const requiredVersion = parseInt(currentVersion.split('.')[0], 10)
-const minimumVersion = 18
+const minimumVersion = 20
 
 if (requiredVersion < minimumVersion) {
   console.error(`You are running Node.js v${currentVersion}. The Checkly CLI requires Node.js v${minimumVersion} or higher.`)
   process.exit(1)
 }
 
-const { run, handle, flush } = require('@oclif/core')
+import { execute, settings } from '@oclif/core'
 
-run().catch(handle).finally(flush)
+settings.enableAutoTranspile = false
+await execute({ dir: import.meta.url })

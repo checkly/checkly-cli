@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { FileMeta, SourceFile } from '../source-file'
-import { JsonTextSourceFile } from '../json-text-source-file'
+import { FileMeta, SourceFile } from '../source-file.js'
+import { JsonTextSourceFile } from '../json-text-source-file.js'
 
 const plainJsonFixture = ''
   + `{\n`

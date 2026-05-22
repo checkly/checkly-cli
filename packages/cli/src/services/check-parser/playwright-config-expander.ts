@@ -3,8 +3,8 @@ import url from 'node:url'
 
 import { minimatch } from 'minimatch'
 
-import { findFilesWithPattern, pathToPosix } from '../util'
-import { PlaywrightConfig } from '../playwright-config'
+import { findFilesWithPattern, pathToPosix } from '../util.js'
+import { PlaywrightConfig } from '../playwright-config.js'
 
 export class PlaywrightConfigExpander {
   #cache = new Map<string, string[]>()

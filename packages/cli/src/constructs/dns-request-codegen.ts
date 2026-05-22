@@ -1,7 +1,7 @@
-import { GeneratedFile, object, Program, Value } from '../sourcegen'
-import { valueForDnsAssertion } from './dns-assertion-codegen'
-import { DnsRequest } from './dns-request'
-import { Context } from './internal/codegen'
+import { GeneratedFile, object, Program, Value } from '../sourcegen/index.js'
+import { valueForDnsAssertion } from './dns-assertion-codegen.js'
+import { DnsRequest } from './dns-request.js'
+import { Context } from './internal/codegen/index.js'
 
 export function valueForDnsRequest (
   program: Program,

@@ -2,23 +2,23 @@ import fs from 'node:fs/promises'
 
 import {
   bundlePlayWrightProject,
-} from '../services/util'
-import { shellQuote } from '../services/shell'
-import { RuntimeCheck, RuntimeCheckProps } from './check'
+} from '../services/util.js'
+import { shellQuote } from '../services/shell.js'
+import { RuntimeCheck, RuntimeCheckProps } from './check.js'
 import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
   UnsatisfiedLocalPrerequisitesDiagnostic,
   UnsupportedPropertyDiagnostic,
-} from './construct-diagnostics'
-import { Diagnostics, WarningDiagnostic } from './diagnostics'
-import { PlaywrightCheckBundle } from './playwright-check-bundle'
-import { Session } from './project'
-import { Ref } from './ref'
-import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config'
-import { CheckConfigDefaults } from '../services/checkly-config-loader'
-import { Bundler } from '../services/check-parser/bundler'
+} from './construct-diagnostics.js'
+import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
+import { PlaywrightCheckBundle } from './playwright-check-bundle.js'
+import { Session } from './project.js'
+import { Ref } from './ref.js'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**

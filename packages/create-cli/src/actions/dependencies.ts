@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import execa from 'execa'
-import { spinner } from '../utils/terminal'
-import { hint } from '../utils/messages'
-import { PackageJson } from '../utils/directory'
-import { askInstallDependencies } from '../utils/prompts'
-import { getPackageManager } from '../utils/which-pm'
+import { execa } from 'execa'
+import { spinner } from '../utils/terminal.js'
+import { hint } from '../utils/messages.js'
+import { PackageJson } from '../utils/directory.js'
+import { askInstallDependencies } from '../utils/prompts.js'
+import { getPackageManager } from '../utils/which-pm.js'
 
 export function addDevDependecies (projectDirectory: string, packageJson: PackageJson) {
   if (!Reflect.has(packageJson, 'devDependencies')) {
@@ -14,7 +14,6 @@ export function addDevDependecies (projectDirectory: string, packageJson: Packag
 
   Object.assign(packageJson.devDependencies, {
     checkly: 'latest',
-    jiti: '^2',
   })
 
   fs.writeFileSync(path.join(projectDirectory, 'package.json'), JSON.stringify(packageJson, null, 2))

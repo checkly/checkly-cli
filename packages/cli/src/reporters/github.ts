@@ -1,10 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import AbstractListReporter, { checkFilesMap } from './abstract-list'
-import { SequenceId } from '../services/abstract-check-runner'
-import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util'
-import commonMessages from '../messages/common-messages'
+import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-github-report.md'
 
@@ -83,15 +82,11 @@ export class GithubMdBuilder {
       }
     }
 
-    let markdown = this.header + '\n'
+    const markdown = this.header + '\n'
       + this.subHeader.join('\n') + '\n'
       + this.tableSeparator + this.tableHeaders.join('|') + this.tableSeparator + '\n'
       + this.tableSeparatorFiller.repeat(this.tableHeaders.length) + this.tableSeparator + '\n'
       + this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
-
-    if (!this.testSessionId) {
-      markdown = markdown + `> Tip: ${commonMessages.inlineTips.useRecordFlag}`
-    }
 
     return markdown
   }
@@ -100,7 +95,7 @@ export class GithubMdBuilder {
 export default class GithubReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
   }
 
   onEnd () {

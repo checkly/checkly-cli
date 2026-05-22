@@ -1,11 +1,11 @@
-import { array } from './arraybuilder'
-import { BooleanValue } from './boolean'
-import { NullValue } from './null'
-import { NumberValue } from './number'
-import { object } from './objectbuilder'
-import { StringValue } from './string'
-import { UndefinedValue } from './undefined'
-import { Value } from './value'
+import { array } from './arraybuilder.js'
+import { BooleanValue } from './boolean.js'
+import { NullValue } from './null.js'
+import { NumberValue } from './number.js'
+import { object } from './objectbuilder.js'
+import { StringValue } from './string.js'
+import { UndefinedValue } from './undefined.js'
+import { Value } from './value.js'
 
 export function unknown (value: any): Value {
   if (value === null) {

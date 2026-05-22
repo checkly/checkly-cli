@@ -2,8 +2,8 @@ import path from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import { loadChecklyConfig, defaultFilenames } from '../checkly-config-loader'
-import { splitConfigFilePath } from '../util'
+import { loadChecklyConfig, defaultFilenames } from '../checkly-config-loader.js'
+import { splitConfigFilePath } from '../util.js'
 
 describe('loadChecklyConfig()', () => {
   it('config file should export an object', async () => {

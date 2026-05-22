@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import semver from 'semver'
 
-import { JsonSourceFile } from './json-source-file'
-import { FileMeta, SourceFile } from './source-file'
-import { PathResolver, ResolveResult } from './paths'
+import { JsonSourceFile } from './json-source-file.js'
+import { FileMeta, SourceFile } from './source-file.js'
+import { PathResolver, ResolveResult } from './paths.js'
 
 type ConditionKey =
   | 'node-addons'

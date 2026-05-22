@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { describe, expect, test } from 'vitest'
 
-import { collectConfigPaths, hasPackageJsonFile, isValidProjectDirectory, readPackageJson } from '../directory'
+import { collectConfigPaths, hasPackageJsonFile, isValidProjectDirectory, readPackageJson } from '../directory.js'
 
 describe('isValidProjectDirectory()', () => {
   type TestTuple = [string, boolean]

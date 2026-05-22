@@ -1,6 +1,7 @@
 {
   "name": "checkly",
   "version": "0.0.1-dev",
+  "type": "module",
   "description": "Checkly CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,19 +12,19 @@
     "./util": "./dist/util/index.js"
   },
   "engines": {
-    "node": "^18.19.0 || >=20.5.0"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "clean:dist": "rimraf ./dist ./tsconfig.tsbuildinfo",
     "clean:gen": "rimraf ./gen",
-    "clean": "npm run clean:dist && npm run clean:gen",
-    "prepack": "npx oclif manifest",
+    "clean": "pnpm run clean:dist && pnpm run clean:gen",
+    "prepack": "pnpm exec oclif manifest",
     "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && jiti ./scripts/prepare-ai-context.ts",
     "prepare:dist": "tsc --build",
-    "prepare": "npm run clean && npm run prepare:dist && npm run prepare:ai-context",
-    "test": "npm pack && vitest --run",
-    "test:e2e": "npm pack && cross-env NODE_CONFIG_DIR=./e2e/config vitest --run -c ./vitest.config.e2e.mts",
-    "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local npm run test:e2e",
+    "prepare": "pnpm run clean && pnpm run prepare:dist && pnpm run prepare:ai-context",
+    "test": "pnpm pack && vitest --run",
+    "test:e2e": "pnpm pack && cross-env NODE_CONFIG_DIR=./e2e/config vitest --run -c ./vitest.config.e2e.mts",
+    "test:e2e:local": "cross-env CHECKLY_BASE_URL=http://localhost:3000  CHECKLY_ENV=local pnpm run test:e2e",
     "watch": "tsc --watch"
   },
   "repository": {
@@ -89,79 +90,66 @@
         "description": "List and manage status pages in your Checkly account."
       }
     },
-    "helpClass": "./dist/help/help-extension"
+    "helpClass": "./dist/help/help-extension.js"
   },
   "bin": {
     "checkly": "./bin/run"
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^4.11.1",
-    "@oclif/plugin-help": "^6.2.46",
-    "@oclif/plugin-warn-if-update-available": "^3.1.62",
-    "@typescript-eslint/typescript-estree": "^8.59.2",
+    "@oclif/core": "^4.11.3",
+    "@oclif/plugin-help": "^6.2.49",
+    "@oclif/plugin-warn-if-update-available": "^3.1.65",
+    "@typescript-eslint/typescript-estree": "^8.59.4",
     "acorn": "^8.16.0",
     "acorn-walk": "^8.3.5",
-    "archiver": "7.0.1",
-    "axios": "^1.16.0",
-    "chalk": "^4.1.2",
+    "archiver": "^8.0.0",
+    "ast-types": "^0.16.1",
+    "axios": "^1.16.1",
+    "chalk": "^5.6.2",
     "ci-info": "^4.4.0",
-    "conf": "^10.2.0",
+    "conf": "^15.1.0",
     "debug": "^4.4.3",
-    "dotenv": "^16.6.1",
+    "dotenv": "^17.4.2",
     "execa": "^9.6.1",
     "git-repo-info": "^2.1.1",
-    "glob": "^10.5.0",
-    "indent-string": "^4.0.0",
+    "glob": "^13.0.6",
+    "indent-string": "^5.0.0",
+    "jiti": "^2.7.0",
     "json-stream-stringify": "^3.1.6",
     "json5": "^2.2.3",
     "jwt-decode": "^4.0.0",
-    "log-symbols": "^4.1.0",
+    "log-symbols": "^7.0.1",
     "luxon": "^3.7.2",
-    "minimatch": "^9.0.9",
+    "minimatch": "^10.2.5",
     "mqtt": "^5.15.1",
-    "open": "^8.4.2",
-    "p-queue": "^6.6.2",
+    "open": "^11.0.0",
+    "p-queue": "^9.3.0",
     "prompts": "^2.4.2",
     "proxy-from-env": "^2.1.0",
     "recast": "^0.23.11",
-    "semver": "^7.7.3",
+    "semver": "^7.8.1",
+    "string-width": "^8.2.1",
     "tunnel": "^0.0.6",
-    "uuid": "^11.1.1"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.60.0",
     "@types/archiver": "^7.0.0",
-    "@types/config": "^3.3.5",
     "@types/debug": "^4.1.13",
     "@types/luxon": "^3.7.1",
     "@types/node": "^22.19.17",
     "@types/prompts": "^2.4.9",
     "@types/semver": "^7.7.1",
     "@types/tunnel": "^0.0.7",
-    "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.5",
-    "config": "^3.3.12",
+    "config": "^4.4.1",
     "cross-env": "^10.1.0",
-    "jiti": "^2.7.0",
-    "nanoid": "^3.3.12",
-    "oclif": "^4.23.0",
-    "rimraf": "^5.0.10",
-    "tar": "^7.5.14",
-    "ts-node": "^10.9.2",
+    "nanoid": "^5.1.11",
+    "oclif": "^4.23.7",
+    "rimraf": "^6.1.3",
+    "tar": "^7.5.15",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4"
-  },
-  "peerDependencies": {
-    "jiti": ">=2",
-    "ts-node": ">=10"
-  },
-  "peerDependenciesMeta": {
-    "jiti": {
-      "optional": true
-    },
-    "ts-node": {
-      "optional": true
-    }
   }
 }

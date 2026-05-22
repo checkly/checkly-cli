@@ -1,30 +1,30 @@
 import { Flags, Args, ux } from '@oclif/core'
 import indentString from 'indent-string'
-import * as api from '../rest/api'
-import config from '../services/config'
-import { parseProject } from '../services/project-parser'
+import * as api from '../rest/api.js'
+import config from '../services/config.js'
+import { parseProject } from '../services/project-parser.js'
 import {
   Events,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
-} from '../services/abstract-check-runner'
-import TestRunner from '../services/test-runner'
-import { loadChecklyConfig } from '../services/checkly-config-loader'
-import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters'
-import { AuthCommand } from './authCommand'
-import { BrowserCheck, Check, Diagnostics, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs'
-import type { Region } from '..'
-import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util'
-import { createReporters, ReporterType } from '../reporters/reporter'
-import commonMessages from '../messages/common-messages'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util'
-import { uploadSnapshots } from '../services/snapshot-service'
-import { isEntrypoint } from '../constructs/construct'
-import { BrowserCheckBundle } from '../constructs/browser-check-bundle'
-import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper'
-import { Runtime } from '../runtimes'
-import { Bundler } from '../services/check-parser/bundler'
+} from '../services/abstract-check-runner.js'
+import TestRunner from '../services/test-runner.js'
+import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters.js'
+import { AuthCommand } from './authCommand.js'
+import { BrowserCheck, Check, Diagnostics, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs/index.js'
+import type { Region } from '../index.js'
+import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } from '../services/util.js'
+import { createReporters, ReporterType } from '../reporters/reporter.js'
+import commonMessages from '../messages/common-messages.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util.js'
+import { uploadSnapshots } from '../services/snapshot-service.js'
+import { isEntrypoint } from '../constructs/construct.js'
+import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
+import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper.js'
+import { Runtime } from '../runtimes/index.js'
+import { Bundler } from '../services/check-parser/bundler.js'
 
 const MAX_RETRIES = 3
 
@@ -93,12 +93,13 @@ export default class Test extends AuthCommand {
       description: commonMessages.configFile,
     }),
     'record': Flags.boolean({
-      description: 'Record test results in Checkly as a test session with full logs, traces and videos.',
-      default: false,
+      description: '[default: true] Record test results in Checkly as a test session with full logs, traces and videos.',
+      default: true,
+      allowNo: true,
     }),
     'test-session-name': Flags.string({
       char: 'n',
-      description: 'A name to use when storing results in Checkly with --record.',
+      description: 'A name to use when storing results in Checkly.',
     }),
     'update-snapshots': Flags.boolean({
       char: 'u',
@@ -116,6 +117,11 @@ export default class Test extends AuthCommand {
     }),
     'refresh-cache': Flags.boolean({
       description: 'Force a fresh install of dependencies and update the cached version.',
+      default: false,
+    }),
+    'detach': Flags.boolean({
+      char: 'd',
+      description: 'Keep checks running in the cloud after cancelling the CLI process.',
       default: false,
     }),
   }
@@ -153,6 +159,7 @@ export default class Test extends AuthCommand {
       retries,
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'refresh-cache': refreshCache,
+      'detach': detach,
     } = flags
     const filePatterns = argv as string[]
 
@@ -366,7 +373,16 @@ export default class Test extends AuthCommand {
       testRetryStrategy,
       undefined,
       refreshCache,
+      detach,
     )
+
+    runner.on(Events.CANCEL, async testSessionId => {
+      reporters.forEach(r => r.onCancel())
+      if (!testSessionId) return
+      await api.cancel.cancelTestSession({ testSessionId })
+    })
+
+    runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
 
     runner.on(Events.RUN_STARTED,
       (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId: string) =>

@@ -1,9 +1,9 @@
-import { Check, CheckProps } from './check'
-import { Frequency } from './frequency'
-import { Session } from './project'
-import { CheckTypes } from '../constants'
-import { Diagnostics } from './diagnostics'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics'
+import { Check, CheckProps } from './check.js'
+import { Frequency } from './frequency.js'
+import { Session } from './project.js'
+import { CheckTypes } from '../constants.js'
+import { Diagnostics } from './diagnostics.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 
 /**
  * Frequencies for agentic checks are accepted locally and enforced by the

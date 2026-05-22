@@ -1,11 +1,14 @@
 import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { execSync } from 'child_process'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
+import { fileURLToPath } from 'node:url'
 
-import { detectPackageManager } from '../../services/check-parser/package-files/package-manager'
-import { makeOnCancel, successMessage } from './prompts-helpers'
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
+import { makeOnCancel, successMessage } from './prompts-helpers.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
 const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')
@@ -63,7 +66,6 @@ function addDepsToPackageJson (projectDir: string, pkg: Record<string, any>, log
   try {
     pkg.devDependencies = pkg.devDependencies ?? {}
     pkg.devDependencies.checkly = 'latest'
-    pkg.devDependencies.jiti = 'latest'
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
     return true
   } catch {
@@ -167,7 +169,7 @@ export async function runDepsInstall (
     }
   }
 
-  // Always add checkly and jiti to package.json — even if user declines running install
+  // Always add checkly to package.json — even if user declines running install
   if (!addDepsToPackageJson(projectDir, pkg, log)) {
     return {
       ok: false,
@@ -175,7 +177,7 @@ export async function runDepsInstall (
       installed: false,
     }
   }
-  log(successMessage('Added checkly and jiti to package.json'))
+  log(successMessage('Added checkly to package.json'))
 
   if (options.skipPrompts) {
     return installDependencies(projectDir, pm.installCmd, log)

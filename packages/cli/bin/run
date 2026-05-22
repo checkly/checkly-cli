@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-var-requires */
 
-const { run, handle, flush } = require('@oclif/core')
+import { loadDotenvFile } from '../dist/services/load-dotenv.js'
+import { execute, settings } from '@oclif/core'
 
-run().catch(handle).finally(flush)
+await loadDotenvFile()
+settings.enableAutoTranspile = false
+await execute({ dir: import.meta.url })

@@ -1,6 +1,6 @@
 /* eslint no-console: 'off' */
 import chalk from 'chalk'
-import { getFullName } from './fullname'
+import { getFullName } from './fullname.js'
 
 function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -53,7 +53,7 @@ export async function footer (targetDir?: string): Promise<void> {
   )
   await sleep(200)
   console.log(
-    `${prefix}> Run ${chalk.cyan('npx checkly test --record')} to dry run your checks`,
+    `${prefix}> Run ${chalk.cyan('npx checkly test')} to dry run your checks`,
   )
   await sleep(200)
   console.log(

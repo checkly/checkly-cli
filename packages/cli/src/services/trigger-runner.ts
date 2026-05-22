@@ -1,7 +1,7 @@
-import { RetryStrategy } from '../constructs'
-import { testSessions } from '../rest/api'
-import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner'
-import { GitInformation } from './util'
+import { RetryStrategy } from '../constructs/index.js'
+import { testSessions } from '../rest/api.js'
+import AbstractCheckRunner, { RunLocation, SequenceId } from './abstract-check-runner.js'
+import { GitInformation } from './util.js'
 
 export default class TriggerRunner extends AbstractCheckRunner {
   shouldRecord: boolean
@@ -27,8 +27,9 @@ export default class TriggerRunner extends AbstractCheckRunner {
     testSessionName: string | undefined,
     testRetryStrategy: RetryStrategy | null,
     refreshCache?: boolean,
+    detach?: boolean,
   ) {
-    super(accountId, timeout, verbose)
+    super(accountId, timeout, verbose, detach ?? false)
     this.shouldRecord = shouldRecord
     this.location = location
     this.targetTags = targetTags

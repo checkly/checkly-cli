@@ -2,9 +2,9 @@ import path from 'node:path'
 
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
 
-import { File } from '../parser'
-import { FixtureSandbox } from '../../../testing/fixture-sandbox'
-import { pathToPosix } from '../../util'
+import { File } from '../parser.js'
+import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
+import { pathToPosix } from '../../util.js'
 
 describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () => {
   describe('playwright-project', () => {
@@ -12,6 +12,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: 'playwright',
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project'),
       })
     }, 180_000)
@@ -21,7 +22,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle spec file', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',
@@ -58,6 +59,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
 
     beforeAll(async () => {
       fixt = await FixtureSandbox.create({
+        template: 'playwright',
         source: path.join(__dirname, 'check-parser-fixtures', 'playwright-project-snapshots'),
       })
     }, 180_000)
@@ -67,7 +69,7 @@ describe('project parser - getFilesAndDependencies()', { timeout: 45_000 }, () =
     })
 
     test('should handle a spec file with snapshots', async () => {
-      const result = await fixt.run('npx', [
+      const result = await fixt.run('pnpm', [
         'checkly',
         'debug',
         'parse-playwright-config',

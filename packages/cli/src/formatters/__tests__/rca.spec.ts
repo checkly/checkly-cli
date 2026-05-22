@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { stripAnsi } from '../render'
-import { formatRcaDetail, formatRcaPending, formatRcaCompleted, transformErrorGroupForJson } from '../rca'
+import { stripAnsi } from '../render.js'
+import { formatRcaDetail, formatRcaPending, formatRcaCompleted, transformErrorGroupForJson } from '../rca.js'
 import {
   sampleRca,
   sampleRcaMinimal,
   errorGroupWithRca,
   errorGroupWithMultipleRcas,
   errorGroupWithoutRca,
-} from './__fixtures__/fixtures'
+} from './__fixtures__/fixtures.js'
 
 describe('formatRcaDetail', () => {
   describe('terminal', () => {

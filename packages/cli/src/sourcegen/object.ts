@@ -1,6 +1,6 @@
-import { Comment } from './comment'
-import { Output } from './output'
-import { Value } from './value'
+import { Comment } from './comment.js'
+import { Output } from './output.js'
+import { Value } from './value.js'
 
 export interface ObjectPropertyOptions {
   order?: number

@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { wrap } from '../wrap'
+import { wrap } from '../wrap.js'
 
 // All output lines stay within 80 visible characters for split-view
 // terminal compatibility.
@@ -71,8 +71,8 @@ export function footer (hasPlaywright: boolean = false): string {
     `  ${chalk.bold('npx checkly login')}`,
     chalk.dim('  Log in or create a free account'),
     '',
-    `  ${chalk.bold('npx checkly test --record')}`,
-    chalk.dim('  Dry run your checks and record results'),
+    `  ${chalk.bold('npx checkly test')}`,
+    chalk.dim('  Dry run your checks'),
     '',
     `  ${chalk.bold('npx checkly deploy')}`,
     chalk.dim('  Deploy checks to Checkly'),
@@ -133,7 +133,7 @@ export function agentFooter (
     '',
     chalk.dim('  Prefer to set up manually?'),
     chalk.dim(`  ${chalk.bold('npx checkly login')}`),
-    chalk.dim(`  ${chalk.bold('npx checkly test --record')}`),
+    chalk.dim(`  ${chalk.bold('npx checkly test')}`),
     chalk.dim(`  ${chalk.bold('npx checkly deploy')}`),
   )
 
@@ -162,7 +162,7 @@ export function existingProjectFooter (
     '',
     chalk.green.bold('  You\'re all set!'),
     '',
-    `  ${chalk.bold('npx checkly test --record')}`,
+    `  ${chalk.bold('npx checkly test')}`,
     chalk.dim('  Run your checks locally'),
     '',
     `  ${chalk.bold('npx checkly deploy')}`,

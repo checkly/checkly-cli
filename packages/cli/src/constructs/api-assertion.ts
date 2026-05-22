@@ -2,7 +2,7 @@ import {
   Assertion as CoreAssertion,
   NumericAssertionBuilder,
   GeneralAssertionBuilder,
-} from './internal/assertion'
+} from './internal/assertion.js'
 
 /** Sources that can be used for API check assertions */
 type ApiAssertionSource =

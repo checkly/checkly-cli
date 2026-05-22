@@ -3,11 +3,11 @@ import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { Parser } from '../parser'
-import { FixtureSandbox } from '../../../testing/fixture-sandbox'
-import { NpmDetector, PNpmDetector } from '../package-files/package-manager'
-import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package'
-import { Workspace } from '../package-files/workspace'
+import { Parser } from '../parser.js'
+import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
+import { NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
+import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
+import { Workspace } from '../package-files/workspace.js'
 
 const defaultNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
@@ -23,7 +23,6 @@ describe('dependency-parser - parser()', () => {
     // therefore do not import anything.
     fixt = await FixtureSandbox.create({
       source: path.join(__dirname, 'check-parser-fixtures'),
-      installPackages: false,
     })
   }, 180_000)
 

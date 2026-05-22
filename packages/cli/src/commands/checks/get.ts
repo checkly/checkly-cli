@@ -1,19 +1,19 @@
 import { Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
-import { AuthCommand } from '../authCommand'
-import { outputFlag } from '../../helpers/flags'
-import * as api from '../../rest/api'
-import type { CheckWithStatus } from '../../formatters/checks'
-import { type OutputFormat, stripAnsi, formatDate } from '../../formatters/render'
+import { AuthCommand } from '../authCommand.js'
+import { outputFlag } from '../../helpers/flags.js'
+import * as api from '../../rest/api.js'
+import type { CheckWithStatus } from '../../formatters/checks.js'
+import { type OutputFormat, stripAnsi, formatDate } from '../../formatters/render.js'
 import {
   formatCheckDetail,
   formatResults,
   formatErrorGroups,
-} from '../../formatters/checks'
-import { formatResultDetail } from '../../formatters/check-result-detail'
-import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca'
-import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics'
-import { formatAnalyticsSection } from '../../formatters/analytics'
+} from '../../formatters/checks.js'
+import { formatResultDetail } from '../../formatters/check-result-detail.js'
+import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca.js'
+import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics.js'
+import { formatAnalyticsSection } from '../../formatters/analytics.js'
 
 export default class ChecksGet extends AuthCommand {
   static hidden = false

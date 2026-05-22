@@ -1,5 +1,5 @@
-import { Construct } from './construct'
-import { Diagnostic, Diagnostics, ErrorDiagnostic, WarningDiagnostic } from './diagnostics'
+import { Construct } from './construct.js'
+import { Diagnostic, Diagnostics, ErrorDiagnostic, WarningDiagnostic } from './diagnostics.js'
 
 export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   property: string

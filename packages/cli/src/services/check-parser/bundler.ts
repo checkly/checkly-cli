@@ -8,10 +8,10 @@ import type { Archiver } from 'archiver'
 import Debug from 'debug'
 import * as uuid from 'uuid'
 
-import { checklyStorage } from '../../rest/api'
-import { computeWorkspaceCacheHash } from './cache-hash'
-import { File } from './parser'
-import { Workspace } from './package-files/workspace'
+import { checklyStorage } from '../../rest/api.js'
+import { computeWorkspaceCacheHash } from './cache-hash.js'
+import { File } from './parser.js'
+import { Workspace } from './package-files/workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:bundler')
 

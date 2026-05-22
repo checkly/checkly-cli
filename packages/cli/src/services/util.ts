@@ -1,18 +1,19 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
+import { createRequire } from 'node:module'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
 import { glob } from 'glob'
-import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader'
-import { File } from './check-parser/parser'
-import * as JSON5 from 'json5'
-import { PlaywrightConfig } from './playwright-config'
-import { Session } from '../constructs/project'
+import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader.js'
+import { File } from './check-parser/parser.js'
+import JSON5 from 'json5'
+import { PlaywrightConfig } from './playwright-config.js'
+import { Session } from '../constructs/project.js'
 import semver from 'semver'
 import { existsSync } from 'fs'
-import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager'
+import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 
 export interface GitInformation {
   commitId: string
@@ -145,16 +146,17 @@ export function normalizeVersion (v?: string | undefined): string | undefined {
 
 export function getAutoIncludes (
   basePath: string,
+  globCwd: string,
   packageManager: PackageManager,
   existingIncludes: string[],
 ): string[] {
   const autoIncludes: string[] = []
 
   if (packageManager.name === 'pnpm') {
-    const patchesPattern = 'patches/*.patch'
     const patchesDir = path.join(basePath, 'patches')
-    const alreadyIncluded = existingIncludes.some(p => path.resolve(basePath, p).startsWith(patchesDir))
+    const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
     if (!alreadyIncluded) {
+      const patchesPattern = pathToPosix(path.join(path.relative(globCwd, basePath), 'patches', '*.patch'))
       autoIncludes.push(patchesPattern)
     }
   }
@@ -188,22 +190,20 @@ export async function bundlePlayWrightProject (
     throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
   }
 
+  function includeTargets (dirName: string): boolean {
+    return include.some(value => {
+      return value.startsWith(`${dirName}/`) || value.includes(`/${dirName}/`)
+    })
+  }
+
   const defaultIgnores = [
     {
       pattern: '**/node_modules/**',
-      skipIf: () => {
-        return include.some(value => {
-          return value.startsWith('node_modules/')
-        })
-      },
+      skipIf: () => includeTargets('node_modules'),
     },
     {
-      pattern: '.git/**',
-      skipIf: () => {
-        return include.some(value => {
-          return value.startsWith('.git/')
-        })
-      },
+      pattern: '**/.git/**',
+      skipIf: () => includeTargets('.git'),
     },
   ]
 
@@ -214,12 +214,11 @@ export async function bundlePlayWrightProject (
     }
   }
 
-  const autoIncludes = getAutoIncludes(Session.basePath!, Session.packageManager, include)
+  const autoIncludes = getAutoIncludes(Session.basePath!, dir, Session.packageManager, include)
   const effectiveIncludes = [...include, ...autoIncludes]
 
   const includedFiles = await findFilesWithPattern(
-    // FIXME: Shouldn't the pattern be relative to the Playwright check?
-    Session.basePath!,
+    dir,
     effectiveIncludes,
     ignoredFiles,
   )
@@ -242,8 +241,8 @@ export async function bundlePlayWrightProject (
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
-    const playwrightPath = require.resolve('@playwright/test/package.json', { paths: [cwd] })
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const require = createRequire(path.join(cwd, 'noop.js'))
+    const playwrightPath = require.resolve('@playwright/test/package.json')
     const playwrightPkg = require(playwrightPath)
     const version = normalizeVersion(playwrightPkg.version)
 
@@ -283,8 +282,12 @@ export async function findFilesWithPattern (
   pattern: string | string[],
   ignorePattern: string[],
 ): Promise<string[]> {
-  // The files are sorted to make sure that the processing order is deterministic.
-  const files = await glob(pattern, {
+  // Not using pathToPosix here because it strips the drive letter (e.g. C:) that glob
+  // needs to resolve absolute patterns on Windows.
+  const posixPattern = Array.isArray(pattern)
+    ? pattern.map(p => p.replaceAll('\\', '/'))
+    : pattern.replaceAll('\\', '/')
+  const files = await glob(posixPattern, {
     nodir: true,
     cwd: directory,
     ignore: ignorePattern,

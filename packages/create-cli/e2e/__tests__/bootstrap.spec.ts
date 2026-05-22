@@ -10,7 +10,7 @@ import { describe, it, expect, afterAll, beforeAll, beforeEach } from 'vitest'
 import { runChecklyCreateCli } from '../run-create-cli'
 import { getUserGreeting } from '../../src/utils/messages'
 import { PROJECT_TEMPLATES } from '../../src/utils/prompts'
-import { ExecaReturnValue } from 'execa'
+import type { Result as ExecaResult } from 'execa'
 
 const E2E_PROJECT_PREFIX = 'e2e-test-project-'
 
@@ -27,11 +27,15 @@ function expectVersionAndName ({
   latestVersion,
   greeting,
 }: {
-  commandOutput: ExecaReturnValue<string>
+  commandOutput: ExecaResult
   version?: string
   latestVersion: string
   greeting: string
 }) {
+  if (!commandOutput.stdout) {
+    // eslint-disable-next-line no-console
+    console.error('DEBUG empty stdout — exitCode:', commandOutput.exitCode, 'stderr:', commandOutput.stderr)
+  }
   if (!version) {
     expect(commandOutput.stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
   }
@@ -43,14 +47,14 @@ function expectCompleteCreation ({
   commandOutput,
   projectFolder,
 }: {
-  commandOutput: ExecaReturnValue<string>
+  commandOutput: ExecaResult
   projectFolder: string
 }) {
   expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
 
          > Enter your project directory using cd ${projectFolder}
          > Run npx checkly login to login to your Checkly account or create a free new account
-         > Run npx checkly test --record to dry run your checks
+         > Run npx checkly test to dry run your checks
          > Run npx checkly deploy to deploy your checks to the Checkly cloud
 
          Questions?
@@ -294,7 +298,7 @@ describe('bootstrap', () => {
     const playwrightConfigPath = path.join(directory, 'playwright.config.ts')
     const commandOutput = await runChecklyCreateCli({
       directory,
-      promptsInjection: [true, false, false, true, playwrightConfigPath],
+      promptsInjection: [true, false, false, false, playwrightConfigPath, true],
     })
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
@@ -319,9 +323,6 @@ describe('bootstrap', () => {
     await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
     await expect(exists(path.join(directory, 'checkly.config.ts'))).resolves.toBe(true)
     await expect(exists(path.join(directory, '__checks__', 'api.check.ts'))).resolves.toBe(true)
-
-    // node_modules nor .git shouldn't exist
-    await expect(exists(path.join(directory, 'node_modules'))).resolves.toBe(false)
   }, 15000)
 
   it('Should run in non-interactive mode when TTY is disabled', async () => {

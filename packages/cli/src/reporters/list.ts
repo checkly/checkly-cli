@@ -1,16 +1,15 @@
 import indentString from 'indent-string'
 import chalk from 'chalk'
 
-import AbstractListReporter from './abstract-list'
-import { SequenceId } from '../services/abstract-check-runner'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util'
-import { TestResultsShortLinks } from '../rest/test-sessions'
-import commonMessages from '../messages/common-messages'
+import AbstractListReporter from './abstract-list.js'
+import { SequenceId } from '../services/abstract-check-runner.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
+import { TestResultsShortLinks } from '../rest/test-sessions.js'
 
 export default class ListReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
     this._printSummary()
   }
 
@@ -30,9 +29,6 @@ export default class ListReporter extends AbstractListReporter {
     this._clearSummary()
     this._printSummary()
     this._printTestSessionsUrl()
-    if (!this.testSessionId) {
-      this._printTip(commonMessages.inlineTips.useRecordFlag)
-    }
   }
 
   onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {

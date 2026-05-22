@@ -4,9 +4,9 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
 
-import * as api from '../../rest/api'
-import { BaseCommand } from '../baseCommand'
-import { AuthCommand } from '../authCommand'
+import * as api from '../../rest/api.js'
+import { BaseCommand } from '../baseCommand.js'
+import { AuthCommand } from '../authCommand.js'
 
 describe('AuthCommand.init', () => {
   it('awaits BaseCommand.init before validating authentication', async () => {
