@@ -122,7 +122,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
  *   pwTags: ['@smoke', '@critical'],
  *   // `include` is for non-code assets read via `fs` at runtime;
  *   // imported files are bundled automatically.
- *   include: ['fixtures/**\/*.json'],
+ *   include: ['fixtures/**/*.json'],
  *   groupName: 'E2E Tests',
  *   frequency: Frequency.EVERY_5M
  * })
