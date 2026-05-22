@@ -16,10 +16,9 @@ jobs:
       - uses: pnpm/action-setup@v5
         with:
           version: 10
-      # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
           cache: "pnpm"
       # Extract the dynamic value from the canary label if present
@@ -37,15 +36,16 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: pnpm install --frozen-lockfile
-      - run: pnpm version ${{ env.PR_VERSION }} --no-git-tag-version
-        working-directory: packages/cli
-      # Publish to npm with the additional tag if CANARY_TAG is set
-      - run: |
-          pnpm --filter checkly publish --tag experimental --no-git-checks
+      - name: Set version, pack, and publish
+        run: |
+          pnpm version ${{ env.PR_VERSION }} --no-git-tag-version
+          pnpm pack
+          npm publish checkly-*.tgz --tag experimental
           if [[ -n "$CANARY_TAG" ]]; then
             echo "Publishing with additional tag: $CANARY_TAG"
-            pnpm dist-tag add checkly@$PR_VERSION $CANARY_TAG
+            npm dist-tag add checkly@$PR_VERSION $CANARY_TAG
           fi
+        working-directory: packages/cli
         env:
           CANARY_TAG: ${{ env.CANARY_TAG }}
           PR_VERSION: ${{ env.PR_VERSION }}
