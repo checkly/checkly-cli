@@ -136,7 +136,6 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@types/archiver": "^7.0.0",
-    "@types/config": "^3.3.5",
     "@types/debug": "^4.1.13",
     "@types/luxon": "^3.7.1",
     "@types/node": "^22.19.17",
@@ -145,7 +144,6 @@
     "@types/tunnel": "^0.0.7",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.5",
-    "config": "^4.4.1",
     "cross-env": "^10.1.0",
     "nanoid": "^5.1.11",
     "oclif": "^4.23.7",
