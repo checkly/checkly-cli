@@ -143,6 +143,7 @@
     "@types/semver": "^7.7.1",
     "@types/tunnel": "^0.0.7",
     "@types/ws": "^8.5.5",
+    "config": "^4.4.1",
     "cross-env": "^10.1.0",
     "nanoid": "^5.1.11",
     "oclif": "^4.23.7",
