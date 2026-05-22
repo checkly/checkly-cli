@@ -78,8 +78,8 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
    *
    * Globs resolve relative to the directory of `playwrightConfigPath`.
    *
-   * @example "fixtures/**\/*.json"
-   * @example ["fixtures/**\/*.json", "docs/**\/*.md"]
+   * @example "fixtures/**/*.json"
+   * @example ["fixtures/**/*.json", "docs/**/*.md"]
    */
   include?: string | string[]
 
