@@ -72,7 +72,7 @@ export class JsonBuilder {
 export default class JsonReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2, 1)
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
   }
 
   onEnd () {
