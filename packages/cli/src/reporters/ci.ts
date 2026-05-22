@@ -8,7 +8,7 @@ import { TestResultsShortLinks } from '../rest/test-sessions.js'
 export default class CiReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2, 1)
+    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2)
     this._printSummary({ skipCheckCount: true })
   }
 
