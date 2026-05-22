@@ -44,7 +44,7 @@ jobs:
           pnpm --filter checkly publish --tag experimental --no-git-checks
           if [[ -n "$CANARY_TAG" ]]; then
             echo "Publishing with additional tag: $CANARY_TAG"
-            npm dist-tag add checkly@$PR_VERSION $CANARY_TAG
+            pnpm dist-tag add checkly@$PR_VERSION $CANARY_TAG
           fi
         env:
           CANARY_TAG: ${{ env.CANARY_TAG }}
