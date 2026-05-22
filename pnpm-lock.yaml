@@ -138,8 +138,8 @@ importers:
         specifier: ^7.8.1
         version: 7.8.1
       string-width:
-        specifier: ^7.2.0
-        version: 7.2.0
+        specifier: ^8.2.1
+        version: 8.2.1
       tunnel:
         specifier: ^0.0.6
         version: 0.0.6
