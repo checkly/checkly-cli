@@ -37,7 +37,8 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "PR_VERSION=0.0.0-pr.${{github.event.pull_request.number}}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter checkly version ${{ env.PR_VERSION }} --no-git-tag-version
+      - run: pnpm version ${{ env.PR_VERSION }} --no-git-tag-version
+        working-directory: packages/cli
       # Publish to npm with the additional tag if CANARY_TAG is set
       - run: |
           pnpm --filter checkly publish --tag experimental --no-git-checks

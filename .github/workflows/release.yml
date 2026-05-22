@@ -50,12 +50,14 @@ jobs:
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Set version and publish prerelease for 'cli' package
         run: |
-          pnpm --filter checkly version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
-          pnpm --filter checkly publish --provenance --tag prerelease --no-git-checks
+          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
+          pnpm publish --provenance --tag prerelease --no-git-checks
+        working-directory: packages/cli
       - name: Set version and publish prerelease for 'create-cli' package
         run: |
-          pnpm --filter create-checkly version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
-          pnpm --filter create-checkly publish --provenance --tag prerelease --no-git-checks
+          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
+          pnpm publish --provenance --tag prerelease --no-git-checks
+        working-directory: packages/create-cli
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
@@ -112,12 +114,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Set version and publish 'cli' package
         run: |
-          pnpm --filter checkly version ${{ github.event.release.tag_name }} --no-git-tag-version
-          pnpm --filter checkly publish --provenance --no-git-checks
+          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version
+          pnpm publish --provenance --no-git-checks
+        working-directory: packages/cli
       - name: Set version and publish 'create-cli' package
         run: |
-          pnpm --filter create-checkly version ${{ github.event.release.tag_name }} --no-git-tag-version
-          pnpm --filter create-checkly publish --provenance --no-git-checks
+          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version
+          pnpm publish --provenance --no-git-checks
+        working-directory: packages/create-cli
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
