@@ -21,6 +21,10 @@ export interface EngineConfig {
  * })
  * ```
  */
+// Known versions are listed for IDE autocomplete; any string is accepted.
+type NodeVersion = '22' | '24' | (string & {})
+type BunVersion = '1.3' | (string & {})
+
 export class Engine implements EngineConfig {
   readonly name: string
   readonly version: string
@@ -34,7 +38,7 @@ export class Engine implements EngineConfig {
    * Use Node.js as the test runner engine.
    * @param version - The Node.js major version (e.g., `'22'`, `'24'`).
    */
-  static node (version: string): Engine {
+  static node (version: NodeVersion): Engine {
     return new Engine('node', version)
   }
 
@@ -42,7 +46,7 @@ export class Engine implements EngineConfig {
    * Use Bun as the test runner engine.
    * @param version - The Bun version (e.g., `'1.3'`).
    */
-  static bun (version: string): Engine {
+  static bun (version: BunVersion): Engine {
     return new Engine('bun', version)
   }
 }
