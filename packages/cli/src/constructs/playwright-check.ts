@@ -19,8 +19,20 @@ import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { type Engine, type EngineConfig } from './engine.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
+  /**
+   * The JavaScript engine used to run the Playwright tests.
+   * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance,
+   * or pass a plain `{ name, version }` object.
+   * Omit to let the runner auto-detect.
+   *
+   * @example Engine.node('24')
+   * @example Engine.bun('1.3')
+   * @example { name: 'node', version: '22' }
+   */
+  engine?: Engine | EngineConfig
   /**
    * Path to the Playwright configuration file (playwright.config.js/ts).
    * This file defines test settings, browser configurations, and project structure.
@@ -131,6 +143,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
+  engine?: Engine | EngineConfig
   /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
 
@@ -139,6 +152,7 @@ export class PlaywrightCheck extends RuntimeCheck {
 
     const config = this.applyConfigDefaults(props)
 
+    this.engine = config.engine
     this.installCommand = config.installCommand
     this.pwProjects = config.pwProjects
       ? (Array.isArray(config.pwProjects) ? config.pwProjects : [config.pwProjects])
@@ -463,6 +477,8 @@ export class PlaywrightCheck extends RuntimeCheck {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
       doubleCheck: false,
+      engine: this.engine?.name ?? null,
+      engineVersion: this.engine?.version ?? null,
     }
   }
 }
