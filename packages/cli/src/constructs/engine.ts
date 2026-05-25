@@ -22,7 +22,7 @@ export interface EngineConfig {
  * ```
  */
 // Known versions are listed for IDE autocomplete; any string is accepted.
-type NodeVersion = '22' | '24' | (string & {})
+type NodeVersion = '22' | '24' | '26' | (string & {})
 type BunVersion = '1.3' | (string & {})
 
 export class Engine implements EngineConfig {
