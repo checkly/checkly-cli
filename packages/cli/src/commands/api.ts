@@ -40,7 +40,7 @@ export default class Api extends AuthCommand {
     }),
     'field': Flags.string({
       char: 'F',
-      description: 'Typed parameter: key=value (string) or key:=value (JSON).',
+      description: 'Add a field: key=value (string) or key:=value (parsed as JSON).',
       multiple: true,
       default: [],
     }),
@@ -81,7 +81,7 @@ export default class Api extends AuthCommand {
     const { args, flags } = await this.parse(Api)
 
     const hasFields = flags.field.length > 0 || flags['raw-field'].length > 0
-    const method = (flags.method ?? (hasFields ? 'POST' : 'GET')).toUpperCase()
+    const method = (flags.method ?? (hasFields || flags.input ? 'POST' : 'GET')).toUpperCase()
 
     if (args.endpoint.startsWith('//') || /^[a-z][a-z\d+\-.]*:/i.test(args.endpoint)) {
       this.error('Endpoint must be a relative path (e.g. /v1/checks), not a URL.')
@@ -93,6 +93,10 @@ export default class Api extends AuthCommand {
 
     if (flags.input && hasFields) {
       this.error('Cannot use --input together with -f/--raw-field or -F/--field.')
+    }
+
+    if (flags.paginate && method !== 'GET') {
+      this.error('--paginate is only supported for GET requests.')
     }
 
     let data: unknown
@@ -128,33 +132,35 @@ export default class Api extends AuthCommand {
     }
 
     if (flags.verbose) {
-      process.stderr.write(`> ${method} ${endpoint}\n`)
+      this.logToStderr(`> ${method} ${endpoint}`)
       for (const [k, v] of Object.entries(customHeaders)) {
-        process.stderr.write(`> ${k}: ${v}\n`)
+        this.logToStderr(`> ${k}: ${v}`)
       }
-      process.stderr.write('\n')
+      this.logToStderr('')
     }
 
     const response = await api.request(requestConfig)
 
     if (flags.verbose) {
-      process.stderr.write(`< ${response.status} ${response.statusText}\n`)
+      this.logToStderr(`< ${response.status} ${response.statusText}`)
       for (const [k, v] of Object.entries(response.headers)) {
         if (v !== undefined) {
-          process.stderr.write(`< ${k}: ${v}\n`)
+          this.logToStderr(`< ${k}: ${v}`)
         }
       }
-      process.stderr.write('\n')
+      this.logToStderr('')
     }
 
     let responseData = response.data
 
     if (flags.paginate) {
-      responseData = await paginateAll(api, requestConfig, response)
+      responseData = await paginateAll(api, requestConfig, response, {
+        warn: msg => this.logToStderr(`Warning: ${msg}`),
+      })
     }
 
     if (flags.include) {
-      this.log(`HTTP/${response.status} ${response.statusText}`)
+      this.log(`HTTP/1.1 ${response.status} ${response.statusText}`)
       for (const [k, v] of Object.entries(response.headers)) {
         if (v !== undefined) {
           this.log(`${k}: ${v}`)
@@ -179,7 +185,11 @@ export default class Api extends AuthCommand {
     }
 
     if (response.status === 404) {
-      process.stderr.write('Endpoint not found. See available endpoints at https://www.checklyhq.com/docs/api\n')
+      this.logToStderr('Endpoint not found. See available endpoints at https://www.checklyhq.com/docs/api')
+    } else if (response.status === 401) {
+      this.logToStderr('Authentication failed — run "checkly login" or set CHECKLY_API_KEY.')
+    } else if (response.status === 403) {
+      this.logToStderr('Permission denied — verify your account role and API key scope.')
     }
 
     if (response.status >= 400) {
@@ -190,15 +200,19 @@ export default class Api extends AuthCommand {
   private applyJq (json: string, filter: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const child = execFile('jq', [filter], { encoding: 'utf-8' }, (error, stdout, stderr) => {
-        if (error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-          reject(new Error(
-            '--jq requires jq to be installed.\n'
-            + 'Install it from https://jqlang.github.io/jq/',
-          ))
+        if (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            reject(new Error(
+              '--jq requires jq to be installed.\n'
+              + 'Install it from https://jqlang.github.io/jq/',
+            ))
+            return
+          }
+          reject(new Error(`jq failed: ${stderr || error.message}`))
           return
         }
         if (stderr) {
-          process.stderr.write(stderr)
+          this.logToStderr(stderr)
         }
         if (stdout) {
           this.log(stdout.trimEnd())

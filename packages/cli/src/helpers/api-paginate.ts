@@ -1,15 +1,17 @@
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { parseTotalFromContentRange } from './content-range.js'
 
-function parseTotalFromContentRange (header: string | undefined): number | null {
-  if (!header) return null
-  const match = header.match(/\/(\d+)$/)
-  return match ? parseInt(match[1], 10) : null
+const MAX_PAGES = 500
+
+export interface PaginateLogger {
+  warn (message: string): void
 }
 
 export function paginateAll (
   apiClient: AxiosInstance,
   requestConfig: AxiosRequestConfig,
   firstResponse: AxiosResponse,
+  logger?: PaginateLogger,
 ): Promise<unknown> {
   const contentRange = firstResponse.headers['content-range']
   if (contentRange) {
@@ -21,11 +23,16 @@ export function paginateAll (
     && typeof firstResponse.data === 'object'
     && 'nextId' in firstResponse.data
     && 'entries' in firstResponse.data
+    && Array.isArray(firstResponse.data.entries)
   ) {
-    return paginateCursor(apiClient, requestConfig, firstResponse)
+    return paginateCursor(apiClient, requestConfig, firstResponse, logger)
   }
 
-  process.stderr.write('Warning: --paginate had no effect — response does not use a recognized pagination pattern.\n')
+  if (logger) {
+    logger.warn('--paginate had no effect — response does not use a recognized pagination pattern.')
+  } else {
+    process.stderr.write('Warning: --paginate had no effect — response does not use a recognized pagination pattern.\n')
+  }
   return Promise.resolve(firstResponse.data)
 }
 
@@ -48,7 +55,12 @@ async function paginateContentRange (
       apiClient.request({
         ...requestConfig,
         params: { ...requestConfig.params, page: i + 2, limit: pageSize },
-      }).then(r => asArray(r.data)),
+      }).then(r => {
+        if (r.status >= 400) {
+          throw new Error(`Pagination failed on page ${i + 2}: HTTP ${r.status} ${r.statusText}`)
+        }
+        return asArray(r.data)
+      }),
     ),
   )
 
@@ -59,20 +71,35 @@ async function paginateCursor (
   apiClient: AxiosInstance,
   requestConfig: AxiosRequestConfig,
   firstResponse: AxiosResponse,
+  logger?: PaginateLogger,
 ): Promise<unknown[]> {
   const allEntries = [...(firstResponse.data.entries as unknown[])]
   let nextId: string | null = firstResponse.data.nextId
+  let pageCount = 1
 
   while (nextId) {
+    if (pageCount >= MAX_PAGES) {
+      const message = `Pagination stopped after ${MAX_PAGES} pages — results may be incomplete.`
+      if (logger) {
+        logger.warn(message)
+      } else {
+        process.stderr.write(`Warning: ${message}\n`)
+      }
+      break
+    }
     const response = await apiClient.request({
       ...requestConfig,
       params: { ...requestConfig.params, nextId },
     })
+    if (response.status >= 400) {
+      throw new Error(`Pagination failed: HTTP ${response.status} ${response.statusText}`)
+    }
     const page = response.data
-    if (page.entries) {
+    if (Array.isArray(page.entries)) {
       allEntries.push(...(page.entries as unknown[]))
     }
     nextId = page.nextId ?? null
+    pageCount++
   }
 
   return allEntries

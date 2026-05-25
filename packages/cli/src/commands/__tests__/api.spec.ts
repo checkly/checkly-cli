@@ -23,6 +23,7 @@ const mockConfig = {
 function createCommand (...argv: string[]) {
   const cmd = new ApiCommand(argv, mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   cmd.exit = vi.fn((code: number) => {
     throw new Error(`EXIT_${code}`)
   }) as any
@@ -50,6 +51,16 @@ describe('checkly api', () => {
 
     it('defaults to POST when fields are present', async () => {
       const cmd = createCommand('/v1/checks', '-F', 'name=Test')
+      await cmd.run()
+      expect(api.request).toHaveBeenCalledWith(expect.objectContaining({ method: 'POST' }))
+    })
+
+    it('defaults to POST when --input is present', async () => {
+      vi.mock('node:fs/promises', async importOriginal => {
+        const actual = await importOriginal<typeof import('node:fs/promises')>()
+        return { ...actual, readFile: vi.fn().mockResolvedValue('{"name":"Test"}') }
+      })
+      const cmd = createCommand('/v1/checks', '--input', 'body.json')
       await cmd.run()
       expect(api.request).toHaveBeenCalledWith(expect.objectContaining({ method: 'POST' }))
     })
@@ -124,10 +135,8 @@ describe('checkly api', () => {
         headers: {},
         config: {} as any,
       })
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
       const cmd = createCommand('/v1/nonexistent')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
-      stderrSpy.mockRestore()
     })
 
     it('shows docs hint on 404', async () => {
@@ -138,12 +147,41 @@ describe('checkly api', () => {
         headers: {},
         config: {} as any,
       })
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
       const cmd = createCommand('/v1/nonexistent')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
-      const written = stderrSpy.mock.calls.map(c => c[0]).join('')
-      expect(written).toContain('https://www.checklyhq.com/docs/api')
-      stderrSpy.mockRestore()
+      expect(cmd.logToStderr).toHaveBeenCalledWith(
+        expect.stringContaining('https://www.checklyhq.com/docs/api'),
+      )
+    })
+
+    it('shows auth hint on 401', async () => {
+      vi.mocked(api.request).mockResolvedValue({
+        data: { message: 'Unauthorized' },
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {},
+        config: {} as any,
+      })
+      const cmd = createCommand('/v1/checks')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+      expect(cmd.logToStderr).toHaveBeenCalledWith(
+        expect.stringContaining('checkly login'),
+      )
+    })
+
+    it('shows permission hint on 403', async () => {
+      vi.mocked(api.request).mockResolvedValue({
+        data: { message: 'Forbidden' },
+        status: 403,
+        statusText: 'Forbidden',
+        headers: {},
+        config: {} as any,
+      })
+      const cmd = createCommand('/v1/checks')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+      expect(cmd.logToStderr).toHaveBeenCalledWith(
+        expect.stringContaining('Permission denied'),
+      )
     })
 
     it('outputs error body before exiting', async () => {
@@ -154,11 +192,9 @@ describe('checkly api', () => {
         headers: {},
         config: {} as any,
       })
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
       const cmd = createCommand('/v1/nonexistent')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
       expect(cmd.log).toHaveBeenCalled()
-      stderrSpy.mockRestore()
     })
 
     it('exits cleanly on 2xx with empty body', async () => {
@@ -186,14 +222,13 @@ describe('checkly api', () => {
       const cmd = createCommand('/v1/checks', '-i')
       await cmd.run()
       const logs = vi.mocked(cmd.log).mock.calls.map(c => c[0])
-      expect(logs[0]).toBe('HTTP/200 OK')
+      expect(logs[0]).toBe('HTTP/1.1 200 OK')
       expect(logs[1]).toBe('content-type: application/json')
     })
   })
 
   describe('--verbose', () => {
     it('writes request and response info to stderr', async () => {
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
       vi.mocked(api.request).mockResolvedValue({
         data: { ok: true },
         status: 200,
@@ -203,10 +238,39 @@ describe('checkly api', () => {
       })
       const cmd = createCommand('/v1/checks', '--verbose')
       await cmd.run()
-      const written = stderrSpy.mock.calls.map(c => c[0]).join('')
+      const written = vi.mocked(cmd.logToStderr).mock.calls.map(c => c[0]).join('\n')
       expect(written).toContain('> GET /v1/checks')
       expect(written).toContain('< 200 OK')
-      stderrSpy.mockRestore()
+    })
+  })
+
+  describe('--paginate', () => {
+    it('rejects --paginate with non-GET method', async () => {
+      const cmd = createCommand('/v1/checks', '-X', 'POST', '-F', 'name=Test', '--paginate')
+      await expect(cmd.run()).rejects.toThrow('--paginate is only supported for GET requests')
+    })
+
+    it('concatenates paginated Content-Range results', async () => {
+      vi.mocked(api.request)
+        .mockResolvedValueOnce({
+          data: [{ id: '1' }, { id: '2' }],
+          status: 200,
+          statusText: 'OK',
+          headers: { 'content-range': '0-1/4' },
+          config: {} as any,
+        })
+        .mockResolvedValueOnce({
+          data: [{ id: '3' }, { id: '4' }],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any,
+        })
+      const cmd = createCommand('/v1/checks', '--paginate')
+      await cmd.run()
+      const loggedJson = vi.mocked(cmd.log).mock.calls[0][0]
+      const parsed = JSON.parse(loggedJson)
+      expect(parsed).toHaveLength(4)
     })
   })
 
@@ -231,6 +295,17 @@ describe('checkly api', () => {
       })
       const cmd = createCommand('/v1/checks', '--jq', '.')
       await expect(cmd.run()).rejects.toThrow('--jq requires jq to be installed')
+    })
+
+    it('rejects on jq filter errors', async () => {
+      const jqError = new Error('jq: error: syntax error') as NodeJS.ErrnoException
+      jqError.code = 'ERR_CHILD_PROCESS'
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _opts, callback: any) => {
+        callback(jqError, '', 'jq: error (at <stdin>:0): syntax error')
+        return {} as any
+      })
+      const cmd = createCommand('/v1/checks', '--jq', '.invalid[')
+      await expect(cmd.run()).rejects.toThrow('jq failed:')
     })
   })
 

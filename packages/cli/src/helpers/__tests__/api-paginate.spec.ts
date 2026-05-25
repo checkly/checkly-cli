@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 import { paginateAll } from '../api-paginate.js'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 
-function mockResponse (data: unknown, headers: Record<string, string> = {}): AxiosResponse {
+function mockResponse (data: unknown, headers: Record<string, string> = {}, status = 200): AxiosResponse {
   return {
     data,
     headers,
-    status: 200,
-    statusText: 'OK',
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
     config: {} as any,
   }
 }
@@ -45,6 +45,15 @@ describe('paginateAll', () => {
       expect(result).toEqual([{ id: 1 }])
       expect(client.request).not.toHaveBeenCalled()
     })
+
+    it('throws on follow-up page error', async () => {
+      const page1 = mockResponse([{ id: 1 }], { 'content-range': '0-0/2' })
+      const page2 = mockResponse({ message: 'Server Error' }, {}, 500)
+      const client = mockAxios([page2])
+      const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
+
+      await expect(paginateAll(client, config, page1)).rejects.toThrow('Pagination failed on page 2: HTTP 500')
+    })
   })
 
   describe('cursor pagination', () => {
@@ -72,10 +81,45 @@ describe('paginateAll', () => {
       expect(result).toEqual([{ id: 1 }])
       expect(client.request).not.toHaveBeenCalled()
     })
+
+    it('throws on follow-up page error', async () => {
+      const page1 = mockResponse({ entries: [{ id: 1 }], nextId: 'cursor-2' })
+      const page2 = mockResponse({ message: 'Server Error' }, {}, 500)
+      const client = mockAxios([page2])
+      const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
+
+      await expect(paginateAll(client, config, page1)).rejects.toThrow('Pagination failed: HTTP 500')
+    })
+  })
+
+  describe('non-array entries detection', () => {
+    it('falls through to unrecognized when entries is not an array', async () => {
+      const logger = { warn: vi.fn() }
+      const page1 = mockResponse({ entries: 'not-an-array', nextId: 'cursor' })
+      const client = mockAxios([])
+      const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
+
+      const result = await paginateAll(client, config, page1, logger)
+
+      expect(result).toEqual({ entries: 'not-an-array', nextId: 'cursor' })
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('--paginate had no effect'))
+    })
   })
 
   describe('unrecognized response', () => {
-    it('returns data as-is and warns on stderr', async () => {
+    it('returns data as-is and warns via logger', async () => {
+      const logger = { warn: vi.fn() }
+      const page1 = mockResponse({ foo: 'bar' })
+      const client = mockAxios([])
+      const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
+
+      const result = await paginateAll(client, config, page1, logger)
+
+      expect(result).toEqual({ foo: 'bar' })
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('--paginate had no effect'))
+    })
+
+    it('falls back to stderr when no logger provided', async () => {
       const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
       const page1 = mockResponse({ foo: 'bar' })
       const client = mockAxios([])
