@@ -20,20 +20,19 @@ import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.j
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 import { detectEngine } from '../services/engine-detector.js'
-import { type Engine, type EngineConfig } from './engine.js'
+import { type Engine } from './engine.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
    * The JavaScript engine used to run the Playwright tests.
-   * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance,
-   * or pass a plain `{ name, version }` object.
-   * Omit to let the runner auto-detect.
+   * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance.
+   * When omitted, the CLI auto-detects from project version files
+   * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json engines).
    *
    * @example Engine.node('24')
    * @example Engine.bun('1.3')
-   * @example { name: 'node', version: '22' }
    */
-  engine?: Engine | EngineConfig
+  engine?: Engine
   /**
    * Path to the Playwright configuration file (playwright.config.js/ts).
    * This file defines test settings, browser configurations, and project structure.
@@ -144,7 +143,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
-  engine?: Engine | EngineConfig
+  engine?: Engine
   /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
 
