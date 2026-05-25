@@ -19,6 +19,7 @@ import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { detectEngine } from '../services/engine-detector.js'
 import { type Engine, type EngineConfig } from './engine.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
@@ -455,6 +456,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       this.pwProjects,
       this.pwTags,
     )
+
+    if (!this.engine && Session.basePath) {
+      Session.detectedEnginePromise ??= detectEngine(Session.basePath).then(e => e ?? null)
+      this.engine = await Session.detectedEnginePromise ?? undefined
+    }
 
     return new PlaywrightCheckBundle(this, {
       groupId,

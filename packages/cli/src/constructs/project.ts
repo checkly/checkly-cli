@@ -251,6 +251,7 @@ export class Session {
   static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
+  static detectedEnginePromise?: Promise<import('./engine.js').Engine | null>
 
   static reset () {
     this.project = undefined
@@ -274,6 +275,7 @@ export class Session {
     this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
+    this.detectedEnginePromise = undefined
     this.resetSharedFiles()
   }
 
