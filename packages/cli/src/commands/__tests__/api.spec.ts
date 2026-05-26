@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../rest/api', () => ({
   api: {
     request: vi.fn(),
+    defaults: { baseURL: 'https://api.checklyhq.com' },
   },
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
@@ -92,6 +93,11 @@ describe('checkly api', () => {
 
     it('rejects absolute URLs', async () => {
       const cmd = createCommand('https://evil.com/steal')
+      await expect(cmd.run()).rejects.toThrow('Endpoint must be a relative path')
+    })
+
+    it('rejects backslash-based host escape', async () => {
+      const cmd = createCommand('\\evil.com\\steal')
       await expect(cmd.run()).rejects.toThrow('Endpoint must be a relative path')
     })
   })

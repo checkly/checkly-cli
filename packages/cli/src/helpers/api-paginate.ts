@@ -22,10 +22,11 @@ export function paginateAll (
     firstResponse.data
     && typeof firstResponse.data === 'object'
     && 'nextId' in firstResponse.data
-    && 'entries' in firstResponse.data
-    && Array.isArray(firstResponse.data.entries)
   ) {
-    return paginateCursor(apiClient, requestConfig, firstResponse, logger)
+    const arrayField = findArrayField(firstResponse.data)
+    if (arrayField) {
+      return paginateCursor(apiClient, requestConfig, firstResponse, arrayField, logger)
+    }
   }
 
   if (logger) {
@@ -71,9 +72,10 @@ async function paginateCursor (
   apiClient: AxiosInstance,
   requestConfig: AxiosRequestConfig,
   firstResponse: AxiosResponse,
+  arrayField: string,
   logger?: PaginateLogger,
 ): Promise<unknown[]> {
-  const allEntries = [...(firstResponse.data.entries as unknown[])]
+  const allEntries = [...(firstResponse.data[arrayField] as unknown[])]
   let nextId: string | null = firstResponse.data.nextId
   let pageCount = 1
 
@@ -95,14 +97,23 @@ async function paginateCursor (
       throw new Error(`Pagination failed: HTTP ${response.status} ${response.statusText}`)
     }
     const page = response.data
-    if (Array.isArray(page.entries)) {
-      allEntries.push(...(page.entries as unknown[]))
+    if (Array.isArray(page[arrayField])) {
+      allEntries.push(...(page[arrayField] as unknown[]))
     }
     nextId = page.nextId ?? null
     pageCount++
   }
 
   return allEntries
+}
+
+function findArrayField (data: Record<string, unknown>): string | null {
+  for (const key of Object.keys(data)) {
+    if (key !== 'nextId' && Array.isArray(data[key])) {
+      return key
+    }
+  }
+  return null
 }
 
 function asArray (data: unknown): unknown[] {

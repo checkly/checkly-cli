@@ -49,6 +49,6 @@ npx checkly api /v1/checks -X GET -f limit=5 --paginate
 
 Key flags: `-X` (method), `-f` (string field), `-F` (typed/JSON field), `-H` (header), `--jq` (filter with jq), `--input` (body from file/stdin), `--paginate`, `--verbose`.
 
-See the [Checkly API reference](https://www.checklyhq.com/docs/api) for available endpoints.
+See the [Checkly API reference](https://www.checklyhq.com/docs/api) for available endpoints, or fetch the [OpenAPI spec](https://api.checklyhq.com/openapi.json) for machine-readable endpoint definitions.
 
 <!-- SKILL_COMMANDS -->

@@ -11,11 +11,12 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH'])
 export default class Api extends AuthCommand {
   static hidden = false
   static readOnly = false
-  static destructive = false
+  static destructive = true
   static idempotent = false
   static description = 'Make an authenticated HTTP request to the Checkly API.\n'
     + 'Pass-through for any endpoint — handles auth automatically.\n'
-    + 'See https://www.checklyhq.com/docs/api for available endpoints.'
+    + 'See https://www.checklyhq.com/docs/api for available endpoints.\n'
+    + 'OpenAPI spec: https://api.checklyhq.com/openapi.json'
 
   static examples = [
     'checkly api /v1/checks',
@@ -88,6 +89,14 @@ export default class Api extends AuthCommand {
     }
 
     const endpoint = args.endpoint.startsWith('/') ? args.endpoint : `/${args.endpoint}`
+
+    const baseUrl = api.defaults.baseURL
+    if (baseUrl) {
+      const resolved = new URL(endpoint, baseUrl)
+      if (resolved.origin !== new URL(baseUrl).origin) {
+        this.error('Endpoint must be a relative path (e.g. /v1/checks), not a URL.')
+      }
+    }
 
     const fields = hasFields ? parseFields(flags['raw-field'], flags.field) : undefined
 

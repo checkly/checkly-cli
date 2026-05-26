@@ -82,6 +82,17 @@ describe('paginateAll', () => {
       expect(client.request).not.toHaveBeenCalled()
     })
 
+    it('works with items field instead of entries', async () => {
+      const page1 = mockResponse({ items: [{ id: 1 }], nextId: 'cursor-2' })
+      const page2Resp = mockResponse({ items: [{ id: 2 }], nextId: null })
+      const client = mockAxios([page2Resp])
+      const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
+
+      const result = await paginateAll(client, config, page1)
+
+      expect(result).toEqual([{ id: 1 }, { id: 2 }])
+    })
+
     it('throws on follow-up page error', async () => {
       const page1 = mockResponse({ entries: [{ id: 1 }], nextId: 'cursor-2' })
       const page2 = mockResponse({ message: 'Server Error' }, {}, 500)
@@ -92,16 +103,16 @@ describe('paginateAll', () => {
     })
   })
 
-  describe('non-array entries detection', () => {
-    it('falls through to unrecognized when entries is not an array', async () => {
+  describe('non-array field detection', () => {
+    it('falls through to unrecognized when no array field exists alongside nextId', async () => {
       const logger = { warn: vi.fn() }
-      const page1 = mockResponse({ entries: 'not-an-array', nextId: 'cursor' })
+      const page1 = mockResponse({ count: 42, nextId: 'cursor' })
       const client = mockAxios([])
       const config: AxiosRequestConfig = { method: 'GET', url: '/v1/things' }
 
       const result = await paginateAll(client, config, page1, logger)
 
-      expect(result).toEqual({ entries: 'not-an-array', nextId: 'cursor' })
+      expect(result).toEqual({ count: 42, nextId: 'cursor' })
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('--paginate had no effect'))
     })
   })
