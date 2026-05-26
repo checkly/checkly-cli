@@ -5,7 +5,7 @@ import { Engine } from '../constructs/engine.js'
 import { resolveEngineVersion } from './engine-resolver.js'
 
 export interface EngineDetectionResult {
-  engine: Engine
+  engine: Engine | undefined
   notices: string[]
 }
 
@@ -62,25 +62,29 @@ function resolveBunFromSemverRange (range: string): string | undefined {
   return min ? `${min.major}.${min.minor}` : undefined
 }
 
-async function resolveNode (rawVersion: string): Promise<{ version: string, notices: string[] } | undefined> {
+interface ResolvedVersion {
+  version: string
+  notices: string[]
+  denied: boolean
+}
+
+async function resolveNode (rawVersion: string): Promise<ResolvedVersion | undefined> {
   const major = resolveNodeMajor(rawVersion)
   if (!major) return undefined
   const res = await resolveEngineVersion(major, 'node')
-  if (res.denied) return undefined
-  return { version: res.version, notices: res.notices }
+  return { version: res.version, notices: res.notices, denied: res.denied }
 }
 
-async function resolveBun (rawVersion: string): Promise<{ version: string, notices: string[] } | undefined> {
+async function resolveBun (rawVersion: string): Promise<ResolvedVersion | undefined> {
   const ver = resolveBunVersion(rawVersion)
   if (!ver) return undefined
   const res = await resolveEngineVersion(ver, 'bun')
-  if (res.denied) return undefined
-  return { version: res.version, notices: res.notices }
+  return { version: res.version, notices: res.notices, denied: res.denied }
 }
 
 export async function detectEngine (projectRoot: string): Promise<EngineDetectionResult | undefined> {
-  let nodeResult: { version: string, notices: string[] } | undefined
-  let bunResult: { version: string, notices: string[] } | undefined
+  let nodeResult: ResolvedVersion | undefined
+  let bunResult: ResolvedVersion | undefined
 
   // 1. .node-version
   const nodeVersionFile = await readFileIfExists(path.join(projectRoot, '.node-version'))
@@ -133,7 +137,13 @@ export async function detectEngine (projectRoot: string): Promise<EngineDetectio
     }
   }
 
-  if (nodeResult) return { engine: Engine.node(nodeResult.version), notices: nodeResult.notices }
-  if (bunResult) return { engine: Engine.bun(bunResult.version), notices: bunResult.notices }
-  return undefined
+  const selected = nodeResult ?? bunResult
+  if (!selected) return undefined
+  if (selected.denied) {
+    return { engine: undefined, notices: selected.notices }
+  }
+  const engine = selected === nodeResult
+    ? Engine.node(selected.version)
+    : Engine.bun(selected.version)
+  return { engine, notices: selected.notices }
 }
