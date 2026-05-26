@@ -56,9 +56,9 @@ const enginesConfig: EnginesConfig = {
       versions: {
         default: '1.3',
         rules: [
-          { source: '<1.3', target: '1.3', action: 'allow', follow: true, notice: 'Bun ${SOURCE} is not available.' },
+          { source: '<1.3', target: '1.3', action: 'allow', follow: true, notice: 'Bun ${SOURCE} is not available. Using Bun 1.3 instead.' },
           { source: '~1.3', target: '1.3', action: 'allow', follow: false },
-          { source: '^1.4', target: '1.3', action: 'allow', follow: true, notice: 'Bun ${SOURCE} is not available yet.' },
+          { source: '^1.4', target: '1.3', action: 'allow', follow: true, notice: 'Bun ${SOURCE} is not available yet. Using Bun 1.3 instead.' },
           { source: '>=2', action: 'deny', follow: false, notice: 'Bun ${SOURCE} is not available yet.' },
         ],
       },
