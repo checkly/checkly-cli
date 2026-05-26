@@ -20,7 +20,8 @@ import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.j
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 import { detectEngine } from '../services/engine-detector.js'
-import { type Engine } from './engine.js'
+import { resolveEngineVersion } from '../services/engine-resolver.js'
+import { Engine } from './engine.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
   /**
@@ -366,6 +367,30 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.validateBrowserInstallCommand(diagnostics)
 
     this.#validateGroupReferences(diagnostics)
+    await this.#resolveEngine(diagnostics)
+  }
+
+  async #resolveEngine (diagnostics: Diagnostics): Promise<void> {
+    if (!this.engine && Session.basePath) {
+      Session.detectedEnginePromise ??= detectEngine(Session.basePath).then(e => e ?? null)
+      const result = await Session.detectedEnginePromise
+      if (result) {
+        this.engine = result.engine
+        for (const notice of result.notices) {
+          diagnostics.add(new WarningDiagnostic({ title: 'Engine version', message: notice }))
+        }
+      }
+    } else if (this.engine) {
+      const res = await resolveEngineVersion(this.engine.version, this.engine.name)
+      for (const notice of res.notices) {
+        diagnostics.add(new WarningDiagnostic({ title: 'Engine version', message: notice }))
+      }
+      if (res.denied) {
+        this.engine = undefined
+      } else if (res.version !== this.engine.version) {
+        this.engine = this.engine.name === 'node' ? Engine.node(res.version) : Engine.bun(res.version)
+      }
+    }
   }
 
   // eslint-disable-next-line require-await
@@ -456,11 +481,6 @@ export class PlaywrightCheck extends RuntimeCheck {
       this.pwTags,
     )
 
-    if (!this.engine && Session.basePath) {
-      Session.detectedEnginePromise ??= detectEngine(Session.basePath).then(e => e ?? null)
-      this.engine = await Session.detectedEnginePromise ?? undefined
-    }
-
     return new PlaywrightCheckBundle(this, {
       groupId,
       codeBundlePath: bundler.marker,
@@ -482,8 +502,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
       doubleCheck: false,
-      engine: this.engine?.name ?? null,
-      engineVersion: this.engine?.version ?? null,
+      ...this.engine ? { engine: this.engine.name, engineVersion: this.engine.version } : {},
     }
   }
 }

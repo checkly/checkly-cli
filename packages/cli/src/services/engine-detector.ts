@@ -2,6 +2,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import semver from 'semver'
 import { Engine } from '../constructs/engine.js'
+import { resolveEngineVersion } from './engine-resolver.js'
+
+export interface EngineDetectionResult {
+  engine: Engine
+  notices: string[]
+}
 
 async function readFileIfExists (filePath: string): Promise<string | undefined> {
   try {
@@ -56,22 +62,38 @@ function resolveBunFromSemverRange (range: string): string | undefined {
   return min ? `${min.major}.${min.minor}` : undefined
 }
 
-export async function detectEngine (projectRoot: string): Promise<Engine | undefined> {
-  let nodeVersion: string | undefined
-  let bunVersion: string | undefined
+async function resolveNode (rawVersion: string): Promise<{ version: string, notices: string[] } | undefined> {
+  const major = resolveNodeMajor(rawVersion)
+  if (!major) return undefined
+  const res = await resolveEngineVersion(major, 'node')
+  if (res.denied) return undefined
+  return { version: res.version, notices: res.notices }
+}
+
+async function resolveBun (rawVersion: string): Promise<{ version: string, notices: string[] } | undefined> {
+  const ver = resolveBunVersion(rawVersion)
+  if (!ver) return undefined
+  const res = await resolveEngineVersion(ver, 'bun')
+  if (res.denied) return undefined
+  return { version: res.version, notices: res.notices }
+}
+
+export async function detectEngine (projectRoot: string): Promise<EngineDetectionResult | undefined> {
+  let nodeResult: { version: string, notices: string[] } | undefined
+  let bunResult: { version: string, notices: string[] } | undefined
 
   // 1. .node-version
   const nodeVersionFile = await readFileIfExists(path.join(projectRoot, '.node-version'))
   if (nodeVersionFile) {
-    nodeVersion = resolveNodeMajor(nodeVersionFile)
+    nodeResult = await resolveNode(nodeVersionFile)
   }
 
   // 2. .nvmrc (only if no .node-version)
-  if (!nodeVersion) {
+  if (!nodeResult) {
     const nvmrc = await readFileIfExists(path.join(projectRoot, '.nvmrc'))
     if (nvmrc) {
       const parsed = parseNvmrc(nvmrc)
-      if (parsed) nodeVersion = resolveNodeMajor(parsed)
+      if (parsed) nodeResult = await resolveNode(parsed)
     }
   }
 
@@ -79,29 +101,31 @@ export async function detectEngine (projectRoot: string): Promise<Engine | undef
   const toolVersions = await readFileIfExists(path.join(projectRoot, '.tool-versions'))
   if (toolVersions) {
     const tv = parseToolVersions(toolVersions)
-    if (tv.nodeVersion && !nodeVersion) nodeVersion = resolveNodeMajor(tv.nodeVersion)
-    if (tv.bunVersion && !bunVersion) bunVersion = resolveBunVersion(tv.bunVersion)
+    if (tv.nodeVersion && !nodeResult) nodeResult = await resolveNode(tv.nodeVersion)
+    if (tv.bunVersion && !bunResult) bunResult = await resolveBun(tv.bunVersion)
   }
 
   // 4. .bun-version
-  if (!bunVersion) {
+  if (!bunResult) {
     const bunVersionFile = await readFileIfExists(path.join(projectRoot, '.bun-version'))
     if (bunVersionFile) {
-      bunVersion = resolveBunVersion(bunVersionFile)
+      bunResult = await resolveBun(bunVersionFile)
     }
   }
 
   // 5. package.json engines
-  if (!nodeVersion || !bunVersion) {
+  if (!nodeResult || !bunResult) {
     const pkgJson = await readFileIfExists(path.join(projectRoot, 'package.json'))
     if (pkgJson) {
       try {
         const pkg = JSON.parse(pkgJson)
-        if (!nodeVersion && pkg.engines?.node) {
-          nodeVersion = resolveEngineFromSemverRange(pkg.engines.node)
+        if (!nodeResult && pkg.engines?.node) {
+          const extracted = resolveEngineFromSemverRange(pkg.engines.node)
+          if (extracted) nodeResult = await resolveNode(extracted)
         }
-        if (!bunVersion && pkg.engines?.bun) {
-          bunVersion = resolveBunFromSemverRange(pkg.engines.bun)
+        if (!bunResult && pkg.engines?.bun) {
+          const extracted = resolveBunFromSemverRange(pkg.engines.bun)
+          if (extracted) bunResult = await resolveBun(extracted)
         }
       } catch {
         // malformed package.json, skip
@@ -109,8 +133,7 @@ export async function detectEngine (projectRoot: string): Promise<Engine | undef
     }
   }
 
-  // Return first match (node preferred unless only bun was found)
-  if (nodeVersion) return Engine.node(nodeVersion)
-  if (bunVersion) return Engine.bun(bunVersion)
+  if (nodeResult) return { engine: Engine.node(nodeResult.version), notices: nodeResult.notices }
+  if (bunResult) return { engine: Engine.bun(bunResult.version), notices: bunResult.notices }
   return undefined
 }
