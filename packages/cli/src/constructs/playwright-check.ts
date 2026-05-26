@@ -377,8 +377,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       const result = await Session.detectedEnginePromise
       if (result) {
         this.engine = result.engine
+        const Diagnostic = result.engine
+          ? SubstitutedPropertyValueDiagnostic
+          : InvalidPropertyValueDiagnostic
         for (const notice of result.notices) {
-          diagnostics.add(new SubstitutedPropertyValueDiagnostic(
+          diagnostics.add(new Diagnostic(
             'engine',
             new Error(
               notice
@@ -392,11 +395,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       }
     } else if (this.engine) {
       const res = await resolveEngineVersion(this.engine.version, this.engine.name)
+      const Diagnostic = res.denied
+        ? InvalidPropertyValueDiagnostic
+        : SubstitutedPropertyValueDiagnostic
       for (const notice of res.notices) {
-        diagnostics.add(new SubstitutedPropertyValueDiagnostic(
-          'engine',
-          new Error(notice),
-        ))
+        diagnostics.add(new Diagnostic('engine', new Error(notice)))
       }
       if (res.denied) {
         this.engine = undefined
