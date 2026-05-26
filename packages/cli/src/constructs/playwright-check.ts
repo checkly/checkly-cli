@@ -9,6 +9,7 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  SubstitutedPropertyValueDiagnostic,
   UnsatisfiedLocalPrerequisitesDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics.js'
@@ -377,13 +378,25 @@ export class PlaywrightCheck extends RuntimeCheck {
       if (result) {
         this.engine = result.engine
         for (const notice of result.notices) {
-          diagnostics.add(new WarningDiagnostic({ title: 'Engine version', message: notice }))
+          diagnostics.add(new SubstitutedPropertyValueDiagnostic(
+            'engine',
+            new Error(
+              notice
+              + '\n\n'
+              + `Hint: The value was automatically detected from your `
+              + `project's version files (.node-version, .nvmrc, etc.). `
+              + `To override, set "engine" explicitly using Engine.node() `
+              + `or Engine.bun().`),
+          ))
         }
       }
     } else if (this.engine) {
       const res = await resolveEngineVersion(this.engine.version, this.engine.name)
       for (const notice of res.notices) {
-        diagnostics.add(new WarningDiagnostic({ title: 'Engine version', message: notice }))
+        diagnostics.add(new SubstitutedPropertyValueDiagnostic(
+          'engine',
+          new Error(notice),
+        ))
       }
       if (res.denied) {
         this.engine = undefined
