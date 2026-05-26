@@ -715,6 +715,66 @@ describe('PlaywrightCheck', () => {
     })
   })
 
+  describe('engine version resolution', () => {
+    it('should warn when auto-detected Node version is EOL', async () => {
+      const fixt = await FixtureSandbox.create({
+        template: 'playwright',
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-node-eol'),
+      })
+
+      try {
+        const output = await parseProject(fixt)
+
+        expect(output.diagnostics.observations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining('Node.js 18'),
+            }),
+          ]),
+        )
+      } finally {
+        await fixt.destroy()
+      }
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('should error when auto-detected Bun version is denied', async () => {
+      const fixt = await FixtureSandbox.create({
+        template: 'playwright',
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-bun-denied'),
+      })
+
+      try {
+        const output = await parseProject(fixt)
+
+        expect(output.diagnostics.fatal).toBe(true)
+        expect(output.diagnostics.observations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining('Bun 2.0'),
+            }),
+          ]),
+        )
+      } finally {
+        await fixt.destroy()
+      }
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('should not produce diagnostics when auto-detected Node version is valid', async () => {
+      const fixt = await FixtureSandbox.create({
+        template: 'playwright',
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-node-valid'),
+      })
+
+      try {
+        const output = await parseProject(fixt)
+
+        expect(output.diagnostics.observations).toEqual([])
+      } finally {
+        await fixt.destroy()
+      }
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
   describe('defaults', () => {
     it('should ignore retryStrategy from session check defaults', async () => {
       const fixt = await FixtureSandbox.create({
