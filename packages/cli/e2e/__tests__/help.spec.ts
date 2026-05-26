@@ -71,6 +71,7 @@ describe('help', () => {
   status-pages     List and manage status pages in your Checkly account.
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
+  test-sessions    Inspect recorded test sessions.
   whoami           See your currently logged in account and user.`)
   })
 })
