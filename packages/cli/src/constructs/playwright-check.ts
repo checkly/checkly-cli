@@ -9,6 +9,7 @@ import {
   ConflictingPropertyDiagnostic,
   DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  SubstitutedPropertyValueDiagnostic,
   UnsatisfiedLocalPrerequisitesDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics.js'
@@ -19,8 +20,21 @@ import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { detectEngine } from '../services/engine-detector.js'
+import { resolveEngineVersion } from '../services/engine-resolver.js'
+import { Engine } from './engine.js'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
+  /**
+   * The JavaScript engine used to run the Playwright tests.
+   * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance.
+   * When omitted, the CLI auto-detects from project version files
+   * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json engines).
+   *
+   * @example Engine.node('24')
+   * @example Engine.bun('1.3')
+   */
+  engine?: Engine
   /**
    * Path to the Playwright configuration file (playwright.config.js/ts).
    * This file defines test settings, browser configurations, and project structure.
@@ -131,6 +145,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
+  engine?: Engine
   /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
 
@@ -139,6 +154,7 @@ export class PlaywrightCheck extends RuntimeCheck {
 
     const config = this.applyConfigDefaults(props)
 
+    this.engine = config.engine
     this.installCommand = config.installCommand
     this.pwProjects = config.pwProjects
       ? (Array.isArray(config.pwProjects) ? config.pwProjects : [config.pwProjects])
@@ -352,6 +368,45 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.validateBrowserInstallCommand(diagnostics)
 
     this.#validateGroupReferences(diagnostics)
+    await this.#resolveEngine(diagnostics)
+  }
+
+  async #resolveEngine (diagnostics: Diagnostics): Promise<void> {
+    if (!this.engine && Session.basePath) {
+      Session.detectedEnginePromise ??= detectEngine(Session.basePath).then(e => e ?? null)
+      const result = await Session.detectedEnginePromise
+      if (result) {
+        this.engine = result.engine
+        const Diagnostic = result.engine
+          ? SubstitutedPropertyValueDiagnostic
+          : InvalidPropertyValueDiagnostic
+        for (const notice of result.notices) {
+          diagnostics.add(new Diagnostic(
+            'engine',
+            new Error(
+              notice
+              + '\n\n'
+              + `Hint: The value was automatically detected from your `
+              + `project's version files (.node-version, .nvmrc, etc.). `
+              + `To override, set "engine" explicitly using Engine.node() `
+              + `or Engine.bun().`),
+          ))
+        }
+      }
+    } else if (this.engine) {
+      const res = await resolveEngineVersion(this.engine.version, this.engine.name)
+      const Diagnostic = res.denied
+        ? InvalidPropertyValueDiagnostic
+        : SubstitutedPropertyValueDiagnostic
+      for (const notice of res.notices) {
+        diagnostics.add(new Diagnostic('engine', new Error(notice)))
+      }
+      if (res.denied) {
+        this.engine = undefined
+      } else if (res.version !== this.engine.version) {
+        this.engine = this.engine.name === 'node' ? Engine.node(res.version) : Engine.bun(res.version)
+      }
+    }
   }
 
   // eslint-disable-next-line require-await
@@ -463,6 +518,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
       doubleCheck: false,
+      ...this.engine ? { engine: this.engine.name, engineVersion: this.engine.version } : {},
     }
   }
 }

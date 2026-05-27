@@ -18,6 +18,22 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   }
 }
 
+export class SubstitutedPropertyValueDiagnostic extends WarningDiagnostic {
+  property: string
+
+  constructor (property: string, error: Error) {
+    super({
+      title: `Substitution of property value`,
+      message:
+        `The value of property "${property}" was substituted with another value.`
+        + `\n\n`
+        + `Reason: ${error.message}`,
+    })
+
+    this.property = property
+  }
+}
+
 export class RequiredPropertyDiagnostic extends ErrorDiagnostic {
   property: string
 
