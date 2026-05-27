@@ -5,7 +5,7 @@ import { buildAlertChannelProps, AlertChannelResource } from './alert-channel-co
 export interface SlackAppAlertChannelResource extends AlertChannelResource {
   type: 'SLACK_APP'
   config: {
-    slackChannels?: string[]
+    slackChannels: string[]
   }
 }
 
@@ -13,26 +13,21 @@ const construct = 'SlackAppAlertChannel'
 
 export class SlackAppAlertChannelCodegen extends Codegen<SlackAppAlertChannelResource> {
   describe (resource: SlackAppAlertChannelResource): string {
-    if (resource.config.slackChannels) {
-      return `Slack App Alert Channels: ${resource.config.slackChannels}`
-    }
-
-    return 'Slack App Alert Channel'
+    return `Slack App Alert Channel: ${resource.config.slackChannels.join(', ')}`
   }
 
   prepare (logicalId: string, resource: SlackAppAlertChannelResource, context: Context): void {
     const { slackChannels } = resource.config
 
-    const last8Chars = slackChannels?.concat().slice(-8)
-    const fallbackName = `slack-app-${last8Chars}`
+    const name = slackChannels.join(',')
 
-    const filename = context.filePath('resources/alert-channels/slack-app', fallbackName, {
+    const filename = context.filePath('resources/alert-channels/slack-app', name, {
       unique: true,
     })
 
     context.registerAlertChannel(
       resource.id,
-      `${fallbackName} slack`,
+      `${name} slack app alert`,
       this.program.generatedConstructFile(filename.fullPath),
     )
   }
@@ -49,13 +44,11 @@ export class SlackAppAlertChannelCodegen extends Codegen<SlackAppAlertChannelRes
         builder.new(builder => {
           builder.string(logicalId)
           builder.object(builder => {
-            if (config.slackChannels?.length) {
-              builder.array('slackChannels', arrayBuilder => {
-                for (const channel of config.slackChannels!) {
-                  arrayBuilder.string(channel)
-                }
-              })
-            }
+            builder.array('slackChannels', arrayBuilder => {
+              for (const channel of config.slackChannels) {
+                arrayBuilder.string(channel)
+              }
+            })
             buildAlertChannelProps(builder, resource)
           })
         })
