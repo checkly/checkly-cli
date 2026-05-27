@@ -45,7 +45,7 @@ export const REFERENCES = [
   },
   {
     id: 'configure-alert-channels',
-    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), and Slack (`SlackAlertChannel`) alert channels',
+    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), Slack (`SlackAlertChannel`), and Slack App (`SlackAppAlertChannel`) alert channels',
   },
   {
     id: 'configure-supporting-constructs',
@@ -267,5 +267,10 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     templateString: '<!-- EXAMPLE: SLACK_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/slack/general.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/slack-alert-channel/',
+  },
+  SLACK_APP_ALERT_CHANNEL: {
+    templateString: '<!-- EXAMPLE: SLACK_APP_ALERT_CHANNEL -->',
+    exampleConfigPath: 'resources/alert-channels/slack-app/alerts-ops-alice.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/slack-app-alert-channel/',
   },
 }
