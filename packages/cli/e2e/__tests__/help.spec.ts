@@ -54,6 +54,7 @@ describe('help', () => {
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
   account          View and manage your Checkly account.
+  api              Make an authenticated HTTP request to the Checkly API.
   checks           List and inspect checks in your Checkly account.
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
@@ -70,6 +71,7 @@ describe('help', () => {
   status-pages     List and manage status pages in your Checkly account.
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
+  test-sessions    Inspect recorded test sessions.
   whoami           See your currently logged in account and user.`)
   })
 })
