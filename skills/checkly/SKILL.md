@@ -70,15 +70,20 @@ npx checkly api /v1/checks -X POST --input ./new-check.json
 
 When using `-F` on a read endpoint, **always pass `-X GET` explicitly** — any `-F` flag implies POST unless the method is set, so omitting `-X GET` will try to create a resource with your pagination params as the body.
 
-- **Page-based endpoints**: pass `-X GET -F limit=N -F page=N`. Read the `Content-Range` response header (use `-i` to surface it on stdout) to know when there are more pages.
-- **Cursor-based endpoints**: pass `-X GET -F limit=N -F cursor=<id>`. The response body contains `nextId` (or equivalent) when more results exist.
+**Detecting which pagination style an endpoint uses.** Make a first request with `-i` (response headers on stdout) and inspect what came back:
+
+- **Page-based** → response has a `content-range` header (e.g. `0-1/23` means items 0–1 of 23 total) and usually a `link` header with `rel="next"` / `rel="last"`. The body is a bare array. Walk by incrementing `-F page=N` until you've covered the total in `content-range`, or until the `rel="next"` link disappears.
+- **Cursor-based** → response body is an envelope like `{ entries: [...], nextId: "...", length: N }`. Pass `-F nextId=<value>` (or `-F cursor=<value>`, depending on the endpoint) on the next call. When `nextId` is missing or null, you've reached the end.
 
 ```bash
-# Page-based: first page, then inspect Content-Range
-npx checkly api /v1/checks -X GET -F limit=100 -F page=1 -i
+# Step 1: make the first call with -i and inspect the response shape
+npx checkly api /v1/checks -X GET -F limit=100 -i
 
-# Cursor-based: pass the nextId from the previous response
-npx checkly api /v1/status-pages -X GET -F limit=50 -F cursor=<nextId>
+# If you saw a content-range header → page-based, walk with -F page=N
+npx checkly api /v1/checks -X GET -F limit=100 -F page=2 -i
+
+# If the body had a nextId field → cursor-based, walk with -F nextId=<value>
+npx checkly api /v1/status-pages -X GET -F limit=50 -F nextId=<nextIdFromPrevResponse>
 ```
 
 ### Error responses
