@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stripAnsi } from '../render.js'
 import { formatTestSessionDetail, formatTestSessionErrorGroupDetail } from '../test-sessions.js'
 import type { TestSessionErrorGroup } from '../../rest/test-session-error-groups.js'
-import type { TestSessionDetail } from '../../rest/test-sessions.js'
+import type { TestSessionDetail, TestSessionStatus } from '../../rest/test-sessions.js'
 
 const testSession: TestSessionDetail = {
   testSessionId: '8166fa86-c9b4-4162-8541-d380c6c212d8',
@@ -91,6 +91,21 @@ describe('formatTestSessionDetail', () => {
     expect(result).toContain('checkly rca run --test-session-error-group <error-group-id> --watch')
     expect(result).not.toContain('checkly rca run --test-session-error-group session-eg-1 --watch')
     expect(result).toContain('Open session:')
+  })
+
+  it.each<TestSessionStatus>([
+    'FAILED',
+    'CANCELLED',
+    'RUNNING',
+    'PASSED',
+  ])('renders the supported %s status', status => {
+    const result = stripAnsi(formatTestSessionDetail({
+      ...testSession,
+      status,
+      results: [{ ...testSession.results[0], status }],
+    }, 'terminal'))
+
+    expect(result).toMatch(new RegExp(`Status:\\s+${status.toLowerCase()}`))
   })
 
   it('keeps long terminal result rows readable by putting IDs at the end', () => {

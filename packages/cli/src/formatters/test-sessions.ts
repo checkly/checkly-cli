@@ -1,6 +1,6 @@
 import chalk from 'chalk'
 import type { TestSessionErrorGroup } from '../rest/test-session-error-groups.js'
-import type { TestSessionDetail, TestSessionMetadata, TestSessionResult } from '../rest/test-sessions.js'
+import type { TestSessionDetail, TestSessionMetadata, TestSessionResult, TestSessionStatus } from '../rest/test-sessions.js'
 import {
   type ColumnDef,
   type DetailField,
@@ -30,13 +30,19 @@ interface ErrorGroupReference {
   sources: string[]
 }
 
-function formatStatus (status: string, format: OutputFormat): string {
+function formatStatus (status: TestSessionStatus, format: OutputFormat): string {
   const normalized = status.toLowerCase()
   if (format === 'md') return normalized
-  if (['failed', 'failing', 'error', 'errored', 'timed_out', 'aborted'].includes(normalized)) return chalk.red(normalized)
-  if (['running', 'pending'].includes(normalized)) return chalk.yellow(normalized)
-  if (['passed', 'passing', 'success', 'succeeded'].includes(normalized)) return chalk.green(normalized)
-  return normalized
+
+  switch (status) {
+    case 'FAILED':
+    case 'CANCELLED':
+      return chalk.red(normalized)
+    case 'RUNNING':
+      return chalk.yellow(normalized)
+    case 'PASSED':
+      return chalk.green(normalized)
+  }
 }
 
 function formatList (values: string[] | undefined, format: OutputFormat): string {

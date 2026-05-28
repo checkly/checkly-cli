@@ -54,6 +54,8 @@ export type TestSessionMetadata = {
   branchName?: string
 }
 
+export type TestSessionStatus = 'RUNNING' | 'FAILED' | 'PASSED' | 'CANCELLED'
+
 export type TestSessionResult = {
   testSessionResultId: string
   testSessionResultLink: string
@@ -62,7 +64,7 @@ export type TestSessionResult = {
   name?: string
   runLocation?: string
   resultType?: string
-  status: string
+  status: TestSessionStatus
   hasErrors: boolean
   hasFailures: boolean
   isDegraded: boolean
@@ -74,7 +76,7 @@ export type TestSessionDetail = {
   testSessionId: string
   testSessionLink: string
   name: string
-  status: string
+  status: TestSessionStatus
   startedAt: string
   stoppedAt: string | null
   timeElapsed: number
