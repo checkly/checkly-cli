@@ -27,7 +27,7 @@ describe('TestSessions REST client', () => {
     })
   })
 
-  it('retries public test session completion timeouts until complete', async () => {
+  it('polls public test session completion timeouts until complete', async () => {
     const completed = { testSessionId: 'session-id', status: 'PASSED', results: [] }
     const api = {
       get: vi.fn()
@@ -40,7 +40,7 @@ describe('TestSessions REST client', () => {
     }
     const testSessions = new TestSessions(api as any)
 
-    const result = await testSessions.waitForCompletion('session-id')
+    const result = await testSessions.pollUntilComplete('session-id')
 
     expect(result).toEqual(completed)
     expect(api.get).toHaveBeenCalledTimes(2)

@@ -3,7 +3,7 @@ import type { TestSessionErrorGroup } from '../../rest/test-session-error-groups
 import type { TestSessionDetail } from '../../rest/test-sessions.js'
 
 vi.mock('../../rest/api.js', () => ({
-  testSessions: { get: vi.fn(), waitForCompletion: vi.fn() },
+  testSessions: { get: vi.fn(), pollUntilComplete: vi.fn() },
   testSessionErrorGroups: { get: vi.fn() },
 }))
 
@@ -74,7 +74,7 @@ describe('test-sessions get command', () => {
     vi.clearAllMocks()
     process.exitCode = undefined
     vi.mocked(api.testSessions.get).mockResolvedValue({ data: testSession } as any)
-    vi.mocked(api.testSessions.waitForCompletion).mockResolvedValue(testSession as any)
+    vi.mocked(api.testSessions.pollUntilComplete).mockResolvedValue(testSession as any)
     vi.mocked(api.testSessionErrorGroups.get).mockResolvedValue({ data: testSessionErrorGroup } as any)
   })
 
@@ -95,30 +95,30 @@ describe('test-sessions get command', () => {
     expect(ctx.logged[0]).toContain(testSession.testSessionLink)
   })
 
-  it('waits for completion before rendering detail output', async () => {
+  it('watches completion before rendering detail output', async () => {
     const completed = { ...testSession, status: 'PASSED' as const }
-    vi.mocked(api.testSessions.waitForCompletion).mockResolvedValue(completed as any)
+    vi.mocked(api.testSessions.pollUntilComplete).mockResolvedValue(completed as any)
     const ctx = createCommandContext({
       args: { id: testSession.testSessionId },
-      flags: { output: 'detail', wait: true },
+      flags: { output: 'detail', watch: true },
     })
 
     await TestSessionsGet.prototype.run.call(ctx as any)
 
     expect(api.testSessions.get).not.toHaveBeenCalled()
-    expect(api.testSessions.waitForCompletion).toHaveBeenCalledWith(testSession.testSessionId)
-    expect(ctx.style.actionStart).toHaveBeenCalledWith('Waiting for test session to complete...')
+    expect(api.testSessions.pollUntilComplete).toHaveBeenCalledWith(testSession.testSessionId)
+    expect(ctx.style.actionStart).toHaveBeenCalledWith('Watching test session until completion...')
     expect(ctx.style.actionSuccess).toHaveBeenCalled()
     expect(ctx.logged[0]).toContain('Production smoke test')
     expect(ctx.logged[0]).toContain('passed')
   })
 
-  it('waits for completion before returning raw json output', async () => {
+  it('watches completion before returning raw json output', async () => {
     const completed = { ...testSession, status: 'PASSED' as const }
-    vi.mocked(api.testSessions.waitForCompletion).mockResolvedValue(completed as any)
+    vi.mocked(api.testSessions.pollUntilComplete).mockResolvedValue(completed as any)
     const ctx = createCommandContext({
       args: { id: testSession.testSessionId },
-      flags: { output: 'json', wait: true },
+      flags: { output: 'json', watch: true },
     })
 
     await TestSessionsGet.prototype.run.call(ctx as any)
@@ -142,21 +142,21 @@ describe('test-sessions get command', () => {
     expect(ctx.logged[0]).toContain('Error: boom')
   })
 
-  it('waits for completion before checking a test session error group', async () => {
-    vi.mocked(api.testSessions.waitForCompletion).mockResolvedValue({
+  it('watches completion before checking a test session error group', async () => {
+    vi.mocked(api.testSessions.pollUntilComplete).mockResolvedValue({
       ...testSession,
       errorGroupIds: [],
       results: [{ ...testSession.results[0], errorGroupIds: ['result-eg-1'] }],
     } as any)
     const ctx = createCommandContext({
       args: { id: testSession.testSessionId },
-      flags: { 'error-group': 'result-eg-1', 'full-error': false, 'output': 'detail', 'wait': true },
+      flags: { 'error-group': 'result-eg-1', 'full-error': false, 'output': 'detail', 'watch': true },
     })
 
     await TestSessionsGet.prototype.run.call(ctx as any)
 
     expect(api.testSessions.get).not.toHaveBeenCalled()
-    expect(api.testSessions.waitForCompletion).toHaveBeenCalledWith(testSession.testSessionId)
+    expect(api.testSessions.pollUntilComplete).toHaveBeenCalledWith(testSession.testSessionId)
     expect(api.testSessionErrorGroups.get).toHaveBeenCalledWith('result-eg-1')
     expect(ctx.logged[0]).toContain('Test session error group')
   })

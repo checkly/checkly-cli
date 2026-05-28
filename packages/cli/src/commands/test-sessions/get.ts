@@ -35,9 +35,9 @@ export default class TestSessionsGet extends AuthCommand {
       description: 'Print the complete raw error when showing a test session error group.',
       default: false,
     }),
-    'wait': Flags.boolean({
+    'watch': Flags.boolean({
       char: 'w',
-      description: 'Wait for a running test session to complete before rendering.',
+      description: 'Watch a running test session until it completes before rendering.',
       default: false,
     }),
     'output': outputFlag({ default: 'detail' }),
@@ -50,13 +50,13 @@ export default class TestSessionsGet extends AuthCommand {
     try {
       let testSession: TestSessionDetail
 
-      if (flags.wait) {
+      if (flags.watch) {
         const showAction = flags.output === 'detail'
         if (showAction) {
-          this.style.actionStart('Waiting for test session to complete...')
+          this.style.actionStart('Watching test session until completion...')
         }
         try {
-          testSession = await api.testSessions.waitForCompletion(args.id)
+          testSession = await api.testSessions.pollUntilComplete(args.id)
           if (showAction) {
             this.style.actionSuccess()
           }

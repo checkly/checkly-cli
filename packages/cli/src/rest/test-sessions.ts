@@ -140,7 +140,7 @@ class TestSessions {
     })
   }
 
-  async waitForCompletion (id: string): Promise<TestSessionDetail> {
+  async pollUntilComplete (id: string): Promise<TestSessionDetail> {
     while (true) {
       try {
         const { data } = await this.getCompletion(id)
