@@ -103,8 +103,8 @@ describe('checkly api', () => {
   })
 
   describe('fields', () => {
-    it('sends -f fields as query params for GET', async () => {
-      const cmd = createCommand('/v1/checks', '-X', 'GET', '-f', 'limit=5')
+    it('sends -F fields as query params for GET', async () => {
+      const cmd = createCommand('/v1/checks', '-X', 'GET', '-F', 'limit=5')
       await cmd.run()
       expect(api.request).toHaveBeenCalledWith(expect.objectContaining({
         method: 'GET',
@@ -250,36 +250,6 @@ describe('checkly api', () => {
     })
   })
 
-  describe('--paginate', () => {
-    it('rejects --paginate with non-GET method', async () => {
-      const cmd = createCommand('/v1/checks', '-X', 'POST', '-F', 'name=Test', '--paginate')
-      await expect(cmd.run()).rejects.toThrow('--paginate is only supported for GET requests')
-    })
-
-    it('concatenates paginated Content-Range results', async () => {
-      vi.mocked(api.request)
-        .mockResolvedValueOnce({
-          data: [{ id: '1' }, { id: '2' }],
-          status: 200,
-          statusText: 'OK',
-          headers: { 'content-range': '0-1/4' },
-          config: {} as any,
-        })
-        .mockResolvedValueOnce({
-          data: [{ id: '3' }, { id: '4' }],
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: {} as any,
-        })
-      const cmd = createCommand('/v1/checks', '--paginate')
-      await cmd.run()
-      const loggedJson = vi.mocked(cmd.log).mock.calls[0][0]
-      const parsed = JSON.parse(loggedJson)
-      expect(parsed).toHaveLength(4)
-    })
-  })
-
   describe('--jq', () => {
     it('pipes output through system jq', async () => {
       vi.mocked(execFile).mockImplementation((_cmd, _args, _opts, callback: any) => {
@@ -317,7 +287,7 @@ describe('checkly api', () => {
 
   describe('--input conflict', () => {
     it('errors when --input used with fields', async () => {
-      const cmd = createCommand('/v1/checks', '-X', 'POST', '--input', 'file.json', '-f', 'name=test')
+      const cmd = createCommand('/v1/checks', '-X', 'POST', '--input', 'file.json', '-F', 'name=test')
       await expect(cmd.run()).rejects.toThrow('Cannot use --input together with')
     })
   })

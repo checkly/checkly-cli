@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises'
 import { AuthCommand } from './authCommand.js'
 import { api } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
-import { paginateAll } from '../helpers/api-paginate.js'
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH'])
 
@@ -22,7 +21,7 @@ export default class Api extends AuthCommand {
     'checkly api /v1/checks',
     'checkly api /v1/checks -X GET --jq \'.[].name\'',
     'checkly api /v1/checks -X POST -F name=MyCheck -F activated:=true',
-    'checkly api /v1/checks -X GET -f limit=5',
+    'checkly api /v1/checks -X GET -F limit=5',
     'echo \'{"name":"New"}\' | checkly api /v1/checks -X POST --input -',
   ]
 
@@ -33,6 +32,7 @@ export default class Api extends AuthCommand {
     }),
   }
 
+  /* eslint-disable @stylistic/quote-props */
   static flags = {
     'method': Flags.string({
       char: 'X',
@@ -42,12 +42,6 @@ export default class Api extends AuthCommand {
     'field': Flags.string({
       char: 'F',
       description: 'Add a field: key=value (string) or key:=value (parsed as JSON).',
-      multiple: true,
-      default: [],
-    }),
-    'raw-field': Flags.string({
-      char: 'f',
-      description: 'String parameter: key=value.',
       multiple: true,
       default: [],
     }),
@@ -63,10 +57,6 @@ export default class Api extends AuthCommand {
     'input': Flags.string({
       description: 'Request body from file path, or "-" for stdin.',
     }),
-    'paginate': Flags.boolean({
-      description: 'Fetch all pages of results automatically.',
-      default: false,
-    }),
     'include': Flags.boolean({
       char: 'i',
       description: 'Include HTTP status and response headers in the output.',
@@ -81,7 +71,7 @@ export default class Api extends AuthCommand {
   async run (): Promise<void> {
     const { args, flags } = await this.parse(Api)
 
-    const hasFields = flags.field.length > 0 || flags['raw-field'].length > 0
+    const hasFields = flags.field.length > 0
     const method = (flags.method ?? (hasFields || flags.input ? 'POST' : 'GET')).toUpperCase()
 
     if (args.endpoint.startsWith('//') || /^[a-z][a-z\d+\-.]*:/i.test(args.endpoint)) {
@@ -98,14 +88,10 @@ export default class Api extends AuthCommand {
       }
     }
 
-    const fields = hasFields ? parseFields(flags['raw-field'], flags.field) : undefined
+    const fields = hasFields ? parseFields(flags.field) : undefined
 
     if (flags.input && hasFields) {
-      this.error('Cannot use --input together with -f/--raw-field or -F/--field.')
-    }
-
-    if (flags.paginate && method !== 'GET') {
-      this.error('--paginate is only supported for GET requests.')
+      this.error('Cannot use --input together with -F/--field.')
     }
 
     let data: unknown
@@ -160,13 +146,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    let responseData = response.data
-
-    if (flags.paginate) {
-      responseData = await paginateAll(api, requestConfig, response, {
-        warn: msg => this.logToStderr(`Warning: ${msg}`),
-      })
-    }
+    const responseData = response.data
 
     if (flags.include) {
       this.log(`HTTP/1.1 ${response.status} ${response.statusText}`)

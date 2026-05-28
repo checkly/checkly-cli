@@ -44,12 +44,48 @@ When no dedicated CLI command exists for an endpoint, use `npx checkly api` to m
 npx checkly api /v1/checks
 npx checkly api /v1/dashboards -X GET --jq '.[].name'
 npx checkly api /v1/checks -X POST -F name=MyCheck -F activated:=true
-npx checkly api /v1/checks -X GET -f limit=5 --paginate
+npx checkly api /v1/checks -X GET -F limit=5
 ```
 
-Key flags: `-X` (method), `-f` (string field), `-F` (typed/JSON field), `-H` (header), `--jq` (filter with jq), `--input` (body from file/stdin), `--paginate`, `--verbose`.
+Key flags: `-X` (method), `-F` (field — `key=value` for strings, `key:=value` for JSON), `-H` (header), `--jq` (filter with jq), `--input` (body from file/stdin), `-i` / `--include` (response status + headers on stdout), `--verbose` (request/response headers on stderr).
 
-See the [Checkly API reference](https://www.checklyhq.com/docs/api) for available endpoints.
+### Nested payloads
+
+Use `:=` to send structured JSON in a single field:
+
+```bash
+npx checkly api /v1/checks/<id> -X PATCH \
+  -F retryStrategy:='{"type":"LINEAR","maxRetries":2,"baseBackoffSeconds":10}'
+```
+
+For large or deeply nested bodies, pipe a JSON file via `--input`:
+
+```bash
+npx checkly api /v1/checks -X POST --input ./new-check.json
+```
+
+### Pagination
+
+`checkly api` does not auto-walk pages. Drive pagination yourself, the same way every other `checkly` list command exposes it:
+
+- **Page-based endpoints**: pass `-F limit=N -F page=N`. Read the `Content-Range` response header (use `-i` to surface it on stdout) to know when there are more pages.
+- **Cursor-based endpoints**: pass `-F limit=N -F cursor=<id>`. The response body contains `nextId` (or equivalent) when more results exist.
+
+```bash
+# Page-based: first page, then inspect Content-Range
+npx checkly api /v1/checks -F limit=100 -F page=1 -i
+
+# Cursor-based: pass the nextId from the previous response
+npx checkly api /v1/status-pages -F limit=50 -F cursor=<nextId>
+```
+
+### Error responses
+
+On non-2xx, the response body is still written to stdout (read it for the API's error message) and the CLI exits with code 1. A 401 prints an auth hint, a 403 prints a permission hint, and a 404 prints the docs URL — all on stderr.
+
+### Endpoint discovery
+
+See the [Checkly API reference](https://www.checklyhq.com/docs/api) for the human-readable endpoint catalogue, or fetch the [OpenAPI spec](https://api.checklyhq.com/openapi.json) for a machine-readable definition you can grep for paths, parameters, and response shapes.
 
 ### `npx checkly skills initialize`
 Learn how to initialize and set up a new Checkly CLI project from scratch.
