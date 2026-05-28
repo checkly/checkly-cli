@@ -8,6 +8,7 @@ import {
   uniqueErrorGroupIds,
 } from '../../formatters/test-sessions.js'
 import { type OutputFormat } from '../../formatters/render.js'
+import type { TestSessionDetail } from '../../rest/test-sessions.js'
 
 export default class TestSessionsGet extends AuthCommand {
   static hidden = false
@@ -34,6 +35,11 @@ export default class TestSessionsGet extends AuthCommand {
       description: 'Print the complete raw error when showing a test session error group.',
       default: false,
     }),
+    'wait': Flags.boolean({
+      char: 'w',
+      description: 'Wait for a running test session to complete before rendering.',
+      default: false,
+    }),
     'output': outputFlag({ default: 'detail' }),
   }
 
@@ -42,7 +48,28 @@ export default class TestSessionsGet extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      const { data: testSession } = await api.testSessions.get(args.id)
+      let testSession: TestSessionDetail
+
+      if (flags.wait) {
+        const showAction = flags.output === 'detail'
+        if (showAction) {
+          this.style.actionStart('Waiting for test session to complete...')
+        }
+        try {
+          testSession = await api.testSessions.waitForCompletion(args.id)
+          if (showAction) {
+            this.style.actionSuccess()
+          }
+        } catch (err) {
+          if (showAction) {
+            this.style.actionFailure()
+          }
+          throw err
+        }
+      } else {
+        const { data } = await api.testSessions.get(args.id)
+        testSession = data
+      }
 
       if (flags['error-group']) {
         const errorGroupIds = uniqueErrorGroupIds(testSession)

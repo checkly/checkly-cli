@@ -3,7 +3,9 @@ import { GitInformation } from '../services/util.js'
 import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { compressJSONPayload } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { ForbiddenError } from './errors.js'
+import { ForbiddenError, RequestTimeoutError } from './errors.js'
+
+const COMPLETION_MAX_WAIT_SECONDS = 30
 
 type RunTestSessionRequest = {
   name: string
@@ -130,6 +132,26 @@ class TestSessions {
 
   get (id: string) {
     return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}`)
+  }
+
+  getCompletion (id: string, maxWaitSeconds = COMPLETION_MAX_WAIT_SECONDS) {
+    return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}/completion`, {
+      params: { maxWaitSeconds },
+    })
+  }
+
+  async waitForCompletion (id: string): Promise<TestSessionDetail> {
+    while (true) {
+      try {
+        const { data } = await this.getCompletion(id)
+        return data
+      } catch (err) {
+        if (err instanceof RequestTimeoutError) {
+          continue
+        }
+        throw err
+      }
+    }
   }
 
   getShortLink (id: string) {
