@@ -1,4 +1,5 @@
 import type { AxiosInstance } from 'axios'
+import { parseTotalFromContentRange } from '../helpers/content-range.js'
 
 export interface Check {
   id: string
@@ -35,13 +36,6 @@ export interface PaginatedChecks {
   total: number
   page: number
   limit: number
-}
-
-function parseTotalFromContentRange (header: string | undefined): number | null {
-  if (!header) return null
-  // Content-Range format: "0-24/300" or "*/0"
-  const match = header.match(/\/(\d+)$/)
-  return match ? parseInt(match[1], 10) : null
 }
 
 class Checks {
