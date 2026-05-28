@@ -6,6 +6,7 @@ import { OpsgenieAlertChannelCodegen } from './opsgenie-alert-channel-codegen.js
 import { PagerdutyAlertChannelCodegen } from './pagerduty-alert-channel-codegen.js'
 import { PhoneCallAlertChannelCodegen } from './phone-call-alert-channel-codegen.js'
 import { SlackAlertChannelCodegen } from './slack-alert-channel-codegen.js'
+import { SlackAppAlertChannelCodegen } from './slack-app-alert-channel-codegen.js'
 import { SmsAlertChannelCodegen } from './sms-alert-channel-codegen.js'
 import { WebhookAlertChannelCodegen } from './webhook-alert-channel-codegen.js'
 
@@ -15,6 +16,7 @@ export type AlertChannelType =
   | 'OPSGENIE'
   | 'PAGERDUTY'
   | 'SLACK'
+  | 'SLACK_APP'
   | 'SMS'
   | 'WEBHOOK'
 
@@ -74,6 +76,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
   opsgenieCodegen: OpsgenieAlertChannelCodegen
   pagerdutyCodegen: PagerdutyAlertChannelCodegen
   slackCodegen: SlackAlertChannelCodegen
+  slackAppCodegen: SlackAppAlertChannelCodegen
   smsCodegen: SmsAlertChannelCodegen
   webhookCodegen: WebhookAlertChannelCodegen
   codegensByType: Record<AlertChannelType, Codegen<any>>
@@ -85,6 +88,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
     this.opsgenieCodegen = new OpsgenieAlertChannelCodegen(program)
     this.pagerdutyCodegen = new PagerdutyAlertChannelCodegen(program)
     this.slackCodegen = new SlackAlertChannelCodegen(program)
+    this.slackAppCodegen = new SlackAppAlertChannelCodegen(program)
     this.smsCodegen = new SmsAlertChannelCodegen(program)
     this.webhookCodegen = new WebhookAlertChannelCodegen(program)
 
@@ -94,6 +98,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
       OPSGENIE: this.opsgenieCodegen,
       PAGERDUTY: this.pagerdutyCodegen,
       SLACK: this.slackCodegen,
+      SLACK_APP: this.slackAppCodegen,
       SMS: this.smsCodegen,
       WEBHOOK: this.webhookCodegen,
     }
