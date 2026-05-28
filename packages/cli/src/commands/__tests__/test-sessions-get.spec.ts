@@ -170,6 +170,30 @@ describe('test-sessions get command', () => {
     expect(process.exitCode).toBe(1)
   })
 
+  it('deduplicates error group IDs when suggesting the list limit', async () => {
+    vi.mocked(api.testSessions.get).mockResolvedValue({
+      data: {
+        ...testSession,
+        errorGroupIds: ['eg-1', 'eg-2', 'eg-3', 'eg-1'],
+        results: [{
+          ...testSession.results[0],
+          errorGroupIds: ['eg-1', 'eg-2', 'eg-3'],
+        }],
+      },
+    } as any)
+    const ctx = createCommandContext({
+      args: { id: testSession.testSessionId },
+      flags: { 'output': 'detail', 'error-group': 'other-eg' },
+    })
+
+    await TestSessionsGet.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Test session error group not found in this session.',
+      expect.stringContaining('--error-groups-limit 5'),
+    )
+  })
+
   it('returns raw API response for json output', async () => {
     const ctx = createCommandContext({
       args: { id: testSession.testSessionId },

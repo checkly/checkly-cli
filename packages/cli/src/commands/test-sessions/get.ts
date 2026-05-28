@@ -44,10 +44,10 @@ export default class TestSessionsGet extends AuthCommand {
       const { data: testSession } = await api.testSessions.get(args.id)
 
       if (flags['error-group']) {
-        const errorGroupIds = [
+        const errorGroupIds = [...new Set([
           ...(testSession.errorGroupIds ?? []),
           ...(testSession.results ?? []).flatMap(result => result.errorGroupIds ?? []),
-        ]
+        ])]
 
         if (!errorGroupIds.includes(flags['error-group'])) {
           const listCommand = `checkly test-sessions get ${args.id} `
