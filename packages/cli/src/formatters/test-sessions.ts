@@ -36,8 +36,9 @@ function formatStatus (status: TestSessionStatus, format: OutputFormat): string 
 
   switch (status) {
     case 'FAILED':
-    case 'CANCELLED':
       return chalk.red(normalized)
+    case 'CANCELLED':
+      return chalk.dim(normalized)
     case 'RUNNING':
       return chalk.yellow(normalized)
     case 'PASSED':
@@ -159,7 +160,7 @@ function buildResultColumns (results: TestSessionResult[], format: OutputFormat)
   return columns
 }
 
-function uniqueErrorGroupIds (session: TestSessionDetail): string[] {
+export function uniqueErrorGroupIds (session: TestSessionDetail): string[] {
   return [
     ...(session.errorGroupIds ?? []),
     ...(session.results ?? []).flatMap(result => result.errorGroupIds ?? []),

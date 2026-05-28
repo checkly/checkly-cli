@@ -5,6 +5,7 @@ import * as api from '../../rest/api.js'
 import {
   formatTestSessionDetail,
   formatTestSessionErrorGroupDetail,
+  uniqueErrorGroupIds,
 } from '../../formatters/test-sessions.js'
 import { type OutputFormat } from '../../formatters/render.js'
 
@@ -44,10 +45,7 @@ export default class TestSessionsGet extends AuthCommand {
       const { data: testSession } = await api.testSessions.get(args.id)
 
       if (flags['error-group']) {
-        const errorGroupIds = [...new Set([
-          ...(testSession.errorGroupIds ?? []),
-          ...(testSession.results ?? []).flatMap(result => result.errorGroupIds ?? []),
-        ])]
+        const errorGroupIds = uniqueErrorGroupIds(testSession)
 
         if (!errorGroupIds.includes(flags['error-group'])) {
           const listCommand = `checkly test-sessions get ${args.id} `
