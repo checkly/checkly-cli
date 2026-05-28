@@ -83,6 +83,9 @@
       "import": {
         "description": "Import existing resources from your Checkly account to your project."
       },
+      "members": {
+        "description": "List and manage members in your Checkly account."
+      },
       "rca": {
         "description": "Trigger and retrieve root cause analyses."
       },

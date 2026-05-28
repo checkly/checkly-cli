@@ -35,13 +35,17 @@ import PwTest from '../pw-test.js'
 import SyncPlaywright from '../sync-playwright.js'
 import SkillsInstall from '../skills/install.js'
 import AccountPlan from '../account/plan.js'
-import AccountMembers from '../account/members.js'
+import Members from '../members.js'
+import MembersUpdate from '../members/update.js'
+import MembersDelete from '../members/delete.js'
 import Api from '../api.js'
 import TestSessionsGet from '../test-sessions/get.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
   ['api', Api],
-  ['account members', AccountMembers],
+  ['members', Members],
+  ['members update', MembersUpdate],
+  ['members delete', MembersDelete],
   ['account plan', AccountPlan],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],

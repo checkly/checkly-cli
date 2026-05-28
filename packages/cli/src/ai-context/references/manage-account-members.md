@@ -1,17 +1,20 @@
 # Account Members
 
-List active account members and pending or expired account invites.
+List active account members and pending or expired account invites. Update active member roles and delete active members.
 
 ## Usage
 
 ```bash
-npx checkly account members
-npx checkly account members --output json
-npx checkly account members --search alice
-npx checkly account members --type invite --status pending
-npx checkly account members --role admin
-npx checkly account members --limit 25
-npx checkly account members --hide-id
+npx checkly members
+npx checkly members --output json
+npx checkly members --search alice
+npx checkly members --type invite --status pending
+npx checkly members --role admin
+npx checkly members --limit 25
+npx checkly members --hide-id
+npx checkly members update alice@example.com --role read_run
+npx checkly members update <user-id> --role admin --id --force
+npx checkly members delete alice@example.com --force
 ```
 
 Flags:
@@ -23,6 +26,21 @@ Flags:
 - `--next-id <cursor>` — cursor for the next page. Requires `--limit`.
 - `-o, --output <format>` — `table` (default), `json`, or `md`.
 - `--hide-id` — hide member and invite IDs in table output.
+
+Role update:
+- `checkly members update <member> --role <role>` updates an active account member role.
+- `<member>` can be an email address or user ID. Values containing `@` are resolved as exact member emails by default; other values are treated as user IDs.
+- Use `--email` or `--id` to force how `<member>` is interpreted.
+- Valid update roles are `admin`, `read_write`, `read_run`, and `read_only` (case-insensitive).
+- `owner` cannot be set through this command.
+- This mutation requires confirmation. In non-interactive mode, rerun with `--force` after reviewing the confirmation preview.
+
+Delete member:
+- `checkly members delete <member>` removes an active account member.
+- `<member>` can be an email address or user ID. Values containing `@` are resolved as exact member emails by default; other values are treated as user IDs.
+- Use `--email` or `--id` to force how `<member>` is interpreted.
+- This destructive mutation requires confirmation. In non-interactive mode, rerun with `--force` after reviewing the confirmation preview.
+- Pending invite cancellation is not handled by this command.
 
 ## JSON response shape
 
