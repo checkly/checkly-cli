@@ -1,6 +1,12 @@
 import chalk from 'chalk'
 import type { TestSessionErrorGroup } from '../rest/test-session-error-groups.js'
-import type { TestSessionDetail, TestSessionMetadata, TestSessionResult, TestSessionStatus } from '../rest/test-sessions.js'
+import type {
+  TestSessionDetail,
+  TestSessionListEntry,
+  TestSessionMetadata,
+  TestSessionResult,
+  TestSessionStatus,
+} from '../rest/test-sessions.js'
 import {
   type ColumnDef,
   type DetailField,
@@ -46,6 +52,11 @@ function formatStatus (status: TestSessionStatus, format: OutputFormat): string 
   }
 }
 
+function formatOptionalStatus (status: TestSessionStatus | undefined, format: OutputFormat): string {
+  if (!status) return format === 'terminal' ? chalk.dim('-') : '-'
+  return formatStatus(status, format)
+}
+
 function formatList (values: string[] | undefined, format: OutputFormat): string {
   if (!values || values.length === 0) return format === 'terminal' ? chalk.dim('-') : '-'
   return values.join(', ')
@@ -79,6 +90,111 @@ function formatDuration (ms: number): string {
   if (minutes === 0 && seconds === 0) return `${hours}h`
   if (minutes === 0) return `${hours}h ${seconds}s`
   return seconds === 0 ? `${hours}h ${minutes}m` : `${hours}h ${minutes}m ${seconds}s`
+}
+
+function formatNullableString (value: string | null | undefined, format: OutputFormat): string {
+  if (!value) return format === 'terminal' ? chalk.dim('-') : '-'
+  return value
+}
+
+function formatResultBucketCount (values: string[] | null | undefined, format: OutputFormat): string {
+  const count = values?.length ?? 0
+  if (count === 0) return format === 'terminal' ? chalk.dim('-') : '-'
+  return String(count)
+}
+
+function formatInvoker (session: TestSessionListEntry, format: OutputFormat): string {
+  return formatNullableString(session.commitOwner ?? session.invoker?.name, format)
+}
+
+function buildTestSessionListColumns (
+  sessions: TestSessionListEntry[],
+  format: OutputFormat,
+): ColumnDef<TestSessionListEntry>[] {
+  if (format === 'md') {
+    return [
+      { header: 'Status', value: (session, fmt) => formatOptionalStatus(session.status, fmt) },
+      { header: 'Started', value: (session, fmt) => formatDate(session.startedAt, fmt) },
+      { header: 'Name', value: session => session.name },
+      { header: 'Provider', value: session => session.provider },
+      { header: 'Branch', value: (session, fmt) => formatNullableString(session.branchName, fmt) },
+      { header: 'User', value: (session, fmt) => formatInvoker(session, fmt) },
+      { header: 'Running', value: (session, fmt) => formatResultBucketCount(session.running, fmt) },
+      { header: 'Passed', value: (session, fmt) => formatResultBucketCount(session.passed, fmt) },
+      { header: 'Failed', value: (session, fmt) => formatResultBucketCount(session.failed, fmt) },
+      { header: 'Cancelled', value: (session, fmt) => formatResultBucketCount(session.cancelled, fmt) },
+      { header: 'ID', value: session => session.id },
+    ]
+  }
+
+  const termWidth = process.stdout.columns || 120
+  const statusWidth = 11
+  const startedWidth = 25
+  const providerWidth = 13
+  const branchWidth = 18
+  const userWidth = 18
+  const resultBucketWidth = 10
+  const idWidth = 38
+  const fixedWidth = statusWidth + startedWidth + providerWidth + branchWidth + userWidth
+    + (resultBucketWidth * 4) + idWidth
+  const longestName = Math.max(4, ...sessions.map(session => visWidth(session.name)))
+  const nameWidth = Math.max(18, Math.min(longestName + 2, termWidth - fixedWidth, 42))
+
+  return [
+    { header: 'Status', width: statusWidth, value: (session, fmt) => formatOptionalStatus(session.status, fmt) },
+    {
+      header: 'Started',
+      width: startedWidth,
+      value: (session, fmt) => truncateToWidth(formatDate(session.startedAt, fmt), startedWidth - 2),
+    },
+    { header: 'Name', width: nameWidth, value: session => truncateToWidth(session.name, nameWidth - 2) },
+    { header: 'Provider', width: providerWidth, value: session => truncateToWidth(session.provider, providerWidth - 2) },
+    {
+      header: 'Branch',
+      width: branchWidth,
+      value: (session, fmt) => truncateToWidth(formatNullableString(session.branchName, fmt), branchWidth - 2),
+    },
+    {
+      header: 'User',
+      width: userWidth,
+      value: (session, fmt) => truncateToWidth(formatInvoker(session, fmt), userWidth - 2),
+    },
+    { header: 'Running', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.running, fmt) },
+    { header: 'Passed', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.passed, fmt) },
+    { header: 'Failed', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.failed, fmt) },
+    { header: 'Cancelled', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.cancelled, fmt) },
+    { header: 'ID', value: session => chalk.dim(session.id) },
+  ]
+}
+
+export function formatTestSessionsList (
+  sessions: TestSessionListEntry[],
+  format: OutputFormat,
+): string {
+  return renderTable(buildTestSessionListColumns(sessions, format), sessions, format)
+}
+
+export function formatTestSessionsListPaginationInfo (count: number, nextId: string | null | undefined): string {
+  const base = `${count} test session${count !== 1 ? 's' : ''}`
+  if (nextId) {
+    return chalk.dim(`Showing ${base} (more available)`)
+  }
+  return chalk.dim(`Showing ${base}`)
+}
+
+export function formatTestSessionsListNavigationHints (
+  nextId: string | null | undefined,
+  listCommand: string,
+  firstSessionId?: string,
+): string {
+  const lines: string[] = []
+  if (nextId) {
+    lines.push(`  ${chalk.dim('Next page:')}       ${listCommand} --cursor ${nextId}`)
+  }
+  if (firstSessionId) {
+    lines.push(`  ${chalk.dim('Inspect session:')} ${`checkly test-sessions get ${firstSessionId}`}`)
+  }
+  return lines.join('\n')
 }
 
 function formatMetadata (metadata: TestSessionMetadata | undefined, format: OutputFormat): string | null {
