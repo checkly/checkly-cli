@@ -66,17 +66,19 @@ npx checkly api /v1/checks -X POST --input ./new-check.json
 
 ### Pagination
 
-`checkly api` does not auto-walk pages. Drive pagination yourself, the same way every other `checkly` list command exposes it:
+`checkly api` does not auto-walk pages. Drive pagination yourself, the same way every other `checkly` list command exposes it.
 
-- **Page-based endpoints**: pass `-F limit=N -F page=N`. Read the `Content-Range` response header (use `-i` to surface it on stdout) to know when there are more pages.
-- **Cursor-based endpoints**: pass `-F limit=N -F cursor=<id>`. The response body contains `nextId` (or equivalent) when more results exist.
+When using `-F` on a read endpoint, **always pass `-X GET` explicitly** — any `-F` flag implies POST unless the method is set, so omitting `-X GET` will try to create a resource with your pagination params as the body.
+
+- **Page-based endpoints**: pass `-X GET -F limit=N -F page=N`. Read the `Content-Range` response header (use `-i` to surface it on stdout) to know when there are more pages.
+- **Cursor-based endpoints**: pass `-X GET -F limit=N -F cursor=<id>`. The response body contains `nextId` (or equivalent) when more results exist.
 
 ```bash
 # Page-based: first page, then inspect Content-Range
-npx checkly api /v1/checks -F limit=100 -F page=1 -i
+npx checkly api /v1/checks -X GET -F limit=100 -F page=1 -i
 
 # Cursor-based: pass the nextId from the previous response
-npx checkly api /v1/status-pages -F limit=50 -F cursor=<nextId>
+npx checkly api /v1/status-pages -X GET -F limit=50 -F cursor=<nextId>
 ```
 
 ### Error responses
