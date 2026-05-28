@@ -88,6 +88,9 @@
       },
       "status-pages": {
         "description": "List and manage status pages in your Checkly account."
+      },
+      "test-sessions": {
+        "description": "Inspect recorded test sessions."
       }
     },
     "helpClass": "./dist/help/help-extension.js"
