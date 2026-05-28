@@ -7,6 +7,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
   shouldRecord: boolean
   location: RunLocation
   targetTags: string[][]
+  targetCheckIds: string[]
   envVars: Array<{ key: string, value: string }>
   repoInfo: GitInformation | null
   environment: string | null
@@ -21,6 +22,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     shouldRecord: boolean,
     location: RunLocation,
     targetTags: string[][],
+    targetCheckIds: string[],
     envVars: Array<{ key: string, value: string }>,
     repoInfo: GitInformation | null,
     environment: string | null,
@@ -33,6 +35,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
     this.shouldRecord = shouldRecord
     this.location = location
     this.targetTags = targetTags
+    this.targetCheckIds = targetCheckIds
     this.envVars = envVars
     this.repoInfo = repoInfo
     this.environment = environment
@@ -53,6 +56,7 @@ export default class TriggerRunner extends AbstractCheckRunner {
       runLocation: this.location,
       checkRunSuiteId,
       targetTags: this.targetTags,
+      checkId: this.targetCheckIds.length > 0 ? this.targetCheckIds : undefined,
       environmentVariables: this.envVars,
       repoInfo: this.repoInfo,
       environment: this.environment,

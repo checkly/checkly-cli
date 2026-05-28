@@ -23,6 +23,7 @@ type TriggerTestSessionRequest = {
   runLocation: string | { type: 'PUBLIC', region: string } | { type: 'PRIVATE', slugName: string, id: string }
   shouldRecord: boolean
   targetTags: string[][]
+  checkId?: string[]
   checkRunSuiteId: string
   environmentVariables: Array<{ key: string, value: string }>
   repoInfo: GitInformation | null

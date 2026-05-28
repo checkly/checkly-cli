@@ -46,6 +46,14 @@ export default class Trigger extends AuthCommand {
       multiple: true,
       required: false,
     }),
+    'check-id': Flags.string({
+      description: 'Trigger specific checks by ID.'
+        + ' Accepts a comma separated list and can be passed multiple times.'
+        + ' Can be combined with --tags to further filter the matching checks.',
+      multiple: true,
+      delimiter: ',',
+      required: false,
+    }),
     'config': Flags.string({
       char: 'c',
       description: 'The Checkly CLI config filename.',
@@ -112,6 +120,7 @@ export default class Trigger extends AuthCommand {
       'private-location': privateRunLocation,
       config: configFilename,
       tags: targetTags,
+      'check-id': targetCheckIds,
       timeout,
       verbose: verboseFlag,
       'fail-on-no-matching': failOnNoMatching,
@@ -153,6 +162,7 @@ export default class Trigger extends AuthCommand {
       shouldRecord,
       location,
       targetTags?.map((tags: string) => tags.split(',')) ?? [],
+      targetCheckIds ?? [],
       Object.entries(envVars).map(([key, value]) => ({ key, value })),
       repoInfo,
       ciInfo.environment,
