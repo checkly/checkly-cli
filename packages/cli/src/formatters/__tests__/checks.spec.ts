@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { stripAnsi } from '../render.js'
+import { stripAnsi, visWidth } from '../render.js'
 import {
   formatSummaryBar,
   formatTypeBreakdown,
@@ -250,6 +250,31 @@ describe('formatChecks', () => {
     const result = formatChecks(checks, 'md')
     expect(result).toContain('| Name |')
     expect(result).toContain('| --- |')
+  })
+
+  it('adapts long terminal rows to narrow terminals', () => {
+    const columnsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 60, configurable: true })
+
+    try {
+      const result = stripAnsi(formatChecks([{
+        ...passingCheck,
+        name: 'Extremely long production API check name',
+        description: 'This description is intentionally too long for a narrow terminal',
+        tags: ['production', 'critical', 'checkout', 'api'],
+      }], 'terminal'))
+
+      expect(result).toContain('…')
+      for (const line of result.split('\n')) {
+        expect(visWidth(line)).toBeLessThanOrEqual(60)
+      }
+    } finally {
+      if (columnsDescriptor) {
+        Object.defineProperty(process.stdout, 'columns', columnsDescriptor)
+      } else {
+        delete (process.stdout as NodeJS.WriteStream & { columns?: number }).columns
+      }
+    }
   })
 })
 

@@ -68,11 +68,11 @@ Muted Check            API         passing   10m   production, api"
 `;
 
 exports[`formatChecks > renders terminal table with showId > checks-table-terminal-with-id 1`] = `
-"NAME                   TYPE        STATUS    FREQ  TAGS                           ID
-My API Check           API         passing   10m   production, api                check-1
-Failing Browser Check  BROWSER     failing   10m   production, browser            check-2
-Inactive Check         API         inactive  10m   -                              check-3
-Muted Check            API         passing   10m   production, api                check-4"
+"NAME                   TYPE        STATUS    FREQ  TAGS                 ID
+My API Check           API         passing   10m   production, api      check-1
+Failing Browser Check  BROWSER     failing   10m   production, browser  check-2
+Inactive Check         API         inactive  10m   -                    check-3
+Muted Check            API         passing   10m   production, api      check-4"
 `;
 
 exports[`formatErrorGroups > renders markdown error groups > error-groups-md 1`] = `

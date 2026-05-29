@@ -3,7 +3,9 @@ import { GitInformation } from '../services/util.js'
 import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { compressJSONPayload } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { ForbiddenError } from './errors.js'
+import { ForbiddenError, RequestTimeoutError } from './errors.js'
+
+const COMPLETION_MAX_WAIT_SECONDS = 30
 
 type RunTestSessionRequest = {
   name: string
@@ -57,6 +59,8 @@ export type TestSessionMetadata = {
 
 export type TestSessionStatus = 'RUNNING' | 'FAILED' | 'PASSED' | 'CANCELLED'
 
+export type TestSessionProvider = 'GITHUB' | 'VERCEL' | 'API' | 'TRIGGER' | 'PW_REPORTER'
+
 export type TestSessionResult = {
   testSessionResultId: string
   testSessionResultLink: string
@@ -84,6 +88,57 @@ export type TestSessionDetail = {
   metadata?: TestSessionMetadata
   errorGroupIds?: string[]
   results?: TestSessionResult[]
+}
+
+type TestSessionListEntryInvoker = {
+  name: string
+  picture?: string | null
+} | null
+
+export type TestSessionListEntry = {
+  id: string
+  accountId: string
+  projectId?: string | null
+  name: string
+  provider: string
+  running?: string[] | null
+  passed?: string[] | null
+  failed?: string[] | null
+  cancelled?: string[] | null
+  status?: TestSessionStatus
+  region: string
+  privateLocationId?: string | null
+  invoker?: TestSessionListEntryInvoker
+  repoUrl?: string | null
+  commitId?: string | null
+  commitOwner?: string | null
+  commitMessage?: string | null
+  branchName?: string | null
+  environment?: string | null
+  startedAt: string
+  stoppedAt?: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+export type ListTestSessionsParams = {
+  from?: number
+  to?: number
+  limit?: number
+  statuses?: TestSessionStatus[]
+  branches?: string[]
+  users?: string[]
+  providers?: TestSessionProvider[]
+  noUsers?: boolean
+  nextId?: string
+  textSearch?: string
+  errorGroupId?: string
+}
+
+export type TestSessionsListResponse = {
+  length: number
+  entries: TestSessionListEntry[]
+  nextId?: string | null
 }
 
 export class NoMatchingChecksError extends Error {
@@ -130,6 +185,30 @@ class TestSessions {
 
   get (id: string) {
     return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}`)
+  }
+
+  getCompletion (id: string, maxWaitSeconds = COMPLETION_MAX_WAIT_SECONDS) {
+    return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}/completion`, {
+      params: { maxWaitSeconds },
+    })
+  }
+
+  async pollUntilComplete (id: string): Promise<TestSessionDetail> {
+    while (true) {
+      try {
+        const { data } = await this.getCompletion(id)
+        return data
+      } catch (err) {
+        if (err instanceof RequestTimeoutError) {
+          continue
+        }
+        throw err
+      }
+    }
+  }
+
+  list (params: ListTestSessionsParams = {}) {
+    return this.api.get<TestSessionsListResponse>('/v1/test-sessions', { params })
   }
 
   getShortLink (id: string) {

@@ -44,7 +44,11 @@ type Schema = {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   private?: boolean
-  workspaces?: string[]
+  // npm/pnpm/yarn use the array form, but Bun (and Yarn classic) also allow an
+  // object form (`{ packages: [...], catalogs/nohoist: ... }`). `catalogs` and
+  // `nohoist` are never read — they exist here only so the object form
+  // typechecks. The `workspaces` getter normalizes both to `string[]`.
+  workspaces?: string[] | { packages?: string[], catalogs?: Record<string, unknown>, nohoist?: string[] }
 }
 
 export interface EngineSupportResult {
@@ -194,8 +198,17 @@ export class PackageJsonFile {
     return this.jsonFile.data.engines
   }
 
-  public get workspaces () {
-    return this.jsonFile.data.workspaces
+  public get workspaces (): string[] | undefined {
+    const workspaces = this.jsonFile.data.workspaces
+    if (Array.isArray(workspaces)) {
+      return workspaces
+    }
+    // Bun/Yarn object form: `{ packages: [...], catalogs/nohoist: ... }`.
+    // Anything else (incl. a malformed value) yields no workspace patterns.
+    if (typeof workspaces === 'object' && workspaces !== null && Array.isArray(workspaces.packages)) {
+      return workspaces.packages
+    }
+    return undefined
   }
 
   supportsEngine (engine: string, version: string): EngineSupportResult {

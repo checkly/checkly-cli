@@ -118,8 +118,15 @@ export interface DetailField<T> {
 export interface ColumnDef<T> {
   header: string
   width?: number
+  minWidth?: number
+  maxWidth?: number
+  truncate?: boolean
   align?: 'left' | 'right'
   value: (item: T, format: OutputFormat) => string
+}
+
+export interface AdaptiveTableOptions {
+  terminalWidth?: number
 }
 
 export function renderDetailFields<T> (
@@ -198,6 +205,115 @@ export function renderTable<T> (
       if (i === lastIdx && col.align !== 'right') return val
       return padColumn(val, col.width, col.align, i < lastIdx)
     }).join(''),
+  )
+
+  return [headerParts.join(''), ...dataRows].join('\n')
+}
+
+function naturalColumnWidth (header: string, values: string[], trailingGap: boolean): number {
+  const contentWidth = Math.max(visWidth(header.toUpperCase()), ...values.map(visWidth))
+  return contentWidth + (trailingGap ? RIGHT_ALIGN_GAP : 0)
+}
+
+function shrinkToFit (widths: number[], minWidths: number[], overage: number): void {
+  let remaining = overage
+
+  while (remaining > 0) {
+    const shrinkable = widths
+      .map((width, index) => ({ index, room: width - minWidths[index] }))
+      .filter(col => col.room > 0)
+
+    if (shrinkable.length === 0) break
+
+    let shrunk = 0
+    for (const col of shrinkable) {
+      const reduction = Math.min(col.room, 1)
+      widths[col.index] -= reduction
+      remaining -= reduction
+      shrunk += reduction
+      if (remaining === 0) break
+    }
+
+    if (shrunk === 0) break
+  }
+}
+
+function resolveAdaptiveWidths<T> (
+  columns: ColumnDef<T>[],
+  resolvedRows: string[][],
+  terminalWidth: number,
+): number[] {
+  const lastIdx = columns.length - 1
+  const widths: number[] = []
+  const minWidths: number[] = []
+
+  for (const [index, column] of columns.entries()) {
+    const trailingGap = index < lastIdx
+    if (column.width != null) {
+      widths[index] = column.width
+      minWidths[index] = column.width
+      continue
+    }
+
+    const values = resolvedRows.map(row => row[index])
+    const natural = naturalColumnWidth(column.header, values, trailingGap)
+    const min = column.minWidth ?? natural
+    const max = column.maxWidth ?? Number.POSITIVE_INFINITY
+    widths[index] = Math.max(min, Math.min(natural, max))
+    minWidths[index] = min
+  }
+
+  const total = () => widths.reduce((sum, width) => sum + width, 0)
+  const overage = total() - terminalWidth
+
+  if (overage > 0) {
+    shrinkToFit(widths, minWidths, overage)
+  }
+
+  return widths
+}
+
+function formatAdaptiveCell<T> (
+  value: string,
+  column: ColumnDef<T>,
+  width: number,
+  columnIndex: number,
+  lastIndex: number,
+): string {
+  const trailingGap = columnIndex < lastIndex
+  const shouldTruncate = column.truncate ?? column.width == null
+  let display = value
+
+  if (shouldTruncate) {
+    const gap = column.align === 'right' ? 0 : (trailingGap ? RIGHT_ALIGN_GAP : 0)
+    display = truncateToWidth(display, Math.max(1, width - gap))
+  }
+
+  if (columnIndex === lastIndex && column.align !== 'right') return display
+  return padColumn(display, width, column.align, trailingGap)
+}
+
+export function renderAdaptiveTable<T> (
+  columns: ColumnDef<T>[],
+  rows: T[],
+  format: OutputFormat,
+  options: AdaptiveTableOptions = {},
+): string {
+  if (format === 'md') return renderTable(columns, rows, format)
+
+  const resolvedRows = rows.map(row => columns.map(col => col.value(row, format)))
+  const terminalWidth = options.terminalWidth ?? (process.stdout.columns || 120)
+  const widths = resolveAdaptiveWidths(columns, resolvedRows, terminalWidth)
+  const lastIdx = columns.length - 1
+
+  const headerParts = columns.map((col, i) =>
+    formatAdaptiveCell(chalk.bold(col.header.toUpperCase()), col, widths[i], i, lastIdx),
+  )
+
+  const dataRows = resolvedRows.map(row =>
+    row.map((value, i) =>
+      formatAdaptiveCell(value, columns[i], widths[i], i, lastIdx),
+    ).join(''),
   )
 
   return [headerParts.join(''), ...dataRows].join('\n')

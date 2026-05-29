@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Also read `AGENTS.md` for shared agent conventions that apply across coding
+assistants, especially CLI command shape and output consistency rules.
+
 ## Build and Development
 
 This is a **pnpm monorepo** with two packages: `packages/cli` (the main `checkly` CLI) and `packages/create-cli` (the `create-checkly` scaffolding tool). Both are ESM-only TypeScript.

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 import { Parser } from '../parser.js'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
-import { NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
+import { BunDetector, NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
 import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
 import { Workspace } from '../package-files/workspace.js'
 
@@ -125,6 +125,44 @@ describe('dependency-parser - parser()', () => {
             // Only check paths first, makes missing files easier to see.
             expect(got.map(({ filePath }) => filePath)).toEqual(want.map(({ filePath }) => filePath))
             expect(got).toEqual(want)
+          })
+        })
+      })
+
+      describe('bun workspaces', () => {
+        // Regression test for #1324: Bun (and Yarn classic) allow the root
+        // package.json `workspaces` field to be an object
+        // (`{ packages: [...], catalogs: {...} }`) rather than a plain array of
+        // glob patterns. Workspace discovery used to assume an array and crashed
+        // with `TypeError: patterns.map is not a function`.
+        describe('bun-workspace-object-form-in-root-package', () => {
+          const toAbsolutePath = (...filepath: string[]) => fixt.abspath(
+            'bun-workspace-object-form-in-root-package',
+            ...filepath,
+          )
+
+          const packageManager = new BunDetector()
+
+          let workspace: Workspace | undefined
+          beforeAll(async () => {
+            workspace = await packageManager.lookupWorkspace(toAbsolutePath('.'))
+            expect(workspace).toBeDefined()
+          })
+
+          it('should discover workspace members from object-form workspaces', () => {
+            expect(workspace?.memberByName('sibling')).toBeDefined()
+          })
+
+          it('should resolve dependencies on sibling workspace packages', async () => {
+            const parser = new Parser({
+              checkUnsupportedModules: false,
+              restricted: false,
+              workspace,
+            })
+            const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
+            const filePaths = dependencies.map(({ filePath }) => filePath)
+            expect(filePaths).toContain(toAbsolutePath('apps/sibling/index.js'))
+            expect(filePaths).toContain(toAbsolutePath('apps/sibling/package.json'))
           })
         })
       })

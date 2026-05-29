@@ -11,7 +11,7 @@ export default class RcaRun extends AuthCommand {
   static readOnly = false
   static idempotent = false
   static description = 'Trigger a root cause analysis for a check or test session error group.'
-  static usage = 'rca run [-e <value> | -te <value>] [-w] [-o detail|json|md]'
+  static usage = 'rca run [-e <value> | -te <value>] [--user-context <text>] [-w] [-o detail|json|md]'
 
   static flags = {
     'error-group': Flags.string({
@@ -23,6 +23,9 @@ export default class RcaRun extends AuthCommand {
     'test-session-error-group': Flags.string({
       description: 'The test session error group ID to analyze.',
       helpLabel: '-te, --test-session-error-group',
+    }),
+    'user-context': Flags.string({
+      description: 'Extra context to pass into the root cause analysis.',
     }),
     'watch': Flags.boolean({
       char: 'w',
@@ -56,7 +59,7 @@ export default class RcaRun extends AuthCommand {
         // Fetch the error group to get the checkId for navigation hints
         const { data: errorGroup } = await api.errorGroups.get(source.id)
 
-        const response = await api.rca.trigger(source.id)
+        const response = await api.rca.trigger(source.id, flags['user-context'])
         rcaId = response.data.id
         pendingInfo = {
           rcaId,
@@ -69,7 +72,7 @@ export default class RcaRun extends AuthCommand {
       } else {
         await api.testSessionErrorGroups.get(source.id)
 
-        const response = await api.rca.triggerTestSessionErrorGroup(source.id)
+        const response = await api.rca.triggerTestSessionErrorGroup(source.id, flags['user-context'])
         rcaId = response.data.id
         pendingInfo = {
           rcaId,
