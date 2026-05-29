@@ -80,6 +80,56 @@ describe('package.json file', () => {
     })
   })
 
+  describe('workspaces', () => {
+    it('returns array-form workspaces as-is', () => {
+      const testFile = PackageJsonFile.make('package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        workspaces: ['apps/*', 'packages/*'],
+      })
+
+      expect(testFile.workspaces).toEqual(['apps/*', 'packages/*'])
+    })
+
+    it('returns the packages array from Bun/Yarn object-form workspaces (issue #1324)', () => {
+      const testFile = PackageJsonFile.make('package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        workspaces: {
+          packages: ['packages/*'],
+          catalogs: {
+            checkly: '7.11.0',
+          },
+        },
+      })
+
+      expect(testFile.workspaces).toEqual(['packages/*'])
+    })
+
+    it('returns undefined for object-form workspaces without a packages array', () => {
+      const testFile = PackageJsonFile.make('package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        workspaces: {
+          catalogs: {
+            checkly: '7.11.0',
+          },
+        },
+      })
+
+      expect(testFile.workspaces).toBeUndefined()
+    })
+
+    it('returns undefined when workspaces is absent', () => {
+      const testFile = PackageJsonFile.make('package.json', {
+        name: 'foo',
+        version: '1.0.0',
+      })
+
+      expect(testFile.workspaces).toBeUndefined()
+    })
+  })
+
   describe('resolveExportPath', () => {
     const importConditions = ['import', 'node', 'module-sync', 'default']
     const requireConditions = ['require', 'node', 'module-sync', 'default']
