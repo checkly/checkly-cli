@@ -133,7 +133,7 @@ function buildTestSessionListColumns (format: OutputFormat): ColumnDef<TestSessi
       maxWidth: 25,
       value: (session, fmt) => formatDate(session.startedAt, fmt),
     },
-    { header: 'Name', minWidth: 12, maxWidth: 42, value: session => session.name },
+    { header: 'Name', minWidth: 18, maxWidth: 42, value: session => session.name },
     { header: 'Provider', minWidth: 8, maxWidth: 13, value: session => session.provider },
     {
       header: 'Branch',
