@@ -20,3 +20,7 @@ All available alerts are described in the [Checkly docs](https://www.checklyhq.c
 ## Slack Alert Channel
 
 <!-- EXAMPLE: SLACK_ALERT_CHANNEL -->
+
+## Slack App Alert Channel
+
+<!-- EXAMPLE: SLACK_APP_ALERT_CHANNEL -->

@@ -1130,6 +1130,29 @@
           "sslExpiryThreshold": 30,
           "autoSubscribe": false
         }
+      },
+      {
+        "logicalId": "example-slack-app-alert-channel",
+        "physicalId": 1000015,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000015,
+          "type": "SLACK_APP",
+          "config": {
+            "slackChannels": ["#alerts", "#ops", "@alice"]
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:40:00.000Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
       }
     ],
     "friends": [],

@@ -2,6 +2,7 @@ import path from 'node:path'
 
 import * as api from '../rest/api.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { type EngineDetectionResult } from '../services/engine-detector.js'
 import { Parser } from '../services/check-parser/parser.js'
 import { Construct } from './construct.js'
 import { ValidationError } from './validator-error.js'
@@ -251,6 +252,7 @@ export class Session {
   static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
+  static detectedEnginePromise?: Promise<EngineDetectionResult | null>
 
   static reset () {
     this.project = undefined
@@ -274,6 +276,7 @@ export class Session {
     this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
+    this.detectedEnginePromise = undefined
     this.resetSharedFiles()
   }
 
