@@ -78,7 +78,7 @@ The core abstraction is the `Construct` base class (`src/constructs/construct.ts
 
 `Session` is a static class on `Project` that carries global context during check file loading: the current project, available runtimes, check defaults, file loaders, and the path of the currently-loading check file.
 
-To add a new construct, use `/new-monitor` or `/new-alert-channel` for step-by-step checklists.
+To add a new construct, use `/checkly-cli-new-monitor` or `/checkly-cli-new-alert-channel` for step-by-step checklists. To update the monorepo's dependencies within the supported Node range, use `/checkly-cli-update-dependencies`.
 
 ### Check discovery and loading
 
