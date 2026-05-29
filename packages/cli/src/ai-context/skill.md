@@ -14,6 +14,8 @@ Then run `npx checkly skills <action>` to load up-to-date details for the action
 
 Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
 
+For recorded test-session investigations, run `npx checkly skills investigate test-sessions`.
+
 ## Progressive Disclosure via `npx checkly skills`
 
 The skill is structured for efficient context usage:
