@@ -48,10 +48,23 @@ All paths below are relative to `packages/cli/`.
 
 - [ ] `src/constructs/__tests__/{name}-alert-channel.spec.ts` — Unit tests covering: construct instantiation, `synthesize()` output structure, property mapping, and `describe()`. Follow existing alert channel tests as template.
 
-## Phase 5: Build and Verify
+## Phase 5: AI Context (modify existing files)
 
-- [ ] `pnpm --filter checkly run prepare` — Rebuild.
+Unlike monitors (one reference file each), all alert channels share a single reference. Add the new channel to it rather than creating a new file.
+
+- [ ] `src/ai-context/context.fixtures.json` — Add an alert channel fixture entry (`logicalId: 'example-{name}-alert-channel'` plus a `config` block of the channel's properties). This is the source that `import plan` turns into a generated example config under `gen/resources/alert-channels/{name}/`. Follow the existing `example-email-alert-channel` / `example-slack-alert-channel` entries.
+
+- [ ] `src/ai-context/context.ts`:
+  1. Add an `{UPPER_NAME}_ALERT_CHANNEL` entry to `EXAMPLE_CONFIGS` with a `templateString` of `<!-- EXAMPLE: {UPPER_NAME}_ALERT_CHANNEL -->`, the `exampleConfigPath` pointing at the generated `resources/alert-channels/{name}/...check.ts`, and the docs `reference` URL. Mirror the `SLACK_ALERT_CHANNEL` entry.
+  2. Update the `configure-alert-channels` entry in the `REFERENCES` array — extend its `description` to mention the new channel's class name.
+
+- [ ] `src/ai-context/references/configure-alert-channels.md` — Add a short section documenting the new channel and an `<!-- EXAMPLE: {UPPER_NAME}_ALERT_CHANNEL -->` marker where the generated example should be injected. Follow the existing channel sections.
+
+## Phase 6: Build and Verify
+
+- [ ] `pnpm --filter checkly run prepare` — Rebuild (compiles TS + regenerates AI context).
 - [ ] `pnpm --filter checkly test` — Run unit tests.
+- [ ] `pnpm run sync:skills` — Sync AI context to published skills (from repo root).
 - [ ] `pnpm lint:fix` — Fix formatting (run from repo root).
 
 ## Naming Conventions
@@ -63,3 +76,6 @@ All paths below are relative to `packages/cli/`.
 | Props interface | `{Name}AlertChannelProps` | `TelegramAlertChannelProps` |
 | Webhook type | `WEBHOOK_{UPPER_NAME}` | `WEBHOOK_TELEGRAM` |
 | Codegen class | `{Name}AlertChannelCodegen` | `TelegramAlertChannelCodegen` |
+| AI context reference | shared `configure-alert-channels.md` | (one file for all channels) |
+| AI context example | `{UPPER_NAME}_ALERT_CHANNEL` | `SLACK_ALERT_CHANNEL` |
+| Example fixture id | `example-{name}-alert-channel` | `example-slack-alert-channel` |
