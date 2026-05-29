@@ -48,4 +48,37 @@ describe('TestSessions REST client', () => {
       params: { maxWaitSeconds: 30 },
     })
   })
+
+  it('lists public test sessions with filters', async () => {
+    const api = {
+      get: vi.fn().mockResolvedValue({ data: { length: 0, entries: [], nextId: null } }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    await testSessions.list({
+      limit: 10,
+      statuses: ['FAILED'],
+      branches: ['main'],
+      users: ['Herve'],
+      providers: ['API'],
+      noUsers: true,
+      nextId: 'cursor',
+      textSearch: 'smoke',
+      errorGroupId: 'error-group-id',
+    })
+
+    expect(api.get).toHaveBeenCalledWith('/v1/test-sessions', {
+      params: {
+        limit: 10,
+        statuses: ['FAILED'],
+        branches: ['main'],
+        users: ['Herve'],
+        providers: ['API'],
+        noUsers: true,
+        nextId: 'cursor',
+        textSearch: 'smoke',
+        errorGroupId: 'error-group-id',
+      },
+    })
+  })
 })
