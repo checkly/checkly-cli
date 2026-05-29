@@ -7,6 +7,9 @@ import ChecksGet from '../checks/get.js'
 import ChecksStats from '../checks/stats.js'
 import StatusPagesList from '../status-pages/list.js'
 import StatusPagesGet from '../status-pages/get.js'
+import AlertChannelsList from '../alert-channels/list.js'
+import AlertChannelsGet from '../alert-channels/get.js'
+import AlertChannelsLogs from '../alert-channels/logs.js'
 import IncidentsList from '../incidents/list.js'
 import IncidentsCreate from '../incidents/create.js'
 import IncidentsUpdate from '../incidents/update.js'
@@ -44,6 +47,9 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['api', Api],
   ['account members', AccountMembers],
   ['account plan', AccountPlan],
+  ['alert-channels list', AlertChannelsList],
+  ['alert-channels get', AlertChannelsGet],
+  ['alert-channels logs', AlertChannelsLogs],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
   ['checks stats', ChecksStats],
