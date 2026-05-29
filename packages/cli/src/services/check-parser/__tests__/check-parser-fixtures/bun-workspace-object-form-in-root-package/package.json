@@ -1,0 +1,14 @@
+{
+  "name": "bun-workspace-object-form-in-root-package",
+  "version": "1.0.0",
+  "private": true,
+  "license": "ISC",
+  "workspaces": {
+    "packages": [
+      "apps/*"
+    ],
+    "catalogs": {
+      "checkly": "7.11.0"
+    }
+  }
+}

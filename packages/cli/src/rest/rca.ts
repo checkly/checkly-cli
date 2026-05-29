@@ -13,15 +13,17 @@ class Rca {
     this.api = api
   }
 
-  trigger (errorGroupId: string) {
+  trigger (errorGroupId: string, userContext?: string) {
     return this.api.post<TriggerRcaResponse>(
       `/v1/root-cause-analyses/error-groups/${errorGroupId}`,
+      userContext ? { userContext } : undefined,
     )
   }
 
-  triggerTestSessionErrorGroup (testSessionErrorGroupId: string) {
+  triggerTestSessionErrorGroup (testSessionErrorGroupId: string, userContext?: string) {
     return this.api.post<TriggerRcaResponse>(
       `/v1/root-cause-analyses/test-session-error-groups/${testSessionErrorGroupId}`,
+      userContext ? { userContext } : undefined,
     )
   }
 

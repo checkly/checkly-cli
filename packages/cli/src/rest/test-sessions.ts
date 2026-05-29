@@ -23,6 +23,7 @@ type TriggerTestSessionRequest = {
   runLocation: string | { type: 'PUBLIC', region: string } | { type: 'PRIVATE', slugName: string, id: string }
   shouldRecord: boolean
   targetTags: string[][]
+  checkId?: string[]
   checkRunSuiteId: string
   environmentVariables: Array<{ key: string, value: string }>
   repoInfo: GitInformation | null
@@ -43,6 +44,46 @@ export type TriggerTestSessionResponse = {
   testSessionId: string
   testResultIds: Record<string, string>
   sequenceIds: Record<string, SequenceId>
+}
+
+export type TestSessionMetadata = {
+  environment?: string
+  repoUrl?: string
+  commitId?: string
+  commitOwner?: string
+  commitMessage?: string
+  branchName?: string
+}
+
+export type TestSessionStatus = 'RUNNING' | 'FAILED' | 'PASSED' | 'CANCELLED'
+
+export type TestSessionResult = {
+  testSessionResultId: string
+  testSessionResultLink: string
+  checkId?: string | null
+  checkType: string
+  name?: string
+  runLocation?: string
+  resultType?: string
+  status: TestSessionStatus
+  hasErrors: boolean
+  hasFailures: boolean
+  isDegraded: boolean
+  aborted: boolean
+  errorGroupIds?: string[]
+}
+
+export type TestSessionDetail = {
+  testSessionId: string
+  testSessionLink: string
+  name: string
+  status: TestSessionStatus
+  startedAt: string
+  stoppedAt: string | null
+  timeElapsed: number
+  metadata?: TestSessionMetadata
+  errorGroupIds?: string[]
+  results?: TestSessionResult[]
 }
 
 export class NoMatchingChecksError extends Error {
@@ -85,6 +126,10 @@ class TestSessions {
 
       throw err
     }
+  }
+
+  get (id: string) {
+    return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}`)
   }
 
   getShortLink (id: string) {

@@ -36,8 +36,11 @@ import SyncPlaywright from '../sync-playwright.js'
 import SkillsInstall from '../skills/install.js'
 import AccountPlan from '../account/plan.js'
 import AccountMembers from '../account/members.js'
+import Api from '../api.js'
+import TestSessionsGet from '../test-sessions/get.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
+  ['api', Api],
   ['account members', AccountMembers],
   ['account plan', AccountPlan],
   ['checks list', ChecksList],
@@ -45,6 +48,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['checks stats', ChecksStats],
   ['status-pages list', StatusPagesList],
   ['status-pages get', StatusPagesGet],
+  ['test-sessions get', TestSessionsGet],
   ['incidents list', IncidentsList],
   ['incidents create', IncidentsCreate],
   ['incidents update', IncidentsUpdate],

@@ -16,5 +16,9 @@ const examples: Array<Example> = [
     description: 'Deploy your project to your Checkly account.',
     command: 'npx checkly deploy',
   },
+  {
+    description: 'Make an authenticated API request to any endpoint.',
+    command: 'npx checkly api /v1/checks',
+  },
 ]
 export default examples
