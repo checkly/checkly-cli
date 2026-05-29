@@ -103,7 +103,7 @@ export const ACTIONS = [
   },
   {
     id: 'investigate',
-    description: 'Access check status, analyze failures, and investigate errors.',
+    description: 'Access check and test-session status, analyze failures, and investigate errors.',
     references: INVESTIGATE_REFERENCES,
   },
   {
