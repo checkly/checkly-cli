@@ -15,6 +15,7 @@ import {
   escapeMdCell,
   renderDetailFields,
   renderTable,
+  renderAdaptiveTable,
   type DetailField,
   type ColumnDef,
 } from '../render.js'
@@ -418,6 +419,42 @@ describe('renderTable', () => {
     const lines = result.split('\n')
     // Last column value should not have trailing spaces
     expect(lines[1].trimEnd()).toBe(lines[1])
+  })
+})
+
+describe('renderAdaptiveTable', () => {
+  interface Row { name: string, type: string, note: string }
+
+  const columns: ColumnDef<Row>[] = [
+    { header: 'Name', minWidth: 8, maxWidth: 20, value: r => r.name },
+    { header: 'Type', width: 8, value: r => r.type },
+    { header: 'Note', minWidth: 8, value: r => r.note },
+  ]
+
+  const rows: Row[] = [
+    {
+      name: 'Long production check name',
+      type: 'API',
+      note: 'Monitors a very important endpoint with a verbose description',
+    },
+  ]
+
+  it('keeps terminal rows within the requested width', () => {
+    const result = stripAnsi(renderAdaptiveTable(columns, rows, 'terminal', { terminalWidth: 40 }))
+    for (const line of result.split('\n')) {
+      expect(visWidth(line)).toBeLessThanOrEqual(40)
+    }
+  })
+
+  it('truncates flexible columns instead of requiring callers to do it', () => {
+    const result = stripAnsi(renderAdaptiveTable(columns, rows, 'terminal', { terminalWidth: 40 }))
+    expect(result).toContain('…')
+  })
+
+  it('does not truncate markdown output', () => {
+    const result = renderAdaptiveTable(columns, rows, 'md', { terminalWidth: 40 })
+    expect(result).toContain('Long production check name')
+    expect(result).toContain('Monitors a very important endpoint with a verbose description')
   })
 })
 
