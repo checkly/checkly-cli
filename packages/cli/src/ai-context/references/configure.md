@@ -6,6 +6,8 @@
 - Use the [Checkly construct reference documentation](https://www.checklyhq.com/docs/constructs/overview/).
 - Import and / or require any constructs you need in your code, such as `ApiCheck`, `BrowserCheck`, or `PlaywrightCheck` from the `checkly/constructs` package.
 - Always ground generated code and CLI commands against the official documentation and examples in this file.
+- Use `runtimeId` for Browser Checks and MultiStep Checks. Runtimes are managed Checkly execution environments with fixed Checkly-provided dependencies such as Playwright, browser binaries, and runtime libraries.
+- Use `engine` only for Playwright Check Suites. `engine` selects the JavaScript engine version that runs the user's own Playwright project.
 
 ## Using the Checkly CLI
 
@@ -19,7 +21,7 @@
 - `*.check.ts|js` - TS / JS files that define the checks.
 - `*.spec.ts|js` - TS / JS files that contain Playwright code for Browser and MultiStep checks.
 - `src/__checks__` - Default directory where all your checks are stored. Use this directory if it already exists, otherwise create a new directory for your checks.
-- `package.json` - Standard NPM project manifest.
+- `package.json` - Standard npm project manifest.
 
 Here is an example directory tree of what that would look like:
 
