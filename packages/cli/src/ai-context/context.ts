@@ -62,6 +62,10 @@ export const INVESTIGATE_REFERENCES = [
     id: 'investigate-checks',
     description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
   },
+  {
+    id: 'investigate-test-sessions',
+    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and retrieve result assets',
+  },
 ] as const
 
 export const COMMUNICATE_REFERENCES = [
