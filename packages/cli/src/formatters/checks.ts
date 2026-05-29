@@ -13,11 +13,9 @@ import {
   formatMs,
   timeAgo,
   stripAnsi,
-  truncateError,
   resolveResultStatus,
   renderDetailFields,
   renderAdaptiveTable,
-  renderTable,
 } from './render.js'
 
 export { formatFrequency, formatCheckType } from './render.js'
@@ -312,18 +310,22 @@ function buildResultColumns (format: OutputFormat): ColumnDef<CheckResult>[] {
 
   return [
     { header: 'Time', width: 14, value: r => timeAgo(r.startedAt) },
-    { header: 'Location', width: 16, value: r => r.runLocation },
+    { header: 'Location', minWidth: 8, maxWidth: 16, value: r => r.runLocation },
     { header: 'Status', width: 10, value: (r, fmt) => resolveResultStatus(r, fmt) },
     { header: 'Response Time', width: 16, value: r => formatMs(r.responseTime) },
-    { header: 'Result ID', value: r => chalk.dim(r.id) },
+    { header: 'Result ID', minWidth: 12, maxWidth: 38, value: r => chalk.dim(r.id) },
   ]
 }
 
 export function formatResults (results: CheckResult[], format: OutputFormat): string {
-  return renderTable(buildResultColumns(format), results, format)
+  return renderAdaptiveTable(buildResultColumns(format), results, format)
 }
 
 // --- Error groups ---
+
+function cleanErrorMessage (msg: string): string {
+  return stripAnsi(msg).replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] {
   if (format === 'md') {
@@ -345,8 +347,9 @@ function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] 
   return [
     {
       header: 'Error',
-      width: 60,
-      value: eg => chalk.red(truncateError(eg.cleanedErrorMessage, 58)),
+      minWidth: 20,
+      maxWidth: 60,
+      value: eg => chalk.red(cleanErrorMessage(eg.cleanedErrorMessage)),
     },
     {
       header: 'First Seen',
@@ -363,7 +366,7 @@ function buildErrorGroupColumns (format: OutputFormat): ColumnDef<ErrorGroup>[] 
       width: 6,
       value: eg => (eg.rootCauseAnalyses?.length ?? 0) > 0 ? chalk.cyan('Yes') : chalk.dim('-'),
     },
-    { header: 'Error Group ID', value: eg => chalk.dim(eg.id) },
+    { header: 'Error Group ID', minWidth: 12, maxWidth: 38, value: eg => chalk.dim(eg.id) },
   ]
 }
 
@@ -375,7 +378,7 @@ export function formatErrorGroups (errorGroups: ErrorGroup[], format: OutputForm
   const title = format === 'md'
     ? '## Error Groups\n\n'
     : chalk.bold('ERROR GROUPS') + '\n'
-  const table = title + renderTable(columns, active, format)
+  const table = title + renderAdaptiveTable(columns, active, format)
 
   if (format !== 'terminal') return table
 

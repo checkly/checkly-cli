@@ -4,8 +4,7 @@ import {
   type ColumnDef,
   type OutputFormat,
   formatDate,
-  renderTable,
-  truncateToWidth,
+  renderAdaptiveTable,
 } from './render.js'
 
 export interface AccountMembersTableOptions {
@@ -71,13 +70,7 @@ function buildAccountMemberColumns (
   }
 
   const showId = options.showId !== false
-  const termWidth = process.stdout.columns || 120
-  const idReserve = showId ? 38 : 0
-  const fixedWidth = 8 + 13 + 10 + 5 + 5 + 9 + 25 + idReserve
-  const flexibleWidth = Math.max(24, termWidth - fixedWidth)
   const hasNames = members.some(member => member.type === 'member' && member.name)
-  const emailWidth = Math.max(20, Math.min(34, Math.floor(flexibleWidth * (hasNames ? 0.6 : 1))))
-  const nameWidth = hasNames ? Math.max(14, Math.min(24, flexibleWidth - emailWidth)) : 0
 
   const columns: ColumnDef<AccountMember>[] = [
     {
@@ -87,16 +80,18 @@ function buildAccountMemberColumns (
     },
     {
       header: 'Email',
-      width: emailWidth,
-      value: m => truncateToWidth(m.email, emailWidth - 2),
+      minWidth: 21,
+      maxWidth: 34,
+      value: m => m.email,
     },
   ]
 
   if (hasNames) {
     columns.push({
       header: 'Name',
-      width: nameWidth,
-      value: (m, fmt) => truncateToWidth(memberName(m, fmt), nameWidth - 2),
+      minWidth: 14,
+      maxWidth: 24,
+      value: (m, fmt) => memberName(m, fmt),
     })
   }
 
@@ -129,13 +124,14 @@ function buildAccountMemberColumns (
     {
       header: 'Expires',
       width: 25,
-      value: (m, fmt) => truncateToWidth(expiresAt(m, fmt), 23),
+      value: (m, fmt) => expiresAt(m, fmt),
     },
   )
 
   if (showId) {
     columns.push({
       header: 'ID',
+      width: 38,
       value: m => chalk.dim(memberId(m)),
     })
   }
@@ -148,5 +144,5 @@ export function formatAccountMembers (
   format: OutputFormat,
   options: AccountMembersTableOptions = {},
 ): string {
-  return renderTable(buildAccountMemberColumns(members, format, options), members, format)
+  return renderAdaptiveTable(buildAccountMemberColumns(members, format, options), members, format)
 }
