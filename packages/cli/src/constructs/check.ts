@@ -25,6 +25,21 @@ import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 
+type FrequencyLike = {
+  frequency: number
+  frequencyOffset?: number
+}
+
+function isFrequencyLike (value: unknown): value is FrequencyLike {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const maybeFrequency = value as Partial<FrequencyLike>
+  return typeof maybeFrequency.frequency === 'number'
+    && (maybeFrequency.frequencyOffset === undefined || typeof maybeFrequency.frequencyOffset === 'number')
+}
+
 /**
  * Retry strategies supported by checks.
  */
@@ -277,7 +292,7 @@ export abstract class Check extends Construct {
     this.locations = config.locations
     this.privateLocations = config.privateLocations
     this.tags = config.tags
-    if (config.frequency instanceof Frequency) {
+    if (isFrequencyLike(config.frequency)) {
       this.frequency = config.frequency.frequency
       this.frequencyOffset = config.frequency.frequencyOffset
     } else {
