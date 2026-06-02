@@ -8,7 +8,7 @@ import {
   splitConfigFilePath, writeChecklyConfigFile,
 } from '../services/util.js'
 import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader.js'
-import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags } from '../helpers/test-helper.js'
+import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags, validateDetachReporterTypes } from '../helpers/test-helper.js'
 import * as api from '../rest/api.js'
 import config from '../services/config.js'
 import { parseProject } from '../services/project-parser.js'
@@ -120,7 +120,7 @@ export default class PwTestCommand extends AuthCommand {
     }),
     'detach': Flags.boolean({
       char: 'd',
-      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      description: 'Start checks in the cloud and exit after printing the test session ID.',
       default: false,
     }),
   }
@@ -191,6 +191,9 @@ export default class PwTestCommand extends AuthCommand {
     }, api, config.getAccountId())
 
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
+    if (detach) {
+      validateDetachReporterTypes(reporterTypes)
+    }
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
     const testEnvVars = await getEnvs(envFile, env)

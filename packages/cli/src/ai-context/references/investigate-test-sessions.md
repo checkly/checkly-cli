@@ -9,20 +9,23 @@ Read-only inspection commands execute immediately. `rca run` starts a new analys
 `checkly test`, `checkly trigger`, and `checkly pw-test` record results as a test session by default. Use `--no-record` only when the user explicitly does not want a recorded session.
 
 ```bash
-npx checkly test --test-session-name "Checkout regression"
-npx checkly test --record --test-session-name "Checkout regression"
-npx checkly trigger --tags production --test-session-name "Production smoke"
-npx checkly pw-test --test-session-name "Playwright suite"
+npx checkly test --detach --test-session-name "Checkout regression"
+npx checkly test --record --detach --test-session-name "Checkout regression"
+npx checkly trigger --detach --tags production --test-session-name "Production smoke"
+npx checkly pw-test --detach --test-session-name "Playwright suite"
 ```
+
+For agent workflows, prefer `--detach` when starting recorded sessions. The command schedules the session, prints the `Test session ID`, and exits without waiting for completion. Inspect the session with `npx checkly test-sessions get <test-session-id> --watch` instead of relying on Checkly UI links.
 
 Useful flags:
 - `--location <region>` or `--private-location <slug>` - choose where checks run.
 - `-e, --env KEY=value` or `--env-file <path>` - pass runtime environment variables.
-- `--timeout <seconds>` - wait for session completion before the command exits.
-- `-d, --detach` - keep cloud execution running if the local CLI is cancelled.
-- `-r, --reporter json` - capture machine-readable run output, including test session IDs when available.
+- `--timeout <seconds>` - wait for session completion before the command exits; ignored when `--detach` exits after scheduling.
+- `-d, --detach` - start the session in the cloud, print the test session ID, and exit immediately; preferred for agents starting recorded sessions.
 
-If the command output includes a test session ID or link, use it directly with `test-sessions get`.
+Do not combine `--detach` with file reporters such as `--reporter json` or `--reporter github`. Detached runs exit before results are available, so no result report can be written. After scheduling with `--detach`, use `test-sessions get --output json` for machine-readable session details.
+
+If the command output includes a test session ID or link, use the ID directly with `test-sessions get`.
 
 ## Find a test session
 

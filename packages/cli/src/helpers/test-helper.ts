@@ -5,6 +5,8 @@ import { ReporterType } from '../reporters/reporter.js'
 import { isCI } from 'ci-info'
 import { DEFAULT_REGION } from './constants.js'
 
+const unsupportedDetachedReporterTypes: ReporterType[] = ['json', 'github']
+
 export async function prepareRunLocation (
   configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
   cliFlags: { runLocation?: keyof Region, privateRunLocation?: string } = {},
@@ -60,6 +62,18 @@ export function prepareReportersTypes (
     return [isCI ? 'ci' : 'list']
   }
   return reporterFlag?.length ? reporterFlag : cliReporters
+}
+
+export function validateDetachReporterTypes (reporterTypes: ReporterType[]): void {
+  const unsupported = [...new Set(reporterTypes.filter(type => unsupportedDetachedReporterTypes.includes(type)))]
+
+  if (unsupported.length) {
+    throw new Error(
+      `--detach does not support ${unsupported.map(type => `--reporter ${type}`).join(', ')}. `
+      + 'Detached runs exit after scheduling, before result reports can be written. '
+      + 'Omit --detach to write a report, or use `checkly test-sessions get <test-session-id> --output json` after scheduling.',
+    )
+  }
 }
 
 export function splitChecklyAndPlaywrightFlags (args: string[]) {
