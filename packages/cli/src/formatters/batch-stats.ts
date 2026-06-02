@@ -1,8 +1,8 @@
 import chalk from 'chalk'
 import type { BatchAnalyticsResult } from '../rest/batch-analytics.js'
 import { type CheckWithStatus, type PaginationInfo, resolveStatus } from './checks.js'
-import type { OutputFormat, ColumnDef } from './render.js'
-import { renderTable, truncateToWidth, visWidth } from './render.js'
+import type { OutputFormat, ColumnDef, CommandHint } from './render.js'
+import { renderCommandHints, renderTable, truncateToWidth, visWidth } from './render.js'
 import { findUnit, rangeLabels } from './analytics.js'
 import type { QuickRange } from '../rest/analytics.js'
 
@@ -193,19 +193,25 @@ export function formatBatchStatsNavigationHints (
 ): string {
   const { page, limit, total } = pagination
   const totalPages = Math.ceil(total / limit)
-  const lines: string[] = []
+  const hints: CommandHint[] = []
 
   if (page < totalPages) {
-    lines.push(`  ${chalk.dim('Next page:')}     checkly checks stats --page ${page + 1}`)
+    hints.push({ label: 'Next page', command: `checkly checks stats --page ${page + 1}` })
   }
   if (page > 1) {
-    lines.push(`  ${chalk.dim('Prev page:')}     checkly checks stats --page ${page - 1}`)
+    hints.push({ label: 'Prev page', command: `checkly checks stats --page ${page - 1}` })
   }
-  lines.push(`  ${chalk.dim('View check:')}    checkly checks get <id>`)
-  lines.push(`  ${chalk.dim('Change range:')}  checkly checks stats --range ${range === 'last24Hours' ? 'last7Days' : 'last24Hours'}`)
+  hints.push({ label: 'View check', command: 'checkly checks get <id>' })
+  hints.push({
+    label: 'Change range',
+    command: `checkly checks stats --range ${range === 'last24Hours' ? 'last7Days' : 'last24Hours'}`,
+  })
   if (activeFilters.length === 0) {
-    lines.push(`  ${chalk.dim('Filter:')}        checkly checks stats --tag <tag> --type <type> --search <name>`)
+    hints.push({
+      label: 'Filter',
+      command: 'checkly checks stats --tag <tag> --type <type> --search <name>',
+    })
   }
 
-  return lines.join('\n')
+  return renderCommandHints(hints, { gap: 2 })
 }

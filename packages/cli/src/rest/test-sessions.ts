@@ -4,6 +4,7 @@ import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { compressJSONPayload } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
 import { ForbiddenError, RequestTimeoutError } from './errors.js'
+import type { CheckResult } from './check-results.js'
 
 const COMPLETION_MAX_WAIT_SECONDS = 30
 
@@ -185,6 +186,10 @@ class TestSessions {
 
   get (id: string) {
     return this.api.get<TestSessionDetail>(`/v1/test-sessions/${id}`)
+  }
+
+  getResult (id: string, resultId: string) {
+    return this.api.get<CheckResult>(`/v1/test-sessions/${id}/results/${resultId}`)
   }
 
   getCompletion (id: string, maxWaitSeconds = COMPLETION_MAX_WAIT_SECONDS) {

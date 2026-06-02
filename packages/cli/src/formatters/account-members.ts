@@ -4,6 +4,7 @@ import {
   type ColumnDef,
   type OutputFormat,
   formatDate,
+  renderCommandHints,
   renderTable,
   truncateToWidth,
 } from './render.js'
@@ -22,7 +23,9 @@ export function formatCursorPaginationInfo (count: number, nextId: string | null
 
 export function formatCursorNavigationHints (nextId: string | null): string {
   if (!nextId) return ''
-  return `  ${chalk.dim('Next page:')}    checkly members --limit <limit> --next-id ${nextId}`
+  return renderCommandHints([
+    { label: 'Next page', command: `checkly members --limit <limit> --next-id ${nextId}` },
+  ], { gap: 4 })
 }
 
 function boolSymbol (value: boolean | undefined, format: OutputFormat): string {
