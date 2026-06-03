@@ -1,4 +1,7 @@
+import os from 'node:os'
 import path from 'node:path'
+
+import PQueue from 'p-queue'
 
 import * as api from '../rest/api.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
@@ -29,6 +32,12 @@ import { npmPackageManager, PackageManager } from '../services/check-parser/pack
 import { Err, Result } from '../services/check-parser/package-files/result.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+
+// Cap how many constructs bundle concurrently. Bundling parses and resolves
+// each check's dependency tree, so an unbounded fan-out over hundreds of checks
+// can spike heap usage badly. Scale with CPU count but keep an upper bound so
+// peak memory stays predictable on high-core machines.
+const BUNDLE_CONCURRENCY = Math.max(4, Math.min(os.cpus().length, 16))
 
 export interface ProjectProps {
   /**
@@ -154,28 +163,25 @@ export class Project extends Construct {
       ),
     }
 
-    const constructBundles = await Promise.all(
-      Object.entries(data).flatMap(([, records]) => {
-        return Object.entries(records).map(async ([, construct]) => {
-          const bundle = await construct.bundle(bundler)
-          return {
-            construct,
-            bundle,
-          }
-        })
-      }),
-    )
-
     const dataBundle = Object.fromEntries(
       Object.entries(data).map(([type]) => {
         return [type, {}]
       }),
     ) as ProjectDataBundle
 
-    for (const constructBundle of constructBundles) {
-      const { construct: { type, logicalId } } = constructBundle
-      dataBundle[type as keyof ProjectDataBundle][logicalId] = constructBundle
-    }
+    // Bundle constructs through a bounded queue rather than an unbounded
+    // Promise.all. Each task writes a distinct [type][logicalId] slot, so the
+    // concurrent writes don't race; the final assembly is order-independent.
+    const queue = new PQueue({ concurrency: BUNDLE_CONCURRENCY })
+    await queue.addAll(
+      Object.values(data).flatMap(records => {
+        return Object.values(records).map(construct => async () => {
+          const bundle = await construct.bundle(bundler)
+          const { type, logicalId } = construct
+          dataBundle[type as keyof ProjectDataBundle][logicalId] = { construct, bundle }
+        })
+      }),
+    )
 
     return new ProjectBundle(this, dataBundle)
   }
