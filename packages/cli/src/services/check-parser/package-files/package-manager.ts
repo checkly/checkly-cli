@@ -42,8 +42,24 @@ export interface PackageManager {
 
 class NotDetectedError extends Error {}
 
+export type DetectionMethod =
+  | 'userAgent'
+  | 'runtime'
+  | 'lockfile'
+  | 'configFile'
+  | 'executable'
+
 export abstract class PackageManagerDetector {
   abstract get name (): string
+
+  /**
+   * Tie-break precedence when more than one detector matches the same detection
+   * method. Higher wins (detectors are sorted descending). Lets a detector rank
+   * itself differently per method — e.g. npm deprioritizes its executable
+   * because npm is almost always on PATH, so its mere presence is no signal.
+   */
+  abstract priority (method: DetectionMethod): number
+
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
   abstract get representativeLockfiles (): string[]
@@ -74,6 +90,14 @@ export abstract class PackageManagerDetector {
 export class NpmDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'npm'
+  }
+
+  priority (method: DetectionMethod): number {
+    // npm is nearly always installed, so finding the npm binary on PATH is not
+    // a meaningful signal — rank it below every other built-in detector for the
+    // executable method. Its normal priority applies elsewhere, so it still
+    // wins the package-lock.json lockfile tie over cnpm.
+    return method === 'executable' ? 0 : 20
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -127,6 +151,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return 'cnpm'
   }
 
+  priority (): number {
+    return 10
+  }
+
   detectUserAgent (userAgent: string): boolean {
     return userAgent.startsWith('npminstall/')
   }
@@ -136,7 +164,11 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
   }
 
   get representativeLockfiles (): string[] {
-    return []
+    // cnpm has no lockfile of its own — it uses npm's package-lock.json. We
+    // claim it here so a cnpm user agent can be matched against a real
+    // lockfile. npm has a higher lockfile priority than cnpm, so a bare
+    // package-lock.json with no cnpm user agent still resolves to npm.
+    return ['package-lock.json']
   }
 
   get representativeConfigFile (): undefined {
@@ -176,6 +208,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
 export class PNpmDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'pnpm'
+  }
+
+  priority (): number {
+    return 60
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -297,6 +333,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return 'yarn'
   }
 
+  priority (): number {
+    return 30
+  }
+
   detectUserAgent (userAgent: string): boolean {
     return userAgent.startsWith('yarn/')
   }
@@ -346,6 +386,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 export class DenoDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'deno'
+  }
+
+  priority (): number {
+    return 40
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -440,6 +484,10 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
 export class BunDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'bun'
+  }
+
+  priority (): number {
+    return 50
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -582,35 +630,52 @@ export class PathLookup {
 
 export const npmPackageManager = new NpmDetector()
 
-// The order of the detectors is relevant to the lookup order.
+// Detection precedence is governed by each detector's priority(method), not by
+// this array's order, so listing is free to stay readable. (The order is still
+// used verbatim for the `checkly import` package-manager prompt menu.)
 export const knownPackageManagers: PackageManagerDetector[] = [
   new PNpmDetector(),
   new BunDetector(),
   new DenoDetector(),
   new YarnDetector(),
-  new CNpmDetector(),
   npmPackageManager,
+  new CNpmDetector(),
 ]
 
-export interface DetectOptions {
-  detectors?: PackageManagerDetector[]
+interface DetectPackageManagerImplOptions {
+  detectors: PackageManagerDetector[]
   root?: string
-  /** Skip npm_config_user_agent detection. Use when the invoking command (e.g. npx) sets a user agent that doesn't match the project's actual package manager. */
-  skipUserAgent?: boolean
+  requireLockfile: boolean
 }
 
-export async function detectPackageManager (
+async function detectPackageManagerImpl (
   dir: string,
-  options?: DetectOptions,
-): Promise<PackageManager> {
-  const detectors = options?.detectors ?? knownPackageManagers
+  options: DetectPackageManagerImplOptions,
+): Promise<PackageManager | undefined> {
+  const {
+    detectors,
+    requireLockfile,
+  } = options
 
-  // Try user agent first (unless skipped — e.g. when invoked via npx which always reports npm).
-  if (!options?.skipUserAgent) {
-    const userAgent = process.env['npm_config_user_agent']
-    if (userAgent !== undefined) {
-      for (const detector of detectors) {
-        if (detector.detectUserAgent(userAgent)) {
+  // Detectors are evaluated highest-priority-first within each detection
+  // method, so the order they were supplied in never affects the result.
+  const ordered = (method: DetectionMethod): PackageManagerDetector[] =>
+    [...detectors].sort((a, b) => b.priority(method) - a.priority(method))
+
+  const lockfileDetected = new Set(Array.from(
+    await detectNearestLockfiles(dir, {
+      detectors,
+      root: options?.root,
+    }).catch(() => []),
+    ({ packageManager }) => packageManager,
+  ))
+
+  // Try user agent first.
+  const userAgent = process.env['npm_config_user_agent']
+  if (userAgent !== undefined) {
+    for (const detector of ordered('userAgent')) {
+      if (detector.detectUserAgent(userAgent)) {
+        if ((!requireLockfile || lockfileDetected.has(detector))) {
           return detector
         }
       }
@@ -618,34 +683,42 @@ export async function detectPackageManager (
   }
 
   // Next, try runtime.
-  for (const detector of detectors) {
+  for (const detector of ordered('runtime')) {
     if (detector.detectRuntime()) {
-      return detector
+      if ((!requireLockfile || lockfileDetected.has(detector))) {
+        return detector
+      }
     }
   }
 
-  // Next, try to find a lockfile.
-  try {
-    const { packageManager } = await detectNearestLockfile(dir, {
-      detectors,
-      root: options?.root,
-    })
-
-    return packageManager
-  } catch {
-    // Nothing detected.
+  // Next, try to find a lockfile. When several package managers claim a lockfile
+  // in the nearest directory (e.g. npm and cnpm both claim package-lock.json),
+  // the highest-priority one wins.
+  const lockfileWinner = ordered('lockfile').find(detector => lockfileDetected.has(detector))
+  if (lockfileWinner !== undefined) {
+    return lockfileWinner
   }
 
-  // Next, try to find a config file.
-  try {
-    const { packageManager } = await detectNearestConfigFile(dir, {
+  // If we get here, there's no lockfile, in which case we have to stop
+  // if it's required.
+  if (requireLockfile) {
+    return undefined
+  }
+
+  // Next, try to find a config file. As with lockfiles, when several package
+  // managers have a config file in the nearest directory, the highest-priority
+  // one wins.
+  const configDetected = new Set(Array.from(
+    await detectNearestConfigFiles(dir, {
       detectors,
       root: options?.root,
-    })
+    }).catch(() => []),
+    ({ packageManager }) => packageManager,
+  ))
 
-    return packageManager
-  } catch {
-    // Nothing detected.
+  const configWinner = ordered('configFile').find(detector => configDetected.has(detector))
+  if (configWinner !== undefined) {
+    return configWinner
   }
 
   // Finally, try to find a relevant executable.
@@ -653,12 +726,39 @@ export async function detectPackageManager (
   // This can generate a whole bunch of path lookups. Try one by one despite
   // async support.
   const lookup = new PathLookup()
-  for (const detector of detectors) {
+  for (const detector of ordered('executable')) {
     try {
       await detector.detectExecutable(lookup)
       return detector
     } catch {
       continue
+    }
+  }
+
+  return undefined
+}
+
+export interface DetectPackageManagerOptions {
+  detectors: PackageManagerDetector[]
+  root?: string
+}
+
+export async function detectPackageManager (
+  dir: string,
+  options?: DetectPackageManagerOptions,
+): Promise<PackageManager> {
+  const detectors = options?.detectors ?? knownPackageManagers
+
+  // Try with lockfile required first, which gives a stronger signal.
+  // Fall back to not requiring it.
+  for (const requireLockfile of [true, false]) {
+    const pm = await detectPackageManagerImpl(dir, {
+      detectors,
+      requireLockfile,
+      root: options?.root,
+    })
+    if (pm !== undefined) {
+      return pm
     }
   }
 
@@ -690,34 +790,50 @@ export class NoLockfileFoundError extends Error {
   }
 }
 
-export async function detectNearestLockfile (
+export interface DetectNearestLockfileOptions {
+  detectors?: PackageManagerDetector[]
+  root?: string
+}
+
+/**
+ * Searches `dir` and every parent directory (up to and including
+ * `options.root`) for a lockfile of any of the given `options.detectors`
+ * (or all known package manager detectors if not given). The search stops
+ * when a directory containing lockfiles is found.
+ *
+ * @returns All detected lockfiles in the directory.
+ * @throws {NoLockfileFoundError} If no directory containing a lockfile is found.
+ */
+export async function detectNearestLockfiles (
   dir: string,
-  options?: DetectOptions,
-): Promise<NearestLockFile> {
+  options?: DetectNearestLockfileOptions,
+): Promise<NearestLockFile[]> {
   const detectors = options?.detectors ?? knownPackageManagers
 
   const searchPaths: string[] = []
 
-  // Next, try to find a lockfile.
   for (const searchPath of lineage(dir, { root: options?.root })) {
-    try {
-      searchPaths.push(searchPath)
+    searchPaths.push(searchPath)
 
-      // Assume that only a single kind of lockfile exists, which means the
-      // resolve order does not matter.
-      return await Promise.any(detectors.map(async detector => {
+    const results = await Promise.all(detectors.map(async detector => {
+      try {
         const lockfile = await detector.detectLockfile(searchPath)
         return {
           packageManager: detector,
           lockfile,
         }
-      }))
-    } catch {
-      // Nothing detected.
+      } catch {
+        return null
+      }
+    }))
+
+    const found = results.filter(value => value !== null)
+    if (found.length > 0) {
+      return found
     }
   }
 
-  const lockfiles = detectors.flatMap(detector => detector.representativeLockfiles)
+  const lockfiles = [...new Set(detectors.flatMap(detector => detector.representativeLockfiles))]
 
   throw new NoLockfileFoundError(searchPaths, lockfiles)
 }
@@ -746,35 +862,50 @@ export class NoConfigFileFoundError extends Error {
   }
 }
 
-export async function detectNearestConfigFile (
+export interface DetectNearestConfigFileOptions {
+  detectors?: PackageManagerDetector[]
+  root?: string
+}
+
+/**
+ * Searches `dir` and every parent directory (up to and including
+ * `options.root`) for a config file of any of the given `options.detectors`
+ * (or all known package manager detectors if not given). The search stops
+ * when a directory containing config files is found.
+ *
+ * @returns All detected config files in the directory.
+ * @throws {NoConfigFileFoundError} If no directory containing a config file is found.
+ */
+export async function detectNearestConfigFiles (
   dir: string,
-  options?: DetectOptions,
-): Promise<NearestConfigFile> {
+  options?: DetectNearestConfigFileOptions,
+): Promise<NearestConfigFile[]> {
   const detectors = options?.detectors ?? knownPackageManagers
 
   const searchPaths: string[] = []
 
   for (const searchPath of lineage(dir, { root: options?.root })) {
-    try {
-      searchPaths.push(searchPath)
+    searchPaths.push(searchPath)
 
-      // Assume that only a single kind of config file exists, which means
-      // the resolve order does not matter.
-      return await Promise.any(detectors.map(async detector => {
+    const results = await Promise.all(detectors.map(async detector => {
+      try {
         const configFile = await detector.detectConfigFile(searchPath)
         return {
           packageManager: detector,
           configFile,
         }
-      }))
-    } catch {
-      // Nothing detected.
+      } catch {
+        return null
+      }
+    }))
+
+    const found = results.filter(value => value !== null)
+    if (found.length > 0) {
+      return found
     }
   }
 
-  const configFiles = detectors.reduce<string[]>((acc, detector) => {
-    return acc.concat(detector.representativeConfigFile ?? [])
-  }, [])
+  const configFiles = [...new Set(detectors.flatMap(detector => detector.representativeConfigFile ?? []))]
 
   throw new NoConfigFileFoundError(searchPaths, configFiles)
 }
@@ -859,19 +990,19 @@ async function initWorkspace (
   detector: PackageManagerDetector,
   options: Pick<WorkspaceOptions, 'root' | 'packages'>,
 ) {
-  const lockfile: OptionalWorkspaceFile = await detectNearestLockfile(options.root.path, {
+  const lockfile: OptionalWorkspaceFile = await detectNearestLockfiles(options.root.path, {
     root: options.root.path,
     detectors: [detector],
   }).then(
-    ({ lockfile }) => Ok(lockfile),
+    ([{ lockfile }]) => Ok(lockfile),
     reason => Err(reason),
   )
 
-  const configFile: OptionalWorkspaceFile = await detectNearestConfigFile(options.root.path, {
+  const configFile: OptionalWorkspaceFile = await detectNearestConfigFiles(options.root.path, {
     root: options.root.path,
     detectors: [detector],
   }).then(
-    ({ configFile }) => Ok(configFile),
+    ([{ configFile }]) => Ok(configFile),
     reason => Err(reason),
   )
 
