@@ -33,12 +33,14 @@ export class PlaywrightProjectBundler {
     if (cached !== undefined) {
       return await cached
     }
-    const promise = this.#bundle(playwrightConfig, include)
+    const promise = this.bundleProject(playwrightConfig, include)
     this.#cache.set(cacheKey, promise)
     return await promise
   }
 
-  async #bundle (playwrightConfig: string, include: string[]): Promise<PlaywrightProjectBundle> {
+  // The actual bundling, separated from the cache wrapper above so it can be
+  // overridden in tests. Not part of the public surface.
+  protected async bundleProject (playwrightConfig: string, include: string[]): Promise<PlaywrightProjectBundle> {
     const dir = path.resolve(path.dirname(playwrightConfig))
     const filePath = path.resolve(dir, playwrightConfig)
 
