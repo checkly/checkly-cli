@@ -42,8 +42,24 @@ export interface PackageManager {
 
 class NotDetectedError extends Error {}
 
+export type DetectionMethod =
+  | 'userAgent'
+  | 'runtime'
+  | 'lockfile'
+  | 'configFile'
+  | 'executable'
+
 export abstract class PackageManagerDetector {
   abstract get name (): string
+
+  /**
+   * Tie-break precedence when more than one detector matches the same detection
+   * method. Higher wins (detectors are sorted descending). Lets a detector rank
+   * itself differently per method — e.g. npm deprioritizes its executable
+   * because npm is almost always on PATH, so its mere presence is no signal.
+   */
+  abstract priority (method: DetectionMethod): number
+
   abstract detectUserAgent (userAgent: string): boolean
   abstract detectRuntime (): boolean
   abstract get representativeLockfiles (): string[]
@@ -74,6 +90,14 @@ export abstract class PackageManagerDetector {
 export class NpmDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'npm'
+  }
+
+  priority (method: DetectionMethod): number {
+    // npm is nearly always installed, so finding the npm binary on PATH is not
+    // a meaningful signal — rank it below every other built-in detector for the
+    // executable method. Its normal priority applies elsewhere, so it still
+    // wins the package-lock.json lockfile tie over cnpm.
+    return method === 'executable' ? 0 : 20
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -127,6 +151,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return 'cnpm'
   }
 
+  priority (): number {
+    return 10
+  }
+
   detectUserAgent (userAgent: string): boolean {
     return userAgent.startsWith('npminstall/')
   }
@@ -138,8 +166,8 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
   get representativeLockfiles (): string[] {
     // cnpm has no lockfile of its own — it uses npm's package-lock.json. We
     // claim it here so a cnpm user agent can be matched against a real
-    // lockfile. npm is ordered ahead of cnpm in knownPackageManagers, so a
-    // bare package-lock.json with no cnpm user agent still resolves to npm.
+    // lockfile. npm has a higher lockfile priority than cnpm, so a bare
+    // package-lock.json with no cnpm user agent still resolves to npm.
     return ['package-lock.json']
   }
 
@@ -180,6 +208,10 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
 export class PNpmDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'pnpm'
+  }
+
+  priority (): number {
+    return 60
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -301,6 +333,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return 'yarn'
   }
 
+  priority (): number {
+    return 30
+  }
+
   detectUserAgent (userAgent: string): boolean {
     return userAgent.startsWith('yarn/')
   }
@@ -350,6 +386,10 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 export class DenoDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'deno'
+  }
+
+  priority (): number {
+    return 40
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -444,6 +484,10 @@ export class DenoDetector extends PackageManagerDetector implements PackageManag
 export class BunDetector extends PackageManagerDetector implements PackageManager {
   get name (): string {
     return 'bun'
+  }
+
+  priority (): number {
+    return 50
   }
 
   detectUserAgent (userAgent: string): boolean {
@@ -586,9 +630,9 @@ export class PathLookup {
 
 export const npmPackageManager = new NpmDetector()
 
-// The order of the detectors is relevant to the lookup order. npm precedes
-// cnpm so that a bare package-lock.json (which both claim) resolves to npm
-// unless a cnpm user agent is present.
+// Detection precedence is governed by each detector's priority(method), not by
+// this array's order, so listing is free to stay readable. (The order is still
+// used verbatim for the `checkly import` package-manager prompt menu.)
 export const knownPackageManagers: PackageManagerDetector[] = [
   new PNpmDetector(),
   new BunDetector(),
@@ -613,6 +657,11 @@ async function detectPackageManagerImpl (
     requireLockfile,
   } = options
 
+  // Detectors are evaluated highest-priority-first within each detection
+  // method, so the order they were supplied in never affects the result.
+  const ordered = (method: DetectionMethod): PackageManagerDetector[] =>
+    [...detectors].sort((a, b) => b.priority(method) - a.priority(method))
+
   const lockfileDetected = new Set(Array.from(
     await detectNearestLockfiles(dir, {
       detectors,
@@ -624,7 +673,7 @@ async function detectPackageManagerImpl (
   // Try user agent first.
   const userAgent = process.env['npm_config_user_agent']
   if (userAgent !== undefined) {
-    for (const detector of detectors) {
+    for (const detector of ordered('userAgent')) {
       if (detector.detectUserAgent(userAgent)) {
         if ((!requireLockfile || lockfileDetected.has(detector))) {
           return detector
@@ -634,7 +683,7 @@ async function detectPackageManagerImpl (
   }
 
   // Next, try runtime.
-  for (const detector of detectors) {
+  for (const detector of ordered('runtime')) {
     if (detector.detectRuntime()) {
       if ((!requireLockfile || lockfileDetected.has(detector))) {
         return detector
@@ -642,9 +691,12 @@ async function detectPackageManagerImpl (
     }
   }
 
-  // Next, try to find a lockfile.
-  for (const detector of lockfileDetected) {
-    return detector
+  // Next, try to find a lockfile. When several package managers claim a lockfile
+  // in the nearest directory (e.g. npm and cnpm both claim package-lock.json),
+  // the highest-priority one wins.
+  const lockfileWinner = ordered('lockfile').find(detector => lockfileDetected.has(detector))
+  if (lockfileWinner !== undefined) {
+    return lockfileWinner
   }
 
   // If we get here, there's no lockfile, in which case we have to stop
@@ -670,7 +722,7 @@ async function detectPackageManagerImpl (
   // This can generate a whole bunch of path lookups. Try one by one despite
   // async support.
   const lookup = new PathLookup()
-  for (const detector of detectors) {
+  for (const detector of ordered('executable')) {
     try {
       await detector.detectExecutable(lookup)
       return detector

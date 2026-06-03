@@ -5,10 +5,12 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  CNpmDetector,
   detectNearestLockfiles,
   detectPackageManager,
   knownPackageManagers,
   NoLockfileFoundError,
+  NpmDetector,
   npmPackageManager,
   PackageManagerDetector,
   YarnDetector,
@@ -25,9 +27,10 @@ describe('detectPackageManager', () => {
   // bun/deno detectors (whose detectRuntime() reads process.versions and could
   // fire under an exotic test runner) and bounds which package managers the
   // executable-on-PATH fallback can ever return.
-  // Returns the detectors named, in the exact order requested (Array.filter
-  // would instead preserve knownPackageManagers' order, which matters when a
-  // test depends on detector precedence).
+  // Returns the detectors named, in the exact order requested. Detection
+  // precedence is governed by each detector's priority(method), not by input
+  // order, so several tests pass the same detectors in different orders to prove
+  // the result is identical.
   const detectorsNamed = (...names: string[]): PackageManagerDetector[] =>
     names.map(name => {
       const detector = knownPackageManagers.find(candidate => candidate.name === name)
@@ -232,9 +235,10 @@ describe('detectPackageManager', () => {
       expect(pm.name).toBe('npm')
     })
 
-    it('falls back to detector order when no user agent disambiguates', async () => {
-      // With no user agent and two co-located lockfiles, the first matching
-      // detector in the provided order wins.
+    it('breaks the tie by priority regardless of detector input order', async () => {
+      // With no user agent and two co-located lockfiles, the higher-priority
+      // detector (pnpm 60 > npm 20) wins no matter the order detectors are
+      // supplied in — input order does not affect the result.
       setUserAgent(undefined)
       const root = await makeTree({
         'pnpm-lock.yaml': '',
@@ -242,7 +246,7 @@ describe('detectPackageManager', () => {
       })
 
       const npmFirst = await detectPackageManager(root, { detectors: detectorsNamed('npm', 'pnpm'), root })
-      expect(npmFirst.name).toBe('npm')
+      expect(npmFirst.name).toBe('pnpm')
 
       const pnpmFirst = await detectPackageManager(root, { detectors: detectorsNamed('pnpm', 'npm'), root })
       expect(pnpmFirst.name).toBe('pnpm')
@@ -321,6 +325,34 @@ describe('detectPackageManager', () => {
 
       expect(pm.name).toBe('npm')
     })
+
+    it('prefers an installed cnpm over npm because npm is deprioritized for executables', async () => {
+      // npm is almost always on PATH, so its presence is no signal: with both
+      // cnpm and npm installed and nothing else to go on, cnpm wins.
+      setUserAgent(undefined)
+      const root = await makeTree({})
+      const npm = new NpmDetector()
+      const cnpm = new CNpmDetector()
+      vi.spyOn(npm, 'detectExecutable').mockResolvedValue(undefined)
+      vi.spyOn(cnpm, 'detectExecutable').mockResolvedValue(undefined)
+
+      const pm = await detectPackageManager(root, { detectors: [npm, cnpm], root })
+
+      expect(pm.name).toBe('cnpm')
+    })
+
+    it('still selects npm when it is the only executable present', async () => {
+      setUserAgent(undefined)
+      const root = await makeTree({})
+      const npm = new NpmDetector()
+      const cnpm = new CNpmDetector()
+      vi.spyOn(npm, 'detectExecutable').mockResolvedValue(undefined)
+      vi.spyOn(cnpm, 'detectExecutable').mockRejectedValue(new Error('not on PATH'))
+
+      const pm = await detectPackageManager(root, { detectors: [npm, cnpm], root })
+
+      expect(pm.name).toBe('npm')
+    })
   })
 
   describe('user agent edge cases', () => {
@@ -359,15 +391,21 @@ describe('detectPackageManager', () => {
       expect(pm.name).toBe('cnpm')
     })
 
-    it('defaults a bare package-lock.json to npm, not cnpm', async () => {
-      // No cnpm user agent: with the full detector set npm is ordered ahead of
-      // cnpm, so a plain package-lock.json resolves to npm.
+    it('defaults a bare package-lock.json to npm, not cnpm, regardless of detector order', async () => {
+      // No cnpm user agent: npm has a higher lockfile priority (20) than cnpm
+      // (10), so a plain package-lock.json resolves to npm whichever order the
+      // detectors are supplied in, and with the full default set.
       setUserAgent(undefined)
       const root = await makeTree({ 'package-lock.json': '' })
 
-      const pm = await detectPackageManager(root)
+      const npmFirst = await detectPackageManager(root, { detectors: detectorsNamed('npm', 'cnpm'), root })
+      expect(npmFirst.name).toBe('npm')
 
-      expect(pm.name).toBe('npm')
+      const cnpmFirst = await detectPackageManager(root, { detectors: detectorsNamed('cnpm', 'npm'), root })
+      expect(cnpmFirst.name).toBe('npm')
+
+      const defaultSet = await detectPackageManager(root)
+      expect(defaultSet.name).toBe('npm')
     })
 
     it('keeps an npm user agent resolving to npm despite the shared lockfile', async () => {
