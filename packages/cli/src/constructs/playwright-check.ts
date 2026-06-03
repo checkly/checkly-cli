@@ -1,8 +1,5 @@
 import fs from 'node:fs/promises'
 
-import {
-  bundlePlayWrightProject,
-} from '../services/util.js'
 import { shellQuote } from '../services/shell.js'
 import { RuntimeCheck, RuntimeCheckProps } from './check.js'
 import {
@@ -494,7 +491,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       relativePlaywrightConfigPath,
       workingDir,
       files,
-    } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
+    } = await Session.getPlaywrightProjectBundler().bundle(this.playwrightConfigPath, this.include ?? [])
 
     bundler.registerFiles(...files)
 

@@ -32,6 +32,7 @@ import { npmPackageManager, PackageManager } from '../services/check-parser/pack
 import { Err, Result } from '../services/check-parser/package-files/result.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { PlaywrightProjectBundler } from '../services/playwright-project-bundler.js'
 
 // Cap how many constructs bundle concurrently. Bundling parses and resolves
 // each check's dependency tree, so an unbounded fan-out over hundreds of checks
@@ -253,6 +254,7 @@ export class Session {
   static checklyConfigFileConstructs?: Construct[]
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
+  static playwrightProjectBundler?: PlaywrightProjectBundler
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
   static warnOnWebServerConfig?: boolean
@@ -277,6 +279,7 @@ export class Session {
     this.checklyConfigFileConstructs = undefined
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()
+    this.playwrightProjectBundler = undefined
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
     this.warnOnWebServerConfig = false
@@ -404,6 +407,13 @@ export class Session {
         restricted: false,
       })
     })
+  }
+
+  static getPlaywrightProjectBundler (): PlaywrightProjectBundler {
+    if (this.playwrightProjectBundler === undefined) {
+      this.playwrightProjectBundler = new PlaywrightProjectBundler()
+    }
+    return this.playwrightProjectBundler
   }
 
   static relativePosixPath (filePath: string): string {
