@@ -7,7 +7,7 @@ import { findFilesWithPattern, pathToPosix } from '../util.js'
 import { PlaywrightConfig } from '../playwright-config.js'
 
 export class PlaywrightConfigExpander {
-  #cache = new Map<string, string[]>()
+  #cache = new Map<string, Promise<string[]>>()
 
   private async collectFiles (cache: Map<string, string[]>, testDir: string, ignoredFiles: string[]) {
     let files = cache.get(testDir)
@@ -46,12 +46,16 @@ export class PlaywrightConfigExpander {
 
   async findTestFiles (playwrightConfig: PlaywrightConfig): Promise<string[]> {
     const cacheKey = playwrightConfig.configFilePath
-    let result = this.#cache.get(cacheKey)
-    if (!result) {
-      result = await this.#findTestFiles(playwrightConfig)
-      this.#cache.set(cacheKey, result)
+    const cached = this.#cache.get(cacheKey)
+    if (cached !== undefined) {
+      return await cached
     }
-    return result
+    // Cache the in-flight promise (not the resolved value) so that many checks
+    // sharing one Playwright config walk the filesystem once instead of once
+    // per check when they bundle concurrently.
+    const promise = this.#findTestFiles(playwrightConfig)
+    this.#cache.set(cacheKey, promise)
+    return await promise
   }
 
   private createFileMatcher (patterns: (string | RegExp)[]): (filePath: string) => boolean {
