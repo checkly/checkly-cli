@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   CNpmDetector,
+  detectNearestConfigFiles,
   detectNearestLockfiles,
   detectPackageManager,
   knownPackageManagers,
+  NoConfigFileFoundError,
   NoLockfileFoundError,
   NpmDetector,
   npmPackageManager,
@@ -143,6 +145,19 @@ describe('detectPackageManager', () => {
       const pm = await detectPackageManager(root, { detectors: pnpmNpm, root })
 
       expect(pm.name).toBe('pnpm')
+    })
+
+    it('breaks a co-located config-file tie by priority regardless of detector order', async () => {
+      // Two config files in the same directory: the higher-priority detector
+      // (pnpm 60 > deno 40) wins whichever order detectors are supplied in.
+      setUserAgent(undefined)
+      const root = await makeTree({ 'pnpm-workspace.yaml': '', 'deno.json': '' })
+
+      const denoFirst = await detectPackageManager(root, { detectors: detectorsNamed('deno', 'pnpm'), root })
+      expect(denoFirst.name).toBe('pnpm')
+
+      const pnpmFirst = await detectPackageManager(root, { detectors: detectorsNamed('pnpm', 'deno'), root })
+      expect(pnpmFirst.name).toBe('pnpm')
     })
 
     it('keeps the user agent ahead of a config file when there is no lockfile', async () => {
@@ -498,5 +513,59 @@ describe('detectNearestLockfiles', () => {
 
     await expect(detectNearestLockfiles(root, { detectors: pnpmNpm, root }))
       .rejects.toBeInstanceOf(NoLockfileFoundError)
+  })
+})
+
+describe('detectNearestConfigFiles', () => {
+  const tmpDirs: string[] = []
+
+  afterEach(async () => {
+    await Promise.all(tmpDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })))
+  })
+
+  async function makeTree (files: Record<string, string>): Promise<string> {
+    const root = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-pm-config-spec-')),
+    )
+    tmpDirs.push(root)
+
+    for (const [relativePath, content] of Object.entries(files)) {
+      const fullPath = path.join(root, relativePath)
+      await fs.mkdir(path.dirname(fullPath), { recursive: true })
+      await fs.writeFile(fullPath, content)
+    }
+
+    return root
+  }
+
+  const pnpmDeno = knownPackageManagers.filter(detector => ['pnpm', 'deno'].includes(detector.name))
+
+  it('returns every config file found in the nearest directory that has one', async () => {
+    const root = await makeTree({
+      'pnpm-workspace.yaml': '',
+      'deno.json': '',
+    })
+
+    const results = await detectNearestConfigFiles(root, { detectors: pnpmDeno, root })
+
+    expect(results.map(result => result.packageManager.name).sort()).toEqual(['deno', 'pnpm'])
+  })
+
+  it('stops at the nearest directory and does not collect from ancestors', async () => {
+    const root = await makeTree({
+      'pnpm-workspace.yaml': '',
+      'sub/deno.json': '',
+    })
+
+    const results = await detectNearestConfigFiles(path.join(root, 'sub'), { detectors: pnpmDeno, root })
+
+    expect(results.map(result => result.packageManager.name)).toEqual(['deno'])
+  })
+
+  it('throws NoConfigFileFoundError when no config file exists in the lineage', async () => {
+    const root = await makeTree({})
+
+    await expect(detectNearestConfigFiles(root, { detectors: pnpmDeno, root }))
+      .rejects.toBeInstanceOf(NoConfigFileFoundError)
   })
 })

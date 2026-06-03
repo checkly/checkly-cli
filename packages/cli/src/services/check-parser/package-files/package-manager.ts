@@ -705,16 +705,20 @@ async function detectPackageManagerImpl (
     return undefined
   }
 
-  // Next, try to find a config file.
-  try {
-    const { packageManager } = await detectNearestConfigFile(dir, {
+  // Next, try to find a config file. As with lockfiles, when several package
+  // managers have a config file in the nearest directory, the highest-priority
+  // one wins.
+  const configDetected = new Set(Array.from(
+    await detectNearestConfigFiles(dir, {
       detectors,
       root: options?.root,
-    })
+    }).catch(() => []),
+    ({ packageManager }) => packageManager,
+  ))
 
-    return packageManager
-  } catch {
-    // Nothing detected.
+  const configWinner = ordered('configFile').find(detector => configDetected.has(detector))
+  if (configWinner !== undefined) {
+    return configWinner
   }
 
   // Finally, try to find a relevant executable.
@@ -863,35 +867,45 @@ export interface DetectNearestConfigFileOptions {
   root?: string
 }
 
-export async function detectNearestConfigFile (
+/**
+ * Searches `dir` and every parent directory (up to and including
+ * `options.root`) for a config file of any of the given `options.detectors`
+ * (or all known package manager detectors if not given). The search stops
+ * when a directory containing config files is found.
+ *
+ * @returns All detected config files in the directory.
+ * @throws {NoConfigFileFoundError} If no directory containing a config file is found.
+ */
+export async function detectNearestConfigFiles (
   dir: string,
   options?: DetectNearestConfigFileOptions,
-): Promise<NearestConfigFile> {
+): Promise<NearestConfigFile[]> {
   const detectors = options?.detectors ?? knownPackageManagers
 
   const searchPaths: string[] = []
 
   for (const searchPath of lineage(dir, { root: options?.root })) {
-    try {
-      searchPaths.push(searchPath)
+    searchPaths.push(searchPath)
 
-      // Assume that only a single kind of config file exists, which means
-      // the resolve order does not matter.
-      return await Promise.any(detectors.map(async detector => {
+    const results = await Promise.all(detectors.map(async detector => {
+      try {
         const configFile = await detector.detectConfigFile(searchPath)
         return {
           packageManager: detector,
           configFile,
         }
-      }))
-    } catch {
-      // Nothing detected.
+      } catch {
+        return null
+      }
+    }))
+
+    const found = results.filter(value => value !== null)
+    if (found.length > 0) {
+      return found
     }
   }
 
-  const configFiles = detectors.reduce<string[]>((acc, detector) => {
-    return acc.concat(detector.representativeConfigFile ?? [])
-  }, [])
+  const configFiles = [...new Set(detectors.flatMap(detector => detector.representativeConfigFile ?? []))]
 
   throw new NoConfigFileFoundError(searchPaths, configFiles)
 }
@@ -984,11 +998,11 @@ async function initWorkspace (
     reason => Err(reason),
   )
 
-  const configFile: OptionalWorkspaceFile = await detectNearestConfigFile(options.root.path, {
+  const configFile: OptionalWorkspaceFile = await detectNearestConfigFiles(options.root.path, {
     root: options.root.path,
     detectors: [detector],
   }).then(
-    ({ configFile }) => Ok(configFile),
+    ([{ configFile }]) => Ok(configFile),
     reason => Err(reason),
   )
 
