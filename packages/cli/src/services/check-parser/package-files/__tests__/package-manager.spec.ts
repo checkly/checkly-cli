@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  detectAllNearestLockfiles,
+  detectNearestLockfiles,
   detectPackageManager,
   knownPackageManagers,
   NoLockfileFoundError,
@@ -409,7 +409,7 @@ describe('detectPackageManager', () => {
   })
 })
 
-describe('detectAllNearestLockfiles', () => {
+describe('detectNearestLockfiles', () => {
   const tmpDirs: string[] = []
 
   afterEach(async () => {
@@ -439,7 +439,7 @@ describe('detectAllNearestLockfiles', () => {
       'package-lock.json': '',
     })
 
-    const results = await detectAllNearestLockfiles(root, { detectors: pnpmNpm, root })
+    const results = await detectNearestLockfiles(root, { detectors: pnpmNpm, root })
 
     expect(results.map(result => result.packageManager.name).sort()).toEqual(['npm', 'pnpm'])
   })
@@ -450,7 +450,7 @@ describe('detectAllNearestLockfiles', () => {
       'sub/package-lock.json': '',
     })
 
-    const results = await detectAllNearestLockfiles(path.join(root, 'sub'), { detectors: pnpmNpm, root })
+    const results = await detectNearestLockfiles(path.join(root, 'sub'), { detectors: pnpmNpm, root })
 
     expect(results.map(result => result.packageManager.name)).toEqual(['npm'])
   })
@@ -458,7 +458,7 @@ describe('detectAllNearestLockfiles', () => {
   it('throws NoLockfileFoundError when no lockfile exists in the lineage', async () => {
     const root = await makeTree({})
 
-    await expect(detectAllNearestLockfiles(root, { detectors: pnpmNpm, root }))
+    await expect(detectNearestLockfiles(root, { detectors: pnpmNpm, root }))
       .rejects.toBeInstanceOf(NoLockfileFoundError)
   })
 })

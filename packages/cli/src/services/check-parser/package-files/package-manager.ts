@@ -614,7 +614,7 @@ async function detectPackageManagerImpl (
   } = options
 
   const lockfileDetected = new Set(Array.from(
-    await detectAllNearestLockfiles(dir, {
+    await detectNearestLockfiles(dir, {
       detectors,
       root: options?.root,
     }).catch(() => []),
@@ -743,55 +743,12 @@ export interface DetectNearestLockfileOptions {
  * Searches `dir` and every parent directory (up to and including
  * `options.root`) for a lockfile of any of the given `options.detectors`
  * (or all known package manager detectors if not given). The search stops
- * when a directory containing a lockfile is found.
- *
- * In case the directory contains multiple lockfiles, the result is
- * non-determistic.
- *
- * @returns The detected lockfile.
- * @throws {NoLockfileFoundError} If no directory containing a lockfile is found.
- */
-export async function detectNearestLockfile (
-  dir: string,
-  options?: DetectNearestLockfileOptions,
-): Promise<NearestLockFile> {
-  const detectors = options?.detectors ?? knownPackageManagers
-
-  const searchPaths: string[] = []
-
-  for (const searchPath of lineage(dir, { root: options?.root })) {
-    try {
-      searchPaths.push(searchPath)
-
-      // Assume that only a single kind of lockfile exists, which means the
-      // resolve order does not matter.
-      return await Promise.any(detectors.map(async detector => {
-        const lockfile = await detector.detectLockfile(searchPath)
-        return {
-          packageManager: detector,
-          lockfile,
-        }
-      }))
-    } catch {
-      // Nothing detected.
-    }
-  }
-
-  const lockfiles = [...new Set(detectors.flatMap(detector => detector.representativeLockfiles))]
-
-  throw new NoLockfileFoundError(searchPaths, lockfiles)
-}
-
-/**
- * Searches `dir` and every parent directory (up to and including
- * `options.root`) for a lockfile of any of the given `options.detectors`
- * (or all known package manager detectors if not given). The search stops
  * when a directory containing lockfiles is found.
  *
  * @returns All detected lockfiles in the directory.
  * @throws {NoLockfileFoundError} If no directory containing a lockfile is found.
  */
-export async function detectAllNearestLockfiles (
+export async function detectNearestLockfiles (
   dir: string,
   options?: DetectNearestLockfileOptions,
 ): Promise<NearestLockFile[]> {
@@ -967,11 +924,11 @@ async function initWorkspace (
   detector: PackageManagerDetector,
   options: Pick<WorkspaceOptions, 'root' | 'packages'>,
 ) {
-  const lockfile: OptionalWorkspaceFile = await detectNearestLockfile(options.root.path, {
+  const lockfile: OptionalWorkspaceFile = await detectNearestLockfiles(options.root.path, {
     root: options.root.path,
     detectors: [detector],
   }).then(
-    ({ lockfile }) => Ok(lockfile),
+    ([{ lockfile }]) => Ok(lockfile),
     reason => Err(reason),
   )
 
