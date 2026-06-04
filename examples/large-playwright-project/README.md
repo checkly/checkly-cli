@@ -1,97 +1,116 @@
-# Large Playwright project (heap-usage repro)
+# Large Playwright project (bundling stress fixture)
 
-A deliberately large Checkly + Playwright project that emulates the reported
-customer scenario: **hundreds of `PlaywrightCheck`s generated from one shared
-source tree, each duplicated across several locations.** Use it to reproduce
-the `checkly deploy` heap exhaustion and to verify the bundling fixes.
+A deliberately oversized Checkly + Playwright project for **stress-testing and
+profiling project parsing and bundling**. It generates a large number of
+`PlaywrightCheck`s — hundreds to thousands — that all share a single
+`playwright.config.ts` and the same source tree, then lets you watch how the
+CLI's parse → bundle → synthesize pipeline behaves (time and heap usage) as you
+scale the number of checks and the size of the shared codebase.
+
+It's useful for catching performance or memory regressions in the bundler:
+large projects where many checks are generated from one codebase are the
+worst case for that pipeline.
 
 ## What's in here
 
 - `playwright.check.ts` — a loop that creates `CHECK_COUNT × LOCATIONS`
   `PlaywrightCheck` constructs, **all pointing at the same
   `playwright.config.ts`** and the same `./tests` + `./src` import graph.
+  (One construct per check/location pair, which maximises the number of
+  constructs the bundler has to process.)
 - `playwright.config.ts` / `tests/*.spec.ts` — a real Playwright suite whose
   specs import a shared library, so bundling has to parse and resolve a genuine
-  dependency graph.
+  dependency graph, not just a couple of files.
 - `src/lib/**` — a hand-written shared library with cross-module imports,
   re-export barrels, and a chunky data file (`src/lib/data/countries.ts`).
 - `scripts/generate-lib.mjs` — generates a much larger interlinked tree under
   `src/generated/**` (plus a spec that pulls it all in) so you can scale the
-  shared codebase up until the pre-fix CLI runs out of heap.
+  shared codebase up independently of the check count.
 
-The key property: every check shares the **same** config and source tree. Before
-the fix, `Project.bundle()` fanned out an unbounded `Promise.all` over every
-check and each one re-parsed and re-resolved that whole shared graph
-concurrently — so peak heap scaled with the number of checks. After the fix the
-work is deduplicated (shared promise caches + a memoized `PlaywrightProjectBundler`)
-and the fan-out is concurrency-capped.
+The point of the fixture is that every check shares the **same** config and
+source tree. That shared graph has to be discovered, parsed, and resolved for
+the project as a whole, and the number of checks referencing it is varied
+independently — which is what makes it a good probe for how parsing/bundling
+cost scales with check count versus codebase size.
 
-## Reproducing / verifying without an account
+## Scaling knobs
 
-`checkly debug parse-project` runs the exact heavy path —
-parse → `project.bundle()` → `finalize()` → `synthesize()` — **without needing
-to log in or deploy.** That's all you need to observe the heap behaviour.
+- `CHECK_COUNT` (env, default `200`) — number of logical checks. Total
+  constructs = `CHECK_COUNT × LOCATIONS`.
+- `LOCATIONS` (env, default `us-east-1,eu-west-1,ap-southeast-1`) — comma list.
+- `npm run generate -- <modules> <datasetRows>` — size of the shared source
+  tree (interlinked modules + large data files). `npm run clean:generated`
+  removes it.
 
-### 1. Build and pack the local CLI
+## Running it against a local CLI build
 
-From the repo root:
+`checkly debug parse-project` runs the parse → `project.bundle()` →
+`finalize()` → `synthesize()` pipeline **without logging in or deploying**, so
+it's all you need to exercise and measure the bundler.
+
+1. Build and pack the CLI from the repo root:
+
+   ```bash
+   pnpm --filter checkly run prepare
+   (cd packages/cli && pnpm pack)   # produces packages/cli/checkly-0.0.1-dev.tgz
+   ```
+
+2. Install this project against that build:
+
+   ```bash
+   cd examples/large-playwright-project
+   npm install
+   npm install --no-save ../../packages/cli/checkly-0.0.1-dev.tgz
+   ```
+
+   `npx checkly` now resolves to the freshly built CLI.
+
+3. (Optional) grow the shared source tree:
+
+   ```bash
+   npm run generate -- 150 2500   # 150 modules + 4 datasets of 2500 rows
+   ```
+
+4. Parse + bundle at a chosen scale:
+
+   ```bash
+   CHECK_COUNT=600 npx checkly debug parse-project > /dev/null
+   ```
+
+## Measuring time and memory
+
+Pass `--stats` to print parse/bundle/synthesize timing and heap usage to
+stderr (stdout still carries the JSON payload, so redirect it). Add
+`NODE_OPTIONS=--expose-gc` to also report the retained (post-GC) live heap:
 
 ```bash
-pnpm --filter checkly run prepare
-(cd packages/cli && pnpm pack)   # produces packages/cli/checkly-0.0.1-dev.tgz
+CHECK_COUNT=600 NODE_OPTIONS=--expose-gc \
+  npx checkly debug parse-project --stats > /dev/null
+# stderr: parse-project stats {"constructs":1801,"bundleMs":...,
+#   "peakHeapUsedBytes":...,"retainedHeapBytes":...,"peakRssBytes":...}
 ```
 
-### 2. Install the example against that local build
+To find the heap ceiling for a given scale, cap the old-space size and see
+whether it completes or aborts with `JavaScript heap out of memory`:
 
 ```bash
-cd examples/large-playwright-project
-npm install
-npm install --no-save ../../packages/cli/checkly-0.0.1-dev.tgz
+CHECK_COUNT=600 NODE_OPTIONS=--max-old-space-size=512 \
+  npx checkly debug parse-project > /dev/null
 ```
 
-`npx checkly` now resolves to the freshly built CLI.
+What to look for when interpreting the numbers:
 
-### 3. (Optional) scale the shared source tree up
-
-```bash
-# 150 interlinked modules + 4 datasets of 2500 rows each
-npm run generate -- 150 2500
-# undo with: npm run clean:generated
-```
-
-### 4. Parse + bundle under a constrained heap
-
-```bash
-# ~600 PlaywrightCheck constructs (200 checks × 3 locations), 768 MB heap cap
-CHECK_COUNT=200 NODE_OPTIONS=--max-old-space-size=768 npx checkly debug parse-project > /dev/null
-```
-
-On the **fixed** CLI this completes. To see the old behaviour, repeat steps 1–2
-from a commit *before* the bundling fixes (re-pack, re-install the tarball) and
-rerun — it crashes with `JavaScript heap out of memory`. Dial the pressure with
-`CHECK_COUNT`, `LOCATIONS`, the generator size, and `--max-old-space-size`.
-
-### Measured before/after
-
-Same inputs both runs: `npm run generate -- 200 3000` (200 interlinked modules
-+ 4 datasets of 3000 rows), `CHECK_COUNT=600` (1800 PlaywrightCheck constructs),
-`--max-old-space-size=1024`:
-
-| CLI | Result | Peak RSS | Wall time |
-| --- | --- | --- | --- |
-| pre-fix (`main` before the bundling fixes) | **`JavaScript heap out of memory`** (exit 134) | — | crashed |
-| fixed | bundles all 1800 checks (exit 0) | ~390 MB | ~2 s |
-
-At a smaller scale where the pre-fix CLI survives (`CHECK_COUNT=300`, uncapped
-heap) the gap is still stark: ~1470 MB peak RSS pre-fix versus ~380 MB fixed.
-
-> Tip: prefix the command with `/usr/bin/time -l` (macOS) or `/usr/bin/time -v`
-> (Linux) to print peak resident memory, which is handy for before/after
-> comparisons even when neither run crashes.
+- **Retained heap should grow roughly linearly with `CHECK_COUNT`** and only by
+  a small amount per construct (each check contributes its construct, its
+  bundle, and one entry in the synthesized payload). A faster-than-linear climb
+  would indicate per-check work being retained that should be shared.
+- **Peak heap and bundle time should track the size of the shared codebase**
+  (the `generate` parameters) far more than the check count — the shared graph
+  is parsed and resolved once, so adding checks that reuse it should be cheap.
 
 ## Deploying it for real
 
 It's a normal Checkly project, so once you're authenticated you can also run
-`npx checkly deploy` / `npx checkly deploy --preview` against it. Keep
-`CHECK_COUNT` modest if you actually deploy — this is primarily a stress
-fixture, not something you want hundreds of real checks from.
+`npx checkly deploy` / `npx checkly deploy --preview`. Keep `CHECK_COUNT`
+modest if you actually deploy — this is a stress fixture, not something you
+want hundreds of real checks from.

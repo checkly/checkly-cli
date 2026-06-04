@@ -1,13 +1,11 @@
 import { CheckGroupV2, Frequency, PlaywrightCheck } from 'checkly/constructs'
 
 /*
- * Emulates the reported customer scenario: hundreds of PlaywrightChecks all
- * generated from one shared source tree, each duplicated across several
- * locations. Every check points at the SAME playwright.config.ts and the same
- * ./tests + ./src import graph, so before the bundling fixes each construct
- * re-loaded the config, re-resolved the Playwright version, and re-parsed and
- * re-resolved the entire shared dependency graph — concurrently — which is
- * what exhausted the heap.
+ * Generates a large number of PlaywrightChecks that all share one
+ * playwright.config.ts and the same ./tests + ./src import graph. This is a
+ * stress fixture for project parsing and bundling: the shared dependency graph
+ * has to be discovered and resolved for the project, while the number of checks
+ * referencing it is varied independently.
  *
  * Tune the scale with env vars:
  *   CHECK_COUNT  number of logical checks (default 200)
@@ -15,8 +13,7 @@ import { CheckGroupV2, Frequency, PlaywrightCheck } from 'checkly/constructs'
  *
  * Total PlaywrightCheck constructs = CHECK_COUNT * LOCATIONS. Creating one
  * construct per (check, location) — rather than a single check with a
- * locations array — maximises the width of the Project.bundle() fan-out, which
- * is what the concurrency cap and the shared caches are there to tame.
+ * locations array — maximises the number of constructs the bundler processes.
  */
 const CHECK_COUNT = Number(process.env.CHECK_COUNT ?? 200)
 const LOCATIONS = (process.env.LOCATIONS ?? 'us-east-1,eu-west-1,ap-southeast-1')

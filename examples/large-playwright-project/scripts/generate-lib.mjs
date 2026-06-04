@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates a large, interlinked source tree under src/generated plus a spec
-// that pulls the whole graph into the bundle. Use this to crank the shared
-// codebase up to a size that reproduces the heap blow-up on the pre-fix CLI.
+// that pulls the whole graph into the bundle. Use this to scale the shared
+// codebase up independently of the check count when stressing the bundler.
 //
 //   node scripts/generate-lib.mjs [moduleCount=120] [datasetRows=2000]
 //
