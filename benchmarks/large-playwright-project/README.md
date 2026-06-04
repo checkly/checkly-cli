@@ -58,7 +58,7 @@ it's all you need to exercise and measure the bundler.
 2. Install this project against that build:
 
    ```bash
-   cd examples/large-playwright-project
+   cd benchmarks/large-playwright-project
    npm install
    npm install --no-save ../../packages/cli/checkly-0.0.1-dev.tgz
    ```
