@@ -3,7 +3,7 @@ import path, { dirname } from 'node:path'
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen/index.js'
 import { ProgramFile } from '../../../sourcegen/program.js'
 import { parseSnippetDependencies } from './snippet.js'
-import { ConstructExport } from '../../project.js'
+import { ConstructExport } from '../../session.js'
 
 export class MissingContextVariableMappingError extends Error {}
 

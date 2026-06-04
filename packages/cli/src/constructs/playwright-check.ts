@@ -1,8 +1,5 @@
 import fs from 'node:fs/promises'
 
-import {
-  bundlePlayWrightProject,
-} from '../services/util.js'
 import { shellQuote } from '../services/shell.js'
 import { RuntimeCheck, RuntimeCheckProps } from './check.js'
 import {
@@ -15,7 +12,7 @@ import {
 } from './construct-diagnostics.js'
 import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import { PlaywrightCheckBundle } from './playwright-check-bundle.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
@@ -494,7 +491,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       relativePlaywrightConfigPath,
       workingDir,
       files,
-    } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
+    } = await Session.getPlaywrightProjectBundler().bundle(this.playwrightConfigPath, this.include ?? [])
 
     bundler.registerFiles(...files)
 

@@ -151,12 +151,12 @@ export class Parser {
   resolver: PackageFilesResolver
   restricted: boolean
 
-  #parseCache = new Map<string, {
+  #parseCache = new Map<string, Promise<{
     module: Module
     error?: any
-  }>()
+  }>>()
 
-  #resolveCache = new Map<string, Dependencies>()
+  #resolveCache = new Map<string, Promise<Dependencies>>()
 
   #configExpander = new PlaywrightConfigExpander()
 
@@ -323,36 +323,48 @@ export class Parser {
   private async parseFile (
     filePath: string,
   ): Promise<{ module: Module, error?: any }> {
-    const cache = this.#parseCache.get(filePath)
-    if (!cache) {
-      const { content } = await this.readFile(filePath)
-      return this.parseFileContent(filePath, content)
+    const cached = this.#parseCache.get(filePath)
+    if (cached !== undefined) {
+      return await cached
     }
-    return cache
+    // Cache the in-flight read+parse promise (not the resolved value) so that
+    // when many checks resolve the same shared file concurrently they share a
+    // single read and a single AST instead of each allocating its own.
+    const promise = this.readFile(filePath)
+      .then(({ content }) => Parser.parseDependencies(filePath, content))
+    this.#parseCache.set(filePath, promise)
+    return await promise
   }
 
-  private parseFileContent (
+  private async parseFileContent (
     filePath: string,
     content: string,
-  ): { module: Module, error?: any } {
-    let cache = this.#parseCache.get(filePath)
-    if (!cache) {
-      cache = Parser.parseDependencies(filePath, content)
-      this.#parseCache.set(filePath, cache)
+  ): Promise<{ module: Module, error?: any }> {
+    const cached = this.#parseCache.get(filePath)
+    if (cached !== undefined) {
+      return await cached
     }
-    return cache
+    // The content is already in hand, so parse synchronously, but cache the
+    // result as a promise to share the same #parseCache with parseFile.
+    const promise = Promise.resolve(Parser.parseDependencies(filePath, content))
+    this.#parseCache.set(filePath, promise)
+    return await promise
   }
 
   private async resolveDependencies (
     filePath: string,
     dependencies: RawDependency[],
   ): Promise<Dependencies> {
-    let cache = this.#resolveCache.get(filePath)
-    if (!cache) {
-      cache = await this.resolver.resolveDependenciesForFilePath(filePath, dependencies)
-      this.#resolveCache.set(filePath, cache)
+    const cached = this.#resolveCache.get(filePath)
+    if (cached !== undefined) {
+      return await cached
     }
-    return cache
+    // Cache the in-flight promise so concurrent callers for the same file
+    // share a single dependency resolution instead of each walking the whole
+    // tree and allocating a separate result.
+    const promise = this.resolver.resolveDependenciesForFilePath(filePath, dependencies)
+    this.#resolveCache.set(filePath, promise)
+    return await promise
   }
 
   async parse (entrypoint: string) {
@@ -383,7 +395,7 @@ export class Parser {
 
       let dependencies: RawDependency[] = []
       if (ops & FILEOP_PARSE) {
-        const { module, error } = this.parseFileContent(item.filePath, item.content)
+        const { module, error } = await this.parseFileContent(item.filePath, item.content)
 
         if (error) {
           collector.addParsingError(item.filePath, error.message)

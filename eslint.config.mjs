@@ -48,6 +48,7 @@ export default defineConfig([
     '**/__checks__/**/*.spec.{js,ts,mjs}',
     '**/syntax-error*',
     'examples/*',
+    'benchmarks/*',
     '**/*fixtures/',
   ]),
   {

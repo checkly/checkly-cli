@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
 import { Construct, Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { DashboardBundle } from './dashboard-bundle.js'

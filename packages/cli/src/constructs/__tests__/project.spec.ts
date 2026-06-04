@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { Session } from '../project.js'
+import { Session } from '../session.js'
 import { Construct } from '../construct.js'
 import { Diagnostics } from '../diagnostics.js'
 
