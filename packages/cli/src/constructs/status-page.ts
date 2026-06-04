@@ -1,5 +1,5 @@
 import { Construct } from './construct.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { StatusPageService } from './status-page-service.js'
 import { Ref } from './ref.js'
 

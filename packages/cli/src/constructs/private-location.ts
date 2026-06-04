@@ -2,7 +2,7 @@ import { Construct } from './construct.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
 import { validatePhysicalIdIsUuid } from './internal/common-diagnostics.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 
 export type PrivateLocationIcon = 'alert' | 'arrow-down' | 'arrow-left' | 'arrow-right' | 'arrow-small-down'
   | 'arrow-small-left' | 'arrow-small-right' | 'arrow-small-up' | 'arrow-up' | 'beaker' | 'bell' | 'bold'

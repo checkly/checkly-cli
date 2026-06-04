@@ -3,7 +3,7 @@ import path from 'node:path'
 import { Command, Flags } from '@oclif/core'
 
 import { PlaywrightConfig } from '../../services/playwright-config.js'
-import { Session } from '../../constructs/project.js'
+import { Session } from '../../constructs/session.js'
 import { Parser } from '../../services/check-parser/parser.js'
 
 export default class ParsePlaywrightConfigCommand extends Command {

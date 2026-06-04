@@ -1,4 +1,5 @@
 export * from './project.js'
+export * from './session.js'
 export * from './sms-alert-channel.js'
 export * from './email-alert-channel.js'
 export * from './slack-alert-channel.js'

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
 import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check.js'
-import { Session, SharedFileRef } from './project.js'
+import { Session, SharedFileRef } from './session.js'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
 import { detectSnapshots } from '../services/snapshot-service.js'
 import { PlaywrightConfig } from './playwright-config.js'

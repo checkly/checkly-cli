@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { Frequency } from '../frequency.js'
-import { Project, Session } from '../project.js'
+import { Project } from '../project.js'
+import { Session } from '../session.js'
 import { ApiCheck } from '../api-check.js'
 
 describe('Check', () => {

@@ -3,7 +3,8 @@ import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 import { Dashboard } from '../index.js'
-import { Project, Session } from '../project.js'
+import { Project } from '../project.js'
+import { Session } from '../session.js'
 import { Bundler } from '../../services/check-parser/bundler.js'
 
 describe('Dashboard', () => {

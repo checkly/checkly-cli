@@ -12,7 +12,7 @@ import {
 } from './construct-diagnostics.js'
 import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import { PlaywrightCheckBundle } from './playwright-check-bundle.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'

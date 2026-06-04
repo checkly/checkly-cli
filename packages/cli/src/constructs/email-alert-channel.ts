@@ -1,5 +1,5 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 
 export interface EmailAlertChannelProps extends AlertChannelProps {
   /**

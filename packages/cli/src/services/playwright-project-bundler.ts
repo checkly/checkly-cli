@@ -7,7 +7,7 @@ import { File } from './check-parser/parser.js'
 import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 import { PlaywrightConfig } from './playwright-config.js'
 import { findFilesWithPattern, pathToPosix } from './util.js'
-import { Session } from '../constructs/project.js'
+import { Session } from '../constructs/session.js'
 
 export interface PlaywrightProjectBundle {
   browsers: string[]

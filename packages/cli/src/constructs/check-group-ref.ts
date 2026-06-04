@@ -3,7 +3,7 @@ import { CheckGroupV1 } from './check-group-v1.js'
 import { Construct } from './construct.js'
 import { Diagnostics } from './diagnostics.js'
 import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 
 /**
  * Creates a reference to an existing Check Group (both v1 and v2).
