@@ -1,8 +1,5 @@
 import fs from 'node:fs/promises'
 
-import {
-  bundlePlayWrightProject,
-} from '../services/util.js'
 import { shellQuote } from '../services/shell.js'
 import { RuntimeCheck, RuntimeCheckProps } from './check.js'
 import {
@@ -15,7 +12,7 @@ import {
 } from './construct-diagnostics.js'
 import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import { PlaywrightCheckBundle } from './playwright-check-bundle.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
@@ -83,11 +80,17 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
   pwTags?: string | string[]
 
   /**
-   * File patterns to include when bundling the test project.
-   * Use this to include test files, utilities, and other assets.
+   * Extra file patterns to bundle alongside the Playwright project.
    *
-   * @example "tests/**\/*"
-   * @example ["tests/**\/*", "utils/**\/*", "fixtures/**\/*"]
+   * Test files and anything reachable through `import` are already bundled
+   * via Playwright's project discovery and the import graph. Use `include`
+   * only for non-code assets that specs read via `fs` at runtime, such as
+   * markdown, JSON fixtures, or snapshots that aren't imported anywhere.
+   *
+   * Globs resolve relative to the directory of `playwrightConfigPath`.
+   *
+   * @example "fixtures/**\/*.json"
+   * @example ["fixtures/**\/*.json", "docs/**\/*.md"]
    */
   include?: string | string[]
 
@@ -128,7 +131,9 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
  *   installCommand: 'npm ci',
  *   pwProjects: ['chromium', 'firefox'],
  *   pwTags: ['@smoke', '@critical'],
- *   include: ['tests/**\/*', 'utils/**\/*'],
+ *   // `include` is for non-code assets read via `fs` at runtime;
+ *   // imported files are bundled automatically.
+ *   include: ['fixtures/**\/*.json'],
  *   groupName: 'E2E Tests',
  *   frequency: Frequency.EVERY_5M
  * })
@@ -486,7 +491,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       relativePlaywrightConfigPath,
       workingDir,
       files,
-    } = await bundlePlayWrightProject(this.playwrightConfigPath, this.include ?? [])
+    } = await Session.getPlaywrightProjectBundler().bundle(this.playwrightConfigPath, this.include ?? [])
 
     bundler.registerFiles(...files)
 

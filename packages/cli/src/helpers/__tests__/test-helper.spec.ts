@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { prepareReportersTypes } from '../test-helper.js'
+import { prepareReportersTypes, validateDetachReporterTypes } from '../test-helper.js'
 
 vi.mock('ci-info', () => ({ isCI: false }))
 
@@ -32,5 +32,25 @@ describe('prepareReportersTypes', () => {
   it('CLI --reporter flag supports multiple values', () => {
     const result = prepareReportersTypes(['list', 'json'], ['list', 'dot'])
     expect(result).toEqual(['list', 'json'])
+  })
+})
+
+describe('validateDetachReporterTypes', () => {
+  it('allows streaming reporters in detach mode', () => {
+    expect(() => validateDetachReporterTypes(['list', 'dot', 'ci'])).not.toThrow()
+  })
+
+  it('rejects json reporter in detach mode', () => {
+    expect(() => validateDetachReporterTypes(['json'])).toThrow('--detach does not support --reporter json')
+  })
+
+  it('rejects github reporter in detach mode', () => {
+    expect(() => validateDetachReporterTypes(['github'])).toThrow('--detach does not support --reporter github')
+  })
+
+  it('rejects file reporters mixed with streaming reporters in detach mode', () => {
+    expect(() => validateDetachReporterTypes(['list', 'json', 'github'])).toThrow(
+      '--detach does not support --reporter json, --reporter github',
+    )
   })
 })

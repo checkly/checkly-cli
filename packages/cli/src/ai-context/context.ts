@@ -51,12 +51,20 @@ export const REFERENCES = [
     id: 'configure-supporting-constructs',
     description: 'Status pages (`StatusPage`), dashboards (`Dashboard`), maintenance windows (`MaintenanceWindow`), and private locations (`PrivateLocation`)',
   },
+  {
+    id: 'configure-environment',
+    description: 'Environment variables: built-in vars Checkly injects at runtime (`CHECK_ID`, `CHECK_NAME`, `REGION`, `CHECKLY_*`), user-defined variables and secrets at global/group/check scope, reference syntax (`process.env` vs `{{handlebars}}`), and the `checkly env` CLI for managing global vars.',
+  },
 ] as const
 
 export const INVESTIGATE_REFERENCES = [
   {
     id: 'investigate-checks',
     description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
+  },
+  {
+    id: 'investigate-test-sessions',
+    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and retrieve result assets',
   },
 ] as const
 
@@ -95,7 +103,7 @@ export const ACTIONS = [
   },
   {
     id: 'investigate',
-    description: 'Access check status, analyze failures, and investigate errors.',
+    description: 'Access check and test-session status, analyze failures, and investigate errors.',
     references: INVESTIGATE_REFERENCES,
   },
   {
@@ -176,6 +184,11 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
   // Playwright Check Suites support all browsers
   // defined in your \`playwright.config\`
   pwProjects: ["chromium", "firefox", "webkit"],
+  // Bundle non-code assets that specs read via \`fs\` at runtime.
+  // Test files and anything reachable through \`import\` are already
+  // bundled — \`include\` is only for files outside the import graph.
+  // Globs resolve relative to the playwright config's directory.
+  include: ["fixtures/**/*.json", "docs/**/*.md"],
 });
 `,
     reference: 'https://www.checklyhq.com/docs/constructs/playwright-check/',

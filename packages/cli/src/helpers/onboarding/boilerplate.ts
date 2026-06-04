@@ -38,9 +38,7 @@ function sanitizeLogicalId (name: string): string {
 }
 
 async function detectProjectPackageManager (projectDir: string): Promise<{ name: string, installCmd: string }> {
-  // Skip user agent detection — when invoked via npx, it always reports npm
-  // regardless of the project's actual package manager. Lockfile/config detection is reliable.
-  const pm = await detectPackageManager(projectDir, { skipUserAgent: true })
+  const pm = await detectPackageManager(projectDir)
   const runnable = pm.installCommand()
   return { name: pm.name, installCmd: runnable.unsafeDisplayCommand }
 }

@@ -5,6 +5,13 @@ on:
     branches:
       - main
       - next/*
+  # Also run on pushes to main so the pnpm store cache is populated on the
+  # default branch. GitHub only lets branches inherit caches created on the
+  # default branch, so without this every PR branch starts with a cold cache
+  # and re-downloads all dependencies from scratch.
+  push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -53,6 +60,9 @@ jobs:
           path: packages/cli/dist/ai-context/*
           retention-days: 1
   test-e2e-checkly:
+    # Only on PRs — these hit the live Checkly API. The push-to-main run exists
+    # solely to seed the dependency cache, which lint + test already cover.
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -78,6 +88,8 @@ jobs:
           CHECKLY_EMPTY_ACCOUNT_ID: ${{ secrets.E2E_EMPTY_CHECKLY_ACCOUNT_ID }}
           CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
   test-e2e-create-checkly:
+    # Only on PRs — see test-e2e-checkly above.
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:

@@ -83,9 +83,21 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     let sigintHandler: (() => void) | null = null
     let previousSigintListeners: Array<(...args: any[]) => void> = []
     try {
+      const checkRunSuiteId = uuid.v4()
+
+      if (this.detach) {
+        const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
+        this.testSessionId = testSessionId
+        this.checks = new Map(
+          checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
+        )
+        this.emit(Events.RUN_STARTED, checks, testSessionId)
+        this.emit(Events.DETACH)
+        return
+      }
+
       socketClient = await SocketClient.connect()
 
-      const checkRunSuiteId = uuid.v4()
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
@@ -113,10 +125,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         }
         lastSigintAt = now
 
-        if (this.detach) {
-          this.emit(Events.DETACH)
-          process.exit(0)
-        } else if (hasCancelled) {
+        if (hasCancelled) {
           process.exit(1)
         } else {
           hasCancelled = true

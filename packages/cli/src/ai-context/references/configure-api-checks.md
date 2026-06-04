@@ -35,3 +35,4 @@ Note the names: `notEmpty` (not `isNotEmpty`), `greaterThan` / `lessThan` (not `
 - Use axios for making HTTP requests.
 - Read the input credentials from env variables using `process.env`.
 - Pass auth tokens to the request object using `request.headers['key'] = AUTH_TOKEN_VALUE`.
+- For built-in env vars setup/teardown scripts receive at runtime (`CHECK_ID`, `REGION`, `RUNTIME_VERSION`, `PUBLIC_IP_V4`, etc.), see `npx checkly skills configure environment`. The API request itself doesn't run JS — use Handlebars (`{{MY_VAR}}`) in URL, headers, body, basic auth, and query params instead.

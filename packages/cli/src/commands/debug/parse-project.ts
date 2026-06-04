@@ -76,6 +76,11 @@ export default class ParseProjectCommand extends Command {
       delimiter: ',',
       default: [],
     }),
+    'stats': Flags.boolean({
+      description: 'Print parse/bundle/synthesize timing and heap usage to stderr. '
+        + 'Run with NODE_OPTIONS=--expose-gc to also report the retained (post-GC) heap.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -87,7 +92,24 @@ export default class ParseProjectCommand extends Command {
       'emulate-pw-test': emulatePwTest,
       'include': includeFlag,
       'inject-private-location': injectPrivateLocation,
+      'stats': stats,
     } = flags
+
+    // Optional heap/timing instrumentation. When --stats is set, sample the
+    // heap across the async parse/bundle/synthesize steps (peak), and report
+    // per-step durations. JS is single-threaded, so the sampler only fires
+    // between awaits — which is exactly where allocations settle.
+    const startedAt = performance.now()
+    let peakHeapUsed = 0
+    let peakRss = 0
+    const sampler = stats
+      ? setInterval(() => {
+          const usage = process.memoryUsage()
+          peakHeapUsed = Math.max(peakHeapUsed, usage.heapUsed)
+          peakRss = Math.max(peakRss, usage.rss)
+        }, 5)
+      : undefined
+    sampler?.unref()
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
@@ -106,6 +128,7 @@ export default class ParseProjectCommand extends Command {
         })
       }
 
+      const parseStartedAt = performance.now()
       const project = await parseProject({
         directory: configDirectory,
         projectLogicalId: checklyConfig.logicalId,
@@ -130,10 +153,13 @@ export default class ParseProjectCommand extends Command {
         loadPlaywrightChecksOnly: emulatePwTest,
         warnOnWebServerConfig: emulatePwTest && !(includeFlag.length > 0),
       })
+      const parseMs = performance.now() - parseStartedAt
 
       const diagnostics = new Diagnostics()
       await project.validate(diagnostics)
 
+      let bundleMs = 0
+      let synthesizeMs = 0
       const payload = await (async () => {
         if (diagnostics.isFatal()) {
           return null
@@ -141,12 +167,17 @@ export default class ParseProjectCommand extends Command {
 
         const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap())
 
+        const bundleStartedAt = performance.now()
         const bundle = await project.bundle(bundler)
 
         const archive = await bundler.finalize()
         bundler.updateMarker(archive.archiveFile)
+        bundleMs = performance.now() - bundleStartedAt
 
-        return bundle.synthesize()
+        const synthesizeStartedAt = performance.now()
+        const synthesized = bundle.synthesize()
+        synthesizeMs = performance.now() - synthesizeStartedAt
+        return synthesized
       })()
 
       const output = {
@@ -163,6 +194,38 @@ export default class ParseProjectCommand extends Command {
           }),
         },
         payload,
+      }
+
+      if (stats) {
+        if (sampler !== undefined) {
+          clearInterval(sampler)
+        }
+        const constructs = Object.values(project.data)
+          .reduce((total, record) => total + Object.keys(record).length, 0)
+        const heapUsedAfterBytes = process.memoryUsage().heapUsed
+        // The retained (live) heap once the work is done — only available when
+        // the process is started with --expose-gc.
+        const maybeGc = (globalThis as { gc?: () => void }).gc
+        let retainedHeapBytes: number | undefined
+        if (maybeGc !== undefined) {
+          for (let i = 0; i < 4; i++) {
+            maybeGc()
+          }
+          retainedHeapBytes = process.memoryUsage().heapUsed
+        }
+        const report = {
+          constructs,
+          resources: payload?.resources?.length ?? 0,
+          parseMs: Math.round(parseMs),
+          bundleMs: Math.round(bundleMs),
+          synthesizeMs: Math.round(synthesizeMs),
+          totalMs: Math.round(performance.now() - startedAt),
+          peakHeapUsedBytes: peakHeapUsed,
+          heapUsedAfterBytes,
+          retainedHeapBytes,
+          peakRssBytes: peakRss,
+        }
+        process.stderr.write(`parse-project stats ${JSON.stringify(report)}\n`)
       }
 
       // eslint-disable-next-line no-console

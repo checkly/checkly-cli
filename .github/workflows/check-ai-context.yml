@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - next/*
-    paths:
-      - "packages/cli/**"
 
 jobs:
   check-ai-context:
@@ -15,19 +13,33 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v5
+      # Path filtering is done inside the job (not via an `on:` paths filter) so
+      # this required check always runs and reports a status. A workflow skipped
+      # by an `on:` paths filter stays "pending" forever and blocks merge.
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            cli:
+              - 'packages/cli/**'
+      - if: steps.changes.outputs.cli == 'true'
+        uses: pnpm/action-setup@v5
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - if: steps.changes.outputs.cli == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: "pnpm"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run sync:skills
+      - if: steps.changes.outputs.cli == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.changes.outputs.cli == 'true'
+        run: pnpm run sync:skills
       - name: Check for uncommitted changes in skills/
+        if: steps.changes.outputs.cli == 'true'
         run: git diff --exit-code skills/
       - name: Comment on PR if skills/ is out of date
-        if: failure()
+        if: failure() && steps.changes.outputs.cli == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

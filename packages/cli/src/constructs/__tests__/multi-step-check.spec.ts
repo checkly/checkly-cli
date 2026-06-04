@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 
-import { Project, Session } from '../project.js'
+import { Project } from '../project.js'
+import { Session } from '../session.js'
 import { MultiStepCheck } from '../multi-step-check.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Bundler } from '../../services/check-parser/bundler.js'

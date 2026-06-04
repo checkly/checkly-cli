@@ -7,6 +7,9 @@ import ChecksGet from '../checks/get.js'
 import ChecksStats from '../checks/stats.js'
 import StatusPagesList from '../status-pages/list.js'
 import StatusPagesGet from '../status-pages/get.js'
+import AlertChannelsList from '../alert-channels/list.js'
+import AlertChannelsGet from '../alert-channels/get.js'
+import AlertChannelsLogs from '../alert-channels/logs.js'
 import IncidentsList from '../incidents/list.js'
 import IncidentsCreate from '../incidents/create.js'
 import IncidentsUpdate from '../incidents/update.js'
@@ -39,6 +42,7 @@ import Members from '../members.js'
 import MembersUpdate from '../members/update.js'
 import MembersDelete from '../members/delete.js'
 import Api from '../api.js'
+import TestSessionsList from '../test-sessions/list.js'
 import TestSessionsGet from '../test-sessions/get.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
@@ -47,11 +51,15 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['members update', MembersUpdate],
   ['members delete', MembersDelete],
   ['account plan', AccountPlan],
+  ['alert-channels list', AlertChannelsList],
+  ['alert-channels get', AlertChannelsGet],
+  ['alert-channels logs', AlertChannelsLogs],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
   ['checks stats', ChecksStats],
   ['status-pages list', StatusPagesList],
   ['status-pages get', StatusPagesGet],
+  ['test-sessions list', TestSessionsList],
   ['test-sessions get', TestSessionsGet],
   ['incidents list', IncidentsList],
   ['incidents create', IncidentsCreate],
