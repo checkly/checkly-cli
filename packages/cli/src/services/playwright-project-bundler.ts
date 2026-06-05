@@ -260,7 +260,7 @@ function toImporterRelPath (rootPath: string, packagePath: string): string {
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
   try {
     const require = createRequire(path.join(cwd, 'noop.js'))
-    const playwrightPath = require.resolve('@playwright/test/package.json')
+    const playwrightPath = require.resolve(`${PLAYWRIGHT_TEST}/package.json`)
     const playwrightPkg = require(playwrightPath)
     const version = normalizeVersion(playwrightPkg.version)
 
@@ -269,9 +269,7 @@ export async function getPlaywrightVersionFromPackage (cwd: string): Promise<str
     }
 
     const packageJson = await detectNearestPackageJson(cwd)
-    const range =
-      packageJson.dependencies?.['@playwright/test']
-      ?? packageJson.devDependencies?.['@playwright/test']
+    const range = playwrightRange(packageJson)
 
     if (!range) {
       return version
