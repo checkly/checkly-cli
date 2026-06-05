@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 
@@ -6,6 +7,8 @@ import semver from 'semver'
 import { File } from './check-parser/parser.js'
 import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 import { PackageJsonFile } from './check-parser/package-files/package-json-file.js'
+import { ImporterCandidate } from './check-parser/package-files/lockfile-package-version.js'
+import { lineage } from './check-parser/package-files/walk.js'
 import { PlaywrightConfig } from './playwright-config.js'
 import { findFilesWithPattern, pathToPosix } from './util.js'
 import { Session } from '../constructs/session.js'
@@ -181,46 +184,58 @@ async function getPlaywrightVersionFromLockfile (cwd: string): Promise<string | 
   const lockfilePath = workspace.lockfile.unwrap()
   const packageManager = Session.packageManager
 
-  // The Playwright config belongs to the nearest package.json at or above its
-  // directory — that's the workspace importer whose pinned version applies.
-  let consumingPackageJson: PackageJsonFile
+  // Normalize both paths through realpath so the directory walk and the
+  // relative importer paths line up with the workspace root even when the
+  // config is reached through a symlink (e.g. macOS /tmp -> /private/tmp).
+  let configDir: string
+  let workspaceRoot: string
   try {
-    consumingPackageJson = await detectNearestPackageJson(cwd, { root: workspace.root.path })
+    configDir = await fs.realpath(cwd)
+    workspaceRoot = await fs.realpath(workspace.root.path)
   } catch {
     return undefined
   }
 
-  const importerRelPath = toImporterRelPath(workspace.root.path, consumingPackageJson.basePath)
-  const declaredRange = playwrightRange(consumingPackageJson)
+  // Walk from the config directory up to the workspace root, building the chain
+  // of candidate importers Node would consult when resolving the package from
+  // the config directory. Resolution must mirror that walk: a package required
+  // from a member that doesn't declare it resolves to a physically-enclosing
+  // member's copy, not necessarily the root's.
+  const importers: ImporterCandidate[] = []
+  let consumingRange: string | undefined
+  let reachedRoot = false
+  for (const dir of lineage(configDir, { root: workspaceRoot })) {
+    // A directory contributes a declared range only when it actually has a
+    // package.json declaring the dep. Intermediate directories still
+    // participate (by position) so npm's physical node_modules walk and pnpm's
+    // importer lookup see them.
+    const packageJson = await PackageJsonFile.loadFromFilePath(PackageJsonFile.filePath(dir))
+    const declaredRange = packageJson ? playwrightRange(packageJson) : undefined
 
-  // The root package.json range disambiguates yarn resolutions and covers the
-  // case where the member relies on a dependency hoisted from the root.
-  let rootRange: string | undefined
-  if (importerRelPath !== '.') {
-    try {
-      const rootPackageJson = await detectNearestPackageJson(workspace.root.path, {
-        root: workspace.root.path,
-      })
-      rootRange = playwrightRange(rootPackageJson)
-    } catch {
-      // No root package.json — leave rootRange undefined.
+    // The consuming package is the nearest package.json at or above the config;
+    // its declared range anchors the drift check below.
+    if (consumingRange === undefined && declaredRange !== undefined) {
+      consumingRange = declaredRange
+    }
+
+    importers.push({ relPath: toImporterRelPath(workspaceRoot, dir), declaredRange })
+
+    if (dir === workspaceRoot) {
+      reachedRoot = true
+      break
     }
   }
 
-  let raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
-    packageName: PLAYWRIGHT_TEST,
-    importerRelPath,
-    declaredRange: declaredRange ?? rootRange,
-  })
-
-  // If the member doesn't pin it directly, fall back to the root importer.
-  if (raw === undefined && importerRelPath !== '.') {
-    raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
-      packageName: PLAYWRIGHT_TEST,
-      importerRelPath: '.',
-      declaredRange: rootRange,
-    })
+  // If the walk never reached the workspace root, the relative paths don't
+  // describe importers under this workspace — don't trust them.
+  if (!reachedRoot) {
+    return undefined
   }
+
+  const raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
+    packageName: PLAYWRIGHT_TEST,
+    importers,
+  })
 
   if (raw === undefined) {
     return undefined
@@ -231,17 +246,17 @@ async function getPlaywrightVersionFromLockfile (cwd: string): Promise<string | 
     return undefined
   }
 
-  // Drift guard: a declared range the lockfile version doesn't satisfy means
-  // package.json was changed without re-resolving the lockfile. The cloud runs
-  // the lockfile version, so warn rather than silently using a stale pin.
-  const range = declaredRange ?? rootRange
-  if (range !== undefined) {
-    const validRange = semver.validRange(range)
+  // Drift guard: if the consuming package declares a range the resolved version
+  // doesn't satisfy, its package.json was changed without re-resolving the
+  // lockfile (or the install is otherwise inconsistent). The cloud runs the
+  // resolved version, so warn rather than silently using a mismatched pin.
+  if (consumingRange !== undefined) {
+    const validRange = semver.validRange(consumingRange)
     if (validRange && !semver.satisfies(version, validRange)) {
       process.stderr.write(
-        `Warning: lockfile @playwright/test version ${version} does not satisfy the range `
-        + `"${range}" declared in package.json. The lockfile may be out of date; run your `
-        + `package manager's install command to update it.\n`,
+        `Warning: resolved @playwright/test version ${version} does not satisfy the range `
+        + `"${consumingRange}" declared in package.json. The lockfile may be out of date; run `
+        + `your package manager's install command to update it.\n`,
       )
     }
   }

@@ -3,24 +3,31 @@ import { parse as parseYaml } from 'yaml'
 import JSON5 from 'json5'
 
 /**
- * Describes the package we want to resolve a version for, scoped to a single
- * workspace member (importer). Different lockfile formats key their data
- * differently, so a query carries everything the various parsers might need:
+ * One candidate importer to resolve a package version against, identified by
+ * its path relative to the workspace root (POSIX, `.` for the root) and the
+ * version range it declares for the package, if any.
+ */
+export interface ImporterCandidate {
+  relPath: string
+  declaredRange?: string
+}
+
+/**
+ * Describes the package we want to resolve a version for.
  *
- * - npm and pnpm key by the importer's path relative to the workspace root.
- * - bun keys nested entries by the importer's package *name*, which it stores
- *   in the lockfile keyed by relative path, so the bun parser can look it up.
- * - yarn (classic and berry) has no importer concept in its lockfile; it keys
- *   resolutions by descriptor (`name@range`). We disambiguate using the range
- *   the importer declared in its package.json.
+ * `importers` is the chain of candidate importers ordered from nearest (the
+ * workspace member that owns the Playwright config, or a deeper directory) up
+ * to the workspace root. This mirrors Node's upward module resolution: a
+ * package required from a deep directory resolves to the first `node_modules`
+ * found walking up the tree, which may belong to a physically-enclosing
+ * workspace member rather than the root. Each lockfile format uses this chain
+ * differently (see the individual parsers).
  */
 export interface LockfilePackageQuery {
   /** The package whose version we want, e.g. `@playwright/test`. */
   packageName: string
-  /** Importer path relative to the workspace root, POSIX, `.` for the root. */
-  importerRelPath: string
-  /** The version range the importer declared for the package, if any. */
-  declaredRange?: string
+  /** Candidate importers, ordered nearest → workspace root. */
+  importers: ImporterCandidate[]
 }
 
 /**
@@ -44,10 +51,14 @@ function stripPnpmPeerSuffix (version: string): string {
  * map by node_modules path relative to the workspace root (e.g.
  * `node_modules/@playwright/test` when hoisted, or
  * `packages/a/node_modules/@playwright/test` when a member pins a conflicting
- * version). We mimic Node's resolution by checking the importer's own
- * node_modules first, then walking up to the root. lockfileVersion 1 (npm 6)
- * only has a nested `dependencies` tree and is unsupported — we return
- * `undefined` so the caller falls back to reading node_modules.
+ * version). lockfileVersion 1 (npm 6) only has a nested `dependencies` tree and
+ * is unsupported — we return `undefined` so the caller falls back.
+ *
+ * The map keys are physical node_modules paths, so resolution is a single
+ * lexical walk up the path segments of the *nearest* importer — that walk
+ * already visits every ancestor up to the root and finds the enclosing copy.
+ * The walk, not the candidate list, is the resolution mechanism; iterating the
+ * other candidates would be redundant.
  */
 export function parseNpmLockfileVersion (
   content: string,
@@ -59,7 +70,12 @@ export function parseNpmLockfileVersion (
     return undefined
   }
 
-  const rel = query.importerRelPath === '.' ? '' : query.importerRelPath
+  const nearest = query.importers[0]
+  if (nearest === undefined) {
+    return undefined
+  }
+
+  const rel = nearest.relPath === '.' ? '' : nearest.relPath
   const segments = rel === '' ? [] : rel.split('/')
 
   // From the importer directory up to the workspace root, try each ancestor's
@@ -85,6 +101,13 @@ export function parseNpmLockfileVersion (
  * map (v6/v9). Catalog entries still carry a resolved `version`, so they need
  * no special handling. The version may carry a pnpm peer suffix, which we
  * strip.
+ *
+ * We walk the importer chain nearest → root and return the first importer that
+ * declares the package. With pnpm's default isolated linker a package required
+ * from a non-declaring member resolves up the filesystem to the nearest
+ * enclosing member that does declare it — which is exactly the nearest
+ * declaring importer in this chain. (The `node-linker=hoisted` and PnP layouts
+ * can diverge; those degrade to the caller's node_modules fallback.)
  */
 export function parsePnpmLockfileVersion (
   content: string,
@@ -96,19 +119,21 @@ export function parsePnpmLockfileVersion (
     return undefined
   }
 
-  const importer = importers[query.importerRelPath]
-  if (typeof importer !== 'object' || importer === null) {
-    return undefined
-  }
-
-  for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
-    const dep = importer[group]?.[query.packageName]
-    if (dep === undefined) {
+  for (const candidate of query.importers) {
+    const importer = importers[candidate.relPath]
+    if (typeof importer !== 'object' || importer === null) {
       continue
     }
-    const version = typeof dep === 'string' ? dep : dep?.version
-    if (typeof version === 'string') {
-      return stripPnpmPeerSuffix(version)
+
+    for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+      const dep = importer[group]?.[query.packageName]
+      if (dep === undefined) {
+        continue
+      }
+      const version = typeof dep === 'string' ? dep : dep?.version
+      if (typeof version === 'string') {
+        return stripPnpmPeerSuffix(version)
+      }
     }
   }
 
@@ -118,11 +143,17 @@ export function parsePnpmLockfileVersion (
 /**
  * Resolves a package version from a bun text lockfile (`bun.lock`).
  *
- * bun.lock is JSONC. The `packages` map keys entries by package name, prefixed
- * with the consuming workspace member's *name* when a member pins a version
- * distinct from the hoisted one (e.g. `pkg-a/@playwright/test`). The member
- * name is recorded in `workspaces.<relPath>.name` (the root uses the `""` key).
- * Each entry's value is an array whose first element is `name@version`.
+ * bun.lock is JSONC. The `packages` map keys the hoisted copy by bare name
+ * (`@playwright/test`) and a member's pinned override by the declaring member's
+ * *name* (`some-package/@playwright/test`). Member names are recorded in
+ * `workspaces.<relPath>.name` (the root uses the `""` key). Each entry's value
+ * is an array whose first element is `name@version`.
+ *
+ * Resolution is two-phase: probe every candidate's member-scoped key nearest →
+ * root first, and only fall back to the hoisted key once all member-scoped
+ * probes miss. A naive per-candidate "first hit wins" would return the hoisted
+ * version as soon as the nearest (non-declaring) member is reached, masking a
+ * deeper member's pinned override that Node would actually resolve.
  *
  * The binary lockfile (`bun.lockb`) is not handled here; the caller skips it.
  */
@@ -136,30 +167,34 @@ export function parseBunLockfileVersion (
     return undefined
   }
 
-  // Resolve the importer's package name so we can probe a member-scoped entry
-  // before the hoisted one.
-  let importerName: string | undefined
-  const workspaces = data.workspaces
-  if (typeof workspaces === 'object' && workspaces !== null) {
-    const wsKey = query.importerRelPath === '.' ? '' : query.importerRelPath
-    importerName = workspaces[wsKey]?.name
-  }
-
-  const candidates: string[] = []
-  if (importerName) {
-    candidates.push(`${importerName}/${query.packageName}`)
-  }
-  candidates.push(query.packageName)
+  const workspaces = typeof data.workspaces === 'object' && data.workspaces !== null
+    ? data.workspaces
+    : {}
 
   const prefix = `${query.packageName}@`
-  for (const key of candidates) {
+  const readVersion = (key: string): string | undefined => {
     const entry = packages[key]
     if (Array.isArray(entry) && typeof entry[0] === 'string' && entry[0].startsWith(prefix)) {
       return entry[0].slice(prefix.length)
     }
+    return undefined
   }
 
-  return undefined
+  // Phase 1: member-scoped overrides, nearest → root.
+  for (const candidate of query.importers) {
+    const wsKey = candidate.relPath === '.' ? '' : candidate.relPath
+    const name = workspaces[wsKey]?.name
+    if (typeof name !== 'string') {
+      continue
+    }
+    const version = readVersion(`${name}/${query.packageName}`)
+    if (version !== undefined) {
+      return version
+    }
+  }
+
+  // Phase 2: the hoisted copy.
+  return readVersion(query.packageName)
 }
 
 interface YarnResolution {
@@ -192,15 +227,15 @@ function parseYarnDescriptor (descriptor: string): { name: string, range: string
 }
 
 /**
- * Picks the best version from the yarn resolutions matching our package.
+ * Picks the best version from the yarn resolutions matching our package, given
+ * a single declared range.
  *
  * yarn keys resolutions by descriptor, and a workspace may resolve several
  * versions of the same package (one per declared range). We prefer the entry
- * whose declared range exactly matches the importer's — that's the precise
- * answer, since yarn records the descriptor verbatim from package.json. If
- * there's no exact match we fall back to the highest version that satisfies
- * the range, and finally to the sole entry when the package resolves to just
- * one version.
+ * whose declared range exactly matches — that's the precise answer, since yarn
+ * records the descriptor verbatim from package.json. If there's no exact match
+ * we fall back to the highest version that satisfies the range, and finally to
+ * the sole entry when the package resolves to just one version.
  */
 function pickYarnVersion (resolutions: YarnResolution[], declaredRange?: string): string | undefined {
   if (resolutions.length === 0) {
@@ -235,20 +270,37 @@ function pickYarnVersion (resolutions: YarnResolution[], declaredRange?: string)
 }
 
 /**
- * Resolves a package version from a yarn berry (v2+) `yarn.lock`, which is YAML.
+ * Resolves a version from yarn resolutions across the importer chain.
  *
- * Entries are keyed by one or more comma-separated descriptors
- * (`"@playwright/test@npm:^1.40.0"`) and carry a `version` field. We collect
- * the declared ranges per resolved version and disambiguate by the importer's
- * declared range.
+ * A yarn lockfile records no importer/placement information — only descriptor →
+ * version resolutions — so we can only disambiguate by declared range. We try
+ * each importer's declared range nearest → root, and finally fall back to the
+ * sole resolution when only one version exists. This is best-effort; the
+ * caller's node_modules fallback covers cases yarn's lockfile can't express.
  */
-function parseYarnBerryLockfileVersion (
-  content: string,
-  query: LockfilePackageQuery,
-): string | undefined {
+function resolveYarnVersion (resolutions: YarnResolution[], query: LockfilePackageQuery): string | undefined {
+  for (const candidate of query.importers) {
+    if (candidate.declaredRange === undefined) {
+      continue
+    }
+    const version = pickYarnVersion(resolutions, candidate.declaredRange)
+    if (version !== undefined) {
+      return version
+    }
+  }
+
+  return pickYarnVersion(resolutions, undefined)
+}
+
+/**
+ * Parses the resolutions for `packageName` from a yarn berry (v2+) `yarn.lock`,
+ * which is YAML. Entries are keyed by one or more comma-separated descriptors
+ * (`"@playwright/test@npm:^1.40.0"`) and carry a `version` field.
+ */
+function parseYarnBerryResolutions (content: string, packageName: string): YarnResolution[] {
   const data = parseYaml(content)
   if (typeof data !== 'object' || data === null) {
-    return undefined
+    return []
   }
 
   const resolutions: YarnResolution[] = []
@@ -264,27 +316,24 @@ function parseYarnBerryLockfileVersion (
       .split(',')
       .map(descriptor => parseYarnDescriptor(descriptor.trim()))
       .filter((parsed): parsed is { name: string, range: string } =>
-        parsed !== undefined && parsed.name === query.packageName)
+        parsed !== undefined && parsed.name === packageName)
       .map(parsed => parsed.range)
     if (ranges.length > 0) {
       resolutions.push({ ranges, version })
     }
   }
 
-  return pickYarnVersion(resolutions, query.declaredRange)
+  return resolutions
 }
 
 /**
- * Resolves a package version from a yarn classic (v1) `yarn.lock`.
+ * Parses the resolutions for `packageName` from a yarn classic (v1) `yarn.lock`.
  *
  * The classic format is not YAML. Each resolution is a block whose header is an
  * unindented, comma-separated list of (optionally quoted) descriptors ending in
  * `:`, followed by indented fields including `version "x.y.z"`.
  */
-function parseYarnClassicLockfileVersion (
-  content: string,
-  query: LockfilePackageQuery,
-): string | undefined {
+function parseYarnClassicResolutions (content: string, packageName: string): YarnResolution[] {
   const resolutions: YarnResolution[] = []
   const lines = content.split(/\r?\n/)
 
@@ -308,7 +357,7 @@ function parseYarnClassicLockfileVersion (
       .split(',')
       .map(descriptor => parseYarnDescriptor(descriptor.trim().replace(/^"|"$/g, '')))
       .filter((parsed): parsed is { name: string, range: string } =>
-        parsed !== undefined && parsed.name === query.packageName)
+        parsed !== undefined && parsed.name === packageName)
       .map(parsed => parsed.range)
 
     // Scan the indented body for the version field, stopping at the next
@@ -332,20 +381,21 @@ function parseYarnClassicLockfileVersion (
     }
   }
 
-  return pickYarnVersion(resolutions, query.declaredRange)
+  return resolutions
 }
 
 /**
  * Resolves a package version from a `yarn.lock`, dispatching to the classic or
  * berry parser. Berry lockfiles carry a `__metadata:` block; classic ones do
- * not.
+ * not. The lockfile is parsed once, then resolved across the importer chain.
  */
 export function parseYarnLockfileVersion (
   content: string,
   query: LockfilePackageQuery,
 ): string | undefined {
-  if (/^__metadata:/m.test(content)) {
-    return parseYarnBerryLockfileVersion(content, query)
-  }
-  return parseYarnClassicLockfileVersion(content, query)
+  const resolutions = /^__metadata:/m.test(content)
+    ? parseYarnBerryResolutions(content, query.packageName)
+    : parseYarnClassicResolutions(content, query.packageName)
+
+  return resolveYarnVersion(resolutions, query)
 }

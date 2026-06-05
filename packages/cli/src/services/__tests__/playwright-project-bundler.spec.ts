@@ -241,4 +241,57 @@ describe('resolvePlaywrightVersion()', () => {
     const version = await resolvePlaywrightVersion(process.cwd())
     expect(version).toMatch(/^\d+\.\d+\.\d+/)
   })
+
+  it('resolves the enclosing member version for a nested non-declaring config package', async () => {
+    // Workspace where `other-package` (holding the Playwright config) is
+    // physically nested inside `some-package` and declares no @playwright/test.
+    // Node resolves the version from the enclosing `some-package` (1.41.0), not
+    // the root (1.40.0) — and so must we.
+    const root = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-pw-nested-')),
+    )
+    const somePackage = path.join(root, 'packages', 'some-package')
+    const otherPackage = path.join(somePackage, 'more-packages', 'other-package')
+    await fs.mkdir(otherPackage, { recursive: true })
+
+    await fs.writeFile(path.join(root, 'package.json'),
+      JSON.stringify({ name: 'root', version: '1.0.0', devDependencies: { '@playwright/test': '1.40.0' } }))
+    await fs.writeFile(path.join(somePackage, 'package.json'),
+      JSON.stringify({ name: 'some-package', version: '1.0.0', dependencies: { '@playwright/test': '1.41.0' } }))
+    await fs.writeFile(path.join(otherPackage, 'package.json'),
+      JSON.stringify({ name: 'other-package', version: '1.0.0' }))
+
+    await fs.writeFile(
+      path.join(root, 'pnpm-lock.yaml'),
+      `lockfileVersion: '9.0'\n`
+      + `importers:\n`
+      + `  .:\n`
+      + `    devDependencies:\n`
+      + `      '@playwright/test':\n`
+      + `        specifier: 1.40.0\n`
+      + `        version: 1.40.0\n`
+      + `  packages/some-package:\n`
+      + `    dependencies:\n`
+      + `      '@playwright/test':\n`
+      + `        specifier: 1.41.0\n`
+      + `        version: 1.41.0\n`
+      + `  packages/some-package/more-packages/other-package: {}\n`,
+    )
+
+    const workspace = new Workspace({
+      root: new Package({ name: 'root', path: root }),
+      packages: [
+        new Package({ name: 'some-package', path: somePackage }),
+        new Package({ name: 'other-package', path: otherPackage }),
+      ],
+      lockfile: Ok(path.join(root, 'pnpm-lock.yaml')),
+      configFile: Err(new Error('none')),
+    })
+
+    Session.packageManager = new PNpmDetector()
+    Session.workspace = Ok(workspace)
+
+    const version = await resolvePlaywrightVersion(otherPackage)
+    expect(version).toBe('1.41.0')
+  })
 })
