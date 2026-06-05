@@ -5,6 +5,7 @@ import semver from 'semver'
 
 import { File } from './check-parser/parser.js'
 import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
+import { PackageJsonFile } from './check-parser/package-files/package-json-file.js'
 import { PlaywrightConfig } from './playwright-config.js'
 import { findFilesWithPattern, pathToPosix } from './util.js'
 import { Session } from '../constructs/session.js'
@@ -49,7 +50,7 @@ export class PlaywrightProjectBundler {
 
     const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
-    const playwrightVersion = await getPlaywrightVersionFromPackage(dir)
+    const playwrightVersion = await resolvePlaywrightVersion(dir)
 
     const parser = Session.getPlaywrightParser()
     const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
@@ -132,6 +133,128 @@ export function getAutoIncludes (
   }
 
   return autoIncludes
+}
+
+const PLAYWRIGHT_TEST = '@playwright/test'
+
+/**
+ * Resolves the @playwright/test version that should run in the cloud.
+ *
+ * The project's lockfile is the source of truth: the version it pins is what
+ * CI and other developers resolve, and it stays correct even when the local
+ * node_modules has drifted (e.g. after switching branches without
+ * reinstalling). When no usable lockfile answer is available — no lockfile, an
+ * unsupported/unparseable format, or the package isn't pinned for the relevant
+ * workspace member — we fall back to reading the installed package.
+ */
+export async function resolvePlaywrightVersion (cwd: string): Promise<string> {
+  const lockfileVersion = await getPlaywrightVersionFromLockfile(cwd)
+  if (lockfileVersion !== undefined) {
+    return lockfileVersion
+  }
+
+  return await getPlaywrightVersionFromPackage(cwd)
+}
+
+function playwrightRange (packageJson: PackageJsonFile): string | undefined {
+  return packageJson.dependencies?.[PLAYWRIGHT_TEST]
+    ?? packageJson.devDependencies?.[PLAYWRIGHT_TEST]
+}
+
+/**
+ * Resolves the @playwright/test version from the workspace lockfile, scoped to
+ * the workspace member that owns the Playwright config. Returns `undefined`
+ * when no answer can be derived from the lockfile, signalling the caller to
+ * fall back.
+ */
+async function getPlaywrightVersionFromLockfile (cwd: string): Promise<string | undefined> {
+  const workspaceResult = Session.workspace
+  if (!workspaceResult.isOk()) {
+    return undefined
+  }
+
+  const workspace = workspaceResult.unwrap()
+  if (!workspace.lockfile.isOk()) {
+    return undefined
+  }
+
+  const lockfilePath = workspace.lockfile.unwrap()
+  const packageManager = Session.packageManager
+
+  // The Playwright config belongs to the nearest package.json at or above its
+  // directory — that's the workspace importer whose pinned version applies.
+  let consumingPackageJson: PackageJsonFile
+  try {
+    consumingPackageJson = await detectNearestPackageJson(cwd, { root: workspace.root.path })
+  } catch {
+    return undefined
+  }
+
+  const importerRelPath = toImporterRelPath(workspace.root.path, consumingPackageJson.basePath)
+  const declaredRange = playwrightRange(consumingPackageJson)
+
+  // The root package.json range disambiguates yarn resolutions and covers the
+  // case where the member relies on a dependency hoisted from the root.
+  let rootRange: string | undefined
+  if (importerRelPath !== '.') {
+    try {
+      const rootPackageJson = await detectNearestPackageJson(workspace.root.path, {
+        root: workspace.root.path,
+      })
+      rootRange = playwrightRange(rootPackageJson)
+    } catch {
+      // No root package.json — leave rootRange undefined.
+    }
+  }
+
+  let raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
+    packageName: PLAYWRIGHT_TEST,
+    importerRelPath,
+    declaredRange: declaredRange ?? rootRange,
+  })
+
+  // If the member doesn't pin it directly, fall back to the root importer.
+  if (raw === undefined && importerRelPath !== '.') {
+    raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
+      packageName: PLAYWRIGHT_TEST,
+      importerRelPath: '.',
+      declaredRange: rootRange,
+    })
+  }
+
+  if (raw === undefined) {
+    return undefined
+  }
+
+  const version = normalizeVersion(raw)
+  if (version === undefined) {
+    return undefined
+  }
+
+  // Drift guard: a declared range the lockfile version doesn't satisfy means
+  // package.json was changed without re-resolving the lockfile. The cloud runs
+  // the lockfile version, so warn rather than silently using a stale pin.
+  const range = declaredRange ?? rootRange
+  if (range !== undefined) {
+    const validRange = semver.validRange(range)
+    if (validRange && !semver.satisfies(version, validRange)) {
+      process.stderr.write(
+        `Warning: lockfile @playwright/test version ${version} does not satisfy the range `
+        + `"${range}" declared in package.json. The lockfile may be out of date; run your `
+        + `package manager's install command to update it.\n`,
+      )
+    }
+  }
+
+  return version
+}
+
+function toImporterRelPath (rootPath: string, packagePath: string): string {
+  const rel = path.relative(rootPath, packagePath)
+  if (rel === '' || rel === '.') {
+    return '.'
+  }
+  return pathToPosix(rel)
 }
 
 export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
