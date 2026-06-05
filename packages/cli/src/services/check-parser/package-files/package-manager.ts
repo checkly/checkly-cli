@@ -51,7 +51,7 @@ export interface PackageManager {
    * the format isn't supported — the caller is expected to fall back to
    * another source (e.g. reading the installed package).
    */
-  parsePackageVersionFromLockfile (
+  resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined>
@@ -130,7 +130,7 @@ export abstract class PackageManagerDetector {
    * managers that can parse their lockfile override this.
    */
   // eslint-disable-next-line require-await
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {
@@ -202,7 +202,7 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {
@@ -268,7 +268,7 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {
@@ -399,7 +399,7 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     }
   }
 
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {
@@ -461,7 +461,7 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {
@@ -621,7 +621,7 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 
-  async parsePackageVersionFromLockfile (
+  async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
   ): Promise<string | undefined> {

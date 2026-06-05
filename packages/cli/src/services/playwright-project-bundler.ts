@@ -232,7 +232,7 @@ async function getPlaywrightVersionFromLockfile (cwd: string): Promise<string | 
     return undefined
   }
 
-  const raw = await packageManager.parsePackageVersionFromLockfile(lockfilePath, {
+  const raw = await packageManager.resolvePackageVersionFromLockfile(lockfilePath, {
     packageName: PLAYWRIGHT_TEST,
     importers,
   })
