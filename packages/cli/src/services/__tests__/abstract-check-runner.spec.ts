@@ -83,7 +83,7 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     expect(sigintCalls).toHaveLength(1)
   })
 
-  it('registers a SIGINT handler during run() when detach is true', async () => {
+  it('does not register a SIGINT handler when detach is true', async () => {
     const onSpy = vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
 
@@ -91,29 +91,26 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     await runner.run()
 
     const sigintCalls = onSpy.mock.calls.filter(([event]) => event === 'SIGINT')
-    expect(sigintCalls).toHaveLength(1)
+    expect(sigintCalls).toHaveLength(0)
   })
 
-  it('emits Events.DETACH and exits with 0 on SIGINT when detach is true', async () => {
-    let sigintHandler: (() => void) | undefined
-    vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
-      if (event === 'SIGINT') sigintHandler = listener
-      return process
-    })
+  it('emits RUN_STARTED and DETACH immediately when detach is true', async () => {
+    vi.spyOn(process, 'on').mockReturnValue(process)
     vi.spyOn(process, 'off').mockReturnValue(process)
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const runner = makeRunner(true)
 
+    const runStartedEvents: unknown[] = []
     const detachEvents: unknown[] = []
+    runner.on(Events.RUN_STARTED, (checks, testSessionId) => runStartedEvents.push({ checks, testSessionId }))
     runner.on(Events.DETACH, () => detachEvents.push(true))
+    runner.on(Events.RUN_FINISHED, () => detachEvents.push('finished'))
 
     await runner.run()
 
-    sigintHandler?.()
-
+    expect(runStartedEvents).toEqual([{ checks: [], testSessionId: 'ts-stub' }])
     expect(detachEvents).toHaveLength(1)
-    expect(exitSpy).toHaveBeenCalledWith(0)
+    expect(detachEvents[0]).toBe(true)
   })
 
   it('removes the SIGINT handler in the finally block after run() completes', async () => {
@@ -214,6 +211,16 @@ describe('AbstractCheckRunner — SocketClient lifecycle', () => {
     await runner.run()
 
     expect(SocketClient.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not connect SocketClient when detach is true', async () => {
+    vi.spyOn(process, 'on').mockReturnValue(process)
+    vi.spyOn(process, 'off').mockReturnValue(process)
+
+    const runner = makeRunner(true)
+    await runner.run()
+
+    expect(SocketClient.connect).not.toHaveBeenCalled()
   })
 
   it('calls endAsync on the socket client in the finally block', async () => {

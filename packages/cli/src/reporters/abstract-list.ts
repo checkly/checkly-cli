@@ -33,6 +33,7 @@ export default abstract class AbstractListReporter implements Reporter {
   numChecks?: number
   verbose: boolean
   testSessionId?: string
+  private hasPrintedTestSessionReference = false
   _isSchedulingDelayExceeded?: boolean
   showStreamingHeaders: boolean
 
@@ -63,6 +64,7 @@ export default abstract class AbstractListReporter implements Reporter {
         numRetries: 0,
       })
     })
+    this._printTestSessionReference()
   }
 
   onCheckInProgress (check: any, sequenceId: SequenceId) {
@@ -201,12 +203,20 @@ export default abstract class AbstractListReporter implements Reporter {
     if (!opts.skipCheckCount) {
       if (this._isCancelling) {
         status.push('')
-        status.push(chalk.yellow('Cancelling checks... Use --detach to keep checks running in the cloud.'))
+        status.push(chalk.yellow('Cancelling checks... Use --detach to start checks in the cloud and exit after scheduling.'))
+        if (!this.hasPrintedTestSessionReference) {
+          status.push(...this._getTestSessionReferenceLines())
+          this.hasPrintedTestSessionReference = true
+        }
       }
 
       if (this._isDetaching) {
         status.push('')
         status.push(chalk.yellow('Checks will continue running in the cloud.'))
+        if (!this.hasPrintedTestSessionReference) {
+          status.push(...this._getTestSessionReferenceLines())
+          this.hasPrintedTestSessionReference = true
+        }
       }
 
       status.push('')
@@ -271,6 +281,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   async _printTestSessionsUrl () {
     if (this.testSessionId) {
+      this._printTestSessionReference()
       try {
         const { data: { link } } = await testSessions.getShortLink(this.testSessionId)
         printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(link)}`, 2)
@@ -278,6 +289,32 @@ export default abstract class AbstractListReporter implements Reporter {
         printLn(`${chalk.white('Detailed session summary at:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`, 2)
       }
     }
+  }
+
+  _getTestSessionReferenceLines (): string[] {
+    if (!this.testSessionId) {
+      return []
+    }
+
+    return [
+      `${chalk.white('Test session ID:')} ${this.testSessionId}`,
+      `${chalk.white('Inspect session:')} ${chalk.cyan(`checkly test-sessions get ${this.testSessionId} --watch`)}`,
+      `${chalk.white('Open session:')} ${chalk.underline.cyan(getTestSessionUrl(this.testSessionId))}`,
+    ]
+  }
+
+  _printTestSessionReference (): void {
+    if (this.hasPrintedTestSessionReference) {
+      return
+    }
+
+    const lines = this._getTestSessionReferenceLines()
+    if (!lines.length) {
+      return
+    }
+
+    printLn(lines.join('\n'), 2)
+    this.hasPrintedTestSessionReference = true
   }
 
   _printTip (tip: string): void {

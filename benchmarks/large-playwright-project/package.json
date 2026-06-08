@@ -1,0 +1,16 @@
+{
+  "name": "large-playwright-project",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A deliberately large Checkly + Playwright project for reproducing and verifying the deploy/bundle heap-usage fix.",
+  "scripts": {
+    "generate": "node scripts/generate-lib.mjs",
+    "clean:generated": "node scripts/clean-generated.mjs",
+    "parse": "checkly debug parse-project"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "checkly": "^8.0.0"
+  }
+}

@@ -1,19 +1,13 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
-import { createRequire } from 'node:module'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
 import { glob } from 'glob'
 import { ChecklyConfig, PlaywrightSlimmedProp } from './checkly-config-loader.js'
-import { File } from './check-parser/parser.js'
 import JSON5 from 'json5'
-import { PlaywrightConfig } from './playwright-config.js'
-import { Session } from '../constructs/project.js'
-import semver from 'semver'
 import { existsSync } from 'fs'
-import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 
 export interface GitInformation {
   commitId: string
@@ -135,146 +129,6 @@ export async function getEnvs (envFile: string | undefined, envArgs: Array<strin
   }
   const envsString = `${envArgs.join('\n')}`
   return parse(envsString)
-}
-
-export function normalizeVersion (v?: string | undefined): string | undefined {
-  const cleaned =
-    semver.valid(semver.clean(v ?? '') || '')
-    ?? semver.coerce(v ?? '')?.version
-  return cleaned && semver.valid(cleaned) ? cleaned : undefined
-}
-
-export function getAutoIncludes (
-  basePath: string,
-  globCwd: string,
-  packageManager: PackageManager,
-  existingIncludes: string[],
-): string[] {
-  const autoIncludes: string[] = []
-
-  if (packageManager.name === 'pnpm') {
-    const patchesDir = path.join(basePath, 'patches')
-    const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
-    if (!alreadyIncluded) {
-      const patchesPattern = pathToPosix(path.join(path.relative(globCwd, basePath), 'patches', '*.patch'))
-      autoIncludes.push(patchesPattern)
-    }
-  }
-
-  return autoIncludes
-}
-
-export async function bundlePlayWrightProject (
-  playwrightConfig: string,
-  include: string[],
-): Promise<{
-  browsers: string[]
-  relativePlaywrightConfigPath: string
-  playwrightVersion: string
-  workingDir?: string
-  files: File[]
-}> {
-  const dir = path.resolve(path.dirname(playwrightConfig))
-  const filePath = path.resolve(dir, playwrightConfig)
-
-  // No need of loading everything if there is no lockfile
-  const pwtConfig = await Session.loadFile(filePath)
-
-  const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
-
-  const playwrightVersion = await getPlaywrightVersionFromPackage(dir)
-
-  const parser = Session.getPlaywrightParser()
-  const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
-  if (errors.length) {
-    throw new Error(`Error loading playwright project files: ${errors.map((e: string) => e).join(', ')}`)
-  }
-
-  function includeTargets (dirName: string): boolean {
-    return include.some(value => {
-      return value.startsWith(`${dirName}/`) || value.includes(`/${dirName}/`)
-    })
-  }
-
-  const defaultIgnores = [
-    {
-      pattern: '**/node_modules/**',
-      skipIf: () => includeTargets('node_modules'),
-    },
-    {
-      pattern: '**/.git/**',
-      skipIf: () => includeTargets('.git'),
-    },
-  ]
-
-  const ignoredFiles = [...Session.ignoreDirectoriesMatch]
-  for (const ignore of defaultIgnores) {
-    if (!ignore.skipIf()) {
-      ignoredFiles.push(ignore.pattern)
-    }
-  }
-
-  const autoIncludes = getAutoIncludes(Session.basePath!, dir, Session.packageManager, include)
-  const effectiveIncludes = [...include, ...autoIncludes]
-
-  const includedFiles = await findFilesWithPattern(
-    dir,
-    effectiveIncludes,
-    ignoredFiles,
-  )
-
-  for (const filePath of includedFiles) {
-    files.push({
-      filePath,
-      physical: true,
-    })
-  }
-
-  return {
-    browsers: pwConfigParsed.getBrowsers(),
-    playwrightVersion,
-    relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
-    workingDir: Session.relativePosixPath(Session.contextPath!),
-    files,
-  }
-}
-
-export async function getPlaywrightVersionFromPackage (cwd: string): Promise<string> {
-  try {
-    const require = createRequire(path.join(cwd, 'noop.js'))
-    const playwrightPath = require.resolve('@playwright/test/package.json')
-    const playwrightPkg = require(playwrightPath)
-    const version = normalizeVersion(playwrightPkg.version)
-
-    if (!version) {
-      throw new Error('Invalid version found in @playwright/test package.json')
-    }
-
-    const packageJson = await detectNearestPackageJson(cwd)
-    const range =
-      packageJson.dependencies?.['@playwright/test']
-      ?? packageJson.devDependencies?.['@playwright/test']
-
-    if (!range) {
-      return version
-    }
-
-    const validRange = semver.validRange(range)
-    if (validRange && !semver.satisfies(version, validRange)) {
-      throw new Error(
-        `Installed @playwright/test version ${version} does not satisfy the required range "${range}" in package.json. `
-        + 'Please run your package manager\'s install command to sync node_modules.',
-      )
-    }
-
-    return version
-  } catch (error) {
-    // @ts-ignore
-    if (error instanceof Error && error.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Could not find @playwright/test package. Make sure it is installed.', { cause: error })
-    }
-    throw error
-  }
 }
 
 export async function findFilesWithPattern (

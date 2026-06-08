@@ -3,7 +3,7 @@ import path from 'node:path'
 import { LOGICAL_ID_PATTERN } from '../constants.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Ref } from './ref.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 

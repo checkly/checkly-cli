@@ -1,6 +1,6 @@
 import { Check, CheckProps } from './check.js'
 import { Frequency } from './frequency.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { CheckTypes } from '../constants.js'
 import { Diagnostics } from './diagnostics.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'

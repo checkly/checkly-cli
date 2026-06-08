@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
 import { TcpMonitor, CheckGroup, TcpRequest } from '../index.js'
-import { Project, Session } from '../project.js'
+import { Project } from '../project.js'
+import { Session } from '../session.js'
 import { Bundler } from '../../services/check-parser/bundler.js'
 
 const request: TcpRequest = {

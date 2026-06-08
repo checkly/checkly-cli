@@ -1,6 +1,6 @@
 import { Monitor, MonitorProps } from './monitor.js'
 import { IPFamily } from './ip.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'

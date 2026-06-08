@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
 import { AlertChannel, AlertChannelProps, Diagnostics } from '../index.js'
-import { Project, Session } from '../project.js'
+import { Project } from '../project.js'
+import { Session } from '../session.js'
 
 class TestAlertChannel extends AlertChannel {
   constructor (logicalId: string, props: AlertChannelProps) {

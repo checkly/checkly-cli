@@ -1,5 +1,5 @@
 import { Monitor, MonitorProps } from './monitor.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { IcmpRequest } from './icmp-request.js'
 

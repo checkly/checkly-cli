@@ -22,7 +22,7 @@ import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { isEntrypoint } from '../constructs/construct.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
-import { prepareReportersTypes, prepareRunLocation } from '../helpers/test-helper.js'
+import { prepareReportersTypes, prepareRunLocation, validateDetachReporterTypes } from '../helpers/test-helper.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 
@@ -121,7 +121,7 @@ export default class Test extends AuthCommand {
     }),
     'detach': Flags.boolean({
       char: 'd',
-      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      description: 'Start checks in the cloud and exit after printing the test session ID.',
       default: false,
     }),
   }
@@ -178,6 +178,9 @@ export default class Test extends AuthCommand {
     config.getAccountId())
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig.cli?.verbose)
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
+    if (detach) {
+      validateDetachReporterTypes(reporterTypes)
+    }
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
 

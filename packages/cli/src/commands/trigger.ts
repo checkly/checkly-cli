@@ -20,6 +20,7 @@ import { printLn } from '../reporters/util.js'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
+import { validateDetachReporterTypes } from '../helpers/test-helper.js'
 
 const MAX_RETRIES = 3
 
@@ -108,7 +109,7 @@ export default class Trigger extends AuthCommand {
     }),
     'detach': Flags.boolean({
       char: 'd',
-      description: 'Keep checks running in the cloud after cancelling the CLI process.',
+      description: 'Start checks in the cloud and exit after printing the test session ID.',
       default: false,
     }),
   }
@@ -149,6 +150,9 @@ export default class Trigger extends AuthCommand {
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
     const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig?.cli?.reporters)
+    if (detach) {
+      validateDetachReporterTypes(reporterTypes)
+    }
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 

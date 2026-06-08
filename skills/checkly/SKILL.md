@@ -14,6 +14,8 @@ Then run `npx checkly skills <action>` to load up-to-date details for the action
 
 Use `npx checkly skills install` to install this skill into your project (supports Claude Code, Cursor, Codex and more).
 
+For recorded test-session investigations, run `npx checkly skills investigate test-sessions`.
+
 ## Progressive Disclosure via `npx checkly skills`
 
 The skill is structured for efficient context usage:
@@ -101,7 +103,7 @@ Learn how to initialize and set up a new Checkly CLI project from scratch.
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
 
 ### `npx checkly skills investigate`
-Access check status, analyze failures, and investigate errors.
+Access check and test-session status, analyze failures, and investigate errors.
 
 ### `npx checkly skills communicate`
 Open incidents and lead customer communications via status pages.

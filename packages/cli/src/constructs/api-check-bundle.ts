@@ -1,6 +1,6 @@
 import { ApiCheck } from './api-check.js'
 import { Bundle } from './construct.js'
-import { SharedFileRef } from './project.js'
+import { SharedFileRef } from './session.js'
 
 export interface ApiCheckBundleProps {
   localSetupScript?: string

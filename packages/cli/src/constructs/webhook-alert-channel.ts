@@ -2,7 +2,7 @@ import { AlertChannel, AlertChannelProps } from './alert-channel.js'
 import { HttpHeader } from './http-header.js'
 import { HttpRequestMethod } from './http-request.js'
 import { QueryParam } from './query-param.js'
-import { Session } from './project.js'
+import { Session } from './session.js'
 
 export interface WebhookAlertChannelProps extends AlertChannelProps {
   /**

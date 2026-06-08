@@ -1,6 +1,6 @@
 import { Bundle } from './construct.js'
 import { MultiStepCheck } from './multi-step-check.js'
-import { SharedFileRef } from './project.js'
+import { SharedFileRef } from './session.js'
 
 export interface MultiStepCheckBundleProps {
   script: string
