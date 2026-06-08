@@ -5,7 +5,9 @@ import {
   type OutputFormat,
   type DetailField,
   type ColumnDef,
+  type CommandHint,
   renderDetailFields,
+  renderCommandHints,
   renderTable,
   formatDate,
   truncateError,
@@ -132,18 +134,18 @@ export function formatAlertChannelPaginationInfo (pagination: AlertChannelPagina
 export function formatAlertChannelNavigationHints (pagination: AlertChannelPaginationInfo): string {
   const { page, limit, total } = pagination
   const totalPages = Math.ceil(total / limit)
-  const lines: string[] = []
+  const hints: CommandHint[] = []
 
   if (page < totalPages) {
-    lines.push(`  ${chalk.dim('Next page:')}    checkly alert-channels list --page ${page + 1}`)
+    hints.push({ label: 'Next page', command: `checkly alert-channels list --page ${page + 1}` })
   }
   if (page > 1) {
-    lines.push(`  ${chalk.dim('Prev page:')}    checkly alert-channels list --page ${page - 1}`)
+    hints.push({ label: 'Prev page', command: `checkly alert-channels list --page ${page - 1}` })
   }
-  lines.push(`  ${chalk.dim('View channel:')} checkly alert-channels get <id>`)
-  lines.push(`  ${chalk.dim('View logs:')}    checkly alert-channels logs <id> --status failed`)
+  hints.push({ label: 'View channel', command: 'checkly alert-channels get <id>' })
+  hints.push({ label: 'View logs', command: 'checkly alert-channels logs <id> --status failed' })
 
-  return lines.join('\n')
+  return renderCommandHints(hints, { gap: 1 })
 }
 
 const alertChannelDetailFields: DetailField<AlertChannel>[] = [

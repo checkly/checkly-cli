@@ -7,6 +7,7 @@ import {
   formatTestSessionErrorGroupDetail,
   uniqueErrorGroupIds,
 } from '../../formatters/test-sessions.js'
+import { formatResultDetailWithNavigation } from '../../formatters/check-result-detail.js'
 import { type OutputFormat } from '../../formatters/render.js'
 import type { TestSessionDetail } from '../../rest/test-sessions.js'
 
@@ -24,6 +25,10 @@ export default class TestSessionsGet extends AuthCommand {
   }
 
   static flags = {
+    'result': Flags.string({
+      char: 'r',
+      description: 'Show details for a specific test session result ID.',
+    }),
     'error-group': Flags.string({
       description: 'Show details for a test session error group ID from this session.',
     }),
@@ -48,28 +53,11 @@ export default class TestSessionsGet extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      let testSession: TestSessionDetail
-
-      if (flags.watch) {
-        const showAction = flags.output === 'detail'
-        if (showAction) {
-          this.style.actionStart('Watching test session until completion...')
-        }
-        try {
-          testSession = await api.testSessions.pollUntilComplete(args.id)
-          if (showAction) {
-            this.style.actionSuccess()
-          }
-        } catch (err) {
-          if (showAction) {
-            this.style.actionFailure()
-          }
-          throw err
-        }
-      } else {
-        const { data } = await api.testSessions.get(args.id)
-        testSession = data
+      if (flags.result) {
+        return await this.showResultDetail(args.id, flags.result, flags.output ?? 'detail', flags.watch)
       }
+
+      const testSession = await this.getTestSession(args.id, flags.watch, flags.output === 'detail')
 
       if (flags['error-group']) {
         const errorGroupIds = uniqueErrorGroupIds(testSession)
@@ -112,5 +100,53 @@ export default class TestSessionsGet extends AuthCommand {
       this.style.longError('Failed to get test session details.', err)
       process.exitCode = 1
     }
+  }
+
+  private async getTestSession (id: string, watch: boolean, showAction: boolean): Promise<TestSessionDetail> {
+    if (!watch) {
+      const { data } = await api.testSessions.get(id)
+      return data
+    }
+
+    if (showAction) {
+      this.style.actionStart('Watching test session until completion...')
+    }
+
+    try {
+      const testSession = await api.testSessions.pollUntilComplete(id)
+      if (showAction) {
+        this.style.actionSuccess()
+      }
+      return testSession
+    } catch (err) {
+      if (showAction) {
+        this.style.actionFailure()
+      }
+      throw err
+    }
+  }
+
+  private async showResultDetail (
+    testSessionId: string,
+    resultId: string,
+    outputFormat: string,
+    watch: boolean,
+  ): Promise<void> {
+    if (watch) {
+      await this.getTestSession(testSessionId, true, outputFormat === 'detail')
+    }
+
+    const { data: result } = await api.testSessions.getResult(testSessionId, resultId)
+
+    if (outputFormat === 'json') {
+      this.log(JSON.stringify(result, null, 2))
+      return
+    }
+
+    const fmt: OutputFormat = outputFormat === 'md' ? 'md' : 'terminal'
+    this.log(formatResultDetailWithNavigation(result, fmt, [
+      { label: 'Back to session', command: `checkly test-sessions get ${testSessionId}` },
+      { label: 'Back to list', command: 'checkly test-sessions list' },
+    ]))
   }
 }

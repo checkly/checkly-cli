@@ -8,6 +8,7 @@ import {
   type OutputFormat,
   type DetailField,
   type ColumnDef,
+  type CommandHint,
   formatFrequency,
   formatCheckType,
   formatMs,
@@ -17,6 +18,7 @@ import {
   resolveResultStatus,
   renderDetailFields,
   renderAdaptiveTable,
+  renderCommandHints,
   renderTable,
 } from './render.js'
 
@@ -103,20 +105,23 @@ export function formatPaginationInfo (pagination: PaginationInfo): string {
 export function formatNavigationHints (pagination: PaginationInfo, activeFilters: string[]): string {
   const { page, limit, total } = pagination
   const totalPages = Math.ceil(total / limit)
-  const lines: string[] = []
+  const hints: CommandHint[] = []
 
   if (page < totalPages) {
-    lines.push(`  ${chalk.dim('Next page:')}    checkly checks list --page ${page + 1}`)
+    hints.push({ label: 'Next page', command: `checkly checks list --page ${page + 1}` })
   }
   if (page > 1) {
-    lines.push(`  ${chalk.dim('Prev page:')}    checkly checks list --page ${page - 1}`)
+    hints.push({ label: 'Prev page', command: `checkly checks list --page ${page - 1}` })
   }
-  lines.push(`  ${chalk.dim('View check:')}   checkly checks get <id>`)
+  hints.push({ label: 'View check', command: 'checkly checks get <id>' })
   if (activeFilters.length === 0) {
-    lines.push(`  ${chalk.dim('Filter:')}       checkly checks list --tag <tag> --type <type> --status <status> --search <name>`)
+    hints.push({
+      label: 'Filter',
+      command: 'checkly checks list --tag <tag> --type <type> --status <status> --search <name>',
+    })
   }
 
-  return lines.join('\n')
+  return renderCommandHints(hints, { gap: 3 })
 }
 
 // --- Check detail fields ---
