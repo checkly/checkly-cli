@@ -13,17 +13,34 @@ import type {
 import {
   type OutputFormat,
   type DetailField,
+  type CommandHint,
   formatMs,
   formatDate,
   resolveResultStatus,
   heading,
   renderDetailFields,
+  renderCommandHints,
 } from './render.js'
 
 // --- Helpers ---
 
 function label (text: string, width = 16): string {
   return chalk.dim(text.padEnd(width))
+}
+
+export function formatResultDetailWithNavigation (
+  result: CheckResult,
+  format: OutputFormat,
+  hints: CommandHint[],
+): string {
+  const output = [formatResultDetail(result, format)]
+
+  if (hints.length > 0) {
+    output.push('')
+    output.push(renderCommandHints(hints))
+  }
+
+  return output.join('\n')
 }
 
 // --- Top-level result detail fields ---

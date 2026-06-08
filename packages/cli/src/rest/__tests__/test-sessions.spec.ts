@@ -14,6 +14,17 @@ describe('TestSessions REST client', () => {
     expect(api.get).toHaveBeenCalledWith('/v1/test-sessions/session-id')
   })
 
+  it('gets a public test session result by ID', async () => {
+    const api = {
+      get: vi.fn().mockResolvedValue({ data: { id: 'result-id' } }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    await testSessions.getResult('session-id', 'result-id')
+
+    expect(api.get).toHaveBeenCalledWith('/v1/test-sessions/session-id/results/result-id')
+  })
+
   it('gets public test session completion by ID', async () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', status: 'PASSED', results: [] } }),

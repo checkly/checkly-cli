@@ -5,6 +5,7 @@ import {
   type ColumnDef,
   type DetailField,
   renderAdaptiveTable,
+  renderCommandHints,
   renderDetailFields,
 } from './render.js'
 
@@ -178,11 +179,10 @@ export function formatCursorPaginationInfo (count: number, nextId: string | null
 }
 
 export function formatCursorNavigationHints (nextId: string | null): string {
-  const lines: string[] = []
-  if (nextId) {
-    lines.push(`  ${chalk.dim('Next page:')}    checkly status-pages list --cursor ${nextId}`)
-  }
-  return lines.join('\n')
+  if (!nextId) return ''
+  return renderCommandHints([
+    { label: 'Next page', command: `checkly status-pages list --cursor ${nextId}` },
+  ], { gap: 4 })
 }
 
 // --- Detail view for a single status page ---

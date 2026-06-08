@@ -11,8 +11,10 @@ import {
   type ColumnDef,
   type DetailField,
   type OutputFormat,
+  type CommandHint,
   formatCheckType,
   formatDate,
+  renderCommandHints,
   renderDetailFields,
   renderAdaptiveTable,
 } from './render.js'
@@ -175,14 +177,14 @@ export function formatTestSessionsListNavigationHints (
   listCommand: string,
   firstSessionId?: string,
 ): string {
-  const lines: string[] = []
+  const hints: CommandHint[] = []
   if (nextId) {
-    lines.push(`  ${chalk.dim('Next page:')}       ${listCommand} --cursor ${nextId}`)
+    hints.push({ label: 'Next page', command: `${listCommand} --cursor ${nextId}` })
   }
   if (firstSessionId) {
-    lines.push(`  ${chalk.dim('Inspect session:')} ${`checkly test-sessions get ${firstSessionId}`}`)
+    hints.push({ label: 'Inspect session', command: `checkly test-sessions get ${firstSessionId}` })
   }
-  return lines.join('\n')
+  return renderCommandHints(hints, { gap: 1 })
 }
 
 function formatMetadata (metadata: TestSessionMetadata | undefined, format: OutputFormat): string | null {

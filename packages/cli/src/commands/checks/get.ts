@@ -4,13 +4,19 @@ import { AuthCommand } from '../authCommand.js'
 import { outputFlag } from '../../helpers/flags.js'
 import * as api from '../../rest/api.js'
 import type { CheckWithStatus } from '../../formatters/checks.js'
-import { type OutputFormat, stripAnsi, formatDate } from '../../formatters/render.js'
+import {
+  type OutputFormat,
+  type CommandHint,
+  stripAnsi,
+  formatDate,
+  renderCommandHints,
+} from '../../formatters/render.js'
 import {
   formatCheckDetail,
   formatResults,
   formatErrorGroups,
 } from '../../formatters/checks.js'
-import { formatResultDetail } from '../../formatters/check-result-detail.js'
+import { formatResultDetailWithNavigation } from '../../formatters/check-result-detail.js'
 import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca.js'
 import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics.js'
 import { formatAnalyticsSection } from '../../formatters/analytics.js'
@@ -162,21 +168,23 @@ export default class ChecksGet extends AuthCommand {
 
       // Navigation hints
       output.push('')
+      const hints: CommandHint[] = []
       if (errorGroups.length > 0) {
         const firstActive = errorGroups.find(eg => !eg.archivedUntilNextEvent)
         if (firstActive) {
-          output.push(`  ${chalk.dim('View error:')}     checkly checks get ${args.id} --error-group ${firstActive.id}`)
+          hints.push({ label: 'View error', command: `checkly checks get ${args.id} --error-group ${firstActive.id}` })
         }
       }
       if (results.length > 0) {
-        output.push(`  ${chalk.dim('View result:')}    checkly checks get ${args.id} --result ${results[0].id}`)
+        hints.push({ label: 'View result', command: `checkly checks get ${args.id} --result ${results[0].id}` })
       }
       if (nextId) {
-        output.push(`  ${chalk.dim('More results:')}   checkly checks get ${args.id} --results-cursor ${nextId}`)
+        hints.push({ label: 'More results', command: `checkly checks get ${args.id} --results-cursor ${nextId}` })
       }
-      output.push(`  ${chalk.dim('Change range:')}   checkly checks get ${args.id} --stats-range last7Days`)
-      output.push(`  ${chalk.dim('By region:')}     checkly checks get ${args.id} --group-by location`)
-      output.push(`  ${chalk.dim('Back to list:')}   checkly checks list`)
+      hints.push({ label: 'Change range', command: `checkly checks get ${args.id} --stats-range last7Days` })
+      hints.push({ label: 'By region', command: `checkly checks get ${args.id} --group-by location` })
+      hints.push({ label: 'Back to list', command: 'checkly checks list' })
+      output.push(renderCommandHints(hints, { gap: 3 }))
 
       this.log(output.join('\n'))
     } catch (err: any) {
@@ -267,8 +275,10 @@ export default class ChecksGet extends AuthCommand {
     }
 
     output.push('')
-    output.push(`  ${chalk.dim('Back to check:')}  checkly checks get ${checkId}`)
-    output.push(`  ${chalk.dim('Back to list:')}   checkly checks list`)
+    output.push(renderCommandHints([
+      { label: 'Back to check', command: `checkly checks get ${checkId}` },
+      { label: 'Back to list', command: 'checkly checks list' },
+    ]))
 
     this.log(output.join('\n'))
   }
@@ -283,14 +293,9 @@ export default class ChecksGet extends AuthCommand {
 
     const fmt: OutputFormat = outputFormat === 'md' ? 'md' : 'terminal'
 
-    const output: string[] = []
-    output.push(formatResultDetail(result, fmt))
-
-    // Navigation hints
-    output.push('')
-    output.push(`  ${chalk.dim('Back to check:')}  checkly checks get ${checkId}`)
-    output.push(`  ${chalk.dim('Back to list:')}   checkly checks list`)
-
-    this.log(output.join('\n'))
+    this.log(formatResultDetailWithNavigation(result, fmt, [
+      { label: 'Back to check', command: `checkly checks get ${checkId}` },
+      { label: 'Back to list', command: 'checkly checks list' },
+    ]))
   }
 }

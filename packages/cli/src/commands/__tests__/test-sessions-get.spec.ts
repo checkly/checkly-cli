@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CheckResult } from '../../rest/check-results.js'
 import type { TestSessionErrorGroup } from '../../rest/test-session-error-groups.js'
 import type { TestSessionDetail } from '../../rest/test-sessions.js'
 
 vi.mock('../../rest/api.js', () => ({
-  testSessions: { get: vi.fn(), pollUntilComplete: vi.fn() },
+  testSessions: { get: vi.fn(), getResult: vi.fn(), pollUntilComplete: vi.fn() },
   testSessionErrorGroups: { get: vi.fn() },
 }))
 
@@ -51,9 +52,54 @@ const testSessionErrorGroup: TestSessionErrorGroup = {
   archivedUntilNextEvent: false,
 }
 
+const testSessionResult: CheckResult = {
+  id: '42406a0f-5864-4a26-9884-7c5d1be15bc2',
+  checkId: 'check-1',
+  name: 'API smoke',
+  hasFailures: true,
+  hasErrors: false,
+  isDegraded: false,
+  overMaxResponseTime: false,
+  runLocation: 'eu-west-1',
+  startedAt: '2026-05-20T08:00:00.000Z',
+  stoppedAt: '2026-05-20T08:02:03.456Z',
+  created_at: '2026-05-20T08:02:03.456Z',
+  responseTime: 1234,
+  checkRunId: 42,
+  attempts: 1,
+  resultType: 'FINAL',
+  apiCheckResult: {
+    assertions: [
+      { source: 'STATUS_CODE', comparison: 'EQUALS', target: 200 },
+    ],
+    request: {
+      method: 'GET',
+      url: 'https://api.example.com/health',
+      data: '',
+      headers: {},
+      params: {},
+    },
+    response: {
+      status: 500,
+      statusText: '500 Internal Server Error',
+      body: '{"ok":false}',
+      headers: {},
+      timings: null,
+      timingPhases: null,
+    },
+    requestError: null,
+    jobLog: null,
+    jobAssets: null,
+    pcapDataUrl: null,
+  },
+  browserCheckResult: null,
+  multiStepCheckResult: null,
+  agenticCheckResult: null,
+}
+
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
-  return {
+  return Object.assign(Object.create(TestSessionsGet.prototype), {
     parse: vi.fn().mockResolvedValue(parsed),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
@@ -66,7 +112,7 @@ function createCommandContext (parsed: unknown) {
       actionFailure: vi.fn(),
     },
     logged,
-  }
+  })
 }
 
 describe('test-sessions get command', () => {
@@ -74,6 +120,7 @@ describe('test-sessions get command', () => {
     vi.clearAllMocks()
     process.exitCode = undefined
     vi.mocked(api.testSessions.get).mockResolvedValue({ data: testSession } as any)
+    vi.mocked(api.testSessions.getResult).mockResolvedValue({ data: testSessionResult } as any)
     vi.mocked(api.testSessions.pollUntilComplete).mockResolvedValue(testSession as any)
     vi.mocked(api.testSessionErrorGroups.get).mockResolvedValue({ data: testSessionErrorGroup } as any)
   })
@@ -126,6 +173,50 @@ describe('test-sessions get command', () => {
     expect(api.testSessions.get).not.toHaveBeenCalled()
     expect(JSON.parse(ctx.logged[0])).toEqual(completed)
     expect(ctx.style.actionStart).not.toHaveBeenCalled()
+  })
+
+  it('fetches and renders one test session result detail', async () => {
+    const ctx = createCommandContext({
+      args: { id: testSession.testSessionId },
+      flags: { output: 'detail', result: testSessionResult.id },
+    })
+
+    await TestSessionsGet.prototype.run.call(ctx as any)
+
+    expect(api.testSessions.get).not.toHaveBeenCalled()
+    expect(api.testSessions.getResult).toHaveBeenCalledWith(testSession.testSessionId, testSessionResult.id)
+    expect(ctx.logged[0]).toContain('API smoke')
+    expect(ctx.logged[0]).toContain('REQUEST')
+    expect(ctx.logged[0]).toContain('checkly test-sessions get 8166fa86-c9b4-4162-8541-d380c6c212d8')
+    expect(ctx.logged[0]).toContain('checkly test-sessions list')
+  })
+
+  it('watches completion before fetching one test session result detail', async () => {
+    const ctx = createCommandContext({
+      args: { id: testSession.testSessionId },
+      flags: { output: 'detail', result: testSessionResult.id, watch: true },
+    })
+
+    await TestSessionsGet.prototype.run.call(ctx as any)
+
+    expect(api.testSessions.get).not.toHaveBeenCalled()
+    expect(api.testSessions.pollUntilComplete).toHaveBeenCalledWith(testSession.testSessionId)
+    expect(api.testSessions.getResult).toHaveBeenCalledWith(testSession.testSessionId, testSessionResult.id)
+    expect(ctx.style.actionStart).toHaveBeenCalledWith('Watching test session until completion...')
+    expect(ctx.style.actionSuccess).toHaveBeenCalled()
+    expect(ctx.logged[0]).toContain('API smoke')
+  })
+
+  it('returns raw test session result response for json drilldown output', async () => {
+    const ctx = createCommandContext({
+      args: { id: testSession.testSessionId },
+      flags: { output: 'json', result: testSessionResult.id },
+    })
+
+    await TestSessionsGet.prototype.run.call(ctx as any)
+
+    expect(api.testSessions.get).not.toHaveBeenCalled()
+    expect(JSON.parse(ctx.logged[0])).toEqual(testSessionResult)
   })
 
   it('fetches and renders one test session error group detail', async () => {

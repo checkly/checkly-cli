@@ -129,6 +129,31 @@ export interface AdaptiveTableOptions {
   terminalWidth?: number
 }
 
+export interface CommandHint {
+  label: string
+  command: string
+}
+
+export interface CommandHintsOptions {
+  gap?: number
+  indent?: number
+}
+
+export function renderCommandHints (hints: CommandHint[], options: CommandHintsOptions = {}): string {
+  if (hints.length === 0) return ''
+
+  const indent = ' '.repeat(options.indent ?? 2)
+  const gap = ' '.repeat(options.gap ?? 2)
+  const labelWidth = Math.max(...hints.map(hint => visWidth(`${hint.label}:`)))
+
+  return hints
+    .map(hint => {
+      const label = padColumn(`${hint.label}:`, labelWidth, 'left', false)
+      return `${indent}${chalk.dim(label)}${gap}${hint.command}`
+    })
+    .join('\n')
+}
+
 export function renderDetailFields<T> (
   title: string,
   fields: DetailField<T>[],
