@@ -9,6 +9,13 @@ import { PackageJsonFile } from './package-json-file.js'
 import { JsonSourceFile } from './json-source-file.js'
 import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace.js'
 import { Err, Ok } from './result.js'
+import {
+  LockfilePackageQuery,
+  parseBunLockfileVersion,
+  parseNpmLockfileVersion,
+  parsePnpmLockfileVersion,
+  parseYarnLockfileVersion,
+} from './lockfile-package-version.js'
 
 export class Runnable {
   executable: string
@@ -37,10 +44,45 @@ export interface PackageManager {
   addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
+  /**
+   * Resolves the version of a single package as recorded in the package
+   * manager's lockfile, scoped to a workspace importer. Returns `undefined`
+   * when the lockfile can't be read or parsed, the package isn't present, or
+   * the format isn't supported — the caller is expected to fall back to
+   * another source (e.g. reading the installed package).
+   */
+  resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined>
   detector (): PackageManagerDetector
 }
 
 class NotDetectedError extends Error {}
+
+/**
+ * Reads a lockfile and runs a format-specific parser over it, swallowing IO
+ * and parse errors so detection degrades to the caller's fallback rather than
+ * throwing on an unreadable or unexpected lockfile.
+ */
+async function parseLockfileWith (
+  lockfilePath: string,
+  query: LockfilePackageQuery,
+  parse: (content: string, query: LockfilePackageQuery) => string | undefined,
+): Promise<string | undefined> {
+  let content: string
+  try {
+    content = await fs.readFile(lockfilePath, 'utf8')
+  } catch {
+    return undefined
+  }
+
+  try {
+    return parse(content, query)
+  } catch {
+    return undefined
+  }
+}
 
 export type DetectionMethod =
   | 'userAgent'
@@ -82,6 +124,21 @@ export abstract class PackageManagerDetector {
   abstract addCommand (options: AddCommandOptions): Runnable
   abstract execCommand (args: string[]): Runnable
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
+
+  /**
+   * Default: lockfile parsing is unsupported, so callers fall back. Package
+   * managers that can parse their lockfile override this.
+   */
+  // eslint-disable-next-line require-await
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    void lockfilePath
+    void query
+    return undefined
+  }
+
   detector (): PackageManagerDetector {
     return this
   }
@@ -144,6 +201,13 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
+
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    return await parseLockfileWith(lockfilePath, query, parseNpmLockfileVersion)
+  }
 }
 
 export class CNpmDetector extends PackageManagerDetector implements PackageManager {
@@ -202,6 +266,14 @@ export class CNpmDetector extends PackageManagerDetector implements PackageManag
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
     return await lookupNearestPackageJsonWorkspace(this, dir)
+  }
+
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    // cnpm shares npm's package-lock.json format.
+    return await parseLockfileWith(lockfilePath, query, parseNpmLockfileVersion)
   }
 }
 
@@ -326,6 +398,13 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       })
     }
   }
+
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    return await parseLockfileWith(lockfilePath, query, parsePnpmLockfileVersion)
+  }
 }
 
 export class YarnDetector extends PackageManagerDetector implements PackageManager {
@@ -380,6 +459,13 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
     return await lookupNearestPackageJsonWorkspace(this, dir)
+  }
+
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    return await parseLockfileWith(lockfilePath, query, parseYarnLockfileVersion)
   }
 }
 
@@ -533,6 +619,18 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
     return await lookupNearestPackageJsonWorkspace(this, dir)
+  }
+
+  async resolvePackageVersionFromLockfile (
+    lockfilePath: string,
+    query: LockfilePackageQuery,
+  ): Promise<string | undefined> {
+    // The legacy binary lockfile (bun.lockb) isn't parseable here; only the
+    // text format (bun.lock) is. Skip the binary form so the caller falls back.
+    if (lockfilePath.endsWith('.lockb')) {
+      return undefined
+    }
+    return await parseLockfileWith(lockfilePath, query, parseBunLockfileVersion)
   }
 }
 
