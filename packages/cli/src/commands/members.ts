@@ -1,19 +1,19 @@
 import { Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand.js'
-import { outputFlag } from '../../helpers/flags.js'
-import * as api from '../../rest/api.js'
-import type { OutputFormat } from '../../formatters/render.js'
+import { AuthCommand } from './authCommand.js'
+import { outputFlag } from '../helpers/flags.js'
+import * as api from '../rest/api.js'
+import type { OutputFormat } from '../formatters/render.js'
 import type {
   AccountMemberRole,
   AccountMemberStatus,
   AccountMemberType,
   AccountMembersListParams,
-} from '../../rest/account-members.js'
+} from '../rest/account-members.js'
 import {
   formatAccountMembers,
   formatCursorNavigationHints,
   formatCursorPaginationInfo,
-} from '../../formatters/account-members.js'
+} from '../formatters/account-members.js'
 
 const accountMemberTypes = ['member', 'invite'] as const
 const accountMemberRoles = ['OWNER', 'ADMIN', 'READ_WRITE', 'READ_RUN', 'READ_ONLY'] as const
@@ -53,6 +53,7 @@ export function normalizeAccountMemberStatus (value: string | undefined): Accoun
 
 export default class AccountMembers extends AuthCommand {
   static hidden = false
+  static hiddenAliases = ['account members']
   static readOnly = true
   static idempotent = true
   static description = 'List account members and pending invites.'
