@@ -49,6 +49,12 @@ export interface AccountMembersListParams {
   nextId?: string
 }
 
+export type AccountMemberUpdateRole = Exclude<AccountMemberRole, 'OWNER'>
+
+export interface AccountMemberUpdateRolePayload {
+  role: AccountMemberUpdateRole
+}
+
 class AccountMembers {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -57,6 +63,15 @@ class AccountMembers {
 
   getAll (params?: AccountMembersListParams) {
     return this.api.get<AccountMembersResponse>('/v1/accounts/me/members', { params })
+  }
+
+  updateRole (userId: string, role: AccountMemberUpdateRole) {
+    const payload: AccountMemberUpdateRolePayload = { role }
+    return this.api.patch<ActiveAccountMember>(`/v1/accounts/me/members/${userId}`, payload)
+  }
+
+  delete (userId: string) {
+    return this.api.delete<void>(`/v1/accounts/me/members/${userId}`)
   }
 }
 

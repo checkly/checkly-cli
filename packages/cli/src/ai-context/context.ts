@@ -82,7 +82,7 @@ export const MANAGE_REFERENCES = [
   },
   {
     id: 'manage-account-members',
-    description: 'List account members and pending invites (`account members`)',
+    description: 'List account members and pending invites (`members`), update member roles, and delete members',
   },
 ] as const
 
