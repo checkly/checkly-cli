@@ -16,9 +16,7 @@ import {
   formatDate,
   renderCommandHints,
   renderDetailFields,
-  renderTable,
-  truncateToWidth,
-  visWidth,
+  renderAdaptiveTable,
 } from './render.js'
 
 const DEFAULT_ERROR_GROUPS_LIMIT = 5
@@ -109,10 +107,7 @@ function formatInvoker (session: TestSessionListEntry, format: OutputFormat): st
   return formatNullableString(session.commitOwner ?? session.invoker?.name, format)
 }
 
-function buildTestSessionListColumns (
-  sessions: TestSessionListEntry[],
-  format: OutputFormat,
-): ColumnDef<TestSessionListEntry>[] {
+function buildTestSessionListColumns (format: OutputFormat): ColumnDef<TestSessionListEntry>[] {
   if (format === 'md') {
     return [
       { header: 'Status', value: (session, fmt) => formatOptionalStatus(session.status, fmt) },
@@ -129,43 +124,36 @@ function buildTestSessionListColumns (
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
   const statusWidth = 11
-  const startedWidth = 25
-  const providerWidth = 13
-  const branchWidth = 18
-  const userWidth = 18
   const resultBucketWidth = 10
-  const idWidth = 38
-  const fixedWidth = statusWidth + startedWidth + providerWidth + branchWidth + userWidth
-    + (resultBucketWidth * 4) + idWidth
-  const longestName = Math.max(4, ...sessions.map(session => visWidth(session.name)))
-  const nameWidth = Math.max(18, Math.min(longestName + 2, termWidth - fixedWidth, 42))
 
   return [
     { header: 'Status', width: statusWidth, value: (session, fmt) => formatOptionalStatus(session.status, fmt) },
     {
       header: 'Started',
-      width: startedWidth,
-      value: (session, fmt) => truncateToWidth(formatDate(session.startedAt, fmt), startedWidth - 2),
+      minWidth: 12,
+      maxWidth: 25,
+      value: (session, fmt) => formatDate(session.startedAt, fmt),
     },
-    { header: 'Name', width: nameWidth, value: session => truncateToWidth(session.name, nameWidth - 2) },
-    { header: 'Provider', width: providerWidth, value: session => truncateToWidth(session.provider, providerWidth - 2) },
+    { header: 'Name', minWidth: 18, maxWidth: 42, value: session => session.name },
+    { header: 'Provider', minWidth: 8, maxWidth: 13, value: session => session.provider },
     {
       header: 'Branch',
-      width: branchWidth,
-      value: (session, fmt) => truncateToWidth(formatNullableString(session.branchName, fmt), branchWidth - 2),
+      minWidth: 8,
+      maxWidth: 18,
+      value: (session, fmt) => formatNullableString(session.branchName, fmt),
     },
     {
       header: 'User',
-      width: userWidth,
-      value: (session, fmt) => truncateToWidth(formatInvoker(session, fmt), userWidth - 2),
+      minWidth: 8,
+      maxWidth: 18,
+      value: (session, fmt) => formatInvoker(session, fmt),
     },
     { header: 'Running', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.running, fmt) },
     { header: 'Passed', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.passed, fmt) },
     { header: 'Failed', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.failed, fmt) },
     { header: 'Cancelled', width: resultBucketWidth, value: (session, fmt) => formatResultBucketCount(session.cancelled, fmt) },
-    { header: 'ID', value: session => chalk.dim(session.id) },
+    { header: 'ID', minWidth: 12, maxWidth: 38, value: session => chalk.dim(session.id) },
   ]
 }
 
@@ -173,7 +161,7 @@ export function formatTestSessionsList (
   sessions: TestSessionListEntry[],
   format: OutputFormat,
 ): string {
-  return renderTable(buildTestSessionListColumns(sessions, format), sessions, format)
+  return renderAdaptiveTable(buildTestSessionListColumns(format), sessions, format)
 }
 
 export function formatTestSessionsListPaginationInfo (count: number, nextId: string | null | undefined): string {
@@ -243,36 +231,28 @@ function buildResultColumns (results: TestSessionResult[], format: OutputFormat)
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const showCheckId = termWidth >= 160 && results.some(result => result.checkId)
+  const showCheckId = results.some(result => result.checkId)
   const typeWidth = 14
   const statusWidth = 10
   const resultTypeWidth = 10
-  const locationWidth = 14
   const errorGroupWidth = 14
-  const resultIdWidth = showCheckId ? 38 : 0
-  const checkIdWidth = showCheckId ? 38 : 0
-  const fixedWidth = typeWidth + statusWidth + resultTypeWidth + locationWidth
-    + errorGroupWidth + resultIdWidth + checkIdWidth
-  const longestName = Math.max(4, ...results.map(result => visWidth(result.name || '-')))
-  const nameWidth = Math.max(16, Math.min(longestName + 2, termWidth - fixedWidth, 42))
 
   const columns: ColumnDef<TestSessionResult>[] = [
-    { header: 'Name', width: nameWidth, value: result => truncateToWidth(result.name || '-', nameWidth - 2) },
-    { header: 'Type', width: typeWidth, value: result => truncateToWidth(formatCheckType(result.checkType), typeWidth - 2) },
+    { header: 'Name', minWidth: 12, maxWidth: 42, value: result => result.name || '-' },
+    { header: 'Type', width: typeWidth, value: result => formatCheckType(result.checkType) },
     { header: 'Status', width: statusWidth, value: (result, fmt) => formatStatus(result.status, fmt) },
-    { header: 'Result', width: resultTypeWidth, value: result => result.resultType ? truncateToWidth(result.resultType, resultTypeWidth - 2) : chalk.dim('-') },
-    { header: 'Location', width: locationWidth, value: result => result.runLocation ? truncateToWidth(result.runLocation, locationWidth - 2) : chalk.dim('-') },
+    { header: 'Result', width: resultTypeWidth, value: result => result.resultType ?? chalk.dim('-') },
+    { header: 'Location', minWidth: 11, maxWidth: 14, value: result => result.runLocation ?? chalk.dim('-') },
     { header: 'Error Groups', width: errorGroupWidth, value: (result, fmt) => formatErrorGroupCount(result.errorGroupIds, fmt) },
   ]
 
   if (showCheckId) {
     columns.push(
-      { header: 'Result ID', width: resultIdWidth, value: result => chalk.dim(result.testSessionResultId) },
-      { header: 'Check ID', value: result => result.checkId ? chalk.dim(result.checkId) : chalk.dim('-') },
+      { header: 'Result ID', minWidth: 38, maxWidth: 38, value: result => chalk.dim(result.testSessionResultId) },
+      { header: 'Check ID', minWidth: 8, maxWidth: 38, value: result => result.checkId ? chalk.dim(result.checkId) : chalk.dim('-') },
     )
   } else {
-    columns.push({ header: 'Result ID', value: result => chalk.dim(result.testSessionResultId) })
+    columns.push({ header: 'Result ID', minWidth: 38, maxWidth: 38, value: result => chalk.dim(result.testSessionResultId) })
   }
 
   return columns
@@ -315,17 +295,14 @@ function buildErrorGroupReferenceColumns (format: OutputFormat): ColumnDef<Error
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const idWidth = 38
-  const sourceWidth = Math.max(16, Math.min(50, termWidth - idWidth))
-
   return [
     {
       header: 'Source',
-      width: sourceWidth,
-      value: ref => truncateToWidth(ref.sources.join(', '), sourceWidth - 2),
+      minWidth: 16,
+      maxWidth: 50,
+      value: ref => ref.sources.join(', '),
     },
-    { header: 'Error Group ID', value: ref => chalk.dim(ref.id) },
+    { header: 'Error Group ID', minWidth: 12, maxWidth: 38, value: ref => chalk.dim(ref.id) },
   ]
 }
 
@@ -345,7 +322,7 @@ export function formatTestSessionErrorGroupIds (
   const lines: string[] = [
     format === 'md' ? '## Error Group IDs' : chalk.bold('ERROR GROUP IDS'),
     '',
-    renderTable(buildErrorGroupReferenceColumns(format), visible, format),
+    renderAdaptiveTable(buildErrorGroupReferenceColumns(format), visible, format),
   ]
 
   if (hiddenCount > 0) {
@@ -437,7 +414,7 @@ export function formatTestSessionDetail (
     lines.push('')
     lines.push(format === 'md' ? '## Results' : chalk.bold('RESULTS'))
     lines.push('')
-    lines.push(renderTable(buildResultColumns(results, format), results, format))
+    lines.push(renderAdaptiveTable(buildResultColumns(results, format), results, format))
   }
 
   const errorGroupIds = formatTestSessionErrorGroupIds(session, format, options)

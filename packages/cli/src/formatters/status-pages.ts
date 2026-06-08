@@ -4,9 +4,8 @@ import {
   type OutputFormat,
   type ColumnDef,
   type DetailField,
-  truncateToWidth,
+  renderAdaptiveTable,
   renderCommandHints,
-  renderTable,
   renderDetailFields,
 } from './render.js'
 
@@ -79,35 +78,32 @@ function buildExpandedColumns (format: OutputFormat): ColumnDef<ExpandedRow>[] {
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const nameWidth = Math.min(24, Math.floor(termWidth * 0.18))
-  const urlWidth = Math.min(26, Math.floor(termWidth * 0.20))
-  const cardWidth = Math.min(20, Math.floor(termWidth * 0.16))
-  const serviceWidth = Math.min(24, Math.floor(termWidth * 0.20))
-
   return [
     {
       header: 'Name',
-      width: nameWidth,
-      value: r => truncateToWidth(r.name, nameWidth - 2),
+      minWidth: 10,
+      maxWidth: 24,
+      value: r => r.name,
     },
     {
       header: 'URL',
-      width: urlWidth,
+      minWidth: 12,
+      maxWidth: 32,
       value: r => {
-        const display = r.customDomain ?? r.url
-        return truncateToWidth(display, urlWidth - 2)
+        return r.customDomain ?? r.url
       },
     },
     {
       header: 'Card',
-      width: cardWidth,
-      value: r => truncateToWidth(r.card, cardWidth - 2),
+      minWidth: 8,
+      maxWidth: 22,
+      value: r => r.card,
     },
     {
       header: 'Service',
-      width: serviceWidth,
-      value: r => truncateToWidth(r.service, serviceWidth - 2),
+      minWidth: 8,
+      maxWidth: 24,
+      value: r => r.service,
     },
     {
       header: 'ID',
@@ -119,7 +115,7 @@ function buildExpandedColumns (format: OutputFormat): ColumnDef<ExpandedRow>[] {
 export function formatStatusPagesExpanded (statusPages: StatusPage[], format: OutputFormat): string {
   const rows = expandStatusPages(statusPages)
   const columns = buildExpandedColumns(format)
-  return renderTable(columns, rows, format)
+  return renderAdaptiveTable(columns, rows, format)
 }
 
 // --- Compact table columns (one row per status page) ---
@@ -135,22 +131,19 @@ function buildCompactColumns (format: OutputFormat): ColumnDef<StatusPage>[] {
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const nameWidth = Math.min(30, Math.floor(termWidth * 0.25))
-  const urlWidth = Math.min(32, Math.floor(termWidth * 0.28))
-
   return [
     {
       header: 'Name',
-      width: nameWidth,
-      value: sp => truncateToWidth(sp.name, nameWidth - 2),
+      minWidth: 12,
+      maxWidth: 30,
+      value: sp => sp.name,
     },
     {
       header: 'URL',
-      width: urlWidth,
+      minWidth: 14,
+      maxWidth: 36,
       value: sp => {
-        const display = sp.customDomain ?? sp.url
-        return truncateToWidth(display, urlWidth - 2)
+        return sp.customDomain ?? sp.url
       },
     },
     {
@@ -172,7 +165,7 @@ function buildCompactColumns (format: OutputFormat): ColumnDef<StatusPage>[] {
 
 export function formatStatusPagesCompact (statusPages: StatusPage[], format: OutputFormat): string {
   const columns = buildCompactColumns(format)
-  return renderTable(columns, statusPages, format)
+  return renderAdaptiveTable(columns, statusPages, format)
 }
 
 // --- Cursor pagination helpers ---
@@ -245,13 +238,9 @@ function buildServiceColumns (format: OutputFormat): ColumnDef<ServiceRow>[] {
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const cardWidth = Math.min(24, Math.floor(termWidth * 0.22))
-  const serviceWidth = Math.min(28, Math.floor(termWidth * 0.26))
-
   return [
-    { header: 'Card', width: cardWidth, value: r => truncateToWidth(r.card, cardWidth - 2) },
-    { header: 'Service', width: serviceWidth, value: r => truncateToWidth(r.service, serviceWidth - 2) },
+    { header: 'Card', minWidth: 8, maxWidth: 24, value: r => r.card },
+    { header: 'Service', minWidth: 8, maxWidth: 28, value: r => r.service },
     { header: 'Service ID', value: r => chalk.dim(r.serviceId) },
   ]
 }
@@ -283,7 +272,7 @@ export function formatStatusPageDetail (sp: StatusPage, format: OutputFormat): s
       lines.push('')
       lines.push(chalk.bold('SERVICES'))
     }
-    lines.push(renderTable(columns, serviceRows, format))
+    lines.push(renderAdaptiveTable(columns, serviceRows, format))
   }
 
   return lines.join('\n')
