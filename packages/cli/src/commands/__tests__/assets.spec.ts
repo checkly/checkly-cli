@@ -148,7 +148,7 @@ describe('assets commands', () => {
         'test-session-id': 'session-id',
         'result-id': 'result-id',
         'type': 'trace',
-        'view': 'table',
+        'view': 'tree',
         'output': 'json',
       },
     })
@@ -160,6 +160,8 @@ describe('assets commands', () => {
       ...manifest,
       assets: [manifest.assets[1]],
     })
+    expect(ctx.logged[0]).not.toContain('Assets for test-session result')
+    expect(ctx.logged[0]).not.toContain('checkout trace.zip (trace')
   })
 
   it('renders list markdown output', async () => {

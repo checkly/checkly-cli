@@ -38,7 +38,7 @@ export default class AssetsList extends AuthCommand {
       default: 'all',
     }),
     'view': Flags.string({
-      description: 'Human output view.',
+      description: 'Human output view. Ignored with --output json.',
       options: ['table', 'tree'],
       default: 'table',
     }),
