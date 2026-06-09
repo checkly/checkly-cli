@@ -1,0 +1,182 @@
+import path from 'node:path'
+import { constants, createWriteStream } from 'node:fs'
+import { access, mkdir, rm } from 'node:fs/promises'
+import { pipeline } from 'node:stream/promises'
+import { minimatch } from 'minimatch'
+import * as api from '../rest/api.js'
+import type {
+  AssetManifest,
+  AssetManifestEntry,
+  AssetManifestEntryType,
+} from '../rest/asset-manifests.js'
+import { assetSelectorValue } from '../formatters/assets.js'
+
+export const assetTypes: Array<AssetManifestEntryType | 'all'> = [
+  'log',
+  'trace',
+  'video',
+  'screenshot',
+  'pcap',
+  'report',
+  'file',
+  'all',
+]
+
+export interface AssetSourceFlags {
+  'check-id'?: string
+  'test-session-id'?: string
+  'result-id'?: string
+}
+
+export type AssetSource =
+  | { kind: 'check-result', checkId: string, resultId: string }
+  | { kind: 'test-session-result', testSessionId: string, resultId: string }
+
+export function resolveAssetSource (flags: AssetSourceFlags): AssetSource {
+  if (!flags['result-id']) {
+    throw new Error('--result-id is required.')
+  }
+
+  const hasCheckId = Boolean(flags['check-id'])
+  const hasTestSessionId = Boolean(flags['test-session-id'])
+
+  if (hasCheckId && hasTestSessionId) {
+    throw new Error('Use exactly one of --check-id or --test-session-id, not both.')
+  }
+
+  if (!hasCheckId && !hasTestSessionId) {
+    throw new Error('Use exactly one of --check-id or --test-session-id.')
+  }
+
+  if (flags['check-id']) {
+    return { kind: 'check-result', checkId: flags['check-id'], resultId: flags['result-id'] }
+  }
+
+  return { kind: 'test-session-result', testSessionId: flags['test-session-id']!, resultId: flags['result-id'] }
+}
+
+export function fetchAssetManifest (source: AssetSource): Promise<AssetManifest> {
+  if (source.kind === 'check-result') {
+    return api.assetManifests.getForCheckResult(source.checkId, source.resultId)
+  }
+
+  return api.assetManifests.getForTestSessionResult(source.testSessionId, source.resultId)
+}
+
+export function filterAssetsByType (
+  assets: AssetManifestEntry[],
+  type?: AssetManifestEntryType | 'all',
+): AssetManifestEntry[] {
+  if (!type || type === 'all') return assets
+  return assets.filter(asset => asset.type === type)
+}
+
+function hasGlobCharacters (selector: string): boolean {
+  return /[*?[\]{}]/.test(selector)
+}
+
+export function selectAssets (
+  assets: AssetManifestEntry[],
+  options: { type?: AssetManifestEntryType | 'all', asset?: string },
+): AssetManifestEntry[] {
+  const byType = filterAssetsByType(assets, options.type)
+  const selector = options.asset
+  if (!selector) return byType
+
+  if (hasGlobCharacters(selector)) {
+    return byType.filter(asset =>
+      minimatch(asset.archive?.entryName ?? '', selector, { dot: true })
+      || minimatch(asset.name, selector, { dot: true }),
+    )
+  }
+
+  const exactMatches = byType.filter(asset =>
+    asset.archive?.entryName === selector
+    || asset.name === selector,
+  )
+
+  if (exactMatches.length > 1) {
+    const values = [...new Set(exactMatches.map(assetSelectorValue))]
+    throw new Error(
+      `--asset "${selector}" matches multiple assets:\n`
+      + values.map(value => `  ${value}`).join('\n')
+      + '\nCopy one Asset value from `checkly assets list` and pass it to --asset.',
+    )
+  }
+
+  return exactMatches
+}
+
+export function defaultDownloadDirectory (source: AssetSource): string {
+  const prefix = source.kind === 'check-result' ? 'check-result' : 'test-session-result'
+  return path.join('.', 'checkly-assets', `${prefix}-${source.resultId}`)
+}
+
+function sanitizePathSegment (segment: string): string {
+  return segment
+    // eslint-disable-next-line no-control-regex
+    .replace(/[<>:"|?*\u0000-\u001F]/g, '_')
+    .replace(/^\.+$/, '_')
+    .trim()
+}
+
+export function destinationPathForAsset (directory: string, asset: AssetManifestEntry): string {
+  const selector = assetSelectorValue(asset)
+  const rawSegments = selector.split(/[\\/]+/)
+  const safeSegments = rawSegments
+    .map(sanitizePathSegment)
+    .filter(segment => segment && segment !== '.' && segment !== '..')
+
+  const relativePath = safeSegments.length > 0 ? path.join(...safeSegments) : 'asset'
+  return path.join(directory, relativePath)
+}
+
+async function pathExists (filePath: string): Promise<boolean> {
+  try {
+    await access(filePath, constants.F_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function isArchiveAsset (asset: AssetManifestEntry): boolean {
+  if (asset.archive?.entryName) return true
+
+  const contentType = asset.contentType?.toLowerCase() ?? ''
+  const name = asset.name.toLowerCase()
+  return contentType.includes('zip')
+    || contentType.includes('tar')
+    || name.endsWith('.zip')
+    || name.endsWith('.tar')
+    || name.endsWith('.tar.gz')
+    || name.endsWith('.tgz')
+}
+
+export async function downloadAssetToFile (
+  asset: AssetManifestEntry,
+  filePath: string,
+  options: { force?: boolean, skipExisting?: boolean },
+): Promise<'written' | 'skipped'> {
+  const exists = await pathExists(filePath)
+  if (exists) {
+    if (options.skipExisting) return 'skipped'
+    if (!options.force) {
+      throw new Error(`Refusing to overwrite existing file: ${filePath}. Use --force or --skip-existing.`)
+    }
+  }
+
+  await mkdir(path.dirname(filePath), { recursive: true })
+
+  try {
+    const response = await api.api.get<NodeJS.ReadableStream>(asset.url, { responseType: 'stream' })
+    await pipeline(response.data, createWriteStream(filePath))
+  } catch (err) {
+    if (!exists) {
+      await rm(filePath, { force: true })
+    }
+    throw err
+  }
+
+  return 'written'
+}
