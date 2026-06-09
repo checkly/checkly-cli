@@ -70,7 +70,15 @@ function createCommandContext (parsed: unknown) {
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
     }),
-    style: { outputFormat: undefined, longError: vi.fn() },
+    style: {
+      outputFormat: undefined,
+      actionStart: vi.fn(),
+      actionStatus: vi.fn(),
+      actionSuccess: vi.fn(),
+      actionFailure: vi.fn(),
+      longError: vi.fn(),
+    },
+    fancy: false,
     logged,
   }
 }
@@ -237,6 +245,85 @@ describe('assets commands', () => {
     await expect(readFile(expectedPath, 'utf8')).resolves.toBe('downloaded')
   })
 
+  it('renders single download human output as a full-path detail', async () => {
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'page.png',
+        'output': 'table',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    const expectedPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'page.png')
+    expect(ctx.logged[0]).toContain('Downloaded screenshot asset')
+    expect(ctx.logged[0]).toContain(`Path: ${expectedPath}`)
+    expect(ctx.logged[0]).not.toContain('ASSET')
+  })
+
+  it('renders multiple download human output with full paths and no repeated asset column', async () => {
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'type': 'file',
+        'output': 'table',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    const firstPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'a', 'duplicate.txt')
+    const secondPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'b', 'duplicate.txt')
+    expect(ctx.logged[0]).toContain('2 assets processed (2 downloaded)')
+    expect(ctx.logged[0]).toContain(firstPath)
+    expect(ctx.logged[0]).toContain(secondPath)
+    expect(ctx.logged[0]).toContain('TYPE')
+    expect(ctx.logged[0]).toContain('PATH')
+    expect(ctx.logged[0]).not.toContain('ASSET')
+    expect(ctx.logged[0]).not.toContain('STATUS')
+  })
+
+  it('shows live progress in interactive human output', async () => {
+    const originalIsTTY = process.stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true })
+    vi.mocked(api.api.get).mockResolvedValue({
+      data: Readable.from(['downloaded']),
+      headers: { 'content-length': '10' },
+    } as any)
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'page.png',
+        'output': 'table',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+    ctx.fancy = true
+
+    try {
+      await AssetsDownload.prototype.run.call(ctx as any)
+    } finally {
+      Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: originalIsTTY })
+    }
+
+    expect(ctx.style.actionStart).toHaveBeenCalledWith('Fetching asset manifest')
+    expect(ctx.style.actionStatus).toHaveBeenCalledWith(expect.stringContaining('Downloading 1/1 screenshot page.png'))
+    expect(ctx.style.actionStatus).toHaveBeenCalledWith(expect.stringContaining('10 B / 10 B'))
+    expect(ctx.style.actionSuccess).toHaveBeenCalled()
+  })
+
   it('downloads by glob selector and preserves safe archive entry paths', async () => {
     const ctx = createCommandContext({
       flags: {
@@ -309,7 +396,9 @@ describe('assets commands', () => {
 
     expect(ctx.style.longError).toHaveBeenCalledWith(
       'Failed to download assets.',
-      expect.objectContaining({ message: expect.stringContaining('Refusing to overwrite existing file') }),
+      expect.objectContaining({
+        message: `Refusing to overwrite existing file. Use --force to overwrite or --skip-existing to keep it.\n${existingPath}`,
+      }),
     )
     expect(process.exitCode).toBe(1)
     await expect(readFile(existingPath, 'utf8')).resolves.toBe('existing')

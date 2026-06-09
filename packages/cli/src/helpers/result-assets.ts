@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { constants, createWriteStream } from 'node:fs'
 import { access, mkdir, rm } from 'node:fs/promises'
+import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { minimatch } from 'minimatch'
 import * as api from '../rest/api.js'
@@ -153,16 +154,65 @@ export function isArchiveAsset (asset: AssetManifestEntry): boolean {
     || name.endsWith('.tgz')
 }
 
+export interface AssetDownloadProgress {
+  downloadedBytes: number
+  totalBytes?: number
+}
+
+export interface AssetDownloadOptions {
+  force?: boolean
+  skipExisting?: boolean
+  onProgress?: (progress: AssetDownloadProgress) => void
+}
+
+function headerValue (headers: unknown, name: string): unknown {
+  if (!headers || typeof headers !== 'object') return
+
+  if ('get' in headers && typeof headers.get === 'function') {
+    return headers.get(name)
+  }
+
+  const record = headers as Record<string, unknown>
+  return record[name] ?? record[name.toLowerCase()]
+}
+
+function parseContentLength (headers: unknown): number | undefined {
+  const value = headerValue(headers, 'content-length')
+  if (Array.isArray(value)) return parseContentLength({ 'content-length': value[0] })
+  if (typeof value !== 'string' && typeof value !== 'number') return
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+function progressTransform (
+  totalBytes: number | undefined,
+  onProgress: AssetDownloadOptions['onProgress'],
+): Transform | undefined {
+  if (!onProgress) return
+
+  let downloadedBytes = 0
+  return new Transform({
+    transform (chunk, _encoding, callback) {
+      downloadedBytes += Buffer.isBuffer(chunk)
+        ? chunk.length
+        : Buffer.byteLength(chunk)
+      onProgress({ downloadedBytes, totalBytes })
+      callback(null, chunk)
+    },
+  })
+}
+
 export async function downloadAssetToFile (
   asset: AssetManifestEntry,
   filePath: string,
-  options: { force?: boolean, skipExisting?: boolean },
+  options: AssetDownloadOptions,
 ): Promise<'written' | 'skipped'> {
   const exists = await pathExists(filePath)
   if (exists) {
     if (options.skipExisting) return 'skipped'
     if (!options.force) {
-      throw new Error(`Refusing to overwrite existing file: ${filePath}. Use --force or --skip-existing.`)
+      throw new Error(`Refusing to overwrite existing file. Use --force to overwrite or --skip-existing to keep it.\n${filePath}`)
     }
   }
 
@@ -170,7 +220,12 @@ export async function downloadAssetToFile (
 
   try {
     const response = await api.api.get<NodeJS.ReadableStream>(asset.url, { responseType: 'stream' })
-    await pipeline(response.data, createWriteStream(filePath))
+    const transform = progressTransform(parseContentLength(response.headers), options.onProgress)
+    if (transform) {
+      await pipeline(response.data, transform, createWriteStream(filePath))
+    } else {
+      await pipeline(response.data, createWriteStream(filePath))
+    }
   } catch (err) {
     if (!exists) {
       await rm(filePath, { force: true })

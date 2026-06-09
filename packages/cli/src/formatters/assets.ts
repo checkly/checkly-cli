@@ -5,7 +5,6 @@ import {
   type OutputFormat,
   escapeMdCell,
   renderAdaptiveTable,
-  truncateToWidth,
 } from './render.js'
 
 export function assetSelectorValue (asset: AssetManifestEntry): string {
@@ -182,10 +181,22 @@ export interface DownloadedAssetRow {
 }
 
 function buildDownloadedAssetColumns (): ColumnDef<DownloadedAssetRow>[] {
-  const termWidth = process.stdout.columns || 120
-  const pathWidth = Math.min(58, Math.floor(termWidth * 0.48))
-  const assetWidth = Math.min(42, Math.floor(termWidth * 0.34))
+  return [
+    {
+      header: 'Type',
+      width: 12,
+      value: row => row.asset.type,
+    },
+    {
+      header: 'Path',
+      minWidth: 24,
+      truncate: false,
+      value: row => row.path,
+    },
+  ]
+}
 
+function buildDownloadedAssetStatusColumns (): ColumnDef<DownloadedAssetRow>[] {
   return [
     {
       header: 'Status',
@@ -193,22 +204,44 @@ function buildDownloadedAssetColumns (): ColumnDef<DownloadedAssetRow>[] {
       value: row => row.status === 'written' ? chalk.green('written') : chalk.yellow('skipped'),
     },
     {
-      header: 'Path',
-      width: pathWidth,
-      value: row => truncateToWidth(row.path, pathWidth - 2),
-    },
-    {
       header: 'Type',
       width: 12,
       value: row => row.asset.type,
     },
     {
-      header: 'Asset',
-      value: row => truncateToWidth(assetSelectorValue(row.asset), assetWidth),
+      header: 'Path',
+      minWidth: 24,
+      truncate: false,
+      value: row => row.path,
     },
   ]
 }
 
 export function formatDownloadedAssets (rows: DownloadedAssetRow[]): string {
-  return renderAdaptiveTable(buildDownloadedAssetColumns(), rows, 'terminal')
+  if (rows.length === 0) return ''
+
+  if (rows.length === 1) {
+    const [row] = rows
+    const action = row.status === 'written' ? 'Downloaded' : 'Skipped existing'
+    return [
+      chalk.bold(`${action} ${row.asset.type} asset`),
+      `${chalk.dim('Path:')} ${row.path}`,
+    ].join('\n')
+  }
+
+  const written = rows.filter(row => row.status === 'written').length
+  const skipped = rows.length - written
+  const summary = [
+    written > 0 ? `${written} downloaded` : undefined,
+    skipped > 0 ? `${skipped} skipped` : undefined,
+  ].filter(Boolean).join(', ')
+
+  const columns = skipped > 0
+    ? buildDownloadedAssetStatusColumns()
+    : buildDownloadedAssetColumns()
+
+  return [
+    chalk.bold(`${rows.length} assets processed (${summary})`),
+    renderAdaptiveTable(columns, rows, 'terminal'),
+  ].join('\n')
 }

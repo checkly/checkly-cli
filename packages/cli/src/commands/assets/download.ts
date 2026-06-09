@@ -2,7 +2,7 @@ import { Flags } from '@oclif/core'
 import path from 'node:path'
 import { AuthCommand } from '../authCommand.js'
 import { outputFlag } from '../../helpers/flags.js'
-import { formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
+import { assetSelectorValue, formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
 import {
   assetTypes,
   defaultDownloadDirectory,
@@ -60,6 +60,29 @@ export default class AssetsDownload extends AuthCommand {
     const { flags } = await this.parse(AssetsDownload)
     this.style.outputFormat = flags.output
     const source = resolveAssetSource(flags)
+    const showProgress = flags.output !== 'json' && this.fancy && process.stdout.isTTY
+    let progressStarted = false
+
+    const startProgress = (message: string) => {
+      if (!showProgress) return
+      this.style.actionStart(message)
+      progressStarted = true
+    }
+
+    const setProgress = (message: string) => {
+      if (!showProgress || !progressStarted) return
+      this.style.actionStatus(message)
+    }
+
+    const stopProgress = (success: boolean) => {
+      if (!showProgress || !progressStarted) return
+      if (success) {
+        this.style.actionSuccess()
+      } else {
+        this.style.actionFailure()
+      }
+      progressStarted = false
+    }
 
     if (flags.force && flags['skip-existing']) {
       throw new Error('--force and --skip-existing are mutually exclusive.')
@@ -70,6 +93,7 @@ export default class AssetsDownload extends AuthCommand {
     }
 
     try {
+      startProgress('Fetching asset manifest')
       const manifest = await fetchAssetManifest(source)
       const assets = selectAssets(manifest.assets, {
         type: flags.type as any,
@@ -77,6 +101,7 @@ export default class AssetsDownload extends AuthCommand {
       })
 
       if (assets.length === 0) {
+        stopProgress(true)
         if (flags.output === 'json') {
           this.log(JSON.stringify({ source, directory: null, files: [] }, null, 2))
           return
@@ -98,14 +123,27 @@ export default class AssetsDownload extends AuthCommand {
       const directory = path.resolve(flags.dir ?? defaultDownloadDirectory(source))
       const rows: DownloadedAssetRow[] = []
 
-      for (const asset of assets) {
+      for (const [index, asset] of assets.entries()) {
         const filePath = destinationPathForAsset(directory, asset)
+        const label = `${index + 1}/${assets.length} ${asset.type} ${assetSelectorValue(asset)}`
+        let lastProgressUpdate = 0
+        setProgress(`Downloading ${label}`)
         const status = await downloadAssetToFile(asset, filePath, {
           force: flags.force,
           skipExisting: flags['skip-existing'],
+          onProgress: showProgress
+            ? ({ downloadedBytes, totalBytes }) => {
+                const now = Date.now()
+                if (now - lastProgressUpdate < 250) return
+                lastProgressUpdate = now
+                setProgress(`Downloading ${label} ${formatDownloadBytes(downloadedBytes, totalBytes)}`)
+              }
+            : undefined,
         })
+        setProgress(status === 'skipped' ? `Skipped ${label}` : `Downloaded ${label}`)
         rows.push({ status, path: filePath, asset })
       }
+      stopProgress(true)
 
       if (flags.output === 'json') {
         this.log(JSON.stringify({ source, directory, files: rows }, null, 2))
@@ -114,8 +152,30 @@ export default class AssetsDownload extends AuthCommand {
 
       this.log(formatDownloadedAssets(rows))
     } catch (err: any) {
+      stopProgress(false)
       this.style.longError('Failed to download assets.', err)
       process.exitCode = 1
     }
   }
+}
+
+function formatDownloadBytes (downloadedBytes: number, totalBytes?: number): string {
+  if (totalBytes === undefined) return formatBytes(downloadedBytes)
+  return `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)}`
+}
+
+function formatBytes (bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+
+  const rounded = value >= 10 ? value.toFixed(1) : value.toFixed(2)
+  return `${rounded} ${units[unitIndex]}`
 }

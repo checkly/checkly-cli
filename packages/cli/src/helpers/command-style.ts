@@ -29,6 +29,12 @@ export class CommandStyle {
     }
   }
 
+  actionStatus (message: string) {
+    if (this.c.fancy) {
+      ux.action.status = message
+    }
+  }
+
   actionSuccess () {
     if (this.c.fancy) {
       ux.action.stop(`✅`)
