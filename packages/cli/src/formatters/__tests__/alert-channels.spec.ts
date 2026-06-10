@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AlertChannel } from '../../rest/alert-channels.js'
 import type { AlertNotification } from '../../rest/alert-notifications.js'
-import { stripAnsi } from '../render.js'
+import { stripAnsi, visWidth } from '../render.js'
 import {
   formatAlertChannelDetail,
   formatAlertChannels,
@@ -42,6 +42,30 @@ describe('formatAlertChannels', () => {
     expect(result).toContain('2')
     expect(result).toContain('2026-03-01 10:00:00 UTC')
     expect(result).toContain('123')
+  })
+
+  it('keeps terminal list rows within narrow terminal width', () => {
+    const originalColumns = process.stdout.columns
+    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 80 })
+    try {
+      const channels = [
+        {
+          ...baseChannel,
+          id: '0056ce7a-52f6-4315-a2d6-0392369abac5',
+          name: 'Primary production incident response webhook',
+          type: 'WEBHOOK',
+          config: { name: 'Webhook with a verbose target name' },
+        },
+      ] as AlertChannel[]
+
+      const result = stripAnsi(formatAlertChannels(channels, 'terminal'))
+
+      for (const line of result.split('\n')) {
+        expect(visWidth(line)).toBeLessThanOrEqual(80)
+      }
+    } finally {
+      Object.defineProperty(process.stdout, 'columns', { configurable: true, value: originalColumns })
+    }
   })
 })
 
