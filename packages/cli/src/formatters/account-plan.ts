@@ -4,7 +4,7 @@ import {
   type OutputFormat,
   type ColumnDef,
   type DetailField,
-  renderTable,
+  renderAdaptiveTable,
   renderDetailFields,
 } from './render.js'
 
@@ -70,8 +70,6 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 
 // --- Column definitions ---
 
-const NAME_WIDTH = 50
-const UPGRADE_WIDTH = 45
 export const CONTACT_SALES_URL = 'https://www.checklyhq.com/contact-sales/'
 const CONTACT_SALES_LABEL = 'Contact sales'
 
@@ -94,14 +92,16 @@ function upgradeLabel (e: Entitlement): string {
 
 const upgradeColumn: ColumnDef<Entitlement> = {
   header: 'Required Upgrade',
-  width: UPGRADE_WIDTH,
+  minWidth: 18,
+  maxWidth: 45,
   value: e => upgradeLabel(e),
 }
 
 const meteredColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: NAME_WIDTH,
+    minWidth: 20,
+    maxWidth: 50,
     value: e => e.name,
   },
   {
@@ -113,6 +113,8 @@ const meteredColumns: ColumnDef<Entitlement>[] = [
   upgradeColumn,
   {
     header: 'Key',
+    minWidth: 12,
+    maxWidth: 36,
     value: e => chalk.dim(e.key),
   },
 ]
@@ -120,7 +122,8 @@ const meteredColumns: ColumnDef<Entitlement>[] = [
 const flagColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: NAME_WIDTH,
+    minWidth: 20,
+    maxWidth: 50,
     value: e => e.name,
   },
   {
@@ -131,6 +134,8 @@ const flagColumns: ColumnDef<Entitlement>[] = [
   upgradeColumn,
   {
     header: 'Key',
+    minWidth: 12,
+    maxWidth: 36,
     value: e => chalk.dim(e.key),
   },
 ]
@@ -138,7 +143,8 @@ const flagColumns: ColumnDef<Entitlement>[] = [
 const mixedColumns: ColumnDef<Entitlement>[] = [
   {
     header: 'Name',
-    width: NAME_WIDTH,
+    minWidth: 20,
+    maxWidth: 50,
     value: e => e.name,
   },
   {
@@ -160,6 +166,8 @@ const mixedColumns: ColumnDef<Entitlement>[] = [
   upgradeColumn,
   {
     header: 'Key',
+    minWidth: 12,
+    maxWidth: 36,
     value: e => chalk.dim(e.key),
   },
 ]
@@ -287,7 +295,7 @@ export function formatPlanSummary (plan: AccountPlan, format: OutputFormat, upgr
     lines.push(chalk.cyan.bold(`Metered entitlements (${enabledMeteredCount} of ${metered.length} enabled):`))
   }
   lines.push('')
-  const tableStr = renderTable(meteredColumns, metered, format)
+  const tableStr = renderAdaptiveTable(meteredColumns, metered, format)
   lines.push(format === 'terminal' ? highlightDisabledRows(tableStr, metered) : tableStr)
 
   // Flag summary line
@@ -343,11 +351,11 @@ export function formatFilteredEntitlements (
 
   let tableStr: string
   if (hasMetered && !hasFlags) {
-    tableStr = renderTable(meteredColumns, filtered, format)
+    tableStr = renderAdaptiveTable(meteredColumns, filtered, format)
   } else if (hasFlags && !hasMetered) {
-    tableStr = renderTable(flagColumns, filtered, format)
+    tableStr = renderAdaptiveTable(flagColumns, filtered, format)
   } else {
-    tableStr = renderTable(mixedColumns, filtered, format)
+    tableStr = renderAdaptiveTable(mixedColumns, filtered, format)
   }
   // Only highlight disabled rows when there's a mix — if everything is disabled
   // (e.g. --disabled filter), the pink becomes noise rather than signal.

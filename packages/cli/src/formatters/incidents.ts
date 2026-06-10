@@ -4,8 +4,7 @@ import {
   type OutputFormat,
   type ColumnDef,
   type DetailField,
-  truncateToWidth,
-  renderTable,
+  renderAdaptiveTable,
   renderDetailFields,
   formatDate,
   timeAgo,
@@ -70,14 +69,12 @@ function buildIncidentListColumns (format: OutputFormat): ColumnDef<StatusPageIn
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const nameWidth = Math.min(26, Math.floor(termWidth * 0.24))
-
   return [
     {
       header: 'Name',
-      width: nameWidth,
-      value: i => truncateToWidth(i.name, nameWidth - 2),
+      minWidth: 12,
+      maxWidth: 30,
+      value: i => i.name,
     },
     {
       header: 'Severity',
@@ -107,7 +104,7 @@ function buildIncidentListColumns (format: OutputFormat): ColumnDef<StatusPageIn
 }
 
 export function formatIncidentsList (incidents: StatusPageIncident[], format: OutputFormat): string {
-  return renderTable(buildIncidentListColumns(format), incidents, format)
+  return renderAdaptiveTable(buildIncidentListColumns(format), incidents, format)
 }
 
 const incidentDetailFields: DetailField<StatusPageIncident>[] = [
@@ -127,11 +124,8 @@ function buildIncidentServiceColumns (format: OutputFormat): ColumnDef<{ name: s
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const nameWidth = Math.min(28, Math.floor(termWidth * 0.30))
-
   return [
-    { header: 'Service', width: nameWidth, value: s => truncateToWidth(s.name, nameWidth - 2) },
+    { header: 'Service', minWidth: 10, maxWidth: 28, value: s => s.name },
     { header: 'ID', value: s => chalk.dim(s.id) },
   ]
 }
@@ -148,7 +142,7 @@ export function formatIncidentDetail (incident: StatusPageIncident, format: Outp
     } else {
       lines.push(chalk.bold('SERVICES'))
     }
-    lines.push(renderTable(buildIncidentServiceColumns(format), incident.services, format))
+    lines.push(renderAdaptiveTable(buildIncidentServiceColumns(format), incident.services, format))
   }
 
   const latest = incident.incidentUpdates[0]
