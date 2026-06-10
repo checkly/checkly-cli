@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import type { BatchAnalyticsResult } from '../rest/batch-analytics.js'
 import { type CheckWithStatus, type PaginationInfo, resolveStatus } from './checks.js'
 import type { OutputFormat, ColumnDef, CommandHint } from './render.js'
-import { renderCommandHints, renderTable, truncateToWidth, visWidth } from './render.js'
+import { renderAdaptiveTable, renderCommandHints } from './render.js'
 import { findUnit, rangeLabels } from './analytics.js'
 import type { QuickRange } from '../rest/analytics.js'
 
@@ -102,25 +102,17 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
     return cols
   }
 
-  // Terminal
-  const termWidth = process.stdout.columns || 120
   const typeWidth = 12
   const statusWidth = 10
   const availWidth = 10
   const metricWidth = 12
 
-  const metricCols = (hasTiming ? 2 : 0) + (hasIcmp ? 2 : 0)
-  const fixedWidth = typeWidth + statusWidth + availWidth + metricCols * metricWidth
-  const nameWidth = Math.min(
-    Math.max(4, ...rows.map(r => visWidth(r.name))) + 2,
-    Math.max(20, termWidth - fixedWidth - 2),
-  )
-
   const cols: ColumnDef<StatsRow>[] = [
     {
       header: 'Name',
-      width: nameWidth,
-      value: r => truncateToWidth(r.name, nameWidth - 2),
+      minWidth: 20,
+      maxWidth: 42,
+      value: r => r.name,
     },
     {
       header: 'Type',
@@ -179,11 +171,11 @@ export function formatBatchStats (rows: StatsRow[], range: string, format: Outpu
 
   if (format === 'md') {
     const heading = `## Stats (${rangeDisplay})\n\n`
-    return heading + renderTable(columns, rows, format)
+    return heading + renderAdaptiveTable(columns, rows, format)
   }
 
   const heading = chalk.bold('STATS') + ' ' + chalk.dim(`(${rangeDisplay})`)
-  return heading + '\n\n' + renderTable(columns, rows, format)
+  return heading + '\n\n' + renderAdaptiveTable(columns, rows, format)
 }
 
 export function formatBatchStatsNavigationHints (

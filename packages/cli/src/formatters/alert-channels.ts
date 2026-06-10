@@ -7,11 +7,10 @@ import {
   type ColumnDef,
   type CommandHint,
   renderDetailFields,
+  renderAdaptiveTable,
   renderCommandHints,
-  renderTable,
   formatDate,
   truncateError,
-  truncateToWidth,
 } from './render.js'
 
 export interface AlertChannelPaginationInfo {
@@ -105,22 +104,18 @@ function buildAlertChannelColumns (format: OutputFormat): ColumnDef<AlertChannel
     ]
   }
 
-  const termWidth = process.stdout.columns || 120
-  const nameWidth = Math.min(34, Math.floor(termWidth * 0.28))
-  const targetWidth = Math.min(28, Math.floor(termWidth * 0.22))
-
   return [
     { header: 'Type', width: 14, value: c => normalizeType(c.type) },
-    { header: 'Name', width: nameWidth, value: c => truncateToWidth(titleFromConfig(c), nameWidth - 2) },
-    { header: 'Target', width: targetWidth, value: (c, fmt) => truncateToWidth(targetFromConfig(c, fmt), targetWidth - 2) },
+    { header: 'Name', minWidth: 12, maxWidth: 34, value: c => titleFromConfig(c) },
+    { header: 'Target', minWidth: 12, maxWidth: 28, value: (c, fmt) => targetFromConfig(c, fmt) },
     { header: 'Subs', width: 8, align: 'right', value: subscriptionCount },
     { header: 'Created', width: 24, value: (c, fmt) => formatDate(c.created_at ?? c.createdAt, fmt) },
-    { header: 'ID', value: c => chalk.dim(String(c.id)) },
+    { header: 'ID', minWidth: 8, maxWidth: 38, value: c => chalk.dim(String(c.id)) },
   ]
 }
 
 export function formatAlertChannels (channels: AlertChannel[], format: OutputFormat): string {
-  return renderTable(buildAlertChannelColumns(format), channels, format)
+  return renderAdaptiveTable(buildAlertChannelColumns(format), channels, format)
 }
 
 export function formatAlertChannelPaginationInfo (pagination: AlertChannelPaginationInfo): string {
@@ -211,13 +206,14 @@ function buildSubscriptionColumns (
 
   const columns: ColumnDef<AlertChannelSubscription>[] = [
     { header: 'Type', width: 14, value: subscriptionType },
-    { header: 'ID', value: s => chalk.dim(subscriptionId(s)) },
+    { header: 'ID', minWidth: 8, maxWidth: 38, value: s => chalk.dim(subscriptionId(s)) },
   ]
   if (includeName) {
     columns.splice(1, 0, {
       header: 'Name',
-      width: 32,
-      value: (s, fmt) => truncateToWidth(subscriptionName(s, fmt), 30),
+      minWidth: 12,
+      maxWidth: 32,
+      value: (s, fmt) => subscriptionName(s, fmt),
     })
   }
   return columns
@@ -226,7 +222,7 @@ function buildSubscriptionColumns (
 export function formatAlertChannelSubscriptions (channel: AlertChannel, format: OutputFormat): string {
   const subscriptions = channel.subscriptions ?? []
   if (subscriptions.length === 0) return 'No subscriptions configured.'
-  return renderTable(buildSubscriptionColumns(format, subscriptions), subscriptions, format)
+  return renderAdaptiveTable(buildSubscriptionColumns(format, subscriptions), subscriptions, format)
 }
 
 export function formatAlertChannelDetail (channel: AlertChannel, format: OutputFormat): string {
@@ -295,13 +291,13 @@ function buildAlertNotificationColumns (format: OutputFormat): ColumnDef<AlertNo
     { header: 'Time', width: 22, value: l => formatDate(l.timestamp, format) },
     { header: 'Status', width: 14, value: l => formatNotificationStatus(l.status, format) },
     { header: 'Type', width: 12, value: l => normalizeType(l.type) },
-    { header: 'Check', width: 28, value: l => truncateToWidth(notificationCheckLabel(l), 26) },
-    { header: 'Result', width: 22, value: l => chalk.dim(truncateToWidth(notificationResultLabel(l), 20)) },
-    { header: 'Message', value: l => truncateError(notificationMessage(l), 80) },
+    { header: 'Check', minWidth: 12, maxWidth: 28, value: notificationCheckLabel },
+    { header: 'Result', minWidth: 8, maxWidth: 22, value: l => chalk.dim(notificationResultLabel(l)) },
+    { header: 'Message', minWidth: 16, maxWidth: 80, value: l => truncateError(notificationMessage(l), 160) },
   ]
 }
 
 export function formatAlertNotificationLogs (logs: AlertNotification[], format: OutputFormat): string {
   if (logs.length === 0) return 'No alert channel logs found.'
-  return renderTable(buildAlertNotificationColumns(format), logs, format)
+  return renderAdaptiveTable(buildAlertNotificationColumns(format), logs, format)
 }

@@ -85,8 +85,8 @@ exports[`formatErrorGroups > renders markdown error groups > error-groups-md 1`]
 
 exports[`formatErrorGroups > renders terminal error groups > error-groups-terminal 1`] = `
 "ERROR GROUPS
-ERROR                                                       FIRST SEEN    LAST SEEN     RCA   ERROR GROUP ID
-TimeoutError: page.click: Timeout 30000ms exceeded          14d ago       5m ago        -     eg-1
+ERROR                                               FIRST SEEN    LAST SEEN     RCA   ERROR GROUP ID
+TimeoutError: page.click: Timeout 30000ms exceeded  14d ago       5m ago        -     eg-1
 
   Run root cause analysis:  checkly rca run -e eg-1 -w"
 `;
@@ -99,7 +99,7 @@ exports[`formatResults > renders markdown table > results-table-md 1`] = `
 `;
 
 exports[`formatResults > renders terminal table > results-table-terminal 1`] = `
-"TIME          LOCATION        STATUS    RESPONSE TIME   RESULT ID
-5m ago        eu-west-1       passing   245ms           result-1
-5m ago        us-east-1       failing   5.20s           result-2"
+"TIME          LOCATION   STATUS    RESPONSE TIME   RESULT ID
+5m ago        eu-west-1  passing   245ms           result-1
+5m ago        us-east-1  failing   5.20s           result-2"
 `;
