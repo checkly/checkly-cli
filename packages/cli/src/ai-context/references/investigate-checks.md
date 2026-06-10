@@ -56,7 +56,7 @@ When a check has retries enabled, a single run produces one `FINAL` result plus
 one `ATTEMPT` result for each earlier failed try (all sharing a `sequenceId`).
 By default only the `FINAL` result is shown. Add `--include-attempts` to list the
 full retry sequence — attempt number, status, location, duration, and a short
-error summary — with the `FINAL` row marked `final`:
+error summary:
 
 ```bash
 npx checkly checks get <check-id> --result <result-id> --include-attempts
