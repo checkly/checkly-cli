@@ -177,16 +177,10 @@ export interface CheckResultsPage {
 export interface ListCheckResultsParams {
   limit?: number
   nextId?: string
-  /** Lower bound on startedAt (>=), as a UNIX timestamp in seconds. */
-  from?: number
-  /** Upper bound on startedAt (<), as a UNIX timestamp in seconds. */
-  to?: number
+  from?: number // startedAt lower bound (>=), UNIX seconds
+  to?: number // startedAt upper bound (<), UNIX seconds
   hasFailures?: boolean
-  /**
-   * FINAL (default) returns only the decisive result per run; ATTEMPT returns
-   * only earlier failed retries; ALL returns both. Attempts of a single run
-   * share a `sequenceId`.
-   */
+  // FINAL (default) = decisive result only; ATTEMPT = retries only; ALL = both.
   resultType?: 'FINAL' | 'ATTEMPT' | 'ALL'
 }
 

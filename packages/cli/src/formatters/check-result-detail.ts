@@ -55,16 +55,8 @@ export function formatResultDetailWithNavigation (
 
 // --- Retry attempts ---
 
-/**
- * Groups a flat list of check results (as returned by the list endpoint with
- * resultType=ALL) into the ordered sequence of runs that share a sequenceId.
- *
- * The backend mints one sequenceId per logical run and reuses it across
- * retries, persisting one FINAL result plus zero or more earlier ATTEMPT
- * results. There is no server-side sequenceId filter, so callers fetch a window
- * of results and group here. The returned list is ordered oldest-first
- * (ascending startedAt) so the positional index is the run number.
- */
+// Picks the runs sharing a sequenceId out of a resultType=ALL page (there's no
+// server-side sequenceId filter), oldest-first so the index is the run number.
 export function groupAttemptsBySequence (results: CheckResult[], sequenceId: string): CheckResult[] {
   return results
     .filter(r => r.sequenceId === sequenceId)
@@ -72,10 +64,8 @@ export function groupAttemptsBySequence (results: CheckResult[], sequenceId: str
 }
 
 export interface AttemptsContext {
-  /** ID of the FINAL result in the sequence; that row is marked "final". */
-  finalId?: string
-  /** ID the user drilled into via --result (may be an ATTEMPT); marked as current. */
-  requestedId?: string
+  finalId?: string // marked "final"
+  requestedId?: string // the --result row, marked as current
 }
 
 interface AttemptRow {
@@ -85,12 +75,8 @@ interface AttemptRow {
   isRequested: boolean
 }
 
-/**
- * Extracts a short, single-line error summary from a result's type-specific
- * payload, falling back to the coarse status flags when no message is present.
- * List rows are not hydrated with logs/assets, so any message here is
- * best-effort; an empty string means "no error detail available".
- */
+// Best-effort short error summary; list rows aren't hydrated with logs/assets,
+// so fall back to the status flags. Empty string means "no error detail".
 export function extractResultErrorSummary (result: CheckResult): string {
   const raw = firstErrorMessage(result)
   if (raw) return raw
@@ -113,11 +99,7 @@ function firstErrorMessage (result: CheckResult): string {
   return ''
 }
 
-/**
- * Renders the per-attempt retry table for a result sequence. `attempts` must be
- * ordered oldest-first (see groupAttemptsBySequence). Returns an empty string
- * when there is nothing to show.
- */
+// Renders the retry table for a sequence; `attempts` must be oldest-first.
 export function formatAttemptsSection (
   attempts: CheckResult[],
   format: OutputFormat,

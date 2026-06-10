@@ -301,8 +301,7 @@ export default class ChecksGet extends AuthCommand {
   ): Promise<void> {
     const { data: result } = await api.checkResults.get(checkId, resultId)
 
-    // A result with no retries (attempts === 0) has no ATTEMPT rows, so skip the
-    // extra list call entirely and let renderAttemptsSection show "ran once".
+    // No retries means no ATTEMPT rows, so skip the extra list call.
     const attempts = includeAttempts && result.sequenceId && (result.attempts ?? 0) > 0
       ? await this.fetchAttempts(checkId, result)
       : []
@@ -352,8 +351,8 @@ export default class ChecksGet extends AuthCommand {
       })
     }
 
-    // The result claims retries but we couldn't reconstruct the sequence (it may
-    // have aged out of the data-retention window, or sat outside the fetch window).
+    // Claims retries but the sequence couldn't be reconstructed (aged out, or
+    // outside the fetch window).
     if ((result.attempts ?? 0) > 0) {
       const msg = 'Retry attempts are no longer available for this result.'
       return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
@@ -363,15 +362,8 @@ export default class ChecksGet extends AuthCommand {
     return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
   }
 
-  /**
-   * Fetches the retry sequence for a result and groups it client-side.
-   *
-   * Attempts reuse the result's `sequenceId` and cluster within minutes of each
-   * other, but the list endpoint has no server-side sequenceId filter, so we
-   * fetch a bounded time window around the result (newest-first) and group
-   * locally. The window is anchored just after the result so the sequence sits
-   * at the top of the page for the common case (drilling into a FINAL result).
-   */
+  // Fetches a bounded window of results around the result and groups by
+  // sequenceId locally (the list endpoint has no server-side sequenceId filter).
   private async fetchAttempts (checkId: string, result: CheckResult): Promise<CheckResult[]> {
     if (!result.sequenceId) {
       return []
