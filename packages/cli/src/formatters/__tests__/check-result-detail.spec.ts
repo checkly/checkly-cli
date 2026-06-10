@@ -304,7 +304,7 @@ describe('formatResultDetail', () => {
         expect(out).toContain('ATTEMPTS')
         expect(out).toContain('1')
         expect(out).toContain('2')
-        expect(out).toContain('final')
+        expect(out).toContain('3 (final)')
         expect(out).toContain('failing')
         expect(out).toContain('passing')
         expect(out).toContain('Timeout 30000ms exceeded')

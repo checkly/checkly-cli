@@ -155,9 +155,9 @@ function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
   return [
     {
       header: '#',
-      width: 10,
+      width: 14,
       value: row => {
-        const marker = row.isFinal ? chalk.dim(' final') : ''
+        const marker = row.isFinal ? chalk.dim(' (final)') : ''
         const current = row.isRequested ? chalk.cyan(' ‹') : ''
         return String(row.runNumber) + marker + current
       },
