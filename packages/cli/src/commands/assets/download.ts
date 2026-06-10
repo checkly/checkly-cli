@@ -10,7 +10,6 @@ import {
   destinationPathForAsset,
   downloadAssetToFile,
   fetchAssetManifest,
-  isArchiveAsset,
   resolveAssetSource,
   selectAssets,
 } from '../../helpers/result-assets.js'
@@ -48,10 +47,6 @@ export default class AssetsDownload extends AuthCommand {
     }),
     'skip-existing': Flags.boolean({
       description: 'Skip files that already exist.',
-      default: false,
-    }),
-    'extract': Flags.boolean({
-      description: 'Extract supported archives instead of writing raw downloads.',
       default: false,
     }),
     'output': outputFlag({ default: 'table', options: ['table', 'json'] }),
@@ -110,16 +105,6 @@ export default class AssetsDownload extends AuthCommand {
         }
         this.log('No matching assets found.')
         return
-      }
-
-      if (flags.extract) {
-        const unsupported = assets.find(isArchiveAsset)
-        if (unsupported) {
-          throw new Error(
-            '--extract is not supported for this asset shape yet. '
-            + 'Download the raw asset without --extract and extract it locally.',
-          )
-        }
       }
 
       const directory = path.resolve(flags.dir ?? defaultDownloadDirectory(source))

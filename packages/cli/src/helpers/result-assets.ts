@@ -1,7 +1,8 @@
 import path from 'node:path'
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import { randomUUID } from 'node:crypto'
 import { constants, createWriteStream } from 'node:fs'
-import { access, mkdir, rm } from 'node:fs/promises'
+import { access, mkdir, rename, rm } from 'node:fs/promises'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { minimatch } from 'minimatch'
@@ -156,19 +157,6 @@ async function pathExists (filePath: string): Promise<boolean> {
   }
 }
 
-export function isArchiveAsset (asset: AssetManifestEntry): boolean {
-  if (asset.archive?.entryName) return true
-
-  const contentType = asset.contentType?.toLowerCase() ?? ''
-  const name = asset.name.toLowerCase()
-  return contentType.includes('zip')
-    || contentType.includes('tar')
-    || name.endsWith('.zip')
-    || name.endsWith('.tar')
-    || name.endsWith('.tar.gz')
-    || name.endsWith('.tgz')
-}
-
 export function formatTruncatedManifestMessage (manifest: AssetManifest): string {
   const returned = manifest.entriesReturned ?? manifest.assets.length
   const total = manifest.entriesTotal == null ? 'unknown' : String(manifest.entriesTotal)
@@ -183,7 +171,7 @@ export function assertManifestSupportsDownload (
 
   const selector = options.asset
   const isExactCopiedAsset = selector && !hasGlobCharacters(selector)
-    && manifest.assets.some(asset => asset.archive?.entryName === selector)
+    && manifest.assets.some(asset => assetSelectorValue(asset) === selector)
 
   if (isExactCopiedAsset) return
 
@@ -266,6 +254,10 @@ function fetchAssetStream (assetUrl: string): Promise<AxiosResponse<NodeJS.Reada
   )
 }
 
+function temporaryDownloadPath (filePath: string): string {
+  return path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`)
+}
+
 export async function downloadAssetToFile (
   asset: AssetManifestEntry,
   filePath: string,
@@ -280,19 +272,19 @@ export async function downloadAssetToFile (
   }
 
   await mkdir(path.dirname(filePath), { recursive: true })
+  const tempPath = temporaryDownloadPath(filePath)
 
   try {
     const response = await fetchAssetStream(asset.url)
     const transform = progressTransform(parseContentLength(response.headers), options.onProgress)
     if (transform) {
-      await pipeline(response.data, transform, createWriteStream(filePath))
+      await pipeline(response.data, transform, createWriteStream(tempPath))
     } else {
-      await pipeline(response.data, createWriteStream(filePath))
+      await pipeline(response.data, createWriteStream(tempPath))
     }
+    await rename(tempPath, filePath)
   } catch (err) {
-    if (!exists) {
-      await rm(filePath, { force: true })
-    }
+    await rm(tempPath, { force: true })
     throw err
   }
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Readable } from 'node:stream'
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { AssetManifest } from '../../rest/asset-manifests.js'
@@ -301,7 +301,6 @@ describe('assets commands', () => {
         'output': 'json',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -335,7 +334,6 @@ describe('assets commands', () => {
         'output': 'json',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -359,7 +357,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -380,7 +377,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -412,7 +408,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
     ctx.fancy = true
@@ -439,7 +434,6 @@ describe('assets commands', () => {
         'output': 'json',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -460,7 +454,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -487,13 +480,31 @@ describe('assets commands', () => {
         'output': 'json',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
     expect(api.api.get).toHaveBeenCalledWith('/download/trace', { responseType: 'stream' })
+    expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
+  })
+
+  it('allows exact plain Asset downloads from truncated manifests', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'logs.txt',
+        'output': 'json',
+        'force': false,
+        'skip-existing': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
@@ -506,7 +517,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -540,7 +550,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': false,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -568,7 +577,6 @@ describe('assets commands', () => {
         'output': 'json',
         'force': true,
         'skip-existing': false,
-        'extract': false,
       },
     })
 
@@ -576,6 +584,37 @@ describe('assets commands', () => {
 
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
     await expect(readFile(existingPath, 'utf8')).resolves.toBe('downloaded')
+  })
+
+  it('preserves existing files when a forced download fails', async () => {
+    const existingPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'logs.txt')
+    await mkdir(path.dirname(existingPath), { recursive: true })
+    await writeFile(existingPath, 'existing')
+    async function* failingDownload () {
+      yield 'partial'
+      throw new Error('stream failed')
+    }
+    vi.mocked(api.api.get).mockResolvedValue({ data: Readable.from(failingDownload()) } as any)
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'logs.txt',
+        'output': 'table',
+        'force': true,
+        'skip-existing': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Failed to download assets.',
+      expect.objectContaining({ message: 'stream failed' }),
+    )
+    expect(process.exitCode).toBe(1)
+    await expect(readFile(existingPath, 'utf8')).resolves.toBe('existing')
+    await expect(readdir(path.dirname(existingPath))).resolves.toEqual(['logs.txt'])
   })
 
   it('skips existing files with --skip-existing', async () => {
@@ -590,7 +629,6 @@ describe('assets commands', () => {
         'output': 'json',
         'force': false,
         'skip-existing': true,
-        'extract': false,
       },
     })
 
@@ -610,7 +648,6 @@ describe('assets commands', () => {
         'output': 'table',
         'force': true,
         'skip-existing': true,
-        'extract': false,
       },
     })
 
@@ -619,25 +656,7 @@ describe('assets commands', () => {
       .toThrow('--force and --skip-existing are mutually exclusive.')
   })
 
-  it('rejects unsupported archive extraction', async () => {
-    const ctx = createCommandContext({
-      flags: {
-        'check-id': 'check-id',
-        'result-id': 'result-id',
-        'asset': 'traces/checkout trace.zip',
-        'output': 'table',
-        'force': false,
-        'skip-existing': false,
-        'extract': true,
-      },
-    })
-
-    await AssetsDownload.prototype.run.call(ctx as any)
-
-    expect(ctx.style.longError).toHaveBeenCalledWith(
-      'Failed to download assets.',
-      expect.objectContaining({ message: expect.stringContaining('--extract is not supported') }),
-    )
-    expect(api.api.get).not.toHaveBeenCalled()
+  it('does not expose archive extraction before it is implemented', () => {
+    expect(AssetsDownload.flags).not.toHaveProperty('extract')
   })
 })
