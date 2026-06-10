@@ -211,7 +211,10 @@ The homepage loaded successfully and all assertions passed.
 `;
 
 exports[`formatCheckResult() > Browser Check result > formats a Browser Check result with a scheduleError > browser-check-result-schedule-error-format 1`] = `
-"──Logs──────────────────────────────────────────────────────────────────────
+"──Errors────────────────────────────────────────────────────────────────────
+1 console, 1 network
+
+──Logs──────────────────────────────────────────────────────────────────────
 10:53:15 DEBUG Starting job
 10:53:15 DEBUG Compiling environment variables
 10:53:15 DEBUG Creating runtime using version 2022.10
@@ -230,7 +233,10 @@ There was a scheduling error"
 `;
 
 exports[`formatCheckResult() > Browser Check result > formats a Browser Check result with logs > browser-check-result-logs-format 1`] = `
-"──Logs──────────────────────────────────────────────────────────────────────
+"──Errors────────────────────────────────────────────────────────────────────
+1 console, 1 network
+
+──Logs──────────────────────────────────────────────────────────────────────
 10:53:15 DEBUG Starting job
 10:53:15 DEBUG Compiling environment variables
 10:53:15 DEBUG Creating runtime using version 2022.10
@@ -245,4 +251,7 @@ exports[`formatCheckResult() > Browser Check result > formats a Browser Check re
 10:53:22 DEBUG Uploading log file"
 `;
 
-exports[`formatCheckResult() > Browser Check result > formats a basic Browser Check result  > browser-check-result-basic-format 1`] = `""`;
+exports[`formatCheckResult() > Browser Check result > formats a basic Browser Check result  > browser-check-result-basic-format 1`] = `
+"──Errors────────────────────────────────────────────────────────────────────
+1 console, 1 network"
+`;
