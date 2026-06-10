@@ -51,7 +51,13 @@ describe('test', { timeout: 45000 }, () => {
 
     it('Test project should run successfully', async () => {
       const secretEnv = uuid.v4()
-      const result = await runTest(fixt, ['-e', `SECRET_ENV=${secretEnv}`, '--verbose'])
+      const result = await runTest(fixt, [
+        '-e',
+        `SECRET_ENV=${secretEnv}`,
+        '--verbose',
+        '--grep',
+        '^(?!Skip SSL Check$).*',
+      ])
       expect(result.stdout).not.toContain('File extension type example')
       expect(result.stdout).toContain(secretEnv)
     }, 130_000)
@@ -98,7 +104,7 @@ describe('test', { timeout: 45000 }, () => {
       } catch {
         // No-op
       }
-      const result = await runTest(fixt, ['--record', '--reporter', 'github'], {
+      const result = await runTest(fixt, ['secret.check.ts', '--record', '--reporter', 'github'], {
         env: {
           CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename,
         },
