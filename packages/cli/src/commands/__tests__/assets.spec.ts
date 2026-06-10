@@ -15,6 +15,13 @@ vi.mock('../../rest/api.js', () => ({
   },
 }))
 
+vi.mock('axios', () => ({
+  default: {
+    get: vi.fn(),
+  },
+}))
+
+import axios from 'axios'
 import * as api from '../../rest/api.js'
 import AssetsList from '../assets/list.js'
 import AssetsDownload from '../assets/download.js'
@@ -58,6 +65,10 @@ const manifest: AssetManifest = {
       archive: { entryName: 'b/duplicate.txt' },
     },
   ],
+}
+
+const truncatedManifest: AssetManifest = {
+  ...manifest,
   truncated: true,
   entriesReturned: 5,
   entriesTotal: 12,
@@ -96,6 +107,7 @@ describe('assets commands', () => {
     vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(manifest)
     vi.mocked(api.assetManifests.getForTestSessionResult).mockResolvedValue(manifest)
     vi.mocked(api.api.get).mockResolvedValue({ data: Readable.from(['downloaded']) } as any)
+    vi.mocked(axios.get).mockResolvedValue({ data: Readable.from(['downloaded']) } as any)
   })
 
   afterEach(async () => {
@@ -125,6 +137,7 @@ describe('assets commands', () => {
   })
 
   it('lists check result assets as a table with copyable Asset values and truncation warning', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
     const ctx = createCommandContext({
       flags: {
         'check-id': 'check-id',
@@ -151,6 +164,7 @@ describe('assets commands', () => {
   })
 
   it('lists test-session result assets as filtered JSON without human warnings', async () => {
+    vi.mocked(api.assetManifests.getForTestSessionResult).mockResolvedValue(truncatedManifest)
     const ctx = createCommandContext({
       flags: {
         'test-session-id': 'session-id',
@@ -165,8 +179,22 @@ describe('assets commands', () => {
 
     expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id')
     expect(JSON.parse(ctx.logged[0])).toEqual({
-      ...manifest,
-      assets: [manifest.assets[1]],
+      data: [manifest.assets[1]],
+      source: {
+        kind: 'test-session-result',
+        testSessionId: 'session-id',
+        resultId: 'result-id',
+      },
+      metadata: {
+        filter: {
+          type: 'trace',
+        },
+        manifest: {
+          truncated: true,
+          entriesReturned: 5,
+          entriesTotal: 12,
+        },
+      },
     })
     expect(ctx.logged[0]).not.toContain('Assets for test-session result')
     expect(ctx.logged[0]).not.toContain('checkout trace.zip (trace')
@@ -207,6 +235,49 @@ describe('assets commands', () => {
     expect(ctx.logged[0]).toContain('Tip: use --view table to copy exact Asset values for download.')
   })
 
+  it('filters list output by exact asset name without treating duplicates as ambiguous', async () => {
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'type': 'all',
+        'asset': 'duplicate.txt',
+        'view': 'table',
+        'output': 'table',
+      },
+    })
+
+    await AssetsList.prototype.run.call(ctx as any)
+
+    expect(ctx.logged[0]).toContain('Filter:')
+    expect(ctx.logged[0]).toContain('asset=duplicate.txt')
+    expect(ctx.logged[0]).toContain('a/duplicate.txt')
+    expect(ctx.logged[0]).toContain('b/duplicate.txt')
+    expect(ctx.logged[0]).not.toContain('logs.txt')
+  })
+
+  it('filters list JSON output by asset glob', async () => {
+    const ctx = createCommandContext({
+      flags: {
+        'test-session-id': 'session-id',
+        'result-id': 'result-id',
+        'type': 'trace',
+        'asset': 'traces/*.zip',
+        'view': 'tree',
+        'output': 'json',
+      },
+    })
+
+    await AssetsList.prototype.run.call(ctx as any)
+
+    const parsed = JSON.parse(ctx.logged[0])
+    expect(parsed.data).toEqual([manifest.assets[1]])
+    expect(parsed.metadata.filter).toEqual({
+      type: 'trace',
+      asset: 'traces/*.zip',
+    })
+  })
+
   it('requires a download selector', async () => {
     const ctx = createCommandContext({
       flags: {
@@ -239,10 +310,44 @@ describe('assets commands', () => {
     const summary = JSON.parse(ctx.logged[0])
     const expectedPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'logs.txt')
     expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
+    expect(axios.get).not.toHaveBeenCalled()
     expect(summary.directory).toBe(path.dirname(expectedPath))
     expect(summary.files[0].path).toBe(expectedPath)
     expect(summary.files[0].status).toBe('written')
     await expect(readFile(expectedPath, 'utf8')).resolves.toBe('downloaded')
+  })
+
+  it('downloads absolute external asset URLs without the authenticated API client', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue({
+      assets: [{
+        type: 'log',
+        name: 'external-log.txt',
+        url: 'https://assets.example.com/external-log.txt',
+        contentType: 'text/plain',
+        source: 'runner',
+      }],
+    })
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'external-log.txt',
+        'output': 'json',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(api.api.get).not.toHaveBeenCalled()
+    expect(axios.get).toHaveBeenCalledWith(
+      'https://assets.example.com/external-log.txt',
+      expect.objectContaining({ responseType: 'stream' }),
+    )
+    expect(vi.mocked(axios.get).mock.calls[0][1]?.headers).toBeUndefined()
+    expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
   it('renders single download human output as a full-path detail', async () => {
@@ -343,6 +448,53 @@ describe('assets commands', () => {
     const summary = JSON.parse(ctx.logged[0])
     expect(summary.files).toHaveLength(1)
     expect(summary.files[0].path).toBe(path.join(tempDir, 'custom-assets', 'traces', 'checkout trace.zip'))
+  })
+
+  it('refuses category downloads from truncated manifests', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'type': 'file',
+        'output': 'table',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Failed to download assets.',
+      expect.objectContaining({
+        message: expect.stringContaining('Asset manifest is truncated (5 of 12 entries returned). Refusing to download'),
+      }),
+    )
+    expect(api.api.get).not.toHaveBeenCalled()
+    expect(axios.get).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('allows exact copied Asset downloads from truncated manifests', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
+    const ctx = createCommandContext({
+      flags: {
+        'check-id': 'check-id',
+        'result-id': 'result-id',
+        'asset': 'traces/checkout trace.zip',
+        'output': 'json',
+        'force': false,
+        'skip-existing': false,
+        'extract': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(api.api.get).toHaveBeenCalledWith('/download/trace', { responseType: 'stream' })
+    expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
   it('fails ambiguous exact asset selection with matching Asset values', async () => {

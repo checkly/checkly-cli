@@ -60,6 +60,7 @@ export interface AssetListContext {
   testSessionId?: string
   resultId: string
   type?: string
+  asset?: string
 }
 
 function formatTypeCounts (assets: AssetManifestEntry[]): string {
@@ -93,7 +94,11 @@ export function formatAssetListHeader (
       : `${chalk.dim('Test session ID:')} ${context.testSessionId}`)
   }
   lines.push(format === 'md' ? `- Result ID: ${context.resultId}` : `${chalk.dim('Result ID:')} ${context.resultId}`)
-  lines.push(format === 'md' ? `- Filter: type=${context.type ?? 'all'}` : `${chalk.dim('Filter:')} type=${context.type ?? 'all'}`)
+  const filters = [`type=${context.type ?? 'all'}`]
+  if (context.asset) {
+    filters.push(`asset=${context.asset}`)
+  }
+  lines.push(format === 'md' ? `- Filter: ${filters.join(', ')}` : `${chalk.dim('Filter:')} ${filters.join(', ')}`)
 
   const typeCounts = formatTypeCounts(assets)
   const total = `${assets.length} asset${assets.length !== 1 ? 's' : ''}`

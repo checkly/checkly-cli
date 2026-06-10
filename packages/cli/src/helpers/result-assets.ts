@@ -1,10 +1,12 @@
 import path from 'node:path'
+import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { constants, createWriteStream } from 'node:fs'
 import { access, mkdir, rm } from 'node:fs/promises'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { minimatch } from 'minimatch'
 import * as api from '../rest/api.js'
+import { assignProxy } from '../services/proxy.js'
 import type {
   AssetManifest,
   AssetManifestEntry,
@@ -72,8 +74,27 @@ export function filterAssetsByType (
   return assets.filter(asset => asset.type === type)
 }
 
-function hasGlobCharacters (selector: string): boolean {
+export function hasGlobCharacters (selector: string): boolean {
   return /[*?[\]{}]/.test(selector)
+}
+
+export function filterAssetsBySelector (
+  assets: AssetManifestEntry[],
+  selector?: string,
+): AssetManifestEntry[] {
+  if (!selector) return assets
+
+  if (hasGlobCharacters(selector)) {
+    return assets.filter(asset =>
+      minimatch(asset.archive?.entryName ?? '', selector, { dot: true })
+      || minimatch(asset.name, selector, { dot: true }),
+    )
+  }
+
+  return assets.filter(asset =>
+    asset.archive?.entryName === selector
+    || asset.name === selector,
+  )
 }
 
 export function selectAssets (
@@ -85,16 +106,10 @@ export function selectAssets (
   if (!selector) return byType
 
   if (hasGlobCharacters(selector)) {
-    return byType.filter(asset =>
-      minimatch(asset.archive?.entryName ?? '', selector, { dot: true })
-      || minimatch(asset.name, selector, { dot: true }),
-    )
+    return filterAssetsBySelector(byType, selector)
   }
 
-  const exactMatches = byType.filter(asset =>
-    asset.archive?.entryName === selector
-    || asset.name === selector,
-  )
+  const exactMatches = filterAssetsBySelector(byType, selector)
 
   if (exactMatches.length > 1) {
     const values = [...new Set(exactMatches.map(assetSelectorValue))]
@@ -154,6 +169,30 @@ export function isArchiveAsset (asset: AssetManifestEntry): boolean {
     || name.endsWith('.tgz')
 }
 
+export function formatTruncatedManifestMessage (manifest: AssetManifest): string {
+  const returned = manifest.entriesReturned ?? manifest.assets.length
+  const total = manifest.entriesTotal == null ? 'unknown' : String(manifest.entriesTotal)
+  return `Asset manifest is truncated (${returned} of ${total} entries returned).`
+}
+
+export function assertManifestSupportsDownload (
+  manifest: AssetManifest,
+  options: { asset?: string },
+): void {
+  if (!manifest.truncated) return
+
+  const selector = options.asset
+  const isExactCopiedAsset = selector && !hasGlobCharacters(selector)
+    && manifest.assets.some(asset => asset.archive?.entryName === selector)
+
+  if (isExactCopiedAsset) return
+
+  throw new Error(
+    `${formatTruncatedManifestMessage(manifest)} Refusing to download from an incomplete manifest because the selector may miss assets.\n`
+    + 'Use `checkly assets list --view table` and pass an exact Asset value from the list.',
+  )
+}
+
 export interface AssetDownloadProgress {
   downloadedBytes: number
   totalBytes?: number
@@ -203,6 +242,30 @@ function progressTransform (
   })
 }
 
+function shouldUseAuthenticatedApiClient (url: string): boolean {
+  try {
+    const apiBaseUrl = api.api.defaults.baseURL
+    if (!apiBaseUrl) return !URL.canParse(url)
+    const resolvedUrl = new URL(url, apiBaseUrl)
+    const resolvedApiUrl = new URL(apiBaseUrl)
+    return resolvedUrl.origin === resolvedApiUrl.origin
+  } catch {
+    return !URL.canParse(url)
+  }
+}
+
+function fetchAssetStream (assetUrl: string): Promise<AxiosResponse<NodeJS.ReadableStream>> {
+  if (shouldUseAuthenticatedApiClient(assetUrl)) {
+    return api.api.get<NodeJS.ReadableStream>(assetUrl, { responseType: 'stream' })
+  }
+
+  const config = assignProxy(assetUrl, { responseType: 'stream' }) as AxiosRequestConfig
+  return axios.get<NodeJS.ReadableStream>(
+    assetUrl,
+    config,
+  )
+}
+
 export async function downloadAssetToFile (
   asset: AssetManifestEntry,
   filePath: string,
@@ -219,7 +282,7 @@ export async function downloadAssetToFile (
   await mkdir(path.dirname(filePath), { recursive: true })
 
   try {
-    const response = await api.api.get<NodeJS.ReadableStream>(asset.url, { responseType: 'stream' })
+    const response = await fetchAssetStream(asset.url)
     const transform = progressTransform(parseContentLength(response.headers), options.onProgress)
     if (transform) {
       await pipeline(response.data, transform, createWriteStream(filePath))

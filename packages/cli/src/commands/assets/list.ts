@@ -11,6 +11,7 @@ import {
 import {
   assetTypes,
   fetchAssetManifest,
+  filterAssetsBySelector,
   filterAssetsByType,
   resolveAssetSource,
 } from '../../helpers/result-assets.js'
@@ -37,6 +38,9 @@ export default class AssetsList extends AuthCommand {
       options: assetTypes,
       default: 'all',
     }),
+    'asset': Flags.string({
+      description: 'Filter assets by exact Asset/Name value or glob.',
+    }),
     'view': Flags.string({
       description: 'Human output view. Ignored with --output json.',
       options: ['table', 'tree'],
@@ -52,11 +56,27 @@ export default class AssetsList extends AuthCommand {
 
     try {
       const manifest = await fetchAssetManifest(source)
-      const assets = filterAssetsByType(manifest.assets, flags.type as any)
-      const filteredManifest = { ...manifest, assets }
+      const assets = filterAssetsBySelector(
+        filterAssetsByType(manifest.assets, flags.type as any),
+        flags.asset,
+      )
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify(filteredManifest, null, 2))
+        this.log(JSON.stringify({
+          data: assets,
+          source,
+          metadata: {
+            filter: {
+              type: flags.type,
+              asset: flags.asset,
+            },
+            manifest: {
+              truncated: Boolean(manifest.truncated),
+              entriesReturned: manifest.entriesReturned,
+              entriesTotal: manifest.entriesTotal,
+            },
+          },
+        }, null, 2))
         return
       }
 
@@ -69,6 +89,7 @@ export default class AssetsList extends AuthCommand {
         testSessionId: source.kind === 'test-session-result' ? source.testSessionId : undefined,
         resultId: source.resultId,
         type: flags.type,
+        asset: flags.asset,
       }, assets, fmt))
       output.push('')
 

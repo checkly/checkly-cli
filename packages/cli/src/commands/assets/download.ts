@@ -4,6 +4,7 @@ import { AuthCommand } from '../authCommand.js'
 import { outputFlag } from '../../helpers/flags.js'
 import { assetSelectorValue, formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
 import {
+  assertManifestSupportsDownload,
   assetTypes,
   defaultDownloadDirectory,
   destinationPathForAsset,
@@ -95,6 +96,7 @@ export default class AssetsDownload extends AuthCommand {
     try {
       startProgress('Fetching asset manifest')
       const manifest = await fetchAssetManifest(source)
+      assertManifestSupportsDownload(manifest, { asset: flags.asset })
       const assets = selectAssets(manifest.assets, {
         type: flags.type as any,
         asset: flags.asset,
