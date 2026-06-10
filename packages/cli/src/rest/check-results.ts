@@ -177,10 +177,9 @@ export interface CheckResultsPage {
 export interface ListCheckResultsParams {
   limit?: number
   nextId?: string
-  from?: number // startedAt lower bound (>=), UNIX seconds
-  to?: number // startedAt upper bound (<), UNIX seconds
+  from?: number
+  to?: number
   hasFailures?: boolean
-  // FINAL (default) = decisive result only; ATTEMPT = retries only; ALL = both.
   resultType?: 'FINAL' | 'ATTEMPT' | 'ALL'
 }
 
