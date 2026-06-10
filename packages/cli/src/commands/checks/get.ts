@@ -16,7 +16,12 @@ import {
   formatResults,
   formatErrorGroups,
 } from '../../formatters/checks.js'
-import { formatResultDetailWithNavigation } from '../../formatters/check-result-detail.js'
+import {
+  formatResultDetailWithNavigation,
+  formatAttemptsSection,
+  groupAttemptsBySequence,
+} from '../../formatters/check-result-detail.js'
+import type { CheckResult } from '../../rest/check-results.js'
 import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca.js'
 import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics.js'
 import { formatAnalyticsSection } from '../../formatters/analytics.js'
@@ -38,6 +43,11 @@ export default class ChecksGet extends AuthCommand {
     'result': Flags.string({
       char: 'r',
       description: 'Show details for a specific result ID.',
+    }),
+    'include-attempts': Flags.boolean({
+      description: 'Show individual retry attempts for the result (use with --result).',
+      dependsOn: ['result'],
+      default: false,
     }),
     'error-group': Flags.string({
       char: 'e',
@@ -76,7 +86,7 @@ export default class ChecksGet extends AuthCommand {
     try {
       // Result detail mode: drill into a specific result
       if (flags.result) {
-        return await this.showResultDetail(args.id, flags.result, flags.output ?? 'detail')
+        return await this.showResultDetail(args.id, flags.result, flags.output ?? 'detail', flags['include-attempts'])
       }
 
       // Error group detail mode
@@ -283,19 +293,102 @@ export default class ChecksGet extends AuthCommand {
     this.log(output.join('\n'))
   }
 
-  private async showResultDetail (checkId: string, resultId: string, outputFormat: string): Promise<void> {
+  private async showResultDetail (
+    checkId: string,
+    resultId: string,
+    outputFormat: string,
+    includeAttempts: boolean,
+  ): Promise<void> {
     const { data: result } = await api.checkResults.get(checkId, resultId)
 
+    // A result with no retries (attempts === 0) has no ATTEMPT rows, so skip the
+    // extra list call entirely and let renderAttemptsSection show "ran once".
+    const attempts = includeAttempts && result.sequenceId && (result.attempts ?? 0) > 0
+      ? await this.fetchAttempts(checkId, result)
+      : []
+
     if (outputFormat === 'json') {
-      this.log(JSON.stringify(result, null, 2))
+      this.log(JSON.stringify(includeAttempts ? { result, attempts } : result, null, 2))
       return
     }
 
     const fmt: OutputFormat = outputFormat === 'md' ? 'md' : 'terminal'
 
-    this.log(formatResultDetailWithNavigation(result, fmt, [
-      { label: 'Back to check', command: `checkly checks get ${checkId}` },
-      { label: 'Back to list', command: 'checkly checks list' },
-    ]))
+    const sections: string[] = []
+    if (includeAttempts) {
+      sections.push(this.renderAttemptsSection(attempts, result, resultId, fmt))
+    }
+
+    const hints: CommandHint[] = []
+    if (!includeAttempts && (result.attempts ?? 0) > 0) {
+      hints.push({
+        label: 'Show attempts',
+        command: `checkly checks get ${checkId} --result ${resultId} --include-attempts`,
+      })
+    }
+    if (includeAttempts) {
+      for (const attempt of attempts) {
+        if (attempt.id !== resultId && attempt.resultType === 'ATTEMPT') {
+          hints.push({ label: 'View attempt', command: `checkly checks get ${checkId} --result ${attempt.id}` })
+        }
+      }
+    }
+    hints.push({ label: 'Back to check', command: `checkly checks get ${checkId}` })
+    hints.push({ label: 'Back to list', command: 'checkly checks list' })
+
+    this.log(formatResultDetailWithNavigation(result, fmt, hints, sections))
+  }
+
+  private renderAttemptsSection (
+    attempts: CheckResult[],
+    result: CheckResult,
+    resultId: string,
+    fmt: OutputFormat,
+  ): string {
+    if (attempts.length > 1) {
+      return formatAttemptsSection(attempts, fmt, {
+        finalId: attempts.find(a => a.resultType === 'FINAL')?.id,
+        requestedId: resultId,
+      })
+    }
+
+    // The result claims retries but we couldn't reconstruct the sequence (it may
+    // have aged out of the data-retention window, or sat outside the fetch window).
+    if ((result.attempts ?? 0) > 0) {
+      const msg = 'Retry attempts are no longer available for this result.'
+      return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
+    }
+
+    const msg = 'Ran once, no retry attempts.'
+    return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
+  }
+
+  /**
+   * Fetches the retry sequence for a result and groups it client-side.
+   *
+   * Attempts reuse the result's `sequenceId` and cluster within minutes of each
+   * other, but the list endpoint has no server-side sequenceId filter, so we
+   * fetch a bounded time window around the result (newest-first) and group
+   * locally. The window is anchored just after the result so the sequence sits
+   * at the top of the page for the common case (drilling into a FINAL result).
+   */
+  private async fetchAttempts (checkId: string, result: CheckResult): Promise<CheckResult[]> {
+    if (!result.sequenceId) {
+      return []
+    }
+
+    const WINDOW_BEFORE_SECONDS = 30 * 60
+    const WINDOW_AFTER_SECONDS = 5 * 60
+    const anchorSeconds = Math.floor(new Date(result.startedAt).getTime() / 1000)
+
+    const empty = { data: { entries: [] as CheckResult[], nextId: null, length: 0 } }
+    const resp = await api.checkResults.getAll(checkId, {
+      resultType: 'ALL',
+      from: anchorSeconds - WINDOW_BEFORE_SECONDS,
+      to: anchorSeconds + WINDOW_AFTER_SECONDS,
+      limit: Math.max((result.attempts ?? 0) + 10, 50),
+    }).catch(() => empty)
+
+    return groupAttemptsBySequence(resp.data.entries, result.sequenceId)
   }
 }

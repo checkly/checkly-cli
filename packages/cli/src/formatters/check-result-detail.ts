@@ -14,12 +14,14 @@ import {
   type OutputFormat,
   type DetailField,
   type CommandHint,
+  type ColumnDef,
   formatMs,
   formatDate,
   resolveResultStatus,
   heading,
   renderDetailFields,
   renderCommandHints,
+  renderAdaptiveTable,
 } from './render.js'
 
 // --- Helpers ---
@@ -32,8 +34,16 @@ export function formatResultDetailWithNavigation (
   result: CheckResult,
   format: OutputFormat,
   hints: CommandHint[],
+  extraSections: string[] = [],
 ): string {
   const output = [formatResultDetail(result, format)]
+
+  for (const section of extraSections) {
+    if (section) {
+      output.push('')
+      output.push(section)
+    }
+  }
 
   if (hints.length > 0) {
     output.push('')
@@ -41,6 +51,137 @@ export function formatResultDetailWithNavigation (
   }
 
   return output.join('\n')
+}
+
+// --- Retry attempts ---
+
+/**
+ * Groups a flat list of check results (as returned by the list endpoint with
+ * resultType=ALL) into the ordered sequence of runs that share a sequenceId.
+ *
+ * The backend mints one sequenceId per logical run and reuses it across
+ * retries, persisting one FINAL result plus zero or more earlier ATTEMPT
+ * results. There is no server-side sequenceId filter, so callers fetch a window
+ * of results and group here. The returned list is ordered oldest-first
+ * (ascending startedAt) so the positional index is the run number.
+ */
+export function groupAttemptsBySequence (results: CheckResult[], sequenceId: string): CheckResult[] {
+  return results
+    .filter(r => r.sequenceId === sequenceId)
+    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
+}
+
+export interface AttemptsContext {
+  /** ID of the FINAL result in the sequence; that row is marked "final". */
+  finalId?: string
+  /** ID the user drilled into via --result (may be an ATTEMPT); marked as current. */
+  requestedId?: string
+}
+
+interface AttemptRow {
+  result: CheckResult
+  runNumber: number
+  isFinal: boolean
+  isRequested: boolean
+}
+
+/**
+ * Extracts a short, single-line error summary from a result's type-specific
+ * payload, falling back to the coarse status flags when no message is present.
+ * List rows are not hydrated with logs/assets, so any message here is
+ * best-effort; an empty string means "no error detail available".
+ */
+export function extractResultErrorSummary (result: CheckResult): string {
+  const raw = firstErrorMessage(result)
+  if (raw) return raw
+  if (result.hasErrors) return 'error'
+  if (result.hasFailures) return 'failed'
+  return ''
+}
+
+function firstErrorMessage (result: CheckResult): string {
+  const api = result.apiCheckResult
+  if (api?.requestError) return api.requestError
+  const browserErr = result.browserCheckResult?.errors?.find(Boolean)
+  if (browserErr) return formatErrorEntry(browserErr)
+  const multiStepErr = result.multiStepCheckResult?.errors?.find(Boolean)
+  if (multiStepErr) return formatErrorEntry(multiStepErr)
+  const agenticErr = result.agenticCheckResult?.errors
+    ?.map(e => e?.error?.message ?? '')
+    .find(m => m.length > 0)
+  if (agenticErr) return agenticErr
+  return ''
+}
+
+/**
+ * Renders the per-attempt retry table for a result sequence. `attempts` must be
+ * ordered oldest-first (see groupAttemptsBySequence). Returns an empty string
+ * when there is nothing to show.
+ */
+export function formatAttemptsSection (
+  attempts: CheckResult[],
+  format: OutputFormat,
+  context: AttemptsContext = {},
+): string {
+  if (attempts.length === 0) return ''
+
+  const rows: AttemptRow[] = attempts.map((result, i) => ({
+    result,
+    runNumber: i + 1,
+    isFinal: result.resultType === 'FINAL' || result.id === context.finalId,
+    isRequested: result.id === context.requestedId,
+  }))
+
+  const columns = buildAttemptColumns(format)
+  const table = renderAdaptiveTable(columns, rows, format)
+
+  return format === 'md'
+    ? '## Attempts\n\n' + table
+    : chalk.bold('ATTEMPTS') + '\n' + table
+}
+
+function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
+  if (format === 'md') {
+    return [
+      { header: '#', value: row => row.isFinal ? `${row.runNumber} (final)` : String(row.runNumber) },
+      { header: 'Status', value: (row, fmt) => resolveResultStatus(row.result, fmt) },
+      { header: 'Location', value: row => row.result.runLocation },
+      { header: 'Duration', value: row => formatMs(row.result.responseTime) },
+      { header: 'Error', value: row => mdErrorCell(row.result) },
+      { header: 'Result ID', value: row => row.result.id },
+    ]
+  }
+
+  return [
+    {
+      header: '#',
+      width: 10,
+      value: row => {
+        const marker = row.isFinal ? chalk.dim(' final') : ''
+        const current = row.isRequested ? chalk.cyan(' ‹') : ''
+        return String(row.runNumber) + marker + current
+      },
+    },
+    { header: 'Status', width: 10, value: (row, fmt) => resolveResultStatus(row.result, fmt) },
+    { header: 'Location', minWidth: 8, maxWidth: 16, value: row => row.result.runLocation },
+    { header: 'Duration', width: 10, value: row => formatMs(row.result.responseTime) },
+    {
+      header: 'Error',
+      minWidth: 12,
+      maxWidth: 50,
+      value: row => {
+        const msg = extractResultErrorSummary(row.result)
+        return msg ? chalk.red(truncateSingleLine(msg, 50)) : chalk.dim('—')
+      },
+    },
+    { header: 'Result ID', minWidth: 12, maxWidth: 38, value: row => chalk.dim(row.result.id) },
+  ]
+}
+
+function mdErrorCell (result: CheckResult): string {
+  const msg = extractResultErrorSummary(result)
+  if (!msg) return '—'
+  return truncateSingleLine(msg, 80).replace(/\|/g, '\\|')
 }
 
 // --- Top-level result detail fields ---

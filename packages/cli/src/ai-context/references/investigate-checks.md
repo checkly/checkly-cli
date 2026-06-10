@@ -32,6 +32,7 @@ Shows check configuration, recent results, error groups, and analytics stats.
 
 Flags:
 - `-r, --result <result-id>` — drill into a specific result (see below)
+- `--include-attempts` — with `--result`, also list the individual retry attempts for that result (see below)
 - `-e, --error-group <error-group-id>` — show full details for a specific error group
 - `--results-limit <n>` — number of recent results to show (default 10)
 - `--results-cursor <cursor>` — paginate results using the cursor from previous output
@@ -47,6 +48,18 @@ Flags:
 
 ```bash
 npx checkly checks get <check-id> --result <result-id>
+```
+
+### View retry attempts for a result
+
+When a check has retries enabled, a single run produces one `FINAL` result plus
+one `ATTEMPT` result for each earlier failed try (all sharing a `sequenceId`).
+By default only the `FINAL` result is shown. Add `--include-attempts` to list the
+full retry sequence — attempt number, status, location, duration, and a short
+error summary — with the `FINAL` row marked `final`:
+
+```bash
+npx checkly checks get <check-id> --result <result-id> --include-attempts
 ```
 
 ### View an error group

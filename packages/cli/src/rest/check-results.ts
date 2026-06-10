@@ -17,6 +17,7 @@ export interface CheckResult {
   attempts: number
   resultType: 'FINAL' | 'ATTEMPT'
   sequenceId?: string | null
+  errorGroupIds?: string[] | null
   apiCheckResult?: ApiCheckResult | null
   browserCheckResult?: BrowserCheckResult | null
   multiStepCheckResult?: MultiStepCheckResult | null
@@ -176,10 +177,17 @@ export interface CheckResultsPage {
 export interface ListCheckResultsParams {
   limit?: number
   nextId?: string
+  /** Lower bound on startedAt (>=), as a UNIX timestamp in seconds. */
   from?: number
+  /** Upper bound on startedAt (<), as a UNIX timestamp in seconds. */
   to?: number
   hasFailures?: boolean
-  resultType?: 'FINAL' | 'ATTEMPT'
+  /**
+   * FINAL (default) returns only the decisive result per run; ATTEMPT returns
+   * only earlier failed retries; ALL returns both. Attempts of a single run
+   * share a `sequenceId`.
+   */
+  resultType?: 'FINAL' | 'ATTEMPT' | 'ALL'
 }
 
 class CheckResults {
