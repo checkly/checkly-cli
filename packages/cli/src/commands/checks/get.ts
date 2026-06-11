@@ -47,7 +47,6 @@ export default class ChecksGet extends AuthCommand {
     'include-attempts': Flags.boolean({
       description: 'Show individual retry attempts for the result (use with --result).',
       dependsOn: ['result'],
-      default: false,
     }),
     'error-group': Flags.string({
       char: 'e',
@@ -301,8 +300,7 @@ export default class ChecksGet extends AuthCommand {
   ): Promise<void> {
     const { data: result } = await api.checkResults.get(checkId, resultId)
 
-    // No retries means no ATTEMPT rows, so skip the extra list call.
-    const attempts = includeAttempts && result.sequenceId && (result.attempts ?? 0) > 0
+    const attempts = includeAttempts && result.sequenceId
       ? await this.fetchAttempts(checkId, result)
       : []
 
@@ -315,21 +313,39 @@ export default class ChecksGet extends AuthCommand {
 
     const sections: string[] = []
     if (includeAttempts) {
-      sections.push(this.renderAttemptsSection(attempts, result, resultId, fmt))
+      sections.push(this.renderAttemptsSection(attempts, resultId, fmt))
+    } else {
+      const note = this.retryContextNote(result)
+      if (note) {
+        sections.push(fmt === 'md' ? `_${note}_` : chalk.dim(note))
+      }
     }
 
     const hints: CommandHint[] = []
-    if (!includeAttempts && (result.attempts ?? 0) > 0) {
+    // Suggest the full sequence for an attempt (always part of a retried run) or a
+    // final that was retried (`attempts` is 1-based, so > 1 means it retried).
+    if (!includeAttempts && (result.resultType === 'ATTEMPT' || (result.attempts ?? 1) > 1)) {
       hints.push({
         label: 'Show attempts',
         command: `checkly checks get ${checkId} --result ${resultId} --include-attempts`,
       })
     }
     if (includeAttempts) {
-      for (const attempt of attempts) {
-        if (attempt.id !== resultId && attempt.resultType === 'ATTEMPT') {
-          hints.push({ label: 'View attempt', command: `checkly checks get ${checkId} --result ${attempt.id}` })
+      const otherAttempts = attempts.filter(a => a.resultType === 'ATTEMPT' && a.id !== resultId)
+      if (result.resultType === 'ATTEMPT') {
+        // Viewing an attempt: jump to the final, and (if any) to the other
+        // attempts via a generic placeholder (their IDs are listed in the table).
+        const final = attempts.find(a => a.resultType === 'FINAL')
+        if (final) {
+          hints.push({ label: 'Show final result', command: `checkly checks get ${checkId} --result ${final.id}` })
         }
+        if (otherAttempts.length > 0) {
+          hints.push({ label: 'View attempt', command: `checkly checks get ${checkId} --result <result-id>` })
+        }
+      } else if (otherAttempts.length > 0) {
+        // Viewing the final: link to the lone attempt directly, else a placeholder.
+        const target = otherAttempts.length === 1 ? otherAttempts[0].id : '<result-id>'
+        hints.push({ label: 'View attempt', command: `checkly checks get ${checkId} --result ${target}` })
       }
     }
     hints.push({ label: 'Back to check', command: `checkly checks get ${checkId}` })
@@ -338,49 +354,81 @@ export default class ChecksGet extends AuthCommand {
     this.log(formatResultDetailWithNavigation(result, fmt, hints, sections))
   }
 
-  private renderAttemptsSection (
-    attempts: CheckResult[],
-    result: CheckResult,
-    resultId: string,
-    fmt: OutputFormat,
-  ): string {
-    if (attempts.length > 1) {
+  // Plain (non --include-attempts) note giving retry context: that an attempt
+  // isn't the final result, or that a final masks earlier failed attempts.
+  private retryContextNote (result: CheckResult): string | undefined {
+    if (result.resultType === 'ATTEMPT') {
+      return 'Note: this is an intermediate retry attempt, not the run\'s final result. '
+        + 'To view the full sequence including the final result, retrieve all attempts.'
+    }
+    const retries = (result.attempts ?? 1) - 1
+    if (retries > 0) {
+      return `Note: this run was retried ${retries} time${retries === 1 ? '' : 's'} before this final result. `
+        + 'Retrieve all attempts to inspect them.'
+    }
+    return undefined
+  }
+
+  private renderAttemptsSection (attempts: CheckResult[], resultId: string, fmt: OutputFormat): string {
+    // Decide off the actual ATTEMPT rows, not the `attempts` counter (which is
+    // 1-based, so it can't reliably tell "ran once" from "retried").
+    if (attempts.some(a => a.resultType === 'ATTEMPT')) {
       return formatAttemptsSection(attempts, fmt, {
         finalId: attempts.find(a => a.resultType === 'FINAL')?.id,
         requestedId: resultId,
       })
     }
 
-    // Claims retries but the sequence couldn't be reconstructed (aged out, or
-    // outside the fetch window).
-    if ((result.attempts ?? 0) > 0) {
-      const msg = 'Retry attempts are no longer available for this result.'
-      return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
-    }
-
     const msg = 'Ran once, no retry attempts.'
     return fmt === 'md' ? `_${msg}_` : chalk.dim(msg)
   }
 
-  // Fetches a bounded window of results around the result and groups by
-  // sequenceId locally (the list endpoint has no server-side sequenceId filter).
+  // The longest a retry sequence can span end to end: the backend caps total
+  // retry time at FALLBACK_MAX_DURATION_SECONDS (10 min) and a single backoff at
+  // MAX_BACKOFF_SECONDS (15 min). Querying ±this around any one member is
+  // therefore guaranteed to cover the whole sequence — it can't clip it.
+  private static readonly MAX_SEQUENCE_SPAN_SECONDS = 30 * 60
+
+  // Runaway guard only: with limit 100 over the span window this is never reached
+  // for real checks (it would take >25 results/sec), so it never truncates a
+  // sequence — it just bounds a pathological loop.
+  private static readonly MAX_RESULT_PAGES = 15
+
+  // Collects every result in the drilled-into result's retry sequence and groups
+  // them locally (the list endpoint has no server-side sequenceId filter).
+  //
+  // We query a span-sized window centred on the result and page through it
+  // (newest-first). The window is centred rather than one-sided because the
+  // result may be the final run or any earlier attempt, and anchoring on its
+  // timestamp keeps this O(1) page even for old results (no scanning back from
+  // now). See MAX_SEQUENCE_SPAN_SECONDS for why the window can't clip a sequence.
   private async fetchAttempts (checkId: string, result: CheckResult): Promise<CheckResult[]> {
     if (!result.sequenceId) {
       return []
     }
 
-    const WINDOW_BEFORE_SECONDS = 30 * 60
-    const WINDOW_AFTER_SECONDS = 5 * 60
     const anchorSeconds = Math.floor(new Date(result.startedAt).getTime() / 1000)
+    const window = {
+      resultType: 'ALL' as const,
+      from: anchorSeconds - ChecksGet.MAX_SEQUENCE_SPAN_SECONDS,
+      to: anchorSeconds + ChecksGet.MAX_SEQUENCE_SPAN_SECONDS,
+      limit: 100,
+    }
 
-    const empty = { data: { entries: [] as CheckResult[], nextId: null, length: 0 } }
-    const resp = await api.checkResults.getAll(checkId, {
-      resultType: 'ALL',
-      from: anchorSeconds - WINDOW_BEFORE_SECONDS,
-      to: anchorSeconds + WINDOW_AFTER_SECONDS,
-      limit: Math.max((result.attempts ?? 0) + 10, 50),
-    }).catch(() => empty)
+    const collected: CheckResult[] = []
+    let cursor: string | undefined
+    for (let page = 0; page < ChecksGet.MAX_RESULT_PAGES; page++) {
+      const resp = await api.checkResults.getAll(checkId, { ...window, nextId: cursor }).catch(() => null)
+      if (!resp) {
+        break
+      }
+      collected.push(...resp.data.entries)
+      cursor = resp.data.nextId ?? undefined
+      if (!cursor) {
+        break
+      }
+    }
 
-    return groupAttemptsBySequence(resp.data.entries, result.sequenceId)
+    return groupAttemptsBySequence(collected, result.sequenceId)
   }
 }

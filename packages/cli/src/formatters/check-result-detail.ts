@@ -125,7 +125,7 @@ export function formatAttemptsSection (
 function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
   if (format === 'md') {
     return [
-      { header: '#', value: row => row.isFinal ? `${row.runNumber} (final)` : String(row.runNumber) },
+      { header: '#', value: row => row.isFinal ? `${row.runNumber} (FINAL)` : String(row.runNumber) },
       { header: 'Status', value: (row, fmt) => resolveResultStatus(row.result, fmt) },
       { header: 'Location', value: row => row.result.runLocation },
       { header: 'Duration', value: row => formatMs(row.result.responseTime) },
@@ -139,7 +139,7 @@ function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
       header: '#',
       width: 14,
       value: row => {
-        const marker = row.isFinal ? chalk.dim(' (final)') : ''
+        const marker = row.isFinal ? chalk.dim(' (FINAL)') : ''
         const current = row.isRequested ? chalk.cyan(' ‹') : ''
         return String(row.runNumber) + marker + current
       },
