@@ -108,6 +108,12 @@ export function truncateError (msg: string, maxLen: number): string {
   return clean.substring(0, maxLen - 1) + '…'
 }
 
+export function truncateSingleLine (text: string, max: number): string {
+  const singleLine = text.replace(/\s+/g, ' ').trim()
+  if (singleLine.length <= max) return singleLine
+  return singleLine.slice(0, max - 3) + '...'
+}
+
 // --- Typed field/column definitions ---
 
 export interface DetailField<T> {

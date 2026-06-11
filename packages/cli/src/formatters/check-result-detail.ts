@@ -19,9 +19,11 @@ import {
   formatDate,
   resolveResultStatus,
   heading,
+  escapeMdCell,
   renderDetailFields,
   renderCommandHints,
   renderAdaptiveTable,
+  truncateSingleLine,
 } from './render.js'
 
 // --- Helpers ---
@@ -163,7 +165,7 @@ function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
 function mdErrorCell (result: CheckResult): string {
   const msg = extractResultErrorSummary(result)
   if (!msg) return '—'
-  return truncateSingleLine(msg, 80).replace(/\|/g, '\\|')
+  return escapeMdCell(truncateSingleLine(msg, 80))
 }
 
 // --- Top-level result detail fields ---
@@ -672,12 +674,6 @@ function wrapText (text: string, indent: string, width: number): string[] {
     if (current !== indent) lines.push(current)
   }
   return lines
-}
-
-function truncateSingleLine (text: string, max: number): string {
-  const singleLine = text.replace(/\s+/g, ' ').trim()
-  if (singleLine.length <= max) return singleLine
-  return singleLine.slice(0, max - 3) + '...'
 }
 
 function formatBody (body: string, indent: string): string {
