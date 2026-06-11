@@ -177,23 +177,13 @@ describe('assets commands', () => {
 
     await AssetsList.prototype.run.call(ctx as any)
 
-    expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id')
+    expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id', {
+      type: 'trace',
+    })
     expect(JSON.parse(ctx.logged[0])).toEqual({
       data: [manifest.assets[1]],
-      source: {
-        kind: 'test-session-result',
-        testSessionId: 'session-id',
-        resultId: 'result-id',
-      },
-      metadata: {
-        filter: {
-          type: 'trace',
-        },
-        manifest: {
-          truncated: true,
-          entriesReturned: 5,
-          entriesTotal: 12,
-        },
+      pagination: {
+        length: 1,
       },
     })
     expect(ctx.logged[0]).not.toContain('Assets for test-session result')
@@ -249,6 +239,9 @@ describe('assets commands', () => {
 
     await AssetsList.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      name: 'duplicate.txt',
+    })
     expect(ctx.logged[0]).toContain('Filter:')
     expect(ctx.logged[0]).toContain('asset=duplicate.txt')
     expect(ctx.logged[0]).toContain('a/duplicate.txt')
@@ -262,7 +255,7 @@ describe('assets commands', () => {
         'test-session-id': 'session-id',
         'result-id': 'result-id',
         'type': 'trace',
-        'asset': 'traces/*.zip',
+        'asset': 'TRACES/*.ZIP',
         'view': 'tree',
         'output': 'json',
       },
@@ -270,12 +263,17 @@ describe('assets commands', () => {
 
     await AssetsList.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id', {
+      type: 'trace',
+      name: 'TRACES/*.ZIP',
+    })
     const parsed = JSON.parse(ctx.logged[0])
     expect(parsed.data).toEqual([manifest.assets[1]])
-    expect(parsed.metadata.filter).toEqual({
-      type: 'trace',
-      asset: 'traces/*.zip',
+    expect(parsed.pagination).toEqual({
+      length: 1,
     })
+    expect(parsed).not.toHaveProperty('metadata')
+    expect(parsed).not.toHaveProperty('source')
   })
 
   it('requires a download selector', async () => {
@@ -297,7 +295,7 @@ describe('assets commands', () => {
       flags: {
         'check-id': 'check-id',
         'result-id': 'result-id',
-        'asset': 'logs.txt',
+        'asset': 'LOGS.TXT',
         'output': 'json',
         'force': false,
         'skip-existing': false,
@@ -308,6 +306,9 @@ describe('assets commands', () => {
 
     const summary = JSON.parse(ctx.logged[0])
     const expectedPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'logs.txt')
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      name: 'LOGS.TXT',
+    })
     expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
     expect(axios.get).not.toHaveBeenCalled()
     expect(summary.directory).toBe(path.dirname(expectedPath))
@@ -382,6 +383,9 @@ describe('assets commands', () => {
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      type: 'file',
+    })
     const firstPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'a', 'duplicate.txt')
     const secondPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'b', 'duplicate.txt')
     expect(ctx.logged[0]).toContain('2 assets processed (2 downloaded)')
@@ -440,6 +444,9 @@ describe('assets commands', () => {
     await AssetsDownload.prototype.run.call(ctx as any)
 
     const summary = JSON.parse(ctx.logged[0])
+    expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id', {
+      name: 'traces/*.zip',
+    })
     expect(summary.files).toHaveLength(1)
     expect(summary.files[0].path).toBe(path.join(tempDir, 'custom-assets', 'traces', 'checkout trace.zip'))
   })
@@ -459,10 +466,13 @@ describe('assets commands', () => {
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      type: 'file',
+    })
     expect(ctx.style.longError).toHaveBeenCalledWith(
       'Failed to download assets.',
       expect.objectContaining({
-        message: expect.stringContaining('Asset manifest is truncated (5 of 12 entries returned). Refusing to download'),
+        message: expect.stringContaining('Asset manifest is truncated (5 of 12 entries returned). Refusing to download because the filtered manifest is still incomplete after applying --type file.'),
       }),
     )
     expect(api.api.get).not.toHaveBeenCalled()
@@ -470,8 +480,10 @@ describe('assets commands', () => {
     expect(process.exitCode).toBe(1)
   })
 
-  it('allows exact copied Asset downloads from truncated manifests', async () => {
-    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
+  it('downloads exact copied Asset values from backend-filtered manifests', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue({
+      assets: [manifest.assets[1]],
+    })
     const ctx = createCommandContext({
       flags: {
         'check-id': 'check-id',
@@ -485,12 +497,17 @@ describe('assets commands', () => {
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      name: 'traces/checkout trace.zip',
+    })
     expect(api.api.get).toHaveBeenCalledWith('/download/trace', { responseType: 'stream' })
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
-  it('allows exact plain Asset downloads from truncated manifests', async () => {
-    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(truncatedManifest)
+  it('downloads exact plain Asset values from backend-filtered manifests', async () => {
+    vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue({
+      assets: [manifest.assets[0]],
+    })
     const ctx = createCommandContext({
       flags: {
         'check-id': 'check-id',
@@ -504,6 +521,9 @@ describe('assets commands', () => {
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
+    expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
+      name: 'logs.txt',
+    })
     expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })

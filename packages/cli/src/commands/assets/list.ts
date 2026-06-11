@@ -9,6 +9,8 @@ import {
   formatAssetManifestTree,
 } from '../../formatters/assets.js'
 import {
+  assetManifestFiltersFromSelection,
+  assetTypeSelectionFromFlag,
   assetTypes,
   fetchAssetManifest,
   filterAssetsBySelector,
@@ -53,28 +55,24 @@ export default class AssetsList extends AuthCommand {
     const { flags } = await this.parse(AssetsList)
     this.style.outputFormat = flags.output
     const source = resolveAssetSource(flags)
+    const type = assetTypeSelectionFromFlag(flags.type)
 
     try {
-      const manifest = await fetchAssetManifest(source)
+      const filters = assetManifestFiltersFromSelection({
+        type,
+        asset: flags.asset,
+      })
+      const manifest = await fetchAssetManifest(source, filters)
       const assets = filterAssetsBySelector(
-        filterAssetsByType(manifest.assets, flags.type as any),
+        filterAssetsByType(manifest.assets, type),
         flags.asset,
       )
 
       if (flags.output === 'json') {
         this.log(JSON.stringify({
           data: assets,
-          source,
-          metadata: {
-            filter: {
-              type: flags.type,
-              asset: flags.asset,
-            },
-            manifest: {
-              truncated: Boolean(manifest.truncated),
-              entriesReturned: manifest.entriesReturned,
-              entriesTotal: manifest.entriesTotal,
-            },
+          pagination: {
+            length: assets.length,
           },
         }, null, 2))
         return
@@ -88,7 +86,7 @@ export default class AssetsList extends AuthCommand {
         checkId: source.kind === 'check-result' ? source.checkId : undefined,
         testSessionId: source.kind === 'test-session-result' ? source.testSessionId : undefined,
         resultId: source.resultId,
-        type: flags.type,
+        type,
         asset: flags.asset,
       }, assets, fmt))
       output.push('')

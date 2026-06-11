@@ -9,13 +9,13 @@ import { minimatch } from 'minimatch'
 import * as api from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import type {
+  AssetManifestFilters,
   AssetManifest,
   AssetManifestEntry,
-  AssetManifestEntryType,
 } from '../rest/asset-manifests.js'
 import { assetSelectorValue } from '../formatters/assets.js'
 
-export const assetTypes: Array<AssetManifestEntryType | 'all'> = [
+export const assetTypes = [
   'log',
   'trace',
   'video',
@@ -24,7 +24,25 @@ export const assetTypes: Array<AssetManifestEntryType | 'all'> = [
   'report',
   'file',
   'all',
-]
+] as const
+
+export type AssetTypeSelection = typeof assetTypes[number]
+
+const assetTypeValues: readonly string[] = assetTypes
+
+function isAssetTypeSelection (type: string): type is AssetTypeSelection {
+  return assetTypeValues.includes(type)
+}
+
+export function assetTypeSelectionFromFlag (type?: string): AssetTypeSelection | undefined {
+  if (!type) return
+
+  if (isAssetTypeSelection(type)) {
+    return type
+  }
+
+  throw new Error(`Unsupported asset type "${type}".`)
+}
 
 export interface AssetSourceFlags {
   'check-id'?: string
@@ -59,17 +77,41 @@ export function resolveAssetSource (flags: AssetSourceFlags): AssetSource {
   return { kind: 'test-session-result', testSessionId: flags['test-session-id']!, resultId: flags['result-id'] }
 }
 
-export function fetchAssetManifest (source: AssetSource): Promise<AssetManifest> {
-  if (source.kind === 'check-result') {
-    return api.assetManifests.getForCheckResult(source.checkId, source.resultId)
+export function assetManifestFiltersFromSelection (
+  options: { type?: AssetTypeSelection, asset?: string },
+): AssetManifestFilters | undefined {
+  const filters: AssetManifestFilters = {}
+
+  if (options.type && options.type !== 'all') {
+    filters.type = options.type
   }
 
-  return api.assetManifests.getForTestSessionResult(source.testSessionId, source.resultId)
+  const name = options.asset?.trim()
+  if (name) {
+    filters.name = name
+  }
+
+  return Object.keys(filters).length > 0 ? filters : undefined
+}
+
+export function fetchAssetManifest (
+  source: AssetSource,
+  filters?: AssetManifestFilters,
+): Promise<AssetManifest> {
+  if (source.kind === 'check-result') {
+    return filters
+      ? api.assetManifests.getForCheckResult(source.checkId, source.resultId, filters)
+      : api.assetManifests.getForCheckResult(source.checkId, source.resultId)
+  }
+
+  return filters
+    ? api.assetManifests.getForTestSessionResult(source.testSessionId, source.resultId, filters)
+    : api.assetManifests.getForTestSessionResult(source.testSessionId, source.resultId)
 }
 
 export function filterAssetsByType (
   assets: AssetManifestEntry[],
-  type?: AssetManifestEntryType | 'all',
+  type?: AssetTypeSelection,
 ): AssetManifestEntry[] {
   if (!type || type === 'all') return assets
   return assets.filter(asset => asset.type === type)
@@ -77,6 +119,14 @@ export function filterAssetsByType (
 
 export function hasGlobCharacters (selector: string): boolean {
   return /[*?[\]{}]/.test(selector)
+}
+
+const assetNameGlobOptions = {
+  nocase: true,
+  dot: true,
+  matchBase: true,
+  nobrace: true,
+  noext: true,
 }
 
 export function filterAssetsBySelector (
@@ -87,20 +137,21 @@ export function filterAssetsBySelector (
 
   if (hasGlobCharacters(selector)) {
     return assets.filter(asset =>
-      minimatch(asset.archive?.entryName ?? '', selector, { dot: true })
-      || minimatch(asset.name, selector, { dot: true }),
+      minimatch(asset.archive?.entryName ?? '', selector, assetNameGlobOptions)
+      || minimatch(asset.name, selector, assetNameGlobOptions),
     )
   }
 
+  const normalizedSelector = selector.toLowerCase()
   return assets.filter(asset =>
-    asset.archive?.entryName === selector
-    || asset.name === selector,
+    asset.archive?.entryName.toLowerCase() === normalizedSelector
+    || asset.name.toLowerCase() === normalizedSelector,
   )
 }
 
 export function selectAssets (
   assets: AssetManifestEntry[],
-  options: { type?: AssetManifestEntryType | 'all', asset?: string },
+  options: { type?: AssetTypeSelection, asset?: string },
 ): AssetManifestEntry[] {
   const byType = filterAssetsByType(assets, options.type)
   const selector = options.asset
@@ -165,20 +216,27 @@ export function formatTruncatedManifestMessage (manifest: AssetManifest): string
 
 export function assertManifestSupportsDownload (
   manifest: AssetManifest,
-  options: { asset?: string },
+  filters?: AssetManifestFilters,
 ): void {
   if (!manifest.truncated) return
 
-  const selector = options.asset
-  const isExactCopiedAsset = selector && !hasGlobCharacters(selector)
-    && manifest.assets.some(asset => assetSelectorValue(asset) === selector)
-
-  if (isExactCopiedAsset) return
-
   throw new Error(
-    `${formatTruncatedManifestMessage(manifest)} Refusing to download from an incomplete manifest because the selector may miss assets.\n`
-    + 'Use `checkly assets list --view table` and pass an exact Asset value from the list.',
+    `${formatTruncatedManifestMessage(manifest)} Refusing to download because ${formatFilterScope(filters)}.\n`
+    + 'Use a more specific --type and/or --asset filter, then retry the download.',
   )
+}
+
+function formatFilterScope (filters?: AssetManifestFilters): string {
+  const parts = [
+    filters?.type ? `--type ${filters.type}` : undefined,
+    filters?.name ? `--asset ${filters.name}` : undefined,
+  ].filter(Boolean)
+
+  if (parts.length === 0) {
+    return 'the manifest is incomplete'
+  }
+
+  return `the filtered manifest is still incomplete after applying ${parts.join(' and ')}`
 }
 
 export interface AssetDownloadProgress {

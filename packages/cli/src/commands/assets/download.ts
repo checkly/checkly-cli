@@ -5,6 +5,8 @@ import { outputFlag } from '../../helpers/flags.js'
 import { assetSelectorValue, formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
 import {
   assertManifestSupportsDownload,
+  assetManifestFiltersFromSelection,
+  assetTypeSelectionFromFlag,
   assetTypes,
   defaultDownloadDirectory,
   destinationPathForAsset,
@@ -56,6 +58,7 @@ export default class AssetsDownload extends AuthCommand {
     const { flags } = await this.parse(AssetsDownload)
     this.style.outputFormat = flags.output
     const source = resolveAssetSource(flags)
+    const type = assetTypeSelectionFromFlag(flags.type)
     const showProgress = flags.output !== 'json' && this.fancy && process.stdout.isTTY
     let progressStarted = false
 
@@ -90,10 +93,14 @@ export default class AssetsDownload extends AuthCommand {
 
     try {
       startProgress('Fetching asset manifest')
-      const manifest = await fetchAssetManifest(source)
-      assertManifestSupportsDownload(manifest, { asset: flags.asset })
+      const filters = assetManifestFiltersFromSelection({
+        type,
+        asset: flags.asset,
+      })
+      const manifest = await fetchAssetManifest(source, filters)
+      assertManifestSupportsDownload(manifest, filters)
       const assets = selectAssets(manifest.assets, {
-        type: flags.type as any,
+        type,
         asset: flags.asset,
       })
 
