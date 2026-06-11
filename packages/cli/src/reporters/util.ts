@@ -268,19 +268,6 @@ export function formatCheckResult (checkResult: any) {
       }
     }
   }
-  if (
-    checkResult.checkType === 'BROWSER'
-    || checkResult.checkType === 'MULTI_STEP'
-    || checkResult.checkType === 'PLAYWRIGHT'
-  ) {
-    const errorSummary = formatBrowserFamilyErrors(checkResult)
-    if (errorSummary) {
-      result.push([
-        formatSectionTitle('Errors'),
-        errorSummary,
-      ])
-    }
-  }
   if (checkResult.logs?.length) {
     result.push([
       formatSectionTitle('Logs'),
@@ -724,88 +711,6 @@ function toString (val: any): string {
   } else {
     return val.toString()
   }
-}
-
-// Strips ANSI escape codes so we can apply our own coloring to error messages.
-// Live BROWSER/MULTI_STEP errors are usually plain strings, but Playwright
-// per-test errors often arrive with embedded ANSI from the runner.
-function stripAnsiCodes (input: string): string {
-  return input.replace(
-    // eslint-disable-next-line no-control-regex
-    /[][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
-}
-
-function errorEntryToString (err: unknown): string {
-  if (typeof err === 'string') return err
-  if (err && typeof err === 'object') {
-    const obj = err as Record<string, unknown>
-    if (typeof obj.message === 'string') return obj.message
-    if (typeof obj.value === 'string') return obj.value
-    return JSON.stringify(err)
-  }
-  return String(err)
-}
-
-/**
- * Extracts the per-test error messages a live BROWSER/MULTI_STEP/PLAYWRIGHT
- * result carries on `metadata.errors`. Returns cleaned, non-empty strings.
- * Used by both the list reporter (terminal output) and the JSON reporter so
- * the two surfaces stay in sync.
- */
-export function getCheckResultErrors (checkResult: any): string[] {
-  const rawErrors = checkResult?.metadata?.errors
-  if (!Array.isArray(rawErrors)) {
-    return []
-  }
-  return rawErrors
-    .map(errorEntryToString)
-    .map(stripAnsiCodes)
-    .map(msg => msg.trim())
-    .filter(msg => msg.length > 0)
-}
-
-// One-line count summary derived from a browser check's trace summary,
-// e.g. "2 console, 1 network". Returns undefined when no errors were counted.
-function formatTraceSummaryCounts (traceSummary: any): string | undefined {
-  if (!traceSummary) {
-    return undefined
-  }
-  const parts = [
-    traceSummary.userScriptErrors > 0 ? `${traceSummary.userScriptErrors} script` : undefined,
-    traceSummary.consoleErrors > 0 ? `${traceSummary.consoleErrors} console` : undefined,
-    traceSummary.networkErrors > 0 ? `${traceSummary.networkErrors} network` : undefined,
-    traceSummary.documentErrors > 0 ? `${traceSummary.documentErrors} document` : undefined,
-  ].filter(Boolean)
-  return parts.length > 0 ? parts.join(', ') : undefined
-}
-
-// Builds a concise error section body for BROWSER/MULTI_STEP/PLAYWRIGHT
-// results: a trace-summary count line (when available) followed by the
-// individual error messages, each truncated and capped to stay readable.
-function formatBrowserFamilyErrors (checkResult: any): string | undefined {
-  const lines: string[] = []
-
-  const counts = formatTraceSummaryCounts(checkResult?.metadata?.traceSummary)
-  if (counts) {
-    lines.push(chalk.red(counts))
-  }
-
-  const errors = getCheckResultErrors(checkResult)
-  const maxErrors = 5
-  for (const error of errors.slice(0, maxErrors)) {
-    const { result: message } = truncate(error, {
-      chars: 300,
-      lines: 5,
-      ending: chalk.magenta('\n...truncated...'),
-    })
-    lines.push(chalk.red(`${logSymbols.error} ${message}`))
-  }
-  if (errors.length > maxErrors) {
-    const remaining = errors.length - maxErrors
-    lines.push(chalk.dim(`... (${remaining} more error${remaining === 1 ? '' : 's'})`))
-  }
-
-  return lines.length > 0 ? lines.join('\n') : undefined
 }
 
 export function resultToCheckStatus (checkResult: any): CheckStatus {

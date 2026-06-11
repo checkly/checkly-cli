@@ -86,6 +86,81 @@ describe('checks get --include-attempts', () => {
     expect(out.match(/View attempt/g) ?? []).toHaveLength(1)
   })
 
+  it('maps include-attempts to an ALL result query around the requested result', async () => {
+    vi.mocked(api.checkResults.get).mockResolvedValue({ data: attempt1 } as any)
+    const ctx = createCommandContext({
+      args: { id: 'check-1' },
+      flags: { 'result': 'a1', 'include-attempts': true, 'output': 'detail' },
+    })
+
+    await ChecksGet.prototype.run.call(ctx as any)
+
+    const anchorSeconds = Math.floor(new Date(attempt1.startedAt).getTime() / 1000)
+    expect(api.checkResults.getAll).toHaveBeenCalledWith('check-1', expect.objectContaining({
+      resultType: 'ALL',
+      from: anchorSeconds - 30 * 60,
+      to: anchorSeconds + 30 * 60,
+      limit: 100,
+    }))
+  })
+
+  it('continues fetching attempt pages until the sequence window is exhausted', async () => {
+    vi.mocked(api.checkResults.get).mockResolvedValue({ data: finalRun } as any)
+    vi.mocked(api.checkResults.getAll)
+      .mockResolvedValueOnce({
+        data: { entries: [finalRun], nextId: 'cursor-2', length: 1 },
+      } as any)
+      .mockResolvedValueOnce({
+        data: { entries: [attempt2, attempt1], nextId: null, length: 2 },
+      } as any)
+    const ctx = createCommandContext({
+      args: { id: 'check-1' },
+      flags: { 'result': 'final', 'include-attempts': true, 'output': 'detail' },
+    })
+
+    await ChecksGet.prototype.run.call(ctx as any)
+
+    expect(api.checkResults.getAll).toHaveBeenCalledTimes(2)
+    expect(api.checkResults.getAll).toHaveBeenNthCalledWith(2, 'check-1', expect.objectContaining({
+      resultType: 'ALL',
+      nextId: 'cursor-2',
+    }))
+    const out = stripAnsi(ctx.logged.join('\n'))
+    expect(out).toContain('a1')
+    expect(out).toContain('a2')
+    expect(out).toContain('final')
+  })
+
+  it('wraps result and attempts in a stable JSON envelope', async () => {
+    vi.mocked(api.checkResults.get).mockResolvedValue({ data: finalRun } as any)
+    const ctx = createCommandContext({
+      args: { id: 'check-1' },
+      flags: { 'result': 'final', 'include-attempts': true, 'output': 'json' },
+    })
+
+    await ChecksGet.prototype.run.call(ctx as any)
+
+    const payload = JSON.parse(ctx.logged[0])
+    expect(payload.result.id).toBe('final')
+    expect(payload.attempts.map((r: CheckResult) => r.id)).toEqual(['a1', 'a2', 'final'])
+  })
+
+  it('reports an error instead of pretending there are no retries when fetching attempts fails', async () => {
+    const error = new Error('attempt list failed')
+    vi.mocked(api.checkResults.get).mockResolvedValue({ data: finalRun } as any)
+    vi.mocked(api.checkResults.getAll).mockRejectedValue(error)
+    const ctx = createCommandContext({
+      args: { id: 'check-1' },
+      flags: { 'result': 'final', 'include-attempts': true, 'output': 'detail' },
+    })
+
+    await ChecksGet.prototype.run.call(ctx as any)
+
+    expect(process.exitCode).toBe(1)
+    expect(ctx.logged).toEqual([])
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to get check details.', error)
+  })
+
   it('viewing an attempt with no other attempts shows only the final hint', async () => {
     const onlyAttempt = makeResult({ id: 'a1', resultType: 'ATTEMPT', hasFailures: true, attempts: 1 })
     const onlyFinal = makeResult({ id: 'final', resultType: 'FINAL', attempts: 2 })

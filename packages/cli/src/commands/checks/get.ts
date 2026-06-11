@@ -418,10 +418,7 @@ export default class ChecksGet extends AuthCommand {
     const collected: CheckResult[] = []
     let cursor: string | undefined
     for (let page = 0; page < ChecksGet.MAX_RESULT_PAGES; page++) {
-      const resp = await api.checkResults.getAll(checkId, { ...window, nextId: cursor }).catch(() => null)
-      if (!resp) {
-        break
-      }
+      const resp = await api.checkResults.getAll(checkId, { ...window, nextId: cursor })
       collected.push(...resp.data.entries)
       cursor = resp.data.nextId ?? undefined
       if (!cursor) {
