@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { stripAnsi } from '../render.js'
-import { formatResultDetail } from '../check-result-detail.js'
+import {
+  formatResultDetail,
+  groupAttemptsBySequence,
+  extractResultErrorSummary,
+  formatAttemptsSection,
+} from '../check-result-detail.js'
+import type { CheckResult } from '../../rest/check-results.js'
 import {
   apiCheckResult,
   apiCheckResultWithError,
@@ -198,6 +204,124 @@ describe('formatResultDetail', () => {
       expect(result).toContain('| Status | Condition | Expected | Actual |')
       expect(result).toContain('### Suggestions')
       expect(result).toContain('### Steps')
+    })
+  })
+
+  describe('Retry attempts', () => {
+    const baseRow = (overrides: Partial<CheckResult>): CheckResult => ({
+      id: 'r',
+      checkId: 'check-1',
+      name: 'Login flow',
+      hasFailures: false,
+      hasErrors: false,
+      isDegraded: null,
+      overMaxResponseTime: null,
+      runLocation: 'eu-west-1',
+      startedAt: '2025-06-15T12:00:00.000Z',
+      stoppedAt: '2025-06-15T12:00:04.000Z',
+      created_at: '2025-06-15T12:00:04.000Z',
+      responseTime: 4000,
+      checkRunId: 1,
+      attempts: 0,
+      resultType: 'FINAL',
+      sequenceId: 'seq-1',
+      ...overrides,
+    })
+
+    describe('groupAttemptsBySequence', () => {
+      it('keeps only matching sequenceId, ordered oldest-first', () => {
+        const rows = [
+          baseRow({ id: 'final', resultType: 'FINAL', startedAt: '2025-06-15T12:00:08.000Z' }),
+          baseRow({ id: 'attempt-1', resultType: 'ATTEMPT', startedAt: '2025-06-15T12:00:00.000Z' }),
+          baseRow({ id: 'other-seq', sequenceId: 'seq-2', startedAt: '2025-06-15T12:00:02.000Z' }),
+          baseRow({ id: 'attempt-2', resultType: 'ATTEMPT', startedAt: '2025-06-15T12:00:04.000Z' }),
+        ]
+        const grouped = groupAttemptsBySequence(rows, 'seq-1')
+        expect(grouped.map(r => r.id)).toEqual(['attempt-1', 'attempt-2', 'final'])
+      })
+
+      it('returns an empty array when no rows match', () => {
+        expect(groupAttemptsBySequence([baseRow({ sequenceId: 'seq-9' })], 'seq-1')).toEqual([])
+      })
+    })
+
+    describe('extractResultErrorSummary', () => {
+      it('prefers an API requestError', () => {
+        const row = baseRow({ apiCheckResult: { requestError: 'connect ECONNREFUSED' } as any })
+        expect(extractResultErrorSummary(row)).toBe('connect ECONNREFUSED')
+      })
+
+      it('falls back to the first browser error', () => {
+        const row = baseRow({ browserCheckResult: { errors: ['Timeout 30000ms exceeded'] } as any })
+        expect(extractResultErrorSummary(row)).toBe('Timeout 30000ms exceeded')
+      })
+
+      it('reads agentic error messages', () => {
+        const row = baseRow({
+          agenticCheckResult: { errors: [{ error: { message: '503 Service Unavailable' } }] } as any,
+        })
+        expect(extractResultErrorSummary(row)).toBe('503 Service Unavailable')
+      })
+
+      it('falls back to status flags when no message is present', () => {
+        expect(extractResultErrorSummary(baseRow({ hasFailures: true }))).toBe('failed')
+        expect(extractResultErrorSummary(baseRow({ hasErrors: true }))).toBe('error')
+      })
+
+      it('returns an empty string for a clean result', () => {
+        expect(extractResultErrorSummary(baseRow({}))).toBe('')
+      })
+    })
+
+    describe('formatAttemptsSection', () => {
+      const sequence = [
+        baseRow({
+          id: 'attempt-1',
+          resultType: 'ATTEMPT',
+          hasFailures: true,
+          responseTime: 3900,
+          startedAt: '2025-06-15T12:00:00.000Z',
+          browserCheckResult: { errors: ['Timeout 30000ms exceeded'] } as any,
+        }),
+        baseRow({
+          id: 'attempt-2',
+          resultType: 'ATTEMPT',
+          hasFailures: true,
+          responseTime: 4000,
+          startedAt: '2025-06-15T12:00:05.000Z',
+          browserCheckResult: { errors: ['Timeout 30000ms exceeded'] } as any,
+        }),
+        baseRow({
+          id: 'final',
+          resultType: 'FINAL',
+          responseTime: 4200,
+          startedAt: '2025-06-15T12:00:10.000Z',
+        }),
+      ]
+
+      it('renders a terminal table with run numbers, statuses, and a final marker', () => {
+        const out = stripAnsi(formatAttemptsSection(sequence, 'terminal', { finalId: 'final' }))
+        expect(out).toContain('ATTEMPTS')
+        expect(out).toContain('1')
+        expect(out).toContain('2')
+        expect(out).toContain('3 (FINAL)')
+        expect(out).toContain('failing')
+        expect(out).toContain('passing')
+        expect(out).toContain('Timeout 30000ms exceeded')
+        expect(out).toContain('eu-west-1')
+      })
+
+      it('renders a markdown table with a (final) marker', () => {
+        const out = formatAttemptsSection(sequence, 'md', { finalId: 'final' })
+        expect(out).toContain('## Attempts')
+        expect(out).toContain('3 (FINAL)')
+        expect(out).toContain('Timeout 30000ms exceeded')
+        expect(out).toContain('—')
+      })
+
+      it('returns an empty string for no attempts', () => {
+        expect(formatAttemptsSection([], 'terminal')).toBe('')
+      })
     })
   })
 
