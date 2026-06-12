@@ -38,7 +38,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest-x64]
-    name: test - ${{ matrix.os }}
+        # checkly is sharded into two; create-checkly runs unsharded (empty
+        # shard). `id` is a filesystem-safe label since the shard string
+        # contains a '/', which is invalid in artifact names.
+        target:
+          - { package: checkly, shard: 1/2, id: 1 }
+          - { package: checkly, shard: 2/2, id: 2 }
+          - { package: create-checkly, shard: '', id: all }
+    name: test - ${{ matrix.target.package }} - ${{ matrix.os }} - ${{ matrix.target.shard || matrix.target.id }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -51,11 +58,18 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
-      - run: pnpm run test
+      # The --shard flag is forwarded to the package's vitest invocation. It
+      # must NOT be passed after a `--` separator: a pnpm-inserted `--` makes
+      # vitest treat `--shard` as a test-name filter and silently run the full
+      # suite on every shard instead of partitioning it. create-checkly runs
+      # unsharded, so the flag is omitted there.
+      - run: "pnpm --filter ${{ matrix.target.package }} run test ${{ matrix.target.shard && format('--shard={0}', matrix.target.shard) || '' }}"
       - name: Save LLM rules as an artifact
+        # Only the checkly package produces the AI-context bundle.
+        if: matrix.target.package == 'checkly'
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules-test-${{ matrix.os }}
+          name: llm-rules-test-${{ matrix.os }}-${{ matrix.target.id }}
           if-no-files-found: error
           path: packages/cli/dist/ai-context/*
           retention-days: 1
@@ -67,7 +81,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest-x64]
-    name: e2e - checkly - ${{ matrix.os }}
+        # Same shape as the test job's target matrix, restricted to checkly.
+        target:
+          - { package: checkly, shard: 1/2, id: 1 }
+          - { package: checkly, shard: 2/2, id: 2 }
+    name: e2e - ${{ matrix.target.package }} - ${{ matrix.os }} - ${{ matrix.target.shard }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -80,7 +98,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
-      - run: pnpm --filter checkly run test:e2e
+      # See the test job: --shard must not be passed after a `--` separator.
+      - run: pnpm --filter ${{ matrix.target.package }} run test:e2e --shard=${{ matrix.target.shard }}
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
