@@ -51,13 +51,7 @@ describe('test', { timeout: 45000 }, () => {
 
     it('Test project should run successfully', async () => {
       const secretEnv = uuid.v4()
-      const result = await runTest(fixt, [
-        '-e',
-        `SECRET_ENV=${secretEnv}`,
-        '--verbose',
-        '--grep',
-        '^(?!Skip SSL Check$).*',
-      ])
+      const result = await runTest(fixt, ['-e', `SECRET_ENV=${secretEnv}`, '--verbose'])
       expect(result.stdout).not.toContain('File extension type example')
       expect(result.stdout).toContain(secretEnv)
     }, 130_000)
