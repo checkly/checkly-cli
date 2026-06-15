@@ -17,6 +17,7 @@ export interface CheckResult {
   attempts: number
   resultType: 'FINAL' | 'ATTEMPT'
   sequenceId?: string | null
+  errorGroupIds?: string[] | null
   apiCheckResult?: ApiCheckResult | null
   browserCheckResult?: BrowserCheckResult | null
   multiStepCheckResult?: MultiStepCheckResult | null
@@ -179,7 +180,7 @@ export interface ListCheckResultsParams {
   from?: number
   to?: number
   hasFailures?: boolean
-  resultType?: 'FINAL' | 'ATTEMPT'
+  resultType?: 'FINAL' | 'ATTEMPT' | 'ALL'
 }
 
 class CheckResults {

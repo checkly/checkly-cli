@@ -14,12 +14,16 @@ import {
   type OutputFormat,
   type DetailField,
   type CommandHint,
+  type ColumnDef,
   formatMs,
   formatDate,
   resolveResultStatus,
   heading,
+  escapeMdCell,
   renderDetailFields,
   renderCommandHints,
+  renderAdaptiveTable,
+  truncateSingleLine,
 } from './render.js'
 
 // --- Helpers ---
@@ -32,8 +36,16 @@ export function formatResultDetailWithNavigation (
   result: CheckResult,
   format: OutputFormat,
   hints: CommandHint[],
+  extraSections: string[] = [],
 ): string {
   const output = [formatResultDetail(result, format)]
+
+  for (const section of extraSections) {
+    if (section) {
+      output.push('')
+      output.push(section)
+    }
+  }
 
   if (hints.length > 0) {
     output.push('')
@@ -41,6 +53,119 @@ export function formatResultDetailWithNavigation (
   }
 
   return output.join('\n')
+}
+
+// --- Retry attempts ---
+
+// Picks the runs sharing a sequenceId out of a resultType=ALL page (there's no
+// server-side sequenceId filter), oldest-first so the index is the run number.
+export function groupAttemptsBySequence (results: CheckResult[], sequenceId: string): CheckResult[] {
+  return results
+    .filter(r => r.sequenceId === sequenceId)
+    .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
+}
+
+export interface AttemptsContext {
+  finalId?: string // marked "final"
+  requestedId?: string // the --result row, marked as current
+}
+
+interface AttemptRow {
+  result: CheckResult
+  runNumber: number
+  isFinal: boolean
+  isRequested: boolean
+}
+
+// Best-effort short error summary; list rows aren't hydrated with logs/assets,
+// so fall back to the status flags. Empty string means "no error detail".
+export function extractResultErrorSummary (result: CheckResult): string {
+  const raw = firstErrorMessage(result)
+  if (raw) return raw
+  if (result.hasErrors) return 'error'
+  if (result.hasFailures) return 'failed'
+  return ''
+}
+
+function firstErrorMessage (result: CheckResult): string {
+  const api = result.apiCheckResult
+  if (api?.requestError) return api.requestError
+  const browserErr = result.browserCheckResult?.errors?.find(Boolean)
+  if (browserErr) return formatErrorEntry(browserErr)
+  const multiStepErr = result.multiStepCheckResult?.errors?.find(Boolean)
+  if (multiStepErr) return formatErrorEntry(multiStepErr)
+  const agenticErr = result.agenticCheckResult?.errors
+    ?.map(e => e?.error?.message ?? '')
+    .find(m => m.length > 0)
+  if (agenticErr) return agenticErr
+  return ''
+}
+
+// Renders the retry table for a sequence; `attempts` must be oldest-first.
+export function formatAttemptsSection (
+  attempts: CheckResult[],
+  format: OutputFormat,
+  context: AttemptsContext = {},
+): string {
+  if (attempts.length === 0) return ''
+
+  const rows: AttemptRow[] = attempts.map((result, i) => ({
+    result,
+    runNumber: i + 1,
+    isFinal: result.resultType === 'FINAL' || result.id === context.finalId,
+    isRequested: result.id === context.requestedId,
+  }))
+
+  const columns = buildAttemptColumns(format)
+  const table = renderAdaptiveTable(columns, rows, format)
+
+  return format === 'md'
+    ? '## Attempts\n\n' + table
+    : chalk.bold('ATTEMPTS') + '\n' + table
+}
+
+function buildAttemptColumns (format: OutputFormat): ColumnDef<AttemptRow>[] {
+  if (format === 'md') {
+    return [
+      { header: '#', value: row => row.isFinal ? `${row.runNumber} (FINAL)` : String(row.runNumber) },
+      { header: 'Status', value: (row, fmt) => resolveResultStatus(row.result, fmt) },
+      { header: 'Location', value: row => row.result.runLocation },
+      { header: 'Duration', value: row => formatMs(row.result.responseTime) },
+      { header: 'Error', value: row => mdErrorCell(row.result) },
+      { header: 'Result ID', value: row => row.result.id },
+    ]
+  }
+
+  return [
+    {
+      header: '#',
+      width: 14,
+      value: row => {
+        const marker = row.isFinal ? chalk.dim(' (FINAL)') : ''
+        const current = row.isRequested ? chalk.cyan(' ‹') : ''
+        return String(row.runNumber) + marker + current
+      },
+    },
+    { header: 'Status', width: 10, value: (row, fmt) => resolveResultStatus(row.result, fmt) },
+    { header: 'Location', minWidth: 8, maxWidth: 16, value: row => row.result.runLocation },
+    { header: 'Duration', width: 10, value: row => formatMs(row.result.responseTime) },
+    {
+      header: 'Error',
+      minWidth: 12,
+      maxWidth: 50,
+      value: row => {
+        const msg = extractResultErrorSummary(row.result)
+        return msg ? chalk.red(truncateSingleLine(msg, 50)) : chalk.dim('—')
+      },
+    },
+    { header: 'Result ID', minWidth: 12, maxWidth: 38, value: row => chalk.dim(row.result.id) },
+  ]
+}
+
+function mdErrorCell (result: CheckResult): string {
+  const msg = extractResultErrorSummary(result)
+  if (!msg) return '—'
+  return escapeMdCell(truncateSingleLine(msg, 80))
 }
 
 // --- Top-level result detail fields ---
@@ -549,12 +674,6 @@ function wrapText (text: string, indent: string, width: number): string[] {
     if (current !== indent) lines.push(current)
   }
   return lines
-}
-
-function truncateSingleLine (text: string, max: number): string {
-  const singleLine = text.replace(/\s+/g, ' ').trim()
-  if (singleLine.length <= max) return singleLine
-  return singleLine.slice(0, max - 3) + '...'
 }
 
 function formatBody (body: string, indent: string): string {
