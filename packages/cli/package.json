@@ -74,6 +74,9 @@
       "alert-channels": {
         "description": "List and inspect alert channels in your Checkly account."
       },
+      "assets": {
+        "description": "List and download result assets."
+      },
       "checks": {
         "description": "List and inspect checks in your Checkly account."
       },
