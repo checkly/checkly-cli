@@ -19,6 +19,7 @@ describe('AI context investigation references', () => {
 
     expect(content).toContain('npx checkly assets list --test-session-id <test-session-id> --result-id <test-session-result-id>')
     expect(content).toContain('npx checkly assets download --test-session-id <test-session-id> --result-id <test-session-result-id> --asset "<Asset>"')
+    expect(content).toContain('The default table output\nhas an `Asset` column; copy that value into `--asset` for single-file downloads.')
     expect(content).toContain('"pagination": {\n    "length": 0\n  }')
     expect(content).not.toContain('There is no dedicated `test-sessions download` command')
     expect(content).not.toContain('download those URLs directly')
@@ -32,5 +33,6 @@ describe('AI context investigation references', () => {
     expect(content).toContain('"attempts": []')
     expect(content).toContain('npx checkly assets list --check-id <check-id> --result-id <result-id>')
     expect(content).toContain('npx checkly assets download --check-id <check-id> --result-id <result-id> --asset "<Asset>"')
+    expect(content).toContain('The default table output\nhas an `Asset` column; copy that value into `--asset` for single-file downloads.')
   })
 })

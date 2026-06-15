@@ -129,6 +129,9 @@ npx checkly assets download --test-session-id <test-session-id> --result-id <tes
 npx checkly assets download --test-session-id <test-session-id> --result-id <test-session-result-id> --type all --dir ./checkly-assets
 ```
 
+Run `assets list` first to discover available files. The default table output
+has an `Asset` column; copy that value into `--asset` for single-file downloads.
+
 Flags:
 - `--type <type>` - filter/select by `log`, `trace`, `video`, `screenshot`, `pcap`, `report`, `file`, or `all`.
 - `--asset <value>` - exact Asset/Name value or glob. Prefer copying the `Asset` value from `assets list --view table` for single-file downloads.
