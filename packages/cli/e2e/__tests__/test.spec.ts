@@ -98,7 +98,9 @@ describe('test', { timeout: 45000 }, () => {
       } catch {
         // No-op
       }
-      const result = await runTest(fixt, ['--record', '--reporter', 'github'], {
+      // Keep this reporter test scoped to one stable check. The GitHub assertions below do not
+      // need the whole fixture project, and unrelated remote checks can make this fail first.
+      const result = await runTest(fixt, ['secret.check.ts', '--record', '--reporter', 'github'], {
         env: {
           CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename,
         },
