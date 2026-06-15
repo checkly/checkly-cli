@@ -74,6 +74,27 @@ const truncatedManifest: AssetManifest = {
   entriesTotal: 12,
 }
 
+const archiveOnlyManifest: AssetManifest = {
+  assets: [
+    {
+      type: 'log',
+      name: 'logs.txt',
+      url: 'https://api.checkly.test/next/assets/check-run-data/eu-central-1/account%2Fsession%2Fresult%2Fassets.zip/redirect',
+      contentType: 'application/json',
+      source: 'runner',
+      archive: { entryName: 'logs.txt' },
+    },
+    {
+      type: 'report',
+      name: 'checkly-report.json',
+      url: 'https://api.checkly.test/next/assets/check-run-data/eu-central-1/account%2Fsession%2Fresult%2Fassets.zip/redirect',
+      contentType: 'application/json',
+      source: 'runner',
+      archive: { entryName: 'output/checkly-report.json' },
+    },
+  ],
+}
+
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
   return {
@@ -158,8 +179,14 @@ describe('assets commands', () => {
     expect(ctx.logged[0]).toContain('result-id')
     expect(ctx.logged[0]).toContain('Showing:')
     expect(ctx.logged[0]).toContain('trace 1')
+    expect(ctx.logged[0]).toContain('Storage:')
+    expect(ctx.logged[0]).toContain('2 direct files, 3 files inside 3 archives')
+    expect(ctx.logged[0]).toContain('Download:')
+    expect(ctx.logged[0]).toContain('archive entries download as their containing archive')
     expect(ctx.logged[0]).toContain('logs.txt')
     expect(ctx.logged[0]).toContain('traces/checkout trace.zip')
+    expect(ctx.logged[0]).toContain('Next:')
+    expect(ctx.logged[0]).toContain('Download files:')
     expect(ctx.logged[0]).toContain('Warning: asset manifest is truncated (5 of 12 entries returned).')
   })
 
@@ -223,6 +250,27 @@ describe('assets commands', () => {
     expect(ctx.logged[0]).toContain('traces/')
     expect(ctx.logged[0]).toContain('checkout trace.zip')
     expect(ctx.logged[0]).toContain('Tip: use --view table to copy exact Asset values for download.')
+    expect(ctx.logged[0]).toContain('Next:')
+  })
+
+  it('explains archive-only manifests and shows an archive download command', async () => {
+    vi.mocked(api.assetManifests.getForTestSessionResult).mockResolvedValue(archiveOnlyManifest)
+    const ctx = createCommandContext({
+      flags: {
+        'test-session-id': 'session-id',
+        'result-id': 'result-id',
+        'type': 'all',
+        'view': 'table',
+        'output': 'table',
+      },
+    })
+
+    await AssetsList.prototype.run.call(ctx as any)
+
+    expect(ctx.logged[0]).toContain('Storage: 2 files inside 1 archive')
+    expect(ctx.logged[0]).toContain('archive entries download as the containing archive')
+    expect(ctx.logged[0]).toContain('Download archive: checkly assets download --test-session-id session-id --result-id result-id')
+    expect(ctx.logged[0]).toContain('Inspect entries:')
   })
 
   it('filters list output by exact asset name without treating duplicates as ambiguous', async () => {
@@ -285,9 +333,15 @@ describe('assets commands', () => {
       },
     })
 
-    await expect(AssetsDownload.prototype.run.call(ctx as any))
-      .rejects
-      .toThrow('Pass --type or --asset to select assets. Use --type all to download all assets.')
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Failed to download assets.',
+      expect.objectContaining({
+        message: 'Pass --type or --asset to select assets. Use --type all to download all assets.',
+      }),
+    )
+    expect(process.exitCode).toBe(1)
   })
 
   it('downloads by exact asset selector to the default directory', async () => {
@@ -369,7 +423,7 @@ describe('assets commands', () => {
     expect(ctx.logged[0]).not.toContain('ASSET')
   })
 
-  it('renders multiple download human output with full paths and no repeated asset column', async () => {
+  it('renders multiple archive download human output with full archive paths and no repeated asset column', async () => {
     const ctx = createCommandContext({
       flags: {
         'check-id': 'check-id',
@@ -386,8 +440,10 @@ describe('assets commands', () => {
     expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
       type: 'file',
     })
-    const firstPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'a', 'duplicate.txt')
-    const secondPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', 'b', 'duplicate.txt')
+    const firstPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', '1-assets.zip')
+    const secondPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', '2-assets.zip')
+    expect(ctx.logged[0]).toContain('Warning: Selected assets include archive entries.')
+    expect(ctx.logged[0]).toContain('filters narrow the manifest list, not the archive bytes')
     expect(ctx.logged[0]).toContain('2 assets processed (2 downloaded)')
     expect(ctx.logged[0]).toContain(firstPath)
     expect(ctx.logged[0]).toContain(secondPath)
@@ -428,7 +484,7 @@ describe('assets commands', () => {
     expect(ctx.style.actionSuccess).toHaveBeenCalled()
   })
 
-  it('downloads by glob selector and preserves safe archive entry paths', async () => {
+  it('downloads by glob selector and writes the containing archive for archive entries', async () => {
     const ctx = createCommandContext({
       flags: {
         'test-session-id': 'session-id',
@@ -448,7 +504,37 @@ describe('assets commands', () => {
       name: 'traces/*.zip',
     })
     expect(summary.files).toHaveLength(1)
-    expect(summary.files[0].path).toBe(path.join(tempDir, 'custom-assets', 'traces', 'checkout trace.zip'))
+    expect(summary.files[0].displayType).toBe('archive')
+    expect(summary.files[0].path).toBe(path.join(tempDir, 'custom-assets', 'assets.zip'))
+    expect(summary.warnings).toEqual([
+      'Selected assets include archive entries. Downloading the containing archive file; filters narrow the manifest list, not the archive bytes.',
+    ])
+  })
+
+  it('downloads a single archive-only manifest without requiring a selector', async () => {
+    vi.mocked(api.assetManifests.getForTestSessionResult).mockResolvedValue(archiveOnlyManifest)
+    const ctx = createCommandContext({
+      flags: {
+        'test-session-id': 'session-id',
+        'result-id': 'result-id',
+        'output': 'json',
+        'force': false,
+        'skip-existing': false,
+      },
+    })
+
+    await AssetsDownload.prototype.run.call(ctx as any)
+
+    const summary = JSON.parse(ctx.logged[0])
+    expect(api.assetManifests.getForTestSessionResult).toHaveBeenCalledWith('session-id', 'result-id')
+    expect(axios.get).toHaveBeenCalledWith(
+      'https://api.checkly.test/next/assets/check-run-data/eu-central-1/account%2Fsession%2Fresult%2Fassets.zip/redirect',
+      expect.objectContaining({ responseType: 'stream' }),
+    )
+    expect(summary.files).toHaveLength(1)
+    expect(summary.files[0].displayType).toBe('archive')
+    expect(summary.files[0].path).toBe(path.join(tempDir, 'checkly-assets', 'test-session-result-result-id', 'assets.zip'))
+    expect(summary.warnings).toHaveLength(1)
   })
 
   it('refuses category downloads from truncated manifests', async () => {

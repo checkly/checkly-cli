@@ -63,6 +63,28 @@ export interface AssetListContext {
   asset?: string
 }
 
+function plural (count: number, singular: string, pluralValue = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralValue}`
+}
+
+function summarizeStorage (assets: AssetManifestEntry[]) {
+  const archiveUrls = new Set<string>()
+  let archiveEntries = 0
+
+  for (const asset of assets) {
+    if (asset.archive) {
+      archiveEntries += 1
+      archiveUrls.add(asset.url)
+    }
+  }
+
+  return {
+    directAssets: assets.length - archiveEntries,
+    archiveEntries,
+    archiveUrlCount: archiveUrls.size,
+  }
+}
+
 function formatTypeCounts (assets: AssetManifestEntry[]): string {
   const counts = new Map<string, number>()
   for (const asset of assets) {
@@ -106,7 +128,79 @@ export function formatAssetListHeader (
     ? `- Showing: ${typeCounts ? `${total} (${typeCounts})` : total}`
     : `${chalk.dim('Showing:')} ${typeCounts ? `${total} (${typeCounts})` : total}`)
 
+  const storage = summarizeStorage(assets)
+  if (storage.archiveEntries > 0 && storage.directAssets === 0) {
+    const archiveSummary = `${plural(storage.archiveEntries, 'file')} inside ${plural(storage.archiveUrlCount, 'archive')}`
+    lines.push(format === 'md'
+      ? `- Storage: ${archiveSummary}`
+      : `${chalk.dim('Storage:')} ${archiveSummary}`)
+    lines.push(format === 'md'
+      ? '- Download: archive entries download as the containing archive; filters narrow this list, not the archive bytes.'
+      : `${chalk.dim('Download:')} archive entries download as the containing archive; filters narrow this list, not the archive bytes.`)
+  } else if (storage.archiveEntries > 0) {
+    const storageSummary = [
+      plural(storage.directAssets, 'direct file'),
+      `${plural(storage.archiveEntries, 'file')} inside ${plural(storage.archiveUrlCount, 'archive')}`,
+    ].join(', ')
+    lines.push(format === 'md'
+      ? `- Storage: ${storageSummary}`
+      : `${chalk.dim('Storage:')} ${storageSummary}`)
+    lines.push(format === 'md'
+      ? '- Download: direct files can be downloaded individually; archive entries download as their containing archive.'
+      : `${chalk.dim('Download:')} direct files can be downloaded individually; archive entries download as their containing archive.`)
+  } else if (assets.length > 0) {
+    lines.push(format === 'md'
+      ? '- Download: use --type or --asset to download matching files.'
+      : `${chalk.dim('Download:')} use --type or --asset to download matching files.`)
+  }
+
   return lines.join('\n')
+}
+
+function shellQuote (value: string): string {
+  return `"${value.replace(/(["\\$`])/g, '\\$1')}"`
+}
+
+function sourceFlags (context: AssetListContext): string {
+  const flags = context.sourceType === 'check-result'
+    ? [`--check-id ${context.checkId}`]
+    : [`--test-session-id ${context.testSessionId}`]
+  flags.push(`--result-id ${context.resultId}`)
+  return flags.join(' ')
+}
+
+export function formatAssetListNextSteps (
+  context: AssetListContext,
+  assets: AssetManifestEntry[],
+  format: OutputFormat,
+): string {
+  if (assets.length === 0) return ''
+
+  const commandBase = `checkly assets download ${sourceFlags(context)}`
+  const lines: string[] = []
+
+  const storage = summarizeStorage(assets)
+  if (storage.archiveEntries > 0 && storage.directAssets === 0 && storage.archiveUrlCount === 1) {
+    lines.push('Next:')
+    lines.push(`  Download archive: ${commandBase}`)
+    lines.push(`  Inspect entries:   checkly assets list ${sourceFlags(context)} --asset ${shellQuote('<glob-or-asset>')}`)
+  } else {
+    lines.push('Next:')
+    const selector = context.asset
+      ? ` --asset ${shellQuote(context.asset)}`
+      : context.type && context.type !== 'all'
+        ? ` --type ${context.type}`
+        : ' --asset <Asset>'
+    lines.push(`  Download files: ${commandBase}${selector}`)
+  }
+
+  if (format === 'md') {
+    return lines.join('\n')
+  }
+
+  return lines
+    .map(line => chalk.dim(line))
+    .join('\n')
 }
 
 interface AssetTreeNode {
@@ -183,6 +277,7 @@ export interface DownloadedAssetRow {
   status: 'written' | 'skipped'
   path: string
   asset: AssetManifestEntry
+  displayType?: string
 }
 
 function buildDownloadedAssetColumns (): ColumnDef<DownloadedAssetRow>[] {
@@ -190,7 +285,7 @@ function buildDownloadedAssetColumns (): ColumnDef<DownloadedAssetRow>[] {
     {
       header: 'Type',
       width: 12,
-      value: row => row.asset.type,
+      value: row => row.displayType ?? row.asset.type,
     },
     {
       header: 'Path',
@@ -211,7 +306,7 @@ function buildDownloadedAssetStatusColumns (): ColumnDef<DownloadedAssetRow>[] {
     {
       header: 'Type',
       width: 12,
-      value: row => row.asset.type,
+      value: row => row.displayType ?? row.asset.type,
     },
     {
       header: 'Path',
@@ -229,7 +324,7 @@ export function formatDownloadedAssets (rows: DownloadedAssetRow[]): string {
     const [row] = rows
     const action = row.status === 'written' ? 'Downloaded' : 'Skipped existing'
     return [
-      chalk.bold(`${action} ${row.asset.type} asset`),
+      chalk.bold(`${action} ${row.displayType ?? row.asset.type} asset`),
       `${chalk.dim('Path:')} ${row.path}`,
     ].join('\n')
   }

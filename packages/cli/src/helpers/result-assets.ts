@@ -175,6 +175,78 @@ export function selectAssets (
   return exactMatches
 }
 
+export interface AssetStorageSummary {
+  directAssets: number
+  archiveEntries: number
+  archiveUrls: string[]
+}
+
+export function summarizeAssetStorage (assets: AssetManifestEntry[]): AssetStorageSummary {
+  const archiveUrls = new Set<string>()
+  let archiveEntries = 0
+
+  for (const asset of assets) {
+    if (asset.archive) {
+      archiveEntries += 1
+      archiveUrls.add(asset.url)
+    }
+  }
+
+  return {
+    directAssets: assets.length - archiveEntries,
+    archiveEntries,
+    archiveUrls: [...archiveUrls],
+  }
+}
+
+export function isSingleArchiveBundle (assets: AssetManifestEntry[]): boolean {
+  const summary = summarizeAssetStorage(assets)
+  return summary.archiveEntries > 0 && summary.directAssets === 0 && summary.archiveUrls.length === 1
+}
+
+export function hasArchiveEntries (assets: AssetManifestEntry[]): boolean {
+  return assets.some(asset => asset.archive)
+}
+
+function archiveFileNameFromUrl (url: string): string {
+  try {
+    const parsed = new URL(url, api.api.defaults?.baseURL)
+    const segments = parsed.pathname.split('/').filter(Boolean)
+    const redirectIndex = segments.lastIndexOf('redirect')
+    const keySegment = redirectIndex > 0 ? segments[redirectIndex - 1] : segments.at(-1)
+    if (keySegment) {
+      return path.posix.basename(decodeURIComponent(keySegment)) || 'assets.zip'
+    }
+  } catch {
+    // Fall through to the deterministic default.
+  }
+
+  return 'assets.zip'
+}
+
+export function archiveBundleAssets (assets: AssetManifestEntry[]): AssetManifestEntry[] {
+  const byUrl = new Map<string, AssetManifestEntry[]>()
+
+  for (const asset of assets) {
+    if (!asset.archive) continue
+    byUrl.set(asset.url, [...(byUrl.get(asset.url) ?? []), asset])
+  }
+
+  return [...byUrl.entries()].map(([url, entries], index) => {
+    const first = entries[0]
+    const fileName = archiveFileNameFromUrl(url)
+    const name = byUrl.size === 1 ? fileName : `${index + 1}-${fileName}`
+
+    return {
+      type: 'file',
+      name,
+      url,
+      contentType: 'application/zip',
+      source: first.source,
+    }
+  })
+}
+
 export function defaultDownloadDirectory (source: AssetSource): string {
   const prefix = source.kind === 'check-result' ? 'check-result' : 'test-session-result'
   return path.join('.', 'checkly-assets', `${prefix}-${source.resultId}`)

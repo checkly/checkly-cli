@@ -5,6 +5,7 @@ import { outputFlag } from '../../helpers/flags.js'
 import type { OutputFormat } from '../../formatters/render.js'
 import {
   formatAssetListHeader,
+  formatAssetListNextSteps,
   formatAssetManifestEntries,
   formatAssetManifestTree,
 } from '../../formatters/assets.js'
@@ -101,8 +102,21 @@ export default class AssetsList extends AuthCommand {
         output.push(formatAssetManifestEntries(assets, fmt))
       }
 
+      const nextSteps = formatAssetListNextSteps({
+        sourceType: source.kind,
+        checkId: source.kind === 'check-result' ? source.checkId : undefined,
+        testSessionId: source.kind === 'test-session-result' ? source.testSessionId : undefined,
+        resultId: source.resultId,
+        type,
+        asset: flags.asset,
+      }, assets, fmt)
+      if (nextSteps) {
+        output.push('')
+        output.push(nextSteps)
+      }
+
       if (manifest.truncated) {
-        const returned = manifest.entriesReturned ?? assets.length
+        const returned = manifest.entriesReturned ?? manifest.assets.length
         const total = manifest.entriesTotal == null ? 'unknown' : String(manifest.entriesTotal)
         output.push('')
         output.push(chalk.yellow(`Warning: asset manifest is truncated (${returned} of ${total} entries returned).`))

@@ -5,6 +5,7 @@ import { outputFlag } from '../../helpers/flags.js'
 import { assetSelectorValue, formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
 import {
   assertManifestSupportsDownload,
+  archiveBundleAssets,
   assetManifestFiltersFromSelection,
   assetTypeSelectionFromFlag,
   assetTypes,
@@ -12,6 +13,8 @@ import {
   destinationPathForAsset,
   downloadAssetToFile,
   fetchAssetManifest,
+  hasArchiveEntries,
+  isSingleArchiveBundle,
   resolveAssetSource,
   selectAssets,
 } from '../../helpers/result-assets.js'
@@ -87,10 +90,6 @@ export default class AssetsDownload extends AuthCommand {
       throw new Error('--force and --skip-existing are mutually exclusive.')
     }
 
-    if (!flags.type && !flags.asset) {
-      throw new Error('Pass --type or --asset to select assets. Use --type all to download all assets.')
-    }
-
     try {
       startProgress('Fetching asset manifest')
       const filters = assetManifestFiltersFromSelection({
@@ -103,11 +102,16 @@ export default class AssetsDownload extends AuthCommand {
         type,
         asset: flags.asset,
       })
+      const hasSelector = Boolean(flags.type || flags.asset)
+
+      if (!hasSelector && !isSingleArchiveBundle(assets)) {
+        throw new Error('Pass --type or --asset to select assets. Use --type all to download all assets.')
+      }
 
       if (assets.length === 0) {
         stopProgress(true)
         if (flags.output === 'json') {
-          this.log(JSON.stringify({ source, directory: null, files: [] }, null, 2))
+          this.log(JSON.stringify({ source, directory: null, files: [], warnings: [] }, null, 2))
           return
         }
         this.log('No matching assets found.')
@@ -116,10 +120,24 @@ export default class AssetsDownload extends AuthCommand {
 
       const directory = path.resolve(flags.dir ?? defaultDownloadDirectory(source))
       const rows: DownloadedAssetRow[] = []
+      const directAssets = assets.filter(asset => !asset.archive)
+      const archiveAssets = archiveBundleAssets(assets)
+      const downloadTargets = [
+        ...directAssets.map(asset => ({ asset, displayType: undefined })),
+        ...archiveAssets.map(asset => ({ asset, displayType: 'archive' })),
+      ]
+      const warnings: string[] = []
 
-      for (const [index, asset] of assets.entries()) {
+      if (hasArchiveEntries(assets)) {
+        warnings.push(
+          'Selected assets include archive entries. Downloading the containing archive file; filters narrow the manifest list, not the archive bytes.',
+        )
+      }
+
+      for (const [index, target] of downloadTargets.entries()) {
+        const { asset, displayType } = target
         const filePath = destinationPathForAsset(directory, asset)
-        const label = `${index + 1}/${assets.length} ${asset.type} ${assetSelectorValue(asset)}`
+        const label = `${index + 1}/${downloadTargets.length} ${displayType ?? asset.type} ${assetSelectorValue(asset)}`
         let lastProgressUpdate = 0
         setProgress(`Downloading ${label}`)
         const status = await downloadAssetToFile(asset, filePath, {
@@ -135,16 +153,20 @@ export default class AssetsDownload extends AuthCommand {
             : undefined,
         })
         setProgress(status === 'skipped' ? `Skipped ${label}` : `Downloaded ${label}`)
-        rows.push({ status, path: filePath, asset })
+        rows.push({ status, path: filePath, asset, displayType })
       }
       stopProgress(true)
 
       if (flags.output === 'json') {
-        this.log(JSON.stringify({ source, directory, files: rows }, null, 2))
+        this.log(JSON.stringify({ source, directory, files: rows, warnings }, null, 2))
         return
       }
 
-      this.log(formatDownloadedAssets(rows))
+      const output = [
+        ...warnings.map(warning => `Warning: ${warning}`),
+        formatDownloadedAssets(rows),
+      ].filter(Boolean)
+      this.log(output.join('\n\n'))
     } catch (err: any) {
       stopProgress(false)
       this.style.longError('Failed to download assets.', err)
