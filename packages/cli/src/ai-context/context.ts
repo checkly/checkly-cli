@@ -60,11 +60,11 @@ export const REFERENCES = [
 export const INVESTIGATE_REFERENCES = [
   {
     id: 'investigate-checks',
-    description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
+    description: 'Inspect checks (`checks list`, `checks get`), retry attempts, result assets, and trigger on-demand runs',
   },
   {
     id: 'investigate-test-sessions',
-    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and retrieve result assets',
+    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and list/download result assets',
   },
 ] as const
 
@@ -103,7 +103,7 @@ export const ACTIONS = [
   },
   {
     id: 'investigate',
-    description: 'Access check and test-session status, analyze failures, and investigate errors.',
+    description: 'Access check and test-session status, analyze failures, inspect attempts/assets, and investigate errors.',
     references: INVESTIGATE_REFERENCES,
   },
   {

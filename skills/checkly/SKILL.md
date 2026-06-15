@@ -103,7 +103,7 @@ Learn how to initialize and set up a new Checkly CLI project from scratch.
 Learn how to create and manage monitoring checks using Checkly constructs and the CLI.
 
 ### `npx checkly skills investigate`
-Access check and test-session status, analyze failures, and investigate errors.
+Access check and test-session status, analyze failures, inspect attempts/assets, and investigate errors.
 
 ### `npx checkly skills communicate`
 Open incidents and lead customer communications via status pages.
