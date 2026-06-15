@@ -114,6 +114,10 @@ Flags:
 archive bundle. Archive entries download as their containing archive; filters
 narrow the manifest list, not the archive bytes.
 
+Do not invent asset names or assume every result has the same artifact set. Some
+results have screenshots only, some have traces or videos, and some have no
+downloadable assets.
+
 ### View an error group
 
 ```bash

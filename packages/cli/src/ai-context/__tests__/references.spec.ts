@@ -34,5 +34,6 @@ describe('AI context investigation references', () => {
     expect(content).toContain('npx checkly assets list --check-id <check-id> --result-id <result-id>')
     expect(content).toContain('npx checkly assets download --check-id <check-id> --result-id <result-id> --asset "<Asset>"')
     expect(content).toContain('The default table output\nhas an `Asset` column; copy that value into `--asset` for single-file downloads.')
+    expect(content).toContain('Do not invent asset names or assume every result has the same artifact set.')
   })
 })
