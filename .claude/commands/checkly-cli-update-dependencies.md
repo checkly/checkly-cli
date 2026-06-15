@@ -80,4 +80,4 @@ Run the full local pipeline and confirm each step is green before reporting succ
 - [ ] Summarize in a table with these columns: **Package**, **Type** (`dependency` or `devDependency` — list whichever it is in the manifest), **Owning package** (`checkly`, `create-checkly`, or root), **From → To**, and **Notes**.
 - [ ] In the same report, call out separately what was **held back** and why (which major dropped our Node floor), and the **intentional exclusions** (`@types/node`, `vitest`).
 - [ ] State the verification results plainly (build/lint/tests pass, no engine warnings).
-- [ ] Do not commit or open a PR unless asked. If asked, use a `chore(deps):` conventional-commit subject and spell out the held-back/excluded packages in the body and PR description.
+- [ ] Do not commit or open a PR unless asked. If asked, use a `chore(deps):` conventional-commit subject and spell out the held-back/excluded packages in the body and PR description. The PR title should include the current date (e.g. `chore(deps): weekly CLI dependency update (2026-06-15)`).
