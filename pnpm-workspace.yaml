@@ -1,2 +1,5 @@
+minimumReleaseAge: 2880 # 2 days
+trustPolicy: no-downgrade
+
 packages:
   - packages/*
