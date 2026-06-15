@@ -84,6 +84,10 @@ class Checks {
   get (id: string) {
     return this.api.get<Check>(`/v1/checks/${id}`)
   }
+
+  delete (id: string) {
+    return this.api.delete<void>(`/v1/checks/${id}`)
+  }
 }
 
 export default Checks
