@@ -9,9 +9,13 @@ function readReference (name: string): Promise<string> {
   return readFile(join(referencesDir, name), 'utf8')
 }
 
+function normalizeLineEndings (content: string): string {
+  return content.replace(/\r\n/g, '\n')
+}
+
 describe('AI context investigation references', () => {
   it('points test-session asset retrieval at the assets commands', async () => {
-    const content = await readReference('investigate-test-sessions.md')
+    const content = normalizeLineEndings(await readReference('investigate-test-sessions.md'))
 
     expect(content).toContain('npx checkly assets list --test-session-id <test-session-id> --result-id <test-session-result-id>')
     expect(content).toContain('npx checkly assets download --test-session-id <test-session-id> --result-id <test-session-result-id> --asset "<Asset>"')
@@ -21,7 +25,7 @@ describe('AI context investigation references', () => {
   })
 
   it('documents check result attempts and asset retrieval', async () => {
-    const content = await readReference('investigate-checks.md')
+    const content = normalizeLineEndings(await readReference('investigate-checks.md'))
 
     expect(content).toContain('npx checkly checks get <check-id> --result <result-id> --include-attempts --output json')
     expect(content).toContain('"result": {}')
