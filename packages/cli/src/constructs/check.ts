@@ -191,8 +191,8 @@ export interface CheckProps {
    * const emailChannel = new EmailAlertChannel('team-email', {
    *   address: 'team@example.com'
    * })
-   * const slackChannel = new SlackAlertChannel('team-slack', {
-   *   url: 'https://hooks.slack.com/...'
+   * const slackChannel = new SlackAppAlertChannel('team-slack', {
+   *   slackChannels: ['#alerts']
    * })
    *
    * // Reference the channels in your check
