@@ -122,9 +122,9 @@ export class AlertChannelRef extends Construct {
  *   sendDegraded: false
  * })
  *
- * // Slack alert channel with SSL monitoring
- * const slackAlert = new SlackAlertChannel('team-slack', {
- *   url: 'https://hooks.slack.com/services/...',
+ * // Slack App alert channel with SSL monitoring
+ * const slackAlert = new SlackAppAlertChannel('team-slack', {
+ *   slackChannels: ['#alerts'],
  *   sslExpiry: true,
  *   sslExpiryThreshold: 7  // Alert 7 days before SSL expiry
  * })

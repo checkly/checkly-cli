@@ -22,7 +22,7 @@ Agent Skills are a standardized format for giving AI agents specialized knowledg
 - Create and manage API checks, Browser Checks, URL monitors, and other monitors
 - Set up Playwright-based Browser and Multistep checks and Playwright Check Suites
 - Configure Heartbeat Monitors for cron jobs and scheduled tasks
-- Define alert channels (email, Slack, phone, webhooks, etc.)
+- Define alert channels (email, Slack App, phone, webhooks, etc.)
 - Build dashboards and status pages
 - Follow monitoring-as-code best practices with the Checkly CLI
 
