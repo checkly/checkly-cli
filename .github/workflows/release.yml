@@ -1,4 +1,7 @@
 name: Publish Package to npmjs
+# Name each run for its trigger, so canary (PR-label) runs are distinguishable
+# from real releases in the Actions list.
+run-name: "${{ github.event_name == 'pull_request' && format('Canary build - PR #{0} ({1})', github.event.pull_request.number, github.event.pull_request.head.ref) || format('Release {0}', github.event.release.tag_name) }}"
 on:
   release:
     types: [published]
