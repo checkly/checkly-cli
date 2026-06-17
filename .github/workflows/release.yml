@@ -1,21 +1,24 @@
 name: Publish Package to npmjs
-# Name each run for its trigger, so canary (PR-label) runs are distinguishable
+# Name each run for its trigger, so manual canary builds are distinguishable
 # from real releases in the Actions list.
-run-name: "${{ github.event_name == 'pull_request' && format('Canary build - PR #{0} ({1})', github.event.pull_request.number, github.event.pull_request.head.ref) || format('Release {0}', github.event.release.tag_name) }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('Canary build - {0}', github.ref_name) || format('Release {0}', github.event.release.tag_name) }}"
 on:
   release:
     types: [published]
-  # PR canary builds: adding the `build` label to a PR publishes an experimental
-  # build of the PR branch to npm. This lives in release.yml (rather than a
-  # separate workflow) so it authenticates via the npm OIDC trusted publisher —
-  # npm allows only ONE trusted publisher (repo + workflow file) per package, and
-  # that slot is release.yml.
-  pull_request:
-    types: [labeled]
+  # Manual canary builds: dispatch this workflow on a branch to publish an
+  # experimental build of that branch. It lives here (not a separate workflow) so
+  # it authenticates via the npm OIDC trusted publisher — npm allows only ONE
+  # trusted publisher (repo + workflow file) per package, and that slot is release.yml.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag for the canary build
+        required: false
+        default: experimental
 jobs:
   validate-tag:
-    # Release-event path only. PR canaries run the `canary` job below; the other
-    # release jobs cascade-skip on PR events via their `needs: validate-tag`.
+    # Release-event path only. A manual dispatch runs the `canary` job below; the
+    # other release jobs cascade-skip on dispatch via their `needs: validate-tag`.
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
@@ -197,22 +200,19 @@ jobs:
             echo "Skipping: $NEW_TAG is not newer than current latest $CURRENT_LATEST"
           fi
 
-  # PR canary: publish an experimental build of the PR branch, triggered by the
-  # `build` label. Authenticates via the SAME npm OIDC trusted publisher as the
-  # release jobs above (id-token + --provenance, no NPM_TOKEN). Replaces the old
-  # release-canary.yml, which used a classic NPM_TOKEN that was retired when the
-  # package moved to OIDC — so it had been failing for every PR.
+  # Manual canary: dispatch this workflow on a branch to publish an experimental
+  # build of that branch. Authenticates via the SAME npm OIDC trusted publisher as
+  # the release jobs above (id-token + --provenance, no token). Trigger with
+  # `gh workflow run release.yml --ref <branch>` (optionally `-f tag=<dist-tag>`).
+  # Replaces the old build-label release-canary.yml, whose classic NPM_TOKEN was
+  # retired when the package moved to OIDC.
   canary:
-    if: ${{ github.event_name == 'pull_request' && github.event.label.name == 'build' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: pnpm/action-setup@v5
         with:
           version: 10
@@ -220,38 +220,21 @@ jobs:
         with:
           node-version: '24.x'
           cache: "pnpm"
-      # A `canary:<tag>` label publishes under <tag> instead of `experimental`.
-      # (Trusted publishing authenticates `npm publish` only, so we set the tag at
-      # publish time rather than with a separate, unauthenticated `npm dist-tag add`.)
-      - name: Extract CANARY_TAG
-        run: |
-          export LABELS_JSON='${{ toJson(github.event.pull_request.labels) }}'
-          CANARY_TAG=$(node -e "
-            const labels = JSON.parse(process.env.LABELS_JSON || '[]');
-            const canaryLabel = labels.find(label => label.name.startsWith('canary:'));
-            if (canaryLabel) console.log(canaryLabel.name.split(':')[1]);
-          ")
-          echo "CANARY_TAG=$CANARY_TAG" >> $GITHUB_ENV
       # Ensure that the README is published with the package
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
-      - run: echo "PR_VERSION=0.0.0-pr.${{ github.event.pull_request.number }}.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - run: echo "CANARY_VERSION=0.0.0-canary.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: pnpm install --frozen-lockfile
       - name: Set version, pack, and publish (OIDC trusted publishing)
         run: |
-          pnpm version ${{ env.PR_VERSION }} --no-git-tag-version
+          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
           pnpm pack
-          npm publish checkly-*.tgz --provenance --tag "${CANARY_TAG:-experimental}"
+          npm publish checkly-*.tgz --provenance --tag '${{ inputs.tag }}'
         working-directory: packages/cli
-        env:
-          CANARY_TAG: ${{ env.CANARY_TAG }}
-          PR_VERSION: ${{ env.PR_VERSION }}
-      - uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: PR Preview Release Published
-          hide_and_recreate: true
-          hide_classify: "OUTDATED"
-          message: |
-            🎉 Experimental release successfully published [on npm](https://npmjs.com/package/checkly/v/${{ env.PR_VERSION }})
-            ```
-            npm install checkly@${{ env.PR_VERSION }}
-            ```
+      - name: Publish summary
+        run: |
+          {
+            echo "Published \`checkly@${{ env.CANARY_VERSION }}\` (dist-tag: \`${{ inputs.tag }}\`)"
+            echo '```'
+            echo "npm install checkly@${{ env.CANARY_VERSION }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
