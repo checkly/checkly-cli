@@ -29,7 +29,7 @@ function deferred<T> () {
 // Subclass that stubs the real bundling so we can count how many times it runs
 // and control its timing, without needing a full Session/filesystem setup.
 class CountingBundler extends PlaywrightProjectBundler {
-  calls: Array<{ config: string, include: string[] }> = []
+  calls: Array<{ config: string, include: string[], workingDir?: string }> = []
   #gate?: Promise<void>
 
   constructor (gate?: Promise<void>) {
@@ -37,8 +37,12 @@ class CountingBundler extends PlaywrightProjectBundler {
     this.#gate = gate
   }
 
-  protected async bundleProject (config: string, include: string[]): Promise<PlaywrightProjectBundle> {
-    this.calls.push({ config, include })
+  protected async bundleProject (
+    config: string,
+    include: string[],
+    workingDir?: string,
+  ): Promise<PlaywrightProjectBundle> {
+    this.calls.push({ config, include, workingDir })
     if (this.#gate) {
       await this.#gate
     }
@@ -95,6 +99,25 @@ describe('PlaywrightProjectBundler cache', () => {
     await bundler.bundle('b/pw.config.ts', [])
 
     expect(bundler.calls).toHaveLength(2)
+  })
+
+  it('bundles separately for different working directories', async () => {
+    const bundler = new CountingBundler()
+
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/bar')
+
+    expect(bundler.calls).toHaveLength(2)
+  })
+
+  it('threads the working directory through and reuses the cache for the same key', async () => {
+    const bundler = new CountingBundler()
+
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+
+    expect(bundler.calls).toHaveLength(1)
+    expect(bundler.calls[0].workingDir).toBe('packages/foo')
   })
 })
 
