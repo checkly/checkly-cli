@@ -31,29 +31,45 @@ export class PlaywrightProjectBundler {
   // config path and the serialized include patterns from colliding.
   #cache = new Map<string, Promise<PlaywrightProjectBundle>>()
 
-  async bundle (playwrightConfig: string, include: string[]): Promise<PlaywrightProjectBundle> {
-    const cacheKey = `${playwrightConfig}\0${JSON.stringify(include)}`
+  async bundle (playwrightConfig: string, include: string[], workingDir?: string): Promise<PlaywrightProjectBundle> {
+    const cacheKey = `${playwrightConfig}\0${JSON.stringify(include)}\0${workingDir ?? ''}`
     const cached = this.#cache.get(cacheKey)
     if (cached !== undefined) {
       return await cached
     }
-    const promise = this.bundleProject(playwrightConfig, include)
+    const promise = this.bundleProject(playwrightConfig, include, workingDir)
     this.#cache.set(cacheKey, promise)
     return await promise
   }
 
   // The actual bundling, separated from the cache wrapper above so it can be
   // overridden in tests. Not part of the public surface.
-  protected async bundleProject (playwrightConfig: string, include: string[]): Promise<PlaywrightProjectBundle> {
+  protected async bundleProject (
+    playwrightConfig: string,
+    include: string[],
+    workingDir?: string,
+  ): Promise<PlaywrightProjectBundle> {
     const dir = path.resolve(path.dirname(playwrightConfig))
     const filePath = path.resolve(dir, playwrightConfig)
+
+    // Per-entry working directory: where this check's install/test commands run,
+    // and where its @playwright/test version is resolved. `workingDir` is authored
+    // relative to the project context dir. When omitted it defaults to the context
+    // dir, so everything below collapses to the legacy single-working-dir behaviour.
+    // Setting it lets one bundled session carry several self-contained fixtures on
+    // different Playwright versions without hand-written install/test shell surgery.
+    const effectiveWorkingDir = workingDir
+      ? path.resolve(Session.contextPath!, workingDir)
+      : Session.contextPath!
 
     // No need of loading everything if there is no lockfile
     const pwtConfig = await Session.loadFile(filePath)
 
     const pwConfigParsed = new PlaywrightConfig(filePath, pwtConfig)
 
-    const playwrightVersion = await resolvePlaywrightVersion(dir)
+    // Resolve the version from the working dir when set (that's where the fixture
+    // declares/installs its own @playwright/test); otherwise from the config dir.
+    const playwrightVersion = await resolvePlaywrightVersion(workingDir ? effectiveWorkingDir : dir)
 
     const parser = Session.getPlaywrightParser()
     const { files, errors } = await parser.getFilesAndDependencies(pwConfigParsed)
@@ -104,8 +120,12 @@ export class PlaywrightProjectBundler {
     return {
       browsers: pwConfigParsed.getBrowsers(),
       playwrightVersion,
-      relativePlaywrightConfigPath: Session.contextRelativePosixPath(filePath),
-      workingDir: Session.relativePosixPath(Session.contextPath!),
+      // Both relative to the effective working dir: the runner runs the test
+      // command from `workingDir`, so the config path must resolve from there.
+      // With no per-entry workingDir these collapse to the legacy
+      // contextPath-relative values.
+      relativePlaywrightConfigPath: pathToPosix(path.relative(effectiveWorkingDir, filePath)),
+      workingDir: Session.relativePosixPath(effectiveWorkingDir),
       files,
     }
   }

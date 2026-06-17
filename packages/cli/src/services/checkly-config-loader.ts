@@ -35,7 +35,7 @@ export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activat
   | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'alertEscalationPolicy'
   | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'group' | 'groupName' | 'runParallel'
-  | 'engine'> & { logicalId: string, playwrightConfigPath?: string }
+  | 'engine' | 'workingDir'> & { logicalId: string, playwrightConfigPath?: string }
 
 export type ChecklyConfig = {
   /**
