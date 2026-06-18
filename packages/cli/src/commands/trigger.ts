@@ -21,6 +21,7 @@ import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessi
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
 import { validateDetachReporterTypes } from '../helpers/test-helper.js'
+import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
 
@@ -214,11 +215,7 @@ export default class Trigger extends AuthCommand {
       reporters.forEach(r => r.onError(err))
       process.exitCode = 1
     })
-    runner.on(Events.CANCEL, async testSessionId => {
-      reporters.forEach(r => r.onCancel())
-      if (!testSessionId) return
-      await api.cancel.cancelTestSession({ testSessionId })
-    })
+    registerTestSessionCancelHandler(runner, reporters)
     runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
     await runner.run()
   }
