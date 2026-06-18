@@ -57,6 +57,13 @@ export abstract class Construct implements Validate, Bundle {
   member: boolean
   /** Absolute path to the check file that created this construct */
   checkFileAbsolutePath?: string
+  /**
+   * Diagnostics recorded during construction. A constructor cannot perform the
+   * async work that validate() can, so any issue it notices (e.g. an argument
+   * of the wrong type) can be added here and is merged into the caller's
+   * Diagnostics by validate().
+   */
+  readonly earlyDiagnostics = new Diagnostics()
 
   /**
    * Creates a new construct instance.
@@ -128,6 +135,8 @@ export abstract class Construct implements Validate, Bundle {
    */
   // eslint-disable-next-line require-await
   async validate (diagnostics: Diagnostics): Promise<void> {
+    diagnostics.extend(this.earlyDiagnostics)
+
     if (!LOGICAL_ID_PATTERN.test(this.logicalId)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'logicalId',
