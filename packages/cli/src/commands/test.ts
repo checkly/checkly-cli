@@ -25,6 +25,7 @@ import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { prepareReportersTypes, prepareRunLocation, validateDetachReporterTypes } from '../helpers/test-helper.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
 
@@ -379,11 +380,7 @@ export default class Test extends AuthCommand {
       detach,
     )
 
-    runner.on(Events.CANCEL, async testSessionId => {
-      reporters.forEach(r => r.onCancel())
-      if (!testSessionId) return
-      await api.cancel.cancelTestSession({ testSessionId })
-    })
+    registerTestSessionCancelHandler(runner, reporters)
 
     runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
 
