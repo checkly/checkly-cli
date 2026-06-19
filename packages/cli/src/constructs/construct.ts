@@ -74,6 +74,13 @@ export abstract class Construct implements Validate, Bundle {
    * @param member Whether this construct is a member of the project
    */
   constructor (type: string, logicalId: string, physicalId?: string | number, member?: boolean) {
+    if (typeof logicalId !== 'string') {
+      this.earlyDiagnostics.add(new InvalidPropertyValueDiagnostic(
+        'logicalId',
+        new Error(`Expected a string but received type "${typeof logicalId}".`),
+      ))
+      logicalId = String(logicalId)
+    }
     this.logicalId = logicalId
     this.type = type
     this.physicalId = physicalId

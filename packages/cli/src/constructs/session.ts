@@ -5,7 +5,6 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { type EngineDetectionResult } from '../services/engine-detector.js'
 import { Parser } from '../services/check-parser/parser.js'
 import { Construct } from './construct.js'
-import { ValidationError } from './validator-error.js'
 import { PrivateLocationApi } from '../rest/private-locations.js'
 import {
   FileLoader,
@@ -158,10 +157,6 @@ export class Session {
   }
 
   static validateCreateConstruct (construct: Construct) {
-    if (typeof construct.logicalId !== 'string') {
-      throw new ValidationError(`The "logicalId" of a ${construct.type} construct must be a string (logicalId=${construct.logicalId} [${typeof construct.logicalId}])`)
-    }
-
     if (construct.type === PROJECT_CONSTRUCT_TYPE) {
       // Creating the construct is allowed - We're creating the project.
     } else if (Session.project) {
