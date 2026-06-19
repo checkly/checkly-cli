@@ -14,6 +14,25 @@ function normalizeLineEndings (content: string): string {
 }
 
 describe('AI context investigation references', () => {
+  it('documents read-only alerting investigation without claiming unavailable globals', async () => {
+    const content = normalizeLineEndings(await readReference('investigate-alerting.md'))
+
+    expect(content).toContain('checkly checks list --output json --limit 100')
+    expect(content).toContain('checkly checks get <check-id> --output json')
+    expect(content).toContain('checkly alert-channels list --output json --limit 100')
+    expect(content).toContain('checkly alert-channels get <alert-channel-id> --output json')
+    expect(content).toContain('checkly api /v1/check-groups')
+    expect(content).toContain('checkly api /v1/checks/<check-id>')
+    expect(content).toContain('Table output is insufficient for this scenario.')
+    expect(content).toContain('Do not guess multiple possible account/global alerting\nendpoints.')
+    expect(content).toContain('Only call `get` for channel IDs referenced by the\nselected check or matching group subscriptions')
+    expect(content).toContain('If the selected check has no `groupId`, or if\n`checks list --output json --limit 100` returns no checks with `groupId`, stop')
+    expect(content).toContain('stop\ngroup override investigation')
+    expect(content).toContain('Treat account/global settings as known only when CLI or API output exposes')
+    expect(content).toContain('Do not probe guessed endpoints such as\naccount-settings, account/settings, check-alerts, or alert-notifications')
+    expect(content).toContain('Do not deploy, update, delete, trigger checks,\nstart test runs, run RCA, mutate incidents, or change alert channels.')
+  })
+
   it('points test-session asset retrieval at the assets commands', async () => {
     const content = normalizeLineEndings(await readReference('investigate-test-sessions.md'))
 
