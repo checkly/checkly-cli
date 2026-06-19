@@ -14,6 +14,12 @@ start test runs, run RCA, mutate incidents, or change alert channels. When using
 `checkly api`, only use `GET` requests; do not pass write methods, `-F` fields,
 or request bodies.
 
+Keep the investigation bounded. Use the commands and endpoints listed in this
+reference, plus exact endpoints returned by those commands if they are needed to
+follow a concrete ID. Do not guess multiple possible account/global alerting
+endpoints. If a listed command or endpoint does not expose a field, report that
+the field was unavailable in the inspected output instead of probing variants.
+
 ## Recommended Read-Only Command Sequence
 
 Start by identifying one concrete check. If the user gave a name instead of an
@@ -38,26 +44,38 @@ evidence:
 checkly checks get <check-id>
 ```
 
-Inspect alert channels as structured evidence. The list helps identify candidate
-channel IDs and subscription scopes; `get` provides the complete channel
-payload:
+Inspect alert channels as structured evidence. The list helps identify channel
+IDs and subscription scopes. Only call `get` for channel IDs referenced by the
+selected check or matching group subscriptions, or for a user-named channel you
+must verify. Do not fetch every channel when there are no relevant
+subscriptions:
 
 ```bash
 checkly alert-channels list --output json --limit 100
 checkly alert-channels get <alert-channel-id> --output json
 ```
 
-If the check has a `groupId`, fetch groups and locate the matching group. Use
-the raw API because group override fields may not have a dedicated CLI command:
+If the check has a `groupId`, fetch groups once and locate the matching group.
+Use the raw API because group override fields may not have a dedicated CLI
+command:
 
 ```bash
 checkly api /v1/check-groups
 ```
 
-If `checks list --output json --limit 100` returns no checks with `groupId`, say
-that group override analysis is unavailable from the current evidence and
-continue with check, global-selection, and alert-channel evidence. Do not invent
-group behavior.
+If the selected check has no `groupId`, or if
+`checks list --output json --limit 100` returns no checks with `groupId`, stop
+group override investigation. Say that group override analysis is unavailable
+from the current evidence and continue with check, global-selection, and
+alert-channel evidence. Do not invent group behavior and do not keep looking for
+alternative group endpoints.
+
+This reference does not define a dedicated account/global alert-settings
+endpoint. When `useGlobalAlertSettings: true` is the only account/global signal,
+say that global alert settings are selected but their policy details were not
+available in the inspected output. Do not probe guessed endpoints such as
+account-settings, account/settings, check-alerts, or alert-notifications just to
+fill that gap.
 
 ## Fields To Inspect
 
@@ -138,6 +156,10 @@ Apply this tree from confirmed evidence only:
 4. Account/global settings:
    - Treat account/global settings as known only when CLI or API output exposes
      their values.
+   - Do not try multiple guessed account/global alerting endpoints. Use a
+     documented endpoint only when this reference, CLI output, or the API
+     reference gives the exact path. If that one documented request fails or does
+     not include the needed fields, report the values as unavailable.
    - If output only shows `useGlobalAlertSettings: true`, say "global alert
      settings are selected, but their policy details were not available in the
      inspected CLI/API output."
@@ -184,5 +206,7 @@ or affect the check based only on confirmed fields.>
 ### Recommended next read-only checks
 - <Only include GET/list commands that would close evidence gaps, such as
   `checkly api /v1/checks/<check-id>` or
-  `checkly alert-channels get <alert-channel-id> --output json`.>
+  `checkly alert-channels get <alert-channel-id> --output json` for a channel
+  ID referenced by a relevant subscription. Do not recommend guessed
+  account/global alerting endpoints.>
 ```

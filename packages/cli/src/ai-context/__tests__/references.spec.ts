@@ -24,8 +24,12 @@ describe('AI context investigation references', () => {
     expect(content).toContain('checkly api /v1/check-groups')
     expect(content).toContain('checkly api /v1/checks/<check-id>')
     expect(content).toContain('Table output is insufficient for this scenario.')
-    expect(content).toContain('If `checks list --output json --limit 100` returns no checks with `groupId`, say\nthat group override analysis is unavailable from the current evidence')
+    expect(content).toContain('Do not guess multiple possible account/global alerting\nendpoints.')
+    expect(content).toContain('Only call `get` for channel IDs referenced by the\nselected check or matching group subscriptions')
+    expect(content).toContain('If the selected check has no `groupId`, or if\n`checks list --output json --limit 100` returns no checks with `groupId`, stop')
+    expect(content).toContain('stop\ngroup override investigation')
     expect(content).toContain('Treat account/global settings as known only when CLI or API output exposes')
+    expect(content).toContain('Do not probe guessed endpoints such as\naccount-settings, account/settings, check-alerts, or alert-notifications')
     expect(content).toContain('Do not deploy, update, delete, trigger checks,\nstart test runs, run RCA, mutate incidents, or change alert channels.')
   })
 
