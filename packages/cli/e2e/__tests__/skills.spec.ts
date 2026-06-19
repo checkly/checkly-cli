@@ -1,12 +1,13 @@
 import { ExecaError } from 'execa'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-import { ACTIONS, REFERENCES, SKILL } from '../../src/ai-context/context'
+import { ACTIONS, INVESTIGATE_REFERENCES, REFERENCES, SKILL } from '../../src/ai-context/context'
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 import { runCheckly } from '../run-checkly'
 
 const actionIds = ACTIONS.map(a => a.id)
 const referenceShortIds = REFERENCES.map(r => r.id.replace('configure-', ''))
+const investigateReferenceShortIds = INVESTIGATE_REFERENCES.map(r => r.id.replace('investigate-', ''))
 
 describe('checkly skills', () => {
   let fixt: FixtureSandbox
@@ -29,6 +30,9 @@ describe('checkly skills', () => {
     for (const ref of REFERENCES) {
       expect(stdout).toContain(ref.description)
     }
+    for (const ref of INVESTIGATE_REFERENCES) {
+      expect(stdout).toContain(ref.description)
+    }
   })
 
   it('should show example commands', async () => {
@@ -37,6 +41,7 @@ describe('checkly skills', () => {
       expect(stdout).toContain(`$ checkly skills ${id}`)
     }
     expect(stdout).toContain(`$ checkly skills configure ${referenceShortIds[0]}`)
+    expect(stdout).toContain(`$ checkly skills investigate ${investigateReferenceShortIds[0]}`)
   })
 
   it('should show the initialize action content', async () => {
@@ -52,6 +57,13 @@ describe('checkly skills', () => {
   it('should show a specific reference', async () => {
     const { stdout } = await runCheckly(fixt, ['skills', 'configure', referenceShortIds[0]])
     expect(stdout).toBeTruthy()
+  })
+
+  it('should show the alerting investigation reference', async () => {
+    const { stdout } = await runCheckly(fixt, ['skills', 'investigate', 'alerting'])
+    expect(stdout).toContain('Investigating Alerting Behavior')
+    expect(stdout).toContain('checkly checks list --output json --limit 100')
+    expect(stdout).toContain('Effective Alerting Decision Tree')
   })
 
   it('should fail for an invalid action', async () => {
