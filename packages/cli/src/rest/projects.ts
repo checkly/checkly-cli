@@ -1,8 +1,9 @@
-import { type AxiosInstance } from 'axios'
+import { type AxiosInstance, isAxiosError } from 'axios'
+import { Readable } from 'node:stream'
 import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
 import { SharedFile } from '../constructs/index.js'
-import { ConflictError, ForbiddenError, NotFoundError, RequestTimeoutError } from './errors.js'
+import { ConflictError, ForbiddenError, handleErrorResponse, NotFoundError } from './errors.js'
 
 export interface Project {
   name: string
@@ -96,6 +97,53 @@ export class ProjectDeployFailedError extends Error {
   constructor (message: string, options?: ErrorOptions) {
     super(message, options)
     this.name = 'ProjectDeployFailedError'
+  }
+}
+
+/** Internal: the SSE stream ended before a terminal event (eligible for reconnect). */
+class DeploymentStreamInterruptedError extends Error {
+  constructor () {
+    super('The deployment event stream ended before completion.')
+    this.name = 'DeploymentStreamInterruptedError'
+  }
+}
+
+interface SseFrame {
+  event: string
+  data: any
+}
+
+function streamToString (stream: Readable): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    stream.on('data', chunk => chunks.push(Buffer.from(chunk)))
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    stream.on('error', reject)
+  })
+}
+
+/** Parse one SSE frame ("event: x\ndata: {...}"), assuming LF line endings.
+ * Returns null for keep-alive comments or frames without parseable JSON data. */
+function parseSseFrame (raw: string): SseFrame | null {
+  let event = 'message'
+  const dataLines: string[] = []
+  for (const line of raw.split('\n')) {
+    if (line.startsWith(':')) {
+      continue // keep-alive comment
+    }
+    if (line.startsWith('event:')) {
+      event = line.slice('event:'.length).trim()
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice('data:'.length).trim())
+    }
+  }
+  if (dataLines.length === 0) {
+    return null
+  }
+  try {
+    return { event, data: JSON.parse(dataLines.join('\n')) }
+  } catch {
+    return null
   }
 }
 
@@ -234,9 +282,9 @@ class Projects {
 
   /**
    * Deploy a project. The deployment runs asynchronously on the backend: this
-   * submits it, then polls to completion so large projects are no longer bound
-   * by the API gateway request timeout. A dry run returns the preview diff
-   * synchronously without starting a deployment.
+   * submits it, then follows its progress stream to completion, so large projects
+   * are no longer bound by the API gateway request timeout. A dry run returns the
+   * preview diff synchronously without starting a deployment.
    *
    * @throws {ProjectDeployFailedError} If the deployment finishes unsuccessfully.
    */
@@ -261,7 +309,7 @@ class Projects {
 
     // A real deploy responds with a deployment to follow to completion.
     const deployment = data as ProjectDeployment
-    const completed = await this.awaitDeploymentCompletion(deployment.id, { onProgress })
+    const completed = await this.streamDeploymentEvents(deployment.id, { onProgress })
 
     if (completed.status !== 'SUCCEEDED' || completed.result === null) {
       throw new ProjectDeployFailedError(completed.error?.message ?? 'The deployment did not complete successfully.')
@@ -275,46 +323,94 @@ class Projects {
   }
 
   /**
-   * Poll the completion endpoint until the deployment reaches a final state. The
-   * endpoint waits up to maxWaitSeconds and then returns 408 (RequestTimeoutError);
-   * we keep calling it until the deployment finishes.
-   *
-   * Termination: the loop ends when the deployment reaches a final state, or when
-   * any non-408 error occurs — including the connection being lost (which surfaces
-   * as MissingResponseError, not RequestTimeoutError). A reachable backend always
-   * yields a final state because its reaper eventually finalizes a stuck deploy.
-   *
-   * While waiting, `onProgress` is invoked with the latest progress percentage
-   * (best-effort: snapshot-fetch failures and absent progress are ignored).
+   * Follow a deployment to completion over its Server-Sent Events stream,
+   * invoking `onProgress` as progress frames arrive and resolving with the final
+   * deployment on the terminal `complete` frame. If the stream drops before a
+   * terminal frame (a transient network blip), it reconnects up to `maxReconnects`
+   * times — the server is stateless and re-reads current state, so resuming needs
+   * no cursor.
    */
-  async awaitDeploymentCompletion (
+  async streamDeploymentEvents (
     deploymentId: string,
-    { onProgress }: { onProgress?: (progress: number) => void } = {},
+    { onProgress, maxReconnects = 5 }: { onProgress?: (progress: number) => void, maxReconnects?: number } = {},
   ): Promise<ProjectDeployment> {
-    const deploymentIdParam = encodeURIComponent(deploymentId)
+    let reconnects = 0
     for (;;) {
       try {
-        const { data } = await this.api.get<ProjectDeployment>(
-          `/v1/projects/deployments/${deploymentIdParam}/completion?maxWaitSeconds=30`,
-        )
-        return data
+        return await this.consumeEventStream(deploymentId, onProgress)
       } catch (err) {
-        if (!(err instanceof RequestTimeoutError)) {
-          throw err
+        if (err instanceof DeploymentStreamInterruptedError && reconnects < maxReconnects) {
+          reconnects += 1
+          continue
         }
-        // Still in progress. Surface progress (best-effort) and keep waiting.
-        if (onProgress !== undefined) {
-          try {
-            const { data } = await this.getDeployment(deploymentId)
-            if (typeof data.progress === 'number') {
-              onProgress(data.progress)
-            }
-          } catch {
-            // Ignore progress-fetch failures; the next completion poll retries.
-          }
-        }
+        throw err
       }
     }
+  }
+
+  private async openEventStream (deploymentId: string): Promise<Readable> {
+    try {
+      const { data } = await this.api.get<Readable>(
+        `/v1/projects/deployments/${encodeURIComponent(deploymentId)}/events`,
+        { responseType: 'stream', headers: { Accept: 'text/event-stream' } },
+      )
+      return data
+    } catch (err) {
+      // On an HTTP error the body arrives as an unparsed stream (responseType
+      // 'stream'), so the response interceptor couldn't classify it. Buffer it and
+      // re-run the classifier to surface the typed error (NotFoundError, etc.).
+      if (isAxiosError(err) && err.response && err.response.data instanceof Readable) {
+        err.response.data = await streamToString(err.response.data)
+        handleErrorResponse(err)
+      }
+      throw err
+    }
+  }
+
+  private async consumeEventStream (
+    deploymentId: string,
+    onProgress?: (progress: number) => void,
+  ): Promise<ProjectDeployment> {
+    const stream = await this.openEventStream(deploymentId)
+
+    return new Promise<ProjectDeployment>((resolve, reject) => {
+      let buffer = ''
+      let settled = false
+      const settle = (action: () => void) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        stream.destroy()
+        action()
+      }
+
+      stream.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString('utf8')
+        let boundary = buffer.indexOf('\n\n')
+        while (boundary !== -1) {
+          const frame = parseSseFrame(buffer.slice(0, boundary))
+          buffer = buffer.slice(boundary + 2)
+          if (frame?.event === 'progress') {
+            if (onProgress !== undefined && typeof frame.data?.progress === 'number') {
+              onProgress(frame.data.progress)
+            }
+          } else if (frame?.event === 'complete') {
+            settle(() => resolve(frame.data as ProjectDeployment))
+          } else if (frame?.event === 'error') {
+            const message = typeof frame.data?.message === 'string'
+              ? frame.data.message
+              : 'The deployment event stream reported an error.'
+            settle(() => reject(new ProjectDeployFailedError(message)))
+          }
+          boundary = buffer.indexOf('\n\n')
+        }
+      })
+      // Both a clean EOF before a terminal frame and a socket error (the common
+      // mid-deploy drop, e.g. ECONNRESET) are interruptions eligible for reconnect.
+      stream.on('end', () => settle(() => reject(new DeploymentStreamInterruptedError())))
+      stream.on('error', () => settle(() => reject(new DeploymentStreamInterruptedError())))
+    })
   }
 
   /**
