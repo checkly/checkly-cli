@@ -239,7 +239,20 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
+      if (!preview) {
+        this.style.actionStart('Deploying project')
+      }
+      const { data } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        {
+          dryRun: preview,
+          scheduleOnDeploy,
+          onProgress: preview ? undefined : progress => this.style.actionStatus(`${progress}% complete`),
+        },
+      )
+      if (!preview) {
+        this.style.actionSuccess()
+      }
       if (preview || output) {
         this.log(this.formatPreview(data, project, verbose))
       }
@@ -258,6 +271,9 @@ export default class Deploy extends AuthCommand {
         })
       }
     } catch (err: any) {
+      if (!preview) {
+        this.style.actionFailure()
+      }
       this.style.longError(`Your project could not be deployed.`, err)
       this.exit(1)
     }
