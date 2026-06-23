@@ -66,7 +66,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: false, onProgress })
 
     expect(api.get).toHaveBeenCalledWith(
-      '/v1/projects/deployments/dep-1/events',
+      '/v1/projects/my-project/deployments/dep-1/events',
       expect.objectContaining({ responseType: 'stream', headers: { Accept: 'text/event-stream' } }),
     )
     expect(onProgress).toHaveBeenCalledWith(40)
@@ -138,7 +138,7 @@ describe('Projects.deploy', () => {
     // Fresh stream per (re)connect; never emits a terminal event.
     vi.mocked(api.get).mockImplementation(() => Promise.resolve(sseStream(sse('progress', { progress: 10 }))))
 
-    await expect(projects.streamDeploymentEvents('dep-1', { maxReconnects: 2 })).rejects.toThrow()
+    await expect(projects.streamDeploymentEvents('my-project', 'dep-1', { maxReconnects: 2 })).rejects.toThrow()
     expect(api.get).toHaveBeenCalledTimes(3) // initial + 2 reconnects
   })
 

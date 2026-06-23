@@ -309,7 +309,7 @@ class Projects {
 
     // A real deploy responds with a deployment to follow to completion.
     const deployment = data as ProjectDeployment
-    const completed = await this.streamDeploymentEvents(deployment.id, { onProgress })
+    const completed = await this.streamDeploymentEvents(resources.project.logicalId, deployment.id, { onProgress })
 
     if (completed.status !== 'SUCCEEDED' || completed.result === null) {
       throw new ProjectDeployFailedError(completed.error?.message ?? 'The deployment did not complete successfully.')
@@ -318,8 +318,10 @@ class Projects {
     return { data: completed.result }
   }
 
-  getDeployment (deploymentId: string) {
-    return this.api.get<ProjectDeployment>(`/v1/projects/deployments/${encodeURIComponent(deploymentId)}`)
+  getDeployment (logicalId: string, deploymentId: string) {
+    return this.api.get<ProjectDeployment>(
+      `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}`,
+    )
   }
 
   /**
@@ -331,13 +333,14 @@ class Projects {
    * no cursor.
    */
   async streamDeploymentEvents (
+    logicalId: string,
     deploymentId: string,
     { onProgress, maxReconnects = 5 }: { onProgress?: (progress: number) => void, maxReconnects?: number } = {},
   ): Promise<ProjectDeployment> {
     let reconnects = 0
     for (;;) {
       try {
-        return await this.consumeEventStream(deploymentId, onProgress)
+        return await this.consumeEventStream(logicalId, deploymentId, onProgress)
       } catch (err) {
         if (err instanceof DeploymentStreamInterruptedError && reconnects < maxReconnects) {
           reconnects += 1
@@ -348,10 +351,10 @@ class Projects {
     }
   }
 
-  private async openEventStream (deploymentId: string): Promise<Readable> {
+  private async openEventStream (logicalId: string, deploymentId: string): Promise<Readable> {
     try {
       const { data } = await this.api.get<Readable>(
-        `/v1/projects/deployments/${encodeURIComponent(deploymentId)}/events`,
+        `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}/events`,
         { responseType: 'stream', headers: { Accept: 'text/event-stream' } },
       )
       return data
@@ -368,10 +371,11 @@ class Projects {
   }
 
   private async consumeEventStream (
+    logicalId: string,
     deploymentId: string,
     onProgress?: (progress: number) => void,
   ): Promise<ProjectDeployment> {
-    const stream = await this.openEventStream(deploymentId)
+    const stream = await this.openEventStream(logicalId, deploymentId)
 
     return new Promise<ProjectDeployment>((resolve, reject) => {
       let buffer = ''
