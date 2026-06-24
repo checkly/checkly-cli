@@ -71,8 +71,17 @@ export interface ProjectSync {
   repoInfo: GitInformation | null
 }
 
+// The project echoed back in a deploy result: identity fields + timestamps. The
+// timestamps are camelCase to match the deployment envelope (the project CRUD
+// endpoints return snake_case — see ProjectResponse).
+export interface DeployedProject extends Project {
+  id: string
+  createdAt: string
+  updatedAt: string | null
+}
+
 export interface ProjectDeployResponse {
-  project: Project
+  project: DeployedProject
   diff: Array<Change>
 }
 
