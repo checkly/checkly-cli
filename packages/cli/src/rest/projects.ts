@@ -1,9 +1,10 @@
 import { type AxiosInstance, isAxiosError } from 'axios'
 import { Readable } from 'node:stream'
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
 import { SharedFile } from '../constructs/index.js'
-import { ConflictError, ForbiddenError, handleErrorResponse, NotFoundError } from './errors.js'
+import { ConflictError, ForbiddenError, handleErrorResponse, NotFoundError, RequestTimeoutError } from './errors.js'
 
 export interface Project {
   name: string
@@ -290,11 +291,52 @@ class Projects {
    */
   async deploy (
     resources: ProjectSync,
-    { dryRun = false, scheduleOnDeploy = true, onProgress }: {
+    { dryRun = false, scheduleOnDeploy = true, cancelInProgress = false, onProgress, onStatus }: {
       dryRun?: boolean
       scheduleOnDeploy?: boolean
+      /**
+       * On a 409 (another deployment is already in progress), cancel that
+       * deployment and retry instead of failing.
+       */
+      cancelInProgress?: boolean
       onProgress?: (progress: number) => void
+      /** Human-readable status updates (e.g. while waiting on a predecessor). */
+      onStatus?: (message: string) => void
     } = {},
+  ): Promise<{ data: ProjectDeployResponse }> {
+    const logicalId = resources.project.logicalId
+
+    // A freed slot can be taken by a third party between our cancel and retry,
+    // yielding a fresh 409 for a different deployment, so cancel→wait→retry may
+    // repeat. Bound it to avoid an unbounded cancel war.
+    const MAX_CANCEL_ATTEMPTS = 5
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.submitDeployment(resources, { dryRun, scheduleOnDeploy, onProgress })
+      } catch (err) {
+        if (
+          !cancelInProgress
+          || dryRun
+          || !(err instanceof ConflictError)
+          || typeof err.data.deploymentId !== 'string'
+          || attempt >= MAX_CANCEL_ATTEMPTS
+        ) {
+          throw err
+        }
+        // Cancel the specific in-flight deployment we collided with, wait for it
+        // to finish unwinding, then retry our deploy.
+        await this.cancelInProgressDeployment(logicalId, err.data.deploymentId, onStatus)
+      }
+    }
+  }
+
+  private async submitDeployment (
+    resources: ProjectSync,
+    { dryRun, scheduleOnDeploy, onProgress }: {
+      dryRun: boolean
+      scheduleOnDeploy: boolean
+      onProgress?: (progress: number) => void
+    },
   ): Promise<{ data: ProjectDeployResponse }> {
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
       `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
@@ -318,10 +360,73 @@ class Projects {
     return { data: completed.result }
   }
 
+  /**
+   * Cancel an in-flight deployment and wait for it to reach a final state, so a
+   * fresh deploy can take its slot. The predecessor's rollback can briefly hold
+   * row locks, so we wait for it to be fully final before returning.
+   */
+  private async cancelInProgressDeployment (
+    logicalId: string,
+    deploymentId: string,
+    onStatus?: (message: string) => void,
+  ): Promise<void> {
+    onStatus?.('Waiting for an in-progress deployment to finish before deploying…')
+    try {
+      await this.cancelDeployment(logicalId, deploymentId)
+      await this.awaitDeploymentCompletion(logicalId, deploymentId)
+    } catch (err) {
+      // The predecessor no longer exists (it finished and was cleaned up between
+      // our collision and now): its slot is free, so just proceed to retry.
+      if (!(err instanceof NotFoundError)) {
+        throw err
+      }
+    }
+  }
+
   getDeployment (logicalId: string, deploymentId: string) {
     return this.api.get<ProjectDeployment>(
       `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}`,
     )
+  }
+
+  /** Request cancellation of an in-flight deployment (idempotent on the server). */
+  cancelDeployment (logicalId: string, deploymentId: string) {
+    return this.api.post<ProjectDeployment>(
+      `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}/cancel`,
+    )
+  }
+
+  /**
+   * Long-poll the completion endpoint until the deployment reaches a final state,
+   * returning it. The server blocks up to `maxWaitSeconds` and returns 408 when
+   * that elapses (the deployment is still running); we keep calling until a final
+   * state or the overall `deadlineMs` is hit.
+   */
+  async awaitDeploymentCompletion (
+    logicalId: string,
+    deploymentId: string,
+    { maxWaitSeconds = 30, deadlineMs = 5 * 60_000, minPollIntervalMs = 1_000 }:
+    { maxWaitSeconds?: number, deadlineMs?: number, minPollIntervalMs?: number } = {},
+  ): Promise<ProjectDeployment> {
+    const startedAt = Date.now()
+    for (;;) {
+      try {
+        const { data } = await this.api.get<ProjectDeployment>(
+          `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}/completion`,
+          { params: { maxWaitSeconds } },
+        )
+        return data
+      } catch (err) {
+        // 408 = still running after the server-side wait window; keep waiting.
+        if (err instanceof RequestTimeoutError && Date.now() - startedAt < deadlineMs) {
+          // Floor the cadence so a server that returns 408 immediately (rather
+          // than long-polling for maxWaitSeconds) can't become a tight loop.
+          await sleep(minPollIntervalMs)
+          continue
+        }
+        throw err
+      }
+    }
   }
 
   /**
