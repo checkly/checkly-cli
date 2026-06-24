@@ -399,7 +399,7 @@ class Projects {
     { cancel, onStatus, deadlineAt }: { cancel: boolean, onStatus?: (message: string) => void, deadlineAt: number },
   ): Promise<void> {
     if (cancel) {
-      onStatus?.('Cancelling the in-progress deployment…')
+      onStatus?.('Cancelling the in-progress deployment...')
       try {
         await this.cancelDeployment(logicalId, deploymentId)
       } catch (err) {
@@ -410,7 +410,7 @@ class Projects {
         return
       }
     } else {
-      onStatus?.('Waiting for an in-progress deployment to finish…')
+      onStatus?.('Waiting for an in-progress deployment to finish...')
     }
 
     // Poll the completion endpoint until the predecessor is final. Pacing comes
