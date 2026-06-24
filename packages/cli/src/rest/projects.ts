@@ -399,7 +399,7 @@ class Projects {
     { cancel, onStatus, deadlineAt }: { cancel: boolean, onStatus?: (message: string) => void, deadlineAt: number },
   ): Promise<void> {
     if (cancel) {
-      onStatus?.('Cancelling the in-progress deployment...')
+      onStatus?.('Cancelling an in-progress deployment...')
       try {
         await this.cancelDeployment(logicalId, deploymentId)
       } catch (err) {
