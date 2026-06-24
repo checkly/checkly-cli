@@ -92,6 +92,8 @@ export interface ProjectDeployment {
   createdAt: string
   startedAt: string | null
   endedAt: string | null
+  /** When cancellation was requested for this deployment, or null if it was not. */
+  cancelRequestedAt: string | null
 }
 
 export class ProjectDeployFailedError extends Error {
