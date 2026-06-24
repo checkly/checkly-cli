@@ -1,6 +1,5 @@
 import { type AxiosInstance, isAxiosError } from 'axios'
 import { Readable } from 'node:stream'
-import { setTimeout as sleep } from 'node:timers/promises'
 import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
 import { SharedFile } from '../constructs/index.js'
@@ -224,6 +223,11 @@ export class InvalidImportPlanStateError extends Error {
   }
 }
 
+// How long deploy() will keep waiting-and-retrying behind an in-progress
+// deployment before giving up and surfacing the 409. Generous, since a large
+// predecessor deploy can legitimately run for many minutes.
+const DEPLOY_CONFLICT_WAIT_DEADLINE_MS = 30 * 60_000
+
 class Projects {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -298,7 +302,7 @@ class Projects {
       scheduleOnDeploy?: boolean
       /**
        * On a 409 (another deployment is already in progress), cancel that
-       * deployment and retry instead of failing.
+       * deployment instead of waiting for it to finish, then retry.
        */
       cancelInProgress?: boolean
       onProgress?: (progress: number) => void
@@ -308,26 +312,31 @@ class Projects {
   ): Promise<{ data: ProjectDeployResponse }> {
     const logicalId = resources.project.logicalId
 
-    // A freed slot can be taken by a third party between our cancel and retry,
-    // yielding a fresh 409 for a different deployment, so cancel→wait→retry may
-    // repeat. Bound it to avoid an unbounded cancel war.
-    const MAX_CANCEL_ATTEMPTS = 5
-    for (let attempt = 0; ; attempt++) {
+    // On a 409 the project already has a deployment in progress. By default we
+    // wait for it to finish then retry; with cancelInProgress we cancel it first.
+    // resolveInProgressDeployment only returns once the predecessor has reached a
+    // final state, so we re-POST the (potentially large) payload exactly once per
+    // predecessor — never while it is still running. Bound by an overall deadline
+    // so a stuck predecessor can't make us wait forever.
+    const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
+    for (;;) {
       try {
         return await this.submitDeployment(resources, { dryRun, scheduleOnDeploy, onProgress })
       } catch (err) {
         if (
-          !cancelInProgress
-          || dryRun
+          dryRun
           || !(err instanceof ConflictError)
           || typeof err.data.deploymentId !== 'string'
-          || attempt >= MAX_CANCEL_ATTEMPTS
+          || Date.now() >= deadlineAt
         ) {
           throw err
         }
-        // Cancel the specific in-flight deployment we collided with, wait for it
-        // to finish unwinding, then retry our deploy.
-        await this.cancelInProgressDeployment(logicalId, err.data.deploymentId, onStatus)
+        await this.resolveInProgressDeployment(logicalId, err.data.deploymentId, {
+          cancel: cancelInProgress,
+          onStatus,
+          deadlineAt,
+        })
+        // loop → re-POST, now that the predecessor has reached a final state
       }
     }
   }
@@ -363,23 +372,53 @@ class Projects {
   }
 
   /**
-   * Cancel an in-flight deployment and wait for it to reach a final state, so a
-   * fresh deploy can take its slot. The predecessor's rollback can briefly hold
-   * row locks, so we wait for it to be fully final before returning.
+   * Resolve a collision with an in-progress deployment so the caller can retry:
+   * optionally cancel it, then wait until it reaches a final state (or is gone)
+   * before returning — so the caller re-POSTs only when the slot is actually
+   * free, never re-uploading the payload while the predecessor is still running.
+   * Returns early if the overall `deadlineAt` passes (the caller then re-POSTs
+   * once and surfaces the conflict).
    */
-  private async cancelInProgressDeployment (
+  private async resolveInProgressDeployment (
     logicalId: string,
     deploymentId: string,
-    onStatus?: (message: string) => void,
+    { cancel, onStatus, deadlineAt }: { cancel: boolean, onStatus?: (message: string) => void, deadlineAt: number },
   ): Promise<void> {
-    onStatus?.('Waiting for an in-progress deployment to finish before deploying…')
-    try {
-      await this.cancelDeployment(logicalId, deploymentId)
-      await this.awaitDeploymentCompletion(logicalId, deploymentId)
-    } catch (err) {
-      // The predecessor no longer exists (it finished and was cleaned up between
-      // our collision and now): its slot is free, so just proceed to retry.
-      if (!(err instanceof NotFoundError)) {
+    if (cancel) {
+      onStatus?.('Cancelling the in-progress deployment…')
+      try {
+        await this.cancelDeployment(logicalId, deploymentId)
+      } catch (err) {
+        // Already gone → nothing to cancel; proceed to retry.
+        if (!(err instanceof NotFoundError)) {
+          throw err
+        }
+        return
+      }
+    } else {
+      onStatus?.('Waiting for an in-progress deployment to finish…')
+    }
+
+    // Poll the completion endpoint until the predecessor is final. Pacing comes
+    // from the server-side long-poll (~maxWaitSeconds per call), so this is not a
+    // busy loop; the deadline bounds the total wait.
+    for (;;) {
+      try {
+        await this.awaitDeploymentCompletion(logicalId, deploymentId)
+        return // reached a final state → slot free
+      } catch (err) {
+        if (err instanceof NotFoundError) {
+          return // gone → slot free
+        }
+        // 408 = still running after the long-poll window. Keep waiting unless the
+        // overall deadline has passed, in which case return and let the caller
+        // re-POST once and surface the conflict.
+        if (err instanceof RequestTimeoutError) {
+          if (Date.now() >= deadlineAt) {
+            return
+          }
+          continue
+        }
         throw err
       }
     }
@@ -399,36 +438,21 @@ class Projects {
   }
 
   /**
-   * Long-poll the completion endpoint until the deployment reaches a final state,
-   * returning it. The server blocks up to `maxWaitSeconds` and returns 408 when
-   * that elapses (the deployment is still running); we keep calling until a final
-   * state or the overall `deadlineMs` is hit.
+   * Long-poll the completion endpoint once: the server blocks up to
+   * `maxWaitSeconds` and returns the deployment when it reaches a final state, or
+   * 408 (`RequestTimeoutError`) if it is still running when that window elapses.
+   * The retry cadence lives in the caller, not here.
    */
   async awaitDeploymentCompletion (
     logicalId: string,
     deploymentId: string,
-    { maxWaitSeconds = 30, deadlineMs = 5 * 60_000, minPollIntervalMs = 1_000 }:
-    { maxWaitSeconds?: number, deadlineMs?: number, minPollIntervalMs?: number } = {},
+    { maxWaitSeconds = 30 }: { maxWaitSeconds?: number } = {},
   ): Promise<ProjectDeployment> {
-    const startedAt = Date.now()
-    for (;;) {
-      try {
-        const { data } = await this.api.get<ProjectDeployment>(
-          `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}/completion`,
-          { params: { maxWaitSeconds } },
-        )
-        return data
-      } catch (err) {
-        // 408 = still running after the server-side wait window; keep waiting.
-        if (err instanceof RequestTimeoutError && Date.now() - startedAt < deadlineMs) {
-          // Floor the cadence so a server that returns 408 immediately (rather
-          // than long-polling for maxWaitSeconds) can't become a tight loop.
-          await sleep(minPollIntervalMs)
-          continue
-        }
-        throw err
-      }
-    }
+    const { data } = await this.api.get<ProjectDeployment>(
+      `/v1/projects/${encodeURIComponent(logicalId)}/deployments/${encodeURIComponent(deploymentId)}/completion`,
+      { params: { maxWaitSeconds } },
+    )
+    return data
   }
 
   /**

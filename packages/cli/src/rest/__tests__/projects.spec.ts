@@ -167,13 +167,66 @@ describe('Projects.deploy cancel-in-progress', () => {
     projects = new Projects(api)
   })
 
-  it('propagates the 409 without cancelling when cancelInProgress is not set', async () => {
-    vi.mocked(api.post).mockRejectedValue(conflict('old-dep'))
+  it('waits for the in-progress deployment then re-POSTs to success (no flag, no cancel)', async () => {
+    let deployPosts = 0
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      // Without the flag we must never cancel the predecessor.
+      expect(url).not.toContain('/cancel')
+      deployPosts += 1
+      return (deployPosts === 1
+        ? Promise.reject(conflict('old-dep'))
+        : Promise.resolve({ data: { id: 'new-dep', status: 'PENDING' } })) as never
+    })
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      (url.includes('/completion')
+        ? Promise.resolve({ data: { id: 'old-dep', status: 'SUCCEEDED' } })
+        : Promise.resolve(sseStream(sse('complete', { id: 'new-dep', status: 'SUCCEEDED', result: applied })))) as never,
+    )
 
-    await expect(projects.deploy(sync, { dryRun: false })).rejects.toThrow(ConflictError)
-    // Only the deploy POST — no cancel POST was attempted.
-    expect(api.post).toHaveBeenCalledTimes(1)
-    expect(api.get).not.toHaveBeenCalled()
+    const onStatus = vi.fn()
+    const { data } = await projects.deploy(sync, { onStatus })
+
+    // Waited on the predecessor's completion, then re-POSTed.
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/old-dep/completion',
+      expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
+    )
+    const cancelCalls = vi.mocked(api.post).mock.calls.filter(([url]) => String(url).includes('/cancel'))
+    expect(cancelCalls).toHaveLength(0)
+    expect(deployPosts).toBe(2)
+    expect(data).toEqual(applied)
+    expect(onStatus).toHaveBeenCalled()
+  })
+
+  it('does not re-POST while the predecessor is still running; re-POSTs once it is final', async () => {
+    let deployPosts = 0
+    let completionPolls = 0
+    vi.mocked(api.post).mockImplementation(() => {
+      deployPosts += 1
+      return (deployPosts === 1
+        ? Promise.reject(conflict('old-dep'))
+        : Promise.resolve({ data: { id: 'new-dep', status: 'PENDING' } })) as never
+    })
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.includes('/completion')) {
+        completionPolls += 1
+        // Still running for the first two long-poll windows, then final.
+        return (completionPolls < 3
+          ? Promise.reject(
+              new RequestTimeoutError({ statusCode: 408, error: 'Request Timeout', message: 'still running' }),
+            )
+          : Promise.resolve({ data: { id: 'old-dep', status: 'SUCCEEDED' } })) as never
+      }
+      return Promise.resolve(sseStream(sse('complete', { id: 'new-dep', status: 'SUCCEEDED', result: applied }))) as never
+    })
+
+    const { data } = await projects.deploy(sync)
+
+    // Polled three times (two 408s + final) but the payload was POSTed only twice:
+    // the initial collision and a single re-POST after the predecessor was final.
+    expect(completionPolls).toBe(3)
+    expect(deployPosts).toBe(2)
+    expect(data).toEqual(applied)
   })
 
   it('cancels the in-flight deployment, waits, and retries when cancelInProgress is set', async () => {
@@ -230,32 +283,52 @@ describe('Projects.deploy cancel-in-progress', () => {
     expect(data).toEqual(applied)
   })
 
-  it('awaitDeploymentCompletion keeps polling on 408 until a final state', async () => {
-    vi.mocked(api.get)
-      .mockRejectedValueOnce(
-        new RequestTimeoutError({ statusCode: 408, error: 'Request Timeout', message: 'still running' }),
-      )
-      .mockResolvedValueOnce({ data: { id: 'dep-1', status: 'CANCELLED' } })
+  it('awaitDeploymentCompletion does a single long-poll and returns the final deployment', async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: { id: 'dep-1', status: 'CANCELLED' } } as never)
 
-    const result = await projects.awaitDeploymentCompletion('my-project', 'dep-1', { minPollIntervalMs: 0 })
+    const result = await projects.awaitDeploymentCompletion('my-project', 'dep-1')
 
     expect(result.status).toBe('CANCELLED')
-    expect(api.get).toHaveBeenCalledTimes(2)
+    expect(api.get).toHaveBeenCalledTimes(1)
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/dep-1/completion',
+      expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
+    )
   })
 
-  it('gives up with the conflict after exhausting cancel attempts on repeated conflicts', async () => {
-    // The deploy POST always conflicts; cancel + completion always succeed, so the
-    // cancel→wait→retry loop runs to its cap and then surfaces the conflict.
-    vi.mocked(api.post).mockImplementation((url: string) =>
-      (url.includes('/cancel')
-        ? Promise.resolve({ data: { id: 'x', status: 'RUNNING' } })
-        : Promise.reject(conflict('x'))) as never,
+  it('gives up and surfaces the conflict once the overall wait deadline is exceeded', async () => {
+    // Every POST conflicts and the predecessor never finishes (completion 408s).
+    let deployPosts = 0
+    vi.mocked(api.post).mockImplementation((url: string) => {
+      if (url.includes('/cancel')) {
+        return Promise.resolve({ data: { id: 'x', status: 'RUNNING' } }) as never
+      }
+      deployPosts += 1
+      return Promise.reject(conflict('x')) as never
+    })
+    vi.mocked(api.get).mockRejectedValue(
+      new RequestTimeoutError({ statusCode: 408, error: 'Request Timeout', message: 'still running' }) as never,
     )
-    vi.mocked(api.get).mockResolvedValue({ data: { id: 'x', status: 'CANCELLED' } } as never)
 
-    await expect(projects.deploy(sync, { cancelInProgress: true })).rejects.toThrow(ConflictError)
-    // Initial attempt + 5 retries = 6 deploy POSTs; 5 cancels in between.
-    const cancelCalls = vi.mocked(api.post).mock.calls.filter(([url]) => String(url).includes('/cancel'))
-    expect(cancelCalls).toHaveLength(5)
+    // Advance the (mocked) clock 20 min on every Date.now() call, so the wait
+    // deadline (30 min) is crossed after a couple of checks regardless of the
+    // exact call count — robust to incidental Date.now() usage.
+    const base = Date.now()
+    let clock = base
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      const value = clock
+      clock += 20 * 60_000
+      return value
+    })
+    try {
+      await expect(projects.deploy(sync, { cancelInProgress: true })).rejects.toThrow(ConflictError)
+      // One wait round before the deadline trips: initial POST + one retry, with
+      // one cancel between.
+      expect(deployPosts).toBe(2)
+      const cancelCalls = vi.mocked(api.post).mock.calls.filter(([url]) => String(url).includes('/cancel'))
+      expect(cancelCalls).toHaveLength(1)
+    } finally {
+      nowSpy.mockRestore()
+    }
   })
 })

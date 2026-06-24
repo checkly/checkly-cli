@@ -58,7 +58,7 @@ export default class Deploy extends AuthCommand {
     }),
     'force': forceFlag(),
     'cancel-in-progress-deployment': Flags.boolean({
-      description: 'If a deployment for this project is already in progress, cancel it and deploy instead of failing.',
+      description: 'If a deployment for this project is already in progress, cancel it instead of waiting for it to finish.',
       default: false,
     }),
     'config': Flags.string({
@@ -283,9 +283,12 @@ export default class Deploy extends AuthCommand {
         this.style.actionFailure()
       }
       if (err instanceof ConflictError) {
+        // deploy() waits-and-retries behind an in-progress deployment, so a 409
+        // only reaches here once that wait exceeded its deadline.
         this.style.longError(
-          'A deployment for this project is already in progress.',
-          'Wait for it to finish, or pass --cancel-in-progress-deployment to cancel it and deploy.',
+          'A deployment for this project is still in progress.',
+          'We waited but it did not finish in time. Please try again, or pass '
+          + '--cancel-in-progress-deployment to cancel it.',
         )
       } else {
         this.style.longError(`Your project could not be deployed.`, err)
