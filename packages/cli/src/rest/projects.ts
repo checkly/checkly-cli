@@ -102,6 +102,14 @@ export class ProjectDeployFailedError extends Error {
   }
 }
 
+/** The deployment was cancelled before it finished (e.g. superseded by a newer deploy). */
+export class ProjectDeployCancelledError extends Error {
+  constructor (message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'ProjectDeployCancelledError'
+  }
+}
+
 /** Internal: the SSE stream ended before a terminal event (eligible for reconnect). */
 class DeploymentStreamInterruptedError extends Error {
   constructor () {
@@ -363,6 +371,12 @@ class Projects {
     // A real deploy responds with a deployment to follow to completion.
     const deployment = data as ProjectDeployment
     const completed = await this.streamDeploymentEvents(resources.project.logicalId, deployment.id, { onProgress })
+
+    if (completed.status === 'CANCELLED') {
+      throw new ProjectDeployCancelledError(
+        'A newer deployment may have cancelled yours. Try deploying again if you still need to apply your changes.',
+      )
+    }
 
     if (completed.status !== 'SUCCEEDED' || completed.result === null) {
       throw new ProjectDeployFailedError(completed.error?.message ?? 'The deployment did not complete successfully.')

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Readable } from 'node:stream'
 import type { AxiosInstance } from 'axios'
-import Projects, { ProjectDeployFailedError, type ProjectSync } from '../projects.js'
+import Projects, { ProjectDeployCancelledError, ProjectDeployFailedError, type ProjectSync } from '../projects.js'
 import { ConflictError, NotFoundError, RequestTimeoutError } from '../errors.js'
 
 function makeAxiosMock (): AxiosInstance {
@@ -91,6 +91,15 @@ describe('Projects.deploy', () => {
 
     await expect(projects.deploy(sync, { dryRun: false })).rejects.toThrow(ProjectDeployFailedError)
     await expect(projects.deploy(sync, { dryRun: false })).rejects.toThrow('Too many checks.')
+  })
+
+  it('throws ProjectDeployCancelledError when the deployment is cancelled', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { id: 'dep-1', status: 'PENDING' } })
+    vi.mocked(api.get).mockResolvedValue(
+      sseStream(sse('complete', { id: 'dep-1', status: 'CANCELLED', result: null, error: null })),
+    )
+
+    await expect(projects.deploy(sync, { dryRun: false })).rejects.toThrow(ProjectDeployCancelledError)
   })
 
   it('throws when the stream emits an error event', async () => {

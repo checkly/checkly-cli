@@ -15,7 +15,7 @@ import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { forceFlag } from '../helpers/flags.js'
-import { ProjectDeployResponse } from '../rest/projects.js'
+import { ProjectDeployResponse, ProjectDeployCancelledError } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
@@ -282,13 +282,15 @@ export default class Deploy extends AuthCommand {
       if (!preview) {
         this.style.actionFailure()
       }
-      if (err instanceof ConflictError) {
+      if (err instanceof ProjectDeployCancelledError) {
+        this.style.longError('Your deployment was cancelled.', err.message)
+      } else if (err instanceof ConflictError) {
         // deploy() waits-and-retries behind an in-progress deployment, so a 409
         // only reaches here once that wait exceeded its deadline.
         this.style.longError(
           'A deployment for this project is still in progress.',
-          'We waited but it did not finish in time. Please try again, or pass '
-          + '--cancel-in-progress-deployment to cancel it.',
+          'Try again later, or re-run with `--cancel-in-progress-deployment` to '
+          + 'cancel the running deployment and deploy now.',
         )
       } else {
         this.style.longError(`Your project could not be deployed.`, err)
