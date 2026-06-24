@@ -114,6 +114,11 @@ export interface ErrorData {
   error: string
   errorCode?: string
   message: string
+  /**
+   * Set on a 409 from the async project-deploy endpoint: the id of the in-flight
+   * deployment that blocked this one. Lets the client attach to or cancel it.
+   */
+  deploymentId?: string
 }
 
 function isErrorData (value: any): value is ErrorData {
