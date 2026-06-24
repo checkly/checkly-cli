@@ -20,9 +20,7 @@ export type DnsProtocol =
  */
 export interface DnsRequest {
   /**
-   * The DNS record type to query for. Use 'HTTPS' (RFC 9460) to monitor a
-   * domain's HTTPS service binding record — e.g. whether it advertises HTTP/3
-   * via its `alpn` parameter, plus `ipv4hint`/`ipv6hint`/`ech`.
+   * The DNS record type to query for.
    *
    * @example "A"
    * @example "AAAA"
