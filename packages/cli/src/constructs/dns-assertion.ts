@@ -21,6 +21,13 @@ export type DnsAssertion = CoreAssertion<DnsAssertionSource>
  * // Response code assertions
  * DnsAssertionBuilder.responseCode().equals('NOERROR')
  * DnsAssertionBuilder.responseCode().equals('NXDOMAIN')
+ *
+ * // HTTPS (RFC 9460) record — monitor HTTP/3 advertisement. The answer renders
+ * // as: 1 . alpn="h3,h2" ipv4hint="..." ipv6hint="..."
+ * // Scope the match to the alpn value with a capture group (recommended):
+ * DnsAssertionBuilder.textAnswer('alpn="([^"]*)"').contains('h3')
+ * // Or assert against the whole rendered answer / its JSON `data` field:
+ * DnsAssertionBuilder.jsonAnswer('$.Answer[0].data').contains('alpn="h3')
  * ```
  */
 export class DnsAssertionBuilder {

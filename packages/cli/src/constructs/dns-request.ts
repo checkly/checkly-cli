@@ -8,6 +8,7 @@ export type DnsRecordType =
   | 'NS'
   | 'TXT'
   | 'SOA'
+  | 'HTTPS'
 
 export type DnsProtocol =
   | 'UDP'
@@ -19,11 +20,14 @@ export type DnsProtocol =
  */
 export interface DnsRequest {
   /**
-   * The DNS record type to query for.
+   * The DNS record type to query for. Use 'HTTPS' (RFC 9460) to monitor a
+   * domain's HTTPS service binding record — e.g. whether it advertises HTTP/3
+   * via its `alpn` parameter, plus `ipv4hint`/`ipv6hint`/`ech`.
    *
    * @example "A"
    * @example "AAAA"
    * @example "TXT"
+   * @example "HTTPS"
    */
   recordType: DnsRecordType
 
