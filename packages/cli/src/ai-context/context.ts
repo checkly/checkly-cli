@@ -40,6 +40,10 @@ export const REFERENCES = [
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
   {
+    id: 'configure-traceroute-monitors',
+    description: 'Traceroute Monitor construct (`TracerouteMonitor`) with latency, hop-count and packet-loss assertions',
+  },
+  {
     id: 'configure-check-groups',
     description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
   },
@@ -219,6 +223,31 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     exampleConfigPath:
       'resources/heartbeat-monitors/example-heartbeat-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/heartbeat-monitor/',
+  },
+  TRACEROUTE_MONITOR: {
+    templateString: '<!-- EXAMPLE: TRACEROUTE_MONITOR -->',
+    exampleConfig: `import { TracerouteMonitor, TracerouteAssertionBuilder, Frequency } from 'checkly/constructs'
+
+new TracerouteMonitor('traceroute-monitor-1', {
+  name: 'Traceroute Monitor',
+  activated: true,
+  frequency: Frequency.EVERY_10M,
+  locations: ['us-east-1', 'eu-west-1'],
+  maxResponseTime: 20000,
+  degradedResponseTime: 10000,
+  request: {
+    url: '1.1.1.1',
+    protocol: 'ICMP',
+    maxHops: 30,
+    assertions: [
+      TracerouteAssertionBuilder.responseTime('avg').lessThan(2000),
+      TracerouteAssertionBuilder.hopCount().lessThan(20),
+      TracerouteAssertionBuilder.packetLoss().lessThan(5),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/traceroute-monitor/',
   },
   URL_MONITOR: {
     templateString: '<!-- EXAMPLE: URL_MONITOR -->',
