@@ -12,6 +12,7 @@ import { valueForKeyValuePair } from './key-value-pair-codegen.js'
 import { MultiStepCheckCodegen, MultiStepCheckResource } from './multi-step-check-codegen.js'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen.js'
 import { TcpMonitorCodegen, TcpMonitorResource } from './tcp-monitor-codegen.js'
+import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { UrlMonitorCodegen, UrlMonitorResource } from './url-monitor-codegen.js'
 import { valueForPrivateLocationFromId } from './private-location-codegen.js'
 import { valueForAlertChannelFromId } from './alert-channel-codegen.js'
@@ -245,6 +246,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
   heartbeatMonitorCodegen: HeartbeatMonitorCodegen
   multiStepCheckCodegen: MultiStepCheckCodegen
   tcpMonitorCodegen: TcpMonitorCodegen
+  sslMonitorCodegen: SslMonitorCodegen
   urlMonitorCodegen: UrlMonitorCodegen
   dnsMonitorCodegen: DnsMonitorCodegen
   icmpMonitorCodegen: IcmpMonitorCodegen
@@ -258,6 +260,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.heartbeatMonitorCodegen = new HeartbeatMonitorCodegen(program)
     this.multiStepCheckCodegen = new MultiStepCheckCodegen(program)
     this.tcpMonitorCodegen = new TcpMonitorCodegen(program)
+    this.sslMonitorCodegen = new SslMonitorCodegen(program)
     this.urlMonitorCodegen = new UrlMonitorCodegen(program)
     this.dnsMonitorCodegen = new DnsMonitorCodegen(program)
     this.icmpMonitorCodegen = new IcmpMonitorCodegen(program)
@@ -275,6 +278,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return this.apiCheckCodegen.describe(resource as ApiCheckResource)
       case 'TCP':
         return this.tcpMonitorCodegen.describe(resource as TcpMonitorResource)
+      case 'SSL':
+        return this.sslMonitorCodegen.describe(resource as SslMonitorResource)
       case 'MULTI_STEP':
         return this.multiStepCheckCodegen.describe(resource as MultiStepCheckResource)
       case 'HEARTBEAT':
@@ -305,6 +310,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return
       case 'TCP':
         this.tcpMonitorCodegen.gencode(logicalId, resource as TcpMonitorResource, context)
+        return
+      case 'SSL':
+        this.sslMonitorCodegen.gencode(logicalId, resource as SslMonitorResource, context)
         return
       case 'MULTI_STEP':
         this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)

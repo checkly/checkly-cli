@@ -5,6 +5,7 @@ export const CheckTypes = {
   MULTI_STEP: 'MULTI_STEP',
   PLAYWRIGHT: 'PLAYWRIGHT',
   TCP: 'TCP',
+  SSL: 'SSL',
   ICMP: 'ICMP',
   DNS: 'DNS',
   URL: 'URL',
