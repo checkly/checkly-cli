@@ -4,7 +4,7 @@ import { ACTIONS, EXAMPLE_CONFIGS } from '../src/ai-context/context'
 
 const EXAMPLES_DIR = join(__dirname, '../gen/')
 const AI_CONTEXT_DIR = join(__dirname, '../src/ai-context')
-const RULES_OUTPUT_DIR = join(__dirname, '../dist/ai-context')
+const DIST_AI_CONTEXT_DIR = join(__dirname, '../dist/ai-context')
 
 // Reference files served by the CLI's `checkly skills [action] [reference]` command
 const COMMAND_REFERENCES_DIR = join(__dirname, '../dist/ai-context/skills-command/references')
@@ -12,21 +12,6 @@ const COMMAND_REFERENCES_DIR = join(__dirname, '../dist/ai-context/skills-comman
 // Published skill directory copied to the repo root (SKILL.md + README.md only, no references)
 const PUBLIC_SKILLS_DIR = join(__dirname, '../dist/ai-context/public-skills')
 const PUBLIC_SKILL_DIR = join(PUBLIC_SKILLS_DIR, 'checkly')
-
-function stripYamlFrontmatter (content: string): string {
-  const frontmatterRegex = /^---\r?\n[\s\S]*?\r?\n---\r?\n+/
-  return content.replace(frontmatterRegex, '')
-}
-
-// Demote headings by two levels (# -> ###, ## -> ####) to maintain proper
-// heading hierarchy in checkly.rules.md.
-function demoteHeadings (content: string): string {
-  return content.replace(/^(#+)/gm, '##$1')
-}
-
-function normalizeBlankLines (content: string): string {
-  return content.replace(/\n{3,}/g, '\n\n')
-}
 
 async function writeOutput (content: string, dir: string, filename: string): Promise<void> {
   await mkdir(dir, { recursive: true })
@@ -102,8 +87,6 @@ async function prepareContext () {
     const examples = await readExampleCode()
 
     // Process all actions — reference files, action headers, and standalone actions
-    const configureReferenceContents: string[] = []
-
     for (const action of ACTIONS) {
       if ('references' in action) {
         for (const ref of action.references) {
@@ -113,10 +96,6 @@ async function prepareContext () {
           )
           refContent = replaceExamples(refContent, examples)
           await writeOutput(refContent, COMMAND_REFERENCES_DIR, `${ref.id}.md`)
-
-          if (action.id === 'configure') {
-            configureReferenceContents.push(refContent)
-          }
         }
 
         let actionContent = await readFile(
@@ -144,29 +123,15 @@ async function prepareContext () {
       .replace('<!-- SKILL_COMMANDS -->', generateSkillCommands())
     await writeOutput(skillTemplate, PUBLIC_SKILL_DIR, 'SKILL.md')
 
-    // Generate checkly.rules.md (configure header + all configure-* references concatenated)
-    const configureContent = await readFile(
-      join(COMMAND_REFERENCES_DIR, 'configure.md'),
-      'utf8',
-    )
-    const demotedReferences = configureReferenceContents
-      .map(demoteHeadings).join('\n\n')
-    const rulesContent = normalizeBlankLines(stripYamlFrontmatter(
-      configureContent
-      + '\n'
-      + demotedReferences,
-    ))
-    await writeOutput(rulesContent, RULES_OUTPUT_DIR, 'checkly.rules.md')
-
     // Copy README
     const readme = await readFile(join(AI_CONTEXT_DIR, 'README.md'), 'utf8')
     await writeOutput(readme, PUBLIC_SKILL_DIR, 'README.md')
 
     // Copy onboarding assets to dist
     for (const dir of ['onboarding-boilerplate', 'onboarding-prompts']) {
-      await cp(join(AI_CONTEXT_DIR, dir), join(RULES_OUTPUT_DIR, dir), { recursive: true })
+      await cp(join(AI_CONTEXT_DIR, dir), join(DIST_AI_CONTEXT_DIR, dir), { recursive: true })
       // eslint-disable-next-line no-console
-      console.log(`Copied ${dir} to ${join(RULES_OUTPUT_DIR, dir)}`)
+      console.log(`Copied ${dir} to ${join(DIST_AI_CONTEXT_DIR, dir)}`)
     }
   } catch (error) {
     // eslint-disable-next-line no-console

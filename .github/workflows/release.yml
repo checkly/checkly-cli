@@ -171,22 +171,13 @@ jobs:
           SLACK_TITLE: ':white_check_mark: NPM publish succeeded'
           SLACK_MESSAGE: by ${{ github.actor }}
           SLACK_FOOTER: ''
-  # Attach checkly.rules.md to the GitHub Release and mark it as latest
+  # Mark the GitHub Release as latest if it's the highest version
   finalize-release:
     runs-on: ubuntu-latest
     needs: release
     permissions:
       contents: write
     steps:
-      - name: Download LLM rules artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: llm-rules-release
-          path: llm-rules-release
-      - name: Upload checkly.rules.md to GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ github.event.release.tag_name }} llm-rules-release/checkly.rules.md --repo ${{ github.repository }}
       - name: Mark release as latest if version is highest
         env:
           GH_TOKEN: ${{ github.token }}
