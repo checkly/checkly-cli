@@ -40,6 +40,10 @@ export const REFERENCES = [
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
   {
+    id: 'configure-ssl-monitors',
+    description: 'SSL Monitor construct (`SslMonitor`) for TLS certificate and handshake assertions',
+  },
+  {
     id: 'configure-check-groups',
     description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
   },
@@ -219,6 +223,33 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     exampleConfigPath:
       'resources/heartbeat-monitors/example-heartbeat-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/heartbeat-monitor/',
+  },
+  SSL_MONITOR: {
+    templateString: '<!-- EXAMPLE: SSL_MONITOR -->',
+    exampleConfig: `import { SslMonitor, SslAssertionBuilder, Frequency } from 'checkly/constructs'
+
+new SslMonitor('ssl-monitor-1', {
+  name: 'SSL Monitor',
+  activated: true,
+  frequency: Frequency.EVERY_1H,
+  locations: ['us-east-1', 'eu-west-1'],
+  request: {
+    sslConfig: {
+      hostname: 'api.checklyhq.com',
+      port: 443,
+      alertDaysBeforeExpiry: 20,
+      degradedResponseTimeMs: 3000,
+      maxResponseTimeMs: 10000,
+    },
+    assertions: [
+      SslAssertionBuilder.certExpiresInDays().greaterThan(14),
+      SslAssertionBuilder.certNotExpired().equals(true),
+      SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/ssl-monitor/',
   },
   URL_MONITOR: {
     templateString: '<!-- EXAMPLE: URL_MONITOR -->',
