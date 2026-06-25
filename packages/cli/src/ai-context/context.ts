@@ -40,6 +40,10 @@ export const REFERENCES = [
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
   {
+    id: 'configure-grpc-monitors',
+    description: 'gRPC Monitor construct (`GrpcMonitor`) with BEHAVIOR/HEALTH modes and assertions',
+  },
+  {
     id: 'configure-check-groups',
     description: 'CheckGroupV2 construct (`CheckGroupV2`) for organizing checks',
   },
@@ -219,6 +223,38 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     exampleConfigPath:
       'resources/heartbeat-monitors/example-heartbeat-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/heartbeat-monitor/',
+  },
+  GRPC_MONITOR: {
+    templateString: '<!-- EXAMPLE: GRPC_MONITOR -->',
+    exampleConfig: `import { GrpcMonitor, GrpcAssertionBuilder, Frequency } from 'checkly/constructs'
+
+new GrpcMonitor('grpc-monitor-1', {
+  name: 'gRPC Monitor',
+  activated: true,
+  frequency: Frequency.EVERY_5M,
+  locations: ['us-east-1', 'eu-west-1'],
+  maxResponseTime: 5000,
+  degradedResponseTime: 3000,
+  request: {
+    url: 'grpcb.in',
+    port: 9001,
+    grpcConfig: {
+      // 'BEHAVIOR' invokes \`method\`; 'HEALTH' health-checks \`service\`.
+      mode: 'BEHAVIOR',
+      tls: true,
+      serviceDefinition: 'REFLECTION',
+      method: '/hello.HelloService/SayHello',
+      message: '{"greeting":"Checkly"}',
+    },
+    assertions: [
+      GrpcAssertionBuilder.statusCode().equals(0),
+      GrpcAssertionBuilder.response('$.reply').contains('Checkly'),
+      GrpcAssertionBuilder.responseTime().lessThan(2000),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/grpc-monitor/',
   },
   URL_MONITOR: {
     templateString: '<!-- EXAMPLE: URL_MONITOR -->',
