@@ -1,0 +1,122 @@
+// Runner-path (`checkly test`) result fixtures for the TRACEROUTE/GRPC/SSL
+// uptime monitor types. Each is a failing run whose diagnostic data lives in
+// `checkRunData.response` — the artifact `formatCheckResult` and the JSON
+// reporter read.
+
+export const tracerouteCheckResult = {
+  logicalId: 'test-traceroute-check-1',
+  sourceFile: 'src/uptime/traceroute.check.ts',
+  sourceInfo: {
+    checkRunId: 'tr-run-1',
+    sequenceId: 'tr-seq-1',
+  },
+  checkRunId: 'tr-run-1',
+  name: 'Traceroute to unreachable host',
+  checkType: 'TRACEROUTE',
+  hasErrors: false,
+  hasFailures: true,
+  isDegraded: false,
+  attempts: 1,
+  runLocation: 'eu-west-1',
+  startedAt: '2025-06-15T12:00:00.000Z',
+  stoppedAt: '2025-06-15T12:00:01.000Z',
+  responseTime: 1000,
+  checkRunData: {
+    requestError: null,
+    assertions: [],
+    response: {
+      hostname: 'unreachable.example.com',
+      resolvedIp: '203.0.113.10',
+      totalHops: 30,
+      destinationReached: false,
+      truncationReason: 'max-hops',
+      protocol: 'TCP',
+      finalHopLatency: { avg_ms: 24.1, best_ms: 22.0, worst_ms: 31.4 },
+      hops: [
+        { hop_number: 1, main_ip: '10.0.0.1', main_host: 'gateway.local', loss_percentage: 0, rtt: { avg: 1.2, best: 1.0, worst: 1.5 } },
+        { hop_number: 2, main_ip: '198.51.100.5', loss_percentage: 100, rtt: null, asn: 64500 },
+      ],
+    },
+  },
+  logs: [],
+  scheduleError: '',
+  runError: '',
+}
+
+export const grpcCheckResult = {
+  logicalId: 'test-grpc-check-1',
+  sourceFile: 'src/uptime/grpc.check.ts',
+  sourceInfo: {
+    checkRunId: 'grpc-run-1',
+    sequenceId: 'grpc-seq-1',
+  },
+  checkRunId: 'grpc-run-1',
+  name: 'gRPC health probe',
+  checkType: 'GRPC',
+  hasErrors: false,
+  hasFailures: true,
+  isDegraded: false,
+  attempts: 1,
+  runLocation: 'eu-west-1',
+  startedAt: '2025-06-15T12:00:00.000Z',
+  stoppedAt: '2025-06-15T12:00:00.090Z',
+  responseTime: 90,
+  checkRunData: {
+    requestError: null,
+    assertions: [],
+    response: {
+      grpcMode: 'HEALTH',
+      host: 'grpc.example.com',
+      resolvedIp: '203.0.113.20',
+      port: 443,
+      grpcMethod: 'grpc.health.v1.Health/Check',
+      responseMessage: '',
+      grpcStatusCode: 14,
+      grpcStatusMessage: 'connection refused',
+      healthStatus: 2,
+      healthStatusLabel: 'NOT_SERVING',
+      metadata: [{ key: 'content-type', value: 'application/grpc' }],
+      discoveredMethods: ['grpc.health.v1.Health/Check', 'grpc.health.v1.Health/Watch'],
+    },
+  },
+  logs: [],
+  scheduleError: '',
+  runError: '',
+}
+
+export const sslCheckResult = {
+  logicalId: 'test-ssl-check-1',
+  sourceFile: 'src/uptime/ssl.check.ts',
+  sourceInfo: {
+    checkRunId: 'ssl-run-1',
+    sequenceId: 'ssl-seq-1',
+  },
+  checkRunId: 'ssl-run-1',
+  name: 'SSL certificate expiry',
+  checkType: 'SSL',
+  hasErrors: false,
+  hasFailures: true,
+  isDegraded: false,
+  attempts: 1,
+  runLocation: 'eu-west-1',
+  startedAt: '2025-06-15T12:00:00.000Z',
+  stoppedAt: '2025-06-15T12:00:00.048Z',
+  responseTime: 48,
+  checkRunData: {
+    requestError: null,
+    assertions: [],
+    response: {
+      resolvedIp: '203.0.113.30',
+      protocol: 'TLS 1.3',
+      cipherSuite: 'TLS_AES_256_GCM_SHA384',
+      handshakeTimeMs: 48.2,
+      hostnameVerified: false,
+      chainTrusted: false,
+      daysUntilExpiry: -5,
+      ocspStapled: false,
+    },
+  },
+  logs: [],
+  scheduleError: '',
+  runError: '',
+}

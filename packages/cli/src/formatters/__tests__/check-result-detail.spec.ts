@@ -17,6 +17,9 @@ import {
   agenticCheckResult,
   agenticCheckResultWithFailures,
   agenticCheckResultMinimal,
+  tracerouteCheckResult,
+  grpcCheckResult,
+  sslCheckResult,
 } from './__fixtures__/fixtures.js'
 
 // Pin time for formatDate used in result detail
@@ -343,6 +346,106 @@ describe('formatResultDetail', () => {
       expect(result).toContain('passing')
       expect(result).not.toContain('## Request')
       expect(result).not.toContain('## Browser')
+    })
+  })
+
+  describe('Traceroute check result', () => {
+    it('renders terminal snapshot', () => {
+      const result = stripAnsi(formatResultDetail(tracerouteCheckResult, 'terminal'))
+      expect(result).toMatchSnapshot('traceroute-result-detail-terminal')
+    })
+
+    it('renders markdown snapshot', () => {
+      const result = formatResultDetail(tracerouteCheckResult, 'md')
+      expect(result).toMatchSnapshot('traceroute-result-detail-md')
+    })
+
+    it('surfaces the diagnostic block for a failed run (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(tracerouteCheckResult, 'terminal'))
+      expect(result).toContain('TRACEROUTE RESULT')
+      expect(result).toContain('unreachable.example.com')
+      expect(result).toContain('203.0.113.10')
+      expect(result).toContain('Hops:')
+      expect(result).toContain('30')
+      expect(result).toContain('Reached:')
+      expect(result).toContain('no')
+      expect(result).toContain('max-hops')
+      expect(result).toContain('HOPS')
+      expect(result).toContain('gateway.local')
+      expect(result).toContain('loss 100%')
+    })
+
+    it('surfaces the diagnostic block in markdown', () => {
+      const result = formatResultDetail(tracerouteCheckResult, 'md')
+      expect(result).toContain('## Traceroute Result')
+      expect(result).toContain('**Hops:** 30')
+      expect(result).toContain('**Truncated:** max-hops')
+    })
+  })
+
+  describe('gRPC check result', () => {
+    it('renders terminal snapshot', () => {
+      const result = stripAnsi(formatResultDetail(grpcCheckResult, 'terminal'))
+      expect(result).toMatchSnapshot('grpc-result-detail-terminal')
+    })
+
+    it('renders markdown snapshot', () => {
+      const result = formatResultDetail(grpcCheckResult, 'md')
+      expect(result).toMatchSnapshot('grpc-result-detail-md')
+    })
+
+    it('surfaces the diagnostic block for a failed run (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(grpcCheckResult, 'terminal'))
+      expect(result).toContain('GRPC RESULT')
+      expect(result).toContain('grpc.example.com')
+      expect(result).toContain('grpc.health.v1.Health/Check')
+      expect(result).toContain('Status:')
+      expect(result).toContain('14 connection refused')
+      expect(result).toContain('Health:')
+      expect(result).toContain('NOT_SERVING')
+      expect(result).toContain('grpc.health.v1.Health/Watch')
+      expect(result).toContain('content-type')
+    })
+
+    it('surfaces the diagnostic block in markdown', () => {
+      const result = formatResultDetail(grpcCheckResult, 'md')
+      expect(result).toContain('## gRPC Result')
+      expect(result).toContain('**Status:** 14 connection refused')
+      expect(result).toContain('**Health:** NOT_SERVING')
+    })
+  })
+
+  describe('SSL check result', () => {
+    it('renders terminal snapshot', () => {
+      const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
+      expect(result).toMatchSnapshot('ssl-result-detail-terminal')
+    })
+
+    it('renders markdown snapshot', () => {
+      const result = formatResultDetail(sslCheckResult, 'md')
+      expect(result).toMatchSnapshot('ssl-result-detail-md')
+    })
+
+    it('surfaces the diagnostic block for a failed run (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
+      expect(result).toContain('SSL RESULT')
+      expect(result).toContain('TLS 1.3')
+      expect(result).toContain('TLS_AES_256_GCM_SHA384')
+      expect(result).toContain('Expires in:')
+      expect(result).toContain('expired 5 day(s) ago')
+      expect(result).toContain('Chain trusted:')
+      expect(result).toContain('Baseline:')
+      expect(result).toContain('FAIL')
+      expect(result).toContain('grade C')
+      expect(result).toContain('Failure:')
+      expect(result).toContain('expired')
+    })
+
+    it('surfaces the diagnostic block in markdown', () => {
+      const result = formatResultDetail(sslCheckResult, 'md')
+      expect(result).toContain('## SSL Result')
+      expect(result).toContain('**Expires in:** expired 5 day(s) ago')
+      expect(result).toContain('**Failure:** expired')
     })
   })
 })
