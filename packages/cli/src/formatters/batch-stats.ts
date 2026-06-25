@@ -8,7 +8,7 @@ import type { QuickRange } from '../rest/analytics.js'
 
 export type StatsRow = CheckWithStatus & { analytics?: BatchAnalyticsResult }
 
-const TIMING_TYPES = new Set(['API', 'BROWSER', 'PLAYWRIGHT', 'MULTI_STEP', 'URL', 'TCP', 'DNS'])
+const TIMING_TYPES = new Set(['API', 'BROWSER', 'PLAYWRIGHT', 'MULTI_STEP', 'URL', 'TCP', 'DNS', 'GRPC', 'SSL', 'TRACEROUTE'])
 const ICMP_TYPE = 'ICMP'
 const DASH = '—'
 

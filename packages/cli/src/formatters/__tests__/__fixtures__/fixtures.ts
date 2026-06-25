@@ -6,6 +6,9 @@ import type {
   BrowserCheckResult,
   MultiStepCheckResult,
   AgenticCheckResult,
+  TracerouteCheckResult,
+  GrpcCheckResult,
+  SslCheckResult,
 } from '../../rest/check-results'
 import type { ErrorGroup, RootCauseAnalysis } from '../../rest/error-groups'
 import type { CheckWithStatus } from '../checks'
@@ -552,4 +555,115 @@ export const errorGroupWithoutRca: ErrorGroup = {
   ...activeErrorGroup,
   id: 'eg-no-rca',
   rootCauseAnalyses: [],
+}
+
+// --- Traceroute / gRPC / SSL check results (public-API CheckResult shape) ---
+// Failing runs of each type, mirroring the 4.1 public check-results fields.
+
+const baseDiagnosticResult = {
+  hasErrors: false,
+  isDegraded: false,
+  overMaxResponseTime: false,
+  runLocation: 'eu-west-1',
+  startedAt: '2025-06-15T12:00:00.000Z',
+  stoppedAt: '2025-06-15T12:00:01.000Z',
+  created_at: '2025-06-15T12:00:01.000Z',
+  attempts: 1,
+  resultType: 'FINAL' as const,
+}
+
+export const tracerouteCheckResultDetail: TracerouteCheckResult = {
+  totalHops: 30,
+  destinationReached: false,
+  finalHopLatency: { avg_ms: 24.1, best_ms: 22.0, worst_ms: 31.4 },
+  requestError: null,
+  response: {
+    hostname: 'unreachable.example.com',
+    resolvedIp: '203.0.113.10',
+    totalHops: 30,
+    destinationReached: false,
+    truncationReason: 'max-hops',
+    protocol: 'TCP',
+    finalHopLatency: { avg_ms: 24.1, best_ms: 22.0, worst_ms: 31.4 },
+    hops: [
+      { hop_number: 1, main_ip: '10.0.0.1', main_host: 'gateway.local', loss_percentage: 0, rtt: { avg: 1.2, best: 1.0, worst: 1.5 } },
+      { hop_number: 2, main_ip: '198.51.100.5', loss_percentage: 100, rtt: null, asn: 64500 },
+    ],
+  },
+}
+
+export const tracerouteCheckResult: CheckResult = {
+  ...baseDiagnosticResult,
+  id: 'result-tr-1',
+  checkId: 'check-tr',
+  name: 'Traceroute to unreachable host',
+  hasFailures: true,
+  responseTime: 1000,
+  checkRunId: 2001,
+  tracerouteCheckResult: tracerouteCheckResultDetail,
+}
+
+export const grpcCheckResultDetail: GrpcCheckResult = {
+  grpcStatusCode: 14,
+  healthStatus: 2,
+  requestError: null,
+  response: {
+    grpcMode: 'HEALTH',
+    host: 'grpc.example.com',
+    resolvedIp: '203.0.113.20',
+    port: 443,
+    grpcMethod: 'grpc.health.v1.Health/Check',
+    responseMessage: '',
+    grpcStatusCode: 14,
+    grpcStatusMessage: 'connection refused',
+    healthStatus: 2,
+    healthStatusLabel: 'NOT_SERVING',
+    metadata: [{ key: 'content-type', value: 'application/grpc' }],
+    discoveredMethods: ['grpc.health.v1.Health/Check', 'grpc.health.v1.Health/Watch'],
+  },
+}
+
+export const grpcCheckResult: CheckResult = {
+  ...baseDiagnosticResult,
+  id: 'result-grpc-1',
+  checkId: 'check-grpc',
+  name: 'gRPC health probe',
+  hasFailures: true,
+  responseTime: 90,
+  checkRunId: 2002,
+  grpcCheckResult: grpcCheckResultDetail,
+}
+
+export const sslCheckResultDetail: SslCheckResult = {
+  tlsVersion: 'TLS 1.3',
+  cipherSuite: 'TLS_AES_256_GCM_SHA384',
+  daysUntilExpiry: -5,
+  handshakeTimeMs: 48.2,
+  chainTrusted: false,
+  hostnameVerified: false,
+  baselineVerdict: 'FAIL',
+  baselineGrade: 'C',
+  failureCategory: 'expired',
+  requestError: null,
+  response: {
+    resolvedIp: '203.0.113.30',
+    protocol: 'TLS 1.3',
+    cipherSuite: 'TLS_AES_256_GCM_SHA384',
+    handshakeTimeMs: 48.2,
+    hostnameVerified: false,
+    chainTrusted: false,
+    daysUntilExpiry: -5,
+    ocspStapled: false,
+  },
+}
+
+export const sslCheckResult: CheckResult = {
+  ...baseDiagnosticResult,
+  id: 'result-ssl-1',
+  checkId: 'check-ssl',
+  name: 'SSL certificate expiry',
+  hasFailures: true,
+  responseTime: 48,
+  checkRunId: 2003,
+  sslCheckResult: sslCheckResultDetail,
 }

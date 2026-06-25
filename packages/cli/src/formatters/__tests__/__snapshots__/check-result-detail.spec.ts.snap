@@ -281,3 +281,141 @@ ASSETS
   1 screenshot(s), 1 trace(s)
   Use --output json to get asset URLs"
 `;
+
+exports[`formatResultDetail > SSL check result > renders markdown snapshot > ssl-result-detail-md 1`] = `
+"# SSL certificate expiry
+
+| Field | Value |
+| --- | --- |
+| Status | failing |
+| Location | eu-west-1 |
+| Response time | 48ms |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:01.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-ssl-1 |
+
+## SSL Result
+- **TLS:** TLS 1.3 / TLS_AES_256_GCM_SHA384
+- **Expires in:** expired 5 day(s) ago
+- **Handshake:** 48ms
+- **Chain trusted:** no
+- **Hostname verified:** no
+- **Baseline:** FAIL grade C
+- **Failure:** expired"
+`;
+
+exports[`formatResultDetail > SSL check result > renders terminal snapshot > ssl-result-detail-terminal 1`] = `
+"SSL certificate expiry
+
+Status:         failing
+Location:       eu-west-1
+Response time:  48ms
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:01 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-ssl-1
+
+SSL RESULT
+Resolved IP:    203.0.113.30
+TLS:            TLS 1.3 / TLS_AES_256_GCM_SHA384
+Expires in:     expired 5 day(s) ago
+Handshake:      48ms
+Chain trusted:  no
+Hostname:       no
+Baseline:       FAIL grade C
+Failure:        expired"
+`;
+
+exports[`formatResultDetail > Traceroute check result > renders markdown snapshot > traceroute-result-detail-md 1`] = `
+"# Traceroute to unreachable host
+
+| Field | Value |
+| --- | --- |
+| Status | failing |
+| Location | eu-west-1 |
+| Response time | 1.00s |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:01.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-tr-1 |
+
+## Traceroute Result
+- **Destination:** unreachable.example.com (203.0.113.10)
+- **Hops:** 30
+- **Reached:** no
+- **Truncated:** max-hops
+- **Final hop:** avg 24ms / best 22ms / worst 31ms"
+`;
+
+exports[`formatResultDetail > Traceroute check result > renders terminal snapshot > traceroute-result-detail-terminal 1`] = `
+"Traceroute to unreachable host
+
+Status:         failing
+Location:       eu-west-1
+Response time:  1.00s
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:01 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-tr-1
+
+TRACEROUTE RESULT
+Destination:    unreachable.example.com (203.0.113.10)
+Protocol:       TCP
+Hops:           30
+Reached:        no
+Truncated:      max-hops
+Final hop:      avg 24ms / best 22ms / worst 31ms
+
+HOPS
+   1  10.0.0.1 (gateway.local)  loss 0%  rtt avg 1ms / best 1ms / worst 2ms
+   2  198.51.100.5  loss 100%  AS64500"
+`;
+
+exports[`formatResultDetail > gRPC check result > renders markdown snapshot > grpc-result-detail-md 1`] = `
+"# gRPC health probe
+
+| Field | Value |
+| --- | --- |
+| Status | failing |
+| Location | eu-west-1 |
+| Response time | 90ms |
+| Started | 2025-06-15T12:00:00.000Z |
+| Stopped | 2025-06-15T12:00:01.000Z |
+| Attempts | 1 |
+| Result type | FINAL |
+| ID | result-grpc-1 |
+
+## gRPC Result
+- **Status:** 14 connection refused
+- **Health:** NOT_SERVING
+- **Method:** grpc.health.v1.Health/Check
+- **Discovered methods:** grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch"
+`;
+
+exports[`formatResultDetail > gRPC check result > renders terminal snapshot > grpc-result-detail-terminal 1`] = `
+"gRPC health probe
+
+Status:         failing
+Location:       eu-west-1
+Response time:  90ms
+Started:        2025-06-15 12:00:00 UTC
+Stopped:        2025-06-15 12:00:01 UTC
+Attempts:       1
+Result type:    FINAL
+ID:             result-grpc-1
+
+GRPC RESULT
+Target:         grpc.example.com:443
+Method:         grpc.health.v1.Health/Check
+Mode:           HEALTH
+Status:         14 connection refused
+Health:         NOT_SERVING
+Methods:        grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch
+Metadata:       
+  content-type: application/grpc"
+`;
