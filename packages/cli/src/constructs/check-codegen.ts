@@ -17,6 +17,7 @@ import { valueForPrivateLocationFromId } from './private-location-codegen.js'
 import { valueForAlertChannelFromId } from './alert-channel-codegen.js'
 import { DnsMonitorCodegen, DnsMonitorResource } from './dns-monitor-codegen.js'
 import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen.js'
+import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.js'
 
 export interface CheckResource {
   id: string
@@ -248,6 +249,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
   urlMonitorCodegen: UrlMonitorCodegen
   dnsMonitorCodegen: DnsMonitorCodegen
   icmpMonitorCodegen: IcmpMonitorCodegen
+  grpcMonitorCodegen: GrpcMonitorCodegen
 
   constructor (program: Program) {
     super(program)
@@ -261,6 +263,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.urlMonitorCodegen = new UrlMonitorCodegen(program)
     this.dnsMonitorCodegen = new DnsMonitorCodegen(program)
     this.icmpMonitorCodegen = new IcmpMonitorCodegen(program)
+    this.grpcMonitorCodegen = new GrpcMonitorCodegen(program)
   }
 
   describe (resource: CheckResource): string {
@@ -285,6 +288,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return this.dnsMonitorCodegen.describe(resource as DnsMonitorResource)
       case 'ICMP':
         return this.icmpMonitorCodegen.describe(resource as IcmpMonitorResource)
+      case 'GRPC':
+        return this.grpcMonitorCodegen.describe(resource as GrpcMonitorResource)
       default:
         throw new Error(`Unable to describe unsupported check type '${checkType}'.`)
     }
@@ -320,6 +325,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return
       case 'ICMP':
         this.icmpMonitorCodegen.gencode(logicalId, resource as IcmpMonitorResource, context)
+        return
+      case 'GRPC':
+        this.grpcMonitorCodegen.gencode(logicalId, resource as GrpcMonitorResource, context)
         return
       default:
         throw new Error(`Unable to generate code for unsupported check type '${checkType}'.`)
