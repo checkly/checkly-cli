@@ -283,6 +283,15 @@ export class Bundler {
     return this.#cacheHash
   }
 
+  /**
+   * Whether any files have been registered for bundling. Only Playwright check
+   * suites register files (see playwright-check.ts), so an empty bundler means the
+   * project has nothing that needs a remote code bundle and the upload can be skipped.
+   */
+  get isEmpty (): boolean {
+    return this.#files.size === 0
+  }
+
   registerFiles (...files: File[]): void {
     for (const newFile of files) {
       const existingFile = this.#files.get(newFile.filePath)
