@@ -6,6 +6,7 @@ import config from '../services/config.js'
 import * as api from '../rest/api.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext } from '../auth/index.js'
+import commonMessages from '../messages/common-messages.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
@@ -30,8 +31,7 @@ export default class Login extends BaseCommand {
 
   private _checkExistingCredentials = async () => {
     if (config.hasEnvVarsConfigured()) {
-      this.warn('`CHECKLY_API_KEY` '
-        + 'or `CHECKLY_ACCOUNT_ID` environment variables are configured (via shell or .env file). You must delete them to use `npx checkly login`.')
+      this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)
       this.exit(0)
     }
 
