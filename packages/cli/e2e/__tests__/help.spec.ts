@@ -68,7 +68,7 @@ describe('help', () => {
   logout           Log out and clear any local credentials.
   members          List account members and pending invites.
   rca              Trigger and retrieve root cause analyses.
-  rules            Generate a rules file to use with AI IDEs and Copilots.
+  rules            Deprecated. Use \`checkly skills\` instead.
   runtimes         List all supported runtimes and dependencies.
   skills           Show Checkly AI skills, actions and their references.
   status-pages     List and manage status pages in your Checkly account.
