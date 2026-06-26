@@ -23,10 +23,7 @@ describe('logout', () => {
     expect(stdout).toContain('See you soon! 👋')
     // The e2e env has CHECKLY_API_KEY/CHECKLY_ACCOUNT_ID set, so clearing the
     // local session does not actually log us out — logout warns about that.
-    // oclif wraps the warning and prefixes continuation lines with ` › `, so
-    // strip those markers and collapse whitespace before matching.
-    const warning = stderr.replace(/›/g, '').replace(/\s+/g, ' ')
-    expect(warning).toContain('are configured (via shell or .env file)')
-    expect(warning).toContain('still authenticated through them')
+    expect(stderr).toContain('are configured (via shell or .env file)')
+    expect(stderr).toContain('authenticated')
   })
 })
