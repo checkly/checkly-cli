@@ -7,6 +7,62 @@ import { CheckStatus, getTestSessionUrl, printLn, resultToCheckStatus } from './
 
 const outputFile = './checkly-json-report.json'
 
+// Per-type failure-debug diagnostics for the three uptime monitor types, shaped
+// like the public check-results fields (tracerouteCheckResult/grpcCheckResult/
+// sslCheckResult). Sourced from the runner artifact (`checkRunData`) so
+// `checkly test --reporter json` emits the data an agent needs to root-cause a
+// failed run, not just `result: 'Fail'`. Returns undefined for other types or
+// when no diagnostic artifact is present.
+export function buildPerTypeDiagnostics (result: any): Record<string, unknown> | undefined {
+  const data = result?.checkRunData
+  const response = data?.response
+  const requestError = data?.requestError ?? null
+  if (!response && !requestError) {
+    return undefined
+  }
+
+  switch (result?.checkType) {
+    case 'TRACEROUTE':
+      return {
+        tracerouteCheckResult: {
+          totalHops: response?.totalHops ?? null,
+          destinationReached: response?.destinationReached ?? null,
+          finalHopLatency: response?.finalHopLatency ?? null,
+          truncationReason: response?.truncationReason ?? null,
+          requestError,
+          response: response ?? null,
+        },
+      }
+    case 'GRPC':
+      return {
+        grpcCheckResult: {
+          grpcStatusCode: response?.grpcStatusCode ?? null,
+          grpcStatusMessage: response?.grpcStatusMessage ?? null,
+          healthStatus: response?.healthStatus ?? null,
+          healthStatusLabel: response?.healthStatusLabel ?? null,
+          discoveredMethods: response?.discoveredMethods ?? null,
+          requestError,
+          response: response ?? null,
+        },
+      }
+    case 'SSL':
+      return {
+        sslCheckResult: {
+          tlsVersion: response?.protocol ?? null,
+          cipherSuite: response?.cipherSuite ?? null,
+          daysUntilExpiry: response?.daysUntilExpiry ?? null,
+          handshakeTimeMs: response?.handshakeTimeMs ?? null,
+          chainTrusted: response?.chainTrusted ?? null,
+          hostnameVerified: response?.hostnameVerified ?? null,
+          requestError,
+          response: response ?? null,
+        },
+      }
+    default:
+      return undefined
+  }
+}
+
 type JsonBuilderOptions = {
   testSessionId?: string
   numChecks: number
@@ -55,6 +111,11 @@ export class JsonBuilder {
 
         if (this.hasFilenames) {
           check.filename = result.sourceFile
+        }
+
+        const diagnostics = buildPerTypeDiagnostics(result)
+        if (diagnostics) {
+          check.diagnostics = diagnostics
         }
 
         if (this.testSessionId && testResultId) {
