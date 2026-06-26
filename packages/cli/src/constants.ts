@@ -8,6 +8,9 @@ export const CheckTypes = {
   ICMP: 'ICMP',
   DNS: 'DNS',
   URL: 'URL',
+  GRPC: 'GRPC',
+  SSL: 'SSL',
+  TRACEROUTE: 'TRACEROUTE',
   AGENTIC: 'AGENTIC',
 } as const
 
