@@ -19,5 +19,8 @@ describe('whomai', () => {
     const { stdout } = await runCheckly(fixt, ['whoami'])
     expect(stdout).toContain(config.get('accountName'))
     expect(stdout).toContain('Plan:')
+    // The e2e env authenticates via CHECKLY_API_KEY/CHECKLY_ACCOUNT_ID, so
+    // whoami notes that the account comes from the environment.
+    expect(stdout).toContain('resolved from your environment')
   })
 })
