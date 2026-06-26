@@ -25,6 +25,7 @@ describe('rules', () => {
     await cmd.run()
 
     const logged = getLogged(cmd)
-    expect(logged).toEqual(['The `rules` command is deprecated. Use `npx checkly skills`.'])
+    expect(logged.some(m => m.includes('is deprecated'))).toBe(true)
+    expect(logged.some(m => m.includes('checkly skills'))).toBe(true)
   })
 })

@@ -9,7 +9,7 @@ export default class Rules extends BaseCommand {
     'Deprecated. Use `checkly skills` instead.'
 
   run (): Promise<void> {
-    this.log('Rules were deprecated. Use `npx checkly skills`.')
+    this.log('The `rules` command is deprecated. Use `checkly skills` instead.')
     return Promise.resolve()
   }
 }
