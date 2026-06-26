@@ -21,6 +21,7 @@ describe('logout', () => {
     })
 
     expect(stdout).toContain('See you soon! 👋')
-    expect(stderr).toBe('')
+    // env credentials are set, so logout warns the session clear didn't log us out
+    expect(stderr).toContain('are configured (via shell or .env file)')
   })
 })
