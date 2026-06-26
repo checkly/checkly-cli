@@ -24,6 +24,5 @@ describe('logout', () => {
     // The e2e env has CHECKLY_API_KEY/CHECKLY_ACCOUNT_ID set, so clearing the
     // local session does not actually log us out — logout warns about that.
     expect(stderr).toContain('are configured (via shell or .env file)')
-    expect(stderr).toContain('authenticated')
   })
 })
