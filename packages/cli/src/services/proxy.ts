@@ -21,6 +21,16 @@ function toHttpUrl (url: string): string {
 }
 
 /**
+ * Returns the proxy URL that applies to `targetUrl` based on the standard proxy
+ * environment variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`,
+ * and their lowercase variants), or `undefined` when the connection should be
+ * made directly.
+ */
+export function getProxyUrl (targetUrl: string): string | undefined {
+  return getProxyForUrl(toHttpUrl(targetUrl)) || undefined
+}
+
+/**
  * Returns a proxy agent for connecting to `targetUrl` based on the standard
  * proxy environment variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`,
  * `NO_PROXY`, and their lowercase variants), or `undefined` when no proxy
@@ -31,8 +41,7 @@ function toHttpUrl (url: string): string {
  * handles both HTTP and HTTPS targets).
  */
 export function createProxyAgent (targetUrl: string): Agent | undefined {
-  const httpUrl = toHttpUrl(targetUrl)
-  const proxyUrl = getProxyForUrl(httpUrl)
+  const proxyUrl = getProxyUrl(targetUrl)
   if (!proxyUrl) {
     return undefined
   }
@@ -41,7 +50,7 @@ export function createProxyAgent (targetUrl: string): Agent | undefined {
     return new SocksProxyAgent(proxyUrl)
   }
 
-  return new URL(httpUrl).protocol === 'https:'
+  return new URL(toHttpUrl(targetUrl)).protocol === 'https:'
     ? new HttpsProxyAgent(proxyUrl)
     : new HttpProxyAgent(proxyUrl)
 }
