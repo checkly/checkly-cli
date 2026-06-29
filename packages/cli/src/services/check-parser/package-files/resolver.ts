@@ -1,10 +1,11 @@
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import Debug from 'debug'
 
 import { SourceFile } from './source-file.js'
 import { PackageJsonFile } from './package-json-file.js'
-import { TSConfigFile } from './tsconfig-json-file.js'
+import { TSConfigFile, Schema, ResolveExtends, ExtendedConfig } from './tsconfig-json-file.js'
 import { JSConfigFile } from './jsconfig-json-file.js'
 import { isBuiltinPath, isImportsPath, isLocalPath, isNativeBinaryPath, PathResult, splitExternalPath } from './paths.js'
 import { FileLoader, LoadFile } from './loader.js'
@@ -16,7 +17,21 @@ import { Package, Workspace } from './workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:resolver')
 
+/**
+ * Candidate file paths for an `extends` target. TypeScript appends `.json` when
+ * the specifier has no extension and falls back to `<dir>/tsconfig.json` when it
+ * points at a directory.
+ */
+function configFileCandidates (base: string): string[] {
+  if (base.endsWith('.json')) {
+    return [base]
+  }
+  return [`${base}.json`, path.join(base, TSConfigFile.FILENAME)]
+}
+
 class PackageFilesCache {
+  #workspace?: Workspace
+
   #sourceFileCache = new FileLoader(SourceFile.loadFromFilePath)
 
   #fileLoader<T> (load: (sourceFile: SourceFile) => Promise<T | undefined>): LoadFile<T> {
@@ -52,9 +67,79 @@ class PackageFilesCache {
     })
   }
 
+  // Loads any file path as a raw tsconfig/jsconfig schema, tolerating JSONC
+  // (comments and trailing commas). Used to pull in the configs referenced by a
+  // config's `extends` property, whatever their filename.
+  #tsconfigSchemaCache = new FileLoader<JsonTextSourceFile<Schema>>(async filePath => {
+    const sourceFile = await this.#sourceFileCache.load(filePath)
+    if (sourceFile === undefined) {
+      return
+    }
+
+    return JsonTextSourceFile.loadFromSourceFile<Schema>(sourceFile)
+  })
+
+  // Resolves a config referenced by another config's `extends` property. A
+  // relative/absolute path or a workspace-member package is bundled; an external
+  // node_modules package is read for its options but left to the runner to
+  // restore from package.json (so it is not bundled).
+  #resolveExtends: ResolveExtends = async (specifier, fromDir) => {
+    if (isLocalPath(specifier) || path.isAbsolute(specifier)) {
+      const base = path.resolve(fromDir, specifier)
+      return this.#loadExtendedConfig(configFileCandidates(base), true)
+    }
+
+    const { name, path: subPath } = splitExternalPath(specifier)
+    const member = this.#workspace?.memberByName(name)
+    if (member !== undefined) {
+      const base = path.resolve(member.path, subPath === '' ? TSConfigFile.FILENAME : subPath)
+      const resolved = await this.#loadExtendedConfig(configFileCandidates(base), true)
+      if (resolved !== undefined) {
+        return resolved
+      }
+    }
+
+    // External node_modules package. Let Node resolve it the way tsc does,
+    // falling back to `<package>/tsconfig.json` for the common case of a package
+    // that exposes a config but no main entry point.
+    try {
+      const require = createRequire(path.join(fromDir, TSConfigFile.FILENAME))
+      let resolvedPath: string
+      try {
+        resolvedPath = require.resolve(specifier)
+      } catch {
+        resolvedPath = require.resolve(path.posix.join(specifier, TSConfigFile.FILENAME))
+      }
+      return await this.#loadExtendedConfig([resolvedPath], false)
+    } catch {
+      // Could not resolve the extended config; behave as if `extends` were
+      // absent, matching the behavior before `extends` was supported.
+    }
+  }
+
+  async #loadExtendedConfig (candidates: string[], bundle: boolean): Promise<ExtendedConfig | undefined> {
+    for (const candidate of candidates) {
+      const jsonFile = await this.#tsconfigSchemaCache.load(candidate)
+      if (jsonFile !== undefined) {
+        return { jsonFile, bundle }
+      }
+    }
+  }
+
   #packageJsonCache = new FileLoader(this.#jsonFileLoader(PackageJsonFile.loadFromJsonSourceFile))
-  #tsconfigJsonCache = new FileLoader(this.#jsonTextFileLoader(TSConfigFile.loadFromJsonTextSourceFile))
-  #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(JSConfigFile.loadFromJsonSourceFile))
+  #tsconfigJsonCache = new FileLoader(this.#jsonTextFileLoader(
+    (jsonFile: JsonTextSourceFile<Schema>) =>
+      TSConfigFile.loadFromJsonTextSourceFile(jsonFile, this.#resolveExtends),
+  ))
+
+  #jsconfigJsonCache = new FileLoader(this.#jsonFileLoader(
+    (jsonFile: JsonSourceFile<Schema>) =>
+      JSConfigFile.loadFromJsonSourceFile(jsonFile, this.#resolveExtends),
+  ))
+
+  constructor (workspace?: Workspace) {
+    this.#workspace = workspace
+  }
 
   async exactSourceFile (filePath: string): Promise<SourceFile | undefined> {
     return await this.#sourceFileCache.load(filePath)
@@ -175,6 +260,13 @@ type SupportingTSConfigFileLocalDependency = {
   configFile: TSConfigFile
 }
 
+type ExtendedTSConfigFileLocalDependency = {
+  kind: 'extended-tsconfig-file'
+  importPath: string
+  sourceFile: SourceFile
+  configFile: TSConfigFile
+}
+
 type SupportingTSConfigResolvedPathLocalDependency = {
   kind: 'supporting-tsconfig-resolved-path'
   importPath: string
@@ -211,6 +303,7 @@ type LocalDependency =
   | NearestPackageJsonFileLocalDependency
   | NearestTSConfigFileLocalDependency
   | SupportingTSConfigFileLocalDependency
+  | ExtendedTSConfigFileLocalDependency
   | SupportingTSConfigResolvedPathLocalDependency
   | SupportingTSConfigBaseUrlRelativePathLocalDependency
   | RelativePathLocalDependency
@@ -248,13 +341,14 @@ export interface PackageFilesResolverOptions {
 }
 
 export class PackageFilesResolver {
-  cache = new PackageFilesCache()
+  cache: PackageFilesCache
   workspace?: Workspace
   restricted: boolean
 
   constructor (options?: PackageFilesResolverOptions) {
     this.workspace = options?.workspace
     this.restricted = options?.restricted ?? false
+    this.cache = new PackageFilesCache(options?.workspace)
   }
 
   async loadPackageFiles (filePath: string, options?: LineageOptions): Promise<PackageFiles> {
@@ -332,7 +426,12 @@ export class PackageFilesResolver {
 
             configJson.registerRelatedSourceFile(mainSourceFile)
 
-            return [sourceFile, mainSourceFile, configJson.jsonFile.sourceFile]
+            return [
+              sourceFile,
+              mainSourceFile,
+              configJson.jsonFile.sourceFile,
+              ...configJson.bundledExtendsSourceFiles,
+            ]
           }
         }
 
@@ -365,6 +464,20 @@ export class PackageFilesResolver {
         depends: [],
         references: [],
       },
+    }
+
+    // Whenever a config is included as a dependency, the local configs it
+    // reaches through `extends` must be included too, so that path resolution
+    // still works at runtime.
+    const pushExtendedConfigs = (importPath: string, configFile: TSConfigFile) => {
+      for (const sourceFile of configFile.bundledExtendsSourceFiles) {
+        resolved.local.push({
+          kind: 'extended-tsconfig-file',
+          importPath,
+          sourceFile,
+          configFile,
+        })
+      }
     }
 
     const dirname = path.dirname(filePath)
@@ -415,6 +528,7 @@ export class PackageFilesResolver {
           sourceFile: tsconfigJson.jsonFile.sourceFile,
           configFile: tsconfigJson,
         })
+        pushExtendedConfigs(filePath, tsconfigJson)
       }
 
       if (jsconfigJson) {
@@ -427,6 +541,7 @@ export class PackageFilesResolver {
           sourceFile: jsconfigJson.jsonFile.sourceFile,
           configFile: jsconfigJson,
         })
+        pushExtendedConfigs(filePath, jsconfigJson)
       }
 
       if (this.workspace.lockfile.isOk()) {
@@ -495,6 +610,7 @@ export class PackageFilesResolver {
           sourceFile: tsconfigJson.jsonFile.sourceFile,
           configFile: tsconfigJson,
         })
+        pushExtendedConfigs(filePath, tsconfigJson)
       }
 
       if (jsconfigJson) {
@@ -507,6 +623,7 @@ export class PackageFilesResolver {
           sourceFile: jsconfigJson.jsonFile.sourceFile,
           configFile: jsconfigJson,
         })
+        pushExtendedConfigs(filePath, jsconfigJson)
       }
     }
 
@@ -597,6 +714,7 @@ export class PackageFilesResolver {
                   sourceFile: configJson.jsonFile.sourceFile,
                   configFile: configJson,
                 })
+                pushExtendedConfigs(importPath, configJson)
                 found = true
               }
               if (found) {
@@ -637,6 +755,7 @@ export class PackageFilesResolver {
                 sourceFile: configJson.jsonFile.sourceFile,
                 configFile: configJson,
               })
+              pushExtendedConfigs(importPath, configJson)
               found = true
             }
             if (found) {
