@@ -4,6 +4,7 @@ import { Command } from '@oclif/core'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 import { api } from '../rest/api.js'
+import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
@@ -81,7 +82,11 @@ export abstract class BaseCommand extends Command {
     // use latest version from NPM if it's running from the local environment or E2E
     if (version === '0.0.1-dev' || version?.startsWith('0.0.0')) {
       try {
-        const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
+        const registryUrl = 'https://registry.npmjs.org/checkly/latest'
+        const { data: packageInformation } = await axios.get(
+          registryUrl,
+          assignProxy(registryUrl, {}),
+        )
         version = packageInformation.version
       } catch {
         // No-op
