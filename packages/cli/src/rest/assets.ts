@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { AxiosInstance } from 'axios'
+import { assignProxy } from '../services/proxy.js'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssetType {
@@ -139,10 +140,10 @@ export default class Assets {
     }
 
     const presignedUrl = await this.getAssetsLink(asset.region, asset.key)
-    const response = await axios.get(presignedUrl, {
+    const response = await axios.get(presignedUrl, assignProxy(presignedUrl, {
       headers: { Range: `bytes=${entry.start}-${entry.end}` },
       responseType: 'text',
-    })
+    }))
 
     return JSON.parse(response.data)
   }
