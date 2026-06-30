@@ -6,6 +6,8 @@ import { AuthCommand } from './authCommand.js'
 import { splitConfigFilePath } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { forceFlag } from '../helpers/flags.js'
+import { ProjectDeployCancelledError } from '../rest/projects.js'
+import { ConflictError } from '../rest/errors.js'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
@@ -70,12 +72,32 @@ export default class Destroy extends AuthCommand {
     })
 
     try {
-      await api.projects.deleteProject(checklyConfig.logicalId, { preserveResources })
+      this.style.actionStart('Destroying project')
+      // The deletion runs asynchronously on the backend and is followed to
+      // completion, so large projects are no longer bound by the request timeout.
+      await api.projects.deleteProject(checklyConfig.logicalId, {
+        preserveResources,
+        onProgress: progress => this.style.actionStatus(`${progress}% complete`),
+        onStatus: message => this.style.actionStatus(message),
+      })
+      this.style.actionSuccess()
       this.log(preserveResources
         ? `Project "${checklyConfig.projectName}" has been successfully deleted. All resources have been preserved as account-level resources.`
         : `All resources associated with project "${checklyConfig.projectName}" have been successfully deleted.`)
     } catch (err: any) {
-      this.style.longError(`Your project could not be destroyed.`, err)
+      this.style.actionFailure()
+      if (err instanceof ProjectDeployCancelledError) {
+        this.style.longError('Your project could not be destroyed.', err.message)
+      } else if (err instanceof ConflictError) {
+        // deleteProject waits-and-retries behind an in-progress operation, so a
+        // 409 only reaches here once that wait exceeded its deadline.
+        this.style.longError(
+          'An operation for this project is still in progress.',
+          'Try again once it has finished.',
+        )
+      } else {
+        this.style.longError('Your project could not be destroyed.', err)
+      }
       this.exit(1)
     }
   }
