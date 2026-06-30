@@ -78,6 +78,33 @@ When modifying AI context sources (`src/ai-context/skill.md`, `src/ai-context/re
 
 The `skills/checkly/SKILL.md` file is the published copy that agents load. If you forget to regenerate it, CI will flag it as out of date.
 
+## Pull request review: Ship / Show / Ask
+
+This repo supports the [Ship / Show / Ask](https://martinfowler.com/articles/ship-show-ask.html)
+strategy. Signal your intent by tagging the **PR title** (case-insensitive):
+
+- **`[ship]`** — No review needed. `github-actions[bot]` auto-approves the PR; merge it yourself
+  once CI is green. Use for low-risk changes you're confident in.
+- **`[show]`** — Merge now, review after the fact. Also auto-approved; open it for visibility and
+  merge once CI passes, inviting comments for follow-up.
+- **`[ask]`** or **no tag** — Normal review. The PR waits for a human approval before it can merge.
+
+Notes:
+
+- **Auto-approval is limited to PRs opened from a branch in this repository** (i.e. members and
+  collaborators with push access). Pull requests from forks are **never** auto-approved and always
+  require manual review, regardless of the title tag.
+- If you tag a PR `[ship]`/`[show]` and later change the title to `[ask]` (or drop the tag), the
+  earlier auto-approval is dismissed so the PR returns to manual review.
+- A draft PR tagged `[ship]`/`[show]` is approved only once it's marked ready for review.
+- This only adds an approving review; merging still respects branch protection (passing CI, etc.).
+  It does not auto-merge.
+
+The behavior lives in [`.github/workflows/ship-show-ask.yml`](.github/workflows/ship-show-ask.yml).
+It depends on two GitHub settings outside this repo: **Allow GitHub Actions to create and approve
+pull requests** must be enabled, and branch protection on `main` must require an approving review
+(a review count — not a Code Owners review, which a bot can't satisfy).
+
 ## Prerelease experimental version
 
 To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
