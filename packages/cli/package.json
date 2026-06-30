@@ -109,7 +109,7 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^4.11.7",
+    "@oclif/core": "^4.11.11",
     "@oclif/plugin-help": "^6.2.52",
     "@oclif/plugin-warn-if-update-available": "^3.1.65",
     "@typescript-eslint/typescript-estree": "^8.61.1",
