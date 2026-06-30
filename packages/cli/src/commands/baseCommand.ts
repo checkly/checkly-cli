@@ -2,10 +2,11 @@ import axios from 'axios'
 import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { fileURLToPath } from 'node:url'
-import { dirname } from 'node:path'
+import { dirname, relative } from 'node:path'
 import { api } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
+import { findStaleSkills } from '../helpers/onboarding/skill-staleness.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
 
@@ -74,8 +75,39 @@ export abstract class BaseCommand extends Command {
     )
   }
 
+  async checkSkillFreshness (): Promise<void> {
+    // The `init` and `skills` commands install or refresh skills themselves,
+    // so a freshness warning there is either noise or self-contradictory.
+    if (this.id === 'init' || this.id?.startsWith('skills')) {
+      return
+    }
+
+    try {
+      const stale = await findStaleSkills(process.cwd())
+      if (stale.length === 0) {
+        return
+      }
+
+      const entries = stale
+        .map(({ dir, targetPath }) =>
+          `${relative(process.cwd(), targetPath)}\n`
+          + `  npx checkly skills install --path ${dir} --force`,
+        )
+        .join('\n\n')
+
+      this.style.longWarning(
+        'Checkly skill is out of date',
+        `The installed skill no longer matches this CLI version. `
+        + `Re-install to update:\n\n${entries}`,
+      )
+    } catch {
+      // Never block a command on the freshness check.
+    }
+  }
+
   protected async init (): Promise<void> {
     await this.checkEngineCompatibility()
+    await this.checkSkillFreshness()
 
     let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
 
