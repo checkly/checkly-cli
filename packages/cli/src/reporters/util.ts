@@ -246,6 +246,12 @@ export function formatCheckResult (checkResult: any) {
         formatSectionTitle('Traceroute Response'),
         formatTracerouteResponse(checkResult.checkRunData.response),
       ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
     }
     if (checkResult.checkRunData?.assertions?.length) {
       result.push([
@@ -265,6 +271,12 @@ export function formatCheckResult (checkResult: any) {
         formatSectionTitle('gRPC Response'),
         formatGrpcResponse(checkResult.checkRunData.response),
       ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
     }
     if (checkResult.checkRunData?.assertions?.length) {
       result.push([
@@ -284,6 +296,12 @@ export function formatCheckResult (checkResult: any) {
         formatSectionTitle('SSL Response'),
         formatSslResponse(checkResult.checkRunData.response),
       ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
     }
     if (checkResult.checkRunData?.assertions?.length) {
       result.push([
