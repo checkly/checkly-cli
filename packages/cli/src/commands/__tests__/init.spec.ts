@@ -2,13 +2,14 @@ import { join } from 'path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Init from '../init.js'
 
-vi.mock('../skills/install', () => ({
+vi.mock('../../services/skills', () => ({
   PLATFORM_TARGETS: {
     claude: '.claude/skills/checkly',
     codex: '.agents/skills/checkly',
   },
   readSkillFile: vi.fn(),
   writeSkillToTarget: vi.fn(),
+  findStaleSkills: vi.fn(),
 }))
 vi.mock('../../helpers/onboarding/detect-project', () => ({
   detectProjectContext: vi.fn(),
@@ -50,7 +51,7 @@ import { writeFileSync } from 'fs'
 import {
   readSkillFile,
   writeSkillToTarget,
-} from '../skills/install.js'
+} from '../../services/skills.js'
 import { detectProjectContext } from '../../helpers/onboarding/detect-project.js'
 import {
   runSkillInstallStep,

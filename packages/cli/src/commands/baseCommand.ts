@@ -6,7 +6,7 @@ import { dirname, relative } from 'node:path'
 import { api } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
-import { findStaleSkills } from '../helpers/onboarding/skill-staleness.js'
+import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
 

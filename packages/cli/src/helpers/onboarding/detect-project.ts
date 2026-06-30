@@ -1,7 +1,7 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
 
-import { PLATFORM_TARGETS } from '../../commands/skills/install.js'
+import { PLATFORM_TARGETS } from '../../services/skills.js'
 import { findPlaywrightConfigPath } from '../../services/util.js'
 import { defaultFilenames as CHECKLY_CONFIG_NAMES } from '../../services/checkly-config-loader.js'
 

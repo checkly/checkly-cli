@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-vi.mock('../../helpers/onboarding/skill-staleness', () => ({
+vi.mock('../../services/skills', () => ({
   findStaleSkills: vi.fn(),
 }))
 
-import { findStaleSkills } from '../../helpers/onboarding/skill-staleness.js'
+import { findStaleSkills } from '../../services/skills.js'
 import { BaseCommand } from '../baseCommand.js'
 
 const mockFindStaleSkills = vi.mocked(findStaleSkills)

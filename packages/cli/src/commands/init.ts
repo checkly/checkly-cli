@@ -8,7 +8,7 @@ import {
   PLATFORM_TARGETS,
   readSkillFile,
   writeSkillToTarget,
-} from './skills/install.js'
+} from '../services/skills.js'
 import {
   detectProjectContext,
   type ProjectContext,
