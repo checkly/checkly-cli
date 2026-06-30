@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { join, relative } from 'path'
 
 vi.mock('../../services/skills', () => ({
   findStaleSkills: vi.fn(),
@@ -30,34 +31,37 @@ describe('BaseCommand.checkSkillFreshness', () => {
   })
 
   it('warns when an installed skill is stale', async () => {
+    const targetPath = join(process.cwd(), '.claude/skills/checkly/SKILL.md')
     mockFindStaleSkills.mockResolvedValue([
-      { dir: '.claude/skills/checkly', targetPath: `${process.cwd()}/.claude/skills/checkly/SKILL.md` },
+      { dir: '.claude/skills/checkly', targetPath },
     ])
 
     await run('test')
 
     expect(warnings).toHaveLength(1)
     expect(warnings[0].title).toBe('Checkly skill is out of date')
-    expect(warnings[0].message).toContain('.claude/skills/checkly/SKILL.md')
+    expect(warnings[0].message).toContain(relative(process.cwd(), targetPath))
     expect(warnings[0].message).toContain(
       'npx checkly skills install --path .claude/skills/checkly --force',
     )
   })
 
   it('pairs each stale path with its own update command in one warning', async () => {
+    const claudePath = join(process.cwd(), '.claude/skills/checkly/SKILL.md')
+    const cursorPath = join(process.cwd(), '.cursor/skills/checkly/SKILL.md')
     mockFindStaleSkills.mockResolvedValue([
-      { dir: '.claude/skills/checkly', targetPath: `${process.cwd()}/.claude/skills/checkly/SKILL.md` },
-      { dir: '.cursor/skills/checkly', targetPath: `${process.cwd()}/.cursor/skills/checkly/SKILL.md` },
+      { dir: '.claude/skills/checkly', targetPath: claudePath },
+      { dir: '.cursor/skills/checkly', targetPath: cursorPath },
     ])
 
     await run('deploy')
 
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain(
-      '.claude/skills/checkly/SKILL.md\n  npx checkly skills install --path .claude/skills/checkly --force',
+      `${relative(process.cwd(), claudePath)}\n  npx checkly skills install --path .claude/skills/checkly --force`,
     )
     expect(warnings[0].message).toContain(
-      '.cursor/skills/checkly/SKILL.md\n  npx checkly skills install --path .cursor/skills/checkly --force',
+      `${relative(process.cwd(), cursorPath)}\n  npx checkly skills install --path .cursor/skills/checkly --force`,
     )
   })
 
