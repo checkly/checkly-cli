@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join, dirname } from 'path'
 import prompts from 'prompts'
@@ -98,6 +99,15 @@ export async function promptForPlatformTarget (
   }
 
   return PLATFORM_TARGETS[platform]
+}
+
+// Returns the SKILL.md path for every agent directory that has one installed.
+// A project can carry the skill in several dirs at once (e.g. one per agent),
+// so this returns all of them rather than the first match.
+export function findInstalledSkills (projectDir: string): string[] {
+  return SKILL_DIRECTORIES
+    .map(dir => join(projectDir, dir, SKILL_FILENAME))
+    .filter(targetPath => existsSync(targetPath))
 }
 
 export interface StaleSkill {

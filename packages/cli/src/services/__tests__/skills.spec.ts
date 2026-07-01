@@ -6,6 +6,11 @@ vi.mock('fs/promises', () => ({
   mkdir: vi.fn(),
 }))
 
+vi.mock('fs', () => ({
+  existsSync: vi.fn(),
+}))
+
+import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import {
@@ -14,11 +19,13 @@ import {
   readSkillFile,
   writeSkillToTarget,
   findStaleSkills,
+  findInstalledSkills,
 } from '../skills.js'
 
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockMkdir = vi.mocked(mkdir)
+const mockExistsSync = vi.mocked(existsSync)
 
 const SKILL_CONTENT = '# Test Skill Content\nThis is a test skill.'
 
@@ -179,5 +186,45 @@ describe('findStaleSkills', () => {
     })
 
     expect(await findStaleSkills(projectDir)).toEqual([])
+  })
+})
+
+describe('findInstalledSkills', () => {
+  const projectDir = '/some/project'
+
+  function setupExists (existingPaths: string[]): void {
+    mockExistsSync.mockImplementation(p => existingPaths.includes(p as string))
+  }
+
+  it('returns empty when no skill is installed anywhere', () => {
+    setupExists([])
+    expect(findInstalledSkills(projectDir)).toEqual([])
+  })
+
+  it('returns the path of a single installed skill', () => {
+    const claude = join(projectDir, '.claude/skills/checkly/SKILL.md')
+    setupExists([claude])
+    expect(findInstalledSkills(projectDir)).toEqual([claude])
+  })
+
+  it('returns every installed skill path', () => {
+    const claude = join(projectDir, '.claude/skills/checkly/SKILL.md')
+    const continueDir = join(projectDir, '.continue/skills/checkly/SKILL.md')
+    setupExists([claude, continueDir])
+
+    const installed = findInstalledSkills(projectDir)
+
+    expect(installed).toContain(claude)
+    expect(installed).toContain(continueDir)
+    expect(installed).toHaveLength(2)
+  })
+
+  it('deduplicates directories shared by multiple platforms', () => {
+    const agents = join(projectDir, '.agents/skills/checkly/SKILL.md')
+    setupExists([agents])
+
+    const installed = findInstalledSkills(projectDir)
+
+    expect(installed).toEqual([agents])
   })
 })
