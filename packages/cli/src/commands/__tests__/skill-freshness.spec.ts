@@ -47,6 +47,9 @@ describe('BaseCommand.checkSkillFreshness', () => {
     expect(warnings[0].message).toContain(
       'npx checkly skills install --path .claude/skills/checkly --force',
     )
+    expect(warnings[0].message).toContain(
+      'https://github.com/checkly/checkly-cli/issues',
+    )
   })
 
   it('pairs each stale path with its own update command in one warning', async () => {

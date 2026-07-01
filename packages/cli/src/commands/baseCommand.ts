@@ -98,7 +98,10 @@ export abstract class BaseCommand extends Command {
       this.style.longWarning(
         'Checkly skill is out of date',
         `The installed skill no longer matches this CLI version. `
-        + `Re-install to update:\n\n${entries}`,
+        + `Re-install to update:\n\n${entries}\n\n`
+        + `Had to customize the skill to make it work? Tell us how we can `
+        + `improve it — open an issue at `
+        + `https://github.com/checkly/checkly-cli/issues`,
       )
     } catch {
       // Never block a command on the freshness check.
