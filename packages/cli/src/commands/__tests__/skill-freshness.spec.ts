@@ -16,7 +16,10 @@ describe('BaseCommand.checkSkillFreshness', () => {
 
   function run (id: string | undefined): Promise<void> {
     ctx.id = id
-    return BaseCommand.prototype.checkSkillFreshness.call(ctx as any)
+    // ctx is a minimal stand-in for BaseCommand, exposing only what
+    // checkSkillFreshness touches (id + style). Cast through unknown rather
+    // than any so the structural mismatch stays explicit and localized.
+    return BaseCommand.prototype.checkSkillFreshness.call(ctx as unknown as BaseCommand)
   }
 
   beforeEach(() => {
