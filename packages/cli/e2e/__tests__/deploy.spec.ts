@@ -205,10 +205,13 @@ describe('deploy', { timeout: 45_000 }, () => {
     DnsMonitor: dns-nonexistent-all-assertion-types
     DnsMonitor: dns-welcome-a
     DnsMonitor: dns-welcome-aaaa
+    GrpcMonitor: grpc-monitor
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     IcmpMonitor: icmp-welcome
+    SslMonitor: ssl-monitor
     TcpMonitor: tcp-monitor
+    TracerouteMonitor: traceroute-monitor
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
@@ -227,11 +230,14 @@ describe('deploy', { timeout: 45_000 }, () => {
     DnsMonitor: dns-nonexistent-all-assertion-types
     DnsMonitor: dns-welcome-a
     DnsMonitor: dns-welcome-aaaa
+    GrpcMonitor: grpc-monitor
     HeartbeatMonitor: heartbeat-monitor-1
     BrowserCheck: homepage-browser-check
     IcmpMonitor: icmp-welcome
     BrowserCheck: snapshot-test.test.ts
+    SslMonitor: ssl-monitor
     TcpMonitor: tcp-monitor
+    TracerouteMonitor: traceroute-monitor
     CheckGroupV2: my-group-1
     CheckGroupV1: my-group-2-v1
     Dashboard: dashboard-1
