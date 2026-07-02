@@ -3,6 +3,68 @@ import TestSessions from '../test-sessions.js'
 import { RequestTimeoutError } from '../errors.js'
 
 describe('TestSessions REST client', () => {
+  const githubRepoInfo = {
+    commitId: 'abc123',
+    github: {
+      reporting: true,
+      repository: 'checkly/playwright-reporter-demo',
+      sha: 'abc123',
+      runId: '123456',
+      runAttempt: '2',
+      workflow: 'Checkly',
+      job: 'validate',
+      eventName: 'pull_request',
+      ref: 'refs/pull/4/merge',
+      headRef: 'herve/test-checkly-action',
+      baseRef: 'main',
+      serverUrl: 'https://github.com',
+    },
+  }
+
+  it('passes GitHub metadata to detached test session runs', async () => {
+    const api = {
+      post: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', sequenceIds: {} } }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    await testSessions.run({
+      name: 'Checkly',
+      checkRunJobs: [],
+      project: { logicalId: 'project' },
+      runLocation: 'us-east-1',
+      repoInfo: githubRepoInfo,
+      environment: null,
+      shouldRecord: true,
+    } as any)
+
+    expect(api.post).toHaveBeenCalledWith('/next/test-sessions/run', expect.objectContaining({
+      repoInfo: githubRepoInfo,
+    }), expect.any(Object))
+  })
+
+  it('passes GitHub metadata to detached trigger sessions', async () => {
+    const api = {
+      post: vi.fn().mockResolvedValue({ data: { checks: [{ id: 'check-id' }], testSessionId: 'session-id', sequenceIds: {} } }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    await testSessions.trigger({
+      name: 'Checkly',
+      runLocation: 'us-east-1',
+      shouldRecord: true,
+      targetTags: [['production']],
+      checkRunSuiteId: 'suite-id',
+      environmentVariables: [],
+      repoInfo: githubRepoInfo,
+      environment: null,
+      testRetryStrategy: null,
+    } as any)
+
+    expect(api.post).toHaveBeenCalledWith('/next/test-sessions/trigger', expect.objectContaining({
+      repoInfo: githubRepoInfo,
+    }))
+  })
+
   it('gets a public test session by ID', async () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', results: [] } }),
