@@ -100,6 +100,9 @@ Notes:
   review.
 - If you tag a PR `[ship]`/`[show]` and later change the title to `[ask]` (or drop the tag), the
   earlier auto-approval is dismissed so the PR returns to manual review.
+- Dismissing the bot's approval by hand doesn't stick: while the title still ends with
+  `[ship]`/`[show]`, the next push (or other PR update) re-approves. To durably demand review on a
+  tagged PR, submit a **Request changes** review or retitle the PR to `[ask]`.
 - A draft PR tagged `[ship]`/`[show]` is approved only once it's marked ready for review.
 - This only adds an approving review; merging still respects branch protection (passing CI, etc.).
   It does not auto-merge.
