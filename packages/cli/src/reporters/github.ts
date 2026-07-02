@@ -100,6 +100,7 @@ export default class GithubReporter extends AbstractListReporter {
 
   onEnd () {
     this._printBriefSummary()
+    this._printExecutionErrors()
     const githubMdBuilder = new GithubMdBuilder({
       testSessionId: this.testSessionId,
       numChecks: this.numChecks!,
