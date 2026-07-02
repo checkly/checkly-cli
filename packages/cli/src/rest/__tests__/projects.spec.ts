@@ -442,4 +442,29 @@ describe('Projects.deleteProject', () => {
     expect(deletes).toBe(2)
     expect(onStatus).toHaveBeenCalled()
   })
+
+  it('cancels the in-flight operation, waits, and retries when cancelInProgress is set', async () => {
+    let deletes = 0
+    vi.mocked(api.delete).mockImplementation(() => {
+      deletes += 1
+      return (deletes === 1
+        ? Promise.reject(conflict('old-dep'))
+        : Promise.resolve({ data: { id: 'del-2', status: 'PENDING' } })) as never
+    })
+    vi.mocked(api.post).mockResolvedValue({ data: { id: 'old-dep', status: 'RUNNING' } } as never)
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      (url.includes('/completion')
+        ? Promise.resolve({ data: { id: 'old-dep', status: 'CANCELLED' } })
+        : Promise.resolve(sseStream(sse('complete', { id: 'del-2', status: 'SUCCEEDED', result: { diff: [] }, error: null })))) as never,
+    )
+
+    await expect(projects.deleteProject('my-project', { cancelInProgress: true })).resolves.toBeUndefined()
+
+    expect(api.post).toHaveBeenCalledWith('/v1/projects/my-project/deployments/old-dep/cancel')
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/old-dep/completion',
+      expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
+    )
+    expect(deletes).toBe(2)
+  })
 })

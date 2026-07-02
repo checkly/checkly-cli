@@ -296,16 +296,22 @@ class Projects {
    */
   async deleteProject (
     logicalId: string,
-    { preserveResources = false, onProgress, onStatus }: {
+    { preserveResources = false, cancelInProgress = false, onProgress, onStatus }: {
       preserveResources?: boolean
+      /**
+       * On a 409 (a deploy or delete is already in progress), cancel that
+       * operation instead of waiting for it to finish, then retry.
+       */
+      cancelInProgress?: boolean
       onProgress?: (progress: number) => void
       /** Human-readable status updates (e.g. while waiting on a predecessor). */
       onStatus?: (message: string) => void
     } = {},
   ): Promise<void> {
     // On a 409 the project already has an operation (deploy or delete) in
-    // progress. Wait for it to reach a final state, then retry — bounded by an
-    // overall deadline so a stuck predecessor can't make us wait forever.
+    // progress. By default we wait for it to reach a final state then retry; with
+    // cancelInProgress we cancel it first. Bounded by an overall deadline so a
+    // stuck predecessor can't make us wait forever.
     const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
     for (;;) {
       try {
@@ -320,7 +326,7 @@ class Projects {
           throw err
         }
         await this.resolveInProgressDeployment(logicalId, err.data.deploymentId, {
-          cancel: false,
+          cancel: cancelInProgress,
           onStatus,
           deadlineAt,
         })

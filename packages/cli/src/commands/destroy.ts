@@ -24,6 +24,10 @@ export default class Destroy extends AuthCommand {
       description: 'Preserve all project resources (checks, groups, dashboards, etc.) when destroying the project. Resources become normal account-level resources.',
       default: false,
     }),
+    'cancel-in-progress-deployment': Flags.boolean({
+      description: 'If a deployment for this project is already in progress, cancel it instead of waiting for it to finish.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -31,6 +35,7 @@ export default class Destroy extends AuthCommand {
     const {
       config: configFilename,
       'preserve-resources': preserveResources,
+      'cancel-in-progress-deployment': cancelInProgress,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
@@ -77,6 +82,7 @@ export default class Destroy extends AuthCommand {
       // completion, so large projects are no longer bound by the request timeout.
       await api.projects.deleteProject(checklyConfig.logicalId, {
         preserveResources,
+        cancelInProgress,
         onProgress: progress => this.style.actionStatus(`${progress}% complete`),
         onStatus: message => this.style.actionStatus(message),
       })
@@ -93,7 +99,8 @@ export default class Destroy extends AuthCommand {
         // 409 only reaches here once that wait exceeded its deadline.
         this.style.longError(
           'An operation for this project is still in progress.',
-          'Try again once it has finished.',
+          'Try again later, or re-run with `--cancel-in-progress-deployment` to '
+          + 'cancel the running operation and destroy now.',
         )
       } else {
         this.style.longError('Your project could not be destroyed.', err)

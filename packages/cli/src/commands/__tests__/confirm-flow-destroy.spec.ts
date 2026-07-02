@@ -155,6 +155,17 @@ describe('destroy confirmation flow', () => {
     expect(ctx.logged[0]).toContain('preserved as account-level resources')
   })
 
+  it('passes cancel-in-progress-deployment flag to deleteProject', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const ctx = createCommandContext({
+      flags: { 'force': true, 'cancel-in-progress-deployment': true },
+    })
+
+    await Destroy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', expect.objectContaining({ cancelInProgress: true }))
+  })
+
   it('has correct metadata', () => {
     expect(Destroy.destructive).toBe(true)
     expect(Destroy.readOnly).toBe(false)
