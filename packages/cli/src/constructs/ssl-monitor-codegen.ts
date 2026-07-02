@@ -62,7 +62,7 @@ export class SslMonitorCodegen extends Codegen<SslMonitorResource> {
         serverName: wireReq.sslConfig.serverName,
         sslClientCertificateId: wireReq.sslClientCertificateId,
         skipChainValidation: wireReq.sslConfig.skipChainValidation,
-        handshakeTimeoutMs: wireReq.sslConfig.handshakeTimeoutMs,
+        handshakeTimeout: wireReq.sslConfig.handshakeTimeoutMs,
         alertDaysBeforeExpiry: wireReq.sslConfig.alertDaysBeforeExpiry,
         clientCertificateMode: wireReq.sslConfig.clientCertificateMode,
         securityBaseline: wireReq.sslConfig.securityBaseline,

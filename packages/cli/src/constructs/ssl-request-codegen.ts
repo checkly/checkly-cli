@@ -34,8 +34,8 @@ export function valueForSslRequest (
         builder.boolean('skipChainValidation', config.skipChainValidation)
       }
 
-      if (config.handshakeTimeoutMs !== undefined) {
-        builder.number('handshakeTimeoutMs', config.handshakeTimeoutMs)
+      if (config.handshakeTimeout !== undefined) {
+        builder.number('handshakeTimeout', config.handshakeTimeout)
       }
 
       if (config.alertDaysBeforeExpiry !== undefined) {

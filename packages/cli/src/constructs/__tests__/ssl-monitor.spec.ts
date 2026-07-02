@@ -42,7 +42,7 @@ describe('SslMonitor', () => {
         ipFamily: 'IPv4',
         sslConfig: {
           skipChainValidation: false,
-          handshakeTimeoutMs: 10000,
+          handshakeTimeout: 10000,
           alertDaysBeforeExpiry: 20,
         },
         assertions: [
