@@ -15,7 +15,8 @@ import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { forceFlag } from '../helpers/flags.js'
-import { ProjectDeployResponse } from '../rest/projects.js'
+import { ProjectDeployResponse, ProjectDeployCancelledError } from '../rest/projects.js'
+import { ConflictError } from '../rest/errors.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
@@ -56,6 +57,10 @@ export default class Deploy extends AuthCommand {
       allowNo: true,
     }),
     'force': forceFlag(),
+    'cancel-in-progress-deployment': Flags.boolean({
+      description: 'If a deployment for this project is already in progress, cancel it instead of waiting for it to finish.',
+      default: false,
+    }),
     'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
@@ -83,6 +88,7 @@ export default class Deploy extends AuthCommand {
     const {
       force,
       preview,
+      'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
       output: outputFlag,
       verbose,
@@ -239,7 +245,22 @@ export default class Deploy extends AuthCommand {
     }
 
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
+      if (!preview) {
+        this.style.actionStart('Deploying project')
+      }
+      const { data } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        {
+          dryRun: preview,
+          scheduleOnDeploy,
+          cancelInProgress,
+          onProgress: preview ? undefined : progress => this.style.actionStatus(`${progress}% complete`),
+          onStatus: preview ? undefined : message => this.style.actionStatus(message),
+        },
+      )
+      if (!preview) {
+        this.style.actionSuccess()
+      }
       if (preview || output) {
         this.log(this.formatPreview(data, project, verbose))
       }
@@ -258,7 +279,22 @@ export default class Deploy extends AuthCommand {
         })
       }
     } catch (err: any) {
-      this.style.longError(`Your project could not be deployed.`, err)
+      if (!preview) {
+        this.style.actionFailure()
+      }
+      if (err instanceof ProjectDeployCancelledError) {
+        this.style.longError('Your deployment was cancelled.', err.message)
+      } else if (err instanceof ConflictError) {
+        // deploy() waits-and-retries behind an in-progress deployment, so a 409
+        // only reaches here once that wait exceeded its deadline.
+        this.style.longError(
+          'A deployment for this project is still in progress.',
+          'Try again later, or re-run with `--cancel-in-progress-deployment` to '
+          + 'cancel the running deployment and deploy now.',
+        )
+      } else {
+        this.style.longError(`Your project could not be deployed.`, err)
+      }
       this.exit(1)
     }
   }

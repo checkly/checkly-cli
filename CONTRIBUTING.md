@@ -78,6 +78,40 @@ When modifying AI context sources (`src/ai-context/skill.md`, `src/ai-context/re
 
 The `skills/checkly/SKILL.md` file is the published copy that agents load. If you forget to regenerate it, CI will flag it as out of date.
 
+## Pull request review: Ship / Show / Ask
+
+This repo supports the [Ship / Show / Ask](https://martinfowler.com/articles/ship-show-ask.html)
+strategy. Signal your intent by ending the **PR title** with a tag (case-insensitive), e.g.
+`feat: add retries [ship]`:
+
+- **`[ship]`** — No review needed. `github-actions[bot]` auto-approves the PR; merge it yourself
+  once CI is green. Use for low-risk changes you're confident in.
+- **`[show]`** — Merge now, review after the fact. Also auto-approved; open it for visibility and
+  merge once CI passes, inviting comments for follow-up.
+- **`[ask]`** or **no tag** — Normal review. The PR waits for a human approval before it can merge.
+
+Notes:
+
+- **Auto-approval is limited to PRs opened from a branch in this repository** (i.e. members and
+  collaborators with push access). Pull requests from forks are **never** auto-approved and always
+  require manual review, regardless of the title tag.
+- The tag only counts at the very end of the title. A `[ship]`/`[show]` elsewhere in the title is
+  ignored — so e.g. a GitHub-generated revert title (`Revert "feat: x [ship]"`) still gets manual
+  review.
+- If you tag a PR `[ship]`/`[show]` and later change the title to `[ask]` (or drop the tag), the
+  earlier auto-approval is dismissed so the PR returns to manual review.
+- Dismissing the bot's approval by hand doesn't stick: while the title still ends with
+  `[ship]`/`[show]`, the next push (or other PR update) re-approves. To durably demand review on a
+  tagged PR, submit a **Request changes** review or retitle the PR to `[ask]`.
+- A draft PR tagged `[ship]`/`[show]` is approved only once it's marked ready for review.
+- This only adds an approving review; merging still respects branch protection (passing CI, etc.).
+  It does not auto-merge.
+
+The behavior lives in [`.github/workflows/ship-show-ask.yml`](.github/workflows/ship-show-ask.yml).
+It depends on two GitHub settings outside this repo: **Allow GitHub Actions to create and approve
+pull requests** must be enabled, and branch protection on `main` must require an approving review
+(a review count — not a Code Owners review, which a bot can't satisfy).
+
 ## Prerelease experimental version
 
 To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
@@ -105,18 +139,18 @@ Both packages [checkly](https://www.npmjs.com/package/checkly) and [create-cli](
 
 To release packages to NPM:
 
-1. Publish a Github Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). **Uncheck "Set as the latest release"** — the workflow will mark it as latest automatically after attaching the `checkly.rules.md` asset.
-2. When release is published the Github action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
+1. Publish a GitHub Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). **Uncheck "Set as the latest release"** — the workflow will mark it as latest automatically.
+2. When release is published the GitHub action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
 3. Test the prerelease version to make sure that it's working.
     * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
     * Ensure your project `package.json` has `"checkly": "4.6.2-prerelease-c6e8165"`
-4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published. The workflow will then automatically attach `checkly.rules.md` to the GitHub Release and mark it as latest (if the version is higher than the current latest).
+4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published. The workflow will then automatically mark the GitHub Release as latest (if the version is higher than the current latest).
 
 ### Catching issues in prerelease
 
 If you notice an issue when testing the prerelease you can still roll everything back. Simply delete the GitHub release, and delete the corresponding tags from the GitHub UI (both `#.#.#` and `v#.#.#`).
 
-After resolving the issues, you can create another Github release and go through the process again.
+After resolving the issues, you can create another GitHub release and go through the process again.
 
 ## Style Guide
 

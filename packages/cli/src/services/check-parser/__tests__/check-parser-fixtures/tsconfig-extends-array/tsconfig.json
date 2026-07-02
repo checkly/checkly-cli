@@ -1,0 +1,6 @@
+{
+  "extends": [
+    "./tsconfig.a.json",
+    "./tsconfig.b.json"
+  ]
+}

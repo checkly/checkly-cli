@@ -8,6 +8,7 @@ export type DnsRecordType =
   | 'NS'
   | 'TXT'
   | 'SOA'
+  | 'HTTPS'
 
 export type DnsProtocol =
   | 'UDP'
@@ -24,6 +25,7 @@ export interface DnsRequest {
    * @example "A"
    * @example "AAAA"
    * @example "TXT"
+   * @example "HTTPS"
    */
   recordType: DnsRecordType
 

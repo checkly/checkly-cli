@@ -1,7 +1,7 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
 
-import { PLATFORM_TARGETS } from '../../commands/skills/install.js'
+import { findInstalledSkills } from '../../services/skills.js'
 import { findPlaywrightConfigPath } from '../../services/util.js'
 import { defaultFilenames as CHECKLY_CONFIG_NAMES } from '../../services/checkly-config-loader.js'
 
@@ -12,11 +12,8 @@ export interface ProjectContext {
   hasChecklyConfig: boolean
   hasChecksDir: boolean
   hasSkillInstalled: boolean
-  skillPath: string | null
+  skillPaths: string[]
 }
-
-// Derive from PLATFORM_TARGETS so they stay in sync automatically
-const SKILL_DIRECTORIES = [...new Set(Object.values(PLATFORM_TARGETS))]
 
 export function detectProjectContext (projectDir: string): ProjectContext {
   const isExistingProject = existsSync(join(projectDir, 'package.json'))
@@ -29,14 +26,7 @@ export function detectProjectContext (projectDir: string): ProjectContext {
 
   const hasChecksDir = existsSync(join(projectDir, '__checks__'))
 
-  let skillPath: string | null = null
-  for (const dir of SKILL_DIRECTORIES) {
-    const fullPath = join(projectDir, dir, 'SKILL.md')
-    if (existsSync(fullPath)) {
-      skillPath = fullPath
-      break
-    }
-  }
+  const skillPaths = findInstalledSkills(projectDir)
 
   return {
     isExistingProject,
@@ -44,7 +34,7 @@ export function detectProjectContext (projectDir: string): ProjectContext {
     playwrightConfigPath,
     hasChecklyConfig,
     hasChecksDir,
-    hasSkillInstalled: skillPath !== null,
-    skillPath,
+    hasSkillInstalled: skillPaths.length > 0,
+    skillPaths,
   }
 }

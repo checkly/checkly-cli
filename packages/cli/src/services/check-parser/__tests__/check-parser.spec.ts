@@ -399,6 +399,92 @@ describe('dependency-parser - parser()', () => {
       ])
     })
 
+    it('should resolve tsconfig paths inherited through a relative extends', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-relative', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('package.json'),
+        toAbsolutePath('src', 'lib', 'foo.ts'),
+        toAbsolutePath('tsconfig.base.json'),
+        toAbsolutePath('tsconfig.json'),
+      ])
+    })
+
+    it('should apply the last extends entry when extends is an array', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-array', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('from-b', 'thing.ts'),
+        toAbsolutePath('package.json'),
+        toAbsolutePath('tsconfig.a.json'),
+        toAbsolutePath('tsconfig.b.json'),
+        toAbsolutePath('tsconfig.json'),
+      ])
+    })
+
+    it('should bundle a workspace-member config reached through extends', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-workspace', ...filepath)
+      const workspace = await new NpmDetector().lookupWorkspace(toAbsolutePath('.'))
+      expect(workspace).toBeDefined()
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+        workspace,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('package-lock.json'),
+        toAbsolutePath('package.json'),
+        toAbsolutePath('packages', 'config', 'package.json'),
+        toAbsolutePath('packages', 'config', 'tsconfig.json'),
+        toAbsolutePath('src', 'lib', 'thing.ts'),
+        toAbsolutePath('tsconfig.json'),
+      ])
+    })
+
+    it('should read options from an external node_modules config without bundling it', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-node-modules', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      // The `@ext/*` alias is defined only in the external config, so its
+      // presence proves the inherited options were read. The external config
+      // and its package.json appear only as the nearest config of the resolved
+      // in-package file, not because the extends chain bundled them.
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('node_modules', '@fake', 'tsconfig', 'lib', 'util.ts'),
+        toAbsolutePath('node_modules', '@fake', 'tsconfig', 'package.json'),
+        toAbsolutePath('node_modules', '@fake', 'tsconfig', 'tsconfig.json'),
+        toAbsolutePath('package.json'),
+        toAbsolutePath('tsconfig.json'),
+      ])
+    })
+
+    it('should resolve jsconfig paths inherited through extends', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-jsconfig', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.js'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('jsconfig.base.json'),
+        toAbsolutePath('jsconfig.json'),
+        toAbsolutePath('package.json'),
+        toAbsolutePath('src', 'lib', 'foo.js'),
+      ])
+    })
+
     it('should not import TS files from a JS file', async () => {
       const toAbsolutePath = (...filepath: string[]) => fixt.abspath('no-import-ts-from-js', ...filepath)
       const parser = new Parser({
@@ -750,6 +836,38 @@ describe('dependency-parser - parser()', () => {
         toAbsolutePath('src', 'dep1.ts'),
         toAbsolutePath('src', 'dep2.ts'),
         toAbsolutePath('src', 'dep3.ts'),
+      ])
+    })
+
+    it('should bundle a relative extends base needed for path resolution', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-relative', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      // The nearest package.json/tsconfig are not bundled in restricted mode, but
+      // the extends base is still pulled in via the supporting-config path
+      // because it is needed to resolve the `@/foo` alias.
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('src', 'lib', 'foo.ts'),
+        toAbsolutePath('tsconfig.base.json'),
+        toAbsolutePath('tsconfig.json'),
+      ])
+    })
+
+    it('should not bundle an external node_modules config in restricted mode', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('tsconfig-extends-node-modules', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('src', 'entrypoint.ts'))
+      // The inherited `@ext/*` alias still resolves, but the external config is
+      // never bundled — only the leaf config and the resolved source remain.
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('node_modules', '@fake', 'tsconfig', 'lib', 'util.ts'),
+        toAbsolutePath('tsconfig.json'),
       ])
     })
 

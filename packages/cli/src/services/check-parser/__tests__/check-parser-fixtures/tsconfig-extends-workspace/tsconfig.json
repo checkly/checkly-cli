@@ -1,0 +1,11 @@
+{
+  "extends": "@scope/config/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/lib/*"
+      ]
+    }
+  }
+}

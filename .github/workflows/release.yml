@@ -1,9 +1,25 @@
 name: Publish Package to npmjs
+# Name each run for its trigger, so manual canary builds are distinguishable
+# from real releases in the Actions list.
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('Canary build - {0}', github.ref_name) || format('Release {0}', github.event.release.tag_name) }}"
 on:
   release:
     types: [published]
+  # Manual canary builds: dispatch this workflow on a branch to publish an
+  # experimental build of that branch. It lives here (not a separate workflow) so
+  # it authenticates via the npm OIDC trusted publisher — npm allows only ONE
+  # trusted publisher (repo + workflow file) per package, and that slot is release.yml.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag for the canary build
+        required: false
+        default: experimental
 jobs:
   validate-tag:
+    # Release-event path only. A manual dispatch runs the `canary` job below; the
+    # other release jobs cascade-skip on dispatch via their `needs: validate-tag`.
+    if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions-ecosystem/action-regex-match@v2
@@ -155,22 +171,13 @@ jobs:
           SLACK_TITLE: ':white_check_mark: NPM publish succeeded'
           SLACK_MESSAGE: by ${{ github.actor }}
           SLACK_FOOTER: ''
-  # Attach checkly.rules.md to the GitHub Release and mark it as latest
+  # Mark the GitHub Release as latest if it's the highest version
   finalize-release:
     runs-on: ubuntu-latest
     needs: release
     permissions:
       contents: write
     steps:
-      - name: Download LLM rules artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: llm-rules-release
-          path: llm-rules-release
-      - name: Upload checkly.rules.md to GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ github.event.release.tag_name }} llm-rules-release/checkly.rules.md --repo ${{ github.repository }}
       - name: Mark release as latest if version is highest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -183,3 +190,42 @@ jobs:
           else
             echo "Skipping: $NEW_TAG is not newer than current latest $CURRENT_LATEST"
           fi
+
+  # Manual canary: dispatch this workflow on a branch to publish an experimental
+  # build of that branch. Authenticates via the SAME npm OIDC trusted publisher as
+  # the release jobs above (id-token + --provenance, no token). Trigger with
+  # `gh workflow run release.yml --ref <branch>` (optionally `-f tag=<dist-tag>`).
+  # Replaces the old build-label release-canary.yml, whose classic NPM_TOKEN was
+  # retired when the package moved to OIDC.
+  canary:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: "pnpm"
+      # Ensure that the README is published with the package
+      - run: rm -f packages/cli/README.md && cp README.md packages/cli
+      - run: echo "CANARY_VERSION=0.0.0-canary.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - run: pnpm install --frozen-lockfile
+      - name: Set version, pack, and publish (OIDC trusted publishing)
+        run: |
+          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
+          pnpm pack
+          npm publish checkly-*.tgz --provenance --tag '${{ inputs.tag }}'
+        working-directory: packages/cli
+      - name: Publish summary
+        run: |
+          {
+            echo "Published \`checkly@${{ env.CANARY_VERSION }}\` (dist-tag: \`${{ inputs.tag }}\`)"
+            echo '```'
+            echo "npm install checkly@${{ env.CANARY_VERSION }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

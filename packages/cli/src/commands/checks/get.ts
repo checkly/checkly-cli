@@ -21,10 +21,21 @@ import {
   formatAttemptsSection,
   groupAttemptsBySequence,
 } from '../../formatters/check-result-detail.js'
-import type { CheckResult } from '../../rest/check-results.js'
+import type { CheckResult, CheckResultField, ListCheckResultsParams } from '../../rest/check-results.js'
 import { formatRcaDetail, formatRcaHint, transformErrorGroupForJson } from '../../formatters/rca.js'
 import { quickRangeValues, type QuickRange, type GroupBy } from '../../rest/analytics.js'
 import { formatAnalyticsSection } from '../../formatters/analytics.js'
+
+// Internal, fixed projection for the embedded recent-results table. These are
+// exactly the fields formatResults() and resolveResultStatus() read; requesting
+// the wide result bodies (apiCheckResult, browserCheckResult, metadata, assets,
+// …) would make the backend select and decorate payloads this view never
+// renders. This is intentionally not a user-facing flag: `checks get` aggregates
+// check details, status, analytics, error groups, and results, so a generic
+// `--fields` would be ambiguous.
+const RECENT_RESULTS_FIELDS: CheckResultField[] = [
+  'id', 'startedAt', 'runLocation', 'hasErrors', 'hasFailures', 'isDegraded', 'responseTime',
+]
 
 export default class ChecksGet extends AuthCommand {
   static hidden = false
@@ -96,13 +107,23 @@ export default class ChecksGet extends AuthCommand {
       // Fetch check first (need checkType for analytics)
       const { data: check } = await api.checks.get(args.id)
 
+      // The recent-results table only needs a narrow column set, so project to
+      // those fields and let the backend skip wide result payloads. JSON output
+      // is the exception: it exposes full `results` entries, so we omit `fields`
+      // there to preserve backwards compatibility for existing consumers.
+      const resultsParams: ListCheckResultsParams = {
+        limit: flags['results-limit'],
+        nextId: flags['results-cursor'],
+      }
+      if (flags.output !== 'json') {
+        resultsParams.fields = RECENT_RESULTS_FIELDS
+      }
+
       // Fetch remaining data in parallel
       const [statusResp, resultsResp, errorGroupsResp, analyticsResp] = await Promise.all([
         api.checkStatuses.get(args.id).catch(() => ({ data: undefined })),
-        api.checkResults.getAll(args.id, {
-          limit: flags['results-limit'],
-          nextId: flags['results-cursor'],
-        }).catch(() => ({ data: { entries: [], nextId: null, length: 0 } })),
+        api.checkResults.getAll(args.id, resultsParams)
+          .catch(() => ({ data: { entries: [], nextId: null, length: 0 } })),
         api.errorGroups.getByCheckId(args.id).catch(() => ({ data: [] })),
         api.analytics.get(args.id, check.checkType, {
           quickRange: (flags['stats-range'] ?? 'last24Hours') as QuickRange,

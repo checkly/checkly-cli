@@ -9,7 +9,7 @@ import {
   StatusPage, StatusPageService,
 } from './/index.js'
 import { Diagnostics } from './diagnostics.js'
-import { ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { ConstructDiagnostic, ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 import { Session } from './session.js'
@@ -126,7 +126,19 @@ export class Project extends Construct {
         return
       }
 
-      throw new Error(`Resource of type '${type}' with logical id '${logicalId}' already exists.`)
+      // The duplicate resource is intentionally not stored, so it is never
+      // visited by the validate() fan-out over project data. Record the
+      // diagnostic on the project itself so it surfaces during validation,
+      // wrapping it in a ConstructDiagnostic so the output names the
+      // offending construct.
+      this.earlyDiagnostics.add(new ConstructDiagnostic(
+        resource,
+        new InvalidPropertyValueDiagnostic(
+          'logicalId',
+          new Error(`A ${type} with logicalId "${logicalId}" already exists.`),
+        ),
+      ))
+      return
     }
 
     this.data[type as keyof ProjectData][logicalId] = resource

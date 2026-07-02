@@ -11,6 +11,7 @@ export default class DotReporter extends AbstractListReporter {
 
   onEnd () {
     this._printBriefSummary()
+    this._printExecutionErrors()
     this._printTestSessionsUrl()
   }
 

@@ -63,6 +63,10 @@ export const INVESTIGATE_REFERENCES = [
     description: 'Inspect checks (`checks list`, `checks get`), retry attempts, result assets, and trigger on-demand runs',
   },
   {
+    id: 'investigate-alerting',
+    description: 'Inspect effective alerting behavior for a check across check-local, group, global, and alert-channel evidence',
+  },
+  {
     id: 'investigate-test-sessions',
     description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and list/download result assets',
   },

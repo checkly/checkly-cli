@@ -105,4 +105,26 @@ describe('detectProjectContext', () => {
     const ctx = detectProjectContext(projectDir)
     expect(ctx.hasChecksDir).toBe(false)
   })
+
+  it('reports no installed skills when none are present', () => {
+    setupExists([])
+    mockFindPlaywrightConfigPath.mockReturnValue(undefined)
+    const ctx = detectProjectContext(projectDir)
+    expect(ctx.hasSkillInstalled).toBe(false)
+    expect(ctx.skillPaths).toEqual([])
+  })
+
+  it('collects every installed skill path across agent directories', () => {
+    const claude = join(projectDir, '.claude/skills/checkly/SKILL.md')
+    const continueDir = join(projectDir, '.continue/skills/checkly/SKILL.md')
+    setupExists([claude, continueDir])
+    mockFindPlaywrightConfigPath.mockReturnValue(undefined)
+
+    const ctx = detectProjectContext(projectDir)
+
+    expect(ctx.hasSkillInstalled).toBe(true)
+    expect(ctx.skillPaths).toContain(claude)
+    expect(ctx.skillPaths).toContain(continueDir)
+    expect(ctx.skillPaths).toHaveLength(2)
+  })
 })

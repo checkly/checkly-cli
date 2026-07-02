@@ -33,6 +33,13 @@ export async function runChecklyCreateCli (options: {
       CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
       CHECKLY_E2E_LOCAL_TEMPLATE_ROOT: path.join(__dirname, '../../../examples'),
       CHECKLY_E2E_ISTTY: 'true',
+      // Set SHELL so @oclif/core's getShell() short-circuits instead of running
+      // determineWindowsShell(), which spawns `powershell.exe -Command Get-CimInstance`
+      // on every command. That spawn costs seconds per command on Windows and would
+      // otherwise dominate the e2e suite. Because extendEnv is false the child gets no
+      // SHELL unless we pass it here; on Linux process.env.SHELL is set, on Windows it
+      // is typically unset so we fall back to powershell.exe.
+      SHELL: process.env.SHELL ?? 'powershell.exe',
       ...env,
     },
     cwd: directory ?? process.cwd(),

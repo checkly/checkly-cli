@@ -1,0 +1,7 @@
+{
+  "name": "tsconfig-extends-workspace",
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ]
+}
