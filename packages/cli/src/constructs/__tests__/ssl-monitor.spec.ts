@@ -6,10 +6,9 @@ import { Session } from '../session.js'
 import { Bundler } from '../../services/check-parser/bundler.js'
 
 const request: SslRequest = {
-  sslConfig: {
-    hostname: 'example.com',
-    port: 443,
-  },
+  hostname: 'example.com',
+  port: 443,
+  sslConfig: {},
 }
 
 function setupProject () {
@@ -31,20 +30,20 @@ describe('SslMonitor', () => {
     expect(check).toMatchObject({ tags: ['default tags'] })
   })
 
-  it('should synthesize the SSL check type with nested config response times', () => {
+  it('should synthesize the SSL check type with top-level response times mapped to wire sslConfig', () => {
     setupProject()
     const check = new SslMonitor('test-check', {
       name: 'Test Check',
+      degradedResponseTime: 3000,
+      maxResponseTime: 10000,
       request: {
+        hostname: 'example.com',
+        port: 443,
+        ipFamily: 'IPv4',
         sslConfig: {
-          hostname: 'example.com',
-          port: 443,
-          ipFamily: 'IPv4',
           skipChainValidation: false,
           handshakeTimeoutMs: 10000,
           alertDaysBeforeExpiry: 20,
-          degradedResponseTimeMs: 3000,
-          maxResponseTimeMs: 10000,
         },
         assertions: [
           SslAssertionBuilder.certExpiresInDays().greaterThan(20),
@@ -69,9 +68,39 @@ describe('SslMonitor', () => {
         ],
       },
     })
-    // SSL monitors carry no top-level response-time fields.
+    // Response times are top-level on the construct but mapped to wire sslConfig.
     expect(payload.degradedResponseTime).toBeUndefined()
     expect(payload.maxResponseTime).toBeUndefined()
+  })
+
+  it('should synthesize the correct wire shape with hostname and ipFamily inside sslConfig', () => {
+    setupProject()
+    const check = new SslMonitor('test-check', {
+      name: 'Test Check',
+      degradedResponseTime: 3000,
+      maxResponseTime: 10000,
+      request: {
+        hostname: 'example.com',
+        port: 443,
+        ipFamily: 'IPv6',
+        sslConfig: {
+          serverName: 'example.com',
+          sslClientCertificateId: 'clientcert_1234',
+          alertDaysBeforeExpiry: 30,
+          skipChainValidation: false,
+        },
+        assertions: [
+          SslAssertionBuilder.certExpiresInDays().greaterThan(30),
+        ],
+      },
+    })
+
+    const payload = check.synthesize() as any
+    expect(payload.request.sslConfig.hostname).toBe('example.com')
+    expect(payload.request.sslConfig.ipFamily).toBe('IPv6')
+    expect(payload.request.sslConfig.degradedResponseTimeMs).toBe(3000)
+    expect(payload.request.sslConfig.maxResponseTimeMs).toBe(10000)
+    expect(payload.request.sslClientCertificateId).toBe('clientcert_1234')
   })
 
   it('should support setting groups with `group`', async () => {
@@ -93,8 +122,8 @@ describe('SslMonitor', () => {
       const check = new SslMonitor('test-check', {
         name: 'Test Check',
         request: {
+          hostname: 'example.com',
           sslConfig: {
-            hostname: 'example.com',
             clientCertificateMode: 'explicit',
           },
         },
@@ -109,16 +138,32 @@ describe('SslMonitor', () => {
       ]))
     })
 
-    it('should error when degradedResponseTimeMs exceeds maxResponseTimeMs', async () => {
+    it('should not error when clientCertificateMode is explicit and certificate id is set', async () => {
       setupProject()
       const check = new SslMonitor('test-check', {
         name: 'Test Check',
         request: {
+          hostname: 'example.com',
           sslConfig: {
-            hostname: 'example.com',
-            degradedResponseTimeMs: 8000,
-            maxResponseTimeMs: 5000,
+            clientCertificateMode: 'explicit',
+            sslClientCertificateId: 'clientcert_1234',
           },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error when degradedResponseTime exceeds maxResponseTime', async () => {
+      setupProject()
+      const check = new SslMonitor('test-check', {
+        name: 'Test Check',
+        degradedResponseTime: 8000,
+        maxResponseTime: 5000,
+        request: {
+          hostname: 'example.com',
+          sslConfig: {},
         },
       })
       const diags = new Diagnostics()
@@ -126,7 +171,7 @@ describe('SslMonitor', () => {
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('must be less than or equal to "maxResponseTimeMs"'),
+          message: expect.stringContaining('must be less than or equal to "maxResponseTime"'),
         }),
       ]))
     })

@@ -10,20 +10,24 @@ export function valueForSslRequest (
   request: SslRequest,
 ): Value {
   return object(builder => {
+    builder.string('hostname', request.hostname)
+
+    if (request.port !== undefined && request.port !== 443) {
+      builder.number('port', request.port)
+    }
+
+    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+      builder.string('ipFamily', request.ipFamily)
+    }
+
     const config = request.sslConfig
     builder.object('sslConfig', builder => {
-      builder.string('hostname', config.hostname)
-
-      if (config.port !== undefined && config.port !== 443) {
-        builder.number('port', config.port)
-      }
-
       if (config.serverName) {
         builder.string('serverName', config.serverName)
       }
 
-      if (config.ipFamily && config.ipFamily !== 'IPv4') {
-        builder.string('ipFamily', config.ipFamily)
+      if (config.sslClientCertificateId) {
+        builder.string('sslClientCertificateId', config.sslClientCertificateId)
       }
 
       if (config.skipChainValidation) {
@@ -42,22 +46,10 @@ export function valueForSslRequest (
         builder.string('clientCertificateMode', config.clientCertificateMode)
       }
 
-      if (config.degradedResponseTimeMs !== undefined) {
-        builder.number('degradedResponseTimeMs', config.degradedResponseTimeMs)
-      }
-
-      if (config.maxResponseTimeMs !== undefined) {
-        builder.number('maxResponseTimeMs', config.maxResponseTimeMs)
-      }
-
       if (config.securityBaseline) {
         builder.value('securityBaseline', unknown(config.securityBaseline))
       }
     })
-
-    if (request.sslClientCertificateId) {
-      builder.string('sslClientCertificateId', request.sslClientCertificateId)
-    }
 
     if (request.assertions) {
       const assertions = request.assertions

@@ -155,14 +155,16 @@ describe('SslMonitorCodegen', () => {
     expect(source).toContain('from \'checkly/constructs\'')
     expect(source).toContain('new SslMonitor(\'ssl-check\'')
     expect(source).toContain('sslConfig: {')
+    // hostname/port are now top-level in request, not in sslConfig
     expect(source).toContain('hostname: \'example.com\'')
     expect(source).toContain('handshakeTimeoutMs: 10000')
     expect(source).toContain('alertDaysBeforeExpiry: 20')
-    expect(source).toContain('degradedResponseTimeMs: 3000')
-    expect(source).toContain('maxResponseTimeMs: 10000')
-    // No top-level response-time fields for SSL.
-    expect(source).not.toContain('degradedResponseTime:')
-    expect(source).not.toContain('maxResponseTime:')
+    // degradedResponseTime/maxResponseTime are now top-level props in the new shape
+    expect(source).toContain('degradedResponseTime: 3000')
+    expect(source).toContain('maxResponseTime: 10000')
+    // Must NOT use the old wire-format names
+    expect(source).not.toContain('degradedResponseTimeMs:')
+    expect(source).not.toContain('maxResponseTimeMs:')
   })
 
   it('emits assertions through SslAssertionBuilder', async () => {

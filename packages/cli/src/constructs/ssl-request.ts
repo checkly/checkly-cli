@@ -74,34 +74,16 @@ export type SslClientCertificateMode = 'auto' | 'explicit'
  */
 export interface SslConfig {
   /**
-   * The hostname to connect to and validate the TLS certificate of. Do not
-   * include a scheme or a port in this value.
-   *
-   * @example "example.com"
-   */
-  hostname: string
-
-  /**
-   * The port number to connect to.
-   *
-   * @minimum 1
-   * @maximum 65535
-   * @default 443
-   */
-  port?: number
-
-  /**
    * An optional SNI server name to send in the TLS handshake. Defaults to
    * `hostname` when unset.
    */
   serverName?: string
 
   /**
-   * The IP family to use when executing the check.
-   *
-   * @default "IPv4"
+   * The ID of the stored client certificate to present. Required when
+   * `clientCertificateMode` is `explicit`.
    */
-  ipFamily?: IPFamily
+  sslClientCertificateId?: string
 
   /**
    * When true, the certificate chain is not validated against trusted roots
@@ -131,35 +113,15 @@ export interface SslConfig {
   alertDaysBeforeExpiry?: number
 
   /**
-   * The SSL security baseline. Omit to inherit the account default baseline.
-   */
-  securityBaseline?: SecurityBaseline
-
-  /**
    * The mutual-TLS client-certificate mode. Omit to inherit the account default
    * (no certificate sent).
    */
   clientCertificateMode?: SslClientCertificateMode
 
   /**
-   * The handshake time in milliseconds above which the monitor is considered
-   * degraded.
-   *
-   * @minimum 0
-   * @maximum 30000
-   * @default 3000
+   * The SSL security baseline. Omit to inherit the account default baseline.
    */
-  degradedResponseTimeMs?: number
-
-  /**
-   * The handshake time in milliseconds above which the monitor is considered
-   * failing. Must be greater than or equal to `degradedResponseTimeMs`.
-   *
-   * @minimum 0
-   * @maximum 30000
-   * @default 10000
-   */
-  maxResponseTimeMs?: number
+  securityBaseline?: SecurityBaseline
 }
 
 /**
@@ -168,15 +130,33 @@ export interface SslConfig {
  */
 export interface SslRequest {
   /**
+   * The hostname to connect to and validate the TLS certificate of. Do not
+   * include a scheme or a port in this value.
+   *
+   * @example "example.com"
+   */
+  hostname: string
+
+  /**
+   * The port number to connect to.
+   *
+   * @minimum 1
+   * @maximum 65535
+   * @default 443
+   */
+  port?: number
+
+  /**
+   * The IP family to use when executing the check.
+   *
+   * @default "IPv4"
+   */
+  ipFamily?: IPFamily
+
+  /**
    * The SSL-specific configuration for the connection.
    */
   sslConfig: SslConfig
-
-  /**
-   * The ID of the stored client certificate to present. Required when
-   * `sslConfig.clientCertificateMode` is `explicit`.
-   */
-  sslClientCertificateId?: string
 
   /**
    * Assertions to validate the TLS certificate.
