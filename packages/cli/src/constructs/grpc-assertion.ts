@@ -5,6 +5,7 @@ type GrpcAssertionSource =
   | 'GRPC_STATUS_CODE'
   | 'GRPC_HEALTHCHECK_STATUS'
   | 'GRPC_RESPONSE'
+  | 'TEXT_BODY'
   | 'GRPC_METADATA'
 
 export type GrpcAssertion = CoreAssertion<GrpcAssertionSource>
@@ -63,6 +64,15 @@ export class GrpcAssertionBuilder {
    */
   static responseMessage (property?: string) {
     return new GeneralAssertionBuilder<GrpcAssertionSource>('GRPC_RESPONSE', property)
+  }
+
+  /**
+   * Creates an assertion builder for the raw gRPC response body as text (BEHAVIOR mode).
+   * @param property Optional property path for text content.
+   * @returns A general assertion builder for the text response body.
+   */
+  static textBody (property?: string) {
+    return new GeneralAssertionBuilder<GrpcAssertionSource>('TEXT_BODY', property)
   }
 
   /**

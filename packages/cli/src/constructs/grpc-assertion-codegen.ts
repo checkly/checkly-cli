@@ -20,6 +20,11 @@ export function valueForGrpcAssertion (genfile: GeneratedFile, assertion: GrpcAs
         hasProperty: true,
         hasRegex: false,
       })
+    case 'TEXT_BODY':
+      return valueForGeneralAssertion('GrpcAssertionBuilder', 'textBody', assertion, {
+        hasProperty: true,
+        hasRegex: false,
+      })
     case 'GRPC_METADATA':
       return valueForGeneralAssertion('GrpcAssertionBuilder', 'responseMetadata', assertion, {
         hasProperty: true,
