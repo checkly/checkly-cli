@@ -9,13 +9,13 @@ new SslMonitor('example-com-ssl', {
   name: 'example.com SSL Certificate',
   activated: true,
   group: uptimeGroup,
+  degradedResponseTime: 3000,
+  maxResponseTime: 10000,
   request: {
+    hostname: 'example.com',
+    port: 443,
     sslConfig: {
-      hostname: 'example.com',
-      port: 443,
       alertDaysBeforeExpiry: 30,
-      degradedResponseTimeMs: 3000,
-      maxResponseTimeMs: 10000,
     },
     assertions: [
       SslAssertionBuilder.certExpiresInDays().greaterThan(30),

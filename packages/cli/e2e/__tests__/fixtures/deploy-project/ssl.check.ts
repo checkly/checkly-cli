@@ -4,8 +4,7 @@ new SslMonitor('ssl-monitor', {
   name: 'SSL Monitor',
   activated: false,
   request: {
-    sslConfig: {
-      hostname: 'example.com',
-    },
+    hostname: 'example.com',
+    sslConfig: {},
   },
 })

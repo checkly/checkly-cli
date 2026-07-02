@@ -61,16 +61,16 @@ describe('backend-style export snippets', () => {
       frequency: 1,
       locations: ['us-east-1'],
       tags: ['p5-parity'],
+      degradedResponseTime: 3000,
+      maxResponseTime: 10000,
       request: {
+        hostname: 'example.com',
+        port: 443,
+        ipFamily: 'IPv4',
         sslConfig: {
-          hostname: 'example.com',
-          port: 443,
-          ipFamily: 'IPv4',
           skipChainValidation: false,
           handshakeTimeoutMs: 10000,
           alertDaysBeforeExpiry: 20,
-          degradedResponseTimeMs: 3000,
-          maxResponseTimeMs: 10000,
         },
       },
     })

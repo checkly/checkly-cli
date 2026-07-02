@@ -281,13 +281,13 @@ new SslMonitor('example-com-ssl', {
   name: 'example.com SSL Certificate',
   activated: true,
   locations: ['us-east-1', 'eu-west-1'],
+  degradedResponseTime: 3000,
+  maxResponseTime: 10000,
   request: {
+    hostname: 'example.com',
+    port: 443,
     sslConfig: {
-      hostname: 'example.com',
-      port: 443,
       alertDaysBeforeExpiry: 30,
-      degradedResponseTimeMs: 3000,
-      maxResponseTimeMs: 10000,
     },
     assertions: [
       SslAssertionBuilder.certExpiresInDays().greaterThan(30),

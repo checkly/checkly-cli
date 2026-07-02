@@ -7,12 +7,28 @@ import { InvalidPropertyValueDiagnostic, RequiredPropertyDiagnostic } from './co
 export interface SslMonitorProps extends MonitorProps {
   /**
    * Determines the request that the monitor is going to run.
-   *
-   * Unlike most monitors, the response-time limits for an SSL monitor live
-   * inside the request as `sslConfig.degradedResponseTimeMs` and
-   * `sslConfig.maxResponseTimeMs`.
    */
   request: SslRequest
+
+  /**
+   * The handshake time in milliseconds above which the monitor is considered
+   * degraded.
+   *
+   * @minimum 0
+   * @maximum 30000
+   * @default 3000
+   */
+  degradedResponseTime?: number
+
+  /**
+   * The handshake time in milliseconds above which the monitor is considered
+   * failing. Must be greater than or equal to `degradedResponseTime`.
+   *
+   * @minimum 0
+   * @maximum 30000
+   * @default 10000
+   */
+  maxResponseTime?: number
 }
 
 /**
@@ -20,6 +36,8 @@ export interface SslMonitorProps extends MonitorProps {
  */
 export class SslMonitor extends Monitor {
   request: SslRequest
+  degradedResponseTime?: number
+  maxResponseTime?: number
 
   /**
    * Constructs the SSL Monitor instance
@@ -34,6 +52,8 @@ export class SslMonitor extends Monitor {
     super(logicalId, props)
 
     this.request = props.request
+    this.degradedResponseTime = props.degradedResponseTime
+    this.maxResponseTime = props.maxResponseTime
 
     Session.registerConstruct(this)
     this.addSubscriptions()
@@ -49,7 +69,7 @@ export class SslMonitor extends Monitor {
 
     const config = this.request.sslConfig
 
-    if (this.request.sslClientCertificateId === undefined && config?.clientCertificateMode === 'explicit') {
+    if (config?.sslClientCertificateId === undefined && config?.clientCertificateMode === 'explicit') {
       diagnostics.add(new RequiredPropertyDiagnostic(
         'sslClientCertificateId',
         new Error(
@@ -59,14 +79,14 @@ export class SslMonitor extends Monitor {
     }
 
     if (
-      config?.degradedResponseTimeMs !== undefined
-      && config?.maxResponseTimeMs !== undefined
-      && config.degradedResponseTimeMs > config.maxResponseTimeMs
+      this.degradedResponseTime !== undefined
+      && this.maxResponseTime !== undefined
+      && this.degradedResponseTime > this.maxResponseTime
     ) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'degradedResponseTimeMs',
+        'degradedResponseTime',
         new Error(
-          `The value of "degradedResponseTimeMs" must be less than or equal to "maxResponseTimeMs".`,
+          `The value of "degradedResponseTime" must be less than or equal to "maxResponseTime".`,
         ),
       ))
     }
@@ -76,7 +96,23 @@ export class SslMonitor extends Monitor {
     return {
       ...super.synthesize(),
       checkType: 'SSL',
-      request: this.request,
+      request: {
+        sslConfig: {
+          hostname: this.request.hostname,
+          port: this.request.port,
+          ipFamily: this.request.ipFamily,
+          serverName: this.request.sslConfig.serverName,
+          skipChainValidation: this.request.sslConfig.skipChainValidation,
+          handshakeTimeoutMs: this.request.sslConfig.handshakeTimeoutMs,
+          alertDaysBeforeExpiry: this.request.sslConfig.alertDaysBeforeExpiry,
+          clientCertificateMode: this.request.sslConfig.clientCertificateMode,
+          securityBaseline: this.request.sslConfig.securityBaseline,
+          degradedResponseTimeMs: this.degradedResponseTime,
+          maxResponseTimeMs: this.maxResponseTime,
+        },
+        sslClientCertificateId: this.request.sslConfig.sslClientCertificateId,
+        assertions: this.request.assertions,
+      },
     }
   }
 }
