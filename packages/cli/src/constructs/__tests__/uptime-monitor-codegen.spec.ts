@@ -157,7 +157,7 @@ describe('SslMonitorCodegen', () => {
     expect(source).toContain('sslConfig: {')
     // hostname/port are now top-level in request, not in sslConfig
     expect(source).toContain('hostname: \'example.com\'')
-    expect(source).toContain('handshakeTimeoutMs: 10000')
+    expect(source).toContain('handshakeTimeout: 10000')
     expect(source).toContain('alertDaysBeforeExpiry: 20')
     // degradedResponseTime/maxResponseTime are now top-level props in the new shape
     expect(source).toContain('degradedResponseTime: 3000')

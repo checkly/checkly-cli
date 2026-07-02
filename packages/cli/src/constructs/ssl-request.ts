@@ -101,7 +101,7 @@ export interface SslConfig {
    * @maximum 30000
    * @default 10000
    */
-  handshakeTimeoutMs?: number
+  handshakeTimeout?: number
 
   /**
    * Raise an alert when the certificate is within this many days of expiry.

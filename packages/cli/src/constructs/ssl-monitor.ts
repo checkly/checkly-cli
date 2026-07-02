@@ -103,7 +103,7 @@ export class SslMonitor extends Monitor {
           ipFamily: this.request.ipFamily,
           serverName: this.request.sslConfig.serverName,
           skipChainValidation: this.request.sslConfig.skipChainValidation,
-          handshakeTimeoutMs: this.request.sslConfig.handshakeTimeoutMs,
+          handshakeTimeoutMs: this.request.sslConfig.handshakeTimeout,
           alertDaysBeforeExpiry: this.request.sslConfig.alertDaysBeforeExpiry,
           clientCertificateMode: this.request.sslConfig.clientCertificateMode,
           securityBaseline: this.request.sslConfig.securityBaseline,
