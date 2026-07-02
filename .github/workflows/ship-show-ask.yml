@@ -39,9 +39,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          # [ship] or [show] anywhere in the title (case-insensitive) => auto-approve.
+          # A [ship] or [show] tag at the very end of the title (case-insensitive) => auto-approve.
+          # The match is anchored to the end so that incidental mentions elsewhere in a title
+          # don't trigger approval — in particular GitHub's generated revert titles wrap the
+          # original title in quotes (`Revert "feat: x [ship]"`), so a revert of a shipped PR
+          # never ends with the tag and always goes through manual review.
           shopt -s nocasematch
-          if [[ "$TITLE" == *"[ship]"* || "$TITLE" == *"[show]"* ]]; then
+          if [[ "$TITLE" == *"[ship]" || "$TITLE" == *"[show]" ]]; then
             mode=approve
           else
             mode=ask

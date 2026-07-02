@@ -81,7 +81,8 @@ The `skills/checkly/SKILL.md` file is the published copy that agents load. If yo
 ## Pull request review: Ship / Show / Ask
 
 This repo supports the [Ship / Show / Ask](https://martinfowler.com/articles/ship-show-ask.html)
-strategy. Signal your intent by tagging the **PR title** (case-insensitive):
+strategy. Signal your intent by ending the **PR title** with a tag (case-insensitive), e.g.
+`feat: add retries [ship]`:
 
 - **`[ship]`** — No review needed. `github-actions[bot]` auto-approves the PR; merge it yourself
   once CI is green. Use for low-risk changes you're confident in.
@@ -94,6 +95,9 @@ Notes:
 - **Auto-approval is limited to PRs opened from a branch in this repository** (i.e. members and
   collaborators with push access). Pull requests from forks are **never** auto-approved and always
   require manual review, regardless of the title tag.
+- The tag only counts at the very end of the title. A `[ship]`/`[show]` elsewhere in the title is
+  ignored — so e.g. a GitHub-generated revert title (`Revert "feat: x [ship]"`) still gets manual
+  review.
 - If you tag a PR `[ship]`/`[show]` and later change the title to `[ask]` (or drop the tag), the
   earlier auto-approval is dismissed so the PR returns to manual review.
 - A draft PR tagged `[ship]`/`[show]` is approved only once it's marked ready for review.
