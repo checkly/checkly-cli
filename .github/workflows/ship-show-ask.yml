@@ -52,16 +52,23 @@ jobs:
           fi
           shopt -u nocasematch
 
-          # This workflow's own currently-active approvals (normally at most one). Capture the
-          # API response into a variable first: a standalone assignment trips `set -e` if the
-          # request fails, whereas a process substitution (mapfile < <(gh ... | jq)) would
-          # swallow the error and yield an empty list — fail-open, skipping a needed dismissal.
-          # --paginate emits one JSON array per page; `jq -s 'add'` flattens them into a single
-          # array before filtering, so the result is correct across pagination.
+          # This workflow's own currently-active approvals (normally at most one). Both the API
+          # response and the jq result are captured via plain $(...) assignments so `set -e`
+          # aborts the run if either command fails; feeding mapfile from a process substitution
+          # (mapfile < <(gh ... | jq)) would discard such failures and yield an empty list —
+          # fail-open, skipping a needed dismissal. --paginate emits one JSON array per page;
+          # `jq -s 'add'` flattens them into a single array before filtering, so the result is
+          # correct across pagination.
           reviews_json=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews")
-          mapfile -t approvals < <(jq -s -r \
+          approval_ids=$(jq -s -r \
             'add | [.[] | select(.user.login == "github-actions[bot]" and .state == "APPROVED") | .id] | .[]' \
             <<<"$reviews_json")
+          approvals=()
+          # Guard the empty case: mapfile on an empty herestring would yield a one-element array
+          # containing an empty string, which would falsely count as an existing approval.
+          if [[ -n "$approval_ids" ]]; then
+            mapfile -t approvals <<<"$approval_ids"
+          fi
 
           if [[ "$mode" == "approve" ]]; then
             if [[ ${#approvals[@]} -gt 0 ]]; then
