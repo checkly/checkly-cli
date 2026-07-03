@@ -10,18 +10,66 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const REFERENCES_DIR = join(__dirname, '../../ai-context/skills-command/references')
 
+function referenceShortId (actionId: string, referenceId: string): string {
+  return referenceId.replace(`${actionId}-`, '')
+}
+
+function formatAvailableActions (): string {
+  return ACTIONS
+    .map(action => `  ${action.id} - ${action.description}`)
+    .join('\n')
+}
+
+function formatAvailableReferences (): string {
+  return ACTIONS
+    .flatMap(action => {
+      if (!('references' in action)) {
+        return [`  checkly skills ${action.id} - no references`]
+      }
+
+      return action.references.map(reference => (
+        `  checkly skills ${action.id} ${referenceShortId(action.id, reference.id)} - ${reference.description}`
+      ))
+    })
+    .join('\n')
+}
+
 export default class Skills extends BaseCommand {
   static hidden = false
-  static description = 'Show Checkly AI skills, actions and their references.'
+  static readOnly = true
+  static destructive = false
+  static idempotent = true
+  static description = [
+    'Show Checkly AI skills, actions and their references.',
+    '',
+    'Run `checkly skills` to print the full catalog, `checkly skills <action>` for an action guide, or `checkly skills <action> <reference>` for a specific reference.',
+    '',
+    'Available actions:',
+    formatAvailableActions(),
+    '',
+    'Available references:',
+    formatAvailableReferences(),
+  ].join('\n')
+
+  static examples = [
+    'checkly skills',
+    ...ACTIONS.flatMap(action => {
+      const examples = [`checkly skills ${action.id}`]
+      if ('references' in action) {
+        examples.push(`checkly skills ${action.id} ${referenceShortId(action.id, action.references[0].id)}`)
+      }
+      return examples
+    }),
+  ]
 
   static args = {
     action: Args.string({
       required: false,
-      description: 'The action name (e.g. "configure", "initialize").',
+      description: `Action to open. Available: ${ACTIONS.map(action => action.id).join(', ')}.`,
     }),
     reference: Args.string({
       required: false,
-      description: 'A specific reference within the action (e.g. "api-checks").',
+      description: 'Reference to open for the selected action. Available references are listed below.',
     }),
   }
 
@@ -75,7 +123,7 @@ export default class Skills extends BaseCommand {
       this.log(`  $ checkly skills ${action.id}`)
       if ('references' in action) {
         const firstRef = action.references[0]
-        const refId = firstRef.id.replace(`${action.id}-`, '')
+        const refId = referenceShortId(action.id, firstRef.id)
         this.log(`  $ checkly skills ${action.id} ${refId}`)
       }
     }
@@ -98,7 +146,7 @@ export default class Skills extends BaseCommand {
       this.log(`References for "${action.id}":\n`)
 
       const refs = action.references.map(r => ({
-        shortId: r.id.replace(`${action.id}-`, ''),
+        shortId: referenceShortId(action.id, r.id),
         description: r.description,
       }))
       const maxRefLen = Math.max(...refs.map(r => r.shortId.length))
