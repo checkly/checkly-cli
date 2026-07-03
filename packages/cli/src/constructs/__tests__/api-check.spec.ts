@@ -300,6 +300,34 @@ describe('ApiCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
+  it('should synthesize requests that treat binary-labelled responses as text', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-treat-response-body-as-text/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: false,
+      }),
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'check',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              request: expect.objectContaining({
+                treatResponseBodyAsText: true,
+              }),
+            }),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
   describe('retryStrategy', () => {
     it('should synthesize `onlyOn`', async () => {
       const output = await parseProject(
