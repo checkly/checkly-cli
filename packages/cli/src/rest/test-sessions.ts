@@ -49,6 +49,45 @@ export type TriggerTestSessionResponse = {
   sequenceIds: Record<string, SequenceId>
 }
 
+export type RunTestSessionResponse = {
+  /** The scheduling operation dispatching this run's check runs in the background. */
+  schedulingId: string
+  /** Only present for recorded runs (shouldRecord: true). */
+  testSessionId?: string
+  testResultIds?: Record<string, string>
+  sequenceIds: Record<string, SequenceId>
+}
+
+export type TestSessionSchedulingStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+
+export type TestSessionSchedulingOperation = {
+  schedulingId: string
+  testSessionId: string | null
+  status: TestSessionSchedulingStatus
+  checksTotal: number
+  error: { code: string, message: string } | null
+  createdAt: string
+  startedAt: string | null
+  endedAt: string | null
+}
+
+/**
+ * The background dispatch of the test session's check runs failed (or the
+ * worker died — errorCode ABANDONED): no results will arrive for the
+ * undispatched checks, so the run should fail immediately instead of waiting
+ * out the per-check result timeouts.
+ */
+export class TestSessionSchedulingFailedError extends Error {
+  /** The operation's error code (e.g. SCHEDULING_ERROR, ABANDONED), when known. */
+  code?: string
+
+  constructor (message: string, options?: ErrorOptions & { code?: string }) {
+    super(message, options)
+    this.name = 'TestSessionSchedulingFailedError'
+    this.code = options?.code
+  }
+}
+
 export type TestSessionMetadata = {
   environment?: string
   repoUrl?: string
@@ -157,9 +196,40 @@ class TestSessions {
   }
 
   async run (payload: RunTestSessionRequest) {
-    return await this.api.post('/next/test-sessions/run', payload, {
+    return await this.api.post<RunTestSessionResponse>('/v1/test-sessions/run', payload, {
       transformRequest: compressJSONPayload,
     })
+  }
+
+  /**
+   * Long-poll the dispatch status of an asynchronously started test-session
+   * run. The server blocks for up to `maxWaitSeconds` and returns the
+   * operation once it reaches a terminal state, or responds 408
+   * ({@link RequestTimeoutError}) while dispatch is still in progress — the
+   * retry cadence lives in the caller.
+   */
+  getSchedulingCompletion (schedulingId: string, options?: { maxWaitSeconds?: number, signal?: AbortSignal }) {
+    return this.api.get<TestSessionSchedulingOperation>(`/v1/test-sessions/scheduling/${schedulingId}/completion`, {
+      params: { maxWaitSeconds: options?.maxWaitSeconds ?? COMPLETION_MAX_WAIT_SECONDS },
+      signal: options?.signal,
+    })
+  }
+
+  async pollSchedulingUntilComplete (
+    schedulingId: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<TestSessionSchedulingOperation> {
+    while (true) {
+      try {
+        const { data } = await this.getSchedulingCompletion(schedulingId, options)
+        return data
+      } catch (err) {
+        if (err instanceof RequestTimeoutError && !options?.signal?.aborted) {
+          continue
+        }
+        throw err
+      }
+    }
   }
 
   /**

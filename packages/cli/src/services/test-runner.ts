@@ -60,6 +60,7 @@ export default class TestRunner extends AbstractCheckRunner {
     checkRunSuiteId: string,
   ): Promise<{
     testSessionId?: string
+    schedulingId?: string
     checks: Array<{ check: any, sequenceId: SequenceId }>
   }> {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
@@ -98,11 +99,11 @@ export default class TestRunner extends AbstractCheckRunner {
       streamLogs: this.streamLogs,
       refreshCache: this.refreshCache,
     })
-    const { testSessionId, sequenceIds } = data
+    const { testSessionId, schedulingId, sequenceIds } = data
     const checks = this.checkBundles.map(({ construct: check }) => {
       return { check, sequenceId: sequenceIds?.[check.logicalId] }
     })
-    return { testSessionId, checks }
+    return { testSessionId, schedulingId, checks }
   }
 
   async processCheckResult (result: any) {
