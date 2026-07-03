@@ -14,23 +14,20 @@ function referenceShortId (actionId: string, referenceId: string): string {
   return referenceId.replace(`${actionId}-`, '')
 }
 
-function formatAvailableActions (): string {
-  return `  ${ACTIONS.map(action => action.id).join(', ')}`
-}
-
-function formatAvailableReferences (): string {
-  return ACTIONS
-    .map(action => {
+function formatAvailableActionTree (): string {
+  return [
+    '  checkly skills',
+    ...ACTIONS.flatMap(action => {
+      const actionLine = `  |- ${action.id}`
       if (!('references' in action)) {
-        return `  ${action.id}: none`
+        return [actionLine]
       }
 
       const references = action.references
-        .map(reference => referenceShortId(action.id, reference.id))
-        .join(', ')
-      return `  ${action.id}: ${references}`
-    })
-    .join('\n')
+        .map(reference => `  |  |- ${referenceShortId(action.id, reference.id)}`)
+      return [actionLine, ...references]
+    }),
+  ].join('\n')
 }
 
 export default class Skills extends BaseCommand {
@@ -43,11 +40,8 @@ export default class Skills extends BaseCommand {
     '',
     'Run `checkly skills` to print the full catalog, `checkly skills <action>` for an action guide, or `checkly skills <action> <reference>` for a specific reference.',
     '',
-    'Available actions:',
-    formatAvailableActions(),
-    '',
-    'Available references:',
-    formatAvailableReferences(),
+    'Available actions and references:',
+    formatAvailableActionTree(),
     '',
     'Use `checkly skills <action>` or `checkly skills <action> <reference>` to open the detailed guidance.',
   ].join('\n')

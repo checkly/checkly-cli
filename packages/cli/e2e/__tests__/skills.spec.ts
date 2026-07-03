@@ -57,18 +57,17 @@ describe('checkly skills', () => {
   it('should list all actions and references in help output', async () => {
     const { stdout } = await runCheckly(fixt, ['skills', '--help'])
 
-    expect(stdout).toContain('Available actions:')
-    expect(stdout).toContain('Available references:')
+    expect(stdout).toContain('Available actions and references:')
     expect(stdout).toContain('checkly skills configure api-checks')
     expect(stdout).toContain('checkly skills investigate alerting')
 
     for (const id of actionIds) {
-      expect(stdout).toContain(id)
+      expect(stdout).toContain(`|- ${id}`)
     }
 
     for (const { actionId, shortId } of referencesByAction) {
-      expect(stdout).toContain(`${actionId}:`)
-      expect(stdout).toContain(shortId)
+      expect(stdout).toContain(`|- ${actionId}`)
+      expect(stdout).toContain(`|  |- ${shortId}`)
     }
 
     expect(stdout).not.toContain(REFERENCES[0].description)
