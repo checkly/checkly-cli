@@ -1,0 +1,93 @@
+name: Ship/Show/Ask auto-approval
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+# One run per PR; a fresh title edit / push supersedes an in-flight run. The latest run always
+# re-reads the current title + reviews and fully reconciles, so a cancelled run is never lossy.
+concurrency:
+  group: ship-show-ask-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ship-show-ask:
+    runs-on: ubuntu-latest
+    # Only act on an OPEN, non-draft PR opened from a branch in this same repo (never forks).
+    # A same-repo branch can only be created by someone with push access, so auto-approval
+    # stays limited to trusted org members/collaborators; fork PRs always follow the normal
+    # manual-review path. (head.repo is null if the head was deleted, so the comparison is
+    # false and the job is skipped — fail-closed.) The open guard avoids a red failure when a
+    # closed/merged PR's title is edited; the draft guard means a tagged draft is approved only
+    # once it is marked ready for review.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft == false
+    steps:
+      # No checkout: this job only reads the PR title and calls the review API, so no untrusted
+      # PR code is ever executed under pull_request_target's privileged token.
+      - name: Approve or dismiss based on ship/show/ask title tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # A [ship] or [show] tag at the very end of the title (case-insensitive) => auto-approve.
+          # The match is anchored to the end so that incidental mentions elsewhere in a title
+          # don't trigger approval — in particular GitHub's generated revert titles wrap the
+          # original title in quotes (`Revert "feat: x [ship]"`), so a revert of a shipped PR
+          # never ends with the tag and always goes through manual review.
+          shopt -s nocasematch
+          if [[ "$TITLE" == *"[ship]" || "$TITLE" == *"[show]" ]]; then
+            mode=approve
+          else
+            mode=ask
+          fi
+          shopt -u nocasematch
+
+          # This workflow's own currently-active approvals (normally at most one). Both the API
+          # response and the jq result are captured via plain $(...) assignments so `set -e`
+          # aborts the run if either command fails; feeding mapfile from a process substitution
+          # (mapfile < <(gh ... | jq)) would discard such failures and yield an empty list —
+          # fail-open, skipping a needed dismissal. --paginate emits one JSON array per page;
+          # `jq -s 'add'` flattens them into a single array before filtering, so the result is
+          # correct across pagination.
+          reviews_json=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews")
+          approval_ids=$(jq -s -r \
+            'add | [.[] | select(.user.login == "github-actions[bot]" and .state == "APPROVED") | .id] | .[]' \
+            <<<"$reviews_json")
+          approvals=()
+          # Guard the empty case: mapfile on an empty herestring would yield a one-element array
+          # containing an empty string, which would falsely count as an existing approval.
+          if [[ -n "$approval_ids" ]]; then
+            mapfile -t approvals <<<"$approval_ids"
+          fi
+
+          if [[ "$mode" == "approve" ]]; then
+            if [[ ${#approvals[@]} -gt 0 ]]; then
+              echo "PR #$PR already auto-approved; nothing to do."
+            else
+              gh pr review "$PR" --repo "$REPO" --approve \
+                --body "Auto-approved: ship/show PR from a same-repo branch."
+              echo "Approved PR #$PR."
+            fi
+          else
+            # ask / untagged: dismiss every active auto-approval so a stale one can't satisfy
+            # branch protection after the author downgrades the PR to request real review.
+            if [[ ${#approvals[@]} -eq 0 ]]; then
+              echo "PR #$PR in ask mode with no prior auto-approval; nothing to do."
+            else
+              for id in "${approvals[@]}"; do
+                gh api --method PUT "repos/$REPO/pulls/$PR/reviews/$id/dismissals" \
+                  -f message="Auto-approval dismissed: PR no longer tagged [ship]/[show]; manual review required." >/dev/null
+                echo "Dismissed prior auto-approval (review $id) on PR #$PR."
+              done
+            fi
+          fi

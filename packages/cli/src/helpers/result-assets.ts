@@ -1,5 +1,5 @@
 import path from 'node:path'
-import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import { randomUUID } from 'node:crypto'
 import { constants, createWriteStream } from 'node:fs'
 import { access, mkdir, rename, rm } from 'node:fs/promises'
@@ -377,7 +377,7 @@ function fetchAssetStream (assetUrl: string): Promise<AxiosResponse<NodeJS.Reada
     return api.api.get<NodeJS.ReadableStream>(assetUrl, { responseType: 'stream' })
   }
 
-  const config = assignProxy(assetUrl, { responseType: 'stream' }) as AxiosRequestConfig
+  const config = assignProxy(assetUrl, { responseType: 'stream' })
   return axios.get<NodeJS.ReadableStream>(
     assetUrl,
     config,

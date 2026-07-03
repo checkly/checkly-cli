@@ -4,7 +4,7 @@ import { DateTime } from 'luxon'
 
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Reporter } from './reporter.js'
-import { CheckStatus, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, formatCheckResult, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
 import type { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
 import { Check } from '../constructs/check.js'
 import { testSessions } from '../rest/api.js'
@@ -277,6 +277,20 @@ export default abstract class AbstractListReporter implements Reporter {
     printLn(statusString)
     // Ansi escape code for erasing the line and moving the cursor up
     this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+  }
+
+  // Checks that fail with a run error (e.g. the CLI timing out while waiting for a result)
+  // never produce a result in the Checkly backend, so the CLI output is the only place the
+  // error is visible. This lets terse reporters print those errors at the end of the run.
+  _printExecutionErrors () {
+    for (const [, checkMap] of this.checkFilesMap!.entries()) {
+      for (const [, { result }] of checkMap.entries()) {
+        if (result?.runError) {
+          printLn(formatCheckTitle(CheckStatus.FAILED, result))
+          printLn(indentString(formatCheckResult(result), 4), 2, 1)
+        }
+      }
+    }
   }
 
   async _printTestSessionsUrl () {
