@@ -8,6 +8,7 @@ function makeAxiosMock (): AxiosInstance {
   return {
     get: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
   } as unknown as AxiosInstance
 }
 
@@ -339,5 +340,131 @@ describe('Projects.deploy cancel-in-progress', () => {
     } finally {
       nowSpy.mockRestore()
     }
+  })
+})
+
+describe('Projects.deleteProject', () => {
+  let api: AxiosInstance
+  let projects: Projects
+
+  beforeEach(() => {
+    api = makeAxiosMock()
+    projects = new Projects(api)
+  })
+
+  it('submits the async delete, follows the SSE stream, reports progress, and resolves on SUCCEEDED', async () => {
+    const deleteDiff = [{ logicalId: 'check-1', type: 'check', action: 'DELETE' }]
+    vi.mocked(api.delete).mockResolvedValue({ data: { id: 'del-1', status: 'PENDING' } } as never)
+    vi.mocked(api.get).mockResolvedValue(
+      sseStream(
+        sse('progress', { status: 'RUNNING', progress: 50 }),
+        sse('complete', { id: 'del-1', status: 'SUCCEEDED', progress: 100, result: { diff: deleteDiff }, error: null }),
+      ) as never,
+    )
+
+    const onProgress = vi.fn()
+    await expect(projects.deleteProject('my-project', { onProgress })).resolves.toBeUndefined()
+
+    expect(api.delete).toHaveBeenCalledWith(
+      '/v1/projects/my-project',
+      expect.objectContaining({ params: { preserveResources: false, dryRun: false } }),
+    )
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/del-1/events',
+      expect.objectContaining({ responseType: 'stream', headers: { Accept: 'text/event-stream' } }),
+    )
+    expect(onProgress).toHaveBeenCalledWith(50)
+  })
+
+  it('passes preserveResources through to the endpoint', async () => {
+    vi.mocked(api.delete).mockResolvedValue({ data: { id: 'del-1', status: 'PENDING' } } as never)
+    vi.mocked(api.get).mockResolvedValue(
+      sseStream(sse('complete', { id: 'del-1', status: 'SUCCEEDED', result: { diff: [] }, error: null })) as never,
+    )
+
+    await projects.deleteProject('my-project', { preserveResources: true })
+
+    expect(api.delete).toHaveBeenCalledWith(
+      '/v1/projects/my-project',
+      expect.objectContaining({ params: { preserveResources: true, dryRun: false } }),
+    )
+  })
+
+  it('resolves without following a stream when the project does not exist (idempotent)', async () => {
+    // A missing project completes synchronously with a plain result body (no status).
+    vi.mocked(api.delete).mockResolvedValue({ data: { project: undefined, diff: [] } } as never)
+
+    await expect(projects.deleteProject('never-deployed')).resolves.toBeUndefined()
+    expect(api.get).not.toHaveBeenCalled()
+  })
+
+  it('throws ProjectDeployFailedError when the deletion ends FAILED', async () => {
+    vi.mocked(api.delete).mockResolvedValue({ data: { id: 'del-1', status: 'PENDING' } } as never)
+    vi.mocked(api.get).mockResolvedValue(
+      sseStream(
+        sse('complete', { id: 'del-1', status: 'FAILED', result: null, error: { code: 'INTERNAL_ERROR', message: 'boom' } }),
+      ) as never,
+    )
+
+    await expect(projects.deleteProject('my-project')).rejects.toThrow(ProjectDeployFailedError)
+  })
+
+  it('throws ProjectDeployCancelledError when the deletion is CANCELLED', async () => {
+    vi.mocked(api.delete).mockResolvedValue({ data: { id: 'del-1', status: 'PENDING' } } as never)
+    vi.mocked(api.get).mockResolvedValue(
+      sseStream(sse('complete', { id: 'del-1', status: 'CANCELLED', result: null, error: null })) as never,
+    )
+
+    await expect(projects.deleteProject('my-project')).rejects.toThrow(ProjectDeployCancelledError)
+  })
+
+  it('waits for an in-flight operation (409) to finish, then retries the delete', async () => {
+    let deletes = 0
+    vi.mocked(api.delete).mockImplementation(() => {
+      deletes += 1
+      return (deletes === 1
+        ? Promise.reject(conflict('old-dep'))
+        : Promise.resolve({ data: { id: 'del-2', status: 'PENDING' } })) as never
+    })
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      (url.includes('/completion')
+        ? Promise.resolve({ data: { id: 'old-dep', status: 'SUCCEEDED' } })
+        : Promise.resolve(sseStream(sse('complete', { id: 'del-2', status: 'SUCCEEDED', result: { diff: [] }, error: null })))) as never,
+    )
+
+    const onStatus = vi.fn()
+    await expect(projects.deleteProject('my-project', { onStatus })).resolves.toBeUndefined()
+
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/old-dep/completion',
+      expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
+    )
+    expect(deletes).toBe(2)
+    expect(onStatus).toHaveBeenCalled()
+  })
+
+  it('cancels the in-flight operation, waits, and retries when cancelInProgress is set', async () => {
+    let deletes = 0
+    vi.mocked(api.delete).mockImplementation(() => {
+      deletes += 1
+      return (deletes === 1
+        ? Promise.reject(conflict('old-dep'))
+        : Promise.resolve({ data: { id: 'del-2', status: 'PENDING' } })) as never
+    })
+    vi.mocked(api.post).mockResolvedValue({ data: { id: 'old-dep', status: 'RUNNING' } } as never)
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      (url.includes('/completion')
+        ? Promise.resolve({ data: { id: 'old-dep', status: 'CANCELLED' } })
+        : Promise.resolve(sseStream(sse('complete', { id: 'del-2', status: 'SUCCEEDED', result: { diff: [] }, error: null })))) as never,
+    )
+
+    await expect(projects.deleteProject('my-project', { cancelInProgress: true })).resolves.toBeUndefined()
+
+    expect(api.post).toHaveBeenCalledWith('/v1/projects/my-project/deployments/old-dep/cancel')
+    expect(api.get).toHaveBeenCalledWith(
+      '/v1/projects/my-project/deployments/old-dep/completion',
+      expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
+    )
+    expect(deletes).toBe(2)
   })
 })
