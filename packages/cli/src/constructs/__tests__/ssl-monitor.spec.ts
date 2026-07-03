@@ -30,7 +30,7 @@ describe('SslMonitor', () => {
     expect(check).toMatchObject({ tags: ['default tags'] })
   })
 
-  it('should synthesize the SSL check type with top-level response times mapped to wire sslConfig', () => {
+  it('should synthesize the SSL check type with top-level response times', () => {
     setupProject()
     const check = new SslMonitor('test-check', {
       name: 'Test Check',
@@ -55,12 +55,12 @@ describe('SslMonitor', () => {
     const payload = check.synthesize() as any
     expect(payload).toMatchObject({
       checkType: 'SSL',
+      degradedResponseTime: 3000,
+      maxResponseTime: 10000,
       request: {
         sslConfig: {
           hostname: 'example.com',
           port: 443,
-          degradedResponseTimeMs: 3000,
-          maxResponseTimeMs: 10000,
         },
         assertions: [
           expect.objectContaining({ source: 'CERT_EXPIRES_IN_DAYS', comparison: 'GREATER_THAN', target: '20' }),
@@ -68,9 +68,9 @@ describe('SslMonitor', () => {
         ],
       },
     })
-    // Response times are top-level on the construct but mapped to wire sslConfig.
-    expect(payload.degradedResponseTime).toBeUndefined()
-    expect(payload.maxResponseTime).toBeUndefined()
+    // Response times are top-level, no longer nested inside request.sslConfig.
+    expect(payload.request.sslConfig.degradedResponseTimeMs).toBeUndefined()
+    expect(payload.request.sslConfig.maxResponseTimeMs).toBeUndefined()
   })
 
   it('should synthesize the correct wire shape with hostname and ipFamily inside sslConfig', () => {
@@ -98,8 +98,8 @@ describe('SslMonitor', () => {
     const payload = check.synthesize() as any
     expect(payload.request.sslConfig.hostname).toBe('example.com')
     expect(payload.request.sslConfig.ipFamily).toBe('IPv6')
-    expect(payload.request.sslConfig.degradedResponseTimeMs).toBe(3000)
-    expect(payload.request.sslConfig.maxResponseTimeMs).toBe(10000)
+    expect(payload.degradedResponseTime).toBe(3000)
+    expect(payload.maxResponseTime).toBe(10000)
     expect(payload.request.sslClientCertificateId).toBe('clientcert_1234')
   })
 
