@@ -240,9 +240,9 @@ export class InvalidImportPlanStateError extends Error {
   }
 }
 
-// How long deploy() will keep waiting-and-retrying behind an in-progress
-// deployment before giving up and surfacing the 409. Generous, since a large
-// predecessor deploy can legitimately run for many minutes.
+// How long deploy() and deleteProject() will keep waiting-and-retrying behind an
+// in-progress operation before giving up and surfacing the 409. Generous, since a
+// large predecessor deploy or delete can legitimately run for many minutes.
 const DEPLOY_CONFLICT_WAIT_DEADLINE_MS = 30 * 60_000
 
 class Projects {
@@ -287,20 +287,84 @@ class Projects {
   }
 
   /**
-   * @throws {ProjectNotFoundError} If the project does not exist.
+   * Delete a project. The deletion runs asynchronously on the backend: this
+   * submits it, then follows its progress stream to completion, so large projects
+   * are no longer bound by the API gateway request timeout. A project that does
+   * not exist is treated as already deleted (the endpoint is idempotent).
+   *
+   * @throws {ProjectDeployFailedError} If the deletion finishes unsuccessfully.
    */
-  async deleteProject (logicalId: string, { preserveResources = false } = {}) {
-    try {
-      const logicalIdParam = encodeURIComponent(logicalId)
-      return await this.api.delete(`/next/projects/${logicalIdParam}`, {
-        params: { preserveResources },
-      })
-    } catch (err) {
-      if (err instanceof NotFoundError) {
-        throw new ProjectNotFoundError(logicalId)
+  async deleteProject (
+    logicalId: string,
+    { preserveResources = false, cancelInProgress = false, onProgress, onStatus }: {
+      preserveResources?: boolean
+      /**
+       * On a 409 (a deploy or delete is already in progress), cancel that
+       * operation instead of waiting for it to finish, then retry.
+       */
+      cancelInProgress?: boolean
+      onProgress?: (progress: number) => void
+      /** Human-readable status updates (e.g. while waiting on a predecessor). */
+      onStatus?: (message: string) => void
+    } = {},
+  ): Promise<void> {
+    // On a 409 the project already has an operation (deploy or delete) in
+    // progress. By default we wait for it to reach a final state then retry; with
+    // cancelInProgress we cancel it first. Bounded by an overall deadline so a
+    // stuck predecessor can't make us wait forever.
+    const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
+    for (;;) {
+      try {
+        await this.submitDeletion(logicalId, { preserveResources, onProgress })
+        return
+      } catch (err) {
+        if (
+          !(err instanceof ConflictError)
+          || typeof err.data.deploymentId !== 'string'
+          || Date.now() >= deadlineAt
+        ) {
+          throw err
+        }
+        await this.resolveInProgressDeployment(logicalId, err.data.deploymentId, {
+          cancel: cancelInProgress,
+          onStatus,
+          deadlineAt,
+        })
+        // loop → re-submit, now that the predecessor has reached a final state
       }
+    }
+  }
 
-      throw err
+  /**
+   * Submit the async delete and follow it to completion. The endpoint responds
+   * either with a deployment to follow (202), or — when there is nothing to delete
+   * (the project does not exist) — a plain result with no deployment to follow.
+   */
+  private async submitDeletion (
+    logicalId: string,
+    { preserveResources, onProgress }: { preserveResources: boolean, onProgress?: (progress: number) => void },
+  ): Promise<void> {
+    const { data } = await this.api.delete<ProjectDeployResponse | ProjectDeployment>(
+      `/v1/projects/${encodeURIComponent(logicalId)}`,
+      { params: { preserveResources, dryRun: false } },
+    )
+
+    // A missing project completes synchronously with a plain result body and no
+    // deployment to follow — already deleted (idempotent).
+    if (!('status' in data)) {
+      return
+    }
+
+    const completed = await this.streamDeploymentEvents(logicalId, data.id, { onProgress })
+
+    if (completed.status === 'CANCELLED') {
+      throw new ProjectDeployCancelledError(
+        'The deletion was cancelled before it finished. A newer operation may have superseded it.',
+      )
+    }
+
+    if (completed.status !== 'SUCCEEDED') {
+      throw new ProjectDeployFailedError(completed.error?.message ?? 'The deletion did not complete successfully.')
     }
   }
 
