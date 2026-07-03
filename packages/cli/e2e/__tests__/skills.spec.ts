@@ -59,16 +59,20 @@ describe('checkly skills', () => {
 
     expect(stdout).toContain('Available actions:')
     expect(stdout).toContain('Available references:')
+    expect(stdout).toContain('checkly skills configure api-checks')
+    expect(stdout).toContain('checkly skills investigate alerting')
 
     for (const id of actionIds) {
       expect(stdout).toContain(id)
-      expect(stdout).toContain(`checkly skills ${id}`)
     }
 
     for (const { actionId, shortId } of referencesByAction) {
-      expect(stdout).toContain(`${actionId} ${shortId}`)
-      expect(stdout).toContain(`checkly skills ${actionId} ${shortId}`)
+      expect(stdout).toContain(`${actionId}:`)
+      expect(stdout).toContain(shortId)
     }
+
+    expect(stdout).not.toContain(REFERENCES[0].description)
+    expect(stdout).not.toContain(INVESTIGATE_REFERENCES[0].description)
   })
 
   it('should show the initialize action content', async () => {

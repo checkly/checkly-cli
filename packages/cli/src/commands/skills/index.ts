@@ -15,21 +15,20 @@ function referenceShortId (actionId: string, referenceId: string): string {
 }
 
 function formatAvailableActions (): string {
-  return ACTIONS
-    .map(action => `  ${action.id} - ${action.description}`)
-    .join('\n')
+  return `  ${ACTIONS.map(action => action.id).join(', ')}`
 }
 
 function formatAvailableReferences (): string {
   return ACTIONS
-    .flatMap(action => {
+    .map(action => {
       if (!('references' in action)) {
-        return [`  checkly skills ${action.id} - no references`]
+        return `  ${action.id}: none`
       }
 
-      return action.references.map(reference => (
-        `  checkly skills ${action.id} ${referenceShortId(action.id, reference.id)} - ${reference.description}`
-      ))
+      const references = action.references
+        .map(reference => referenceShortId(action.id, reference.id))
+        .join(', ')
+      return `  ${action.id}: ${references}`
     })
     .join('\n')
 }
@@ -49,23 +48,21 @@ export default class Skills extends BaseCommand {
     '',
     'Available references:',
     formatAvailableReferences(),
+    '',
+    'Use `checkly skills <action>` or `checkly skills <action> <reference>` to open the detailed guidance.',
   ].join('\n')
 
   static examples = [
     'checkly skills',
-    ...ACTIONS.flatMap(action => {
-      const examples = [`checkly skills ${action.id}`]
-      if ('references' in action) {
-        examples.push(`checkly skills ${action.id} ${referenceShortId(action.id, action.references[0].id)}`)
-      }
-      return examples
-    }),
+    'checkly skills configure',
+    'checkly skills configure api-checks',
+    'checkly skills investigate alerting',
   ]
 
   static args = {
     action: Args.string({
       required: false,
-      description: `Action to open. Available: ${ACTIONS.map(action => action.id).join(', ')}.`,
+      description: 'Action to open. Available actions are listed below.',
     }),
     reference: Args.string({
       required: false,
