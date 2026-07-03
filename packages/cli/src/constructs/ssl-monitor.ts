@@ -107,12 +107,12 @@ export class SslMonitor extends Monitor {
           alertDaysBeforeExpiry: this.request.sslConfig.alertDaysBeforeExpiry,
           clientCertificateMode: this.request.sslConfig.clientCertificateMode,
           securityBaseline: this.request.sslConfig.securityBaseline,
-          degradedResponseTimeMs: this.degradedResponseTime,
-          maxResponseTimeMs: this.maxResponseTime,
         },
         sslClientCertificateId: this.request.sslConfig.sslClientCertificateId,
         assertions: this.request.assertions,
       },
+      degradedResponseTime: this.degradedResponseTime,
+      maxResponseTime: this.maxResponseTime,
     }
   }
 }

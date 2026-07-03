@@ -77,8 +77,9 @@ describe('backend-style export snippets', () => {
 
     expect(monitor.synthesize()).toMatchObject({
       checkType: 'SSL',
+      maxResponseTime: 10000,
       request: {
-        sslConfig: { hostname: 'example.com', port: 443, maxResponseTimeMs: 10000 },
+        sslConfig: { hostname: 'example.com', port: 443 },
       },
     })
   })

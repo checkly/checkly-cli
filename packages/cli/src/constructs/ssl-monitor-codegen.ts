@@ -9,8 +9,9 @@ import { SecurityBaseline, SslClientCertificateMode } from './ssl-request.js'
 
 /**
  * Wire-format shape of the SSL request as returned by the Checkly API.
- * hostname/port/ipFamily/degradedResponseTimeMs/maxResponseTimeMs live inside
- * sslConfig on the wire; the construct exposes them at different levels.
+ * hostname/port/ipFamily live inside sslConfig on the wire; the construct
+ * exposes them at different levels. degradedResponseTime/maxResponseTime
+ * live at the resource top level, not inside sslConfig.
  */
 export interface SslMonitorWireRequest {
   sslConfig: {
@@ -23,8 +24,6 @@ export interface SslMonitorWireRequest {
     alertDaysBeforeExpiry?: number
     clientCertificateMode?: SslClientCertificateMode
     securityBaseline?: SecurityBaseline
-    degradedResponseTimeMs?: number
-    maxResponseTimeMs?: number
   }
   sslClientCertificateId?: string
   assertions?: Array<SslAssertion>
@@ -33,6 +32,8 @@ export interface SslMonitorWireRequest {
 export interface SslMonitorResource extends MonitorResource {
   checkType: 'SSL'
   request: SslMonitorWireRequest
+  degradedResponseTime?: number
+  maxResponseTime?: number
 }
 
 const construct = 'SslMonitor'
@@ -74,15 +75,15 @@ export class SslMonitorCodegen extends Codegen<SslMonitorResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
+          if (resource.degradedResponseTime !== undefined) {
+            builder.number('degradedResponseTime', resource.degradedResponseTime)
+          }
+
+          if (resource.maxResponseTime !== undefined) {
+            builder.number('maxResponseTime', resource.maxResponseTime)
+          }
+
           buildMonitorProps(this.program, file, builder, resource, context)
-
-          if (wireReq.sslConfig.degradedResponseTimeMs !== undefined) {
-            builder.number('degradedResponseTime', wireReq.sslConfig.degradedResponseTimeMs)
-          }
-
-          if (wireReq.sslConfig.maxResponseTimeMs !== undefined) {
-            builder.number('maxResponseTime', wireReq.sslConfig.maxResponseTimeMs)
-          }
 
           builder.value('request', valueForSslRequest(this.program, file, context, constructRequest))
         })

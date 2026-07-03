@@ -134,6 +134,8 @@ describe('SslMonitorCodegen', () => {
     id: 'ssl-check',
     checkType: 'SSL',
     name: 'SSL Monitor',
+    degradedResponseTime: 3000,
+    maxResponseTime: 10000,
     request: {
       sslConfig: {
         hostname: 'example.com',
@@ -142,8 +144,6 @@ describe('SslMonitorCodegen', () => {
         skipChainValidation: false,
         handshakeTimeoutMs: 10000,
         alertDaysBeforeExpiry: 20,
-        degradedResponseTimeMs: 3000,
-        maxResponseTimeMs: 10000,
       },
     },
     ...overrides,
