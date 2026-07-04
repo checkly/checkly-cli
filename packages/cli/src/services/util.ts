@@ -47,6 +47,11 @@ function getGitHubRepositoryUrl (): string | undefined {
   return `${serverUrl.replace(/\/$/, '')}/${repository}`
 }
 
+function isGitHubReportingEnabled (): boolean {
+  const value = (process.env.CHECKLY_GITHUB_REPORT ?? '').trim().toLowerCase()
+  return value === 'true' || value === '1'
+}
+
 export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
   if (!fsSync.statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
     return []
@@ -141,7 +146,7 @@ export function getGitInformation (repoUrl?: string): GitInformation | null {
       ?? repositoryInfo.commitMessage,
   }
 
-  if (process.env.CHECKLY_GITHUB_REPORT === 'true') {
+  if (isGitHubReportingEnabled()) {
     gitInformation.github = {
       reporting: true,
       repository: process.env.CHECKLY_GITHUB_REPOSITORY,

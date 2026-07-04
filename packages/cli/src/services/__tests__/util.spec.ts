@@ -81,6 +81,18 @@ describe('util', () => {
       expect(getGitInformation()).not.toHaveProperty('github')
     })
 
+    it('should accept common truthy values for CHECKLY_GITHUB_REPORT', () => {
+      process.env.CHECKLY_GITHUB_SHA = 'abc123def456'
+      for (const value of ['true', 'TRUE', 'True', '1', ' true ']) {
+        process.env.CHECKLY_GITHUB_REPORT = value
+        expect(getGitInformation()).toHaveProperty('github')
+      }
+      for (const value of ['false', '0', 'yes', 'on', '']) {
+        process.env.CHECKLY_GITHUB_REPORT = value
+        expect(getGitInformation()).not.toHaveProperty('github')
+      }
+    })
+
     it('should include GitHub Actions metadata when Checkly GitHub reporting is enabled', () => {
       process.env.CHECKLY_GITHUB_REPORT = 'true'
       process.env.CHECKLY_GITHUB_REPOSITORY = 'checkly/playwright-reporter-demo'
