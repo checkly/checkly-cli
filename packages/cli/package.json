@@ -95,6 +95,9 @@
       "rca": {
         "description": "Trigger and retrieve root cause analyses."
       },
+      "resources": {
+        "description": "Export Checkly resources as Monitoring as Code constructs."
+      },
       "status-pages": {
         "description": "List and manage status pages in your Checkly account."
       },

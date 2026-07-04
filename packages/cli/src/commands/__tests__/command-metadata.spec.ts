@@ -46,6 +46,7 @@ import MembersDelete from '../members/delete.js'
 import Api from '../api.js'
 import TestSessionsList from '../test-sessions/list.js'
 import TestSessionsGet from '../test-sessions/get.js'
+import ResourcesExport from '../resources/export.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
   ['api', Api],
@@ -65,6 +66,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['status-pages get', StatusPagesGet],
   ['test-sessions list', TestSessionsList],
   ['test-sessions get', TestSessionsGet],
+  ['resources export', ResourcesExport],
   ['incidents list', IncidentsList],
   ['incidents create', IncidentsCreate],
   ['incidents update', IncidentsUpdate],
