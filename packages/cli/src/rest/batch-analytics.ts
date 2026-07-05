@@ -15,6 +15,7 @@ export interface BatchAnalyticsResult {
   packetLoss_avg: number | null
   packetLoss_p95: number | null
   packetLoss_p99: number | null
+  hopCount_avg: number | null
 }
 
 // Subset of QuickRange — excludes last30Days and thisMonth because their rolling windows
