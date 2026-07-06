@@ -95,7 +95,7 @@ export function formatCheckResult (checkResult: any) {
           formatHttpResponse(checkResult.checkRunData.response),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -146,7 +146,7 @@ export function formatCheckResult (checkResult: any) {
           formatDnsResponse(checkResult.checkRunData.response),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions, {
@@ -172,7 +172,7 @@ export function formatCheckResult (checkResult: any) {
           formatConnectionError(checkResult.checkRunData?.response?.error),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -253,7 +253,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -278,7 +278,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -294,7 +294,10 @@ export function formatCheckResult (checkResult: any) {
     } else if (checkResult.checkRunData?.response) {
       result.push([
         formatSectionTitle('SSL Response'),
-        formatSslResponse(checkResult.checkRunData.response),
+        formatSslResponse(checkResult.checkRunData.response, {
+          degradedResponseTime: checkResult.checkRunData.degradedResponseTime,
+          maxResponseTime: checkResult.checkRunData.maxResponseTime,
+        }),
       ])
       if (checkResult.checkRunData?.response?.error) {
         result.push([
@@ -303,7 +306,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -335,7 +338,7 @@ export function formatCheckResult (checkResult: any) {
           formatConnectionError(checkResult.checkRunData?.response?.error),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -376,6 +379,10 @@ const assertionSources: any = {
   RESPONSE_CODE: 'response code',
   LATENCY: 'latency',
   JSON_RESPONSE: 'response data (JSON)',
+  GRPC_STATUS_CODE: 'status code',
+  GRPC_HEALTHCHECK_STATUS: 'health check status',
+  GRPC_RESPONSE: 'response message',
+  GRPC_METADATA: 'metadata',
 }
 
 const assertionComparisons: any = {
@@ -717,10 +724,14 @@ function formatGrpcResponse (response: any) {
   const methods = Array.isArray(response.discoveredMethods) ? response.discoveredMethods : []
   const metadata = Array.isArray(response.metadata) ? response.metadata : []
   const metadataLines = metadata.slice(0, 20).map((m: any) => `  ${m.key ?? m.name ?? '(key)'}: ${m.value ?? ''}`)
+  // The go-runner reports gRPC response time as `timingPhases.total` (ms); fall
+  // back to a flat `responseTime` if a future artifact exposes one.
+  const responseTime = response.timingPhases?.total ?? response.responseTime
   return [
     target ? `Target: ${target}` : undefined,
     response.grpcMethod ? `Method: ${response.grpcMethod}` : undefined,
     response.grpcMode ? `Mode: ${response.grpcMode}` : undefined,
+    typeof responseTime === 'number' ? `Response Time: ${formatDuration(responseTime)}` : undefined,
     response.grpcStatusCode != null
       ? `Status: ${response.grpcStatusCode}${response.grpcStatusMessage ? ` ${response.grpcStatusMessage}` : ''}`
       : undefined,
@@ -732,8 +743,31 @@ function formatGrpcResponse (response: any) {
   ].filter(Boolean).join('\n')
 }
 
-function formatSslResponse (response: any) {
+type SslResponseTimeLimits = {
+  degradedResponseTime?: number
+  maxResponseTime?: number
+}
+
+function formatSslResponse (response: any, limits?: SslResponseTimeLimits) {
   const days = response.daysUntilExpiry
+  const handshake = response.handshakeTimeMs
+  // Explain a response-time fail/degraded verdict. The thresholds live on the
+  // enclosing checkRunData (not the response artifact), so they are passed in;
+  // when they are absent we simply skip the reason line.
+  let responseTimeReason
+  if (typeof handshake === 'number') {
+    if (limits?.maxResponseTime != null && handshake > limits.maxResponseTime) {
+      responseTimeReason = `Response time ${formatLatency(handshake)} exceeded max ${formatLatency(limits.maxResponseTime)}`
+    } else if (limits?.degradedResponseTime != null && handshake > limits.degradedResponseTime) {
+      responseTimeReason = `Response time ${formatLatency(handshake)} exceeded degraded ${formatLatency(limits.degradedResponseTime)}`
+    }
+  }
+  // Render the security-baseline verdict/grade when the runner provides it.
+  const baseline = response.securityBaseline
+  let baselineLine
+  if (baseline && (baseline.verdict || baseline.grade)) {
+    baselineLine = `Baseline: ${[baseline.verdict, baseline.grade ? `(grade ${baseline.grade})` : ''].filter(Boolean).join(' ')}`
+  }
   return [
     response.resolvedIp ? `Resolved IP: ${response.resolvedIp}` : undefined,
     response.protocol || response.cipherSuite
@@ -742,9 +776,11 @@ function formatSslResponse (response: any) {
     typeof days === 'number'
       ? `Expires in: ${days < 0 ? `expired ${-days} day(s) ago` : `${days} day(s)`}`
       : undefined,
-    typeof response.handshakeTimeMs === 'number' ? `Handshake: ${formatLatency(response.handshakeTimeMs)}` : undefined,
+    typeof handshake === 'number' ? `Handshake: ${formatLatency(handshake)}` : undefined,
+    responseTimeReason,
     response.chainTrusted != null ? `Chain Trusted: ${response.chainTrusted ? 'yes' : 'no'}` : undefined,
     response.hostnameVerified != null ? `Hostname Verified: ${response.hostnameVerified ? 'yes' : 'no'}` : undefined,
+    baselineLine,
   ].filter(Boolean).join('\n')
 }
 

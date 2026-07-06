@@ -163,6 +163,42 @@ describe('formatCheckResult()', () => {
       expect(output).toContain('Health: NOT_SERVING')
       expect(output).toContain('grpc.health.v1.Health/Watch')
     })
+    it('renders the response time from timingPhases.total', () => {
+      const output = stripAnsi(formatCheckResult(grpcCheckResult))
+      expect(output).toContain('Response Time: 90ms')
+    })
+    it('humanizes gRPC assertion sources', () => {
+      const withAssertions = {
+        ...grpcCheckResult,
+        checkRunData: {
+          ...grpcCheckResult.checkRunData,
+          assertions: [
+            { source: 'GRPC_STATUS_CODE', comparison: 'EQUALS', property: '', regex: null, target: '0', error: 'boom', actual: 14 },
+            { source: 'GRPC_HEALTHCHECK_STATUS', comparison: 'EQUALS', property: '', regex: null, target: 'SERVING', error: 'boom', actual: 'NOT_SERVING' },
+          ],
+        },
+      }
+      const output = stripAnsi(formatCheckResult(withAssertions))
+      expect(output).toContain('status code')
+      expect(output).toContain('health check status')
+      expect(output).not.toContain('GRPC_STATUS_CODE')
+    })
+    it('suppresses the Assertions block when a requestError is set', () => {
+      const withError = {
+        ...grpcCheckResult,
+        checkRunData: {
+          ...grpcCheckResult.checkRunData,
+          requestError: 'connection refused',
+          assertions: [
+            { source: 'GRPC_STATUS_CODE', comparison: 'EQUALS', property: '', regex: null, target: '0', error: '', actual: 14 },
+          ],
+        },
+      }
+      const output = stripAnsi(formatCheckResult(withError))
+      expect(output).toContain('Request Error')
+      expect(output).not.toContain('Assertions')
+      expect(output).not.toContain('status code')
+    })
   })
   describe('SSL Check result', () => {
     it('formats a failing SSL Check result', () => {
@@ -176,6 +212,36 @@ describe('formatCheckResult()', () => {
       expect(output).toContain('Expires in: expired 5 day(s) ago')
       expect(output).toContain('Chain Trusted: no')
       expect(output).toContain('Hostname Verified: no')
+    })
+    it('explains a response-time failure and renders the baseline verdict', () => {
+      const output = stripAnsi(formatCheckResult(sslCheckResult))
+      // handshakeTimeMs 48.2 > maxResponseTime 40
+      expect(output).toContain('Response time 48.200ms exceeded max 40.000ms')
+      expect(output).toContain('Baseline: fail (grade F)')
+    })
+    it('explains a degraded response-time verdict when only degraded is exceeded', () => {
+      const degraded = {
+        ...sslCheckResult,
+        checkRunData: {
+          ...sslCheckResult.checkRunData,
+          degradedResponseTime: 40,
+          maxResponseTime: 60,
+        },
+      }
+      const output = stripAnsi(formatCheckResult(degraded))
+      expect(output).toContain('Response time 48.200ms exceeded degraded 40.000ms')
+    })
+    it('omits the response-time reason when thresholds are not exceeded', () => {
+      const ok = {
+        ...sslCheckResult,
+        checkRunData: {
+          ...sslCheckResult.checkRunData,
+          degradedResponseTime: 100,
+          maxResponseTime: 200,
+        },
+      }
+      const output = stripAnsi(formatCheckResult(ok))
+      expect(output).not.toContain('exceeded')
     })
   })
 })

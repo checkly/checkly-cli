@@ -77,6 +77,7 @@ export const grpcCheckResult = {
       healthStatusLabel: 'NOT_SERVING',
       metadata: [{ key: 'content-type', value: 'application/grpc' }],
       discoveredMethods: ['grpc.health.v1.Health/Check', 'grpc.health.v1.Health/Watch'],
+      timingPhases: { dns: 1, connect: 2, total: 90 },
     },
   },
   logs: [],
@@ -104,6 +105,8 @@ export const sslCheckResult = {
   responseTime: 48,
   checkRunData: {
     requestError: null,
+    degradedResponseTime: 20,
+    maxResponseTime: 40,
     assertions: [],
     response: {
       resolvedIp: '203.0.113.30',
@@ -114,6 +117,7 @@ export const sslCheckResult = {
       chainTrusted: false,
       daysUntilExpiry: -5,
       ocspStapled: false,
+      securityBaseline: { verdict: 'fail', grade: 'F' },
     },
   },
   logs: [],
