@@ -12,6 +12,9 @@ type SslAssertionSource =
   | 'ISSUER_FINGERPRINT_SHA256'
   | 'KEY_SIZE_BITS'
   | 'SIGNATURE_ALGORITHM'
+  | 'OCSP_STAPLED'
+  | 'HANDSHAKE_TIME_MS'
+  | 'SAN_CONTAINS'
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
@@ -121,5 +124,31 @@ export class SslAssertionBuilder {
    */
   static signatureAlgorithm () {
     return new GeneralAssertionBuilder<SslAssertionSource>('SIGNATURE_ALGORITHM')
+  }
+
+  /**
+   * Creates an assertion builder for whether a stapled OCSP response was
+   * provided during the handshake.
+   * @returns A general assertion builder for the OCSP-stapled status.
+   */
+  static ocspStapled () {
+    return new GeneralAssertionBuilder<SslAssertionSource>('OCSP_STAPLED')
+  }
+
+  /**
+   * Creates an assertion builder for the TLS handshake time in milliseconds.
+   * @returns A numeric assertion builder for the handshake time.
+   */
+  static handshakeTimeMs () {
+    return new NumericAssertionBuilder<SslAssertionSource>('HANDSHAKE_TIME_MS')
+  }
+
+  /**
+   * Creates an assertion builder for the certificate subject alternative names
+   * (SANs).
+   * @returns A general assertion builder for the SAN entries.
+   */
+  static sanContains () {
+    return new GeneralAssertionBuilder<SslAssertionSource>('SAN_CONTAINS')
   }
 }

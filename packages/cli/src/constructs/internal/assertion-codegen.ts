@@ -3,6 +3,10 @@ import { Assertion } from './assertion.js'
 
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean
+  // When set, emit the assertion property as a chained selector method call
+  // (e.g. `responseTime().max()`) instead of a method argument, but only when
+  // the property is one of the listed selector names.
+  propertySelectors?: readonly string[]
 }
 
 export function valueForNumericAssertion<Source extends string> (
@@ -19,6 +23,11 @@ export function valueForNumericAssertion<Source extends string> (
         builder.string(assertion.property)
       }
     })
+    const propertySelectors = options?.propertySelectors
+    if (propertySelectors !== undefined && propertySelectors.includes(assertion.property)) {
+      builder.member(ident(assertion.property))
+      builder.call(() => {})
+    }
     switch (assertion.comparison) {
       case 'EQUALS':
         builder.member(ident('equals'))
@@ -40,6 +49,12 @@ export function valueForNumericAssertion<Source extends string> (
         break
       case 'GREATER_THAN':
         builder.member(ident('greaterThan'))
+        builder.call(builder => {
+          builder.number(parseInt(assertion.target, 10))
+        })
+        break
+      case 'GREATER_THAN_OR_EQUAL':
+        builder.member(ident('greaterThanOrEqual'))
         builder.call(builder => {
           builder.number(parseInt(assertion.target, 10))
         })
@@ -131,6 +146,18 @@ export function valueForGeneralAssertion<Source extends string> (
         break
       case 'GREATER_THAN':
         builder.member(ident('greaterThan'))
+        builder.call(builder => {
+          builder.string(assertion.target)
+        })
+        break
+      case 'GREATER_THAN_OR_EQUAL':
+        builder.member(ident('greaterThanOrEqual'))
+        builder.call(builder => {
+          builder.string(assertion.target)
+        })
+        break
+      case 'MATCHES':
+        builder.member(ident('matches'))
         builder.call(builder => {
           builder.string(assertion.target)
         })

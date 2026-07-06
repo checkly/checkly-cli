@@ -5,10 +5,10 @@ import { IPFamily } from './ip.js'
  * The severity applied to an SSL security-baseline rule.
  *
  * - `fail` marks the monitor as failing when the rule is violated.
- * - `warn` marks the monitor as degraded when the rule is violated.
+ * - `degrade` marks the monitor as degraded when the rule is violated.
  * - `ignore` disables the rule.
  */
-export type SslBaselineSeverity = 'fail' | 'warn' | 'ignore'
+export type SslBaselineSeverity = 'fail' | 'degrade' | 'ignore'
 
 /**
  * A baseline rule whose value is a TLS version string (e.g. `TLS1.2`/`TLS1.3`).

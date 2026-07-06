@@ -30,6 +30,12 @@ export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAsse
       return valueForGeneralAssertion('SslAssertionBuilder', 'issuerFingerprintSha256', assertion, generalNoArgs)
     case 'SIGNATURE_ALGORITHM':
       return valueForGeneralAssertion('SslAssertionBuilder', 'signatureAlgorithm', assertion, generalNoArgs)
+    case 'OCSP_STAPLED':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'ocspStapled', assertion, generalNoArgs)
+    case 'HANDSHAKE_TIME_MS':
+      return valueForNumericAssertion('SslAssertionBuilder', 'handshakeTimeMs', assertion)
+    case 'SAN_CONTAINS':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'sanContains', assertion, generalNoArgs)
     default:
       throw new Error(`Unsupported SSL assertion source ${assertion.source}`)
   }
