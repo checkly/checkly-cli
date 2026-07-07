@@ -26,6 +26,9 @@ enum ResourceDeployStatus {
   UPDATE = 'UPDATE',
   CREATE = 'CREATE',
   DELETE = 'DELETE',
+  // Returned by newer backends for resources removed from code that are kept in
+  // the account (detached, now UI-managed) instead of deleted.
+  DETACHED = 'DETACHED',
 }
 
 const PRETTY_RESOURCE_TYPES: Record<string, string> = {
@@ -357,6 +360,7 @@ export default class Deploy extends AuthCommand {
     const updating = []
     const creating = []
     const deleting: Array<{ resourceType: string, logicalId: string }> = []
+    const detaching: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
       const { type, logicalId, physicalId, action } = change
       if ([
@@ -376,7 +380,18 @@ export default class Deploy extends AuthCommand {
       } else if (action === ResourceDeployStatus.DELETE) {
         // Since the resource is being deleted, the construct isn't in the project.
         deleting.push({ resourceType: type, logicalId })
+      } else if (action === ResourceDeployStatus.DETACHED) {
+        // Newer backends report detached resources explicitly. The construct
+        // isn't in the project since it was removed from code.
+        detaching.push({ resourceType: type, logicalId })
       }
+    }
+
+    // Backwards compatibility: older backends don't emit DETACHED and instead
+    // return DELETE for resources removed from code even when preserveResources
+    // is set. When we asked to preserve, treat those deletions as detachments.
+    if (preserveResources) {
+      detaching.push(...deleting.splice(0))
     }
 
     // testOnly checks weren't sent to the BE and won't be in previewData.
@@ -417,7 +432,11 @@ export default class Deploy extends AuthCommand {
     const sortedDeleting = deleting
       .sort(compareEntries)
 
-    if (!sortedCreating.length && !sortedDeleting.length && !sortedUpdating.length && !skipping.length) {
+    const sortedDetaching = detaching
+      .sort(compareEntries)
+
+    if (!sortedCreating.length && !sortedDeleting.length && !sortedDetaching.length
+      && !sortedUpdating.length && !skipping.length) {
       return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
     }
 
@@ -437,10 +456,15 @@ export default class Deploy extends AuthCommand {
       output.push('')
     }
     if (sortedDeleting.length) {
-      output.push(preserveResources
-        ? chalk.bold.yellow('Detached (kept in account, now UI-managed):')
-        : chalk.bold.red('Delete:'))
+      output.push(chalk.bold.red('Delete:'))
       for (const { resourceType, logicalId } of sortedDeleting) {
+        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    if (sortedDetaching.length) {
+      output.push(chalk.bold.yellow('Detached (kept in account, now UI-managed):'))
+      for (const { resourceType, logicalId } of sortedDetaching) {
         output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
       }
       output.push('')
