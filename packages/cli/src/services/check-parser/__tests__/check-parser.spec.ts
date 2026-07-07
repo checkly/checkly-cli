@@ -636,6 +636,26 @@ describe('dependency-parser - parser()', () => {
       expect(filePaths.some(filePath => filePath.includes('#'))).toBe(false)
       expect(filePaths.some(filePath => filePath.includes('lodash'))).toBe(false)
     })
+
+    it('should resolve a package.json exports field', async () => {
+      // The imported package exposes its entry point only through a conditional
+      // `exports` map (no `main`), so the target file is discovered solely via
+      // exports resolution. The `node` condition is selected: the earlier,
+      // non-matching `browser` condition is skipped and the `default` fallback
+      // is not reached.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('package-exports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      expect(filePaths).toContain(toAbsolutePath('local-pkg', 'lib', 'main.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'browser.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'fallback.js'))
+    })
   })
 
   describe('restricted mode', () => {
@@ -682,6 +702,21 @@ describe('dependency-parser - parser()', () => {
       expect(filePaths).toContain(toAbsolutePath('config.js'))
       expect(filePaths).toContain(toAbsolutePath('src', 'internal', 'bar.js'))
       expect(filePaths.some(filePath => filePath.includes('#'))).toBe(false)
+    })
+
+    it('should resolve a package.json exports field', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('package-exports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      expect(filePaths).toContain(toAbsolutePath('local-pkg', 'lib', 'main.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'browser.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'fallback.js'))
     })
 
     it('should report a missing entrypoint file', async () => {
