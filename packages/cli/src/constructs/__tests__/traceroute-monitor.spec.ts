@@ -84,7 +84,60 @@ describe('TracerouteMonitor', () => {
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
+  describe('responseTime() assertions', () => {
+    it('should default the property to "avg" so responseTime().lessThan() is usable', () => {
+      const assertion = TracerouteAssertionBuilder.responseTime().lessThan(1000)
+      expect(assertion).toMatchObject({
+        source: 'RESPONSE_TIME',
+        property: 'avg',
+        comparison: 'LESS_THAN',
+        target: '1000',
+      })
+    })
+
+    it('should support selecting a specific response-time property', () => {
+      expect(TracerouteAssertionBuilder.responseTime().max().lessThan(2000)).toMatchObject({
+        source: 'RESPONSE_TIME',
+        property: 'max',
+        comparison: 'LESS_THAN',
+        target: '2000',
+      })
+      expect(TracerouteAssertionBuilder.responseTime().min().greaterThan(1)).toMatchObject({
+        source: 'RESPONSE_TIME',
+        property: 'min',
+        comparison: 'GREATER_THAN',
+      })
+      expect(TracerouteAssertionBuilder.responseTime().stdDev().lessThan(50)).toMatchObject({
+        source: 'RESPONSE_TIME',
+        property: 'stdDev',
+      })
+      expect(TracerouteAssertionBuilder.responseTime().avg().equals(100)).toMatchObject({
+        source: 'RESPONSE_TIME',
+        property: 'avg',
+        comparison: 'EQUALS',
+      })
+    })
+  })
+
   describe('validation', () => {
+    it('should error when degradedResponseTime exceeds maxResponseTime', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 20000,
+        maxResponseTime: 10000,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('must be less than or equal to "maxResponseTime"'),
+        }),
+      ]))
+    })
+
     it('should error if maxResponseTime is above 30000', async () => {
       setupProject()
       const check = new TracerouteMonitor('test-check', {
