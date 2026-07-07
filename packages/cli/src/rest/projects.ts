@@ -208,9 +208,9 @@ class Projects {
     }
   }
 
-  deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true } = {}) {
+  deploy (resources: ProjectSync, { dryRun = false, scheduleOnDeploy = true, preserveResources = false } = {}) {
     return this.api.post<ProjectDeployResponse>(
-      `/next-v2/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
+      `/next-v2/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}&preserveResources=${preserveResources}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

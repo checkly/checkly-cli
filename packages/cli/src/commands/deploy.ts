@@ -28,6 +28,23 @@ enum ResourceDeployStatus {
   DELETE = 'DELETE',
 }
 
+const PRETTY_RESOURCE_TYPES: Record<string, string> = {
+  [Check.__checklyType]: 'Check',
+  [AlertChannel.__checklyType]: 'AlertChannel',
+  [CheckGroup.__checklyType]: 'CheckGroup',
+  [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
+  [PrivateLocation.__checklyType]: 'PrivateLocation',
+  [Dashboard.__checklyType]: 'Dashboard',
+}
+
+// Internal resources that users don't create directly. They are reported as
+// part of their owning check, so we exclude them from delete previews/guards.
+const NON_REPORTED_TYPES = [
+  AlertChannelSubscription.__checklyType,
+  PrivateLocationCheckAssignment.__checklyType,
+  PrivateLocationGroupAssignment.__checklyType,
+]
+
 export default class Deploy extends AuthCommand {
   static coreCommand = true
   static hidden = false
@@ -54,6 +71,10 @@ export default class Deploy extends AuthCommand {
       description: 'Enables automatic check scheduling after a deploy.',
       default: true,
       allowNo: true,
+    }),
+    'preserve-resources': Flags.boolean({
+      description: 'Detach resources removed from code (keep them and their run history) instead of deleting them.',
+      default: false,
     }),
     'force': forceFlag(),
     'config': Flags.string({
@@ -84,6 +105,7 @@ export default class Deploy extends AuthCommand {
       force,
       preview,
       'schedule-on-deploy': scheduleOnDeploy,
+      'preserve-resources': preserveResources,
       output: outputFlag,
       verbose,
       config: configFilename,
@@ -108,6 +130,9 @@ export default class Deploy extends AuthCommand {
           scheduleOnDeploy
             ? 'Schedule checks after deploy'
             : 'Checks will NOT be scheduled after deploy',
+          preserveResources
+            ? 'Detach any resources removed from code, keeping them and their run history for management in the UI'
+            : 'Delete any resources removed from code, losing their run history — pass --preserve-resources to detach and keep them instead',
         ],
         flags,
         classification: {
@@ -238,10 +263,55 @@ export default class Deploy extends AuthCommand {
       return
     }
 
+    // Preflight destructive-delete guard. Deletions are only known from the diff,
+    // which we don't have until after a deploy call. For a non-preview, non-preserve
+    // run that isn't already forced, do a dry-run first to surface resources that
+    // would be permanently deleted and require an explicit confirmation.
+    if (!preview && !preserveResources && !force) {
+      let deletions: Array<{ resourceType: string, logicalId: string }> = []
+      try {
+        const { data: dryRunData } = await api.projects.deploy(
+          { ...projectPayload, repoInfo },
+          { dryRun: true, scheduleOnDeploy, preserveResources },
+        )
+        deletions = this.collectDeletions(dryRunData)
+      } catch (err: any) {
+        this.style.longError(`Your project could not be deployed.`, err)
+        this.exit(1)
+      }
+
+      if (deletions.length) {
+        this.log(chalk.bold.red('\nThe following resources were removed from code and will be DELETED, losing their run history:'))
+        for (const { resourceType, logicalId } of deletions) {
+          this.log(chalk.red(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`))
+        }
+        this.log(chalk.yellow('\nPass --preserve-resources to detach and keep them (and their run history) instead.\n'))
+
+        await this.confirmOrAbort({
+          command: 'deploy',
+          description: 'Delete resources removed from code',
+          changes: [
+            `Permanently delete ${deletions.length} resource(s) removed from code, losing their run history`,
+            ...deletions.map(({ resourceType, logicalId }) =>
+              `Delete ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`),
+          ],
+          flags,
+          classification: {
+            readOnly: Deploy.readOnly,
+            destructive: Deploy.destructive,
+            idempotent: Deploy.idempotent,
+          },
+        }, { force })
+      }
+    }
+
     try {
-      const { data } = await api.projects.deploy({ ...projectPayload, repoInfo }, { dryRun: preview, scheduleOnDeploy })
+      const { data } = await api.projects.deploy(
+        { ...projectPayload, repoInfo },
+        { dryRun: preview, scheduleOnDeploy, preserveResources },
+      )
       if (preview || output) {
-        this.log(this.formatPreview(data, project, verbose))
+        this.log(this.formatPreview(data, project, verbose, preserveResources))
       }
       if (!preview) {
         await setTimeout(500)
@@ -263,7 +333,24 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: ProjectDeployResponse, project: Project, verbose = false): string {
+  private collectDeletions (previewData: ProjectDeployResponse): Array<{ resourceType: string, logicalId: string }> {
+    return (previewData?.diff ?? [])
+      .filter(change =>
+        change.action === ResourceDeployStatus.DELETE
+        && !NON_REPORTED_TYPES.some(t => t === change.type),
+      )
+      .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
+      .sort((a, b) =>
+        a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
+      )
+  }
+
+  private formatPreview (
+    previewData: ProjectDeployResponse,
+    project: Project,
+    verbose = false,
+    preserveResources = false,
+  ): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
@@ -350,17 +437,11 @@ export default class Deploy extends AuthCommand {
       output.push('')
     }
     if (sortedDeleting.length) {
-      output.push(chalk.bold.red('Delete:'))
-      const prettyResourceTypes: Record<string, string> = {
-        [Check.__checklyType]: 'Check',
-        [AlertChannel.__checklyType]: 'AlertChannel',
-        [CheckGroup.__checklyType]: 'CheckGroup',
-        [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
-        [PrivateLocation.__checklyType]: 'PrivateLocation',
-        [Dashboard.__checklyType]: 'Dashboard',
-      }
+      output.push(preserveResources
+        ? chalk.bold.yellow('Detached (kept in account, now UI-managed):')
+        : chalk.bold.red('Delete:'))
       for (const { resourceType, logicalId } of sortedDeleting) {
-        output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
+        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
       }
       output.push('')
     }
