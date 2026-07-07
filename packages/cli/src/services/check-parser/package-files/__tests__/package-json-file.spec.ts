@@ -404,4 +404,93 @@ describe('package.json file', () => {
       expect(paths[0].target.path).toBe('./index.js')
     })
   })
+
+  describe('resolveImportPath', () => {
+    const importConditions = ['import', 'node', 'module-sync', 'default']
+    const requireConditions = ['require', 'node', 'module-sync', 'default']
+
+    it('resolves a plain-string relative target', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        imports: {
+          '#config': './config.js',
+        },
+      })
+
+      const { paths } = testFile.resolveImportPath('#config', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./config.js')
+    })
+
+    it('resolves a conditional target differently for import and require', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        imports: {
+          '#dep': {
+            import: './dep.mjs',
+            require: './dep.cjs',
+            default: './dep.js',
+          },
+        } as any,
+      })
+
+      const importResult = testFile.resolveImportPath('#dep', importConditions)
+      expect(importResult.paths).toHaveLength(1)
+      expect(importResult.paths[0].target.path).toBe('./dep.mjs')
+
+      const requireResult = testFile.resolveImportPath('#dep', requireConditions)
+      expect(requireResult.paths).toHaveLength(1)
+      expect(requireResult.paths[0].target.path).toBe('./dep.cjs')
+    })
+
+    it('resolves a wildcard target', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        imports: {
+          '#internal/*': './src/internal/*.js',
+        },
+      })
+
+      const { paths } = testFile.resolveImportPath('#internal/foo', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('./src/internal/foo.js')
+    })
+
+    it('returns a bare/external target verbatim', () => {
+      // Import maps may point at an external package rather than a file within
+      // the declaring package; the target is returned unchanged so the resolver
+      // can treat it as an external (or workspace-neighbor) specifier.
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        imports: {
+          '#dep': 'lodash',
+        },
+      })
+
+      const { paths } = testFile.resolveImportPath('#dep', importConditions)
+
+      expect(paths).toHaveLength(1)
+      expect(paths[0].target.path).toBe('lodash')
+    })
+
+    it('returns no paths for an unmatched specifier', () => {
+      const testFile = PackageJsonFile.make('/pkg/package.json', {
+        name: 'foo',
+        version: '1.0.0',
+        imports: {
+          '#config': './config.js',
+        },
+      })
+
+      const { paths } = testFile.resolveImportPath('#missing', importConditions)
+
+      expect(paths).toHaveLength(0)
+    })
+  })
 })

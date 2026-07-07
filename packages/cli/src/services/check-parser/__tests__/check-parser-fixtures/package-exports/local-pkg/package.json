@@ -1,0 +1,11 @@
+{
+  "name": "local-pkg",
+  "version": "1.0.0",
+  "exports": {
+    ".": {
+      "browser": "./lib/browser.js",
+      "node": "./lib/main.js",
+      "default": "./lib/fallback.js"
+    }
+  }
+}
