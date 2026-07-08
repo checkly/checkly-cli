@@ -443,8 +443,12 @@ class Projects {
       onProgress?: (progress: number) => void
     },
   ): Promise<{ data: ProjectDeployResponse }> {
+    // Only send preserveResources when the user opted in. The endpoint rejects
+    // unknown query params, and preserveResources=false is the default (delete)
+    // behavior, so omitting it keeps default deploys backwards compatible.
+    const preserveParam = preserveResources ? '&preserveResources=true' : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
-      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}&preserveResources=${preserveResources}`,
+      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}${preserveParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

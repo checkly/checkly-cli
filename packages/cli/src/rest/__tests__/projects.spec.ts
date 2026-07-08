@@ -46,7 +46,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: true })
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&preserveResources=false',
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true',
       sync,
       expect.objectContaining({ transformRequest: expect.any(Function) }),
     )
@@ -54,16 +54,16 @@ describe('Projects.deploy', () => {
     expect(data).toEqual(preview)
   })
 
-  it('passes preserveResources through to the deploy endpoint', async () => {
+  it('omits preserveResources by default and only sends it when opted in', async () => {
     const preview = { project: sync.project, diff: [] }
     vi.mocked(api.post).mockResolvedValue({ data: preview })
 
-    await projects.deploy(sync, { dryRun: true, preserveResources: true })
+    await projects.deploy(sync, { dryRun: true })
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true')
 
-    expect(api.post).toHaveBeenCalledWith(
+    await projects.deploy(sync, { dryRun: true, preserveResources: true })
+    expect(vi.mocked(api.post).mock.calls[1][0]).toBe(
       '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&preserveResources=true',
-      sync,
-      expect.objectContaining({ transformRequest: expect.any(Function) }),
     )
   })
 
