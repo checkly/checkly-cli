@@ -613,5 +613,44 @@ describe('formatResultDetail', () => {
       expect(result).toContain('+3 more')
       expect(result).not.toContain('alt10.example.com')
     })
+
+    it('renders self-signed and CA flags when set', () => {
+      const base = sslCheckResult.sslCheckResult!
+      const detail = {
+        ...base,
+        response: {
+          ...base.response,
+          certificate: {
+            ...(base.response!.certificate as Record<string, unknown>),
+            selfSigned: true,
+            isCA: true,
+          },
+        },
+      }
+      const res = { ...sslCheckResult, sslCheckResult: detail }
+      const result = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(result).toContain('Self-signed:')
+      expect(result).toContain('CA:')
+    })
+
+    it('renders a scalar baseline rule as key: value', () => {
+      const base = sslCheckResult.sslCheckResult!
+      const detail = {
+        ...base,
+        response: {
+          ...base.response,
+          securityBaseline: {
+            ...(base.response!.securityBaseline as Record<string, unknown>),
+            minTLSVersion: 'TLS1.2',
+          },
+        },
+      }
+      const res = { ...sslCheckResult, sslCheckResult: detail }
+      const term = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(term).toContain('min TLS version: TLS1.2')
+      const md = formatResultDetail(res, 'md')
+      expect(md).toContain('min TLS version: TLS1.2')
+      expect(md).toBe(stripAnsi(md))
+    })
   })
 })
