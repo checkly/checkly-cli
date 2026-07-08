@@ -1,5 +1,80 @@
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 
+/**
+ * Known TLS protocol versions for use with {@link SslAssertionBuilder.tlsVersion}.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.tlsVersion().greaterThanOrEqual(TlsVersion.TLS1_2)
+ * SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_3)
+ * ```
+ */
+export const TlsVersion = {
+  TLS1_0: 'TLS1.0',
+  TLS1_1: 'TLS1.1',
+  TLS1_2: 'TLS1.2',
+  TLS1_3: 'TLS1.3',
+} as const
+
+export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
+
+/**
+ * Commonly-observed X.509 signature algorithms for use with
+ * {@link SslAssertionBuilder.signatureAlgorithm}. Values match the strings
+ * reported by Node.js / OpenSSL in certificate details.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_WITH_RSA)
+ * ```
+ */
+export const SignatureAlgorithm = {
+  SHA256_WITH_RSA: 'sha256WithRSAEncryption',
+  SHA384_WITH_RSA: 'sha384WithRSAEncryption',
+  SHA512_WITH_RSA: 'sha512WithRSAEncryption',
+  ECDSA_WITH_SHA256: 'ecdsa-with-SHA256',
+  ECDSA_WITH_SHA384: 'ecdsa-with-SHA384',
+  ECDSA_WITH_SHA512: 'ecdsa-with-SHA512',
+  SHA1_WITH_RSA: 'sha1WithRSAEncryption',
+  RSASSA_PSS: 'id-RSASSA-PSS',
+} as const
+
+export type SignatureAlgorithmValue = (typeof SignatureAlgorithm)[keyof typeof SignatureAlgorithm]
+
+/**
+ * Commonly-used IANA cipher suite names for use with
+ * {@link SslAssertionBuilder.cipherSuite}. Includes TLS 1.3 suites and
+ * widely-deployed TLS 1.2 suites.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_AES_256_GCM_SHA384)
+ * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
+ * ```
+ */
+export const CipherSuite = {
+  // TLS 1.3
+  TLS_AES_128_GCM_SHA256: 'TLS_AES_128_GCM_SHA256',
+  TLS_AES_256_GCM_SHA384: 'TLS_AES_256_GCM_SHA384',
+  TLS_CHACHA20_POLY1305_SHA256: 'TLS_CHACHA20_POLY1305_SHA256',
+  // TLS 1.2 — ECDHE (forward-secret, preferred)
+  TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256',
+  TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384',
+  TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: 'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256',
+  TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: 'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384',
+  TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
+  TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256',
+  // TLS 1.2 — RSA key exchange
+  TLS_RSA_WITH_AES_128_GCM_SHA256: 'TLS_RSA_WITH_AES_128_GCM_SHA256',
+  TLS_RSA_WITH_AES_256_GCM_SHA384: 'TLS_RSA_WITH_AES_256_GCM_SHA384',
+  TLS_RSA_WITH_AES_128_CBC_SHA256: 'TLS_RSA_WITH_AES_128_CBC_SHA256',
+  TLS_RSA_WITH_AES_256_CBC_SHA256: 'TLS_RSA_WITH_AES_256_CBC_SHA256',
+  TLS_RSA_WITH_AES_128_CBC_SHA: 'TLS_RSA_WITH_AES_128_CBC_SHA',
+  TLS_RSA_WITH_AES_256_CBC_SHA: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+} as const
+
+export type CipherSuiteValue = (typeof CipherSuite)[keyof typeof CipherSuite]
+
 type SslAssertionSource =
   | 'CERT_EXPIRES_IN_DAYS'
   | 'CERT_NOT_EXPIRED'
@@ -12,6 +87,9 @@ type SslAssertionSource =
   | 'ISSUER_FINGERPRINT_SHA256'
   | 'KEY_SIZE_BITS'
   | 'SIGNATURE_ALGORITHM'
+  | 'OCSP_STAPLED'
+  | 'HANDSHAKE_TIME_MS'
+  | 'SAN_CONTAINS'
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
@@ -121,5 +199,31 @@ export class SslAssertionBuilder {
    */
   static signatureAlgorithm () {
     return new GeneralAssertionBuilder<SslAssertionSource>('SIGNATURE_ALGORITHM')
+  }
+
+  /**
+   * Creates an assertion builder for whether a stapled OCSP response was
+   * provided during the handshake.
+   * @returns A general assertion builder for the OCSP-stapled status.
+   */
+  static ocspStapled () {
+    return new GeneralAssertionBuilder<SslAssertionSource>('OCSP_STAPLED')
+  }
+
+  /**
+   * Creates an assertion builder for the TLS handshake time in milliseconds.
+   * @returns A numeric assertion builder for the handshake time.
+   */
+  static handshakeTimeMs () {
+    return new NumericAssertionBuilder<SslAssertionSource>('HANDSHAKE_TIME_MS')
+  }
+
+  /**
+   * Creates an assertion builder for the certificate subject alternative names
+   * (SANs).
+   * @returns A general assertion builder for the SAN entries.
+   */
+  static sanContains () {
+    return new GeneralAssertionBuilder<SslAssertionSource>('SAN_CONTAINS')
   }
 }
