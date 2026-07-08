@@ -9,7 +9,7 @@ import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData, Diagnostics,
-  Session,
+  Session, StatusPage, StatusPageService,
 } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
@@ -27,7 +27,7 @@ enum ResourceDeployStatus {
   CREATE = 'CREATE',
   DELETE = 'DELETE',
   // Returned by newer backends for resources removed from code that are kept in
-  // the account (detached, now UI-managed) instead of deleted.
+  // the account (detached, now managed in the Checkly Webapp) instead of deleted.
   DETACHED = 'DETACHED',
 }
 
@@ -38,6 +38,8 @@ const PRETTY_RESOURCE_TYPES: Record<string, string> = {
   [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
   [PrivateLocation.__checklyType]: 'PrivateLocation',
   [Dashboard.__checklyType]: 'Dashboard',
+  [StatusPage.__checklyType]: 'StatusPage',
+  [StatusPageService.__checklyType]: 'StatusPageService',
 }
 
 // Internal resources that users don't create directly. They are reported as
@@ -134,8 +136,8 @@ export default class Deploy extends AuthCommand {
             ? 'Schedule checks after deploy'
             : 'Checks will NOT be scheduled after deploy',
           preserveResources
-            ? 'Detach any resources removed from code, keeping them and their run history for management in the UI'
-            : 'Delete any resources removed from code, losing their run history — pass --preserve-resources to detach and keep them instead',
+            ? 'Detach any resources removed from code, keeping them and their run history for management in the Checkly Webapp'
+            : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to detach and keep them instead',
         ],
         flags,
         classification: {
@@ -314,7 +316,7 @@ export default class Deploy extends AuthCommand {
         { dryRun: preview, scheduleOnDeploy, preserveResources },
       )
       if (preview || output) {
-        this.log(this.formatPreview(data, project, verbose, preserveResources))
+        this.log(this.formatPreview(data, project, verbose))
       }
       if (!preview) {
         await setTimeout(500)
@@ -352,7 +354,6 @@ export default class Deploy extends AuthCommand {
     previewData: ProjectDeployResponse,
     project: Project,
     verbose = false,
-    preserveResources = false,
   ): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
@@ -385,13 +386,6 @@ export default class Deploy extends AuthCommand {
         // isn't in the project since it was removed from code.
         detaching.push({ resourceType: type, logicalId })
       }
-    }
-
-    // Backwards compatibility: older backends don't emit DETACHED and instead
-    // return DELETE for resources removed from code even when preserveResources
-    // is set. When we asked to preserve, treat those deletions as detachments.
-    if (preserveResources) {
-      detaching.push(...deleting.splice(0))
     }
 
     // testOnly checks weren't sent to the BE and won't be in previewData.
@@ -463,7 +457,7 @@ export default class Deploy extends AuthCommand {
       output.push('')
     }
     if (sortedDetaching.length) {
-      output.push(chalk.bold.yellow('Detached (kept in account, now UI-managed):'))
+      output.push(chalk.bold.yellow('Detached (kept in account, now managed in the Checkly Webapp):'))
       for (const { resourceType, logicalId } of sortedDetaching) {
         output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
       }
