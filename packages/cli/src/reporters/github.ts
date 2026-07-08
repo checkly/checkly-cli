@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { CheckStatus, formatDuration, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, formatDuration, formatRunError, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-github-report.md'
 
@@ -27,6 +27,7 @@ export class GithubMdBuilder {
   tableHeaders: Array<string>
   extraTableHeadersWithLinks: Array<string>
   tableRows: Array<string> = []
+  executionErrors: Array<string> = []
   hasFilenames: boolean
 
   readonly header: string = '# Checkly Test Session Summary'
@@ -68,9 +69,11 @@ export class GithubMdBuilder {
         const tableRow: Array<string> = [
           `${checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'}`,
           `${result.name}`,
-          `${result.checkType}`,
+          // A check that failed with a run error (e.g. the CLI timing out while waiting for
+          // a result) has no check type or response time, so fall back to a placeholder.
+          `${result.checkType ?? '-'}`,
           this.hasFilenames ? `\`${result.sourceFile}\`` : undefined,
-          `${formatDuration(result.responseTime)} `,
+          `${result.responseTime != null ? formatDuration(result.responseTime) : '-'} `,
         ].filter(nonNullable)
 
         if (this.testSessionId && testResultId) {
@@ -79,14 +82,24 @@ export class GithubMdBuilder {
         }
 
         this.tableRows.push(this.tableSeparator + tableRow.join(this.tableSeparator) + this.tableSeparator)
+
+        if (result.runError) {
+          this.executionErrors.push(`**${result.name}**\n\n\`\`\`\n${formatRunError(result.runError)}\n\`\`\``)
+        }
       }
     }
 
-    const markdown = this.header + '\n'
+    let markdown = this.header + '\n'
       + this.subHeader.join('\n') + '\n'
       + this.tableSeparator + this.tableHeaders.join('|') + this.tableSeparator + '\n'
       + this.tableSeparatorFiller.repeat(this.tableHeaders.length) + this.tableSeparator + '\n'
       + this.tableRows.sort((a, b) => a < b ? 1 : -1).join('\n') + '\n'
+
+    if (this.executionErrors.length > 0) {
+      markdown += '\n## Execution Errors\n\n'
+        + 'These checks did not report a result to Checkly, so the test session may show a different status for them.\n\n'
+        + this.executionErrors.join('\n\n') + '\n'
+    }
 
     return markdown
   }
@@ -100,6 +113,7 @@ export default class GithubReporter extends AbstractListReporter {
 
   onEnd () {
     this._printBriefSummary()
+    this._printExecutionErrors()
     const githubMdBuilder = new GithubMdBuilder({
       testSessionId: this.testSessionId,
       numChecks: this.numChecks!,

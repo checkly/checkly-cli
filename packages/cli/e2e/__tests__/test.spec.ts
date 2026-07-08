@@ -98,7 +98,9 @@ describe('test', { timeout: 45000 }, () => {
       } catch {
         // No-op
       }
-      const result = await runTest(fixt, ['--record', '--reporter', 'github'], {
+      // Keep this reporter test scoped to one stable check. The GitHub assertions below do not
+      // need the whole fixture project, and unrelated remote checks can make this fail first.
+      const result = await runTest(fixt, ['secret.check.ts', '--record', '--reporter', 'github'], {
         env: {
           CHECKLY_REPORTER_GITHUB_OUTPUT: reportFilename,
         },
@@ -172,8 +174,10 @@ describe('test', { timeout: 45000 }, () => {
         await runTest(fixt, [])
       } catch (err) {
         if (err instanceof ExecaError) {
-          expect((err.stderr as unknown as string).replace(/(\n {4})/gm, ''))
-            .toContain('Error: Resource of type \'check-group\' with logical id \'my-check-group\' already exists.')
+          // A duplicate logicalId is now reported as a fatal validation
+          // diagnostic (printed to stdout) rather than a thrown error.
+          expect((err.stdout as unknown as string).replace(/(\n {4})/gm, ''))
+            .toContain('A check-group with logicalId "my-check-group" already exists.')
           expect(err.exitCode).toBe(1)
         } else {
           throw err

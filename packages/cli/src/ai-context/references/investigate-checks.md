@@ -32,6 +32,7 @@ Shows check configuration, recent results, error groups, and analytics stats.
 
 Flags:
 - `-r, --result <result-id>` — drill into a specific result (see below)
+- `--include-attempts` — with `--result`, also list the individual retry attempts for that result (see below)
 - `-e, --error-group <error-group-id>` — show full details for a specific error group
 - `--results-limit <n>` — number of recent results to show (default 10)
 - `--results-cursor <cursor>` — paginate results using the cursor from previous output
@@ -47,7 +48,75 @@ Flags:
 
 ```bash
 npx checkly checks get <check-id> --result <result-id>
+npx checkly checks get <check-id> --result <result-id> --output json
 ```
+
+### View retry attempts for a result
+
+When a check has retries enabled, a single run produces one `FINAL` result plus
+one `ATTEMPT` result for each earlier failed try (all sharing a `sequenceId`).
+By default only the `FINAL` result is shown. Add `--include-attempts` to list the
+full retry sequence — attempt number, status, location, duration, and a short
+error summary:
+
+```bash
+npx checkly checks get <check-id> --result <result-id> --include-attempts
+npx checkly checks get <check-id> --result <result-id> --include-attempts --output json
+```
+
+With `--include-attempts --output json`, the command returns a stable envelope:
+
+```json
+{
+  "result": {},
+  "attempts": []
+}
+```
+
+Use the `attempts` array to inspect intermediate retry failures. Use the `result`
+object for the requested result row.
+
+### List or download result assets
+
+Result detail output summarizes available screenshots, traces, and videos when
+present. Use the dedicated asset manifest commands to inspect exact asset names
+and download files:
+
+```bash
+npx checkly assets list --check-id <check-id> --result-id <result-id>
+npx checkly assets list --check-id <check-id> --result-id <result-id> --type trace --view tree
+npx checkly assets list --check-id <check-id> --result-id <result-id> --output json
+npx checkly assets download --check-id <check-id> --result-id <result-id> --asset "<Asset>"
+npx checkly assets download --check-id <check-id> --result-id <result-id> --type all --dir ./checkly-assets
+```
+
+Run `assets list` first to discover available files. The default table output
+has an `Asset` column; copy that value into `--asset` for single-file downloads.
+
+Flags:
+- `--type <type>` - filter/select by `log`, `trace`, `video`, `screenshot`, `pcap`, `report`, `file`, or `all`.
+- `--asset <value>` - exact Asset/Name value or glob. Prefer copying the `Asset` value from the default table output before downloading a single file.
+- `--dir <path>` - destination directory for downloads; defaults under `./checkly-assets/`.
+- `--force` / `--skip-existing` - overwrite or preserve existing files.
+
+`assets list --output json` uses a stable list envelope:
+
+```json
+{
+  "data": [],
+  "pagination": {
+    "length": 0
+  }
+}
+```
+
+`assets download` requires `--type` or `--asset` unless the manifest is a single
+archive bundle. Archive entries download as their containing archive; filters
+narrow the manifest list, not the archive bytes.
+
+Do not invent asset names or assume every result has the same artifact set. Some
+results have screenshots only, some have traces or videos, and some have no
+downloadable assets.
 
 ### View an error group
 

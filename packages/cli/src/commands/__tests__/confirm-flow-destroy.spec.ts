@@ -45,7 +45,14 @@ function createCommandContext (parsed: unknown) {
       throw new Error(`EXIT_${code}`)
     }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: { outputFormat: undefined, longError: vi.fn() },
+    style: {
+      outputFormat: undefined,
+      longError: vi.fn(),
+      actionStart: vi.fn(),
+      actionStatus: vi.fn(),
+      actionSuccess: vi.fn(),
+      actionFailure: vi.fn(),
+    },
     constructor: Destroy,
     account: { name: 'Test Account' },
     logged,
@@ -86,7 +93,7 @@ describe('destroy confirmation flow', () => {
 
     await Destroy.prototype.run.call(ctx as any)
 
-    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', { preserveResources: false })
+    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', expect.objectContaining({ preserveResources: false }))
   })
 
   it('prompts for project name in interactive mode', async () => {
@@ -99,7 +106,7 @@ describe('destroy confirmation flow', () => {
     await Destroy.prototype.run.call(ctx as any)
 
     expect(prompts).toHaveBeenCalledTimes(1)
-    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', { preserveResources: false })
+    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', expect.objectContaining({ preserveResources: false }))
   })
 
   it('aborts when project name does not match in interactive mode', async () => {
@@ -144,8 +151,19 @@ describe('destroy confirmation flow', () => {
 
     await Destroy.prototype.run.call(ctx as any)
 
-    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', { preserveResources: true })
+    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', expect.objectContaining({ preserveResources: true }))
     expect(ctx.logged[0]).toContain('preserved as account-level resources')
+  })
+
+  it('passes cancel-in-progress-deployment flag to deleteProject', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const ctx = createCommandContext({
+      flags: { 'force': true, 'cancel-in-progress-deployment': true },
+    })
+
+    await Destroy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deleteProject).toHaveBeenCalledWith('my-project', expect.objectContaining({ cancelInProgress: true }))
   })
 
   it('has correct metadata', () => {

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./from-b/*"
+      ]
+    }
+  }
+}

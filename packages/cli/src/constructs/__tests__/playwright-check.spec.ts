@@ -358,7 +358,7 @@ describe('PlaywrightCheck', () => {
           'teardown.ts',
           'tsconfig.playwright.json',
         ])
-      })
+      }, DEFAULT_TEST_TIMEOUT)
     })
 
     describe('test-global-files-bundling-without-projects', () => {
@@ -411,7 +411,7 @@ describe('PlaywrightCheck', () => {
           'teardown.ts',
           'tsconfig.playwright.json',
         ])
-      })
+      }, DEFAULT_TEST_TIMEOUT)
     })
 
     describe('headless', () => {

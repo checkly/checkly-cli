@@ -1,0 +1,6 @@
+{
+  "name": "tsconfig-extends-node-modules",
+  "dependencies": {
+    "@fake/tsconfig": "*"
+  }
+}

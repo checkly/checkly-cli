@@ -661,7 +661,7 @@ function formatLogs (logs: Array<{ level: string, msg: string, time: number }>) 
   }).join('\n')
 }
 
-function formatRunError (err: string | Error): string {
+export function formatRunError (err: string | Error): string {
   if (typeof err === 'string') {
     return err
   } else {

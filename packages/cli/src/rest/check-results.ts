@@ -17,6 +17,7 @@ export interface CheckResult {
   attempts: number
   resultType: 'FINAL' | 'ATTEMPT'
   sequenceId?: string | null
+  errorGroupIds?: string[] | null
   apiCheckResult?: ApiCheckResult | null
   browserCheckResult?: BrowserCheckResult | null
   multiStepCheckResult?: MultiStepCheckResult | null
@@ -173,13 +174,45 @@ export interface CheckResultsPage {
   nextId: string | null
 }
 
+// Result fields the backend `GET /v2/check-results/{checkId}` endpoint accepts
+// for projection via the `fields` query parameter. Requesting a narrow subset
+// lets the backend skip selecting and decorating wide payloads (metadata,
+// assets, apiCheckResult, browserCheckResult, …) that a given view never needs.
+export type CheckResultField =
+  | 'id'
+  | 'name'
+  | 'checkId'
+  | 'hasFailures'
+  | 'hasErrors'
+  | 'isDegraded'
+  | 'isCancelled'
+  | 'overMaxResponseTime'
+  | 'runLocation'
+  | 'startedAt'
+  | 'stoppedAt'
+  | 'created_at'
+  | 'createdAt'
+  | 'responseTime'
+  | 'apiCheckResult'
+  | 'browserCheckResult'
+  | 'multiStepCheckResult'
+  | 'agenticCheckResult'
+  | 'playwrightCheckResult'
+  | 'checkRunId'
+  | 'attempts'
+  | 'resultType'
+  | 'sequenceId'
+  | 'traceId'
+  | 'errorGroupIds'
+
 export interface ListCheckResultsParams {
   limit?: number
   nextId?: string
   from?: number
   to?: number
   hasFailures?: boolean
-  resultType?: 'FINAL' | 'ATTEMPT'
+  resultType?: 'FINAL' | 'ATTEMPT' | 'ALL'
+  fields?: CheckResultField[]
 }
 
 class CheckResults {
@@ -189,7 +222,12 @@ class CheckResults {
   }
 
   getAll (checkId: string, params: ListCheckResultsParams = {}) {
-    return this.api.get<CheckResultsPage>(`/v2/check-results/${checkId}`, { params })
+    // Serialize `fields` as a single comma-separated value rather than relying on
+    // Axios array serialization. The backend accepts both `fields=id,startedAt`
+    // and repeated `fields=id&fields=startedAt`, and the comma form is the
+    // safest, most predictable shape across HTTP clients.
+    const requestParams = { ...params, fields: params.fields?.join(',') }
+    return this.api.get<CheckResultsPage>(`/v2/check-results/${checkId}`, { params: requestParams })
   }
 
   get (checkId: string, checkResultId: string) {

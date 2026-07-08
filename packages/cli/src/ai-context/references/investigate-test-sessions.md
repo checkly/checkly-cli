@@ -78,7 +78,7 @@ Flags:
 
 The detail view shows the session status, metadata, result rows, test-session result IDs, check IDs when available, and test-session error group IDs. Prefer `--watch` before investigating failures so you do not act on partial results.
 
-Use `--output json` when you need exact fields, result links, or asset URLs. For Playwright Check Suite results, inspect result payload fields such as Playwright result details, traces, videos, screenshots, reports, and links when present.
+Use `--output json` when you need exact fields, result links, check IDs, or test-session result IDs. For downloadable logs, traces, videos, screenshots, reports, and files, use `checkly assets list` and `checkly assets download` with the test session ID and result ID.
 
 ## Inspect a test-session error group
 
@@ -116,13 +116,50 @@ If RCA is unavailable because of plan or entitlement limits, run `npx checkly ac
 
 ## Retrieve result assets
 
-There is no dedicated `test-sessions download` command. Use the JSON outputs and links exposed by the session or result payload.
+Use the asset manifest commands for recorded test-session result files. Start
+from `test-sessions get` to identify the `testSessionResultId` (and `checkId`
+when available) for the row you want to inspect.
 
 ```bash
 npx checkly test-sessions get <test-session-id> --output json
-npx checkly checks get <check-id> --result <test-session-result-id> --output json
+npx checkly assets list --test-session-id <test-session-id> --result-id <test-session-result-id>
+npx checkly assets list --test-session-id <test-session-id> --result-id <test-session-result-id> --type trace --view tree
+npx checkly assets list --test-session-id <test-session-id> --result-id <test-session-result-id> --output json
+npx checkly assets download --test-session-id <test-session-id> --result-id <test-session-result-id> --asset "<Asset>"
+npx checkly assets download --test-session-id <test-session-id> --result-id <test-session-result-id> --type all --dir ./checkly-assets
 ```
 
-Use `test-sessions get --output json` first. If a result includes public URLs or asset fields, download those URLs directly. If a result only gives `checkId` plus `testSessionResultId`, use `checks get <check-id> --result <test-session-result-id> --output json` to fetch detailed result data; terminal output summarizes available screenshots, traces, and videos, while JSON output exposes the underlying URLs/fields.
+Run `assets list` first to discover available files. The default table output
+has an `Asset` column; copy that value into `--asset` for single-file downloads.
 
-Do not invent asset names or assume every result has the same artifact set. Some results have screenshots only, some have traces or videos, and some have no downloadable assets.
+Flags:
+- `--type <type>` - filter/select by `log`, `trace`, `video`, `screenshot`, `pcap`, `report`, `file`, or `all`.
+- `--asset <value>` - exact Asset/Name value or glob. Prefer copying the `Asset` value from `assets list --view table` for single-file downloads.
+- `--dir <path>` - destination directory for downloads; defaults under `./checkly-assets/`.
+- `--force` / `--skip-existing` - overwrite or preserve existing files.
+
+`assets list --output json` uses a stable list envelope:
+
+```json
+{
+  "data": [],
+  "pagination": {
+    "length": 0
+  }
+}
+```
+
+`assets download` requires `--type` or `--asset` unless the manifest is a single
+archive bundle. Archive entries download as their containing archive; filters
+narrow the manifest list, not the archive bytes.
+
+If you also need the scheduled check result view for the same row, and the row
+has a `checkId`, use:
+
+```bash
+npx checkly checks get <check-id> --result <test-session-result-id>
+```
+
+Do not invent asset names or assume every result has the same artifact set. Some
+results have screenshots only, some have traces or videos, and some have no
+downloadable assets.

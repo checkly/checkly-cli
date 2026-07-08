@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { TSConfigFile, Schema } from './tsconfig-json-file.js'
+import { TSConfigFile, Schema, ResolveExtends } from './tsconfig-json-file.js'
 import { JsonSourceFile } from './json-source-file.js'
 
 /**
@@ -21,8 +21,11 @@ export class JSConfigFile extends TSConfigFile {
     return path.join(dirPath, JSConfigFile.FILENAME)
   }
 
-  // eslint-disable-next-line require-await
-  static async loadFromJsonSourceFile (jsonFile: JsonSourceFile<Schema>): Promise<JSConfigFile | undefined> {
-    return new JSConfigFile(jsonFile)
+  static async loadFromJsonSourceFile (
+    jsonFile: JsonSourceFile<Schema>,
+    resolveExtends: ResolveExtends,
+  ): Promise<JSConfigFile | undefined> {
+    const chain = await JSConfigFile.buildChain(jsonFile, false, resolveExtends, new Set())
+    return new JSConfigFile(jsonFile, chain)
   }
 }

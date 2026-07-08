@@ -56,6 +56,7 @@ export type TestSessionMetadata = {
   commitOwner?: string
   commitMessage?: string
   branchName?: string
+  github?: GitInformation['github']
 }
 
 export type TestSessionStatus = 'RUNNING' | 'FAILED' | 'PASSED' | 'CANCELLED'

@@ -19,5 +19,7 @@ describe('whomai', () => {
     const { stdout } = await runCheckly(fixt, ['whoami'])
     expect(stdout).toContain(config.get('accountName'))
     expect(stdout).toContain('Plan:')
+    // env credentials are set, so whoami notes the account comes from the environment
+    expect(stdout).toContain('resolved from your environment')
   })
 })

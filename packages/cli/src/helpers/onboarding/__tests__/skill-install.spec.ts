@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-vi.mock('../../../commands/skills/install', () => ({
+vi.mock('../../../services/skills', () => ({
   PLATFORM_TARGETS: {
     claude: '.claude/skills/checkly',
     cursor: '.cursor/skills/checkly',
@@ -25,7 +25,7 @@ vi.mock('prompts', () => ({
 }))
 
 import prompts from 'prompts'
-import { readSkillFile, writeSkillToTarget, promptForPlatformTarget } from '../../../commands/skills/install.js'
+import { readSkillFile, writeSkillToTarget, promptForPlatformTarget } from '../../../services/skills.js'
 import { detectCliMode, detectOperator } from '../../cli-mode.js'
 import { runSkillInstallStep } from '../skill-install.js'
 

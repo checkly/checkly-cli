@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
+import { Project } from '../project.js'
 import { Session } from '../session.js'
 import { Construct } from '../construct.js'
 import { Diagnostics } from '../diagnostics.js'
 
 class TestConstruct extends Construct {
-  constructor (logicalId: string) {
+  constructor (logicalId: any) {
     super('test', logicalId)
   }
 
@@ -71,6 +72,38 @@ describe('Construct logicalId validation', () => {
     expect(diagnostics.observations).toEqual(expect.arrayContaining([
       expect.objectContaining({
         message: expect.stringContaining('contains invalid characters'),
+      }),
+    ]))
+  })
+
+  it('should produce a diagnostic for a non-string logicalId instead of throwing', async () => {
+    const construct = new TestConstruct(123)
+    expect(construct.logicalId).toBe('123')
+    const diagnostics = new Diagnostics()
+    await construct.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('Expected a string but received type "number"'),
+      }),
+    ]))
+  })
+
+  it('should produce a diagnostic for a duplicate logicalId instead of throwing', async () => {
+    Session.reset()
+    const project = new Project('test-project', { name: 'Test' })
+    Session.project = project
+
+    project.addResource('check', 'duplicate-id', new TestConstruct('duplicate-id'))
+    project.addResource('check', 'duplicate-id', new TestConstruct('duplicate-id'))
+
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: expect.stringContaining('[Test:duplicate-id]'),
+        message: expect.stringContaining('A check with logicalId "duplicate-id" already exists'),
       }),
     ]))
   })

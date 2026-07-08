@@ -33,13 +33,13 @@ jobs:
       # Test that the packaging works as well
       - run: pnpm -r pack
       - run: pnpm run lint
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest-x64]
-    name: test - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+
+  # ---------------------------------------------------------------------------
+  # Unit tests
+  # ---------------------------------------------------------------------------
+  test-ubuntu:
+    name: test - ubuntu
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v5
@@ -55,20 +55,41 @@ jobs:
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-rules-test-${{ matrix.os }}
+          name: llm-rules-test-ubuntu
           if-no-files-found: error
           path: packages/cli/dist/ai-context/*
           retention-days: 1
-  test-e2e-checkly:
-    # Only on PRs — these hit the live Checkly API. The push-to-main run exists
-    # solely to seed the dependency cache, which lint + test already cover.
+  test-windows:
+    name: test - windows
+    runs-on: blacksmith-4vcpu-windows-2025
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepack
+      - run: pnpm run test
+      - name: Save LLM rules as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-rules-test-windows
+          if-no-files-found: error
+          path: packages/cli/dist/ai-context/*
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # checkly e2e — hits the live Checkly API (PRs only). Windows is sharded
+  # because it is the slow leg; Ubuntu runs the whole suite in one job.
+  # ---------------------------------------------------------------------------
+  test-e2e-checkly-ubuntu:
+    name: e2e - checkly - ubuntu
     if: github.event_name == 'pull_request'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest-x64]
-    name: e2e - checkly - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v5
@@ -87,15 +108,40 @@ jobs:
           CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
           CHECKLY_EMPTY_ACCOUNT_ID: ${{ secrets.E2E_EMPTY_CHECKLY_ACCOUNT_ID }}
           CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
-  test-e2e-create-checkly:
-    # Only on PRs — see test-e2e-checkly above.
+  test-e2e-checkly-windows:
+    name: e2e - checkly - windows (${{ matrix.shard }})
     if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest-x64]
-    name: e2e - create-checkly - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+        shard: ['1/4', '2/4', '3/4', '4/4']
+    runs-on: blacksmith-4vcpu-windows-2025
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepack
+      - run: pnpm --filter checkly run test:e2e -- --shard=${{ matrix.shard }}
+        env:
+          CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
+          CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_API_KEY: ${{ secrets.E2E_CHECKLY_API_KEY }}
+          CHECKLY_EMPTY_ACCOUNT_ID: ${{ secrets.E2E_EMPTY_CHECKLY_ACCOUNT_ID }}
+          CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
+
+  # ---------------------------------------------------------------------------
+  # create-checkly e2e (PRs only)
+  # ---------------------------------------------------------------------------
+  test-e2e-create-checkly-ubuntu:
+    name: e2e - create-checkly - ubuntu
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v5
@@ -107,3 +153,62 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter create-checkly run test:e2e
+  test-e2e-create-checkly-windows:
+    name: e2e - create-checkly - windows
+    if: github.event_name == 'pull_request'
+    runs-on: blacksmith-4vcpu-windows-2025
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter create-checkly run test:e2e
+
+  # ---------------------------------------------------------------------------
+  # Gates — one aggregate status check per OS. These are the jobs to require in
+  # branch protection: a single check for Windows (which fans out into 4 e2e
+  # shards) and a single check for Ubuntu, so Windows can be made non-required
+  # independently of Ubuntu without touching individual job names.
+  # ---------------------------------------------------------------------------
+  gate-ubuntu:
+    name: CI gate - ubuntu
+    if: always()
+    needs:
+      - lint
+      - test-ubuntu
+      - test-e2e-checkly-ubuntu
+      - test-e2e-create-checkly-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all Ubuntu jobs succeeded
+        run: |
+          results="${{ join(needs.*.result, ', ') }}"
+          echo "Ubuntu job results: $results"
+          # 'skipped' is allowed (e2e jobs are skipped on push-to-main); only
+          # 'failure'/'cancelled' should fail the gate.
+          if [[ "$results" == *failure* || "$results" == *cancelled* ]]; then
+            echo "::error::One or more Ubuntu jobs did not succeed"
+            exit 1
+          fi
+  gate-windows:
+    name: CI gate - windows
+    if: always()
+    needs:
+      - test-windows
+      - test-e2e-checkly-windows
+      - test-e2e-create-checkly-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all Windows jobs succeeded
+        run: |
+          results="${{ join(needs.*.result, ', ') }}"
+          echo "Windows job results: $results"
+          if [[ "$results" == *failure* || "$results" == *cancelled* ]]; then
+            echo "::error::One or more Windows jobs did not succeed"
+            exit 1
+          fi

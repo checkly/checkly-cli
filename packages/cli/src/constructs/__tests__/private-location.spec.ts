@@ -5,21 +5,30 @@ import { Project } from '../project.js'
 import { Session } from '../session.js'
 
 describe('PrivateLocation', () => {
-  it('should throw if the same logicalId is used twice', () => {
-    Session.project = new Project('project-id', {
+  it('should produce a diagnostic if the same logicalId is used twice', async () => {
+    const project = new Project('project-id', {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
     })
+    Session.project = project
 
-    const add = () => {
-      new PrivateLocation('foo', {
-        name: 'Test',
-        slugName: 'test',
-      })
-    }
+    new PrivateLocation('foo', {
+      name: 'Test',
+      slugName: 'test',
+    })
+    new PrivateLocation('foo', {
+      name: 'Test',
+      slugName: 'test',
+    })
 
-    expect(add).not.toThrow()
-    expect(add).toThrow('already exists')
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('already exists'),
+      }),
+    ]))
   })
 
   it('should not throw if the same fromId() is used twice', () => {

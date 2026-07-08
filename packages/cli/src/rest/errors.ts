@@ -1,4 +1,5 @@
-import { isAxiosError } from 'axios'
+import { isAxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { getProxyUrl } from '../services/proxy.js'
 
 export abstract class ApiError extends Error {
   data: ErrorData
@@ -114,6 +115,11 @@ export interface ErrorData {
   error: string
   errorCode?: string
   message: string
+  /**
+   * Set on a 409 from the async project-deploy endpoint: the id of the in-flight
+   * deployment that blocked this one. Lets the client attach to or cancel it.
+   */
+  deploymentId?: string
 }
 
 function isErrorData (value: any): value is ErrorData {
@@ -225,9 +231,93 @@ export class MissingResponseError extends Error {
   }
 }
 
+/**
+ * Error thrown when the configured proxy cannot be reached.
+ */
+export class ProxyConnectionError extends Error {
+  constructor (proxyUrl: string, options: ErrorOptions) {
+    super(
+      `Could not connect to the proxy at ${proxyUrl}. `
+      + `Check that the proxy is running and that the http_proxy/https_proxy/all_proxy `
+      + `environment variables point to the correct address.`
+      + `\n\n`
+      + `Details: ${options.cause}`,
+      options,
+    )
+    this.name = 'ProxyConnectionError'
+  }
+}
+
+// Codes that indicate a connection to a host could not be established (refused,
+// timed out, unreachable, or unresolvable). When a proxy is configured the
+// connection is made to the proxy first, so these signal that the proxy itself
+// could not be reached.
+const CONNECTION_FAILURE_CODES = new Set([
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+])
+
+// Walks an error's `cause` chain and any aggregated `errors` (e.g. happy-eyeballs
+// AggregateError) collecting every `code` encountered.
+function collectErrorCodes (err: unknown, codes = new Set<string>(), seen = new Set<unknown>()): Set<string> {
+  if (!err || typeof err !== 'object' || seen.has(err)) {
+    return codes
+  }
+  seen.add(err)
+  const { code, cause, errors } = err as { code?: unknown, cause?: unknown, errors?: unknown }
+  if (typeof code === 'string') {
+    codes.add(code)
+  }
+  collectErrorCodes(cause, codes, seen)
+  if (Array.isArray(errors)) {
+    for (const nested of errors) {
+      collectErrorCodes(nested, codes, seen)
+    }
+  }
+  return codes
+}
+
+// Returns the proxy that the failed request was routed through, with any
+// credentials stripped, or undefined when no proxy applied.
+function redactedProxyForRequest (config: InternalAxiosRequestConfig | undefined): string | undefined {
+  if (!config) {
+    return undefined
+  }
+  let targetUrl: string
+  try {
+    targetUrl = new URL(config.url ?? '', config.baseURL || undefined).toString()
+  } catch {
+    if (!config.baseURL) {
+      return undefined
+    }
+    targetUrl = config.baseURL
+  }
+  const proxyUrl = getProxyUrl(targetUrl)
+  if (!proxyUrl) {
+    return undefined
+  }
+  try {
+    return new URL(proxyUrl).origin
+  } catch {
+    // Never surface a proxy URL we cannot parse — it may carry credentials.
+    return undefined
+  }
+}
+
 export function handleErrorResponse (err: Error): never {
   if (isAxiosError(err)) {
     if (!err.response) {
+      const proxyUrl = redactedProxyForRequest(err.config)
+      if (proxyUrl) {
+        const codes = collectErrorCodes(err)
+        if ([...codes].some(code => CONNECTION_FAILURE_CODES.has(code))) {
+          throw new ProxyConnectionError(proxyUrl, { cause: err })
+        }
+      }
       throw new MissingResponseError({ cause: err })
     }
 

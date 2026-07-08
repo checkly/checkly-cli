@@ -1,107 +1,21 @@
 import { Flags } from '@oclif/core'
-import chalk from 'chalk'
 import { constants } from 'fs'
-import { access, mkdir, readFile, writeFile } from 'fs/promises'
-import { join, dirname } from 'path'
+import { access } from 'fs/promises'
+import { join } from 'path'
 import prompts from 'prompts'
-import { fileURLToPath } from 'node:url'
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { BaseCommand } from '../baseCommand.js'
+import {
+  PLATFORM_TARGETS,
+  readSkillFile,
+  writeSkillToTarget,
+  promptForPlatformTarget,
+} from '../../services/skills.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-export const SKILL_FILE_PATH = join(__dirname, '../../ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'
 
-export const PLATFORM_TARGETS: Record<string, string> = {
-  'amp': '.agents/skills/checkly',
-  'claude': '.claude/skills/checkly',
-  'cline': '.agents/skills/checkly',
-  'codex': '.agents/skills/checkly',
-  'continue': '.continue/skills/checkly',
-  'cursor': '.cursor/skills/checkly',
-  'gemini-cli': '.agents/skills/checkly',
-  'github-copilot': '.agents/skills/checkly',
-  'goose': '.goose/skills/checkly',
-  'opencode': '.agents/skills/checkly',
-  'roo': '.roo/skills/checkly',
-  'windsurf': '.windsurf/skills/checkly',
-}
-
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
-
-export async function readSkillFile (): Promise<string> {
-  try {
-    return await readFile(SKILL_FILE_PATH, 'utf8')
-  } catch {
-    throw new Error(`Failed to read skill file at ${SKILL_FILE_PATH}`)
-  }
-}
-
-export async function writeSkillToTarget (targetDir: string, content: string): Promise<string> {
-  const absoluteDir = join(process.cwd(), targetDir)
-  const targetPath = join(absoluteDir, SKILL_FILENAME)
-
-  try {
-    await mkdir(absoluteDir, { recursive: true })
-  } catch {
-    throw new Error(`Failed to create directory ${absoluteDir}`)
-  }
-
-  try {
-    await writeFile(targetPath, content, 'utf8')
-  } catch {
-    throw new Error(`Failed to write skill file to ${targetPath}`)
-  }
-
-  return targetPath
-}
-
-export function formatPlatformName (platform: string): string {
-  return platform
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
-
-export async function promptForPlatformTarget (
-  onCancel?: () => void,
-): Promise<string | undefined> {
-  const choices = [
-    ...Object.entries(PLATFORM_TARGETS).map(([platform, dir]) => ({
-      title: `${formatPlatformName(platform)} ${chalk.dim(`(${dir}/)`)}`,
-      value: platform,
-    })),
-    {
-      title: 'Custom path',
-      value: '__custom__',
-    },
-  ]
-
-  const promptOptions = onCancel ? { onCancel } : {}
-
-  const { platform } = await prompts({
-    type: 'select',
-    name: 'platform',
-    message: 'Which AI coding agent do you use?',
-    choices,
-    initial: 0,
-  }, promptOptions)
-
-  if (platform === undefined) return undefined
-
-  if (platform === '__custom__') {
-    const { customPath } = await prompts({
-      type: 'text',
-      name: 'customPath',
-      message: 'Enter the target directory:',
-    }, promptOptions)
-    return customPath || undefined
-  }
-
-  return PLATFORM_TARGETS[platform]
-}
 
 export default class SkillsInstall extends BaseCommand {
   static hidden = false

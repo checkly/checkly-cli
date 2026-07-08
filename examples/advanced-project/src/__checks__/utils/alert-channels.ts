@@ -1,7 +1,7 @@
 import { URL } from 'node:url'
 import {
   EmailAlertChannel,
-  SlackAlertChannel,
+  SlackAppAlertChannel,
   WebhookAlertChannel
 } from 'checkly/constructs'
 
@@ -25,9 +25,8 @@ export const emailChannel = new EmailAlertChannel('email-channel-1', {
   ...sendDefaults
 })
 
-export const slackChannel = new SlackAlertChannel('slack-channel-1', {
-  url: new URL('https://hooks.slack.com/services/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'),
-  channel: '#ops',
+export const slackChannel = new SlackAppAlertChannel('slack-channel-1', {
+  slackChannels: ['#ops'],
   ...sendDefaults
 })
 

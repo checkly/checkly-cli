@@ -2,13 +2,14 @@ import { join } from 'path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Init from '../init.js'
 
-vi.mock('../skills/install', () => ({
+vi.mock('../../services/skills', () => ({
   PLATFORM_TARGETS: {
     claude: '.claude/skills/checkly',
     codex: '.agents/skills/checkly',
   },
   readSkillFile: vi.fn(),
   writeSkillToTarget: vi.fn(),
+  findStaleSkills: vi.fn(),
 }))
 vi.mock('../../helpers/onboarding/detect-project', () => ({
   detectProjectContext: vi.fn(),
@@ -50,7 +51,7 @@ import { writeFileSync } from 'fs'
 import {
   readSkillFile,
   writeSkillToTarget,
-} from '../skills/install.js'
+} from '../../services/skills.js'
 import { detectProjectContext } from '../../helpers/onboarding/detect-project.js'
 import {
   runSkillInstallStep,
@@ -88,7 +89,7 @@ const pristineContext = {
   hasChecklyConfig: false,
   hasChecksDir: false,
   hasSkillInstalled: false,
-  skillPath: null,
+  skillPaths: [],
 }
 
 beforeEach(() => {
@@ -244,12 +245,12 @@ describe('Init command', () => {
         .mockReturnValueOnce({
           ...pristineContext,
           hasSkillInstalled: true,
-          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+          skillPaths: ['/project/.claude/skills/checkly/SKILL.md'],
         })
         .mockReturnValueOnce({
           ...pristineContext,
           hasSkillInstalled: true,
-          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+          skillPaths: ['/project/.claude/skills/checkly/SKILL.md'],
           hasChecklyConfig: true,
         })
 
@@ -276,7 +277,7 @@ describe('Init command', () => {
       vi.mocked(detectProjectContext).mockReturnValue({
         ...existingContext,
         hasSkillInstalled: true,
-        skillPath: '/p/.claude/skills/checkly/SKILL.md',
+        skillPaths: ['/p/.claude/skills/checkly/SKILL.md'],
       })
       const cmd = createCommand()
       await cmd.run()
@@ -284,6 +285,31 @@ describe('Init command', () => {
       expect(existingProjectFooter).toHaveBeenCalled()
       expect(displayStarterPrompt).not.toHaveBeenCalled()
       expect(loadPromptTemplate).not.toHaveBeenCalled()
+    })
+
+    it('has multiple skills: refreshes and reports each installed directory', async () => {
+      vi.mocked(detectProjectContext).mockReturnValue({
+        ...existingContext,
+        hasSkillInstalled: true,
+        skillPaths: [
+          '/p/.agents/skills/checkly/SKILL.md',
+          '/p/.continue/skills/checkly/SKILL.md',
+        ],
+      })
+      vi.mocked(refreshSkill)
+        .mockResolvedValueOnce({ installed: true, targetPath: '/p/.agents/skills/checkly/SKILL.md' })
+        .mockResolvedValueOnce({ installed: true, targetPath: '/p/.continue/skills/checkly/SKILL.md' })
+
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(refreshSkill).toHaveBeenCalledTimes(2)
+      expect(refreshSkill).toHaveBeenCalledWith('/p/.agents/skills/checkly/SKILL.md', expect.anything())
+      expect(refreshSkill).toHaveBeenCalledWith('/p/.continue/skills/checkly/SKILL.md', expect.anything())
+
+      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
+      expect(logged.some(m => typeof m === 'string' && m.includes('/p/.agents/skills/checkly/SKILL.md'))).toBe(true)
+      expect(logged.some(m => typeof m === 'string' && m.includes('/p/.continue/skills/checkly/SKILL.md'))).toBe(true)
     })
 
     it('no skill + installs: shows footer, no prompt', async () => {
@@ -315,7 +341,7 @@ describe('Init command', () => {
         .mockReturnValueOnce({
           ...existingContext,
           hasSkillInstalled: true,
-          skillPath: '/project/.claude/skills/checkly/SKILL.md',
+          skillPaths: ['/project/.claude/skills/checkly/SKILL.md'],
         })
       const cmd = createCommand('--target', 'claude')
       await cmd.run()

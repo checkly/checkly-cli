@@ -56,6 +56,7 @@ describe('help', () => {
   account          View and manage your Checkly account.
   alert-channels   List and inspect alert channels in your Checkly account.
   api              Make an authenticated HTTP request to the Checkly API.
+  assets           List and download result assets.
   checks           List and inspect checks in your Checkly account.
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
@@ -67,7 +68,7 @@ describe('help', () => {
   logout           Log out and clear any local credentials.
   members          List account members and pending invites.
   rca              Trigger and retrieve root cause analyses.
-  rules            Generate a rules file to use with AI IDEs and Copilots.
+  rules            Deprecated. Use \`checkly skills\` instead.
   runtimes         List all supported runtimes and dependencies.
   skills           Show Checkly AI skills, actions and their references.
   status-pages     List and manage status pages in your Checkly account.

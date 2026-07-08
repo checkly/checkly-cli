@@ -8,7 +8,7 @@ import {
   PLATFORM_TARGETS,
   readSkillFile,
   writeSkillToTarget,
-} from './skills/install.js'
+} from '../services/skills.js'
 import {
   detectProjectContext,
   type ProjectContext,
@@ -217,15 +217,15 @@ export default class Init extends BaseCommand {
 
     if (context.hasSkillInstalled) {
       log(chalk.dim(
-        '  Updating skill to the latest version...',
+        '  Updating skills to the latest version...',
       ))
-      const result = await refreshSkill(
-        context.skillPath!, log,
-      )
-      if (result.installed) {
-        log(successMessage(
-          `Skill updated at ${result.targetPath}`,
-        ))
+      for (const skillPath of context.skillPaths) {
+        const result = await refreshSkill(skillPath, log)
+        if (result.installed) {
+          log(successMessage(
+            `Skill updated at ${result.targetPath}`,
+          ))
+        }
       }
     } else {
       await runSkillInstallStep(log)

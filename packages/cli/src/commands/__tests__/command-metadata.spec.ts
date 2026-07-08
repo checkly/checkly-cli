@@ -10,6 +10,8 @@ import StatusPagesGet from '../status-pages/get.js'
 import AlertChannelsList from '../alert-channels/list.js'
 import AlertChannelsGet from '../alert-channels/get.js'
 import AlertChannelsLogs from '../alert-channels/logs.js'
+import AssetsList from '../assets/list.js'
+import AssetsDownload from '../assets/download.js'
 import IncidentsList from '../incidents/list.js'
 import IncidentsCreate from '../incidents/create.js'
 import IncidentsUpdate from '../incidents/update.js'
@@ -36,6 +38,7 @@ import ImportCommit from '../import/commit.js'
 import ImportCancel from '../import/cancel.js'
 import PwTest from '../pw-test.js'
 import SyncPlaywright from '../sync-playwright.js'
+import Skills from '../skills/index.js'
 import SkillsInstall from '../skills/install.js'
 import AccountPlan from '../account/plan.js'
 import Members from '../members.js'
@@ -54,6 +57,8 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['alert-channels list', AlertChannelsList],
   ['alert-channels get', AlertChannelsGet],
   ['alert-channels logs', AlertChannelsLogs],
+  ['assets list', AssetsList],
+  ['assets download', AssetsDownload],
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
   ['checks stats', ChecksStats],
@@ -87,6 +92,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['import cancel', ImportCancel],
   ['pw-test', PwTest],
   ['sync-playwright', SyncPlaywright],
+  ['skills', Skills],
   ['skills install', SkillsInstall],
 ]
 

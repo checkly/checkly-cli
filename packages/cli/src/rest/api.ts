@@ -6,6 +6,7 @@ import Accounts, { Account } from './accounts.js'
 import Users from './users.js'
 import Projects from './projects.js'
 import Assets from './assets.js'
+import AssetManifests from './asset-manifests.js'
 import Runtimes from './runtimes.js'
 import PrivateLocations from './private-locations.js'
 import Locations from './locations.js'
@@ -114,6 +115,7 @@ export const accounts = new Accounts(api)
 export const user = new Users(api)
 export const projects = new Projects(api)
 export const assets = new Assets(api)
+export const assetManifests = new AssetManifests(api)
 export const runtimes = new Runtimes(api)
 export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)

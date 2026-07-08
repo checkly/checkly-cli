@@ -1,10 +1,6 @@
 import * as mqtt from 'mqtt'
 import config from '../services/config.js'
-// @ts-ignore
-import { getProxyForUrl } from 'proxy-from-env'
-import { httpsOverHttp, httpsOverHttps } from 'tunnel'
-
-const isHttps = (protocol: string) => protocol.startsWith('https')
+import { createProxyAgent } from '../services/proxy.js'
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -33,29 +29,13 @@ export class SocketClient {
       password: apiKey,
     }
 
-    // Replace wss with https so the get proxy url thing the env path
-    const proxyUrlEnv = getProxyForUrl(url.replace('wss', 'https'))
-    if (proxyUrlEnv) {
-      const parsedProxyUrl = new URL(proxyUrlEnv)
-      const isProxyHttps = isHttps(parsedProxyUrl.protocol)
-      const proxy: any = {
-        host: parsedProxyUrl.hostname,
-        port: parsedProxyUrl.port,
-        protocol: parsedProxyUrl.protocol,
-      }
-      if (parsedProxyUrl.username && parsedProxyUrl.password) {
-        proxy.proxyAuth = `${parsedProxyUrl.username}:${parsedProxyUrl.password}`
-      }
-      if (isProxyHttps) {
-        options.wsOptions = {
-          agent: httpsOverHttps({ proxy }),
-        }
-      } else {
-        options.wsOptions = {
-          agent: httpsOverHttp({ proxy }),
-        }
-      }
+    // Route the WebSocket upgrade through a proxy when the proxy environment
+    // variables apply to this URL; otherwise connect directly.
+    const agent = createProxyAgent(url)
+    if (agent) {
+      options.wsOptions = { agent }
     }
+
     return backOffConnect(`${url}?authenticationScheme=userApiKey`, options, 0)
   }
 }

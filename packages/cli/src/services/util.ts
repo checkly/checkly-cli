@@ -15,10 +15,41 @@ export interface GitInformation {
   branchName?: string | null
   commitOwner?: string | null
   commitMessage?: string | null
+  github?: GitHubActionsInformation
+}
+
+export interface GitHubActionsInformation {
+  reporting: true
+  repository?: string
+  sha?: string
+  runId?: string
+  runAttempt?: string
+  workflow?: string
+  job?: string
+  eventName?: string
+  ref?: string
+  headRef?: string
+  baseRef?: string
+  serverUrl?: string
 }
 
 export interface CiInformation {
   environment: string | null
+}
+
+function getGitHubRepositoryUrl (): string | undefined {
+  const repository = process.env.CHECKLY_GITHUB_REPOSITORY
+  if (!repository) {
+    return undefined
+  }
+
+  const serverUrl = process.env.CHECKLY_GITHUB_SERVER_URL ?? 'https://github.com'
+  return `${serverUrl.replace(/\/$/, '')}/${repository}`
+}
+
+function isGitHubReportingEnabled (): boolean {
+  const value = (process.env.CHECKLY_GITHUB_REPORT ?? '').trim().toLowerCase()
+  return value === 'true' || value === '1'
 }
 
 export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
@@ -91,21 +122,48 @@ export function isFileSync (path: string): boolean {
 export function getGitInformation (repoUrl?: string): GitInformation | null {
   const repositoryInfo = gitRepoInfo()
 
-  if (!process.env.CHECKLY_REPO_SHA && !process.env.CHECKLY_TEST_REPO_SHA && !repositoryInfo.sha) {
+  if (
+    !process.env.CHECKLY_REPO_SHA
+    && !process.env.CHECKLY_TEST_REPO_SHA
+    && !process.env.CHECKLY_GITHUB_SHA
+    && !repositoryInfo.sha
+  ) {
     return null
   }
 
   // safe way to remove the email address
   const committer = (repositoryInfo.committer?.match(/([^<]+)/) || [])[1]?.trim()
-  return {
-    commitId: process.env.CHECKLY_REPO_SHA ?? process.env.CHECKLY_TEST_REPO_SHA ?? repositoryInfo.sha,
-    repoUrl: process.env.CHECKLY_REPO_URL ?? process.env.CHECKLY_TEST_REPO_URL ?? repoUrl,
+  const gitInformation: GitInformation = {
+    commitId: process.env.CHECKLY_REPO_SHA
+      ?? process.env.CHECKLY_TEST_REPO_SHA
+      ?? process.env.CHECKLY_GITHUB_SHA
+      ?? repositoryInfo.sha,
+    repoUrl: process.env.CHECKLY_REPO_URL ?? process.env.CHECKLY_TEST_REPO_URL ?? repoUrl ?? getGitHubRepositoryUrl(),
     branchName: process.env.CHECKLY_REPO_BRANCH ?? process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
     commitOwner: process.env.CHECKLY_REPO_COMMIT_OWNER ?? process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
     commitMessage: process.env.CHECKLY_REPO_COMMIT_MESSAGE
       ?? process.env.CHECKLY_TEST_REPO_COMMIT_MESSAGE
       ?? repositoryInfo.commitMessage,
   }
+
+  if (isGitHubReportingEnabled()) {
+    gitInformation.github = {
+      reporting: true,
+      repository: process.env.CHECKLY_GITHUB_REPOSITORY,
+      sha: process.env.CHECKLY_GITHUB_SHA,
+      runId: process.env.CHECKLY_GITHUB_RUN_ID,
+      runAttempt: process.env.CHECKLY_GITHUB_RUN_ATTEMPT,
+      workflow: process.env.CHECKLY_GITHUB_WORKFLOW,
+      job: process.env.CHECKLY_GITHUB_JOB,
+      eventName: process.env.CHECKLY_GITHUB_EVENT_NAME,
+      ref: process.env.CHECKLY_GITHUB_REF,
+      headRef: process.env.CHECKLY_GITHUB_HEAD_REF,
+      baseRef: process.env.CHECKLY_GITHUB_BASE_REF,
+      serverUrl: process.env.CHECKLY_GITHUB_SERVER_URL,
+    }
+  }
+
+  return gitInformation
 }
 
 export function getCiInformation (): CiInformation {

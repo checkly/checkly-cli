@@ -45,7 +45,7 @@ export const REFERENCES = [
   },
   {
     id: 'configure-alert-channels',
-    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), Slack (`SlackAlertChannel`), and Slack App (`SlackAppAlertChannel`) alert channels',
+    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), Slack App (`SlackAppAlertChannel`), and other alert channels',
   },
   {
     id: 'configure-supporting-constructs',
@@ -60,11 +60,15 @@ export const REFERENCES = [
 export const INVESTIGATE_REFERENCES = [
   {
     id: 'investigate-checks',
-    description: 'Inspecting checks (`checks list`, `checks get`) and triggering on-demand runs',
+    description: 'Inspect checks (`checks list`, `checks get`), retry attempts, result assets, and trigger on-demand runs',
+  },
+  {
+    id: 'investigate-alerting',
+    description: 'Inspect effective alerting behavior for a check across check-local, group, global, and alert-channel evidence',
   },
   {
     id: 'investigate-test-sessions',
-    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and retrieve result assets',
+    description: 'Run and inspect recorded test sessions, drill into test-session error groups, run RCA, and list/download result assets',
   },
 ] as const
 
@@ -103,7 +107,7 @@ export const ACTIONS = [
   },
   {
     id: 'investigate',
-    description: 'Access check and test-session status, analyze failures, and investigate errors.',
+    description: 'Access check and test-session status, analyze failures, inspect attempts/assets, and investigate errors.',
     references: INVESTIGATE_REFERENCES,
   },
   {
@@ -275,11 +279,6 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     templateString: '<!-- EXAMPLE: PHONE_CALL_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/phone-call/test-user.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/phone-call-alert-channel/',
-  },
-  SLACK_ALERT_CHANNEL: {
-    templateString: '<!-- EXAMPLE: SLACK_ALERT_CHANNEL -->',
-    exampleConfigPath: 'resources/alert-channels/slack/general.check.ts',
-    reference: 'https://www.checklyhq.com/docs/constructs/slack-alert-channel/',
   },
   SLACK_APP_ALERT_CHANNEL: {
     templateString: '<!-- EXAMPLE: SLACK_APP_ALERT_CHANNEL -->',

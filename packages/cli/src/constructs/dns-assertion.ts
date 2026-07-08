@@ -21,6 +21,10 @@ export type DnsAssertion = CoreAssertion<DnsAssertionSource>
  * // Response code assertions
  * DnsAssertionBuilder.responseCode().equals('NOERROR')
  * DnsAssertionBuilder.responseCode().equals('NXDOMAIN')
+ *
+ * // HTTPS record assertions (HTTP/3 advertisement)
+ * DnsAssertionBuilder.textAnswer('alpn="([^"]*)"').contains('h3')
+ * DnsAssertionBuilder.jsonAnswer('$.Answer[0].data').contains('h3')
  * ```
  */
 export class DnsAssertionBuilder {

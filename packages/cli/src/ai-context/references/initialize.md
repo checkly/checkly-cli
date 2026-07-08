@@ -35,18 +35,9 @@ Continue with the following steps:
 
 #### Step 1: Install dependencies
 
-1. **Install the Checkly dependency**
+**Install the Checkly dependency**
 
 Check if `npx checkly --version` works. If not, run `npm install --save-dev checkly`.
-
-2. **Do you want to use TypeScript? (recommended)**
-   - If **yes** → install `jiti`:
-
-     ```bash
-     npm i --save-dev jiti
-     ```
-
-   - If **no** → there's nothing to do
 
 #### Step 2: Gather the project requirements
 

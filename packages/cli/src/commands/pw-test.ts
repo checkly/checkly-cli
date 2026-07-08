@@ -39,6 +39,7 @@ import { cased } from '../sourcegen/index.js'
 import { shellQuote } from '../services/shell.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
@@ -348,11 +349,7 @@ export default class PwTestCommand extends AuthCommand {
       }, links))
     })
 
-    runner.on(Events.CANCEL, async testSessionId => {
-      reporters.forEach(r => r.onCancel())
-      if (!testSessionId) return
-      await api.cancel.cancelTestSession({ testSessionId })
-    })
+    registerTestSessionCancelHandler(runner, reporters)
 
     runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
 

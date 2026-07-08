@@ -7,7 +7,9 @@ Here are some examples of how to create different types of alert channels.
 
 All available alerts are described in the [Checkly docs](https://www.checklyhq.com/docs/constructs/overview/).
 
-*Important*: Don't make up email addresses, phone numbers, Slack URLs or similar static values. Scan the project to discover a valid configuration or ask what the values should be.
+*Important*: Don't make up email addresses, phone numbers, Slack channel names or similar static values. Scan the project to discover a valid configuration or ask what the values should be.
+
+For new Slack notifications, prefer `SlackAppAlertChannel`. It uses the Checkly Slack App and only needs Slack `#channel` names or `@user` handles in `slackChannels`.
 
 ## Email Alert Channel
 
@@ -16,10 +18,6 @@ All available alerts are described in the [Checkly docs](https://www.checklyhq.c
 ## Phone Call Alert Channel
 
 <!-- EXAMPLE: PHONE_CALL_ALERT_CHANNEL -->
-
-## Slack Alert Channel
-
-<!-- EXAMPLE: SLACK_ALERT_CHANNEL -->
 
 ## Slack App Alert Channel
 

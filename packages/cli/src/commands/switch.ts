@@ -39,14 +39,6 @@ export default class Switch extends AuthCommand {
     try {
       const { data: accounts } = await api.accounts.getAll()
 
-      if (accounts.length === 1) {
-        this.warn(
-          'Your user is only a member of one account: '
-          + chalk.bold.cyan(accounts[0].name),
-        )
-        this.exit(0)
-      }
-
       const selectedAccount = await selectAccount(accounts, { onCancel })
 
       const { id, name } = selectedAccount

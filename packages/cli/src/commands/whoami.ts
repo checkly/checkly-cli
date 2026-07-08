@@ -1,4 +1,6 @@
 import * as api from '../rest/api.js'
+import config from '../services/config.js'
+import commonMessages from '../messages/common-messages.js'
 import { AuthCommand } from './authCommand.js'
 
 export default class Whoami extends AuthCommand {
@@ -17,6 +19,10 @@ export default class Whoami extends AuthCommand {
     const addonNames = Object.values(addons).map(a => a.tierDisplayName)
     if (addonNames.length > 0) {
       this.log(`Add-ons: ${addonNames.join(', ')}`)
+    }
+    if (config.hasEnvVarsConfigured()) {
+      this.log()
+      this.log(`This account is resolved from your environment, not a \`checkly login\` session. ${commonMessages.envCredentialsConfigured}`)
     }
   }
 }

@@ -6,13 +6,10 @@ import config from '../services/config.js'
 import * as api from '../rest/api.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext } from '../auth/index.js'
+import commonMessages from '../messages/common-messages.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
-  if (accounts.length === 1) {
-    return accounts[0]
-  }
-
   const { selectedAccount } = await prompts({
     name: 'selectedAccount',
     type: 'select',
@@ -30,8 +27,7 @@ export default class Login extends BaseCommand {
 
   private _checkExistingCredentials = async () => {
     if (config.hasEnvVarsConfigured()) {
-      this.warn('`CHECKLY_API_KEY` '
-        + 'or `CHECKLY_ACCOUNT_ID` environment variables are configured (via shell or .env file). You must delete them to use `npx checkly login`.')
+      this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)
       this.exit(0)
     }
 
@@ -88,7 +84,10 @@ export default class Login extends BaseCommand {
 
     const { data: accounts } = await api.accounts.getAll()
 
-    const selectedAccount = await selectAccount(accounts, { onCancel })
+    // A single-account login needs no selection; prompt only when there's a real choice.
+    const selectedAccount = accounts.length === 1
+      ? accounts[0]
+      : await selectAccount(accounts, { onCancel })
 
     if (!selectedAccount) {
       this.warn('You must select a valid Checkly account name.')
