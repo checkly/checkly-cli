@@ -19,24 +19,28 @@ export const TlsVersion = {
 export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
 
 /**
- * Commonly-observed X.509 signature algorithms for use with
- * {@link SslAssertionBuilder.signatureAlgorithm}. Values match the strings
- * reported by Node.js / OpenSSL in certificate details.
+ * Signature algorithms as reported by Go's `x509.Certificate.SignatureAlgorithm.String()`.
+ * These are the exact values the SSL runner evaluates assertions against — use these
+ * constants (or the string literals they represent) with {@link SslAssertionBuilder.signatureAlgorithm}.
  *
  * @example
  * ```typescript
- * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_WITH_RSA)
+ * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSA)
+ * SslAssertionBuilder.signatureAlgorithm().matches('^ECDSA-.*')
  * ```
  */
 export const SignatureAlgorithm = {
-  SHA256_WITH_RSA: 'sha256WithRSAEncryption',
-  SHA384_WITH_RSA: 'sha384WithRSAEncryption',
-  SHA512_WITH_RSA: 'sha512WithRSAEncryption',
-  ECDSA_WITH_SHA256: 'ecdsa-with-SHA256',
-  ECDSA_WITH_SHA384: 'ecdsa-with-SHA384',
-  ECDSA_WITH_SHA512: 'ecdsa-with-SHA512',
-  SHA1_WITH_RSA: 'sha1WithRSAEncryption',
-  RSASSA_PSS: 'id-RSASSA-PSS',
+  SHA256_RSA: 'SHA256-RSA',
+  SHA384_RSA: 'SHA384-RSA',
+  SHA512_RSA: 'SHA512-RSA',
+  SHA1_RSA: 'SHA1-RSA',
+  ECDSA_SHA256: 'ECDSA-SHA256',
+  ECDSA_SHA384: 'ECDSA-SHA384',
+  ECDSA_SHA512: 'ECDSA-SHA512',
+  SHA256_RSAPSS: 'SHA256-RSAPSS',
+  SHA384_RSAPSS: 'SHA384-RSAPSS',
+  SHA512_RSAPSS: 'SHA512-RSAPSS',
+  ED25519: 'Ed25519',
 } as const
 
 export type SignatureAlgorithmValue = (typeof SignatureAlgorithm)[keyof typeof SignatureAlgorithm]
@@ -155,18 +159,24 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the negotiated TLS version.
-   * @returns A general assertion builder for the TLS version.
+   * The `.equals()` and `.greaterThanOrEqual()` methods accept only the
+   * known TLS version strings — use the {@link TlsVersion} constants or
+   * the string literals `'TLS1.0'`…`'TLS1.3'`.
+   * @returns A typed assertion builder for the TLS version.
    */
-  static tlsVersion () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('TLS_VERSION')
+  static tlsVersion (): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue> {
+    return new GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>('TLS_VERSION')
   }
 
   /**
    * Creates an assertion builder for the negotiated cipher suite.
-   * @returns A general assertion builder for the cipher suite.
+   * The `.equals()` and `.notEquals()` methods accept the well-known IANA
+   * suite names from the {@link CipherSuite} constants; `.matches()` still
+   * accepts any regex string.
+   * @returns A typed assertion builder for the cipher suite.
    */
-  static cipherSuite () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CIPHER_SUITE')
+  static cipherSuite (): GeneralAssertionBuilder<SslAssertionSource, CipherSuiteValue> {
+    return new GeneralAssertionBuilder<SslAssertionSource, CipherSuiteValue>('CIPHER_SUITE')
   }
 
   /**
@@ -195,10 +205,14 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the certificate signature algorithm.
-   * @returns A general assertion builder for the signature algorithm.
+   * Values are Go's `x509.Certificate.SignatureAlgorithm.String()` output
+   * (e.g. `'SHA256-RSA'`, `'ECDSA-SHA256'`). Use the {@link SignatureAlgorithm}
+   * constants or those string literals with `.equals()`; `.matches()` still
+   * accepts any regex string.
+   * @returns A typed assertion builder for the signature algorithm.
    */
-  static signatureAlgorithm () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('SIGNATURE_ALGORITHM')
+  static signatureAlgorithm (): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue> {
+    return new GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>('SIGNATURE_ALGORITHM')
   }
 
   /**
