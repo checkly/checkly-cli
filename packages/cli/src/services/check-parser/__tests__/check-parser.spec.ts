@@ -8,6 +8,8 @@ import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
 import { BunDetector, NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
 import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
 import { Workspace } from '../package-files/workspace.js'
+import { PlaywrightConfig } from '../../playwright-config.js'
+import { pathToPosix } from '../../util.js'
 
 const defaultNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
@@ -28,6 +30,56 @@ describe('dependency-parser - parser()', () => {
 
   afterAll(async () => {
     await fixt?.destroy()
+  })
+
+  describe('.npmrc bundling', () => {
+    const toAbsolutePath = (...filepath: string[]) => fixt.abspath('npmrc-example', ...filepath)
+
+    const rootNpmrc = () => pathToPosix(toAbsolutePath('.npmrc'))
+    const nestedNpmrc = () => pathToPosix(toAbsolutePath('apps', 'main', '.npmrc'))
+    // A .npmrc in a subdirectory that is not a workspace package root — must
+    // never be bundled, since package managers do not read .npmrc from below
+    // the install directory.
+    const subdirNpmrc = () => pathToPosix(toAbsolutePath('apps', 'main', 'tests', '.npmrc'))
+
+    let workspace: Workspace | undefined
+    beforeAll(async () => {
+      workspace = await new NpmDetector().lookupWorkspace(toAbsolutePath('.'))
+      expect(workspace).toBeDefined()
+    })
+
+    // Drives the real Playwright bundling entry point (getFilesAndDependencies),
+    // so the assertion also exercises the determineFileOps===0 routing that
+    // copies .npmrc into the bundle verbatim rather than trying to parse it.
+    const bundledPaths = async (restricted: boolean): Promise<string[]> => {
+      const parser = new Parser({
+        checkUnsupportedModules: false,
+        restricted,
+        workspace,
+      })
+      const configPath = toAbsolutePath('apps', 'main', 'playwright.config.js')
+      const pwConfig = new PlaywrightConfig(configPath, { testDir: './tests' })
+      const { files, errors } = await parser.getFilesAndDependencies(pwConfig)
+      expect(errors).toEqual([])
+      return files.map(f => f.filePath)
+    }
+
+    it('bundles the workspace-root and package-root .npmrc in unrestricted mode', async () => {
+      const paths = await bundledPaths(false)
+      expect(paths).toContain(rootNpmrc())
+      expect(paths).toContain(nestedNpmrc())
+    })
+
+    it('does not bundle a .npmrc below a package root', async () => {
+      const paths = await bundledPaths(false)
+      expect(paths).not.toContain(subdirNpmrc())
+    })
+
+    it('does not bundle .npmrc in restricted mode', async () => {
+      const paths = await bundledPaths(true)
+      expect(paths).not.toContain(rootNpmrc())
+      expect(paths).not.toContain(nestedNpmrc())
+    })
   })
 
   describe('unrestricted mode', () => {

@@ -17,6 +17,8 @@ import { Package, Workspace } from './workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:resolver')
 
+const NPMRC_FILENAME = '.npmrc'
+
 /**
  * Candidate file paths for an `extends` target. TypeScript appends `.json` when
  * the specifier has no extension and falls back to `<dir>/tsconfig.json` when it
@@ -239,6 +241,12 @@ type WorkspaceRootConfigFileLocalDependency = {
   sourceFile: SourceFile
 }
 
+type WorkspaceNpmrcLocalDependency = {
+  kind: 'workspace-npmrc'
+  importPath: string
+  sourceFile: SourceFile
+}
+
 type NearestPackageJsonFileLocalDependency = {
   kind: 'nearest-package-json-file'
   importPath: string
@@ -306,6 +314,7 @@ type LocalDependency =
   | WorkspaceRootTSConfigFileLocalDependency
   | WorkspaceRootLockfileLocalDependency
   | WorkspaceRootConfigFileLocalDependency
+  | WorkspaceNpmrcLocalDependency
   | NearestPackageJsonFileLocalDependency
   | NearestTSConfigFileLocalDependency
   | SupportingTSConfigFileLocalDependency
@@ -579,6 +588,27 @@ export class PackageFilesResolver {
             kind: 'workspace-root-config-file',
             importPath: filePath,
             sourceFile: configFile,
+          })
+        }
+      }
+
+      // Bundle the .npmrc from the workspace root and every workspace member
+      // package root. These carry registry configuration (alternate registries,
+      // auth) that the cloud install needs to resolve dependencies. This is the
+      // exact set a package manager consults (project .npmrc is read from the
+      // install directory upward, never from subdirectories below it), and it
+      // matches the set fed into the workspace cache hash, so a bundled .npmrc
+      // is always reflected in the cache key.
+      for (const pkg of [this.workspace.root, ...this.workspace.packages]) {
+        const npmrc = await this.cache.exactSourceFile(
+          path.join(pkg.path, NPMRC_FILENAME),
+        )
+        if (npmrc !== undefined) {
+          debug('Found workspace .npmrc file %s', npmrc.meta.filePath)
+          resolved.local.push({
+            kind: 'workspace-npmrc',
+            importPath: filePath,
+            sourceFile: npmrc,
           })
         }
       }

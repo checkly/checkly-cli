@@ -149,6 +149,95 @@ describe('composeCacheHash', () => {
     expect(without).not.toBe(withMember)
   })
 
+  test('omitting npmrcs matches passing an empty array (no-op)', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [],
+      excludedFields: ['version'],
+    }))
+  })
+
+  test('adding a root .npmrc changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const without = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    const withNpmrc = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [{ path: '.npmrc', hash: sha256('registry=https://example.com/') }],
+      excludedFields: ['version'],
+    })
+    expect(without).not.toBe(withNpmrc)
+  })
+
+  test('changing .npmrc content changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const a = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [{ path: '.npmrc', hash: sha256('registry=https://a.example.com/') }],
+      excludedFields: ['version'],
+    })
+    const b = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [{ path: '.npmrc', hash: sha256('registry=https://b.example.com/') }],
+      excludedFields: ['version'],
+    })
+    expect(a).not.toBe(b)
+  })
+
+  test('adding a member .npmrc changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const rootOnly = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [{ path: '.npmrc', hash: sha256('root-npmrc') }],
+      excludedFields: ['version'],
+    })
+    const withMember = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [
+        { path: '.npmrc', hash: sha256('root-npmrc') },
+        { path: 'apps/main/.npmrc', hash: sha256('member-npmrc') },
+      ],
+      excludedFields: ['version'],
+    })
+    expect(rootOnly).not.toBe(withMember)
+  })
+
+  test('input order of npmrcs does not affect the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const a = { path: '.npmrc', hash: sha256('root-npmrc') }
+    const b = { path: 'apps/main/.npmrc', hash: sha256('member-npmrc') }
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [b, a],
+      excludedFields: ['version'],
+    })).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      npmrcs: [a, b],
+      excludedFields: ['version'],
+    }))
+  })
+
   test('lockfile content change changes the hash', () => {
     const root = buf('{"name":"root"}')
     const a = composeCacheHash({
@@ -192,6 +281,11 @@ describe('composeCacheHash', () => {
   // and the same excluded fields must produce this exact digest in
   // terraform-provider-checkly's composeBundleChecksum. If you change this
   // fixture, mirror the change in the TF provider's test suite.
+  //
+  // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
+  // bundling). This fixture has no .npmrc so the digest is unchanged, but
+  // projects that DO have an .npmrc will hash differently until the TF
+  // provider mirrors the npmrc record type.
   test('matches the cross-language parity fixture digest', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
