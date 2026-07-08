@@ -3,11 +3,11 @@
  *
  * These tests verify two things:
  * 1. Valid constant / string-literal values are accepted by the typed builders.
- * 2. Invalid strings are REJECTED at compile time (via @ts-expect-error).
+ * 2. Invalid strings are REJECTED at compile time (via @ts-expect-error) where
+ *    the builder is strictly typed.
  *
- * If the @ts-expect-error directives become "unused" in a future TypeScript
- * version it means the underlying typing was loosened — investigate before
- * removing them.
+ * If a @ts-expect-error directive becomes "unused" it means the underlying typing
+ * was loosened — investigate before removing it.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -19,7 +19,7 @@ import {
 } from '../index.js'
 
 describe('SslAssertionBuilder — typed target values', () => {
-  describe('tlsVersion()', () => {
+  describe('tlsVersion() — strict 4-value union', () => {
     it('accepts all TlsVersion constants', () => {
       expect(SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_0)).toBeTruthy()
       expect(SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_1)).toBeTruthy()
@@ -43,19 +43,37 @@ describe('SslAssertionBuilder — typed target values', () => {
     })
   })
 
-  describe('signatureAlgorithm()', () => {
+  describe('signatureAlgorithm() — complete Go x509.SignatureAlgorithm.String() union', () => {
     it('accepts all SignatureAlgorithm constants (Go format)', () => {
+      // RSA family
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.MD2_RSA)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.MD5_RSA)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA1_RSA)).toBeTruthy()
       expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSA)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA384_RSA)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA512_RSA)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSAPSS)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA384_RSAPSS)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA512_RSAPSS)).toBeTruthy()
+      // DSA family
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.DSA_SHA1)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.DSA_SHA256)).toBeTruthy()
+      // ECDSA family
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.ECDSA_SHA1)).toBeTruthy()
       expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.ECDSA_SHA256)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.ECDSA_SHA384)).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.ECDSA_SHA512)).toBeTruthy()
+      // EdDSA
       expect(SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.ED25519)).toBeTruthy()
     })
 
     it('accepts Go-format string literals directly', () => {
       expect(SslAssertionBuilder.signatureAlgorithm().equals('SHA256-RSA')).toBeTruthy()
       expect(SslAssertionBuilder.signatureAlgorithm().equals('ECDSA-SHA256')).toBeTruthy()
+      expect(SslAssertionBuilder.signatureAlgorithm().equals('Ed25519')).toBeTruthy()
     })
 
-    it('rejects OID-style strings (wrong format for the Go runner)', () => {
+    it('rejects OID-style strings (wrong format — the runner uses Go String() not OID names)', () => {
       // @ts-expect-error 'sha256WithRSAEncryption' is not assignable to SignatureAlgorithmValue
       SslAssertionBuilder.signatureAlgorithm().equals('sha256WithRSAEncryption')
     })
@@ -72,23 +90,21 @@ describe('SslAssertionBuilder — typed target values', () => {
     })
   })
 
-  describe('cipherSuite()', () => {
-    it('accepts all CipherSuite constants', () => {
+  describe('cipherSuite() — intentionally unconstrained (open-ended IANA set)', () => {
+    it('accepts CipherSuite constants for common suites', () => {
       expect(SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_AES_256_GCM_SHA384)).toBeTruthy()
       expect(SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)).toBeTruthy()
     })
 
-    it('accepts known cipher suite string literals directly', () => {
-      expect(SslAssertionBuilder.cipherSuite().equals('TLS_AES_256_GCM_SHA384')).toBeTruthy()
-    })
-
-    it('rejects arbitrary strings', () => {
-      // @ts-expect-error 'not-a-cipher' is not assignable to CipherSuiteValue
-      SslAssertionBuilder.cipherSuite().equals('not-a-cipher')
+    it('accepts any string — including suites not in the CipherSuite constant list', () => {
+      // These are valid Go tls.CipherSuiteName() outputs that exceed the short constant list
+      expect(SslAssertionBuilder.cipherSuite().equals('TLS_RSA_WITH_RC4_128_SHA')).toBeTruthy()
+      expect(SslAssertionBuilder.cipherSuite().equals('TLS_RSA_WITH_3DES_EDE_CBC_SHA')).toBeTruthy()
+      expect(SslAssertionBuilder.cipherSuite().notEquals('TLS_RSA_WITH_RC4_128_SHA')).toBeTruthy()
+      expect(SslAssertionBuilder.cipherSuite().equals('TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256')).toBeTruthy()
     })
 
     it('still accepts any regex string via matches()', () => {
-      // matches() is not constrained to CipherSuiteValue
       expect(SslAssertionBuilder.cipherSuite().matches('^TLS_AES_.*')).toBeTruthy()
     })
   })

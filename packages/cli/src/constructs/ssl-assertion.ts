@@ -30,16 +30,25 @@ export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
  * ```
  */
 export const SignatureAlgorithm = {
+  // RSA
+  MD2_RSA: 'MD2-RSA',
+  MD5_RSA: 'MD5-RSA',
+  SHA1_RSA: 'SHA1-RSA',
   SHA256_RSA: 'SHA256-RSA',
   SHA384_RSA: 'SHA384-RSA',
   SHA512_RSA: 'SHA512-RSA',
-  SHA1_RSA: 'SHA1-RSA',
-  ECDSA_SHA256: 'ECDSA-SHA256',
-  ECDSA_SHA384: 'ECDSA-SHA384',
-  ECDSA_SHA512: 'ECDSA-SHA512',
   SHA256_RSAPSS: 'SHA256-RSAPSS',
   SHA384_RSAPSS: 'SHA384-RSAPSS',
   SHA512_RSAPSS: 'SHA512-RSAPSS',
+  // DSA
+  DSA_SHA1: 'DSA-SHA1',
+  DSA_SHA256: 'DSA-SHA256',
+  // ECDSA
+  ECDSA_SHA1: 'ECDSA-SHA1',
+  ECDSA_SHA256: 'ECDSA-SHA256',
+  ECDSA_SHA384: 'ECDSA-SHA384',
+  ECDSA_SHA512: 'ECDSA-SHA512',
+  // EdDSA
   ED25519: 'Ed25519',
 } as const
 
@@ -170,13 +179,14 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the negotiated cipher suite.
-   * The `.equals()` and `.notEquals()` methods accept the well-known IANA
-   * suite names from the {@link CipherSuite} constants; `.matches()` still
-   * accepts any regex string.
-   * @returns A typed assertion builder for the cipher suite.
+   * Go's `tls.CipherSuiteName()` can return hundreds of IANA names plus
+   * `0x....` hex fallbacks, so this builder is intentionally unconstrained.
+   * Use the {@link CipherSuite} constants for common suites (autocomplete),
+   * or pass any string literal / regex pattern as needed.
+   * @returns An unconstrained assertion builder for the cipher suite.
    */
-  static cipherSuite (): GeneralAssertionBuilder<SslAssertionSource, CipherSuiteValue> {
-    return new GeneralAssertionBuilder<SslAssertionSource, CipherSuiteValue>('CIPHER_SUITE')
+  static cipherSuite (): GeneralAssertionBuilder<SslAssertionSource> {
+    return new GeneralAssertionBuilder<SslAssertionSource>('CIPHER_SUITE')
   }
 
   /**
