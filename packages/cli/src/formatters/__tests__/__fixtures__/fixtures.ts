@@ -576,7 +576,12 @@ export const tracerouteCheckResultDetail: TracerouteCheckResult = {
   totalHops: 30,
   destinationReached: false,
   finalHopLatency: { avg_ms: 24.1, best_ms: 22.0, worst_ms: 31.4 },
+  timingPhases: { dns: 1.5 },
   requestError: null,
+  assertions: [
+    { order: 0, source: 'LATENCY', property: 'avg', comparison: 'LESS_THAN', target: '20', regex: null, error: 'Expected 24.1 to be below 20', actual: 24.1 },
+    { order: 1, source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '5000', regex: null, error: null, actual: 1000 },
+  ],
   response: {
     hostname: 'unreachable.example.com',
     resolvedIp: '203.0.113.10',
@@ -584,6 +589,7 @@ export const tracerouteCheckResultDetail: TracerouteCheckResult = {
     destinationReached: false,
     truncationReason: 'max-hops',
     protocol: 'TCP',
+    probeProtocol: 'ICMP',
     finalHopLatency: { avg_ms: 24.1, best_ms: 22.0, worst_ms: 31.4 },
     hops: [
       { hop_number: 1, main_ip: '10.0.0.1', main_host: 'gateway.local', loss_percentage: 0, rtt: { avg: 1.2, best: 1.0, worst: 1.5 } },
@@ -607,6 +613,11 @@ export const grpcCheckResultDetail: GrpcCheckResult = {
   grpcStatusCode: 14,
   healthStatus: 2,
   requestError: null,
+  timingPhases: { dns: 5, connect: 40, total: 90 },
+  assertions: [
+    { order: 0, source: 'GRPC_STATUS_CODE', property: '', comparison: 'EQUALS', target: '0', regex: null, error: 'Expected 14 to equal 0', actual: 14 },
+    { order: 1, source: 'GRPC_HEALTHCHECK_STATUS', property: '', comparison: 'EQUALS', target: 'NOT_SERVING', regex: null, error: null, actual: 'NOT_SERVING' },
+  ],
   response: {
     grpcMode: 'HEALTH',
     host: 'grpc.example.com',
@@ -645,6 +656,10 @@ export const sslCheckResultDetail: SslCheckResult = {
   baselineGrade: 'C',
   failureCategory: 'expired',
   requestError: null,
+  assertions: [
+    { order: 0, source: 'CERT_EXPIRES_IN_DAYS', property: '', comparison: 'GREATER_THAN', target: '99999', regex: null, error: 'Expected 52.000000 to be above than 99999', actual: 52 },
+    { order: 1, source: 'CERT_NOT_EXPIRED', property: '', comparison: 'EQUALS', target: 'true', regex: null, error: null, actual: true },
+  ],
   response: {
     resolvedIp: '203.0.113.30',
     protocol: 'TLS 1.3',
@@ -654,6 +669,35 @@ export const sslCheckResultDetail: SslCheckResult = {
     chainTrusted: false,
     daysUntilExpiry: -5,
     ocspStapled: false,
+    certificate: {
+      subject: 'CN=expired.example.com',
+      issuer: 'CN=Example Issuing CA,O=Example Corp,C=US',
+      subjectCN: 'expired.example.com',
+      issuerCN: 'Example Issuing CA',
+      serialNumber: '35428337808578903465180920265426569102',
+      notBefore: '2026-01-01T00:00:00Z',
+      notAfter: '2026-07-01T00:00:00Z',
+      sans: ['expired.example.com', 'www.expired.example.com'],
+      fingerprintSha256: 'beab14cf39678fda0ef1606eedb818c2298ba2cc7a00886e7dc2d2410f24cd35',
+      signatureAlgorithm: 'ECDSA-SHA256',
+      keyAlgorithm: 'ECDSA',
+      keySizeBits: 256,
+      selfSigned: false,
+      isCA: false,
+    },
+    securityBaseline: {
+      verdict: 'fail',
+      grade: 'C',
+      minTLSVersion: { violated: false, severity: 'fail' },
+      minKeySizeBits: { violated: false, severity: 'fail' },
+      weakSignatureAlgorithm: { violated: false, severity: 'fail' },
+      weakCipherSuite: { violated: true, severity: 'fail' },
+      knownBadCA: { violated: false, severity: 'fail' },
+      recommendedTLSVersion: { violated: false, severity: 'ignore' },
+      recommendedKeySizeBits: { violated: false, severity: 'ignore' },
+      ocspMustStapleRespected: { violated: false, severity: 'ignore' },
+      sctPresent: { violated: false, severity: 'ignore' },
+    },
   },
 }
 

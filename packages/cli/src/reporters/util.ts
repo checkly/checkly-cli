@@ -6,7 +6,12 @@ import { DateTime } from 'luxon'
 import logSymbols from 'log-symbols'
 
 import { getDefaults } from '../rest/api.js'
-import { Assertion } from '../constructs/internal/assertion.js'
+import {
+  type AssertionLike,
+  type TruncateOptions,
+  formatAssertionLine,
+  truncate,
+} from '../formatters/assertion-line.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
@@ -367,79 +372,15 @@ export function formatCheckResult (checkResult: any) {
   return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
-const assertionSources: any = {
-  STATUS_CODE: 'status code',
-  JSON_BODY: 'JSON body',
-  HEADERS: 'headers',
-  TEXT_BODY: 'text body',
-  RESPONSE_TIME: 'response time',
-  RESPONSE_DATA: 'response data',
-  TEXT_ANSWER: 'answer (text)',
-  JSON_ANSWER: 'answer (JSON)',
-  RESPONSE_CODE: 'response code',
-  LATENCY: 'latency',
-  JSON_RESPONSE: 'response data (JSON)',
-  GRPC_STATUS_CODE: 'status code',
-  GRPC_HEALTHCHECK_STATUS: 'health check status',
-  GRPC_RESPONSE: 'response message',
-  GRPC_METADATA: 'metadata',
-}
-
-const assertionComparisons: any = {
-  EQUALS: 'equals',
-  NOT_EQUALS: 'doesn\'t equal',
-  HAS_KEY: 'has key',
-  NOT_HAS_KEY: 'doesn\'t have key',
-  HAS_VALUE: 'has value',
-  NOT_HAS_VALUE: 'doesn\'t have value',
-  IS_EMPTY: 'is empty',
-  NOT_EMPTY: 'is not empty',
-  GREATER_THAN: 'is greater than',
-  LESS_THAN: 'is less than',
-  CONTAINS: 'contains',
-  NOT_CONTAINS: 'doesn\'t contain',
-  IS_NULL: 'is null',
-  NOT_NULL: 'is not null',
-}
-
 type formatAssertionsOptions = {
   truncate?: TruncateOptions
 }
 
 function formatAssertions (
-  assertions: Array<Assertion<string> & { error: string, actual: any }>,
+  assertions: Array<AssertionLike>,
   options?: formatAssertionsOptions,
 ) {
-  return assertions.map(({ source, property, comparison, target, regex, error, actual }) => {
-    const assertionFailed = !!error
-    const humanSource = assertionSources[source] || source
-    const humanComparison = assertionComparisons[comparison] || comparison
-    let actualString
-    if (actual) {
-      const { result: truncatedActual, lines: truncatedActualLines } = truncate(actual, {
-        chars: 300,
-        lines: 5,
-        ending: chalk.magenta('\n...truncated...'),
-        ...options?.truncate,
-      })
-
-      if (truncatedActualLines <= 1) {
-        actualString = `Received: ${truncatedActual}.`
-      } else {
-        actualString = `Received:\n${indentString(truncatedActual, 4, { indent: ' ' })}`
-      }
-    }
-    const message = [
-      assertionFailed ? logSymbols.error : logSymbols.success,
-      humanSource,
-      property ? `property "${property}"` : undefined,
-      regex ? `regex "${regex}"` : undefined,
-      humanComparison,
-      `target "${target}".`,
-      actualString,
-    ].filter(Boolean).join(' ')
-    return assertionFailed ? chalk.red(message) : chalk.green(message)
-  }).join('\n')
+  return assertions.map(assertion => formatAssertionLine(assertion, options)).join('\n')
 }
 
 function formatHttpRequest (request: any) {
@@ -873,39 +814,6 @@ function formatSectionTitle (title: string): string {
   // We take Math.max(0, ...) to avoid a negative padding length from causing errors
   const rightPaddingLength = Math.max(0, targetTitleWidth - title.length - leftPaddingLength)
   return `──${chalk.bold(title)}${'─'.repeat(rightPaddingLength)}`
-}
-
-type TruncateOptions = {
-  chars?: number
-  lines?: number
-  ending?: string
-}
-
-function truncate (val: any, opts: TruncateOptions) {
-  let truncated = false
-  let result = toString(val)
-  if (opts.chars && val.length > opts.chars) {
-    truncated = true
-    result = result.substring(0, opts.chars)
-  }
-  const lines = result.split('\n')
-  if (opts.lines && lines.length > opts.lines) {
-    truncated = true
-    result = lines.slice(0, opts.lines).join('\n')
-  }
-  return {
-    truncated,
-    result: truncated && opts.ending ? result + opts.ending : result,
-    lines: opts.lines ? Math.min(opts.lines, lines.length) : lines.length,
-  }
-}
-
-function toString (val: any): string {
-  if (typeof val === 'object') {
-    return JSON.stringify(val, null, 2)
-  } else {
-    return val.toString()
-  }
 }
 
 export function resultToCheckStatus (checkResult: any): CheckStatus {
