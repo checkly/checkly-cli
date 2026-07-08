@@ -16,7 +16,7 @@ export interface GrpcMonitorProps extends MonitorProps {
    *
    * @defaultValue 4000
    * @minimum 0
-   * @maximum 30000
+   * @maximum 180000
    * @example
    * ```typescript
    * degradedResponseTime: 3000  // Alert when the gRPC call takes longer than 3 seconds
@@ -30,7 +30,7 @@ export interface GrpcMonitorProps extends MonitorProps {
    *
    * @defaultValue 5000
    * @minimum 0
-   * @maximum 30000
+   * @maximum 180000
    * @example
    * ```typescript
    * maxResponseTime: 10000  // Fail if the gRPC call takes longer than 10 seconds
@@ -76,10 +76,11 @@ export class GrpcMonitor extends Monitor {
     await super.validate(diagnostics)
 
     await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 30_000,
-      maxResponseTime: 30_000,
-      // Backend default applied when maxResponseTime is omitted (see
-      // grpcResponseTimeLimitFields in response-time-limit-schema.ts).
+      // gRPC allows thresholds up to 180s (calls can run to the 180s timeout),
+      // matching grpcResponseTimeLimitFields in response-time-limit-schema.ts.
+      degradedResponseTime: 180_000,
+      maxResponseTime: 180_000,
+      // Backend default applied when maxResponseTime is omitted.
       defaultMaxResponseTime: 20_000,
     })
   }

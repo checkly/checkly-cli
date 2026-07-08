@@ -109,21 +109,34 @@ describe('GrpcMonitor', () => {
   })
 
   describe('validation', () => {
-    it('should error if degradedResponseTime is above 30000', async () => {
+    it('should error if degradedResponseTime is above 180000', async () => {
       setupProject()
       const check = new GrpcMonitor('test-check', {
         name: 'Test Check',
         request,
-        degradedResponseTime: 30001,
+        degradedResponseTime: 180001,
       })
       const diags = new Diagnostics()
       await check.validate(diags)
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
-          message: expect.stringContaining('The value of "degradedResponseTime" must be 30000 or lower.'),
+          message: expect.stringContaining('The value of "degradedResponseTime" must be 180000 or lower.'),
         }),
       ]))
+    })
+
+    it('should not error for a response time above 30000 (gRPC allows up to 180000)', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 90000,
+        maxResponseTime: 120000,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
     })
 
     it('should not error within limits', async () => {
