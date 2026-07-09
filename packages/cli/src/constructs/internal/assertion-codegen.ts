@@ -66,12 +66,6 @@ export function valueForNumericAssertion<Source extends string> (
           builder.number(parseInt(assertion.target, 10))
         })
         break
-      case 'GREATER_THAN_OR_EQUAL':
-        builder.member(ident('greaterThanOrEqual'))
-        builder.call(builder => {
-          builder.number(parseInt(assertion.target, 10))
-        })
-        break
       default:
         throw new Error(`Unsupported comparison ${assertion.comparison} for assertion source ${assertion.source}`)
     }
@@ -159,18 +153,6 @@ export function valueForGeneralAssertion<Source extends string> (
         break
       case 'GREATER_THAN':
         builder.member(ident('greaterThan'))
-        builder.call(builder => {
-          builder.string(assertion.target)
-        })
-        break
-      case 'GREATER_THAN_OR_EQUAL':
-        builder.member(ident('greaterThanOrEqual'))
-        builder.call(builder => {
-          builder.string(assertion.target)
-        })
-        break
-      case 'MATCHES':
-        builder.member(ident('matches'))
         builder.call(builder => {
           builder.string(assertion.target)
         })

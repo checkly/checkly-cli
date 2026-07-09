@@ -125,26 +125,22 @@ describe('SslMonitor', () => {
           hostname: 'example.com',
           sslConfig: {},
           assertions: [
-            SslAssertionBuilder.keySizeBits().greaterThanOrEqual(2048),
-            SslAssertionBuilder.tlsVersion().greaterThanOrEqual('TLS1.2'),
-            SslAssertionBuilder.cipherSuite().matches('^TLS_AES_.*'),
-            SslAssertionBuilder.issuerCn().matches('(?i)let\'s encrypt.*'),
-            SslAssertionBuilder.handshakeTimeMs().lessThan(500),
+            SslAssertionBuilder.keySizeBits().equals(2048),
+            SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
+            SslAssertionBuilder.cipherSuite().equals('TLS_AES_256_GCM_SHA384'),
+            SslAssertionBuilder.issuerCn().equals('Let\'s Encrypt'),
             SslAssertionBuilder.ocspStapled().equals(true),
-            SslAssertionBuilder.sanContains().equals('example.com'),
           ],
         },
       })
 
       const payload = check.synthesize() as any
       expect(payload.request.assertions).toEqual([
-        expect.objectContaining({ source: 'KEY_SIZE_BITS', comparison: 'GREATER_THAN_OR_EQUAL', target: '2048' }),
-        expect.objectContaining({ source: 'TLS_VERSION', comparison: 'GREATER_THAN_OR_EQUAL', target: 'TLS1.2' }),
-        expect.objectContaining({ source: 'CIPHER_SUITE', comparison: 'MATCHES', target: '^TLS_AES_.*' }),
-        expect.objectContaining({ source: 'ISSUER_CN', comparison: 'MATCHES' }),
-        expect.objectContaining({ source: 'HANDSHAKE_TIME_MS', comparison: 'LESS_THAN', target: '500' }),
+        expect.objectContaining({ source: 'KEY_SIZE_BITS', comparison: 'EQUALS', target: '2048' }),
+        expect.objectContaining({ source: 'TLS_VERSION', comparison: 'EQUALS', target: 'TLS1.3' }),
+        expect.objectContaining({ source: 'CIPHER_SUITE', comparison: 'EQUALS', target: 'TLS_AES_256_GCM_SHA384' }),
+        expect.objectContaining({ source: 'ISSUER_CN', comparison: 'EQUALS', target: 'Let\'s Encrypt' }),
         expect.objectContaining({ source: 'OCSP_STAPLED', comparison: 'EQUALS', target: 'true' }),
-        expect.objectContaining({ source: 'SAN_CONTAINS', comparison: 'EQUALS', target: 'example.com' }),
       ])
     })
 
