@@ -18,6 +18,8 @@ export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAsse
       return valueForGeneralAssertion('SslAssertionBuilder', 'hostnameVerified', assertion, generalNoArgs)
     case 'CHAIN_TRUSTED':
       return valueForGeneralAssertion('SslAssertionBuilder', 'chainTrusted', assertion, generalNoArgs)
+    case 'OCSP_STAPLED':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'ocspStapled', assertion, generalNoArgs)
     case 'TLS_VERSION':
       return valueForGeneralAssertion('SslAssertionBuilder', 'tlsVersion', assertion, generalNoArgs)
     case 'CIPHER_SUITE':
