@@ -1,5 +1,4 @@
 import chalk from 'chalk'
-import logSymbols from 'log-symbols'
 import type {
   CheckResult,
   ApiCheckResult,
@@ -30,7 +29,7 @@ import {
   truncateSingleLine,
   stripAnsi,
 } from './render.js'
-import { type AssertionLike, formatAssertionLine } from './assertion-line.js'
+import { assertionSymbols, type AssertionLike, formatAssertionLine } from './assertion-line.js'
 
 // --- Helpers ---
 
@@ -1109,7 +1108,7 @@ function appendSslBaselineTerminal (lines: string[], resp: Record<string, unknow
       lines.push(`  ${chalk.dim('·')} ${rule.human}: ${rule.scalar}`)
       continue
     }
-    const head = `${rule.violated ? logSymbols.error : logSymbols.success} ${rule.human}`
+    const head = `${rule.violated ? assertionSymbols.error : assertionSymbols.success} ${rule.human}`
     const coloredHead = rule.violated ? chalk.red(head) : chalk.green(head)
     lines.push(`  ${coloredHead}${rule.severity ? chalk.dim(` (${rule.severity})`) : ''}`)
   }
@@ -1129,7 +1128,7 @@ function appendSslBaselineMd (lines: string[], resp: Record<string, unknown>): v
       lines.push(`- ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
       continue
     }
-    const sym = stripAnsi(rule.violated ? logSymbols.error : logSymbols.success)
+    const sym = rule.violated ? assertionSymbols.error : assertionSymbols.success
     lines.push(`- ${sym} ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
   }
 }

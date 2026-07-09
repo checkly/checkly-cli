@@ -1,6 +1,5 @@
 import chalk from 'chalk'
 import indentString from 'indent-string'
-import logSymbols from 'log-symbols'
 
 // Shared per-assertion line renderer.
 //
@@ -101,6 +100,11 @@ export type FormatAssertionLineOptions = {
   truncate?: TruncateOptions
 }
 
+export const assertionSymbols = {
+  success: '✔',
+  error: '✖',
+} as const
+
 // Renders a single assertion as a colored, human-readable line (or multi-line
 // block when the received value spans multiple lines). Green with a success
 // symbol when the assertion passed (`error` absent/empty), red with an error
@@ -133,7 +137,7 @@ export function formatAssertionLine (
     }
   }
   const message = [
-    assertionFailed ? logSymbols.error : logSymbols.success,
+    assertionFailed ? assertionSymbols.error : assertionSymbols.success,
     humanSource,
     property ? `property "${property}"` : undefined,
     regex ? `regex "${regex}"` : undefined,

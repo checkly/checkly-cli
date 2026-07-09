@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import logSymbols from 'log-symbols'
 import { stripAnsi } from '../render.js'
+import { assertionSymbols } from '../assertion-line.js'
 
-// log-symbols ships pre-colored (ANSI-wrapped) glyphs; strip them so the
-// symbols match the stripped/markdown assertion output.
-const PASS = stripAnsi(logSymbols.success)
-const FAIL = stripAnsi(logSymbols.error)
+const PASS = assertionSymbols.success
+const FAIL = assertionSymbols.error
 import {
   formatResultDetail,
   groupAttemptsBySequence,
