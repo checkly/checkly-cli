@@ -1,0 +1,10 @@
+{
+  "name": "subpath-imports-fixture",
+  "version": "1.0.0",
+  "main": "entrypoint.js",
+  "imports": {
+    "#config": "./config.js",
+    "#internal/*": "./src/internal/*.js",
+    "#dep": "lodash"
+  }
+}

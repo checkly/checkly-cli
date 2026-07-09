@@ -9,7 +9,7 @@ import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData, Diagnostics,
-  Session,
+  Session, StatusPage, StatusPageService,
 } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
@@ -27,7 +27,29 @@ enum ResourceDeployStatus {
   UPDATE = 'UPDATE',
   CREATE = 'CREATE',
   DELETE = 'DELETE',
+  // Returned by newer backends for resources removed from code that are kept in
+  // the account (detached, now managed in the Checkly Webapp) instead of deleted.
+  DETACHED = 'DETACHED',
 }
+
+const PRETTY_RESOURCE_TYPES: Record<string, string> = {
+  [Check.__checklyType]: 'Check',
+  [AlertChannel.__checklyType]: 'AlertChannel',
+  [CheckGroup.__checklyType]: 'CheckGroup',
+  [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
+  [PrivateLocation.__checklyType]: 'PrivateLocation',
+  [Dashboard.__checklyType]: 'Dashboard',
+  [StatusPage.__checklyType]: 'StatusPage',
+  [StatusPageService.__checklyType]: 'StatusPageService',
+}
+
+// Internal resources that users don't create directly. They are reported as
+// part of their owning check, so we exclude them from delete previews/guards.
+const NON_REPORTED_TYPES = [
+  AlertChannelSubscription.__checklyType,
+  PrivateLocationCheckAssignment.__checklyType,
+  PrivateLocationGroupAssignment.__checklyType,
+]
 
 export default class Deploy extends AuthCommand {
   static coreCommand = true
@@ -55,6 +77,10 @@ export default class Deploy extends AuthCommand {
       description: 'Enables automatic check scheduling after a deploy.',
       default: true,
       allowNo: true,
+    }),
+    'preserve-resources': Flags.boolean({
+      description: 'Detach resources removed from code (keep them and their run history) instead of deleting them.',
+      default: false,
     }),
     'force': forceFlag(),
     'cancel-in-progress-deployment': Flags.boolean({
@@ -90,6 +116,7 @@ export default class Deploy extends AuthCommand {
       preview,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
+      'preserve-resources': preserveResources,
       output: outputFlag,
       verbose,
       config: configFilename,
@@ -114,6 +141,9 @@ export default class Deploy extends AuthCommand {
           scheduleOnDeploy
             ? 'Schedule checks after deploy'
             : 'Checks will NOT be scheduled after deploy',
+          preserveResources
+            ? 'Detach any resources removed from code, keeping them and their run history for management in the Checkly Webapp'
+            : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to detach and keep them instead',
         ],
         flags,
         classification: {
@@ -250,6 +280,48 @@ export default class Deploy extends AuthCommand {
       return
     }
 
+    // Preflight destructive-delete guard. Deletions are only known from the diff,
+    // which we don't have until after a deploy call. For a non-preview, non-preserve
+    // run that isn't already forced, do a dry-run first to surface resources that
+    // would be permanently deleted and require an explicit confirmation.
+    if (!preview && !preserveResources && !force) {
+      let deletions: Array<{ resourceType: string, logicalId: string }> = []
+      try {
+        const { data: dryRunData } = await api.projects.deploy(
+          { ...projectPayload, repoInfo },
+          { dryRun: true, scheduleOnDeploy, preserveResources },
+        )
+        deletions = this.collectDeletions(dryRunData)
+      } catch (err: any) {
+        this.style.longError(`Your project could not be deployed.`, err)
+        this.exit(1)
+      }
+
+      if (deletions.length) {
+        this.log(chalk.bold.red('\nThe following resources were removed from code and will be DELETED, losing their run history:'))
+        for (const { resourceType, logicalId } of deletions) {
+          this.log(chalk.red(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`))
+        }
+        this.log(chalk.yellow('\nPass --preserve-resources to detach and keep them (and their run history) instead.\n'))
+
+        await this.confirmOrAbort({
+          command: 'deploy',
+          description: 'Delete resources removed from code',
+          changes: [
+            `Permanently delete ${deletions.length} resource(s) removed from code, losing their run history`,
+            ...deletions.map(({ resourceType, logicalId }) =>
+              `Delete ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`),
+          ],
+          flags,
+          classification: {
+            readOnly: Deploy.readOnly,
+            destructive: Deploy.destructive,
+            idempotent: Deploy.idempotent,
+          },
+        }, { force })
+      }
+    }
+
     try {
       if (!preview) {
         this.style.actionStart('Deploying project')
@@ -259,6 +331,7 @@ export default class Deploy extends AuthCommand {
         {
           dryRun: preview,
           scheduleOnDeploy,
+          preserveResources,
           cancelInProgress,
           onProgress: preview ? undefined : progress => this.style.actionStatus(`${progress}% complete`),
           onStatus: preview ? undefined : message => this.style.actionStatus(message),
@@ -305,13 +378,30 @@ export default class Deploy extends AuthCommand {
     }
   }
 
-  private formatPreview (previewData: ProjectDeployResponse, project: Project, verbose = false): string {
+  private collectDeletions (previewData: ProjectDeployResponse): Array<{ resourceType: string, logicalId: string }> {
+    return (previewData?.diff ?? [])
+      .filter(change =>
+        change.action === ResourceDeployStatus.DELETE
+        && !NON_REPORTED_TYPES.some(t => t === change.type),
+      )
+      .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
+      .sort((a, b) =>
+        a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
+      )
+  }
+
+  private formatPreview (
+    previewData: ProjectDeployResponse,
+    project: Project,
+    verbose = false,
+  ): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
     // This makes it easier to display.
     const updating = []
     const creating = []
     const deleting: Array<{ resourceType: string, logicalId: string }> = []
+    const detaching: Array<{ resourceType: string, logicalId: string }> = []
     for (const change of previewData?.diff ?? []) {
       const { type, logicalId, physicalId, action } = change
       if ([
@@ -331,6 +421,10 @@ export default class Deploy extends AuthCommand {
       } else if (action === ResourceDeployStatus.DELETE) {
         // Since the resource is being deleted, the construct isn't in the project.
         deleting.push({ resourceType: type, logicalId })
+      } else if (action === ResourceDeployStatus.DETACHED) {
+        // Newer backends report detached resources explicitly. The construct
+        // isn't in the project since it was removed from code.
+        detaching.push({ resourceType: type, logicalId })
       }
     }
 
@@ -372,7 +466,11 @@ export default class Deploy extends AuthCommand {
     const sortedDeleting = deleting
       .sort(compareEntries)
 
-    if (!sortedCreating.length && !sortedDeleting.length && !sortedUpdating.length && !skipping.length) {
+    const sortedDetaching = detaching
+      .sort(compareEntries)
+
+    if (!sortedCreating.length && !sortedDeleting.length && !sortedDetaching.length
+      && !sortedUpdating.length && !skipping.length) {
       return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
     }
 
@@ -393,16 +491,15 @@ export default class Deploy extends AuthCommand {
     }
     if (sortedDeleting.length) {
       output.push(chalk.bold.red('Delete:'))
-      const prettyResourceTypes: Record<string, string> = {
-        [Check.__checklyType]: 'Check',
-        [AlertChannel.__checklyType]: 'AlertChannel',
-        [CheckGroup.__checklyType]: 'CheckGroup',
-        [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
-        [PrivateLocation.__checklyType]: 'PrivateLocation',
-        [Dashboard.__checklyType]: 'Dashboard',
-      }
       for (const { resourceType, logicalId } of sortedDeleting) {
-        output.push(`    ${prettyResourceTypes[resourceType] ?? resourceType}: ${logicalId}`)
+        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
+      }
+      output.push('')
+    }
+    if (sortedDetaching.length) {
+      output.push(chalk.bold.yellow('Detached (kept in account, now managed in the Checkly Webapp):'))
+      for (const { resourceType, logicalId } of sortedDetaching) {
+        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
       }
       output.push('')
     }
