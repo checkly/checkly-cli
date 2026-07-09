@@ -99,7 +99,6 @@ type SslAssertionSource =
   | 'KEY_SIZE_BITS'
   | 'SIGNATURE_ALGORITHM'
   | 'OCSP_STAPLED'
-  | 'HANDSHAKE_TIME_MS'
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
@@ -228,13 +227,5 @@ export class SslAssertionBuilder {
    */
   static ocspStapled () {
     return new GeneralAssertionBuilder<SslAssertionSource>('OCSP_STAPLED')
-  }
-
-  /**
-   * Creates an assertion builder for the TLS handshake time in milliseconds.
-   * @returns A numeric assertion builder for the handshake time.
-   */
-  static handshakeTime () {
-    return new NumericAssertionBuilder<SslAssertionSource>('HANDSHAKE_TIME_MS')
   }
 }
