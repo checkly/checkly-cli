@@ -144,6 +144,7 @@ export default class ChecksStats extends AuthCommand {
             responseTime_p95: r.analytics?.responseTime_p95 ?? null,
             latency_avg: r.analytics?.latency_avg ?? null,
             packetLoss_avg: r.analytics?.packetLoss_avg ?? null,
+            hopCount_avg: r.analytics?.hopCount_avg ?? null,
           })),
           pagination: { page, limit, total: totalChecks, totalPages },
           range,

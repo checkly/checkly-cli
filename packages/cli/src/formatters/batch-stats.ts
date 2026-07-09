@@ -8,8 +8,11 @@ import type { QuickRange } from '../rest/analytics.js'
 
 export type StatsRow = CheckWithStatus & { analytics?: BatchAnalyticsResult }
 
+// TRACEROUTE stays in TIMING_TYPES so it keeps its final-hop-latency responseTime
+// columns; it additionally gets a bespoke Hops column (see hasTraceroute below).
 const TIMING_TYPES = new Set(['API', 'BROWSER', 'PLAYWRIGHT', 'MULTI_STEP', 'URL', 'TCP', 'DNS', 'GRPC', 'SSL', 'TRACEROUTE'])
 const ICMP_TYPE = 'ICMP'
+const TRACEROUTE_TYPE = 'TRACEROUTE'
 const DASH = '—'
 
 /**
@@ -63,6 +66,7 @@ function metricOrDash (
 function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsRow>[] {
   const hasTiming = rows.some(r => TIMING_TYPES.has(r.checkType))
   const hasIcmp = rows.some(r => r.checkType === ICMP_TYPE)
+  const hasTraceroute = rows.some(r => r.checkType === TRACEROUTE_TYPE)
 
   if (format === 'md') {
     const cols: ColumnDef<StatsRow>[] = [
@@ -97,6 +101,13 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
         header: 'Packet Loss',
         align: 'right',
         value: (r, fmt) => metricOrDash('packetLoss_avg', r.analytics?.packetLoss_avg ?? null, fmt, r.checkType === ICMP_TYPE),
+      })
+    }
+    if (hasTraceroute) {
+      cols.push({
+        header: 'Hops (avg)',
+        align: 'right',
+        value: (r, fmt) => metricOrDash('hopCount_avg', r.analytics?.hopCount_avg ?? null, fmt, r.checkType === TRACEROUTE_TYPE),
       })
     }
     return cols
@@ -159,6 +170,15 @@ function buildColumns (rows: StatsRow[], format: OutputFormat): ColumnDef<StatsR
       width: metricWidth,
       align: 'right',
       value: (r, fmt) => metricOrDash('packetLoss_avg', r.analytics?.packetLoss_avg ?? null, fmt, r.checkType === ICMP_TYPE),
+    })
+  }
+
+  if (hasTraceroute) {
+    cols.push({
+      header: 'Hops',
+      width: metricWidth,
+      align: 'right',
+      value: (r, fmt) => metricOrDash('hopCount_avg', r.analytics?.hopCount_avg ?? null, fmt, r.checkType === TRACEROUTE_TYPE),
     })
   }
 
