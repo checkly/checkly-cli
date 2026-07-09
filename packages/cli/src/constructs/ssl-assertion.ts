@@ -5,7 +5,6 @@ import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBu
  *
  * @example
  * ```typescript
- * SslAssertionBuilder.tlsVersion().greaterThanOrEqual(TlsVersion.TLS1_2)
  * SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_3)
  * ```
  */
@@ -26,7 +25,6 @@ export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
  * @example
  * ```typescript
  * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSA)
- * SslAssertionBuilder.signatureAlgorithm().matches('^ECDSA-.*')
  * ```
  */
 export const SignatureAlgorithm = {
@@ -168,7 +166,7 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the negotiated TLS version.
-   * The `.equals()` and `.greaterThanOrEqual()` methods accept only the
+   * The `.equals()` method accepts only the
    * known TLS version strings — use the {@link TlsVersion} constants or
    * the string literals `'TLS1.0'`…`'TLS1.3'`.
    * @returns A typed assertion builder for the TLS version.
@@ -217,8 +215,7 @@ export class SslAssertionBuilder {
    * Creates an assertion builder for the certificate signature algorithm.
    * Values are Go's `x509.Certificate.SignatureAlgorithm.String()` output
    * (e.g. `'SHA256-RSA'`, `'ECDSA-SHA256'`). Use the {@link SignatureAlgorithm}
-   * constants or those string literals with `.equals()`; `.matches()` still
-   * accepts any regex string.
+   * constants or those string literals with `.equals()`.
    * @returns A typed assertion builder for the signature algorithm.
    */
   static signatureAlgorithm (): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue> {

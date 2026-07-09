@@ -8,11 +8,9 @@ type Comparison =
   | 'IS_EMPTY'
   | 'NOT_EMPTY'
   | 'GREATER_THAN'
-  | 'GREATER_THAN_OR_EQUAL'
   | 'LESS_THAN'
   | 'CONTAINS'
   | 'NOT_CONTAINS'
-  | 'MATCHES'
   | 'IS_NULL'
   | 'NOT_NULL'
 
@@ -49,10 +47,6 @@ export class NumericAssertionBuilder<Source extends string, Property extends str
     return this._toAssertion('GREATER_THAN', target)
   }
 
-  greaterThanOrEqual (target: number): Assertion<Source> {
-    return this._toAssertion('GREATER_THAN_OR_EQUAL', target)
-  }
-
   /** @private */
   private _toAssertion (comparison: Comparison, target: number): Assertion<Source> {
     return {
@@ -69,7 +63,7 @@ export class NumericAssertionBuilder<Source extends string, Property extends str
  * General assertion builder supporting string / number / boolean targets.
  *
  * The optional `TargetType` parameter narrows the value-comparison methods
- * (`equals`, `notEquals`, `lessThan`, `greaterThan`, `greaterThanOrEqual`)
+ * (`equals`, `notEquals`, `lessThan`, `greaterThan`)
  * to a specific set of values — e.g. `TlsVersionValue` for TLS version
  * assertions. When omitted it defaults to `string | number | boolean`,
  * preserving full backward compatibility.
@@ -128,22 +122,12 @@ export class GeneralAssertionBuilder<
     return this._toAssertion('GREATER_THAN', target)
   }
 
-  greaterThanOrEqual (target: TargetType): Assertion<Source> {
-    return this._toAssertion('GREATER_THAN_OR_EQUAL', target)
-  }
-
   contains (target: string): Assertion<Source> {
     return this._toAssertion('CONTAINS', target)
   }
 
   notContains (target: string): Assertion<Source> {
     return this._toAssertion('NOT_CONTAINS', target)
-  }
-
-  matches (regex: string): Assertion<Source> {
-    // MATCHES carries the regular expression in the `target` field (the runner
-    // compiles `target` as the pattern), mirroring EQUALS/CONTAINS.
-    return this._toAssertion('MATCHES', regex)
   }
 
   isNull () {

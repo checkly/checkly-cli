@@ -28,7 +28,7 @@ describe('SslAssertionBuilder — typed target values', () => {
     })
 
     it('accepts TLS version string literals directly', () => {
-      expect(SslAssertionBuilder.tlsVersion().greaterThanOrEqual('TLS1.2')).toBeTruthy()
+      expect(SslAssertionBuilder.tlsVersion().equals('TLS1.2')).toBeTruthy()
       expect(SslAssertionBuilder.tlsVersion().equals('TLS1.3')).toBeTruthy()
     })
 
@@ -82,12 +82,6 @@ describe('SslAssertionBuilder — typed target values', () => {
       // @ts-expect-error 'invalid-alg' is not assignable to SignatureAlgorithmValue
       SslAssertionBuilder.signatureAlgorithm().equals('invalid-alg')
     })
-
-    it('still accepts any regex string via matches()', () => {
-      // matches() is not constrained to SignatureAlgorithmValue — regex patterns are free-form
-      expect(SslAssertionBuilder.signatureAlgorithm().matches('^ECDSA-.*')).toBeTruthy()
-      expect(SslAssertionBuilder.signatureAlgorithm().matches('SHA256')).toBeTruthy()
-    })
   })
 
   describe('cipherSuite() — intentionally unconstrained (open-ended IANA set)', () => {
@@ -102,10 +96,6 @@ describe('SslAssertionBuilder — typed target values', () => {
       expect(SslAssertionBuilder.cipherSuite().equals('TLS_RSA_WITH_3DES_EDE_CBC_SHA')).toBeTruthy()
       expect(SslAssertionBuilder.cipherSuite().notEquals('TLS_RSA_WITH_RC4_128_SHA')).toBeTruthy()
       expect(SslAssertionBuilder.cipherSuite().equals('TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256')).toBeTruthy()
-    })
-
-    it('still accepts any regex string via matches()', () => {
-      expect(SslAssertionBuilder.cipherSuite().matches('^TLS_AES_.*')).toBeTruthy()
     })
   })
 })
