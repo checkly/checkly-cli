@@ -24,5 +24,4 @@ describe('SSL Assertion Codegen', () => {
       expect(render(test.input)).toEqual(test.expected)
     }
   })
-
 })
