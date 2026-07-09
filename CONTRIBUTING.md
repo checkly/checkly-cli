@@ -139,7 +139,7 @@ Both packages [checkly](https://www.npmjs.com/package/checkly) and [create-cli](
 
 To release packages to NPM:
 
-1. Publish a GitHub Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). **Uncheck "Set as the latest release"** — the workflow will mark it as latest automatically.
+1. Publish a GitHub Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). Under **Release label**, select **None** (not "Latest") — the workflow will mark it as latest automatically.
 2. When release is published the GitHub action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
 3. Test the prerelease version to make sure that it's working.
     * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
