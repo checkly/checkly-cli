@@ -21,11 +21,11 @@ describe('SSL Assertion Codegen', () => {
       },
       {
         input: { source: 'OCSP_STAPLED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
-        expected: "SslAssertionBuilder.ocspStapled().equals('true')\n",
+        expected: 'SslAssertionBuilder.ocspStapled().equals(\'true\')\n',
       },
       {
         input: { source: 'SAN_CONTAINS', property: '', comparison: 'EQUALS', target: 'example.com', regex: null },
-        expected: "SslAssertionBuilder.sanContains().equals('example.com')\n",
+        expected: 'SslAssertionBuilder.sanContains().equals(\'example.com\')\n',
       },
     ]
     for (const test of cases) {
@@ -41,11 +41,11 @@ describe('SSL Assertion Codegen', () => {
       },
       {
         input: { source: 'TLS_VERSION', property: '', comparison: 'GREATER_THAN_OR_EQUAL', target: 'TLS1.2', regex: null },
-        expected: "SslAssertionBuilder.tlsVersion().greaterThanOrEqual('TLS1.2')\n",
+        expected: 'SslAssertionBuilder.tlsVersion().greaterThanOrEqual(\'TLS1.2\')\n',
       },
       {
         input: { source: 'CIPHER_SUITE', property: '', comparison: 'MATCHES', target: '^TLS_AES_.*', regex: null },
-        expected: "SslAssertionBuilder.cipherSuite().matches('^TLS_AES_.*')\n",
+        expected: 'SslAssertionBuilder.cipherSuite().matches(\'^TLS_AES_.*\')\n',
       },
     ]
     for (const test of cases) {
