@@ -1,6 +1,6 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
 import { Assertion } from './api-assertion.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 
 export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion): Value {
   genfile.namedImport('AssertionBuilder', 'checkly/constructs')
@@ -17,6 +17,6 @@ export function valueForAssertion (genfile: GeneratedFile, assertion: Assertion)
     case 'RESPONSE_TIME':
       return valueForNumericAssertion('AssertionBuilder', 'responseTime', assertion)
     default:
-      throw new Error(`Unsupported assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source)
   }
 }

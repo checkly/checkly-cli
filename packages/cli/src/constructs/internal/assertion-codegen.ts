@@ -1,6 +1,19 @@
 import { expr, ident, Value } from '../../sourcegen/index.js'
 import { Assertion } from './assertion.js'
 
+/**
+ * Rejects an assertion source that has no codegen case.
+ *
+ * The `never` parameter makes an unhandled source a compile-time error: adding a
+ * member to a monitor's assertion source union without adding the matching codegen
+ * case fails to typecheck. The runtime throw remains because wire data may carry a
+ * source this version of the CLI does not know about.
+ */
+export function unsupportedAssertionSource (source: never, kind?: string): never {
+  const prefix = kind === undefined ? 'Unsupported' : `Unsupported ${kind}`
+  throw new Error(`${prefix} assertion source ${String(source)}`)
+}
+
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean
 }

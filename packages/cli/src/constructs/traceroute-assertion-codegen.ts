@@ -1,5 +1,5 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
-import { valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { TracerouteAssertion } from './traceroute-assertion.js'
 
 export function valueForTracerouteAssertion (genfile: GeneratedFile, assertion: TracerouteAssertion): Value {
@@ -13,6 +13,6 @@ export function valueForTracerouteAssertion (genfile: GeneratedFile, assertion: 
     case 'PACKET_LOSS':
       return valueForNumericAssertion('TracerouteAssertionBuilder', 'packetLoss', assertion)
     default:
-      throw new Error(`Unsupported traceroute assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'traceroute')
   }
 }

@@ -1,5 +1,5 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { IcmpAssertion } from './icmp-assertion.js'
 
 export function valueForIcmpAssertion (genfile: GeneratedFile, assertion: IcmpAssertion): Value {
@@ -16,6 +16,6 @@ export function valueForIcmpAssertion (genfile: GeneratedFile, assertion: IcmpAs
         hasRegex: false,
       })
     default:
-      throw new Error(`Unsupported ICMP assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'ICMP')
   }
 }
