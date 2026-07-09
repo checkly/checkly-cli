@@ -1,5 +1,91 @@
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 
+/**
+ * Known TLS protocol versions for use with {@link SslAssertionBuilder.tlsVersion}.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_3)
+ * ```
+ */
+export const TlsVersion = {
+  TLS1_0: 'TLS1.0',
+  TLS1_1: 'TLS1.1',
+  TLS1_2: 'TLS1.2',
+  TLS1_3: 'TLS1.3',
+} as const
+
+export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
+
+/**
+ * Signature algorithms as reported by Go's `x509.Certificate.SignatureAlgorithm.String()`.
+ * These are the exact values the SSL runner evaluates assertions against — use these
+ * constants (or the string literals they represent) with {@link SslAssertionBuilder.signatureAlgorithm}.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSA)
+ * ```
+ */
+export const SignatureAlgorithm = {
+  // RSA
+  MD2_RSA: 'MD2-RSA',
+  MD5_RSA: 'MD5-RSA',
+  SHA1_RSA: 'SHA1-RSA',
+  SHA256_RSA: 'SHA256-RSA',
+  SHA384_RSA: 'SHA384-RSA',
+  SHA512_RSA: 'SHA512-RSA',
+  SHA256_RSAPSS: 'SHA256-RSAPSS',
+  SHA384_RSAPSS: 'SHA384-RSAPSS',
+  SHA512_RSAPSS: 'SHA512-RSAPSS',
+  // DSA
+  DSA_SHA1: 'DSA-SHA1',
+  DSA_SHA256: 'DSA-SHA256',
+  // ECDSA
+  ECDSA_SHA1: 'ECDSA-SHA1',
+  ECDSA_SHA256: 'ECDSA-SHA256',
+  ECDSA_SHA384: 'ECDSA-SHA384',
+  ECDSA_SHA512: 'ECDSA-SHA512',
+  // EdDSA
+  ED25519: 'Ed25519',
+} as const
+
+export type SignatureAlgorithmValue = (typeof SignatureAlgorithm)[keyof typeof SignatureAlgorithm]
+
+/**
+ * Commonly-used IANA cipher suite names for use with
+ * {@link SslAssertionBuilder.cipherSuite}. Includes TLS 1.3 suites and
+ * widely-deployed TLS 1.2 suites.
+ *
+ * @example
+ * ```typescript
+ * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_AES_256_GCM_SHA384)
+ * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
+ * ```
+ */
+export const CipherSuite = {
+  // TLS 1.3
+  TLS_AES_128_GCM_SHA256: 'TLS_AES_128_GCM_SHA256',
+  TLS_AES_256_GCM_SHA384: 'TLS_AES_256_GCM_SHA384',
+  TLS_CHACHA20_POLY1305_SHA256: 'TLS_CHACHA20_POLY1305_SHA256',
+  // TLS 1.2 — ECDHE (forward-secret, preferred)
+  TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256',
+  TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384',
+  TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: 'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256',
+  TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: 'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384',
+  TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: 'TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256',
+  TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: 'TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256',
+  // TLS 1.2 — RSA key exchange
+  TLS_RSA_WITH_AES_128_GCM_SHA256: 'TLS_RSA_WITH_AES_128_GCM_SHA256',
+  TLS_RSA_WITH_AES_256_GCM_SHA384: 'TLS_RSA_WITH_AES_256_GCM_SHA384',
+  TLS_RSA_WITH_AES_128_CBC_SHA256: 'TLS_RSA_WITH_AES_128_CBC_SHA256',
+  TLS_RSA_WITH_AES_256_CBC_SHA256: 'TLS_RSA_WITH_AES_256_CBC_SHA256',
+  TLS_RSA_WITH_AES_128_CBC_SHA: 'TLS_RSA_WITH_AES_128_CBC_SHA',
+  TLS_RSA_WITH_AES_256_CBC_SHA: 'TLS_RSA_WITH_AES_256_CBC_SHA',
+} as const
+
+export type CipherSuiteValue = (typeof CipherSuite)[keyof typeof CipherSuite]
+
 type SslAssertionSource =
   | 'CERT_EXPIRES_IN_DAYS'
   | 'CERT_NOT_EXPIRED'
@@ -12,6 +98,7 @@ type SslAssertionSource =
   | 'ISSUER_FINGERPRINT_SHA256'
   | 'KEY_SIZE_BITS'
   | 'SIGNATURE_ALGORITHM'
+  | 'OCSP_STAPLED'
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
@@ -77,17 +164,24 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the negotiated TLS version.
-   * @returns A general assertion builder for the TLS version.
+   * The `.equals()` method accepts only the
+   * known TLS version strings — use the {@link TlsVersion} constants or
+   * the string literals `'TLS1.0'`…`'TLS1.3'`.
+   * @returns A typed assertion builder for the TLS version.
    */
-  static tlsVersion () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('TLS_VERSION')
+  static tlsVersion (): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue> {
+    return new GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>('TLS_VERSION')
   }
 
   /**
    * Creates an assertion builder for the negotiated cipher suite.
-   * @returns A general assertion builder for the cipher suite.
+   * Go's `tls.CipherSuiteName()` can return hundreds of IANA names plus
+   * `0x....` hex fallbacks, so this builder is intentionally unconstrained.
+   * Use the {@link CipherSuite} constants for common suites (autocomplete),
+   * or pass any string literal / regex pattern as needed.
+   * @returns An unconstrained assertion builder for the cipher suite.
    */
-  static cipherSuite () {
+  static cipherSuite (): GeneralAssertionBuilder<SslAssertionSource> {
     return new GeneralAssertionBuilder<SslAssertionSource>('CIPHER_SUITE')
   }
 
@@ -117,9 +211,21 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for the certificate signature algorithm.
-   * @returns A general assertion builder for the signature algorithm.
+   * Values are Go's `x509.Certificate.SignatureAlgorithm.String()` output
+   * (e.g. `'SHA256-RSA'`, `'ECDSA-SHA256'`). Use the {@link SignatureAlgorithm}
+   * constants or those string literals with `.equals()`.
+   * @returns A typed assertion builder for the signature algorithm.
    */
-  static signatureAlgorithm () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('SIGNATURE_ALGORITHM')
+  static signatureAlgorithm (): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue> {
+    return new GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>('SIGNATURE_ALGORITHM')
+  }
+
+  /**
+   * Creates an assertion builder for whether a stapled OCSP response was
+   * provided during the handshake.
+   * @returns A general assertion builder for the OCSP-stapled status.
+   */
+  static ocspStapled () {
+    return new GeneralAssertionBuilder<SslAssertionSource>('OCSP_STAPLED')
   }
 }
