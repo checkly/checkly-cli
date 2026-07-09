@@ -1,5 +1,5 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { SslAssertion } from './ssl-assertion.js'
 
 const generalNoArgs = { hasProperty: false, hasRegex: false }
@@ -18,6 +18,8 @@ export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAsse
       return valueForGeneralAssertion('SslAssertionBuilder', 'hostnameVerified', assertion, generalNoArgs)
     case 'CHAIN_TRUSTED':
       return valueForGeneralAssertion('SslAssertionBuilder', 'chainTrusted', assertion, generalNoArgs)
+    case 'OCSP_STAPLED':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'ocspStapled', assertion, generalNoArgs)
     case 'TLS_VERSION':
       return valueForGeneralAssertion('SslAssertionBuilder', 'tlsVersion', assertion, generalNoArgs)
     case 'CIPHER_SUITE':
@@ -31,6 +33,6 @@ export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAsse
     case 'SIGNATURE_ALGORITHM':
       return valueForGeneralAssertion('SslAssertionBuilder', 'signatureAlgorithm', assertion, generalNoArgs)
     default:
-      throw new Error(`Unsupported SSL assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'SSL')
   }
 }

@@ -1,5 +1,5 @@
 import { expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { Codegen, Context } from './internal/codegen/index.js'
 import { buildMonitorProps, MonitorResource } from './monitor-codegen.js'
 import { TcpAssertion, TcpRequest } from './tcp-monitor.js'
@@ -20,7 +20,7 @@ export function valueForTcpAssertion (genfile: GeneratedFile, assertion: TcpAsse
     case 'RESPONSE_TIME':
       return valueForNumericAssertion('TcpAssertionBuilder', 'responseTime', assertion)
     default:
-      throw new Error(`Unsupported TCP assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'TCP')
   }
 }
 

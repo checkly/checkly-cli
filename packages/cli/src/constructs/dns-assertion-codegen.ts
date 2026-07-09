@@ -1,5 +1,5 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { DnsAssertion } from './dns-assertion.js'
 
 export function valueForDnsAssertion (genfile: GeneratedFile, assertion: DnsAssertion): Value {
@@ -24,6 +24,6 @@ export function valueForDnsAssertion (genfile: GeneratedFile, assertion: DnsAsse
         hasRegex: false,
       })
     default:
-      throw new Error(`Unsupported DNS assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'DNS')
   }
 }

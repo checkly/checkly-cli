@@ -1,5 +1,5 @@
 import { GeneratedFile, Value } from '../sourcegen/index.js'
-import { valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
 import { GrpcAssertion } from './grpc-assertion.js'
 
 export function valueForGrpcAssertion (genfile: GeneratedFile, assertion: GrpcAssertion): Value {
@@ -31,6 +31,6 @@ export function valueForGrpcAssertion (genfile: GeneratedFile, assertion: GrpcAs
         hasRegex: false,
       })
     default:
-      throw new Error(`Unsupported gRPC assertion source ${assertion.source}`)
+      return unsupportedAssertionSource(assertion.source, 'gRPC')
   }
 }
