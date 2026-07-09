@@ -121,7 +121,7 @@ describe('util', () => {
         github: {
           reporting: true,
           source: 'checkly-action',
-          checkName: 'Checkly PR code checks',
+          githubCheckName: 'Checkly PR code checks',
           pullRequestNumber: '5',
           environmentUrl: 'https://preview.example.com',
           repository: 'checkly/playwright-reporter-demo',

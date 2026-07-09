@@ -21,7 +21,7 @@ export interface GitInformation {
 export interface GitHubActionsInformation {
   reporting: true
   source?: string
-  checkName?: string
+  githubCheckName?: string
   pullRequestNumber?: string
   environmentUrl?: string
   repository?: string
@@ -154,7 +154,7 @@ export function getGitInformation (repoUrl?: string): GitInformation | null {
     gitInformation.github = {
       reporting: true,
       source: process.env.CHECKLY_GITHUB_SOURCE,
-      checkName: process.env.CHECKLY_GITHUB_CHECK_NAME,
+      githubCheckName: process.env.CHECKLY_GITHUB_CHECK_NAME,
       pullRequestNumber: process.env.CHECKLY_GITHUB_PULL_REQUEST_NUMBER,
       environmentUrl: process.env.CHECKLY_GITHUB_ENVIRONMENT_URL,
       repository: process.env.CHECKLY_GITHUB_REPOSITORY,
