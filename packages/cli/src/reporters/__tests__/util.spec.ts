@@ -6,6 +6,11 @@ import { simpleCheckFixture } from './fixtures/simple-check.js'
 import { apiCheckResult } from './fixtures/api-check-result.js'
 import { browserCheckResult } from './fixtures/browser-check-result.js'
 import { agenticCheckResult, agenticCheckResultWithFailures } from './fixtures/agentic-check-result.js'
+import {
+  tracerouteCheckResult,
+  grpcCheckResult,
+  sslCheckResult,
+} from './fixtures/uptime-check-results.js'
 
 function stripAnsi (input: string): string {
   return input.replace(
@@ -127,6 +132,50 @@ describe('formatCheckResult()', () => {
       const output = stripAnsi(formatCheckResult(withoutTypedField))
       expect(output).not.toContain('Summary')
       expect(output).not.toContain('Assertions')
+    })
+  })
+  describe('Traceroute Check result', () => {
+    it('formats a failing Traceroute Check result', () => {
+      expect(stripAnsi(formatCheckResult(tracerouteCheckResult)))
+        .toMatchSnapshot('traceroute-check-result-format')
+    })
+    it('surfaces the diagnostic block', () => {
+      const output = stripAnsi(formatCheckResult(tracerouteCheckResult))
+      expect(output).toContain('Traceroute Response')
+      expect(output).toContain('unreachable.example.com')
+      expect(output).toContain('Total Hops: 30')
+      expect(output).toContain('Destination Reached: no')
+      expect(output).toContain('Truncated: max-hops')
+      expect(output).toContain('gateway.local')
+      expect(output).toContain('loss 100%')
+    })
+  })
+  describe('gRPC Check result', () => {
+    it('formats a failing gRPC Check result', () => {
+      expect(stripAnsi(formatCheckResult(grpcCheckResult)))
+        .toMatchSnapshot('grpc-check-result-format')
+    })
+    it('surfaces the diagnostic block', () => {
+      const output = stripAnsi(formatCheckResult(grpcCheckResult))
+      expect(output).toContain('gRPC Response')
+      expect(output).toContain('grpc.example.com:443')
+      expect(output).toContain('Status: 14 connection refused')
+      expect(output).toContain('Health: NOT_SERVING')
+      expect(output).toContain('grpc.health.v1.Health/Watch')
+    })
+  })
+  describe('SSL Check result', () => {
+    it('formats a failing SSL Check result', () => {
+      expect(stripAnsi(formatCheckResult(sslCheckResult)))
+        .toMatchSnapshot('ssl-check-result-format')
+    })
+    it('surfaces the diagnostic block', () => {
+      const output = stripAnsi(formatCheckResult(sslCheckResult))
+      expect(output).toContain('SSL Response')
+      expect(output).toContain('TLS: TLS 1.3 / TLS_AES_256_GCM_SHA384')
+      expect(output).toContain('Expires in: expired 5 day(s) ago')
+      expect(output).toContain('Chain Trusted: no')
+      expect(output).toContain('Hostname Verified: no')
     })
   })
 })

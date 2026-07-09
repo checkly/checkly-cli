@@ -36,6 +36,18 @@ export const REFERENCES = [
     description: 'ICMP Monitor construct (`IcmpMonitor`) with latency and packet loss assertions',
   },
   {
+    id: 'configure-grpc-monitors',
+    description: 'gRPC Monitor construct (`GrpcMonitor`) with status code, response message, and health-check assertions',
+  },
+  {
+    id: 'configure-ssl-monitors',
+    description: 'SSL Monitor construct (`SslMonitor`) with certificate expiry, chain trust, and TLS version assertions',
+  },
+  {
+    id: 'configure-traceroute-monitors',
+    description: 'Traceroute Monitor construct (`TracerouteMonitor`) with hop count and packet loss assertions',
+  },
+  {
     id: 'configure-heartbeat-monitors',
     description: 'Heartbeat Monitor construct (`HeartbeatMonitor`)',
   },
@@ -234,6 +246,83 @@ const playwrightChecks = new PlaywrightCheck("multi-browser-check", {
     templateString: '<!-- EXAMPLE: ICMP_MONITOR -->',
     exampleConfigPath: 'resources/icmp-monitors/example-icmp-monitor.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/icmp-monitor/',
+  },
+  GRPC_MONITOR: {
+    templateString: '<!-- EXAMPLE: GRPC_MONITOR -->',
+    exampleConfig: `import { GrpcMonitor, GrpcAssertionBuilder } from 'checkly/constructs'
+
+new GrpcMonitor('grpc-api-health', {
+  name: 'gRPC API Health',
+  activated: true,
+  locations: ['us-east-1', 'eu-west-1'],
+  degradedResponseTime: 2000,
+  maxResponseTime: 5000,
+  request: {
+    url: 'grpc.example.com',
+    port: 50051,
+    grpcConfig: {
+      mode: 'HEALTH',
+      tls: true,
+    },
+    assertions: [
+      GrpcAssertionBuilder.healthCheckStatus().equals('SERVING'),
+      GrpcAssertionBuilder.responseTime().lessThan(1000),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/grpc-monitor/',
+  },
+  SSL_MONITOR: {
+    templateString: '<!-- EXAMPLE: SSL_MONITOR -->',
+    exampleConfig: `import { SslMonitor, SslAssertionBuilder } from 'checkly/constructs'
+
+new SslMonitor('example-com-ssl', {
+  name: 'example.com SSL Certificate',
+  activated: true,
+  locations: ['us-east-1', 'eu-west-1'],
+  degradedResponseTime: 3000,
+  maxResponseTime: 10000,
+  request: {
+    hostname: 'example.com',
+    port: 443,
+    sslConfig: {
+      alertDaysBeforeExpiry: 30,
+    },
+    assertions: [
+      SslAssertionBuilder.certExpiresInDays().greaterThan(30),
+      SslAssertionBuilder.chainTrusted().equals(true),
+      SslAssertionBuilder.hostnameVerified().equals(true),
+      SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/ssl-monitor/',
+  },
+  TRACEROUTE_MONITOR: {
+    templateString: '<!-- EXAMPLE: TRACEROUTE_MONITOR -->',
+    exampleConfig: `import { TracerouteMonitor, TracerouteAssertionBuilder } from 'checkly/constructs'
+
+new TracerouteMonitor('example-com-traceroute', {
+  name: 'example.com Traceroute',
+  activated: true,
+  locations: ['us-east-1', 'eu-west-1'],
+  degradedResponseTime: 10000,
+  maxResponseTime: 20000,
+  request: {
+    url: 'example.com',
+    protocol: 'TCP',
+    port: 443,
+    maxHops: 30,
+    assertions: [
+      TracerouteAssertionBuilder.hopCount().lessThan(20),
+      TracerouteAssertionBuilder.packetLoss().lessThan(10),
+    ],
+  },
+})
+`,
+    reference: 'https://www.checklyhq.com/docs/constructs/traceroute-monitor/',
   },
   CHECK_GROUP: {
     templateString: '<!-- EXAMPLE: CHECK_GROUP -->',

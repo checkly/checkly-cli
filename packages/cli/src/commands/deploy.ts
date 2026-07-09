@@ -223,14 +223,20 @@ export default class Deploy extends AuthCommand {
     const archive = await bundler.finalize()
     bundler.updateMarker(archive.archiveFile)
 
-    this.style.actionStart('Uploading Playwright tests')
-    try {
-      const storedArchive = await archive.store()
-      bundler.updateMarker(storedArchive.key)
-      this.style.actionSuccess()
-    } catch (err) {
-      this.style.actionFailure()
-      throw err
+    // The remote code bundle is only consumed by Playwright check suites (via
+    // bundler.marker). If nothing registered files to bundle (e.g. a project of
+    // only uptime monitors), there is nothing to upload — skip the store() to
+    // avoid an unnecessary code-bundle upload.
+    if (!bundler.isEmpty) {
+      this.style.actionStart('Uploading Playwright tests')
+      try {
+        const storedArchive = await archive.store()
+        bundler.updateMarker(storedArchive.key)
+        this.style.actionSuccess()
+      } catch (err) {
+        this.style.actionFailure()
+        throw err
+      }
     }
 
     const bundledChecksByType = {

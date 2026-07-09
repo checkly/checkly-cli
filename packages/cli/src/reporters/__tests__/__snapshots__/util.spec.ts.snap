@@ -246,3 +246,38 @@ exports[`formatCheckResult() > Browser Check result > formats a Browser Check re
 `;
 
 exports[`formatCheckResult() > Browser Check result > formats a basic Browser Check result  > browser-check-result-basic-format 1`] = `""`;
+
+exports[`formatCheckResult() > SSL Check result > formats a failing SSL Check result > ssl-check-result-format 1`] = `
+"──SSL Response──────────────────────────────────────────────────────────────
+Resolved IP: 203.0.113.30
+TLS: TLS 1.3 / TLS_AES_256_GCM_SHA384
+Expires in: expired 5 day(s) ago
+Handshake: 48.200ms
+Chain Trusted: no
+Hostname Verified: no"
+`;
+
+exports[`formatCheckResult() > Traceroute Check result > formats a failing Traceroute Check result > traceroute-check-result-format 1`] = `
+"──Traceroute Response───────────────────────────────────────────────────────
+Destination: unreachable.example.com (203.0.113.10)
+Protocol: TCP
+Total Hops: 30
+Destination Reached: no
+Truncated: max-hops
+Final Hop Latency: avg 24.100ms / best 22.000ms / worst 31.400ms
+Hops:
+   1  10.0.0.1 (gateway.local)  loss 0%  rtt avg 1.200ms / best 1.000ms / worst 1.500ms
+   2  198.51.100.5  loss 100%"
+`;
+
+exports[`formatCheckResult() > gRPC Check result > formats a failing gRPC Check result > grpc-check-result-format 1`] = `
+"──gRPC Response─────────────────────────────────────────────────────────────
+Target: grpc.example.com:443
+Method: grpc.health.v1.Health/Check
+Mode: HEALTH
+Status: 14 connection refused
+Health: NOT_SERVING
+Discovered Methods: grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch
+Metadata:
+  content-type: application/grpc"
+`;

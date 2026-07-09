@@ -20,6 +20,9 @@ const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.DNS]: 'dns',
   [CheckTypes.URL]: 'url-monitors',
   [CheckTypes.AGENTIC]: 'agentic-checks',
+  [CheckTypes.GRPC]: 'grpc-checks',
+  [CheckTypes.SSL]: 'ssl',
+  [CheckTypes.TRACEROUTE]: 'traceroute',
 }
 
 // Default aggregated metrics per check type
@@ -32,6 +35,9 @@ const defaultMetrics: Partial<Record<CheckType, string[]>> = {
   [CheckTypes.TCP]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.DNS]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
   [CheckTypes.ICMP]: ['availability', 'packetLoss_avg', 'latencyAvg_avg', 'latencyAvg_p50', 'latencyAvg_p95', 'latencyAvg_p99'],
+  [CheckTypes.GRPC]: ['availability', 'total_avg', 'total_p50', 'total_p95', 'total_p99'],
+  [CheckTypes.SSL]: ['availability', 'handshakeTimeMs_avg', 'handshakeTimeMs_p50', 'handshakeTimeMs_p95', 'handshakeTimeMs_p99', 'daysUntilExpiry_avg'],
+  [CheckTypes.TRACEROUTE]: ['availability', 'finalHopLatencyAvg_avg', 'finalHopLatencyAvg_p50', 'finalHopLatencyAvg_p95', 'finalHopLatencyAvg_p99', 'totalHops_avg'],
   [CheckTypes.HEARTBEAT]: ['availability'],
   [CheckTypes.AGENTIC]: ['availability'],
 }

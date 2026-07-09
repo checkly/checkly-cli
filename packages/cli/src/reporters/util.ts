@@ -235,6 +235,81 @@ export function formatCheckResult (checkResult: any) {
       ])
     }
   }
+  if (checkResult.checkType === 'TRACEROUTE') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else if (checkResult.checkRunData?.response) {
+      result.push([
+        formatSectionTitle('Traceroute Response'),
+        formatTracerouteResponse(checkResult.checkRunData.response),
+      ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
+    }
+    if (checkResult.checkRunData?.assertions?.length) {
+      result.push([
+        formatSectionTitle('Assertions'),
+        formatAssertions(checkResult.checkRunData.assertions),
+      ])
+    }
+  }
+  if (checkResult.checkType === 'GRPC') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else if (checkResult.checkRunData?.response) {
+      result.push([
+        formatSectionTitle('gRPC Response'),
+        formatGrpcResponse(checkResult.checkRunData.response),
+      ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
+    }
+    if (checkResult.checkRunData?.assertions?.length) {
+      result.push([
+        formatSectionTitle('Assertions'),
+        formatAssertions(checkResult.checkRunData.assertions),
+      ])
+    }
+  }
+  if (checkResult.checkType === 'SSL') {
+    if (checkResult.checkRunData?.requestError) {
+      result.push([
+        formatSectionTitle('Request Error'),
+        checkResult.checkRunData.requestError,
+      ])
+    } else if (checkResult.checkRunData?.response) {
+      result.push([
+        formatSectionTitle('SSL Response'),
+        formatSslResponse(checkResult.checkRunData.response),
+      ])
+      if (checkResult.checkRunData?.response?.error) {
+        result.push([
+          formatSectionTitle('Connection Error'),
+          formatConnectionError(checkResult.checkRunData?.response?.error),
+        ])
+      }
+    }
+    if (checkResult.checkRunData?.assertions?.length) {
+      result.push([
+        formatSectionTitle('Assertions'),
+        formatAssertions(checkResult.checkRunData.assertions),
+      ])
+    }
+  }
   if (checkResult.checkType === 'ICMP') {
     if (checkResult.checkRunData?.requestError) {
       result.push([
@@ -586,6 +661,90 @@ function formatIcmpResponse (response: ICMPResponse) {
         return `  ${result.sequence}: N/A`
       }
     }).join('\n'),
+  ].filter(Boolean).join('\n')
+}
+
+// Traceroute / gRPC / SSL diagnostics for the `checkly test` runner path. The
+// runner artifact (`checkRunData.response`) mirrors the public check-results
+// `response` sub-object; keys come straight off the go-runner (snake_case for
+// traceroute hops/latency), so read defensively.
+
+function latencyStats (obj: any): string | undefined {
+  if (!obj || typeof obj !== 'object') return undefined
+  const avg = obj.avgMs ?? obj.avg_ms ?? obj.avg
+  const best = obj.bestMs ?? obj.best_ms ?? obj.best
+  const worst = obj.worstMs ?? obj.worst_ms ?? obj.worst
+  const parts = [
+    typeof avg === 'number' ? `avg ${formatLatency(avg)}` : undefined,
+    typeof best === 'number' ? `best ${formatLatency(best)}` : undefined,
+    typeof worst === 'number' ? `worst ${formatLatency(worst)}` : undefined,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' / ') : undefined
+}
+
+function formatTracerouteResponse (response: any) {
+  const host = response.hostname
+  const ip = response.resolvedIp
+  const hops = Array.isArray(response.hops) ? response.hops : []
+  const finalHop = latencyStats(response.finalHopLatency)
+  const hopLines = hops.slice(0, 40).map((hop: any) => {
+    const n = hop.hop_number ?? hop.hopNumber ?? hop.number
+    const addr = hop.main_ip ?? hop.mainIp ?? hop.ip ?? '*'
+    const hopHost = hop.main_host ?? hop.mainHost ?? hop.host
+    const loss = hop.loss_percentage ?? hop.lossPercentage ?? hop.loss
+    const rtt = latencyStats(hop.rtt)
+    return [
+      `  ${n != null ? String(n).padStart(2) : ' .'}`,
+      hopHost ? `${addr} (${hopHost})` : addr,
+      typeof loss === 'number' ? `loss ${loss.toFixed(0)}%` : undefined,
+      rtt ? `rtt ${rtt}` : undefined,
+    ].filter(Boolean).join('  ')
+  })
+  return [
+    host || ip ? `Destination: ${[host, ip ? `(${ip})` : ''].filter(Boolean).join(' ')}` : undefined,
+    response.protocol ? `Protocol: ${response.protocol}` : undefined,
+    response.totalHops != null ? `Total Hops: ${response.totalHops}` : undefined,
+    response.destinationReached != null ? `Destination Reached: ${response.destinationReached ? 'yes' : 'no'}` : undefined,
+    response.truncationReason ? `Truncated: ${response.truncationReason}` : undefined,
+    finalHop ? `Final Hop Latency: ${finalHop}` : undefined,
+    hopLines.length ? 'Hops:' : undefined,
+    ...hopLines,
+  ].filter(Boolean).join('\n')
+}
+
+function formatGrpcResponse (response: any) {
+  const target = [response.host ?? response.resolvedIp, response.port ? `:${response.port}` : ''].filter(Boolean).join('')
+  const methods = Array.isArray(response.discoveredMethods) ? response.discoveredMethods : []
+  const metadata = Array.isArray(response.metadata) ? response.metadata : []
+  const metadataLines = metadata.slice(0, 20).map((m: any) => `  ${m.key ?? m.name ?? '(key)'}: ${m.value ?? ''}`)
+  return [
+    target ? `Target: ${target}` : undefined,
+    response.grpcMethod ? `Method: ${response.grpcMethod}` : undefined,
+    response.grpcMode ? `Mode: ${response.grpcMode}` : undefined,
+    response.grpcStatusCode != null
+      ? `Status: ${response.grpcStatusCode}${response.grpcStatusMessage ? ` ${response.grpcStatusMessage}` : ''}`
+      : undefined,
+    response.healthStatusLabel ? `Health: ${response.healthStatusLabel}` : undefined,
+    response.responseMessage ? `Response: ${response.responseMessage}` : undefined,
+    methods.length ? `Discovered Methods: ${methods.join(', ')}` : undefined,
+    metadata.length ? 'Metadata:' : undefined,
+    ...metadataLines,
+  ].filter(Boolean).join('\n')
+}
+
+function formatSslResponse (response: any) {
+  const days = response.daysUntilExpiry
+  return [
+    response.resolvedIp ? `Resolved IP: ${response.resolvedIp}` : undefined,
+    response.protocol || response.cipherSuite
+      ? `TLS: ${[response.protocol, response.cipherSuite].filter(Boolean).join(' / ')}`
+      : undefined,
+    typeof days === 'number'
+      ? `Expires in: ${days < 0 ? `expired ${-days} day(s) ago` : `${days} day(s)`}`
+      : undefined,
+    typeof response.handshakeTimeMs === 'number' ? `Handshake: ${formatLatency(response.handshakeTimeMs)}` : undefined,
+    response.chainTrusted != null ? `Chain Trusted: ${response.chainTrusted ? 'yes' : 'no'}` : undefined,
+    response.hostnameVerified != null ? `Hostname Verified: ${response.hostnameVerified ? 'yes' : 'no'}` : undefined,
   ].filter(Boolean).join('\n')
 }
 

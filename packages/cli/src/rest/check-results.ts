@@ -22,6 +22,9 @@ export interface CheckResult {
   browserCheckResult?: BrowserCheckResult | null
   multiStepCheckResult?: MultiStepCheckResult | null
   agenticCheckResult?: AgenticCheckResult | null
+  tracerouteCheckResult?: TracerouteCheckResult | null
+  grpcCheckResult?: GrpcCheckResult | null
+  sslCheckResult?: SslCheckResult | null
 }
 
 // --- API check result ---
@@ -168,6 +171,91 @@ export interface AgenticCheckResult {
   jobAssets?: string[] | null
 }
 
+// --- Traceroute / gRPC / SSL check results ---
+//
+// Failure-debug diagnostics for the three uptime monitor types, mirroring the
+// typed fields the public check-results response carries (see the backend
+// `check-results/schemas.js` CheckResultTraceroute/Grpc/Ssl schemas). The
+// documented top-level scalars are typed; the open runner sub-objects
+// (`timingPhases`, `request`, `assertions`, `certificate`, `securityBaseline`,
+// per-hop entries) stay `Record<string, unknown>` / arrays so no runner field
+// is silently dropped. Every field is optional/nullable: a metadata-only uptime
+// result still emits a (sparse) diagnostic.
+
+export interface TracerouteCheckResult {
+  totalHops?: number | null
+  destinationReached?: boolean | null
+  finalHopLatency?: Record<string, unknown> | null
+  timingPhases?: Record<string, unknown> | null
+  requestError?: string | null
+  request?: Record<string, unknown> | null
+  assertions?: Array<Record<string, unknown>> | null
+  response?: {
+    hostname?: string | null
+    resolvedIp?: string | null
+    totalHops?: number | null
+    destinationReached?: boolean | null
+    truncationReason?: string | null
+    finalHopLatency?: Record<string, unknown> | null
+    hops?: Array<Record<string, unknown>> | null
+    protocol?: string | null
+    probeProtocol?: string | null
+  } | null
+}
+
+export interface GrpcCheckResult {
+  grpcStatusCode?: number | null
+  healthStatus?: number | null
+  timingPhases?: Record<string, unknown> | null
+  requestError?: string | null
+  request?: Record<string, unknown> | null
+  assertions?: Array<Record<string, unknown>> | null
+  response?: {
+    grpcMode?: string | null
+    host?: string | null
+    resolvedIp?: string | null
+    port?: number | null
+    grpcMethod?: string | null
+    responseMessage?: string | null
+    grpcStatusCode?: number | null
+    grpcStatusMessage?: string | null
+    healthStatus?: number | null
+    healthStatusLabel?: string | null
+    metadata?: Array<Record<string, unknown>> | null
+    discoveredMethods?: string[] | null
+    requestError?: string | null
+    timingPhases?: Record<string, unknown> | null
+  } | null
+}
+
+export interface SslCheckResult {
+  tlsVersion?: string | null
+  cipherSuite?: string | null
+  daysUntilExpiry?: number | null
+  handshakeTimeMs?: number | null
+  chainTrusted?: boolean | null
+  hostnameVerified?: boolean | null
+  baselineVerdict?: string | null
+  baselineGrade?: string | null
+  failureCategory?: string | null
+  requestError?: string | null
+  request?: Record<string, unknown> | null
+  assertions?: Array<Record<string, unknown>> | null
+  response?: {
+    resolvedIp?: string | null
+    protocol?: string | null
+    cipherSuite?: string | null
+    handshakeTimeMs?: number | null
+    hostnameVerified?: boolean | null
+    chainTrusted?: boolean | null
+    daysUntilExpiry?: number | null
+    ocspStapled?: boolean | null
+    securityBaseline?: Record<string, unknown> | null
+    certificate?: Record<string, unknown> | null
+    chain?: Array<Record<string, unknown>> | null
+  } | null
+}
+
 export interface CheckResultsPage {
   length: number
   entries: CheckResult[]
@@ -197,6 +285,9 @@ export type CheckResultField =
   | 'browserCheckResult'
   | 'multiStepCheckResult'
   | 'agenticCheckResult'
+  | 'tracerouteCheckResult'
+  | 'grpcCheckResult'
+  | 'sslCheckResult'
   | 'playwrightCheckResult'
   | 'checkRunId'
   | 'attempts'
