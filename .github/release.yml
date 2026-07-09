@@ -12,9 +12,3 @@ changelog:
     - title: Other Changes
       labels:
         - '*'
-      exclude:
-        labels:
-          - dependencies
-    - title: Improvements
-      labels:
-        - "dependencies"
