@@ -10,18 +10,57 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const REFERENCES_DIR = join(__dirname, '../../ai-context/skills-command/references')
 
+function referenceShortId (actionId: string, referenceId: string): string {
+  return referenceId.replace(`${actionId}-`, '')
+}
+
+function formatAvailableActionTree (): string {
+  return [
+    '  checkly skills',
+    ...ACTIONS.flatMap(action => {
+      const actionLine = `  |- ${action.id}`
+      if (!('references' in action)) {
+        return [actionLine]
+      }
+
+      const references = action.references
+        .map(reference => `  |  |- ${referenceShortId(action.id, reference.id)}`)
+      return [actionLine, ...references]
+    }),
+  ].join('\n')
+}
+
 export default class Skills extends BaseCommand {
   static hidden = false
-  static description = 'Show Checkly AI skills, actions and their references.'
+  static readOnly = true
+  static destructive = false
+  static idempotent = true
+  static description = [
+    'Show Checkly AI skills, actions and their references.',
+    '',
+    'Run `checkly skills` to print the full catalog, `checkly skills <action>` for an action guide, or `checkly skills <action> <reference>` for a specific reference.',
+    '',
+    'Available actions and references:',
+    formatAvailableActionTree(),
+    '',
+    'Use `checkly skills <action>` or `checkly skills <action> <reference>` to open the detailed guidance.',
+  ].join('\n')
+
+  static examples = [
+    'checkly skills',
+    'checkly skills configure',
+    'checkly skills configure api-checks',
+    'checkly skills investigate alerting',
+  ]
 
   static args = {
     action: Args.string({
       required: false,
-      description: 'The action name (e.g. "configure", "initialize").',
+      description: 'Action to open. Available actions are listed below.',
     }),
     reference: Args.string({
       required: false,
-      description: 'A specific reference within the action (e.g. "api-checks").',
+      description: 'Reference to open for the selected action. Available references are listed below.',
     }),
   }
 
@@ -75,7 +114,7 @@ export default class Skills extends BaseCommand {
       this.log(`  $ checkly skills ${action.id}`)
       if ('references' in action) {
         const firstRef = action.references[0]
-        const refId = firstRef.id.replace(`${action.id}-`, '')
+        const refId = referenceShortId(action.id, firstRef.id)
         this.log(`  $ checkly skills ${action.id} ${refId}`)
       }
     }
@@ -98,7 +137,7 @@ export default class Skills extends BaseCommand {
       this.log(`References for "${action.id}":\n`)
 
       const refs = action.references.map(r => ({
-        shortId: r.id.replace(`${action.id}-`, ''),
+        shortId: referenceShortId(action.id, r.id),
         description: r.description,
       }))
       const maxRefLen = Math.max(...refs.map(r => r.shortId.length))

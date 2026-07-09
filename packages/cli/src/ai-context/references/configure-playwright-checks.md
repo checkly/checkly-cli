@@ -9,10 +9,10 @@
 ## Dependencies
 
 - Use the user's `package.json` and lock file for dependencies. Do not add dependency declarations to check code.
-- For private packages or custom registries, include the registry config file, usually `.npmrc`, with `include`.
-- The `.npmrc` should reference a Checkly environment variable such as `${NPM_TOKEN}`. Tell the user that the token must exist in Checkly before `deploy` or `trigger`.
+- For private packages or custom registries, `.npmrc` is bundled automatically — the workspace-root `.npmrc` and any `.npmrc` beside a package's `package.json` are included by default. You do not need to add `.npmrc` to `include`.
+- The `.npmrc` should reference a Checkly environment variable such as `${NPM_TOKEN}`. Tell the user that the token must exist in Checkly before `deploy` or `trigger`. Because `.npmrc` is uploaded automatically, warn users to reference credentials via environment variables (`${NPM_TOKEN}`) rather than embedding plaintext tokens.
 - Use `installCommand` only when the default package-manager install command is not enough.
-- In Checkly CLI v8.0.0 and later, `include` patterns resolve relative to the Playwright config directory, not the project root. If `playwrightConfigPath` points to a subdirectory, adjust `include` globs. Example: `playwrightConfigPath: "./e2e/playwright.config.ts"` with root `.npmrc` needs `include: ["../.npmrc"]`.
+- In Checkly CLI v8.0.0 and later, `include` patterns resolve relative to the Playwright config directory, not the project root. If `playwrightConfigPath` points to a subdirectory, adjust `include` globs. Example: `playwrightConfigPath: "./e2e/playwright.config.ts"` with a root fixture at `fixtures/data.json` needs `include: ["../fixtures/data.json"]`.
 
 ## Install troubleshooting
 
@@ -40,8 +40,8 @@ import { PlaywrightCheck } from "checkly/constructs"
 new PlaywrightCheck("checkout-suite", {
   name: "Checkout suite",
   playwrightConfigPath: "./e2e/playwright.config.ts",
-  // Include root .npmrc for private package or registry auth.
-  include: ["../.npmrc"],
+  // .npmrc is bundled automatically for private packages or registry auth —
+  // no include entry needed.
 })
 ```
 - `playwrightConfigPath` is resolved **relative to the `.check.ts` file that declares the construct**, not the project root. If your check lives in `monitoring/suites.check.ts` and your config in `playwright.config.ts` at the repo root, use `'../playwright.config.ts'`.

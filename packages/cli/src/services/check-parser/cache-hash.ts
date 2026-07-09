@@ -25,9 +25,22 @@ export interface LockfileInput {
   hash: Buffer
 }
 
+export interface NpmrcInput {
+  /**
+   * Forward-slash relative path matching the .npmrc's location in the eventual
+   * archive (e.g. ".npmrc" or "packages/app/.npmrc").
+   */
+  path: string
+  /**
+   * Raw 32-byte SHA-256 digest of the .npmrc contents.
+   */
+  hash: Buffer
+}
+
 export interface ComposeCacheHashInput {
   lockfile?: LockfileInput
   packageJsons: PackageJsonInput[]
+  npmrcs?: NpmrcInput[]
   excludedFields: string[]
 }
 
@@ -139,6 +152,9 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *   2. One record per package.json sorted byte-wise by path, labeled
  *      `package.json:<relative/path>`, whose content is the canonicalized
  *      package.json bytes.
+ *   3. One record per .npmrc sorted byte-wise by path, labeled
+ *      `npmrc:<relative/path>`, whose content is the raw 32-byte SHA-256
+ *      digest of the .npmrc contents.
  */
 export function composeCacheHash (input: ComposeCacheHashInput): string {
   const hash = createHash('sha256')
@@ -166,6 +182,16 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
     writeRecord(`package.json:${entry.path}`, canonical)
   }
 
+  const sortedNpmrcs = [...(input.npmrcs ?? [])].sort((a, b) => {
+    if (a.path < b.path) return -1
+    if (a.path > b.path) return 1
+    return 0
+  })
+
+  for (const entry of sortedNpmrcs) {
+    writeRecord(`npmrc:${entry.path}`, entry.hash)
+  }
+
   return hash.digest('hex')
 }
 
@@ -176,15 +202,21 @@ function uint64BE (n: number): Buffer {
 }
 
 /**
- * Reads the workspace lockfile and every workspace package.json (root +
- * member packages) and returns the inputs needed by {@link composeCacheHash}.
+ * Reads the workspace lockfile, every workspace package.json, and every
+ * workspace `.npmrc` (root + member packages) and returns the inputs needed
+ * by {@link composeCacheHash}.
  *
  * Paths are normalized to forward slashes and made relative to the
  * workspace root so that they match what ends up in the bundle archive.
+ *
+ * `.npmrc` is hashed so that repointing a registry (which need not touch the
+ * lockfile) invalidates the bundle cache. Packages without an `.npmrc`
+ * contribute nothing, so a workspace with no `.npmrc` produces a hash
+ * identical to before this input existed.
  */
 export async function loadWorkspaceCacheHashInputs (
   workspace: Workspace,
-): Promise<{ lockfile?: LockfileInput, packageJsons: PackageJsonInput[] }> {
+): Promise<{ lockfile?: LockfileInput, packageJsons: PackageJsonInput[], npmrcs: NpmrcInput[] }> {
   const allPackages = [workspace.root, ...workspace.packages]
 
   const packageJsons = await Promise.all(allPackages.map(async pkg => {
@@ -196,6 +228,29 @@ export async function loadWorkspaceCacheHashInputs (
     }
   }))
 
+  const npmrcResults = await Promise.all(allPackages.map(async (pkg): Promise<NpmrcInput | undefined> => {
+    const npmrcPath = path.join(pkg.path, '.npmrc')
+    let bytes: Buffer
+    try {
+      bytes = await fs.readFile(npmrcPath)
+    } catch (err) {
+      // A missing .npmrc simply contributes nothing. Any other error (e.g.
+      // EACCES on a present file) must surface rather than silently dropping a
+      // file that would still be bundled — that would desync the cache key from
+      // the bundle contents.
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined
+      }
+      throw err
+    }
+    const rel = path.relative(workspace.root.path, npmrcPath)
+    return {
+      path: rel.split(path.sep).join('/'),
+      hash: createHash('sha256').update(bytes).digest(),
+    }
+  }))
+  const npmrcs = npmrcResults.filter((entry): entry is NpmrcInput => entry !== undefined)
+
   let lockfile: LockfileInput | undefined
   if (workspace.lockfile.isOk()) {
     const lockfilePath = workspace.lockfile.ok()
@@ -206,7 +261,7 @@ export async function loadWorkspaceCacheHashInputs (
     }
   }
 
-  return { lockfile, packageJsons }
+  return { lockfile, packageJsons, npmrcs }
 }
 
 /**

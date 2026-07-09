@@ -8,6 +8,16 @@ import { runCheckly } from '../run-checkly'
 const actionIds = ACTIONS.map(a => a.id)
 const referenceShortIds = REFERENCES.map(r => r.id.replace('configure-', ''))
 const investigateReferenceShortIds = INVESTIGATE_REFERENCES.map(r => r.id.replace('investigate-', ''))
+const referencesByAction = ACTIONS.flatMap(action => {
+  if (!('references' in action)) {
+    return []
+  }
+
+  return action.references.map(reference => ({
+    actionId: action.id,
+    shortId: reference.id.replace(`${action.id}-`, ''),
+  }))
+})
 
 describe('checkly skills', () => {
   let fixt: FixtureSandbox
@@ -42,6 +52,26 @@ describe('checkly skills', () => {
     }
     expect(stdout).toContain(`$ checkly skills configure ${referenceShortIds[0]}`)
     expect(stdout).toContain(`$ checkly skills investigate ${investigateReferenceShortIds[0]}`)
+  })
+
+  it('should list all actions and references in help output', async () => {
+    const { stdout } = await runCheckly(fixt, ['skills', '--help'])
+
+    expect(stdout).toContain('Available actions and references:')
+    expect(stdout).toContain('checkly skills configure api-checks')
+    expect(stdout).toContain('checkly skills investigate alerting')
+
+    for (const id of actionIds) {
+      expect(stdout).toContain(`|- ${id}`)
+    }
+
+    for (const { actionId, shortId } of referencesByAction) {
+      expect(stdout).toContain(`|- ${actionId}`)
+      expect(stdout).toContain(`|  |- ${shortId}`)
+    }
+
+    expect(stdout).not.toContain(REFERENCES[0].description)
+    expect(stdout).not.toContain(INVESTIGATE_REFERENCES[0].description)
   })
 
   it('should show the initialize action content', async () => {

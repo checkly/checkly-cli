@@ -17,6 +17,8 @@ import { Package, Workspace } from './workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:resolver')
 
+const NPMRC_FILENAME = '.npmrc'
+
 /**
  * Candidate file paths for an `extends` target. TypeScript appends `.json` when
  * the specifier has no extension and falls back to `<dir>/tsconfig.json` when it
@@ -239,6 +241,12 @@ type WorkspaceRootConfigFileLocalDependency = {
   sourceFile: SourceFile
 }
 
+type WorkspaceNpmrcLocalDependency = {
+  kind: 'workspace-npmrc'
+  importPath: string
+  sourceFile: SourceFile
+}
+
 type NearestPackageJsonFileLocalDependency = {
   kind: 'nearest-package-json-file'
   importPath: string
@@ -288,6 +296,12 @@ type RelativePathLocalDependency = {
   sourceFile: SourceFile
 }
 
+type ImportsPathLocalDependency = {
+  kind: 'imports-path'
+  importPath: string
+  sourceFile: SourceFile
+}
+
 type WorkspaceNeighborLocalDependency = {
   kind: 'workspace-neighbor'
   neighbor: Package
@@ -300,6 +314,7 @@ type LocalDependency =
   | WorkspaceRootTSConfigFileLocalDependency
   | WorkspaceRootLockfileLocalDependency
   | WorkspaceRootConfigFileLocalDependency
+  | WorkspaceNpmrcLocalDependency
   | NearestPackageJsonFileLocalDependency
   | NearestTSConfigFileLocalDependency
   | SupportingTSConfigFileLocalDependency
@@ -307,6 +322,7 @@ type LocalDependency =
   | SupportingTSConfigResolvedPathLocalDependency
   | SupportingTSConfigBaseUrlRelativePathLocalDependency
   | RelativePathLocalDependency
+  | ImportsPathLocalDependency
   | WorkspaceNeighborLocalDependency
 
 type MissingDependency = {
@@ -575,6 +591,27 @@ export class PackageFilesResolver {
           })
         }
       }
+
+      // Bundle the .npmrc from the workspace root and every workspace member
+      // package root. These carry registry configuration (alternate registries,
+      // auth) that the cloud install needs to resolve dependencies. This is the
+      // exact set a package manager consults (project .npmrc is read from the
+      // install directory upward, never from subdirectories below it), and it
+      // matches the set fed into the workspace cache hash, so a bundled .npmrc
+      // is always reflected in the cache key.
+      for (const pkg of [this.workspace.root, ...this.workspace.packages]) {
+        const npmrc = await this.cache.exactSourceFile(
+          path.join(pkg.path, NPMRC_FILENAME),
+        )
+        if (npmrc !== undefined) {
+          debug('Found workspace .npmrc file %s', npmrc.meta.filePath)
+          resolved.local.push({
+            kind: 'workspace-npmrc',
+            importPath: filePath,
+            sourceFile: npmrc,
+          })
+        }
+      }
     }
 
     // As above, only add nearest package files if we are not running in
@@ -630,6 +667,47 @@ export class PackageFilesResolver {
     const usedNeighbors = new Set<Package>()
 
     const context = LookupContext.forFilePath(filePath)
+
+    // Resolves a bare/external specifier: prefer a workspace-neighbor package
+    // when one provides the files, otherwise record it as an external
+    // dependency. Shared by ordinary specifiers and by bare targets produced
+    // by a package.json `imports` mapping.
+    const resolveWorkspaceOrExternal = async (specifier: string, source: RawDependencySource) => {
+      if (this.workspace) {
+        const { name, path: exportPath } = splitExternalPath(specifier)
+        const neighbor = this.workspace.memberByName(name)
+        if (neighbor) {
+          const sourceFile = await this.cache.sourceFile(neighbor.path, context)
+          if (sourceFile !== undefined) {
+            const resolvedFiles = await this.resolveSourceFile(sourceFile, context, {
+              exportPath,
+              source,
+            })
+            let found = false
+            for (const resolvedFile of resolvedFiles) {
+              debug('Found workspace neighbor file %s', resolvedFile.meta.filePath)
+              resolved.local.push({
+                kind: 'workspace-neighbor',
+                neighbor,
+                importPath: specifier,
+                sourceFile: resolvedFile,
+              })
+              found = true
+            }
+            if (found) {
+              debug('Found workspace neighbor reference %s', neighbor.path)
+              usedNeighbors.add(neighbor)
+              return
+            }
+          }
+        }
+      }
+
+      debug(`Found external dependency %s`, specifier)
+      resolved.external.push({
+        importPath: specifier,
+      })
+    }
 
     resolve:
     for (const { importPath, source } of dependencies) {
@@ -765,49 +843,53 @@ export class PackageFilesResolver {
         }
       }
 
+      // Node.js subpath imports (`#`-prefixed specifiers) resolve against the
+      // `imports` map of the nearest package.json (the importing file's package
+      // scope). Every `#` specifier terminates here — an unmatched one is left
+      // unbundled rather than being misrecorded as an external npm dependency.
       if (isImportsPath(importPath)) {
-        debug('Found local imports path %s',
-          importPath,
-        )
+        if (packageJson?.hasImports()) {
+          const { root, paths } = packageJson.resolveImportPath(importPath, [
+            source,
+            'node',
+            'module-sync',
+            'default',
+          ])
 
-        // TODO
-        continue resolve
-      }
-
-      if (this.workspace) {
-        const { name, path: exportPath } = splitExternalPath(importPath)
-        const neighbor = this.workspace.memberByName(name)
-        if (neighbor) {
-          const sourceFile = await this.cache.sourceFile(neighbor.path, context)
-          if (sourceFile !== undefined) {
-            const resolvedFiles = await this.resolveSourceFile(sourceFile, context, {
-              exportPath,
-              source,
-            })
-            let found = false
-            for (const resolvedFile of resolvedFiles) {
-              debug('Found workspace neighbor file %s', resolvedFile.meta.filePath)
-              resolved.local.push({
-                kind: 'workspace-neighbor',
-                neighbor,
-                importPath,
-                sourceFile: resolvedFile,
-              })
-              found = true
-            }
-            if (found) {
-              debug('Found workspace neighbor reference %s', neighbor.path)
-              usedNeighbors.add(neighbor)
-              continue resolve
+          for (const { target } of paths) {
+            if (isLocalPath(target.path)) {
+              // Relative targets point at files within the declaring package,
+              // resolved relative to the package root (not the importing file).
+              const relativeDepPath = path.resolve(root, target.path)
+              const sourceFile = await this.cache.sourceFile(relativeDepPath, context)
+              if (sourceFile !== undefined) {
+                const resolvedFiles = await this.resolveSourceFile(sourceFile, context)
+                for (const resolvedFile of resolvedFiles) {
+                  debug('Found subpath imports file %s', resolvedFile.meta.filePath)
+                  resolved.local.push({
+                    kind: 'imports-path',
+                    importPath,
+                    sourceFile: resolvedFile,
+                  })
+                }
+              } else {
+                debug('Failed to find subpath imports file %s', relativeDepPath)
+                resolved.missing.push({
+                  importPath,
+                  filePath: relativeDepPath,
+                })
+              }
+            } else {
+              // Bare targets are external packages (or workspace neighbors).
+              await resolveWorkspaceOrExternal(target.path, source)
             }
           }
         }
+
+        continue resolve
       }
 
-      debug(`Found external dependency %s`, importPath)
-      resolved.external.push({
-        importPath,
-      })
+      await resolveWorkspaceOrExternal(importPath, source)
     }
 
     const requiredNeighbors = new Set<Package>()

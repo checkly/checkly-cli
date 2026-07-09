@@ -378,9 +378,21 @@ class Projects {
    */
   async deploy (
     resources: ProjectSync,
-    { dryRun = false, scheduleOnDeploy = true, cancelInProgress = false, onProgress, onStatus }: {
+    {
+      dryRun = false,
+      scheduleOnDeploy = true,
+      preserveResources = false,
+      cancelInProgress = false,
+      onProgress,
+      onStatus,
+    }: {
       dryRun?: boolean
       scheduleOnDeploy?: boolean
+      /**
+       * Detach resources removed from code (keep them and their run history)
+       * instead of deleting them.
+       */
+      preserveResources?: boolean
       /**
        * On a 409 (another deployment is already in progress), cancel that
        * deployment instead of waiting for it to finish, then retry.
@@ -402,7 +414,7 @@ class Projects {
     const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
     for (;;) {
       try {
-        return await this.submitDeployment(resources, { dryRun, scheduleOnDeploy, onProgress })
+        return await this.submitDeployment(resources, { dryRun, scheduleOnDeploy, preserveResources, onProgress })
       } catch (err) {
         if (
           dryRun
@@ -424,14 +436,19 @@ class Projects {
 
   private async submitDeployment (
     resources: ProjectSync,
-    { dryRun, scheduleOnDeploy, onProgress }: {
+    { dryRun, scheduleOnDeploy, preserveResources, onProgress }: {
       dryRun: boolean
       scheduleOnDeploy: boolean
+      preserveResources: boolean
       onProgress?: (progress: number) => void
     },
   ): Promise<{ data: ProjectDeployResponse }> {
+    // Only send preserveResources when the user opted in. The endpoint rejects
+    // unknown query params, and preserveResources=false is the default (delete)
+    // behavior, so omitting it keeps default deploys backwards compatible.
+    const preserveParam = preserveResources ? '&preserveResources=true' : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
-      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`,
+      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}${preserveParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

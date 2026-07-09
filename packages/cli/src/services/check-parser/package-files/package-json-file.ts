@@ -82,10 +82,14 @@ export class PackageJsonFile {
     return !!this.jsonFile.data.exports
   }
 
+  hasImports (): boolean {
+    return !!this.jsonFile.data.imports
+  }
+
   resolveExportPath (exportPath: string, conditions: ConditionKey[]): ResolveResult {
     const resolver = PathResolver.createFromPaths(
       this.basePath,
-      this.#resolveExports(this.jsonFile.data.exports ?? {}, conditions),
+      this.#resolveConditionalTargets(this.jsonFile.data.exports ?? {}, conditions),
     )
 
     // Normalize the export path to the canonical subpath form used by
@@ -107,16 +111,44 @@ export class PackageJsonFile {
     return resolver.resolve(exportPath)
   }
 
-  #resolveExports (exports: Exports, conditions: ConditionKey[]): Record<string, string[]> {
-    if (typeof exports === 'string') {
+  /**
+   * Resolves a Node.js subpath import specifier (a `#`-prefixed specifier such
+   * as `#utils/foo`) against the package's `imports` map.
+   *
+   * Unlike `resolveExportPath`, no subpath normalization is needed: `imports`
+   * keys and the specifier are both `#`-prefixed and matched verbatim. Relative
+   * targets in the result resolve against `basePath`; bare targets are external
+   * package (or workspace neighbor) specifiers.
+   *
+   * See https://nodejs.org/api/packages.html#subpath-imports
+   */
+  resolveImportPath (importPath: string, conditions: ConditionKey[]): ResolveResult {
+    const resolver = PathResolver.createFromPaths(
+      this.basePath,
+      this.#resolveConditionalTargets(this.jsonFile.data.imports ?? {}, conditions),
+    )
+
+    return resolver.resolve(importPath)
+  }
+
+  // Resolves the conditional targets of an `exports` or `imports` map into a
+  // flat `subpath -> [target]` mapping. Both fields share the same target shape
+  // (string | null | array | nested conditions), so the same logic applies.
+  #resolveConditionalTargets (
+    map: Exports,
+    conditions: ConditionKey[],
+  ): Record<string, string[]> {
+    // A plain-string `exports` shorthand maps the root subpath to that target.
+    // (`imports` is never a plain string, but sharing the branch is harmless.)
+    if (typeof map === 'string') {
       return {
-        '.': [exports],
+        '.': [map],
       }
     }
 
     const resolved: Record<string, string[]> = {}
 
-    for (const [from, target] of Object.entries(exports)) {
+    for (const [from, target] of Object.entries(map)) {
       const resolvedTarget = this.#resolveExportTarget(target, conditions)
       if (resolvedTarget !== undefined) {
         resolved[from] = [resolvedTarget]

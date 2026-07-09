@@ -8,6 +8,8 @@ import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
 import { BunDetector, NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
 import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
 import { Workspace } from '../package-files/workspace.js'
+import { PlaywrightConfig } from '../../playwright-config.js'
+import { pathToPosix } from '../../util.js'
 
 const defaultNpmModules = [
   'timers', 'tls', 'url', 'util', 'zlib', '@faker-js/faker', '@opentelemetry/api', '@opentelemetry/sd-trace-base',
@@ -28,6 +30,56 @@ describe('dependency-parser - parser()', () => {
 
   afterAll(async () => {
     await fixt?.destroy()
+  })
+
+  describe('.npmrc bundling', () => {
+    const toAbsolutePath = (...filepath: string[]) => fixt.abspath('npmrc-example', ...filepath)
+
+    const rootNpmrc = () => pathToPosix(toAbsolutePath('.npmrc'))
+    const nestedNpmrc = () => pathToPosix(toAbsolutePath('apps', 'main', '.npmrc'))
+    // A .npmrc in a subdirectory that is not a workspace package root — must
+    // never be bundled, since package managers do not read .npmrc from below
+    // the install directory.
+    const subdirNpmrc = () => pathToPosix(toAbsolutePath('apps', 'main', 'tests', '.npmrc'))
+
+    let workspace: Workspace | undefined
+    beforeAll(async () => {
+      workspace = await new NpmDetector().lookupWorkspace(toAbsolutePath('.'))
+      expect(workspace).toBeDefined()
+    })
+
+    // Drives the real Playwright bundling entry point (getFilesAndDependencies),
+    // so the assertion also exercises the determineFileOps===0 routing that
+    // copies .npmrc into the bundle verbatim rather than trying to parse it.
+    const bundledPaths = async (restricted: boolean): Promise<string[]> => {
+      const parser = new Parser({
+        checkUnsupportedModules: false,
+        restricted,
+        workspace,
+      })
+      const configPath = toAbsolutePath('apps', 'main', 'playwright.config.js')
+      const pwConfig = new PlaywrightConfig(configPath, { testDir: './tests' })
+      const { files, errors } = await parser.getFilesAndDependencies(pwConfig)
+      expect(errors).toEqual([])
+      return files.map(f => f.filePath)
+    }
+
+    it('bundles the workspace-root and package-root .npmrc in unrestricted mode', async () => {
+      const paths = await bundledPaths(false)
+      expect(paths).toContain(rootNpmrc())
+      expect(paths).toContain(nestedNpmrc())
+    })
+
+    it('does not bundle a .npmrc below a package root', async () => {
+      const paths = await bundledPaths(false)
+      expect(paths).not.toContain(subdirNpmrc())
+    })
+
+    it('does not bundle .npmrc in restricted mode', async () => {
+      const paths = await bundledPaths(true)
+      expect(paths).not.toContain(rootNpmrc())
+      expect(paths).not.toContain(nestedNpmrc())
+    })
   })
 
   describe('unrestricted mode', () => {
@@ -612,6 +664,50 @@ describe('dependency-parser - parser()', () => {
       // parsing must not throw a DependencyParseError.
       expect(dependencies.map(d => d.filePath)).not.toContain(toAbsolutePath('native.node'))
     })
+
+    it('should resolve package.json subpath #imports', async () => {
+      // Node.js subpath imports (the package.json `imports` field, referenced
+      // via `#`-prefixed specifiers) must be discovered and bundled
+      // automatically, without a manual `include`.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('subpath-imports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      // Both a direct relative target (#config) and a wildcard-mapped target
+      // (#internal/bar) are bundled.
+      expect(filePaths).toContain(toAbsolutePath('config.js'))
+      expect(filePaths).toContain(toAbsolutePath('src', 'internal', 'bar.js'))
+
+      // The raw `#`-specifiers must never leak into the dependency set, and the
+      // external target (#dep -> lodash) is recorded as external, not bundled.
+      expect(filePaths.some(filePath => filePath.includes('#'))).toBe(false)
+      expect(filePaths.some(filePath => filePath.includes('lodash'))).toBe(false)
+    })
+
+    it('should resolve a package.json exports field', async () => {
+      // The imported package exposes its entry point only through a conditional
+      // `exports` map (no `main`), so the target file is discovered solely via
+      // exports resolution. The `node` condition is selected: the earlier,
+      // non-matching `browser` condition is skipped and the `default` fallback
+      // is not reached.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('package-exports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      expect(filePaths).toContain(toAbsolutePath('local-pkg', 'lib', 'main.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'browser.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'fallback.js'))
+    })
   })
 
   describe('restricted mode', () => {
@@ -639,6 +735,40 @@ describe('dependency-parser - parser()', () => {
         toAbsolutePath('module-package', 'package.json'),
         toAbsolutePath('module', 'index.js'),
       ])
+    })
+
+    it('should resolve relative subpath #imports', async () => {
+      // In restricted mode the nearest package.json is not bundled, so the
+      // `imports` map is unavailable at runtime (a documented limitation), but
+      // dependency resolution must still discover the mapped target files
+      // and must not crash.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('subpath-imports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      expect(filePaths).toContain(toAbsolutePath('config.js'))
+      expect(filePaths).toContain(toAbsolutePath('src', 'internal', 'bar.js'))
+      expect(filePaths.some(filePath => filePath.includes('#'))).toBe(false)
+    })
+
+    it('should resolve a package.json exports field', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('package-exports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.js'))
+      const filePaths = dependencies.map(d => d.filePath)
+
+      expect(filePaths).toContain(toAbsolutePath('local-pkg', 'lib', 'main.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'browser.js'))
+      expect(filePaths).not.toContain(toAbsolutePath('local-pkg', 'lib', 'fallback.js'))
     })
 
     it('should report a missing entrypoint file', async () => {

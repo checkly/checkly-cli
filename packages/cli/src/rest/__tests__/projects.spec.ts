@@ -54,6 +54,19 @@ describe('Projects.deploy', () => {
     expect(data).toEqual(preview)
   })
 
+  it('omits preserveResources by default and only sends it when opted in', async () => {
+    const preview = { project: sync.project, diff: [] }
+    vi.mocked(api.post).mockResolvedValue({ data: preview })
+
+    await projects.deploy(sync, { dryRun: true })
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true')
+
+    await projects.deploy(sync, { dryRun: true, preserveResources: true })
+    expect(vi.mocked(api.post).mock.calls[1][0]).toBe(
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&preserveResources=true',
+    )
+  })
+
   it('submits async, follows the SSE stream, reports progress, and returns the applied diff', async () => {
     vi.mocked(api.post).mockResolvedValue({ data: { id: 'dep-1', status: 'PENDING' } })
     vi.mocked(api.get).mockResolvedValue(
