@@ -14,7 +14,7 @@ export interface GrpcMonitorProps extends MonitorProps {
    * The response time in milliseconds where the monitor should be considered
    * degraded.
    *
-   * @defaultValue 4000
+   * @defaultValue 10000
    * @minimum 0
    * @maximum 180000
    * @example
@@ -28,7 +28,7 @@ export interface GrpcMonitorProps extends MonitorProps {
    * The response time in milliseconds where the monitor should be considered
    * failing.
    *
-   * @defaultValue 5000
+   * @defaultValue 20000
    * @minimum 0
    * @maximum 180000
    * @example

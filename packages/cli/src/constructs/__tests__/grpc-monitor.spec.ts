@@ -139,6 +139,23 @@ describe('GrpcMonitor', () => {
       expect(diags.isFatal()).toEqual(false)
     })
 
+    it('should error when degradedResponseTime exceeds the default maxResponseTime', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 30000,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('must be less than or equal to the default "maxResponseTime" of 20000'),
+        }),
+      ]))
+    })
+
     it('should not error within limits', async () => {
       setupProject()
       const check = new GrpcMonitor('test-check', {
