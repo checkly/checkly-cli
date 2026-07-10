@@ -16,6 +16,7 @@ export type TracerouteResponseTimeProperty = 'avg' | 'min' | 'max' | 'stdDev'
  * @example
  * ```typescript
  * // Response time assertions
+ * TracerouteAssertionBuilder.responseTime().lessThan(1000)
  * TracerouteAssertionBuilder.responseTime('avg').lessThan(1000)
  * TracerouteAssertionBuilder.responseTime('max').lessThan(2000)
  * TracerouteAssertionBuilder.responseTime('stdDev').lessThan(50)
@@ -30,14 +31,14 @@ export type TracerouteResponseTimeProperty = 'avg' | 'min' | 'max' | 'stdDev'
 export class TracerouteAssertionBuilder {
   /**
    * Creates an assertion builder for traceroute response time metrics.
-   * @param property The response time property to assert against:
+   * @param property The response time property to assert against. Defaults to `avg`.
    *   - `avg`: Average round-trip time in milliseconds
    *   - `min`: Minimum round-trip time in milliseconds
    *   - `max`: Maximum round-trip time in milliseconds
    *   - `stdDev`: Standard deviation of round-trip times
    * @returns A numeric assertion builder for the specified response time metric.
    */
-  static responseTime (property: TracerouteResponseTimeProperty) {
+  static responseTime (property: TracerouteResponseTimeProperty = 'avg') {
     return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>(
       'RESPONSE_TIME',
       property,
