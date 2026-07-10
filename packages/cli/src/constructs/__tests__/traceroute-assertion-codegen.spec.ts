@@ -37,6 +37,13 @@ describe('Traceroute Assertion Codegen', () => {
     }
   })
 
+  // Codegen runs in the decode direction: backend wire data becomes construct source.
+  // The backend only ever returns one of 'avg', 'min', 'max' or 'stdDev' as the property
+  // of a RESPONSE_TIME assertion, so this input is synthetic. The bare responseTime() it
+  // emits still compiles and resolves to the 'avg' default. Codegen relies on that
+  // guarantee: a property outside the union would emit source that does not typecheck.
+  // The encode direction is guarded separately by validateTracerouteAssertion, which
+  // rejects a hand-written empty property at deploy time.
   it('emits a bare responseTime() when no property is set', () => {
     const input: TracerouteAssertion =
       { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1000', regex: null }
