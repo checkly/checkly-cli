@@ -7,6 +7,10 @@ describe('TestSessions REST client', () => {
     commitId: 'abc123',
     github: {
       reporting: true,
+      source: 'checkly-action',
+      githubCheckName: 'Checkly PR code checks',
+      pullRequestNumber: '5',
+      environmentUrl: 'https://preview.example.com',
       repository: 'checkly/playwright-reporter-demo',
       sha: 'abc123',
       runId: '123456',

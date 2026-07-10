@@ -12,6 +12,10 @@ const ENV_KEYS = [
   'CHECKLY_REPO_URL',
   'CHECKLY_REPO_BRANCH',
   'CHECKLY_GITHUB_REPORT',
+  'CHECKLY_GITHUB_SOURCE',
+  'CHECKLY_GITHUB_CHECK_NAME',
+  'CHECKLY_GITHUB_PULL_REQUEST_NUMBER',
+  'CHECKLY_GITHUB_ENVIRONMENT_URL',
   'CHECKLY_GITHUB_REPOSITORY',
   'CHECKLY_GITHUB_SHA',
   'CHECKLY_GITHUB_RUN_ID',
@@ -95,6 +99,10 @@ describe('util', () => {
 
     it('should include GitHub Actions metadata when Checkly GitHub reporting is enabled', () => {
       process.env.CHECKLY_GITHUB_REPORT = 'true'
+      process.env.CHECKLY_GITHUB_SOURCE = 'checkly-action'
+      process.env.CHECKLY_GITHUB_CHECK_NAME = 'Checkly PR code checks'
+      process.env.CHECKLY_GITHUB_PULL_REQUEST_NUMBER = '5'
+      process.env.CHECKLY_GITHUB_ENVIRONMENT_URL = 'https://preview.example.com'
       process.env.CHECKLY_GITHUB_REPOSITORY = 'checkly/playwright-reporter-demo'
       process.env.CHECKLY_GITHUB_SHA = 'abc123def456'
       process.env.CHECKLY_GITHUB_RUN_ID = '123456'
@@ -112,6 +120,10 @@ describe('util', () => {
         repoUrl: 'https://github.com/checkly/playwright-reporter-demo',
         github: {
           reporting: true,
+          source: 'checkly-action',
+          githubCheckName: 'Checkly PR code checks',
+          pullRequestNumber: '5',
+          environmentUrl: 'https://preview.example.com',
           repository: 'checkly/playwright-reporter-demo',
           sha: 'abc123def456',
           runId: '123456',

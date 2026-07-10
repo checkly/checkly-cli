@@ -20,6 +20,10 @@ export interface GitInformation {
 
 export interface GitHubActionsInformation {
   reporting: true
+  source?: string
+  githubCheckName?: string
+  pullRequestNumber?: string
+  environmentUrl?: string
   repository?: string
   sha?: string
   runId?: string
@@ -149,6 +153,10 @@ export function getGitInformation (repoUrl?: string): GitInformation | null {
   if (isGitHubReportingEnabled()) {
     gitInformation.github = {
       reporting: true,
+      source: process.env.CHECKLY_GITHUB_SOURCE,
+      githubCheckName: process.env.CHECKLY_GITHUB_CHECK_NAME,
+      pullRequestNumber: process.env.CHECKLY_GITHUB_PULL_REQUEST_NUMBER,
+      environmentUrl: process.env.CHECKLY_GITHUB_ENVIRONMENT_URL,
       repository: process.env.CHECKLY_GITHUB_REPOSITORY,
       sha: process.env.CHECKLY_GITHUB_SHA,
       runId: process.env.CHECKLY_GITHUB_RUN_ID,
