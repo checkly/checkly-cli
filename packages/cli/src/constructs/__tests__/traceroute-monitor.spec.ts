@@ -85,33 +85,23 @@ describe('TracerouteMonitor', () => {
   })
 
   describe('responseTime() assertions', () => {
-    it('should default the property to "avg" so responseTime().lessThan() is usable', () => {
-      const assertion = TracerouteAssertionBuilder.responseTime().lessThan(1000)
-      expect(assertion).toMatchObject({
-        source: 'RESPONSE_TIME',
-        property: 'avg',
-        comparison: 'LESS_THAN',
-        target: '1000',
-      })
-    })
-
     it('should support selecting a specific response-time property', () => {
-      expect(TracerouteAssertionBuilder.responseTime().max().lessThan(2000)).toMatchObject({
+      expect(TracerouteAssertionBuilder.responseTime('max').lessThan(2000)).toMatchObject({
         source: 'RESPONSE_TIME',
         property: 'max',
         comparison: 'LESS_THAN',
         target: '2000',
       })
-      expect(TracerouteAssertionBuilder.responseTime().min().greaterThan(1)).toMatchObject({
+      expect(TracerouteAssertionBuilder.responseTime('min').greaterThan(1)).toMatchObject({
         source: 'RESPONSE_TIME',
         property: 'min',
         comparison: 'GREATER_THAN',
       })
-      expect(TracerouteAssertionBuilder.responseTime().stdDev().lessThan(50)).toMatchObject({
+      expect(TracerouteAssertionBuilder.responseTime('stdDev').lessThan(50)).toMatchObject({
         source: 'RESPONSE_TIME',
         property: 'stdDev',
       })
-      expect(TracerouteAssertionBuilder.responseTime().avg().equals(100)).toMatchObject({
+      expect(TracerouteAssertionBuilder.responseTime('avg').equals(100)).toMatchObject({
         source: 'RESPONSE_TIME',
         property: 'avg',
         comparison: 'EQUALS',

@@ -13,23 +13,23 @@ function render (assertion: TracerouteAssertion): string {
 }
 
 describe('Traceroute Assertion Codegen', () => {
-  it('preserves the response-time property as a selector', () => {
+  it('preserves the response-time property as an argument', () => {
     const cases: { input: TracerouteAssertion, expected: string }[] = [
       {
         input: { source: 'RESPONSE_TIME', property: 'max', comparison: 'LESS_THAN', target: '1000', regex: null },
-        expected: 'TracerouteAssertionBuilder.responseTime().max().lessThan(1000)\n',
+        expected: 'TracerouteAssertionBuilder.responseTime(\'max\').lessThan(1000)\n',
       },
       {
         input: { source: 'RESPONSE_TIME', property: 'min', comparison: 'GREATER_THAN', target: '10', regex: null },
-        expected: 'TracerouteAssertionBuilder.responseTime().min().greaterThan(10)\n',
+        expected: 'TracerouteAssertionBuilder.responseTime(\'min\').greaterThan(10)\n',
       },
       {
         input: { source: 'RESPONSE_TIME', property: 'stdDev', comparison: 'LESS_THAN', target: '50', regex: null },
-        expected: 'TracerouteAssertionBuilder.responseTime().stdDev().lessThan(50)\n',
+        expected: 'TracerouteAssertionBuilder.responseTime(\'stdDev\').lessThan(50)\n',
       },
       {
         input: { source: 'RESPONSE_TIME', property: 'avg', comparison: 'LESS_THAN', target: '1000', regex: null },
-        expected: 'TracerouteAssertionBuilder.responseTime().avg().lessThan(1000)\n',
+        expected: 'TracerouteAssertionBuilder.responseTime(\'avg\').lessThan(1000)\n',
       },
     ]
     for (const test of cases) {
@@ -43,7 +43,7 @@ describe('Traceroute Assertion Codegen', () => {
     expect(render(input)).toEqual('TracerouteAssertionBuilder.responseTime().lessThan(1000)\n')
   })
 
-  it('does not emit a property selector for HOP_COUNT / PACKET_LOSS', () => {
+  it('does not emit a property for HOP_COUNT / PACKET_LOSS', () => {
     const hop: TracerouteAssertion =
       { source: 'HOP_COUNT', property: '', comparison: 'LESS_THAN', target: '20', regex: null }
     expect(render(hop)).toEqual('TracerouteAssertionBuilder.hopCount().lessThan(20)\n')

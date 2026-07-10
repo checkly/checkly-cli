@@ -7,43 +7,7 @@ type TracerouteAssertionSource =
 
 export type TracerouteAssertion = CoreAssertion<TracerouteAssertionSource>
 
-/**
- * The statistical property of the traceroute response time to assert against.
- * The backend requires one of these for `RESPONSE_TIME` assertions.
- */
 export type TracerouteResponseTimeProperty = 'avg' | 'min' | 'max' | 'stdDev'
-
-/**
- * A numeric assertion builder for traceroute response time. It defaults to the
- * `avg` property so `responseTime().lessThan(1000)` works out of the box, and
- * exposes `avg()`/`min()`/`max()`/`stdDev()` to select a specific property.
- */
-class TracerouteResponseTimeAssertionBuilder
-  extends NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty> {
-  constructor () {
-    super('RESPONSE_TIME', 'avg')
-  }
-
-  /** Asserts against the average response time. */
-  avg () {
-    return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>('RESPONSE_TIME', 'avg')
-  }
-
-  /** Asserts against the minimum response time. */
-  min () {
-    return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>('RESPONSE_TIME', 'min')
-  }
-
-  /** Asserts against the maximum response time. */
-  max () {
-    return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>('RESPONSE_TIME', 'max')
-  }
-
-  /** Asserts against the standard deviation of the response time. */
-  stdDev () {
-    return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>('RESPONSE_TIME', 'stdDev')
-  }
-}
 
 /**
  * Builder class for creating traceroute monitor assertions.
@@ -51,11 +15,10 @@ class TracerouteResponseTimeAssertionBuilder
  *
  * @example
  * ```typescript
- * // Response time assertions (defaults to the average)
- * TracerouteAssertionBuilder.responseTime().lessThan(1000)
- *
- * // Response time assertions against a specific property
- * TracerouteAssertionBuilder.responseTime().max().lessThan(2000)
+ * // Response time assertions
+ * TracerouteAssertionBuilder.responseTime('avg').lessThan(1000)
+ * TracerouteAssertionBuilder.responseTime('max').lessThan(2000)
+ * TracerouteAssertionBuilder.responseTime('stdDev').lessThan(50)
  *
  * // Hop count assertions
  * TracerouteAssertionBuilder.hopCount().lessThan(20)
@@ -66,13 +29,19 @@ class TracerouteResponseTimeAssertionBuilder
  */
 export class TracerouteAssertionBuilder {
   /**
-   * Creates an assertion builder for traceroute response time in milliseconds.
-   * Defaults to the `avg` property; use `avg()`/`min()`/`max()`/`stdDev()` to
-   * select a specific property.
-   * @returns A numeric assertion builder for response time.
+   * Creates an assertion builder for traceroute response time metrics.
+   * @param property The response time property to assert against:
+   *   - `avg`: Average round-trip time in milliseconds
+   *   - `min`: Minimum round-trip time in milliseconds
+   *   - `max`: Maximum round-trip time in milliseconds
+   *   - `stdDev`: Standard deviation of round-trip times
+   * @returns A numeric assertion builder for the specified response time metric.
    */
-  static responseTime () {
-    return new TracerouteResponseTimeAssertionBuilder()
+  static responseTime (property: TracerouteResponseTimeProperty) {
+    return new NumericAssertionBuilder<TracerouteAssertionSource, TracerouteResponseTimeProperty>(
+      'RESPONSE_TIME',
+      property,
+    )
   }
 
   /**

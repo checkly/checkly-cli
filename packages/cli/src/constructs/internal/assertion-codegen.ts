@@ -16,10 +16,6 @@ export function unsupportedAssertionSource (source: never, kind?: string): never
 
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean
-  // When set, emit the assertion property as a chained selector method call
-  // (e.g. `responseTime().max()`) instead of a method argument, but only when
-  // the property is one of the listed selector names.
-  propertySelectors?: readonly string[]
 }
 
 export function valueForNumericAssertion<Source extends string> (
@@ -36,11 +32,6 @@ export function valueForNumericAssertion<Source extends string> (
         builder.string(assertion.property)
       }
     })
-    const propertySelectors = options?.propertySelectors
-    if (propertySelectors !== undefined && propertySelectors.includes(assertion.property)) {
-      builder.member(ident(assertion.property))
-      builder.call(() => {})
-    }
     switch (assertion.comparison) {
       case 'EQUALS':
         builder.member(ident('equals'))
