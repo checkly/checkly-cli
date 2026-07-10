@@ -389,7 +389,7 @@ class Projects {
       dryRun?: boolean
       scheduleOnDeploy?: boolean
       /**
-       * Detach resources removed from code (keep them and their run history)
+       * Keep resources removed from code (and their run history) in the account
        * instead of deleting them.
        */
       preserveResources?: boolean

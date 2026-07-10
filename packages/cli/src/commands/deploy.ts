@@ -28,7 +28,7 @@ enum ResourceDeployStatus {
   CREATE = 'CREATE',
   DELETE = 'DELETE',
   // Returned by newer backends for resources removed from code that are kept in
-  // the account (detached, now managed in the Checkly Webapp) instead of deleted.
+  // the account (now managed from the Checkly web app) instead of deleted.
   DETACHED = 'DETACHED',
 }
 
@@ -79,7 +79,7 @@ export default class Deploy extends AuthCommand {
       allowNo: true,
     }),
     'preserve-resources': Flags.boolean({
-      description: 'Detach resources removed from code (keep them and their run history) instead of deleting them.',
+      description: 'Keep resources removed from code (and their run history) in your Checkly account instead of deleting them.',
       default: false,
     }),
     'force': forceFlag(),
@@ -142,8 +142,8 @@ export default class Deploy extends AuthCommand {
             ? 'Schedule checks after deploy'
             : 'Checks will NOT be scheduled after deploy',
           preserveResources
-            ? 'Detach any resources removed from code, keeping them and their run history for management in the Checkly Webapp'
-            : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to detach and keep them instead',
+            ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
+            : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',
         ],
         flags,
         classification: {
@@ -286,23 +286,26 @@ export default class Deploy extends AuthCommand {
     // would be permanently deleted and require an explicit confirmation.
     if (!preview && !preserveResources && !force) {
       let deletions: Array<{ resourceType: string, logicalId: string }> = []
+      this.style.actionStart('Verifying deployed state')
       try {
         const { data: dryRunData } = await api.projects.deploy(
           { ...projectPayload, repoInfo },
           { dryRun: true, scheduleOnDeploy, preserveResources },
         )
         deletions = this.collectDeletions(dryRunData)
+        this.style.actionSuccess()
       } catch (err: any) {
+        this.style.actionFailure()
         this.style.longError(`Your project could not be deployed.`, err)
         this.exit(1)
       }
 
       if (deletions.length) {
-        this.log(chalk.bold.red('\nThe following resources were removed from code and will be DELETED, losing their run history:'))
+        this.log(chalk.bold.red('The following resources were removed from code and will be DELETED, losing their run history:'))
         for (const { resourceType, logicalId } of deletions) {
           this.log(chalk.red(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`))
         }
-        this.log(chalk.yellow('\nPass --preserve-resources to detach and keep them (and their run history) instead.\n'))
+        this.log(chalk.yellow('\nPass --preserve-resources to keep them (and their run history) in your Checkly account instead.\n'))
 
         await this.confirmOrAbort({
           command: 'deploy',
@@ -497,7 +500,7 @@ export default class Deploy extends AuthCommand {
       output.push('')
     }
     if (sortedDetaching.length) {
-      output.push(chalk.bold.yellow('Detached (kept in account, now managed in the Checkly Webapp):'))
+      output.push(chalk.bold.yellow('Kept in your Checkly account (removed from code, now managed from the Checkly web app):'))
       for (const { resourceType, logicalId } of sortedDetaching) {
         output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
       }
