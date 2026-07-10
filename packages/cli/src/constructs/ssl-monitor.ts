@@ -17,7 +17,7 @@ export interface SslMonitorProps extends MonitorProps {
    *
    * @minimum 0
    * @maximum 30000
-   * @default 3000
+   * @defaultValue 3000
    */
   degradedResponseTime?: number
 
@@ -27,7 +27,7 @@ export interface SslMonitorProps extends MonitorProps {
    *
    * @minimum 0
    * @maximum 30000
-   * @default 10000
+   * @defaultValue 10000
    */
   maxResponseTime?: number
 }
