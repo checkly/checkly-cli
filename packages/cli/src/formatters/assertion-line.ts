@@ -65,13 +65,18 @@ function toString (val: any): string {
 export function truncate (val: any, opts: TruncateOptions) {
   let truncated = false
   let result = toString(val)
-  // Cap on the stringified length, not `val.length` — objects/numbers/booleans
-  // have no meaningful `.length`, so the char cap was previously bypassed for
-  // them. Slice by code point (spread) so we never split a UTF-16 surrogate
-  // pair (emoji / astral chars) into an invalid half-character.
-  if (opts.chars && result.length > opts.chars) {
-    truncated = true
-    result = [...result].slice(0, opts.chars).join('')
+  // Stringify first so objects/numbers/booleans (which have no meaningful
+  // `.length`) are capped too, then measure and cut in the same unit by spreading
+  // to code points. Checking the UTF-16 `.length` would flag a value made of
+  // astral characters (emoji) as truncated while the code-point cut removed
+  // nothing; cutting by code point also never splits a surrogate pair into an
+  // invalid half-character.
+  if (opts.chars) {
+    const codePoints = [...result]
+    if (codePoints.length > opts.chars) {
+      truncated = true
+      result = codePoints.slice(0, opts.chars).join('')
+    }
   }
   const lines = result.split('\n')
   if (opts.lines && lines.length > opts.lines) {
