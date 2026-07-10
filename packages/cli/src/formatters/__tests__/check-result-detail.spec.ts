@@ -22,8 +22,11 @@ import {
   agenticCheckResultWithFailures,
   agenticCheckResultMinimal,
   tracerouteCheckResult,
+  tracerouteCheckResultDetail,
   grpcCheckResult,
+  grpcCheckResultDetail,
   sslCheckResult,
+  sslCheckResultDetail,
 } from './__fixtures__/fixtures.js'
 
 // Pin time for formatDate used in result detail
@@ -649,6 +652,69 @@ describe('formatResultDetail', () => {
       const md = formatResultDetail(res, 'md')
       expect(md).toContain('min TLS version: TLS1.2')
       expect(md).toBe(stripAnsi(md))
+    })
+  })
+
+  describe('assertions on a request error', () => {
+    const requestError = 'dial tcp 203.0.113.10:443: connect: connection refused'
+
+    // An assertion the request never got far enough to evaluate: the backend returns
+    // it with no `error`, which renders as a passing assertion unless suppressed.
+    const unevaluated = [
+      {
+        order: 0,
+        source: 'RESPONSE_TIME',
+        property: 'avg',
+        comparison: 'LESS_THAN',
+        target: '5000',
+        regex: null,
+        error: null,
+        actual: null,
+      },
+    ]
+
+    const cases: Array<[string, CheckResult]> = [
+      ['traceroute', {
+        ...tracerouteCheckResult,
+        tracerouteCheckResult: { ...tracerouteCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+      ['gRPC', {
+        ...grpcCheckResult,
+        grpcCheckResult: { ...grpcCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+      ['SSL', {
+        ...sslCheckResult,
+        sslCheckResult: { ...sslCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+    ]
+
+    // The rendered form of `unevaluated`. SSL's SECURITY BASELINE block also uses the
+    // success symbol, so match the assertion line itself rather than the symbol.
+    const assertionLine = 'target "5000"'
+
+    it.each(cases)('omits the assertions section for %s (terminal)', (_name, result) => {
+      const output = stripAnsi(formatResultDetail(result, 'terminal'))
+      expect(output).toContain('ERROR')
+      expect(output).toContain(requestError)
+      expect(output).not.toContain('ASSERTIONS')
+      expect(output).not.toContain(assertionLine)
+    })
+
+    it.each(cases)('omits the assertions section for %s (markdown)', (_name, result) => {
+      const output = formatResultDetail(result, 'md')
+      expect(output).toContain('## Error')
+      expect(output).not.toContain('## Assertions')
+      expect(output).not.toContain(assertionLine)
+    })
+
+    it.each(cases)('still renders assertions for %s without a request error', (_name, result) => {
+      const key = Object.keys(result).find(k => k.endsWith('CheckResult')) as keyof CheckResult
+      const detail = result[key] as Record<string, unknown>
+      const cleared = { ...result, [key]: { ...detail, requestError: null } } as CheckResult
+
+      const rendered = stripAnsi(formatResultDetail(cleared, 'terminal'))
+      expect(rendered).toContain('ASSERTIONS')
+      expect(rendered).toContain(`${PASS} response time property "avg" is less than ${assertionLine}.`)
     })
   })
 })

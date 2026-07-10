@@ -704,11 +704,26 @@ function formatLatencyStats (obj: unknown): string | undefined {
 // helper so the output matches the `checkly test` reporter exactly. Terminal
 // output keeps the color/symbols from the helper; markdown strips ANSI so the
 // list items stay plain text.
-function appendAssertionsTerminal (
-  lines: string[],
-  assertions: Array<Record<string, unknown>> | null | undefined,
-): void {
-  if (!assertions || assertions.length === 0) return
+//
+// Both helpers take the whole result rather than just its assertions, so that the
+// request-error check below cannot be forgotten at a call site.
+type AssertionsSection = {
+  requestError?: string | null
+  assertions?: Array<Record<string, unknown>> | null
+}
+
+// A request that errored never evaluated its assertions, and the backend reports
+// those unevaluated entries without an `error`, which renders as a green success
+// mark. Suppress the whole section instead of claiming assertions passed.
+function assertionsToRender (result: AssertionsSection): Array<Record<string, unknown>> | undefined {
+  if (result.requestError) return
+  if (!result.assertions || result.assertions.length === 0) return
+  return result.assertions
+}
+
+function appendAssertionsTerminal (lines: string[], result: AssertionsSection): void {
+  const assertions = assertionsToRender(result)
+  if (!assertions) return
   lines.push('')
   lines.push(heading('ASSERTIONS', 2, 'terminal'))
   for (const assertion of assertions) {
@@ -716,11 +731,9 @@ function appendAssertionsTerminal (
   }
 }
 
-function appendAssertionsMd (
-  lines: string[],
-  assertions: Array<Record<string, unknown>> | null | undefined,
-): void {
-  if (!assertions || assertions.length === 0) return
+function appendAssertionsMd (lines: string[], result: AssertionsSection): void {
+  const assertions = assertionsToRender(result)
+  if (!assertions) return
   lines.push('')
   lines.push('## Assertions')
   for (const assertion of assertions) {
@@ -776,7 +789,7 @@ function formatTracerouteResultTerminal (tr: TracerouteCheckResult): string[] {
     lines.push(`${label('DNS:')}${formatMs(trDns)}`)
   }
 
-  appendAssertionsTerminal(lines, tr.assertions)
+  appendAssertionsTerminal(lines, tr)
 
   if (tr.requestError) {
     lines.push('')
@@ -828,7 +841,7 @@ function formatTracerouteResultMd (tr: TracerouteCheckResult): string[] {
     lines.push('## Timing')
     lines.push(`- **DNS:** ${formatMs(trDns)}`)
   }
-  appendAssertionsMd(lines, tr.assertions)
+  appendAssertionsMd(lines, tr)
   if (tr.requestError) {
     lines.push('')
     lines.push('## Error')
@@ -906,7 +919,7 @@ function formatGrpcResultTerminal (grpc: GrpcCheckResult): string[] {
     if (tTotal != null) lines.push(`${label('Total:')}${formatMs(tTotal)}`)
   }
 
-  appendAssertionsTerminal(lines, grpc.assertions)
+  appendAssertionsTerminal(lines, grpc)
 
   if (grpc.requestError) {
     lines.push('')
@@ -952,7 +965,7 @@ function formatGrpcResultMd (grpc: GrpcCheckResult): string[] {
     if (tConnect != null) lines.push(`| Connect | ${formatMs(tConnect)} |`)
     if (tTotal != null) lines.push(`| **Total** | **${formatMs(tTotal)}** |`)
   }
-  appendAssertionsMd(lines, grpc.assertions)
+  appendAssertionsMd(lines, grpc)
   if (grpc.requestError) {
     lines.push('')
     lines.push('## Error')
@@ -1173,7 +1186,7 @@ function formatSslResultTerminal (ssl: SslCheckResult): string[] {
   appendSslCertificateTerminal(lines, resp)
   appendSslBaselineTerminal(lines, resp)
 
-  appendAssertionsTerminal(lines, ssl.assertions)
+  appendAssertionsTerminal(lines, ssl)
 
   if (ssl.requestError) {
     lines.push('')
@@ -1206,7 +1219,7 @@ function formatSslResultMd (ssl: SslCheckResult): string[] {
   if (failure) lines.push(`- **Failure:** ${failure}`)
   appendSslCertificateMd(lines, resp)
   appendSslBaselineMd(lines, resp)
-  appendAssertionsMd(lines, ssl.assertions)
+  appendAssertionsMd(lines, ssl)
   if (ssl.requestError) {
     lines.push('')
     lines.push('## Error')
