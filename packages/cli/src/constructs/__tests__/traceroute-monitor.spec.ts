@@ -309,6 +309,64 @@ describe('TracerouteMonitor', () => {
       ]))
     })
 
+    it('should error on a HOP_COUNT assertion using NOT_EQUALS', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          // NOT_EQUALS is builder-reachable via hopCount().notEquals(20) but the
+          // backend accepts it only for RESPONSE_TIME, not HOP_COUNT/PACKET_LOSS.
+          assertions: [TracerouteAssertionBuilder.hopCount().notEquals(20)],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The HOP_COUNT assertion at "request.assertions[0]" has an unsupported comparison "NOT_EQUALS".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should allow NOT_EQUALS for a RESPONSE_TIME assertion', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          assertions: [TracerouteAssertionBuilder.responseTime('avg').notEquals(1000)],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error on an assertion with an unknown comparison', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          assertions: [
+            { source: 'PACKET_LOSS', property: '', comparison: 'CONTAINS', target: '10', regex: null },
+          ],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('has an unsupported comparison "CONTAINS"'),
+        }),
+      ]))
+    })
+
     it('should not error on assertions built with TracerouteAssertionBuilder', async () => {
       setupProject()
       const check = new TracerouteMonitor('test-check', {

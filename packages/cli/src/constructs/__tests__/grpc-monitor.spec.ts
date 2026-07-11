@@ -168,5 +168,91 @@ describe('GrpcMonitor', () => {
       await check.validate(diags)
       expect(diags.isFatal()).toEqual(false)
     })
+
+    it('should error on an assertion with an unknown source', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          // HOP_COUNT belongs to traceroute, not gRPC.
+          assertions: [{ source: 'HOP_COUNT', property: '', comparison: 'LESS_THAN', target: '5', regex: null }],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The assertion at "request.assertions[0]" has an unknown source "HOP_COUNT".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should error on an assertion with an unsupported comparison', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          // GREATER_THAN_OR_EQUAL is an SSL-only operator, not in the gRPC set.
+          assertions: [
+            { source: 'GRPC_STATUS_CODE', property: '', comparison: 'GREATER_THAN_OR_EQUAL', target: '0', regex: null },
+          ],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('has an unsupported comparison "GREATER_THAN_OR_EQUAL"'),
+        }),
+      ]))
+    })
+
+    it('should accept every comparison in the backend gRPC set', async () => {
+      setupProject()
+      // Pins the full accepted set so silently dropping one from the validator's list
+      // is caught, since it is not compile-checked against a union.
+      const comparisons = [
+        'EQUALS', 'NOT_EQUALS', 'HAS_KEY', 'NOT_HAS_KEY', 'HAS_VALUE', 'NOT_HAS_VALUE',
+        'IS_EMPTY', 'NOT_EMPTY', 'GREATER_THAN', 'LESS_THAN', 'CONTAINS', 'NOT_CONTAINS',
+        'IS_NULL', 'NOT_NULL',
+      ]
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          assertions: comparisons.map(comparison => (
+            { source: 'GRPC_RESPONSE', property: '', comparison, target: 'x', regex: null }
+          )),
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should not error on a property carried by any gRPC source', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          // gRPC places no source/property constraint, so a property on RESPONSE_TIME
+          // (which the traceroute validator would reject) is accepted here.
+          assertions: [
+            { source: 'RESPONSE_TIME', property: 'avg', comparison: 'LESS_THAN', target: '5000', regex: null },
+            GrpcAssertionBuilder.responseMetadata('content-type').contains('grpc'),
+          ],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
   })
 })

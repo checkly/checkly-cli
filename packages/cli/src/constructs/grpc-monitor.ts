@@ -2,6 +2,7 @@ import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { validateGrpcAssertion } from './grpc-assertion-validation.js'
 import { GrpcRequest } from './grpc-request.js'
 
 export interface GrpcMonitorProps extends MonitorProps {
@@ -83,6 +84,10 @@ export class GrpcMonitor extends Monitor {
       // Backend default applied when maxResponseTime is omitted.
       defaultMaxResponseTime: 20_000,
     })
+
+    for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
+      validateGrpcAssertion(diagnostics, assertion, index)
+    }
   }
 
   synthesize () {
