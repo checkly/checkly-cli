@@ -43,6 +43,9 @@ const checklyStyle = {
 
 export default defineConfig([
   globalIgnores([
+    // Holds git worktrees, each a full checkout of the repo with its own
+    // in-progress code that must not be linted as part of this checkout.
+    '**/.claude/',
     '**/dist/',
     `**/gen/`,
     '**/__checks__/**/*.spec.{js,ts,mjs}',
