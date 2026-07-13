@@ -6,26 +6,30 @@ import chalk from 'chalk'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
+import { planIdFlag } from '../../helpers/flags.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
+import { selectPlanOrExit } from '../../helpers/import-plan-selection.js'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
   static description = 'Permanently commit imported resources into your project.'
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
+    'plan-id': planIdFlag(),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(ImportCommitCommand)
     const {
       config: configFilename,
+      'plan-id': planId,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -51,7 +55,9 @@ export default class ImportCommitCommand extends AuthCommand {
       return
     }
 
-    const plan = await this.#selectPlan(uncommittedPlans)
+    const plan = await selectPlanOrExit(
+      this, uncommittedPlans, planId, 'commit', () => this.#selectPlan(uncommittedPlans),
+    )
 
     await performCommitAction.call(this, plan)
   }

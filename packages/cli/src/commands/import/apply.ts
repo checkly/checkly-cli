@@ -6,27 +6,34 @@ import chalk from 'chalk'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
+import { forceFlag, planIdFlag } from '../../helpers/flags.js'
+import { detectCliMode } from '../../helpers/cli-mode.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { confirmCommit, performCommitAction } from './commit.js'
+import { selectPlanOrExit } from '../../helpers/import-plan-selection.js'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
   static description = 'Attach imported resources into your project in a pending state.'
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
+    'plan-id': planIdFlag(),
+    'force': forceFlag(),
   }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(ImportApplyCommand)
     const {
       config: configFilename,
+      'plan-id': planId,
+      force,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -47,9 +54,19 @@ export default class ImportApplyCommand extends AuthCommand {
       return
     }
 
-    const plan = await this.#selectPlan(unappliedPlans)
+    const plan = await selectPlanOrExit(
+      this, unappliedPlans, planId, 'apply', () => this.#selectPlan(unappliedPlans),
+    )
 
     await performApplyAction.call(this, plan)
+
+    // Applying reserves the resources as pending; committing is a separate,
+    // irreversible step. In non-interactive sessions (agents/CI), or when
+    // --force is given, we stop here and leave finalizing to a later
+    // `checkly deploy` (or an explicit `checkly import commit`).
+    if (force || detectCliMode() !== 'interactive') {
+      return
+    }
 
     const commit = await confirmCommit.call(this)
     if (!commit) {

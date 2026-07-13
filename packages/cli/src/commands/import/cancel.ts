@@ -4,9 +4,11 @@ import prompts from 'prompts'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
+import { planIdFlag } from '../../helpers/flags.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
+import { PlanSelectionError, resolvePlanNonInteractively } from '../../helpers/import-plan-selection.js'
 
 export default class ImportCancelCommand extends AuthCommand {
   static hidden = false
@@ -14,14 +16,15 @@ export default class ImportCancelCommand extends AuthCommand {
   static description = 'Cancels an ongoing import plan that has not been committed yet.'
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
     }),
-    all: Flags.boolean({
+    'all': Flags.boolean({
       description: 'Cancel all plans.',
       default: false,
     }),
+    'plan-id': planIdFlag(),
   }
 
   async run (): Promise<void> {
@@ -29,6 +32,7 @@ export default class ImportCancelCommand extends AuthCommand {
     const {
       config: configFilename,
       all,
+      'plan-id': planId,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -49,9 +53,7 @@ export default class ImportCancelCommand extends AuthCommand {
       return
     }
 
-    const plans = all
-      ? cancelablePlans
-      : await this.#selectPlans(cancelablePlans)
+    const plans = await this.#resolvePlans(cancelablePlans, { all, planId })
 
     this.style.actionStart('Canceling plan(s)')
 
@@ -64,6 +66,32 @@ export default class ImportCancelCommand extends AuthCommand {
       this.style.actionSuccess()
     } catch (err) {
       this.style.actionFailure()
+
+      throw err
+    }
+  }
+
+  async #resolvePlans (
+    plans: ImportPlan[],
+    { all, planId }: { all: boolean, planId: string | undefined },
+  ): Promise<ImportPlan[]> {
+    // --all takes precedence and cancels everything without prompting.
+    if (all) {
+      return plans
+    }
+
+    try {
+      const plan = resolvePlanNonInteractively(plans, planId, 'cancel')
+      if (plan !== undefined) {
+        return [plan]
+      }
+
+      return await this.#selectPlans(plans)
+    } catch (err) {
+      if (err instanceof PlanSelectionError) {
+        this.style.fatal(err.message)
+        return this.exit(1)
+      }
 
       throw err
     }
