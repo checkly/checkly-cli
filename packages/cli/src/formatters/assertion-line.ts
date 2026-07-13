@@ -46,6 +46,7 @@ const assertionComparisons: Record<string, string> = {
   NOT_CONTAINS: 'doesn\'t contain',
   IS_NULL: 'is null',
   NOT_NULL: 'is not null',
+  MATCHES: 'matches',
 }
 
 export type TruncateOptions = {

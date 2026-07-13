@@ -3,6 +3,7 @@ import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { SslRequest } from './ssl-request.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { validateSslAssertion } from './ssl-assertion-validation.js'
 import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 
 export interface SslMonitorProps extends MonitorProps {
@@ -86,6 +87,10 @@ export class SslMonitor extends Monitor {
       // sslMonitorResponseTimeLimitFields in response-time-limit-schema.ts).
       defaultMaxResponseTime: 10_000,
     })
+
+    for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
+      validateSslAssertion(diagnostics, assertion, index)
+    }
   }
 
   synthesize () {

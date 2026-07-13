@@ -1,4 +1,4 @@
-import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
+import { Assertion as CoreAssertion, toAssertion } from './internal/assertion.js'
 
 /**
  * Known TLS protocol versions for use with {@link SslAssertionBuilder.tlsVersion}.
@@ -102,6 +102,83 @@ type SslAssertionSource =
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
+// One builder class per SSL source, each exposing only the operators (and value
+// type) the backend accepts for that source (public-api schemas.js
+// `sslMonitorAssertionComparisonsBySource`). The classes are stateless — the source
+// is baked into each `toAssertion` call — and are not exported: they are reachable
+// only through `SslAssertionBuilder`, so they stay out of the package's public API.
+
+/** Days until the certificate expires (numeric). */
+class CertExpiresInDaysAssertionBuilder {
+  equals (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'EQUALS', target) }
+  notEquals (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'NOT_EQUALS', target) }
+  lessThan (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'LESS_THAN', target) }
+  greaterThan (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'GREATER_THAN', target) }
+}
+
+/** Certificate key size in bits (numeric, exact match only). */
+class KeySizeBitsAssertionBuilder {
+  equals (target: number): SslAssertion { return toAssertion('KEY_SIZE_BITS', 'EQUALS', target) }
+}
+
+/** Whether the certificate is not expired (boolean). */
+class CertNotExpiredAssertionBuilder {
+  equals (target: boolean): SslAssertion { return toAssertion('CERT_NOT_EXPIRED', 'EQUALS', target) }
+}
+
+/** Whether the hostname is verified (boolean). */
+class HostnameVerifiedAssertionBuilder {
+  equals (target: boolean): SslAssertion { return toAssertion('HOSTNAME_VERIFIED', 'EQUALS', target) }
+}
+
+/** Whether the certificate chain is trusted (boolean). */
+class ChainTrustedAssertionBuilder {
+  equals (target: boolean): SslAssertion { return toAssertion('CHAIN_TRUSTED', 'EQUALS', target) }
+}
+
+/** Whether a stapled OCSP response was provided during the handshake (boolean). */
+class OcspStapledAssertionBuilder {
+  equals (target: boolean): SslAssertion { return toAssertion('OCSP_STAPLED', 'EQUALS', target) }
+}
+
+/** Negotiated TLS version — `.equals()` accepts only known TLS version strings. */
+class TlsVersionAssertionBuilder {
+  equals (target: TlsVersionValue): SslAssertion { return toAssertion('TLS_VERSION', 'EQUALS', target) }
+}
+
+/**
+ * Certificate signature algorithm. `.equals()` takes a Go
+ * `x509.Certificate.SignatureAlgorithm.String()` value; `.matches()` takes a regex.
+ */
+class SignatureAlgorithmAssertionBuilder {
+  equals (target: SignatureAlgorithmValue): SslAssertion { return toAssertion('SIGNATURE_ALGORITHM', 'EQUALS', target) }
+  matches (target: string): SslAssertion { return toAssertion('SIGNATURE_ALGORITHM', 'MATCHES', target) }
+}
+
+/** Negotiated cipher suite (string) — exact, not-equal, or regex match. */
+class CipherSuiteAssertionBuilder {
+  equals (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'EQUALS', target) }
+  notEquals (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'NOT_EQUALS', target) }
+  matches (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'MATCHES', target) }
+}
+
+/** Certificate issuer common name (string) — exact, not-equal, or regex match. */
+class IssuerCnAssertionBuilder {
+  equals (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'EQUALS', target) }
+  notEquals (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'NOT_EQUALS', target) }
+  matches (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'MATCHES', target) }
+}
+
+/** Certificate SHA-256 fingerprint (string, exact match only). */
+class CertFingerprintSha256AssertionBuilder {
+  equals (target: string): SslAssertion { return toAssertion('CERT_FINGERPRINT_SHA256', 'EQUALS', target) }
+}
+
+/** Issuer SHA-256 fingerprint (string, exact match only). */
+class IssuerFingerprintSha256AssertionBuilder {
+  equals (target: string): SslAssertion { return toAssertion('ISSUER_FINGERPRINT_SHA256', 'EQUALS', target) }
+}
+
 /**
  * Builder class for creating SSL monitor assertions.
  * Provides methods to create assertions for TLS certificates.
@@ -115,117 +192,86 @@ export type SslAssertion = CoreAssertion<SslAssertionSource>
  * SslAssertionBuilder.chainTrusted().equals(true)
  * SslAssertionBuilder.hostnameVerified().equals(true)
  *
- * // Enforce a minimum TLS version and key size
+ * // Enforce a specific TLS version and key size
  * SslAssertionBuilder.tlsVersion().equals('TLS1.3')
- * SslAssertionBuilder.keySizeBits().greaterThan(2048)
+ * SslAssertionBuilder.keySizeBits().equals(2048)
+ *
+ * // Match the issuer or cipher suite against a regex
+ * SslAssertionBuilder.issuerCn().matches("^Let's Encrypt")
+ * SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)')
  * ```
  */
 export class SslAssertionBuilder {
-  /**
-   * Creates an assertion builder for the number of days until the certificate
-   * expires.
-   * @returns A numeric assertion builder for days until expiry.
-   */
+  /** Assertion builder for the number of days until the certificate expires. */
   static certExpiresInDays () {
-    return new NumericAssertionBuilder<SslAssertionSource>('CERT_EXPIRES_IN_DAYS')
+    return new CertExpiresInDaysAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for the certificate key size in bits.
-   * @returns A numeric assertion builder for the key size.
-   */
+  /** Assertion builder for the certificate key size in bits. */
   static keySizeBits () {
-    return new NumericAssertionBuilder<SslAssertionSource>('KEY_SIZE_BITS')
+    return new KeySizeBitsAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for whether the certificate is not expired.
-   * @returns A general assertion builder for the expiry status.
-   */
+  /** Assertion builder for whether the certificate is not expired. */
   static certNotExpired () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CERT_NOT_EXPIRED')
+    return new CertNotExpiredAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for whether the hostname is verified.
-   * @returns A general assertion builder for the hostname verification status.
-   */
+  /** Assertion builder for whether the hostname is verified. */
   static hostnameVerified () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('HOSTNAME_VERIFIED')
+    return new HostnameVerifiedAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for whether the certificate chain is trusted.
-   * @returns A general assertion builder for the chain trust status.
-   */
+  /** Assertion builder for whether the certificate chain is trusted. */
   static chainTrusted () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CHAIN_TRUSTED')
+    return new ChainTrustedAssertionBuilder()
   }
 
   /**
-   * Creates an assertion builder for the negotiated TLS version.
-   * The `.equals()` method accepts only the
-   * known TLS version strings — use the {@link TlsVersion} constants or
-   * the string literals `'TLS1.0'`…`'TLS1.3'`.
-   * @returns A typed assertion builder for the TLS version.
+   * Assertion builder for the negotiated TLS version. `.equals()` accepts only the
+   * known TLS version strings — use the {@link TlsVersion} constants or the string
+   * literals `'TLS1.0'`…`'TLS1.3'`.
    */
-  static tlsVersion (): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue> {
-    return new GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>('TLS_VERSION')
+  static tlsVersion () {
+    return new TlsVersionAssertionBuilder()
   }
 
   /**
-   * Creates an assertion builder for the negotiated cipher suite.
-   * Go's `tls.CipherSuiteName()` can return hundreds of IANA names plus
-   * `0x....` hex fallbacks, so this builder is intentionally unconstrained.
-   * Use the {@link CipherSuite} constants for common suites (autocomplete),
-   * or pass any string literal / regex pattern as needed.
-   * @returns An unconstrained assertion builder for the cipher suite.
+   * Assertion builder for the negotiated cipher suite. Go's `tls.CipherSuiteName()`
+   * can return hundreds of IANA names plus `0x....` hex fallbacks, so `.equals()` is
+   * unconstrained; use the {@link CipherSuite} constants for common suites, or
+   * `.matches()` with a regex pattern.
    */
-  static cipherSuite (): GeneralAssertionBuilder<SslAssertionSource> {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CIPHER_SUITE')
+  static cipherSuite () {
+    return new CipherSuiteAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for the certificate issuer common name.
-   * @returns A general assertion builder for the issuer CN.
-   */
+  /** Assertion builder for the certificate issuer common name. */
   static issuerCn () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('ISSUER_CN')
+    return new IssuerCnAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for the certificate SHA-256 fingerprint.
-   * @returns A general assertion builder for the certificate fingerprint.
-   */
+  /** Assertion builder for the certificate SHA-256 fingerprint. */
   static certFingerprintSha256 () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CERT_FINGERPRINT_SHA256')
+    return new CertFingerprintSha256AssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for the issuer SHA-256 fingerprint.
-   * @returns A general assertion builder for the issuer fingerprint.
-   */
+  /** Assertion builder for the issuer SHA-256 fingerprint. */
   static issuerFingerprintSha256 () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('ISSUER_FINGERPRINT_SHA256')
+    return new IssuerFingerprintSha256AssertionBuilder()
   }
 
   /**
-   * Creates an assertion builder for the certificate signature algorithm.
-   * Values are Go's `x509.Certificate.SignatureAlgorithm.String()` output
-   * (e.g. `'SHA256-RSA'`, `'ECDSA-SHA256'`). Use the {@link SignatureAlgorithm}
-   * constants or those string literals with `.equals()`.
-   * @returns A typed assertion builder for the signature algorithm.
+   * Assertion builder for the certificate signature algorithm. `.equals()` takes a
+   * Go `x509.Certificate.SignatureAlgorithm.String()` value (e.g. `'SHA256-RSA'`) —
+   * use the {@link SignatureAlgorithm} constants — or `.matches()` with a regex.
    */
-  static signatureAlgorithm (): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue> {
-    return new GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>('SIGNATURE_ALGORITHM')
+  static signatureAlgorithm () {
+    return new SignatureAlgorithmAssertionBuilder()
   }
 
-  /**
-   * Creates an assertion builder for whether a stapled OCSP response was
-   * provided during the handshake.
-   * @returns A general assertion builder for the OCSP-stapled status.
-   */
+  /** Assertion builder for whether a stapled OCSP response was provided. */
   static ocspStapled () {
-    return new GeneralAssertionBuilder<SslAssertionSource>('OCSP_STAPLED')
+    return new OcspStapledAssertionBuilder()
   }
 }

@@ -267,4 +267,82 @@ describe('SslMonitor', () => {
       expect(diags.isFatal()).toEqual(false)
     })
   })
+
+  describe('assertion validation', () => {
+    async function validateWith (assertions: SslRequest['assertions']): Promise<Diagnostics> {
+      setupProject()
+      const check = new SslMonitor('test-check', {
+        name: 'Test Check',
+        request: { hostname: 'example.com', sslConfig: {}, assertions },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      return diags
+    }
+
+    it('should error on an assertion with an unknown source', async () => {
+      const diags = await validateWith([
+        { source: 'HANDSHAKE_TIME_MS', property: '', comparison: 'LESS_THAN', target: '100', regex: null },
+      ] as unknown as SslRequest['assertions'])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The assertion at "request.assertions[0]" has an unknown source "HANDSHAKE_TIME_MS".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should error on a comparison the source does not allow', async () => {
+      const diags = await validateWith([
+        // KEY_SIZE_BITS supports EQUALS only.
+        { source: 'KEY_SIZE_BITS', property: '', comparison: 'GREATER_THAN', target: '2048', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The KEY_SIZE_BITS assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should error on MATCHES for a source that does not allow it', async () => {
+      const diags = await validateWith([
+        { source: 'CERT_EXPIRES_IN_DAYS', property: '', comparison: 'MATCHES', target: '.*', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('has an unsupported comparison "MATCHES"') }),
+      ]))
+    })
+
+    it('should error on a boolean source with a non-boolean target', async () => {
+      const diags = await validateWith([
+        { source: 'CERT_NOT_EXPIRED', property: '', comparison: 'EQUALS', target: 'yes', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The CERT_NOT_EXPIRED assertion at "request.assertions[0]" must compare against "true" or "false", but got "yes".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should not error on assertions built with SslAssertionBuilder', async () => {
+      const diags = await validateWith([
+        SslAssertionBuilder.certExpiresInDays().greaterThan(30),
+        SslAssertionBuilder.keySizeBits().equals(2048),
+        SslAssertionBuilder.chainTrusted().equals(true),
+        SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
+        SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)'),
+        SslAssertionBuilder.issuerCn().matches("^Let's Encrypt"),
+      ])
+      expect(diags.isFatal()).toEqual(false)
+    })
+  })
 })

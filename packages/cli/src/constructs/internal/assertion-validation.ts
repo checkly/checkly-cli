@@ -8,7 +8,7 @@ import { Diagnostics } from '../diagnostics.js'
 
 // Formats the keys of a lookup record as a quoted, comma-separated list for an
 // "Expected one of ..." message.
-export function quotedKeys (values: Record<string, true>): string {
+export function quotedKeys (values: Record<string, unknown>): string {
   return Object.keys(values).map(value => `"${value}"`).join(', ')
 }
 

@@ -98,4 +98,46 @@ describe('SslAssertionBuilder — typed target values', () => {
       expect(SslAssertionBuilder.cipherSuite().equals('TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256')).toBeTruthy()
     })
   })
+
+  describe('matches() — regex operator on the string sources', () => {
+    it('produces a MATCHES assertion for cipherSuite / issuerCn / signatureAlgorithm', () => {
+      expect(SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)')).toMatchObject({
+        source: 'CIPHER_SUITE', comparison: 'MATCHES', target: 'TLS_(AES|CHACHA)',
+      })
+      expect(SslAssertionBuilder.issuerCn().matches("^Let's Encrypt")).toMatchObject({
+        source: 'ISSUER_CN', comparison: 'MATCHES', target: "^Let's Encrypt",
+      })
+      expect(SslAssertionBuilder.signatureAlgorithm().matches('SHA(256|384)')).toMatchObject({
+        source: 'SIGNATURE_ALGORITHM', comparison: 'MATCHES', target: 'SHA(256|384)',
+      })
+    })
+  })
+
+  describe('per-source builders reject operators the backend does not allow', () => {
+    it('rejects them at compile time', () => {
+      // Compile-time-only checks: the removed methods do not exist at runtime, so the
+      // body is type-checked but never executed (an uncalled function).
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _typeChecks = () => {
+        // keySizeBits supports EQUALS only (GREATER_THAN_OR_EQUAL was dropped)
+        // @ts-expect-error greaterThan is not available on the key-size builder
+        SslAssertionBuilder.keySizeBits().greaterThan(2048)
+        // @ts-expect-error notEquals is not available on the key-size builder
+        SslAssertionBuilder.keySizeBits().notEquals(2048)
+        // boolean sources take a boolean, not the string 'true'
+        // @ts-expect-error 'true' (string) is not assignable to boolean
+        SslAssertionBuilder.certNotExpired().equals('true')
+        // matches is not offered on non-string sources
+        // @ts-expect-error matches is not available on the cert-not-expired builder
+        SslAssertionBuilder.certNotExpired().matches('x')
+        // the general string operators are not offered on SSL string sources
+        // @ts-expect-error contains is not available on the cipher-suite builder
+        SslAssertionBuilder.cipherSuite().contains('x')
+        // tlsVersion supports EQUALS only
+        // @ts-expect-error notEquals is not available on the tls-version builder
+        SslAssertionBuilder.tlsVersion().notEquals('TLS1.3')
+      }
+      expect(_typeChecks).toBeDefined()
+    })
+  })
 })
