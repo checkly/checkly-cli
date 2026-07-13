@@ -2,6 +2,7 @@ import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { validateTracerouteAssertion } from './traceroute-assertion-validation.js'
 import { TracerouteRequest } from './traceroute-request.js'
 
 export interface TracerouteMonitorProps extends MonitorProps {
@@ -78,7 +79,13 @@ export class TracerouteMonitor extends Monitor {
     await validateResponseTimes(diagnostics, this, {
       degradedResponseTime: 30_000,
       maxResponseTime: 30_000,
+      // Backend default applied when maxResponseTime is omitted.
+      defaultMaxResponseTime: 20_000,
     })
+
+    for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
+      validateTracerouteAssertion(diagnostics, assertion, index)
+    }
   }
 
   synthesize () {

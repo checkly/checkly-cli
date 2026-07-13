@@ -19,7 +19,7 @@ export interface IcmpRequest {
    *
    * @example "IPv4"
    * @example "IPv6"
-   * @default "IPv4"
+   * @defaultValue "IPv4"
    */
   ipFamily?: IPFamily
 
@@ -30,7 +30,7 @@ export interface IcmpRequest {
    * @minimum 1
    * @maximum 50
    * @example 10
-   * @default 10
+   * @defaultValue 10
    */
   pingCount?: number
 

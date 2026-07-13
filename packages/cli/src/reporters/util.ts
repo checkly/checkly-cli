@@ -6,7 +6,12 @@ import { DateTime } from 'luxon'
 import logSymbols from 'log-symbols'
 
 import { getDefaults } from '../rest/api.js'
-import { Assertion } from '../constructs/internal/assertion.js'
+import {
+  type AssertionLike,
+  type TruncateOptions,
+  formatAssertionLine,
+  truncate,
+} from '../formatters/assertion-line.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum CheckStatus {
@@ -95,7 +100,7 @@ export function formatCheckResult (checkResult: any) {
           formatHttpResponse(checkResult.checkRunData.response),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -146,7 +151,7 @@ export function formatCheckResult (checkResult: any) {
           formatDnsResponse(checkResult.checkRunData.response),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions, {
@@ -172,7 +177,7 @@ export function formatCheckResult (checkResult: any) {
           formatConnectionError(checkResult.checkRunData?.response?.error),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -253,7 +258,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -278,7 +283,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -294,7 +299,10 @@ export function formatCheckResult (checkResult: any) {
     } else if (checkResult.checkRunData?.response) {
       result.push([
         formatSectionTitle('SSL Response'),
-        formatSslResponse(checkResult.checkRunData.response),
+        formatSslResponse(checkResult.checkRunData.response, {
+          degradedResponseTime: checkResult.checkRunData.degradedResponseTime,
+          maxResponseTime: checkResult.checkRunData.maxResponseTime,
+        }),
       ])
       if (checkResult.checkRunData?.response?.error) {
         result.push([
@@ -303,7 +311,7 @@ export function formatCheckResult (checkResult: any) {
         ])
       }
     }
-    if (checkResult.checkRunData?.assertions?.length) {
+    if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
       result.push([
         formatSectionTitle('Assertions'),
         formatAssertions(checkResult.checkRunData.assertions),
@@ -335,7 +343,7 @@ export function formatCheckResult (checkResult: any) {
           formatConnectionError(checkResult.checkRunData?.response?.error),
         ])
       }
-      if (checkResult.checkRunData?.assertions?.length) {
+      if (!checkResult.checkRunData?.requestError && checkResult.checkRunData?.assertions?.length) {
         result.push([
           formatSectionTitle('Assertions'),
           formatAssertions(checkResult.checkRunData.assertions),
@@ -364,75 +372,15 @@ export function formatCheckResult (checkResult: any) {
   return result.map(([title, body]) => title + '\n' + body).join('\n\n')
 }
 
-const assertionSources: any = {
-  STATUS_CODE: 'status code',
-  JSON_BODY: 'JSON body',
-  HEADERS: 'headers',
-  TEXT_BODY: 'text body',
-  RESPONSE_TIME: 'response time',
-  RESPONSE_DATA: 'response data',
-  TEXT_ANSWER: 'answer (text)',
-  JSON_ANSWER: 'answer (JSON)',
-  RESPONSE_CODE: 'response code',
-  LATENCY: 'latency',
-  JSON_RESPONSE: 'response data (JSON)',
-}
-
-const assertionComparisons: any = {
-  EQUALS: 'equals',
-  NOT_EQUALS: 'doesn\'t equal',
-  HAS_KEY: 'has key',
-  NOT_HAS_KEY: 'doesn\'t have key',
-  HAS_VALUE: 'has value',
-  NOT_HAS_VALUE: 'doesn\'t have value',
-  IS_EMPTY: 'is empty',
-  NOT_EMPTY: 'is not empty',
-  GREATER_THAN: 'is greater than',
-  LESS_THAN: 'is less than',
-  CONTAINS: 'contains',
-  NOT_CONTAINS: 'doesn\'t contain',
-  IS_NULL: 'is null',
-  NOT_NULL: 'is not null',
-}
-
 type formatAssertionsOptions = {
   truncate?: TruncateOptions
 }
 
 function formatAssertions (
-  assertions: Array<Assertion<string> & { error: string, actual: any }>,
+  assertions: Array<AssertionLike>,
   options?: formatAssertionsOptions,
 ) {
-  return assertions.map(({ source, property, comparison, target, regex, error, actual }) => {
-    const assertionFailed = !!error
-    const humanSource = assertionSources[source] || source
-    const humanComparison = assertionComparisons[comparison] || comparison
-    let actualString
-    if (actual) {
-      const { result: truncatedActual, lines: truncatedActualLines } = truncate(actual, {
-        chars: 300,
-        lines: 5,
-        ending: chalk.magenta('\n...truncated...'),
-        ...options?.truncate,
-      })
-
-      if (truncatedActualLines <= 1) {
-        actualString = `Received: ${truncatedActual}.`
-      } else {
-        actualString = `Received:\n${indentString(truncatedActual, 4, { indent: ' ' })}`
-      }
-    }
-    const message = [
-      assertionFailed ? logSymbols.error : logSymbols.success,
-      humanSource,
-      property ? `property "${property}"` : undefined,
-      regex ? `regex "${regex}"` : undefined,
-      humanComparison,
-      `target "${target}".`,
-      actualString,
-    ].filter(Boolean).join(' ')
-    return assertionFailed ? chalk.red(message) : chalk.green(message)
-  }).join('\n')
+  return assertions.map(assertion => formatAssertionLine(assertion, options)).join('\n')
 }
 
 function formatHttpRequest (request: any) {
@@ -666,7 +614,7 @@ function formatIcmpResponse (response: ICMPResponse) {
 
 // Traceroute / gRPC / SSL diagnostics for the `checkly test` runner path. The
 // runner artifact (`checkRunData.response`) mirrors the public check-results
-// `response` sub-object; keys come straight off the go-runner (snake_case for
+// `response` sub-object; keys come straight off the backend (snake_case for
 // traceroute hops/latency), so read defensively.
 
 function latencyStats (obj: any): string | undefined {
@@ -717,10 +665,14 @@ function formatGrpcResponse (response: any) {
   const methods = Array.isArray(response.discoveredMethods) ? response.discoveredMethods : []
   const metadata = Array.isArray(response.metadata) ? response.metadata : []
   const metadataLines = metadata.slice(0, 20).map((m: any) => `  ${m.key ?? m.name ?? '(key)'}: ${m.value ?? ''}`)
+  // The backend reports gRPC response time as `timingPhases.total` (ms); fall
+  // back to a flat `responseTime` if a future artifact exposes one.
+  const responseTime = response.timingPhases?.total ?? response.responseTime
   return [
     target ? `Target: ${target}` : undefined,
     response.grpcMethod ? `Method: ${response.grpcMethod}` : undefined,
     response.grpcMode ? `Mode: ${response.grpcMode}` : undefined,
+    typeof responseTime === 'number' ? `Response Time: ${formatDuration(responseTime)}` : undefined,
     response.grpcStatusCode != null
       ? `Status: ${response.grpcStatusCode}${response.grpcStatusMessage ? ` ${response.grpcStatusMessage}` : ''}`
       : undefined,
@@ -732,8 +684,31 @@ function formatGrpcResponse (response: any) {
   ].filter(Boolean).join('\n')
 }
 
-function formatSslResponse (response: any) {
+type SslResponseTimeLimits = {
+  degradedResponseTime?: number
+  maxResponseTime?: number
+}
+
+function formatSslResponse (response: any, limits?: SslResponseTimeLimits) {
   const days = response.daysUntilExpiry
+  const handshake = response.handshakeTimeMs
+  // Explain a response-time fail/degraded verdict. The thresholds live on the
+  // enclosing checkRunData (not the response artifact), so they are passed in;
+  // when they are absent we simply skip the reason line.
+  let responseTimeReason
+  if (typeof handshake === 'number') {
+    if (limits?.maxResponseTime != null && handshake > limits.maxResponseTime) {
+      responseTimeReason = `Response time ${formatLatency(handshake)} exceeded max ${formatLatency(limits.maxResponseTime)}`
+    } else if (limits?.degradedResponseTime != null && handshake > limits.degradedResponseTime) {
+      responseTimeReason = `Response time ${formatLatency(handshake)} exceeded degraded ${formatLatency(limits.degradedResponseTime)}`
+    }
+  }
+  // Render the security-baseline verdict/grade when the runner provides it.
+  const baseline = response.securityBaseline
+  let baselineLine
+  if (baseline && (baseline.verdict || baseline.grade)) {
+    baselineLine = `Baseline: ${[baseline.verdict, baseline.grade ? `(grade ${baseline.grade})` : ''].filter(Boolean).join(' ')}`
+  }
   return [
     response.resolvedIp ? `Resolved IP: ${response.resolvedIp}` : undefined,
     response.protocol || response.cipherSuite
@@ -742,9 +717,11 @@ function formatSslResponse (response: any) {
     typeof days === 'number'
       ? `Expires in: ${days < 0 ? `expired ${-days} day(s) ago` : `${days} day(s)`}`
       : undefined,
-    typeof response.handshakeTimeMs === 'number' ? `Handshake: ${formatLatency(response.handshakeTimeMs)}` : undefined,
+    typeof handshake === 'number' ? `Handshake: ${formatLatency(handshake)}` : undefined,
+    responseTimeReason,
     response.chainTrusted != null ? `Chain Trusted: ${response.chainTrusted ? 'yes' : 'no'}` : undefined,
     response.hostnameVerified != null ? `Hostname Verified: ${response.hostnameVerified ? 'yes' : 'no'}` : undefined,
+    baselineLine,
   ].filter(Boolean).join('\n')
 }
 
@@ -837,39 +814,6 @@ function formatSectionTitle (title: string): string {
   // We take Math.max(0, ...) to avoid a negative padding length from causing errors
   const rightPaddingLength = Math.max(0, targetTitleWidth - title.length - leftPaddingLength)
   return `──${chalk.bold(title)}${'─'.repeat(rightPaddingLength)}`
-}
-
-type TruncateOptions = {
-  chars?: number
-  lines?: number
-  ending?: string
-}
-
-function truncate (val: any, opts: TruncateOptions) {
-  let truncated = false
-  let result = toString(val)
-  if (opts.chars && val.length > opts.chars) {
-    truncated = true
-    result = result.substring(0, opts.chars)
-  }
-  const lines = result.split('\n')
-  if (opts.lines && lines.length > opts.lines) {
-    truncated = true
-    result = lines.slice(0, opts.lines).join('\n')
-  }
-  return {
-    truncated,
-    result: truncated && opts.ending ? result + opts.ending : result,
-    lines: opts.lines ? Math.min(opts.lines, lines.length) : lines.length,
-  }
-}
-
-function toString (val: any): string {
-  if (typeof val === 'object') {
-    return JSON.stringify(val, null, 2)
-  } else {
-    return val.toString()
-  }
 }
 
 export function resultToCheckStatus (checkResult: any): CheckStatus {

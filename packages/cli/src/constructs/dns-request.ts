@@ -52,7 +52,7 @@ export interface DnsRequest {
    * @minimum 1
    * @maximum 65535
    * @example 53
-   * @default 53
+   * @defaultValue 53
    */
   port?: number
 
@@ -61,7 +61,7 @@ export interface DnsRequest {
    *
    * @example "UDP"
    * @example "TCP"
-   * @default "UDP"
+   * @defaultValue "UDP"
    */
   protocol?: DnsProtocol
 

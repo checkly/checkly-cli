@@ -27,7 +27,9 @@ import {
   renderCommandHints,
   renderAdaptiveTable,
   truncateSingleLine,
+  stripAnsi,
 } from './render.js'
+import { assertionSymbols, type AssertionLike, formatAssertionLine } from './assertion-line.js'
 
 // --- Helpers ---
 
@@ -697,6 +699,48 @@ function formatLatencyStats (obj: unknown): string | undefined {
   return parts.length > 0 ? parts.join(' / ') : undefined
 }
 
+// The SSL/gRPC/traceroute result bodies each carry an `assertions` array in the
+// common assertion shape. Render them via the shared `formatAssertionLine`
+// helper so the output matches the `checkly test` reporter exactly. Terminal
+// output keeps the color/symbols from the helper; markdown strips ANSI so the
+// list items stay plain text.
+//
+// Both helpers take the whole result rather than just its assertions, so that the
+// request-error check below cannot be forgotten at a call site.
+type AssertionsSection = {
+  requestError?: string | null
+  assertions?: Array<Record<string, unknown>> | null
+}
+
+// A request that errored never evaluated its assertions, and the backend reports
+// those unevaluated entries without an `error`, which renders as a green success
+// mark. Suppress the whole section instead of claiming assertions passed.
+function assertionsToRender (result: AssertionsSection): Array<Record<string, unknown>> | undefined {
+  if (result.requestError) return
+  if (!result.assertions || result.assertions.length === 0) return
+  return result.assertions
+}
+
+function appendAssertionsTerminal (lines: string[], result: AssertionsSection): void {
+  const assertions = assertionsToRender(result)
+  if (!assertions) return
+  lines.push('')
+  lines.push(heading('ASSERTIONS', 2, 'terminal'))
+  for (const assertion of assertions) {
+    lines.push(`  ${formatAssertionLine(assertion as AssertionLike)}`)
+  }
+}
+
+function appendAssertionsMd (lines: string[], result: AssertionsSection): void {
+  const assertions = assertionsToRender(result)
+  if (!assertions) return
+  lines.push('')
+  lines.push('## Assertions')
+  for (const assertion of assertions) {
+    lines.push(`- ${stripAnsi(formatAssertionLine(assertion as AssertionLike))}`)
+  }
+}
+
 function formatTracerouteResultTerminal (tr: TracerouteCheckResult): string[] {
   const lines: string[] = []
   const resp = tr.response ?? {}
@@ -711,6 +755,8 @@ function formatTracerouteResultTerminal (tr: TracerouteCheckResult): string[] {
   }
   const protocol = str(resp.protocol, resp.probeProtocol)
   if (protocol) lines.push(`${label('Protocol:')}${protocol}`)
+  const probeProtocol = str(resp.probeProtocol)
+  if (probeProtocol) lines.push(`${label('Probe protocol:')}${probeProtocol}`)
 
   const totalHops = num(tr.totalHops, resp.totalHops)
   if (totalHops != null) lines.push(`${label('Hops:')}${totalHops}`)
@@ -735,6 +781,15 @@ function formatTracerouteResultTerminal (tr: TracerouteCheckResult): string[] {
       lines.push(chalk.dim(`  ... (${hops.length - 40} more hops)`))
     }
   }
+
+  const trDns = num(asObject(tr.timingPhases)?.dns)
+  if (trDns != null) {
+    lines.push('')
+    lines.push(heading('TIMING', 2, 'terminal'))
+    lines.push(`${label('DNS:')}${formatMs(trDns)}`)
+  }
+
+  appendAssertionsTerminal(lines, tr)
 
   if (tr.requestError) {
     lines.push('')
@@ -770,6 +825,8 @@ function formatTracerouteResultMd (tr: TracerouteCheckResult): string[] {
   const host = str(resp.hostname)
   const ip = str(resp.resolvedIp)
   if (host || ip) lines.push(`- **Destination:** ${[host, ip ? `(${ip})` : null].filter(Boolean).join(' ')}`)
+  const probeProtocol = str(resp.probeProtocol)
+  if (probeProtocol) lines.push(`- **Probe protocol:** ${probeProtocol}`)
   const totalHops = num(tr.totalHops, resp.totalHops)
   if (totalHops != null) lines.push(`- **Hops:** ${totalHops}`)
   const reached = boolFlag(tr.destinationReached, resp.destinationReached)
@@ -778,7 +835,18 @@ function formatTracerouteResultMd (tr: TracerouteCheckResult): string[] {
   if (truncation) lines.push(`- **Truncated:** ${truncation}`)
   const finalHop = formatLatencyStats(tr.finalHopLatency ?? resp.finalHopLatency)
   if (finalHop) lines.push(`- **Final hop:** ${finalHop}`)
-  if (tr.requestError) lines.push(`- **Error:** ${tr.requestError}`)
+  const trDns = num(asObject(tr.timingPhases)?.dns)
+  if (trDns != null) {
+    lines.push('')
+    lines.push('## Timing')
+    lines.push(`- **DNS:** ${formatMs(trDns)}`)
+  }
+  appendAssertionsMd(lines, tr)
+  if (tr.requestError) {
+    lines.push('')
+    lines.push('## Error')
+    lines.push(`- ${tr.requestError}`)
+  }
 
   return lines
 }
@@ -837,6 +905,22 @@ function formatGrpcResultTerminal (grpc: GrpcCheckResult): string[] {
     }
   }
 
+  // Timing breakdown. gRPC exposes dns/connect/total (not the HTTP phases the
+  // API TIMING bar renders), so surface those directly for parity with the API
+  // result's timing detail instead of only the top-level total response time.
+  const timing = (grpc.timingPhases ?? resp.timingPhases) as
+    { dns?: number, connect?: number, total?: number } | undefined
+  const tDns = num(timing?.dns), tConnect = num(timing?.connect), tTotal = num(timing?.total)
+  if (tDns != null || tConnect != null || tTotal != null) {
+    lines.push('')
+    lines.push(heading('TIMING', 2, 'terminal'))
+    if (tDns != null) lines.push(`${label('DNS:')}${formatMs(tDns)}`)
+    if (tConnect != null) lines.push(`${label('Connect:')}${formatMs(tConnect)}`)
+    if (tTotal != null) lines.push(`${label('Total:')}${formatMs(tTotal)}`)
+  }
+
+  appendAssertionsTerminal(lines, grpc)
+
   if (grpc.requestError) {
     lines.push('')
     lines.push(heading('ERROR', 2, 'terminal'))
@@ -869,12 +953,198 @@ function formatGrpcResultMd (grpc: GrpcCheckResult): string[] {
   if (responseMessage) lines.push(`- **Response:** \`${truncateSingleLine(responseMessage, 200)}\``)
   const methods = Array.isArray(resp.discoveredMethods) ? resp.discoveredMethods : []
   if (methods.length > 0) lines.push(`- **Discovered methods:** ${methods.join(', ')}`)
-  if (grpc.requestError) lines.push(`- **Error:** ${grpc.requestError}`)
+  const timing = (grpc.timingPhases ?? resp.timingPhases) as
+    { dns?: number, connect?: number, total?: number } | undefined
+  const tDns = num(timing?.dns), tConnect = num(timing?.connect), tTotal = num(timing?.total)
+  if (tDns != null || tConnect != null || tTotal != null) {
+    lines.push('')
+    lines.push('## Timing')
+    lines.push('| Phase | Duration |')
+    lines.push('| --- | --- |')
+    if (tDns != null) lines.push(`| DNS | ${formatMs(tDns)} |`)
+    if (tConnect != null) lines.push(`| Connect | ${formatMs(tConnect)} |`)
+    if (tTotal != null) lines.push(`| **Total** | **${formatMs(tTotal)}** |`)
+  }
+  appendAssertionsMd(lines, grpc)
+  if (grpc.requestError) {
+    lines.push('')
+    lines.push('## Error')
+    lines.push(`- ${grpc.requestError}`)
+  }
 
   return lines
 }
 
 // --- SSL check result ---
+
+// SSL security-baseline rules, in display order, mapped to humanized labels.
+// Each rule in `response.securityBaseline` is `{ violated, severity }`: a
+// non-violated rule renders as a pass, a violated one as a fail, with the
+// configured enforcement severity (fail / warn / ignore) shown alongside.
+const SSL_BASELINE_RULES: Array<[string, string]> = [
+  ['minTLSVersion', 'min TLS version'],
+  ['minKeySizeBits', 'min key size'],
+  ['weakSignatureAlgorithm', 'weak signature algorithm'],
+  ['weakCipherSuite', 'weak cipher suite'],
+  ['knownBadCA', 'known bad CA'],
+  ['recommendedTLSVersion', 'recommended TLS version'],
+  ['recommendedKeySizeBits', 'recommended key size'],
+  ['ocspMustStapleRespected', 'OCSP must-staple respected'],
+  ['sctPresent', 'SCT present'],
+]
+
+// Join SANs with a cap so a wildcard cert with dozens of names stays readable.
+function formatSans (sans: unknown): string | undefined {
+  if (!Array.isArray(sans)) return undefined
+  const list = sans.filter((s): s is string => typeof s === 'string' && s.length > 0)
+  if (list.length === 0) return undefined
+  const cap = 10
+  if (list.length <= cap) return list.join(', ')
+  return `${list.slice(0, cap).join(', ')}, +${list.length - cap} more`
+}
+
+function asObject (value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined
+}
+
+function appendSslCertificateTerminal (lines: string[], resp: Record<string, unknown>): void {
+  const cert = asObject(resp.certificate)
+  const ocspStapled = boolFlag(resp.ocspStapled)
+  const body: string[] = []
+
+  if (cert) {
+    const subjectCN = str(cert.subjectCN)
+    if (subjectCN) body.push(`${label('Subject CN:')}${subjectCN}`)
+    const issuerCN = str(cert.issuerCN)
+    if (issuerCN) body.push(`${label('Issuer CN:')}${issuerCN}`)
+    const notBefore = str(cert.notBefore)
+    const notAfter = str(cert.notAfter)
+    if (notBefore || notAfter) body.push(`${label('Valid:')}${[notBefore, notAfter].filter(Boolean).join(' → ')}`)
+    const keyAlgorithm = str(cert.keyAlgorithm)
+    const keySizeBits = num(cert.keySizeBits)
+    if (keyAlgorithm || keySizeBits != null) {
+      body.push(`${label('Key:')}${[keyAlgorithm, keySizeBits != null ? `${keySizeBits}-bit` : null].filter(Boolean).join(' ')}`)
+    }
+    const signatureAlgorithm = str(cert.signatureAlgorithm)
+    if (signatureAlgorithm) body.push(`${label('Signature:')}${signatureAlgorithm}`)
+    const fingerprint = str(cert.fingerprintSha256)
+    if (fingerprint) body.push(`${label('SHA-256:')}${fingerprint}`)
+    const sans = formatSans(cert.sans)
+    if (sans) body.push(`${label('SANs:')}${sans}`)
+    const serial = str(cert.serialNumber)
+    if (serial) body.push(`${label('Serial:')}${serial}`)
+    if (boolFlag(cert.selfSigned) === true) body.push(`${label('Self-signed:')}${chalk.yellow('yes')}`)
+    if (boolFlag(cert.isCA) === true) body.push(`${label('CA:')}yes`)
+  }
+  if (ocspStapled != null) body.push(`${label('OCSP stapled:')}${yesNo(ocspStapled)}`)
+
+  if (body.length === 0) return
+  lines.push('')
+  lines.push(heading('CERTIFICATE', 2, 'terminal'))
+  lines.push(...body)
+}
+
+function appendSslCertificateMd (lines: string[], resp: Record<string, unknown>): void {
+  const cert = asObject(resp.certificate)
+  const ocspStapled = boolFlag(resp.ocspStapled)
+  const body: string[] = []
+
+  if (cert) {
+    const subjectCN = str(cert.subjectCN)
+    if (subjectCN) body.push(`- **Subject CN:** ${subjectCN}`)
+    const issuerCN = str(cert.issuerCN)
+    if (issuerCN) body.push(`- **Issuer CN:** ${issuerCN}`)
+    const notBefore = str(cert.notBefore)
+    const notAfter = str(cert.notAfter)
+    if (notBefore || notAfter) body.push(`- **Valid:** ${[notBefore, notAfter].filter(Boolean).join(' → ')}`)
+    const keyAlgorithm = str(cert.keyAlgorithm)
+    const keySizeBits = num(cert.keySizeBits)
+    if (keyAlgorithm || keySizeBits != null) {
+      body.push(`- **Key:** ${[keyAlgorithm, keySizeBits != null ? `${keySizeBits}-bit` : null].filter(Boolean).join(' ')}`)
+    }
+    const signatureAlgorithm = str(cert.signatureAlgorithm)
+    if (signatureAlgorithm) body.push(`- **Signature:** ${signatureAlgorithm}`)
+    const fingerprint = str(cert.fingerprintSha256)
+    if (fingerprint) body.push(`- **SHA-256:** \`${fingerprint}\``)
+    const sans = formatSans(cert.sans)
+    if (sans) body.push(`- **SANs:** ${sans}`)
+    const serial = str(cert.serialNumber)
+    if (serial) body.push(`- **Serial:** ${serial}`)
+    if (boolFlag(cert.selfSigned) === true) body.push('- **Self-signed:** yes')
+    if (boolFlag(cert.isCA) === true) body.push('- **CA:** yes')
+  }
+  if (ocspStapled != null) body.push(`- **OCSP stapled:** ${ocspStapled ? 'yes' : 'no'}`)
+
+  if (body.length === 0) return
+  lines.push('')
+  lines.push('## Certificate')
+  lines.push(...body)
+}
+
+// Build the per-rule baseline breakdown as [symbol, humanLabel, severity, violated]
+// tuples so terminal and markdown can render the same rules with format-specific
+// styling. A rule that carries neither a `violated` flag nor a scalar value is
+// skipped.
+function sslBaselineRules (
+  resp: Record<string, unknown>,
+): Array<{ human: string, violated?: boolean, severity?: string, scalar?: string }> {
+  const baseline = asObject(resp.securityBaseline)
+  if (!baseline) return []
+  const rules: Array<{ human: string, violated?: boolean, severity?: string, scalar?: string }> = []
+  for (const [key, human] of SSL_BASELINE_RULES) {
+    const rule = baseline[key]
+    if (rule == null) continue
+    const obj = asObject(rule)
+    if (obj) {
+      const violated = boolFlag(obj.violated)
+      const severity = str(obj.severity)
+      if (violated == null && severity == null) continue
+      rules.push({ human, violated, severity })
+    } else if (typeof rule === 'string' || typeof rule === 'number' || typeof rule === 'boolean') {
+      rules.push({ human, scalar: String(rule) })
+    }
+  }
+  return rules
+}
+
+function appendSslBaselineTerminal (lines: string[], resp: Record<string, unknown>): void {
+  const rules = sslBaselineRules(resp)
+  if (rules.length === 0) return
+  lines.push('')
+  lines.push(heading('SECURITY BASELINE', 2, 'terminal'))
+  for (const rule of rules) {
+    if (rule.violated == null && rule.scalar == null) {
+      lines.push(`  ${chalk.dim('·')} ${rule.human}${rule.severity ? chalk.dim(` (${rule.severity})`) : ''}`)
+      continue
+    }
+    if (rule.scalar != null) {
+      lines.push(`  ${chalk.dim('·')} ${rule.human}: ${rule.scalar}`)
+      continue
+    }
+    const head = `${rule.violated ? assertionSymbols.error : assertionSymbols.success} ${rule.human}`
+    const coloredHead = rule.violated ? chalk.red(head) : chalk.green(head)
+    lines.push(`  ${coloredHead}${rule.severity ? chalk.dim(` (${rule.severity})`) : ''}`)
+  }
+}
+
+function appendSslBaselineMd (lines: string[], resp: Record<string, unknown>): void {
+  const rules = sslBaselineRules(resp)
+  if (rules.length === 0) return
+  lines.push('')
+  lines.push('## Security Baseline')
+  for (const rule of rules) {
+    if (rule.scalar != null) {
+      lines.push(`- ${rule.human}: ${rule.scalar}`)
+      continue
+    }
+    if (rule.violated == null) {
+      lines.push(`- ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
+      continue
+    }
+    const sym = rule.violated ? assertionSymbols.error : assertionSymbols.success
+    lines.push(`- ${sym} ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
+  }
+}
 
 function formatSslResultTerminal (ssl: SslCheckResult): string[] {
   const lines: string[] = []
@@ -913,6 +1183,11 @@ function formatSslResultTerminal (ssl: SslCheckResult): string[] {
   const failure = str(ssl.failureCategory)
   if (failure) lines.push(`${label('Failure:')}${chalk.red(failure)}`)
 
+  appendSslCertificateTerminal(lines, resp)
+  appendSslBaselineTerminal(lines, resp)
+
+  appendAssertionsTerminal(lines, ssl)
+
   if (ssl.requestError) {
     lines.push('')
     lines.push(heading('ERROR', 2, 'terminal'))
@@ -942,7 +1217,14 @@ function formatSslResultMd (ssl: SslCheckResult): string[] {
   if (verdict || grade) lines.push(`- **Baseline:** ${[verdict, grade ? `grade ${grade}` : ''].filter(Boolean).join(' ')}`)
   const failure = str(ssl.failureCategory)
   if (failure) lines.push(`- **Failure:** ${failure}`)
-  if (ssl.requestError) lines.push(`- **Error:** ${ssl.requestError}`)
+  appendSslCertificateMd(lines, resp)
+  appendSslBaselineMd(lines, resp)
+  appendAssertionsMd(lines, ssl)
+  if (ssl.requestError) {
+    lines.push('')
+    lines.push('## Error')
+    lines.push(`- ${ssl.requestError}`)
+  }
 
   return lines
 }

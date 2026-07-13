@@ -1,25 +1,32 @@
-type Comparison =
-  | 'EQUALS'
-  | 'NOT_EQUALS'
-  | 'HAS_KEY'
-  | 'NOT_HAS_KEY'
-  | 'HAS_VALUE'
-  | 'NOT_HAS_VALUE'
-  | 'IS_EMPTY'
-  | 'NOT_EMPTY'
-  | 'GREATER_THAN'
-  | 'LESS_THAN'
-  | 'CONTAINS'
-  | 'NOT_CONTAINS'
-  | 'IS_NULL'
-  | 'NOT_NULL'
-
 export interface Assertion<Source extends string> {
   source: Source
   property: string
   comparison: string
   target: string
   regex: string | null
+}
+
+// Builds an assertion payload from its parts. `comparison` is a free type parameter
+// so any operator string (including SSL's `MATCHES`) is accepted without a central
+// union. Empty property, stringified target, and null regex are the wire defaults.
+export function toAssertion<
+  Source extends string,
+  Comparison extends string,
+  Target extends string | number | boolean = string,
+> (
+  source: Source,
+  comparison: Comparison,
+  target?: Target,
+  property?: string,
+  regex?: string | null,
+): Assertion<Source> {
+  return {
+    source,
+    comparison,
+    property: property ?? '',
+    target: target?.toString() ?? '',
+    regex: regex ?? null,
+  }
 }
 
 export class NumericAssertionBuilder<Source extends string, Property extends string = string> {
@@ -32,30 +39,19 @@ export class NumericAssertionBuilder<Source extends string, Property extends str
   }
 
   equals (target: number): Assertion<Source> {
-    return this._toAssertion('EQUALS', target)
+    return toAssertion(this.source, 'EQUALS', target, this.property)
   }
 
   notEquals (target: number): Assertion<Source> {
-    return this._toAssertion('NOT_EQUALS', target)
+    return toAssertion(this.source, 'NOT_EQUALS', target, this.property)
   }
 
   lessThan (target: number): Assertion<Source> {
-    return this._toAssertion('LESS_THAN', target)
+    return toAssertion(this.source, 'LESS_THAN', target, this.property)
   }
 
   greaterThan (target: number): Assertion<Source> {
-    return this._toAssertion('GREATER_THAN', target)
-  }
-
-  /** @private */
-  private _toAssertion (comparison: Comparison, target: number): Assertion<Source> {
-    return {
-      source: this.source,
-      comparison,
-      property: this.property ?? '',
-      target: target.toString(),
-      regex: null,
-    }
+    return toAssertion(this.source, 'GREATER_THAN', target, this.property)
   }
 }
 
@@ -83,69 +79,58 @@ export class GeneralAssertionBuilder<
   }
 
   equals (target: TargetType): Assertion<Source> {
-    return this._toAssertion('EQUALS', target)
+    return toAssertion(this.source, 'EQUALS', target, this.property, this.regex)
   }
 
   notEquals (target: TargetType): Assertion<Source> {
-    return this._toAssertion('NOT_EQUALS', target)
+    return toAssertion(this.source, 'NOT_EQUALS', target, this.property, this.regex)
   }
 
   hasKey (target: string): Assertion<Source> {
-    return this._toAssertion('HAS_KEY', target)
+    return toAssertion(this.source, 'HAS_KEY', target, this.property, this.regex)
   }
 
   notHasKey (target: string): Assertion<Source> {
-    return this._toAssertion('NOT_HAS_KEY', target)
+    return toAssertion(this.source, 'NOT_HAS_KEY', target, this.property, this.regex)
   }
 
   hasValue (target: TargetType): Assertion<Source> {
-    return this._toAssertion('HAS_VALUE', target)
+    return toAssertion(this.source, 'HAS_VALUE', target, this.property, this.regex)
   }
 
   notHasValue (target: TargetType): Assertion<Source> {
-    return this._toAssertion('NOT_HAS_VALUE', target)
+    return toAssertion(this.source, 'NOT_HAS_VALUE', target, this.property, this.regex)
   }
 
   isEmpty () {
-    return this._toAssertion('IS_EMPTY')
+    return toAssertion(this.source, 'IS_EMPTY', undefined, this.property, this.regex)
   }
 
   notEmpty () {
-    return this._toAssertion('NOT_EMPTY')
+    return toAssertion(this.source, 'NOT_EMPTY', undefined, this.property, this.regex)
   }
 
   lessThan (target: TargetType): Assertion<Source> {
-    return this._toAssertion('LESS_THAN', target)
+    return toAssertion(this.source, 'LESS_THAN', target, this.property, this.regex)
   }
 
   greaterThan (target: TargetType): Assertion<Source> {
-    return this._toAssertion('GREATER_THAN', target)
+    return toAssertion(this.source, 'GREATER_THAN', target, this.property, this.regex)
   }
 
   contains (target: string): Assertion<Source> {
-    return this._toAssertion('CONTAINS', target)
+    return toAssertion(this.source, 'CONTAINS', target, this.property, this.regex)
   }
 
   notContains (target: string): Assertion<Source> {
-    return this._toAssertion('NOT_CONTAINS', target)
+    return toAssertion(this.source, 'NOT_CONTAINS', target, this.property, this.regex)
   }
 
   isNull () {
-    return this._toAssertion('IS_NULL')
+    return toAssertion(this.source, 'IS_NULL', undefined, this.property, this.regex)
   }
 
   isNotNull () {
-    return this._toAssertion('NOT_NULL')
-  }
-
-  /** @private */
-  private _toAssertion (comparison: Comparison, target?: string | number | boolean): Assertion<Source> {
-    return {
-      source: this.source,
-      comparison,
-      property: this.property ?? '',
-      target: target?.toString() ?? '',
-      regex: this.regex ?? null,
-    }
+    return toAssertion(this.source, 'NOT_NULL', undefined, this.property, this.regex)
   }
 }

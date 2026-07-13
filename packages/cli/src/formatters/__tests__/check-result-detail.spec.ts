@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { stripAnsi } from '../render.js'
+import { assertionSymbols } from '../assertion-line.js'
+
+const PASS = assertionSymbols.success
+const FAIL = assertionSymbols.error
 import {
   formatResultDetail,
   groupAttemptsBySequence,
@@ -18,8 +22,11 @@ import {
   agenticCheckResultWithFailures,
   agenticCheckResultMinimal,
   tracerouteCheckResult,
+  tracerouteCheckResultDetail,
   grpcCheckResult,
+  grpcCheckResultDetail,
   sslCheckResult,
+  sslCheckResultDetail,
 } from './__fixtures__/fixtures.js'
 
 // Pin time for formatDate used in result detail
@@ -381,6 +388,37 @@ describe('formatResultDetail', () => {
       expect(result).toContain('**Hops:** 30')
       expect(result).toContain('**Truncated:** max-hops')
     })
+
+    it('renders the assertions section (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(tracerouteCheckResult, 'terminal'))
+      expect(result).toContain('ASSERTIONS')
+      expect(result).toContain(`${FAIL} latency property "avg" is less than target "20". Received: 24.1.`)
+      expect(result).toContain(`${PASS} response time is less than target "5000". Received: 1000.`)
+    })
+
+    it('renders the assertions section (markdown)', () => {
+      const result = formatResultDetail(tracerouteCheckResult, 'md')
+      expect(result).toContain('## Assertions')
+      expect(result).toContain(`- ${FAIL} latency property "avg" is less than target "20". Received: 24.1.`)
+      expect(result).toContain(`- ${PASS} response time is less than target "5000". Received: 1000.`)
+      // Markdown must stay ANSI-free.
+      expect(result).toBe(stripAnsi(result))
+    })
+
+    it('renders the probe protocol and DNS timing (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(tracerouteCheckResult, 'terminal'))
+      expect(result).toContain('Probe protocol:')
+      expect(result).toContain('ICMP')
+      expect(result).toContain('TIMING')
+      expect(result).toContain('DNS:')
+    })
+
+    it('renders the probe protocol and DNS timing (markdown)', () => {
+      const result = formatResultDetail(tracerouteCheckResult, 'md')
+      expect(result).toContain('**Probe protocol:** ICMP')
+      expect(result).toContain('## Timing')
+      expect(result).toContain('- **DNS:**')
+    })
   })
 
   describe('gRPC check result', () => {
@@ -412,6 +450,49 @@ describe('formatResultDetail', () => {
       expect(result).toContain('## gRPC Result')
       expect(result).toContain('**Status:** 14 connection refused')
       expect(result).toContain('**Health:** NOT_SERVING')
+    })
+
+    it('renders the assertions section with humanized sources (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(grpcCheckResult, 'terminal'))
+      expect(result).toContain('ASSERTIONS')
+      expect(result).toContain(`${FAIL} status code equals target "0". Received: 14.`)
+      expect(result).toContain(`${PASS} health check status equals target "NOT_SERVING". Received: NOT_SERVING.`)
+      expect(result).not.toContain('GRPC_STATUS_CODE')
+    })
+
+    it('renders the assertions section (markdown)', () => {
+      const result = formatResultDetail(grpcCheckResult, 'md')
+      expect(result).toContain('## Assertions')
+      expect(result).toContain(`- ${FAIL} status code equals target "0". Received: 14.`)
+      expect(result).toContain(`- ${PASS} health check status equals target "NOT_SERVING". Received: NOT_SERVING.`)
+      expect(result).toBe(stripAnsi(result))
+    })
+
+    it('renders the gRPC timing breakdown (terminal + markdown)', () => {
+      const term = stripAnsi(formatResultDetail(grpcCheckResult, 'terminal'))
+      expect(term).toContain('TIMING')
+      expect(term).toContain('DNS:')
+      expect(term).toContain('Connect:')
+      expect(term).toContain('Total:')
+      const md = formatResultDetail(grpcCheckResult, 'md')
+      expect(md).toContain('## Timing')
+      expect(md).toContain('| Connect |')
+      expect(md).toContain('| **Total** |')
+    })
+
+    it('renders Received for falsy actual values (0 / false)', () => {
+      const base = grpcCheckResult.grpcCheckResult!
+      const detail = {
+        ...base,
+        assertions: [
+          { order: 0, source: 'GRPC_STATUS_CODE', property: '', comparison: 'GREATER_THAN', target: '5', regex: null, error: 'Expected 0 to be above 5', actual: 0 },
+          { order: 1, source: 'GRPC_HEALTHCHECK_STATUS', property: '', comparison: 'EQUALS', target: 'true', regex: null, error: 'Expected false to equal true', actual: false },
+        ],
+      }
+      const res = { ...grpcCheckResult, grpcCheckResult: detail }
+      const result = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(result).toContain('Received: 0.')
+      expect(result).toContain('Received: false.')
     })
   })
 
@@ -446,6 +527,194 @@ describe('formatResultDetail', () => {
       expect(result).toContain('## SSL Result')
       expect(result).toContain('**Expires in:** expired 5 day(s) ago')
       expect(result).toContain('**Failure:** expired')
+    })
+
+    it('renders the assertions section with the failure reason (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
+      expect(result).toContain('ASSERTIONS')
+      expect(result).toContain(`${FAIL} CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.`)
+      expect(result).toContain(`${PASS} CERT_NOT_EXPIRED equals target "true". Received: true.`)
+    })
+
+    it('renders the assertions section (markdown)', () => {
+      const result = formatResultDetail(sslCheckResult, 'md')
+      expect(result).toContain('## Assertions')
+      expect(result).toContain(`- ${FAIL} CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.`)
+      expect(result).toContain(`- ${PASS} CERT_NOT_EXPIRED equals target "true". Received: true.`)
+      expect(result).toBe(stripAnsi(result))
+    })
+
+    it('renders the certificate section (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
+      expect(result).toContain('CERTIFICATE')
+      expect(result).toContain('Subject CN:')
+      expect(result).toContain('expired.example.com')
+      expect(result).toContain('Issuer CN:')
+      expect(result).toContain('Example Issuing CA')
+      expect(result).toContain('Valid:')
+      expect(result).toContain('2026-01-01T00:00:00Z → 2026-07-01T00:00:00Z')
+      expect(result).toContain('Key:')
+      expect(result).toContain('ECDSA 256-bit')
+      expect(result).toContain('Signature:')
+      expect(result).toContain('ECDSA-SHA256')
+      expect(result).toContain('SHA-256:')
+      expect(result).toContain('beab14cf39678fda0ef1606eedb818c2298ba2cc7a00886e7dc2d2410f24cd35')
+      expect(result).toContain('SANs:')
+      expect(result).toContain('www.expired.example.com')
+      expect(result).toContain('OCSP stapled:')
+    })
+
+    it('renders the certificate section (markdown)', () => {
+      const result = formatResultDetail(sslCheckResult, 'md')
+      expect(result).toContain('## Certificate')
+      expect(result).toContain('- **Subject CN:** expired.example.com')
+      expect(result).toContain('- **Issuer CN:** Example Issuing CA')
+      expect(result).toContain('- **Valid:** 2026-01-01T00:00:00Z → 2026-07-01T00:00:00Z')
+      expect(result).toContain('- **Key:** ECDSA 256-bit')
+      expect(result).toContain('- **SHA-256:** `beab14cf39678fda0ef1606eedb818c2298ba2cc7a00886e7dc2d2410f24cd35`')
+      expect(result).toContain('- **OCSP stapled:** no')
+      expect(result).toBe(stripAnsi(result))
+    })
+
+    it('renders the per-rule security baseline (terminal)', () => {
+      const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
+      expect(result).toContain('SECURITY BASELINE')
+      expect(result).toContain(`${PASS} min TLS version (fail)`)
+      expect(result).toContain(`${FAIL} weak cipher suite (fail)`)
+      expect(result).toContain(`${PASS} recommended TLS version (ignore)`)
+      // The one-line summary is still present in the RESULT block.
+      expect(result).toContain('Baseline:')
+    })
+
+    it('renders the per-rule security baseline (markdown)', () => {
+      const result = formatResultDetail(sslCheckResult, 'md')
+      expect(result).toContain('## Security Baseline')
+      expect(result).toContain(`- ${PASS} min TLS version (fail)`)
+      expect(result).toContain(`- ${FAIL} weak cipher suite (fail)`)
+      expect(result).toContain(`- ${PASS} SCT present (ignore)`)
+      expect(result).toBe(stripAnsi(result))
+    })
+
+    it('caps SANs with a +N more suffix', () => {
+      const base = sslCheckResult.sslCheckResult!
+      const detail = {
+        ...base,
+        response: {
+          ...base.response,
+          certificate: {
+            ...(base.response!.certificate as Record<string, unknown>),
+            sans: Array.from({ length: 13 }, (_, i) => `alt${i}.example.com`),
+          },
+        },
+      }
+      const res = { ...sslCheckResult, sslCheckResult: detail }
+      const result = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(result).toContain('alt0.example.com')
+      expect(result).toContain('alt9.example.com')
+      expect(result).toContain('+3 more')
+      expect(result).not.toContain('alt10.example.com')
+    })
+
+    it('renders self-signed and CA flags when set', () => {
+      const base = sslCheckResult.sslCheckResult!
+      const detail = {
+        ...base,
+        response: {
+          ...base.response,
+          certificate: {
+            ...(base.response!.certificate as Record<string, unknown>),
+            selfSigned: true,
+            isCA: true,
+          },
+        },
+      }
+      const res = { ...sslCheckResult, sslCheckResult: detail }
+      const result = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(result).toContain('Self-signed:')
+      expect(result).toContain('CA:')
+    })
+
+    it('renders a scalar baseline rule as key: value', () => {
+      const base = sslCheckResult.sslCheckResult!
+      const detail = {
+        ...base,
+        response: {
+          ...base.response,
+          securityBaseline: {
+            ...(base.response!.securityBaseline as Record<string, unknown>),
+            minTLSVersion: 'TLS1.2',
+          },
+        },
+      }
+      const res = { ...sslCheckResult, sslCheckResult: detail }
+      const term = stripAnsi(formatResultDetail(res, 'terminal'))
+      expect(term).toContain('min TLS version: TLS1.2')
+      const md = formatResultDetail(res, 'md')
+      expect(md).toContain('min TLS version: TLS1.2')
+      expect(md).toBe(stripAnsi(md))
+    })
+  })
+
+  describe('assertions on a request error', () => {
+    const requestError = 'dial tcp 203.0.113.10:443: connect: connection refused'
+
+    // An assertion the request never got far enough to evaluate: the backend returns
+    // it with no `error`, which renders as a passing assertion unless suppressed.
+    const unevaluated = [
+      {
+        order: 0,
+        source: 'RESPONSE_TIME',
+        property: 'avg',
+        comparison: 'LESS_THAN',
+        target: '5000',
+        regex: null,
+        error: null,
+        actual: null,
+      },
+    ]
+
+    const cases: Array<[string, CheckResult]> = [
+      ['traceroute', {
+        ...tracerouteCheckResult,
+        tracerouteCheckResult: { ...tracerouteCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+      ['gRPC', {
+        ...grpcCheckResult,
+        grpcCheckResult: { ...grpcCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+      ['SSL', {
+        ...sslCheckResult,
+        sslCheckResult: { ...sslCheckResultDetail, requestError, assertions: unevaluated },
+      }],
+    ]
+
+    // The rendered form of `unevaluated`. SSL's SECURITY BASELINE block also uses the
+    // success symbol, so match the assertion line itself rather than the symbol.
+    const assertionLine = 'target "5000"'
+
+    it.each(cases)('omits the assertions section for %s (terminal)', (_name, result) => {
+      const output = stripAnsi(formatResultDetail(result, 'terminal'))
+      expect(output).toContain('ERROR')
+      expect(output).toContain(requestError)
+      expect(output).not.toContain('ASSERTIONS')
+      expect(output).not.toContain(assertionLine)
+    })
+
+    it.each(cases)('omits the assertions section for %s (markdown)', (_name, result) => {
+      const output = formatResultDetail(result, 'md')
+      expect(output).toContain('## Error')
+      expect(output).not.toContain('## Assertions')
+      expect(output).not.toContain(assertionLine)
+    })
+
+    it.each(cases)('still renders assertions for %s without a request error', (_name, result) => {
+      const key = Object.keys(result).find(k => k.endsWith('CheckResult')) as keyof CheckResult
+      const detail = result[key] as Record<string, unknown>
+      const cleared = { ...result, [key]: { ...detail, requestError: null } } as CheckResult
+
+      const rendered = stripAnsi(formatResultDetail(cleared, 'terminal'))
+      expect(rendered).toContain('ASSERTIONS')
+      expect(rendered).toContain(`${PASS} response time property "avg" is less than ${assertionLine}.`)
     })
   })
 })

@@ -31,7 +31,7 @@ export interface TracerouteRequest {
   /**
    * The probe protocol.
    *
-   * @default "TCP"
+   * @defaultValue "TCP"
    */
   protocol?: TracerouteProtocol
 
@@ -41,14 +41,14 @@ export interface TracerouteRequest {
    *
    * @minimum 1
    * @maximum 65535
-   * @default 443
+   * @defaultValue 443
    */
   port?: number
 
   /**
    * The IP family to use when executing the traceroute.
    *
-   * @default "IPv4"
+   * @defaultValue "IPv4"
    */
   ipFamily?: IPFamily
 
@@ -57,7 +57,7 @@ export interface TracerouteRequest {
    *
    * @minimum 1
    * @maximum 64
-   * @default 30
+   * @defaultValue 30
    */
   maxHops?: number
 
@@ -67,14 +67,14 @@ export interface TracerouteRequest {
    *
    * @minimum 1
    * @maximum 30
-   * @default 15
+   * @defaultValue 15
    */
   maxUnknownHops?: number
 
   /**
    * Whether to perform reverse-DNS (PTR) lookups on each hop's IP address.
    *
-   * @default true
+   * @defaultValue true
    */
   ptrLookup?: boolean
 
@@ -84,7 +84,7 @@ export interface TracerouteRequest {
    *
    * @minimum 1
    * @maximum 30
-   * @default 10
+   * @defaultValue 10
    */
   timeout?: number
 

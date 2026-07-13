@@ -2,7 +2,9 @@ import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { SslRequest } from './ssl-request.js'
-import { InvalidPropertyValueDiagnostic, RequiredPropertyDiagnostic } from './construct-diagnostics.js'
+import { validateResponseTimes } from './internal/common-diagnostics.js'
+import { validateSslAssertion } from './ssl-assertion-validation.js'
+import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 
 export interface SslMonitorProps extends MonitorProps {
   /**
@@ -16,7 +18,7 @@ export interface SslMonitorProps extends MonitorProps {
    *
    * @minimum 0
    * @maximum 30000
-   * @default 3000
+   * @defaultValue 3000
    */
   degradedResponseTime?: number
 
@@ -26,7 +28,7 @@ export interface SslMonitorProps extends MonitorProps {
    *
    * @minimum 0
    * @maximum 30000
-   * @default 10000
+   * @defaultValue 10000
    */
   maxResponseTime?: number
 }
@@ -78,17 +80,15 @@ export class SslMonitor extends Monitor {
       ))
     }
 
-    if (
-      this.degradedResponseTime !== undefined
-      && this.maxResponseTime !== undefined
-      && this.degradedResponseTime > this.maxResponseTime
-    ) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'degradedResponseTime',
-        new Error(
-          `The value of "degradedResponseTime" must be less than or equal to "maxResponseTime".`,
-        ),
-      ))
+    await validateResponseTimes(diagnostics, this, {
+      degradedResponseTime: 30_000,
+      maxResponseTime: 30_000,
+      // Backend default applied when maxResponseTime is omitted.
+      defaultMaxResponseTime: 10_000,
+    })
+
+    for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
+      validateSslAssertion(diagnostics, assertion, index)
     }
   }
 

@@ -7,7 +7,9 @@ export function valueForTracerouteAssertion (genfile: GeneratedFile, assertion: 
 
   switch (assertion.source) {
     case 'RESPONSE_TIME':
-      return valueForNumericAssertion('TracerouteAssertionBuilder', 'responseTime', assertion)
+      return valueForNumericAssertion('TracerouteAssertionBuilder', 'responseTime', assertion, {
+        hasProperty: true,
+      })
     case 'HOP_COUNT':
       return valueForNumericAssertion('TracerouteAssertionBuilder', 'hopCount', assertion)
     case 'PACKET_LOSS':
