@@ -315,9 +315,10 @@ describe('TracerouteMonitor', () => {
         name: 'Test Check',
         request: {
           ...request,
-          // NOT_EQUALS is builder-reachable via hopCount().notEquals(20) but the
-          // backend accepts it only for RESPONSE_TIME, not HOP_COUNT/PACKET_LOSS.
-          assertions: [TracerouteAssertionBuilder.hopCount().notEquals(20)],
+          // NOT_EQUALS is not offered on the hopCount() builder (see the compile-time
+          // test below); a hand-written literal can still carry it, and the backend
+          // accepts NOT_EQUALS only for RESPONSE_TIME.
+          assertions: [{ source: 'HOP_COUNT', property: '', comparison: 'NOT_EQUALS', target: '20', regex: null }],
         },
       })
       const diags = new Diagnostics()
@@ -330,6 +331,19 @@ describe('TracerouteMonitor', () => {
           ),
         }),
       ]))
+    })
+
+    it('the builders do not offer NOT_EQUALS for hop count / packet loss', () => {
+      // Compile-time-only checks: notEquals does not exist on these builders at
+      // runtime, so the body is type-checked but never executed.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _typeChecks = () => {
+        // @ts-expect-error notEquals is not available on the hop-count builder
+        TracerouteAssertionBuilder.hopCount().notEquals(20)
+        // @ts-expect-error notEquals is not available on the packet-loss builder
+        TracerouteAssertionBuilder.packetLoss().notEquals(20)
+      }
+      expect(_typeChecks).toBeDefined()
     })
 
     it('should allow NOT_EQUALS for a RESPONSE_TIME assertion', async () => {
