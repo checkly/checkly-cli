@@ -18,7 +18,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Detects whether anything outside the ignore list below changed. Meta files
+  # (agent instructions, docs, license, .gitignore) cannot affect lint,
+  # packaging or test outcomes, so a change touching only those skips the whole
+  # matrix.
+  #
+  # The filter runs inside a job rather than as an `on: paths-ignore` trigger:
+  # a workflow skipped by a trigger-level path filter never reports a status, so
+  # required checks stay pending forever and block merge. The CI gates below
+  # depend on this job, so if it fails, the gates fail rather than passing on a
+  # matrix that never ran.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # 'every' makes a file match `code` only when it matches *all* the
+          # patterns, i.e. when it is none of the ignored paths. `code` is
+          # therefore true when at least one changed file lives outside the
+          # ignore list.
+          predicate-quantifier: 'every'
+          filters: |
+            code:
+              - '!.claude/**'
+              - '!AGENTS.md'
+              - '!CLAUDE.md'
+              - '!CONTRIBUTING.md'
+              - '!LICENSE'
+              - '!README.md'
+              - '!.gitignore'
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -39,6 +80,8 @@ jobs:
   # ---------------------------------------------------------------------------
   test-ubuntu:
     name: test - ubuntu
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -61,6 +104,8 @@ jobs:
           retention-days: 1
   test-windows:
     name: test - windows
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: blacksmith-4vcpu-windows-2025
     steps:
       - uses: actions/checkout@v3
@@ -88,7 +133,8 @@ jobs:
   # ---------------------------------------------------------------------------
   test-e2e-checkly-ubuntu:
     name: e2e - checkly - ubuntu
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -110,7 +156,8 @@ jobs:
           CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
   test-e2e-checkly-windows:
     name: e2e - checkly - windows (${{ matrix.shard }})
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -140,7 +187,8 @@ jobs:
   # ---------------------------------------------------------------------------
   test-e2e-create-checkly-ubuntu:
     name: e2e - create-checkly - ubuntu
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -155,7 +203,8 @@ jobs:
       - run: pnpm --filter create-checkly run test:e2e
   test-e2e-create-checkly-windows:
     name: e2e - create-checkly - windows
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: blacksmith-4vcpu-windows-2025
     steps:
       - uses: actions/checkout@v3
@@ -179,6 +228,7 @@ jobs:
     name: CI gate - ubuntu
     if: always()
     needs:
+      - changes
       - lint
       - test-ubuntu
       - test-e2e-checkly-ubuntu
@@ -189,8 +239,11 @@ jobs:
         run: |
           results="${{ join(needs.*.result, ', ') }}"
           echo "Ubuntu job results: $results"
-          # 'skipped' is allowed (e2e jobs are skipped on push-to-main); only
-          # 'failure'/'cancelled' should fail the gate.
+          # 'skipped' is allowed (e2e jobs are skipped on push-to-main, and
+          # every job is skipped for meta-file-only changes); only
+          # 'failure'/'cancelled' should fail the gate. `changes` is a
+          # dependency so that a failure to compute the path filter fails the
+          # gate instead of green-lighting a matrix that never ran.
           if [[ "$results" == *failure* || "$results" == *cancelled* ]]; then
             echo "::error::One or more Ubuntu jobs did not succeed"
             exit 1
@@ -199,6 +252,7 @@ jobs:
     name: CI gate - windows
     if: always()
     needs:
+      - changes
       - test-windows
       - test-e2e-checkly-windows
       - test-e2e-create-checkly-windows
