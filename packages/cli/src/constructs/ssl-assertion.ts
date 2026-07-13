@@ -103,8 +103,7 @@ type SslAssertionSource =
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
 // One builder class per SSL source, each exposing only the operators (and value
-// type) the backend accepts for that source (public-api schemas.js
-// `sslMonitorAssertionComparisonsBySource`). The classes are stateless — the source
+// type) the backend accepts for that source. The classes are stateless — the source
 // is baked into each `toAssertion` call — and are not exported: they are reachable
 // only through `SslAssertionBuilder`, so they stay out of the package's public API.
 

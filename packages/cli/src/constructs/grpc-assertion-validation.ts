@@ -14,8 +14,8 @@ const assertionSources: Record<GrpcAssertion['source'], true> = {
 }
 
 // The comparisons the backend accepts for gRPC assertions. Unlike traceroute, the
-// deploy schema does not couple the comparison to the source — it is the shared
-// 14-operator list. Keep in sync with public-api schemas.js `assertionComparisons`.
+// backend does not couple the comparison to the source — it is the shared
+// 14-operator list. Keep in sync with the backend's accepted comparison set.
 const assertionComparisons: Record<string, true> = {
   EQUALS: true,
   NOT_EQUALS: true,

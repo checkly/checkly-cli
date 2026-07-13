@@ -79,8 +79,7 @@ export class TracerouteMonitor extends Monitor {
     await validateResponseTimes(diagnostics, this, {
       degradedResponseTime: 30_000,
       maxResponseTime: 30_000,
-      // Backend default applied when maxResponseTime is omitted (see
-      // tracerouteResponseTimeLimitFields in response-time-limit-schema.ts).
+      // Backend default applied when maxResponseTime is omitted.
       defaultMaxResponseTime: 20_000,
     })
 

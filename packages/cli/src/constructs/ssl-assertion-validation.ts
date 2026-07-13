@@ -4,18 +4,17 @@ import { SslAssertion } from './ssl-assertion.js'
 
 type SslSourceRule = {
   comparisons: Record<string, true>
-  // Boolean sources compare against 'true'/'false' only; the runner rejects any
-  // other target (go-runner ssl/executor.go). Target *values* are validated only for
+  // Boolean sources compare against 'true'/'false' only; the backend evaluates any
+  // other target as a permanent non-match. Target *values* are validated only for
   // boolean sources: booleans are a universal two-value set, so a typo is a pure
   // footgun. The larger closed sets (TLS_VERSION, SIGNATURE_ALGORITHM) are constrained
-  // by the builder's value types instead; the deploy schema accepts any target string
-  // (it is not a 400), so a hand-written out-of-set literal simply never matches at
-  // evaluation, and re-validating those here would duplicate the value unions.
+  // by the builder's value types instead; the backend accepts any target string (it is
+  // not rejected at deploy), so a hand-written out-of-set literal simply never matches
+  // at evaluation, and re-validating those here would duplicate the value unions.
   booleanTarget?: boolean
 }
 
-// The operators the backend accepts per source (public-api schemas.js
-// `sslMonitorAssertionComparisonsBySource`), minus the CLI-dropped
+// The operators the backend accepts per source, minus the CLI-dropped
 // GREATER_THAN_OR_EQUAL. Keyed by the source union so adding a source without a rule
 // fails to compile.
 const rules: Record<SslAssertion['source'], SslSourceRule> = {

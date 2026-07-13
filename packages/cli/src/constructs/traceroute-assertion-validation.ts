@@ -18,9 +18,8 @@ const assertionSources: Record<TracerouteAssertion['source'], true> = {
   PACKET_LOSS: true,
 }
 
-// Comparisons the backend accepts per source (tracerouteAssertion in the deploy
-// schema). RESPONSE_TIME additionally permits NOT_EQUALS; hop count and packet loss
-// do not. Keep in sync with public-api schemas.js.
+// Comparisons the backend accepts per source. RESPONSE_TIME additionally permits
+// NOT_EQUALS; hop count and packet loss do not. Keep in sync with the backend.
 const responseTimeComparisons: Record<string, true> = {
   EQUALS: true,
   NOT_EQUALS: true,

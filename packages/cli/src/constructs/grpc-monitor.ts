@@ -78,7 +78,7 @@ export class GrpcMonitor extends Monitor {
 
     await validateResponseTimes(diagnostics, this, {
       // gRPC allows thresholds up to 180s (calls can run to the 180s timeout),
-      // matching grpcResponseTimeLimitFields in response-time-limit-schema.ts.
+      // matching the backend's gRPC response-time limits.
       degradedResponseTime: 180_000,
       maxResponseTime: 180_000,
       // Backend default applied when maxResponseTime is omitted.

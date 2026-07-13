@@ -614,7 +614,7 @@ function formatIcmpResponse (response: ICMPResponse) {
 
 // Traceroute / gRPC / SSL diagnostics for the `checkly test` runner path. The
 // runner artifact (`checkRunData.response`) mirrors the public check-results
-// `response` sub-object; keys come straight off the go-runner (snake_case for
+// `response` sub-object; keys come straight off the backend (snake_case for
 // traceroute hops/latency), so read defensively.
 
 function latencyStats (obj: any): string | undefined {
@@ -665,7 +665,7 @@ function formatGrpcResponse (response: any) {
   const methods = Array.isArray(response.discoveredMethods) ? response.discoveredMethods : []
   const metadata = Array.isArray(response.metadata) ? response.metadata : []
   const metadataLines = metadata.slice(0, 20).map((m: any) => `  ${m.key ?? m.name ?? '(key)'}: ${m.value ?? ''}`)
-  // The go-runner reports gRPC response time as `timingPhases.total` (ms); fall
+  // The backend reports gRPC response time as `timingPhases.total` (ms); fall
   // back to a flat `responseTime` if a future artifact exposes one.
   const responseTime = response.timingPhases?.total ?? response.responseTime
   return [
