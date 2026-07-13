@@ -17,11 +17,18 @@ export type TracerouteResponseTimeProperty = 'avg' | 'min' | 'max' | 'stdDev'
 /** Response time for a statistical property — accepts the full numeric operator set. */
 class ResponseTimeAssertionBuilder {
   constructor (private property: TracerouteResponseTimeProperty) {}
-  equals (target: number): TracerouteAssertion { return toAssertion('RESPONSE_TIME', 'EQUALS', target, this.property) }
+  equals (target: number): TracerouteAssertion {
+    return toAssertion('RESPONSE_TIME', 'EQUALS', target, this.property)
+  }
+
   notEquals (target: number): TracerouteAssertion {
     return toAssertion('RESPONSE_TIME', 'NOT_EQUALS', target, this.property)
   }
-  lessThan (target: number): TracerouteAssertion { return toAssertion('RESPONSE_TIME', 'LESS_THAN', target, this.property) }
+
+  lessThan (target: number): TracerouteAssertion {
+    return toAssertion('RESPONSE_TIME', 'LESS_THAN', target, this.property)
+  }
+
   greaterThan (target: number): TracerouteAssertion {
     return toAssertion('RESPONSE_TIME', 'GREATER_THAN', target, this.property)
   }
@@ -29,16 +36,32 @@ class ResponseTimeAssertionBuilder {
 
 /** Number of network hops — accepts EQUALS / LESS_THAN / GREATER_THAN (not NOT_EQUALS). */
 class HopCountAssertionBuilder {
-  equals (target: number): TracerouteAssertion { return toAssertion('HOP_COUNT', 'EQUALS', target) }
-  lessThan (target: number): TracerouteAssertion { return toAssertion('HOP_COUNT', 'LESS_THAN', target) }
-  greaterThan (target: number): TracerouteAssertion { return toAssertion('HOP_COUNT', 'GREATER_THAN', target) }
+  equals (target: number): TracerouteAssertion {
+    return toAssertion('HOP_COUNT', 'EQUALS', target)
+  }
+
+  lessThan (target: number): TracerouteAssertion {
+    return toAssertion('HOP_COUNT', 'LESS_THAN', target)
+  }
+
+  greaterThan (target: number): TracerouteAssertion {
+    return toAssertion('HOP_COUNT', 'GREATER_THAN', target)
+  }
 }
 
 /** Packet loss percentage (0-100) — accepts EQUALS / LESS_THAN / GREATER_THAN (not NOT_EQUALS). */
 class PacketLossAssertionBuilder {
-  equals (target: number): TracerouteAssertion { return toAssertion('PACKET_LOSS', 'EQUALS', target) }
-  lessThan (target: number): TracerouteAssertion { return toAssertion('PACKET_LOSS', 'LESS_THAN', target) }
-  greaterThan (target: number): TracerouteAssertion { return toAssertion('PACKET_LOSS', 'GREATER_THAN', target) }
+  equals (target: number): TracerouteAssertion {
+    return toAssertion('PACKET_LOSS', 'EQUALS', target)
+  }
+
+  lessThan (target: number): TracerouteAssertion {
+    return toAssertion('PACKET_LOSS', 'LESS_THAN', target)
+  }
+
+  greaterThan (target: number): TracerouteAssertion {
+    return toAssertion('PACKET_LOSS', 'GREATER_THAN', target)
+  }
 }
 
 /**

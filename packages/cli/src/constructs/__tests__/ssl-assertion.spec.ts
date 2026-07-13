@@ -104,8 +104,8 @@ describe('SslAssertionBuilder — typed target values', () => {
       expect(SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)')).toMatchObject({
         source: 'CIPHER_SUITE', comparison: 'MATCHES', target: 'TLS_(AES|CHACHA)',
       })
-      expect(SslAssertionBuilder.issuerCn().matches("^Let's Encrypt")).toMatchObject({
-        source: 'ISSUER_CN', comparison: 'MATCHES', target: "^Let's Encrypt",
+      expect(SslAssertionBuilder.issuerCn().matches('^Let\'s Encrypt')).toMatchObject({
+        source: 'ISSUER_CN', comparison: 'MATCHES', target: '^Let\'s Encrypt',
       })
       expect(SslAssertionBuilder.signatureAlgorithm().matches('SHA(256|384)')).toMatchObject({
         source: 'SIGNATURE_ALGORITHM', comparison: 'MATCHES', target: 'SHA(256|384)',
@@ -117,7 +117,7 @@ describe('SslAssertionBuilder — typed target values', () => {
     it('rejects them at compile time', () => {
       // Compile-time-only checks: the removed methods do not exist at runtime, so the
       // body is type-checked but never executed (an uncalled function).
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       const _typeChecks = () => {
         // keySizeBits supports EQUALS only (GREATER_THAN_OR_EQUAL was dropped)
         // @ts-expect-error greaterThan is not available on the key-size builder

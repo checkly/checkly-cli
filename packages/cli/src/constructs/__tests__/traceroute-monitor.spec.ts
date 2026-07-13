@@ -336,7 +336,7 @@ describe('TracerouteMonitor', () => {
     it('the builders do not offer NOT_EQUALS for hop count / packet loss', () => {
       // Compile-time-only checks: notEquals does not exist on these builders at
       // runtime, so the body is type-checked but never executed.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       const _typeChecks = () => {
         // @ts-expect-error notEquals is not available on the hop-count builder
         TracerouteAssertionBuilder.hopCount().notEquals(20)

@@ -340,7 +340,7 @@ describe('SslMonitor', () => {
         SslAssertionBuilder.chainTrusted().equals(true),
         SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
         SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)'),
-        SslAssertionBuilder.issuerCn().matches("^Let's Encrypt"),
+        SslAssertionBuilder.issuerCn().matches('^Let\'s Encrypt'),
       ])
       expect(diags.isFatal()).toEqual(false)
     })

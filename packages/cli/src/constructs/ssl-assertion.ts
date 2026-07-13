@@ -109,40 +109,63 @@ export type SslAssertion = CoreAssertion<SslAssertionSource>
 
 /** Days until the certificate expires (numeric). */
 class CertExpiresInDaysAssertionBuilder {
-  equals (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'EQUALS', target) }
-  notEquals (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'NOT_EQUALS', target) }
-  lessThan (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'LESS_THAN', target) }
-  greaterThan (target: number): SslAssertion { return toAssertion('CERT_EXPIRES_IN_DAYS', 'GREATER_THAN', target) }
+  equals (target: number): SslAssertion {
+    return toAssertion('CERT_EXPIRES_IN_DAYS', 'EQUALS', target)
+  }
+
+  notEquals (target: number): SslAssertion {
+    return toAssertion('CERT_EXPIRES_IN_DAYS', 'NOT_EQUALS', target)
+  }
+
+  lessThan (target: number): SslAssertion {
+    return toAssertion('CERT_EXPIRES_IN_DAYS', 'LESS_THAN', target)
+  }
+
+  greaterThan (target: number): SslAssertion {
+    return toAssertion('CERT_EXPIRES_IN_DAYS', 'GREATER_THAN', target)
+  }
 }
 
 /** Certificate key size in bits (numeric, exact match only). */
 class KeySizeBitsAssertionBuilder {
-  equals (target: number): SslAssertion { return toAssertion('KEY_SIZE_BITS', 'EQUALS', target) }
+  equals (target: number): SslAssertion {
+    return toAssertion('KEY_SIZE_BITS', 'EQUALS', target)
+  }
 }
 
 /** Whether the certificate is not expired (boolean). */
 class CertNotExpiredAssertionBuilder {
-  equals (target: boolean): SslAssertion { return toAssertion('CERT_NOT_EXPIRED', 'EQUALS', target) }
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CERT_NOT_EXPIRED', 'EQUALS', target)
+  }
 }
 
 /** Whether the hostname is verified (boolean). */
 class HostnameVerifiedAssertionBuilder {
-  equals (target: boolean): SslAssertion { return toAssertion('HOSTNAME_VERIFIED', 'EQUALS', target) }
+  equals (target: boolean): SslAssertion {
+    return toAssertion('HOSTNAME_VERIFIED', 'EQUALS', target)
+  }
 }
 
 /** Whether the certificate chain is trusted (boolean). */
 class ChainTrustedAssertionBuilder {
-  equals (target: boolean): SslAssertion { return toAssertion('CHAIN_TRUSTED', 'EQUALS', target) }
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CHAIN_TRUSTED', 'EQUALS', target)
+  }
 }
 
 /** Whether a stapled OCSP response was provided during the handshake (boolean). */
 class OcspStapledAssertionBuilder {
-  equals (target: boolean): SslAssertion { return toAssertion('OCSP_STAPLED', 'EQUALS', target) }
+  equals (target: boolean): SslAssertion {
+    return toAssertion('OCSP_STAPLED', 'EQUALS', target)
+  }
 }
 
 /** Negotiated TLS version — `.equals()` accepts only known TLS version strings. */
 class TlsVersionAssertionBuilder {
-  equals (target: TlsVersionValue): SslAssertion { return toAssertion('TLS_VERSION', 'EQUALS', target) }
+  equals (target: TlsVersionValue): SslAssertion {
+    return toAssertion('TLS_VERSION', 'EQUALS', target)
+  }
 }
 
 /**
@@ -150,32 +173,57 @@ class TlsVersionAssertionBuilder {
  * `x509.Certificate.SignatureAlgorithm.String()` value; `.matches()` takes a regex.
  */
 class SignatureAlgorithmAssertionBuilder {
-  equals (target: SignatureAlgorithmValue): SslAssertion { return toAssertion('SIGNATURE_ALGORITHM', 'EQUALS', target) }
-  matches (target: string): SslAssertion { return toAssertion('SIGNATURE_ALGORITHM', 'MATCHES', target) }
+  equals (target: SignatureAlgorithmValue): SslAssertion {
+    return toAssertion('SIGNATURE_ALGORITHM', 'EQUALS', target)
+  }
+
+  matches (target: string): SslAssertion {
+    return toAssertion('SIGNATURE_ALGORITHM', 'MATCHES', target)
+  }
 }
 
 /** Negotiated cipher suite (string) — exact, not-equal, or regex match. */
 class CipherSuiteAssertionBuilder {
-  equals (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'EQUALS', target) }
-  notEquals (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'NOT_EQUALS', target) }
-  matches (target: string): SslAssertion { return toAssertion('CIPHER_SUITE', 'MATCHES', target) }
+  equals (target: string): SslAssertion {
+    return toAssertion('CIPHER_SUITE', 'EQUALS', target)
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CIPHER_SUITE', 'NOT_EQUALS', target)
+  }
+
+  matches (target: string): SslAssertion {
+    return toAssertion('CIPHER_SUITE', 'MATCHES', target)
+  }
 }
 
 /** Certificate issuer common name (string) — exact, not-equal, or regex match. */
 class IssuerCnAssertionBuilder {
-  equals (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'EQUALS', target) }
-  notEquals (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'NOT_EQUALS', target) }
-  matches (target: string): SslAssertion { return toAssertion('ISSUER_CN', 'MATCHES', target) }
+  equals (target: string): SslAssertion {
+    return toAssertion('ISSUER_CN', 'EQUALS', target)
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('ISSUER_CN', 'NOT_EQUALS', target)
+  }
+
+  matches (target: string): SslAssertion {
+    return toAssertion('ISSUER_CN', 'MATCHES', target)
+  }
 }
 
 /** Certificate SHA-256 fingerprint (string, exact match only). */
 class CertFingerprintSha256AssertionBuilder {
-  equals (target: string): SslAssertion { return toAssertion('CERT_FINGERPRINT_SHA256', 'EQUALS', target) }
+  equals (target: string): SslAssertion {
+    return toAssertion('CERT_FINGERPRINT_SHA256', 'EQUALS', target)
+  }
 }
 
 /** Issuer SHA-256 fingerprint (string, exact match only). */
 class IssuerFingerprintSha256AssertionBuilder {
-  equals (target: string): SslAssertion { return toAssertion('ISSUER_FINGERPRINT_SHA256', 'EQUALS', target) }
+  equals (target: string): SslAssertion {
+    return toAssertion('ISSUER_FINGERPRINT_SHA256', 'EQUALS', target)
+  }
 }
 
 /**
