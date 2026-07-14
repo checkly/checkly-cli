@@ -78,3 +78,46 @@ export async function selectPlanOrExit (
     throw err
   }
 }
+
+/**
+ * Resolves one or more import plans for a bulk command (e.g. `import cancel`),
+ * falling back to interactive multi-selection when appropriate.
+ *
+ * - `--all` selects every candidate plan without prompting.
+ * - `--all` and `--plan-id` are mutually exclusive: rather than silently letting
+ *   one win, the contradictory combination is rejected. This matters most for
+ *   the destructive `cancel` command driven by an agent that assembles flags
+ *   programmatically.
+ * - Otherwise a single plan is resolved via {@link resolvePlanNonInteractively},
+ *   falling back to interactive selection when it returns `undefined`.
+ *
+ * On an unrecoverable {@link PlanSelectionError} it reports the error and exits
+ * with a non-zero code so agents/CI observe the failure.
+ */
+export async function selectPlansOrExit (
+  command: BaseCommand,
+  plans: ImportPlan[],
+  { all, planId }: { all: boolean, planId: string | undefined },
+  action: string,
+  interactiveFallback: () => Promise<ImportPlan[]>,
+): Promise<ImportPlan[]> {
+  try {
+    if (all && planId !== undefined) {
+      throw new PlanSelectionError(`--all and --plan-id cannot be used together.`)
+    }
+
+    if (all) {
+      return plans
+    }
+
+    const plan = resolvePlanNonInteractively(plans, planId, action)
+    return plan !== undefined ? [plan] : await interactiveFallback()
+  } catch (err) {
+    if (err instanceof PlanSelectionError) {
+      command.style.fatal(err.message)
+      return command.exit(1)
+    }
+
+    throw err
+  }
+}
