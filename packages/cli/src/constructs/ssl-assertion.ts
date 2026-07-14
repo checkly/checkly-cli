@@ -104,6 +104,33 @@ type SslAssertionSource =
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
+// The certificate/connection property names the backend understands. Narrowing the
+// `property` parameter to these unions turns a typo into a compile error and drives
+// autocomplete. The runtime whitelist in ssl-assertion-validation.ts is the source of
+// truth for object-literal assertions that bypass the builder.
+type CertificateProperty =
+  | 'daysUntilExpiry'
+  | 'subjectCN'
+  | 'issuerCN'
+  | 'serialNumber'
+  | 'fingerprintSha256'
+  | 'issuerFingerprintSha256'
+  | 'keySizeBits'
+  | 'keyAlgorithm'
+  | 'signatureAlgorithm'
+  | 'sans'
+  | 'selfSigned'
+  | 'isCA'
+
+type ConnectionProperty =
+  | 'tlsVersion'
+  | 'cipherSuite'
+  | 'hostnameVerified'
+  | 'chainTrusted'
+  | 'ocspStapled'
+  | 'ocspStatus'
+  | 'resolvedIp'
+
 /**
  * Builder class for creating SSL monitor assertions.
  *
@@ -137,7 +164,9 @@ export class SslAssertionBuilder {
    * @param property The certificate property to assert on (e.g. `'daysUntilExpiry'`,
    *   `'issuerCN'`, `'signatureAlgorithm'`, `'sans'`, `'selfSigned'`).
    */
-  static certificate (property: string) {
+  static certificate (property: 'signatureAlgorithm'): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>
+  static certificate (property: CertificateProperty): GeneralAssertionBuilder<SslAssertionSource>
+  static certificate (property: CertificateProperty) {
     return new GeneralAssertionBuilder<SslAssertionSource>('CERTIFICATE', property)
   }
 
@@ -146,7 +175,9 @@ export class SslAssertionBuilder {
    * @param property The connection property to assert on (e.g. `'tlsVersion'`,
    *   `'cipherSuite'`, `'hostnameVerified'`, `'ocspStatus'`, `'resolvedIp'`).
    */
-  static connection (property: string) {
+  static connection (property: 'tlsVersion'): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>
+  static connection (property: ConnectionProperty): GeneralAssertionBuilder<SslAssertionSource>
+  static connection (property: ConnectionProperty) {
     return new GeneralAssertionBuilder<SslAssertionSource>('CONNECTION', property)
   }
 

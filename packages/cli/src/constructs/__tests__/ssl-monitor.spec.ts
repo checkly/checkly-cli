@@ -352,6 +352,67 @@ describe('SslMonitor', () => {
       ]))
     })
 
+    it('should error on removed SSL-only operators against the new grammar', async () => {
+      // The regex (MATCHES) and >= (GREATER_THAN_OR_EQUAL) operators were dropped for SSL;
+      // they must be rejected on every source that could plausibly carry them.
+      const cases: Array<{ assertion: SslRequest['assertions'][number]; message: string }> = [
+        {
+          assertion: { source: 'CERTIFICATE', property: 'signatureAlgorithm', comparison: 'MATCHES', target: 'x', regex: null },
+          message: 'The CERTIFICATE "signatureAlgorithm" assertion at "request.assertions[0]" has an unsupported comparison "MATCHES".',
+        },
+        {
+          assertion: { source: 'CONNECTION', property: 'tlsVersion', comparison: 'GREATER_THAN_OR_EQUAL', target: 'TLS1.2', regex: null },
+          message: 'The CONNECTION "tlsVersion" assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN_OR_EQUAL".',
+        },
+        {
+          assertion: { source: 'RESPONSE_TIME', property: '', comparison: 'GREATER_THAN_OR_EQUAL', target: '100', regex: null },
+          message: 'The RESPONSE_TIME assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN_OR_EQUAL".',
+        },
+      ]
+      for (const { assertion, message } of cases) {
+        const diags = await validateWith([assertion])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining(message) }),
+        ]))
+      }
+    })
+
+    it('should enforce the per-property comparison whitelist', async () => {
+      const cases: Array<{ assertion: SslRequest['assertions'][number]; message: string }> = [
+        {
+          // sans is STRING_LIST — only CONTAINS / NOT_CONTAINS, so EQUALS is rejected.
+          assertion: { source: 'CERTIFICATE', property: 'sans', comparison: 'EQUALS', target: 'example.com', regex: null },
+          message: 'The CERTIFICATE "sans" assertion at "request.assertions[0]" has an unsupported comparison "EQUALS".',
+        },
+        {
+          // serialNumber is ID — only EQUALS / NOT_EQUALS, so CONTAINS is rejected.
+          assertion: { source: 'CERTIFICATE', property: 'serialNumber', comparison: 'CONTAINS', target: 'ab', regex: null },
+          message: 'The CERTIFICATE "serialNumber" assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
+        },
+        {
+          // ocspStatus is ENUM — only EQUALS / NOT_EQUALS, so CONTAINS is rejected.
+          assertion: { source: 'CONNECTION', property: 'ocspStatus', comparison: 'CONTAINS', target: 'good', regex: null },
+          message: 'The CONNECTION "ocspStatus" assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
+        },
+      ]
+      for (const { assertion, message } of cases) {
+        const diags = await validateWith([assertion])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining(message) }),
+        ]))
+      }
+    })
+
+    it('should accept the list-oriented comparisons the whitelist allows', async () => {
+      const diags = await validateWith([
+        { source: 'CERTIFICATE', property: 'sans', comparison: 'CONTAINS', target: 'example.com', regex: null },
+        { source: 'CONNECTION', property: 'resolvedIp', comparison: 'NOT_CONTAINS', target: '10.0.0.1', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(false)
+    })
+
     it('should not error on assertions built with SslAssertionBuilder', async () => {
       const diags = await validateWith([
         SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30),

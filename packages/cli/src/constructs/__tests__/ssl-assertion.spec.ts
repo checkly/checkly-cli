@@ -112,4 +112,38 @@ describe('SslAssertionBuilder', () => {
       })
     })
   })
+
+  // These cases assert compile-time narrowing. The `@ts-expect-error` lines are the
+  // real assertions: `tsc --build` fails if any becomes a false positive (an unused
+  // expect-error). The runtime `expect` keeps the block a valid test.
+  describe('type narrowing (compile-time)', () => {
+    it('constrains connection(tlsVersion) targets to TlsVersionValue', () => {
+      expect(SslAssertionBuilder.connection('tlsVersion').equals(TlsVersion.TLS1_3)).toMatchObject({
+        source: 'CONNECTION', property: 'tlsVersion', comparison: 'EQUALS', target: 'TLS1.3',
+      })
+      // @ts-expect-error 'bogus' is not a TlsVersionValue
+      SslAssertionBuilder.connection('tlsVersion').equals('bogus')
+    })
+
+    it('constrains certificate(signatureAlgorithm) targets to SignatureAlgorithmValue', () => {
+      expect(SslAssertionBuilder.certificate('signatureAlgorithm').equals(SignatureAlgorithm.SHA256_RSA)).toMatchObject({
+        source: 'CERTIFICATE', property: 'signatureAlgorithm', comparison: 'EQUALS', target: 'SHA256-RSA',
+      })
+      // @ts-expect-error 'nope' is not a SignatureAlgorithmValue
+      SslAssertionBuilder.certificate('signatureAlgorithm').equals('nope')
+    })
+
+    it('rejects unknown property names', () => {
+      // @ts-expect-error 'bogusProperty' is not a CertificateProperty
+      SslAssertionBuilder.certificate('bogusProperty')
+      // @ts-expect-error 'bogusProperty' is not a ConnectionProperty
+      SslAssertionBuilder.connection('bogusProperty')
+    })
+
+    it('leaves cipherSuite targets unconstrained (arbitrary string)', () => {
+      expect(SslAssertionBuilder.connection('cipherSuite').equals('SOME_FUTURE_SUITE')).toMatchObject({
+        source: 'CONNECTION', property: 'cipherSuite', comparison: 'EQUALS', target: 'SOME_FUTURE_SUITE',
+      })
+    })
+  })
 })
