@@ -7,8 +7,8 @@ export interface Assertion<Source extends string> {
 }
 
 // Builds an assertion payload from its parts. `comparison` is a free type parameter
-// so any operator string (including SSL's `MATCHES`) is accepted without a central
-// union. Empty property, stringified target, and null regex are the wire defaults.
+// so any operator string is accepted without a central union. Empty property,
+// stringified target, and null regex are the wire defaults.
 export function toAssertion<
   Source extends string,
   Comparison extends string,
