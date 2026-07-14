@@ -135,7 +135,21 @@ type ParserOptions = {
 }
 
 export type VirtualFile = { filePath: string, physical: false, content: string }
-export type PhysicalFile = { filePath: string, physical: true }
+export type PhysicalFile = {
+  filePath: string
+  physical: true
+  /**
+   * Where the file goes in the archive. Defaults to filePath relative to the
+   * bundle root. Only needed when the two differ, which happens when a file is
+   * bundled at the path of a symlink that points at it.
+   */
+  archivePath?: string
+  /**
+   * When set, the entry is archived as a symlink pointing here rather than as a
+   * copy of the file's contents. Relative to the entry's own archive directory.
+   */
+  symlinkTarget?: string
+}
 
 export type File =
   | VirtualFile
