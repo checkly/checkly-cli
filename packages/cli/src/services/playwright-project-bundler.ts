@@ -10,8 +10,22 @@ import { PackageJsonFile } from './check-parser/package-files/package-json-file.
 import { ImporterCandidate } from './check-parser/package-files/lockfile-package-version.js'
 import { lineage } from './check-parser/package-files/walk.js'
 import { PlaywrightConfig } from './playwright-config.js'
+import { resolveBundleFiles } from './symlink-resolver.js'
 import { findFilesWithPattern, pathToPosix } from './util.js'
 import { Session } from '../constructs/session.js'
+
+/**
+ * The directory archive paths are relative to. Must match the bundler's strip
+ * prefix (see Bundler.createForWorkspace), or archive paths won't line up.
+ */
+function bundleRootPath (): string | undefined {
+  const workspace = Session.workspace
+  if (!workspace.isOk()) {
+    return undefined
+  }
+
+  return workspace.unwrap().root.path
+}
 
 export interface PlaywrightProjectBundle {
   browsers: string[]
@@ -94,11 +108,24 @@ export class PlaywrightProjectBundler {
       ignoredFiles,
     )
 
-    for (const filePath of includedFiles) {
-      files.push({
-        filePath,
-        physical: true,
-      })
+    // Included paths may run through symlinks — under pnpm every package in
+    // node_modules is one. Left alone they produce an archive that tar cannot
+    // extract, so resolve them into entries that can be.
+    const bundleRoot = bundleRootPath()
+    if (bundleRoot === undefined) {
+      for (const filePath of includedFiles) {
+        files.push({
+          filePath,
+          physical: true,
+        })
+      }
+    } else {
+      files.push(...await resolveBundleFiles({
+        matchedPaths: includedFiles,
+        bundleRoot,
+        ignoreCwd: dir,
+        ignorePatterns: ignoredFiles,
+      }))
     }
 
     return {

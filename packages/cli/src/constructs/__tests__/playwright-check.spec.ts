@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -35,6 +36,41 @@ async function listTarFiles (filePath: string): Promise<string[]> {
     onReadEntry: entry => filenames.push(entry.path),
   })
   return filenames
+}
+
+interface TarEntry {
+  path: string
+  type: string
+  linkpath?: string
+}
+
+async function listTarEntries (filePath: string): Promise<TarEntry[]> {
+  const entries: TarEntry[] = []
+  await list({
+    file: filePath,
+    onReadEntry: entry => entries.push({
+      path: entry.path,
+      type: entry.type,
+      linkpath: entry.linkpath ?? undefined,
+    }),
+  })
+  return entries
+}
+
+/**
+ * Asserts the one thing an archive must never contain: a symlink with entries
+ * beneath it. A path cannot be both a symlink and a directory, and tar refuses
+ * to extract an archive that claims otherwise — which is what the CLI produced
+ * for any pnpm package reached through node_modules.
+ */
+function expectNoSymlinkHasChildren (entries: TarEntry[]): void {
+  for (const symlink of entries.filter(entry => entry.type === 'SymbolicLink')) {
+    const children = entries
+      .filter(entry => entry.path.startsWith(`${symlink.path}/`))
+      .map(entry => entry.path)
+
+    expect(children, `entries beneath symlink ${symlink.path}`).toEqual([])
+  }
 }
 
 const DEFAULT_TEST_TIMEOUT = 180_000
@@ -960,7 +996,8 @@ describe('PlaywrightCheck', () => {
         codeBundlePath,
       } = output.payload.resources[0].payload as any
 
-      const files = await listTarFiles(codeBundlePath)
+      const entries = await listTarEntries(codeBundlePath)
+      const files = entries.map(entry => entry.path)
 
       expect(files.sort()).toEqual(expect.arrayContaining([
         'node_modules/checkly/package.json',
@@ -969,6 +1006,12 @@ describe('PlaywrightCheck', () => {
         'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ]))
+
+      // The package list stays permissive because the checkly package's own
+      // contents change, but the archive still has to be extractable — and
+      // `node_modules/checkly` is a pnpm symlink, so this is exactly where a
+      // symlink entry used to appear with files nested beneath it.
+      expectNoSymlinkHasChildren(entries)
     }, DEFAULT_TEST_TIMEOUT)
 
     it('should still respect custom ignoreDirectoriesMatch for explicit patterns', async () => {
@@ -1047,6 +1090,102 @@ describe('PlaywrightCheck', () => {
         'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ])
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling a pnpm-style node_modules', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-symlinks'),
+      })
+
+      // Built here rather than committed: nothing under a node_modules path can
+      // be checked in, and the sandbox's own top-level node_modules is a symlink
+      // to a template shared by every test — writing through it would corrupt
+      // the other tests. This tree is a nested, real node_modules instead.
+      const nodeModules = path.join(fixt.root, 'packages', 'e2e', 'node_modules')
+
+      const writeFile = async (relativePath: string, content: string) => {
+        const filePath = path.join(nodeModules, relativePath)
+        await fs.mkdir(path.dirname(filePath), { recursive: true })
+        await fs.writeFile(filePath, content)
+      }
+
+      const symlink = async (relativePath: string, target: string) => {
+        const linkPath = path.join(nodeModules, relativePath)
+        await fs.mkdir(path.dirname(linkPath), { recursive: true })
+        await fs.symlink(target, linkPath)
+      }
+
+      // What pnpm builds: packages live in a store, and node_modules holds links
+      // into it. A package's own dependencies sit next to it inside the store,
+      // not underneath it.
+      await writeFile('.pnpm/pkg@1.0.0/node_modules/pkg/index.js', 'module.exports = require(\'dep\')\n')
+      await writeFile('.pnpm/pkg@1.0.0/node_modules/pkg/package.json', '{"name":"pkg","version":"1.0.0"}')
+      await symlink('.pnpm/pkg@1.0.0/node_modules/dep', '../../dep@2.0.0/node_modules/dep')
+      await writeFile('.pnpm/dep@2.0.0/node_modules/dep/index.js', 'module.exports = \'dep\'\n')
+      await writeFile('.pnpm/dep@2.0.0/node_modules/dep/package.json', '{"name":"dep","version":"2.0.0"}')
+      await symlink('pkg', '.pnpm/pkg@1.0.0/node_modules/pkg')
+
+      // A linked workspace package, which is how a monorepo shares code.
+      await symlink('@scope/shared-lib', '../../../shared-lib')
+
+      // A symlinked source directory that a spec imports through. The check
+      // parser registers what the spec imports at its path *through* the link,
+      // without resolving it — so its files arrive beneath a link the symlink
+      // resolver kept, from a code path the resolver never sees.
+      await fs.symlink('../shared-helpers', path.join(fixt.root, 'packages', 'e2e', 'helpers'))
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should keep symlinks as symlinks and bundle what they point at', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const entries = await listTarEntries(codeBundlePath)
+
+      // The archive has to be extractable. Previously the package symlink and
+      // the files reached through it were both archived under the same path,
+      // and tar cannot create that.
+      expectNoSymlinkHasChildren(entries)
+
+      const symlinks = entries
+        .filter(entry => entry.type === 'SymbolicLink')
+        .map(entry => `${entry.path} -> ${entry.linkpath}`)
+        .sort()
+
+      expect(symlinks).toEqual([
+        'packages/e2e/node_modules/.pnpm/pkg@1.0.0/node_modules/dep -> ../../dep@2.0.0/node_modules/dep',
+        'packages/e2e/node_modules/@scope/shared-lib -> ../../../shared-lib',
+        'packages/e2e/node_modules/pkg -> .pnpm/pkg@1.0.0/node_modules/pkg',
+      ])
+
+      const files = entries.map(entry => entry.path)
+
+      // The link targets travel with the links, or nothing resolves on the
+      // runner. `dep` is only here because the store directory holding `pkg`
+      // was collected too — it is a sibling of pkg, not a child of it.
+      expect(files).toEqual(expect.arrayContaining([
+        'packages/e2e/node_modules/.pnpm/pkg@1.0.0/node_modules/pkg/index.js',
+        'packages/e2e/node_modules/.pnpm/dep@2.0.0/node_modules/dep/index.js',
+        'packages/shared-lib/src/index.js',
+        'packages/shared-lib/package.json',
+      ]))
+
+      // The spec imports through the symlinked helpers directory, and the parser
+      // registers that import at its path through the link. The file has to be
+      // in the archive — and, since it sits beneath the link's path, the link
+      // must not also be there, or the archive would not extract.
+      expect(files).toContain('packages/e2e/helpers/login.ts')
+      expect(symlinks).not.toContain(expect.stringContaining('packages/e2e/helpers ->'))
     }, DEFAULT_TEST_TIMEOUT)
   })
 

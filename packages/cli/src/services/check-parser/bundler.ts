@@ -12,8 +12,70 @@ import { checklyStorage } from '../../rest/api.js'
 import { computeWorkspaceCacheHash } from './cache-hash.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
+import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:bundler')
+
+/**
+ * Where a file goes in the archive. A file usually lands at its own path
+ * relative to the bundle root, but a file bundled at the path of a symlink that
+ * points at it carries the archive path explicitly.
+ */
+function archivePath (file: File, stripPrefix?: string): string {
+  if (file.physical && file.archivePath !== undefined) {
+    return file.archivePath
+  }
+
+  return stripPrefix
+    ? path.relative(stripPrefix, file.filePath)
+    : file.filePath
+}
+
+/**
+ * Drops any symlink that has entries beneath it. One path cannot be both a
+ * symlink and a directory, and tar refuses to extract an archive claiming
+ * otherwise — the failure this whole mechanism exists to avoid.
+ *
+ * This has to happen here, over the complete set of entries, and not only where
+ * the entries are produced: the archive is the union of what the symlink
+ * resolver contributed and what the check parser registered, and the parser does
+ * not resolve symlinks. A spec that imports through a symlinked directory is
+ * registered at its path *through* that link, which puts it under a link the
+ * resolver quite reasonably kept.
+ *
+ * The link is what goes, rather than the files: the files are content, and they
+ * extract perfectly well as ordinary files, whereas the link takes the whole
+ * archive down with it.
+ */
+function dropSymlinksWithChildren (entries: Array<[string, File]>): File[] {
+  const directories = new Set<string>()
+
+  for (const [name] of entries) {
+    for (
+      let parent = path.posix.dirname(pathToPosix(name));
+      parent !== '.' && parent !== '/' && parent !== '' && !directories.has(parent);
+      parent = path.posix.dirname(parent)
+    ) {
+      directories.add(parent)
+    }
+  }
+
+  return entries
+    .filter(([name, file]) => {
+      if (!file.physical || file.symlinkTarget === undefined) {
+        return true
+      }
+
+      if (!directories.has(pathToPosix(name))) {
+        return true
+      }
+
+      debug(`Dropping symlink ${name}: other files are archived beneath it`)
+
+      return false
+    })
+    .map(([, file]) => file)
+}
 
 export interface CreateBundleArchiveOptions {
   tempDir?: string
@@ -88,23 +150,55 @@ export class BundleArchive {
     })
   }
 
-  // eslint-disable-next-line require-await
   async add (...files: File[]): Promise<void> {
-    for (const file of files) {
-      const name = this.#stripPrefix
-        ? path.relative(this.#stripPrefix, file.filePath)
-        : file.filePath
+    // Stat every physical file up front, following symlinks, and hand the result
+    // to archiver. Left to itself archiver lstats each path and turns anything
+    // that happens to be a symlink into a symlink entry — which is how a symlink
+    // and the files beneath it end up in the archive at the same path, an
+    // archive tar cannot extract. Symlink entries are emitted deliberately,
+    // below, and nowhere else.
+    //
+    // A bundle that includes node_modules runs to tens of thousands of files, so
+    // these go out together rather than one await at a time.
+    const stats = await Promise.all(files.map(async file => {
+      if (!file.physical || file.symlinkTarget !== undefined) {
+        return undefined
+      }
+
+      try {
+        return await fs.stat(file.filePath)
+      } catch (err) {
+        // Following the link means a broken one fails here, where archiver would
+        // previously have made it a dangling entry.
+        process.stderr.write(`Warning: skipping ${file.filePath}: ${err instanceof Error ? err.message : err}\n`)
+        return undefined
+      }
+    }))
+
+    for (const [index, file] of files.entries()) {
+      const name = archivePath(file, this.#stripPrefix)
 
       const entry = {
         mode: 0o755, // Default mode for files in the archive
         name,
       }
 
-      if (file.physical) {
-        this.#archive.file(file.filePath, entry)
-      } else {
+      if (!file.physical) {
         this.#archive.append(file.content, entry)
+        continue
       }
+
+      if (file.symlinkTarget !== undefined) {
+        this.#archive.symlink(name, file.symlinkTarget, entry.mode)
+        continue
+      }
+
+      const fileStats = stats[index]
+      if (fileStats === undefined) {
+        continue
+      }
+
+      this.#archive.file(file.filePath, { ...entry, stats: fileStats })
     }
   }
 
@@ -294,7 +388,12 @@ export class Bundler {
 
   registerFiles (...files: File[]): void {
     for (const newFile of files) {
-      const existingFile = this.#files.get(newFile.filePath)
+      // Keyed by archive path, not source path: one source file can be archived
+      // at more than one path (a package reached through two symlinks), and
+      // keying by source would silently drop all but one of them.
+      const key = archivePath(newFile, this.#stripPrefix)
+
+      const existingFile = this.#files.get(key)
       if (existingFile) {
         // Prefer physical files.
         if (existingFile.physical && !newFile.physical) {
@@ -302,7 +401,7 @@ export class Bundler {
         }
       }
 
-      this.#files.set(newFile.filePath, newFile)
+      this.#files.set(key, newFile)
     }
   }
 
@@ -312,10 +411,9 @@ export class Bundler {
       stripPrefix: this.#stripPrefix,
     })
 
-    const files = Array.from(this.#files.values())
-    files.sort((a, b) => {
-      return a.filePath.localeCompare(b.filePath)
-    })
+    const files = dropSymlinksWithChildren(
+      Array.from(this.#files.entries()).sort(([a], [b]) => a.localeCompare(b)),
+    )
 
     await archive.add(...files)
 
