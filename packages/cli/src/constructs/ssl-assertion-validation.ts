@@ -56,7 +56,7 @@ const connectionProperties: Record<string, PropertyRule> = {
   chainTrusted: { comparisons: BOOLEAN, booleanTarget: true },
   ocspStapled: { comparisons: BOOLEAN, booleanTarget: true },
   ocspStatus: { comparisons: ENUM },
-  resolvedIp: { comparisons: { EQUALS: true, NOT_EQUALS: true, CONTAINS: true } },
+  resolvedIp: { comparisons: STRING },
 }
 
 // Keyed by the source union so adding a source without a rule fails to compile.
