@@ -1035,6 +1035,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
       if (err instanceof NoImportableResourcesFoundError) {
         this.style.fatal(err.message)
+        this.style.longInfo(
+          `Looking for a specific resource?`,
+          `It may not be listed here because it's already reserved by a pending `
+          + `import. You can still import it directly by ID — for example: `
+          + `checkly import check:<id>`,
+        )
         return
       }
 
