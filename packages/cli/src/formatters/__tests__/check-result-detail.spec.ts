@@ -579,9 +579,9 @@ describe('formatResultDetail', () => {
     it('renders the per-rule security baseline (terminal)', () => {
       const result = stripAnsi(formatResultDetail(sslCheckResult, 'terminal'))
       expect(result).toContain('SECURITY BASELINE')
-      expect(result).toContain(`${PASS} min TLS version (fail)`)
-      expect(result).toContain(`${FAIL} weak cipher suite (fail)`)
-      expect(result).toContain(`${PASS} recommended TLS version (ignore)`)
+      expect(result).toContain(`${PASS} min TLS version`)
+      expect(result).toContain(`${FAIL} weak cipher suite`)
+      expect(result).toContain(`${PASS} recommended TLS version`)
       // The one-line summary is still present in the RESULT block.
       expect(result).toContain('Baseline:')
     })
@@ -589,9 +589,9 @@ describe('formatResultDetail', () => {
     it('renders the per-rule security baseline (markdown)', () => {
       const result = formatResultDetail(sslCheckResult, 'md')
       expect(result).toContain('## Security Baseline')
-      expect(result).toContain(`- ${PASS} min TLS version (fail)`)
-      expect(result).toContain(`- ${FAIL} weak cipher suite (fail)`)
-      expect(result).toContain(`- ${PASS} SCT present (ignore)`)
+      expect(result).toContain(`- ${PASS} min TLS version`)
+      expect(result).toContain(`- ${FAIL} weak cipher suite`)
+      expect(result).toContain(`- ${PASS} SCT present`)
       expect(result).toBe(stripAnsi(result))
     })
 

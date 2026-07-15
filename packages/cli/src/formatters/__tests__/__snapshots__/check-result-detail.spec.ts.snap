@@ -317,15 +317,15 @@ exports[`formatResultDetail > SSL check result > renders markdown snapshot > ssl
 - **OCSP stapled:** no
 
 ## Security Baseline
-- ✔ min TLS version (fail)
-- ✔ min key size (fail)
-- ✔ weak signature algorithm (fail)
-- ✖ weak cipher suite (fail)
-- ✔ known bad CA (fail)
-- ✔ recommended TLS version (ignore)
-- ✔ recommended key size (ignore)
-- ✔ OCSP must-staple respected (ignore)
-- ✔ SCT present (ignore)
+- ✔ min TLS version: TLS 1.3
+- ✔ min key size: 256-bit
+- ✔ weak signature algorithm: ECDSA-SHA256
+- ✖ weak cipher suite: TLS_AES_256_GCM_SHA384
+- ✔ known bad CA
+- ✔ recommended TLS version: TLS 1.3
+- ✔ recommended key size: 256-bit
+- ✔ OCSP must-staple respected: not stapled
+- ✔ SCT present
 
 ## Assertions
 - ✖ CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.
@@ -366,15 +366,15 @@ Serial:         35428337808578903465180920265426569102
 OCSP stapled:   no
 
 SECURITY BASELINE
-  ✔ min TLS version (fail)
-  ✔ min key size (fail)
-  ✔ weak signature algorithm (fail)
-  ✖ weak cipher suite (fail)
-  ✔ known bad CA (fail)
-  ✔ recommended TLS version (ignore)
-  ✔ recommended key size (ignore)
-  ✔ OCSP must-staple respected (ignore)
-  ✔ SCT present (ignore)
+  ✔ min TLS version: TLS 1.3
+  ✔ min key size: 256-bit
+  ✔ weak signature algorithm: ECDSA-SHA256
+  ✖ weak cipher suite: TLS_AES_256_GCM_SHA384
+  ✔ known bad CA
+  ✔ recommended TLS version: TLS 1.3
+  ✔ recommended key size: 256-bit
+  ✔ OCSP must-staple respected: not stapled
+  ✔ SCT present
 
 ASSERTIONS
   ✖ CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.
