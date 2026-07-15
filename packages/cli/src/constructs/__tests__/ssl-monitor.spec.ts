@@ -355,7 +355,7 @@ describe('SslMonitor', () => {
     it('should error on removed SSL-only operators against the new grammar', async () => {
       // The regex (MATCHES) and >= (GREATER_THAN_OR_EQUAL) operators were dropped for SSL;
       // they must be rejected on every source that could plausibly carry them.
-      const cases: Array<{ assertion: SslRequest['assertions'][number]; message: string }> = [
+      const cases: Array<{ assertion: SslRequest['assertions'][number], message: string }> = [
         {
           assertion: { source: 'CERTIFICATE', property: 'signatureAlgorithm', comparison: 'MATCHES', target: 'x', regex: null },
           message: 'The CERTIFICATE "signatureAlgorithm" assertion at "request.assertions[0]" has an unsupported comparison "MATCHES".',
@@ -379,7 +379,7 @@ describe('SslMonitor', () => {
     })
 
     it('should enforce the per-property comparison whitelist', async () => {
-      const cases: Array<{ assertion: SslRequest['assertions'][number]; message: string }> = [
+      const cases: Array<{ assertion: SslRequest['assertions'][number], message: string }> = [
         {
           // sans is STRING_LIST — only CONTAINS / NOT_CONTAINS, so EQUALS is rejected.
           assertion: { source: 'CERTIFICATE', property: 'sans', comparison: 'EQUALS', target: 'example.com', regex: null },
