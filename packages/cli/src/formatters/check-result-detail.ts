@@ -1085,12 +1085,39 @@ function appendSslCertificateMd (lines: string[], resp: Record<string, unknown>)
 // tuples so terminal and markdown can render the same rules with format-specific
 // styling. A rule that carries neither a `violated` flag nor a scalar value is
 // skipped.
+// Observed value for a baseline rule, pulled from the SSL response so the result
+// shows *what* was seen (e.g. "min TLS version: TLS1.3"), not just the rule name.
+// Rules without a single observed value (knownBadCA, sctPresent) return undefined.
+function sslBaselineObservedValue (key: string, resp: Record<string, unknown>): string | undefined {
+  const cert = asObject(resp.certificate)
+  switch (key) {
+    case 'minTLSVersion':
+    case 'recommendedTLSVersion':
+      return str(resp.protocol)
+    case 'minKeySizeBits':
+    case 'recommendedKeySizeBits': {
+      const bits = cert ? num(cert.keySizeBits) : undefined
+      return bits != null ? `${bits}-bit` : undefined
+    }
+    case 'weakSignatureAlgorithm':
+      return cert ? str(cert.signatureAlgorithm) : undefined
+    case 'weakCipherSuite':
+      return str(resp.cipherSuite)
+    case 'ocspMustStapleRespected': {
+      const stapled = boolFlag(resp.ocspStapled)
+      return stapled == null ? undefined : (stapled ? 'stapled' : 'not stapled')
+    }
+    default:
+      return undefined
+  }
+}
+
 function sslBaselineRules (
   resp: Record<string, unknown>,
-): Array<{ human: string, violated?: boolean, severity?: string, scalar?: string }> {
+): Array<{ human: string, violated?: boolean, severity?: string, scalar?: string, value?: string }> {
   const baseline = asObject(resp.securityBaseline)
   if (!baseline) return []
-  const rules: Array<{ human: string, violated?: boolean, severity?: string, scalar?: string }> = []
+  const rules: Array<{ human: string, violated?: boolean, severity?: string, scalar?: string, value?: string }> = []
   for (const [key, human] of SSL_BASELINE_RULES) {
     const rule = baseline[key]
     if (rule == null) continue
@@ -1099,7 +1126,7 @@ function sslBaselineRules (
       const violated = boolFlag(obj.violated)
       const severity = str(obj.severity)
       if (violated == null && severity == null) continue
-      rules.push({ human, violated, severity })
+      rules.push({ human, violated, severity, value: sslBaselineObservedValue(key, resp) })
     } else if (typeof rule === 'string' || typeof rule === 'number' || typeof rule === 'boolean') {
       rules.push({ human, scalar: String(rule) })
     }
@@ -1114,16 +1141,16 @@ function appendSslBaselineTerminal (lines: string[], resp: Record<string, unknow
   lines.push(heading('SECURITY BASELINE', 2, 'terminal'))
   for (const rule of rules) {
     if (rule.violated == null && rule.scalar == null) {
-      lines.push(`  ${chalk.dim('·')} ${rule.human}${rule.severity ? chalk.dim(` (${rule.severity})`) : ''}`)
+      lines.push(`  ${chalk.dim('·')} ${rule.human}`)
       continue
     }
     if (rule.scalar != null) {
       lines.push(`  ${chalk.dim('·')} ${rule.human}: ${rule.scalar}`)
       continue
     }
-    const head = `${rule.violated ? assertionSymbols.error : assertionSymbols.success} ${rule.human}`
+    const head = `${rule.violated ? assertionSymbols.error : assertionSymbols.success} ${rule.human}${rule.value ? `: ${rule.value}` : ''}`
     const coloredHead = rule.violated ? chalk.red(head) : chalk.green(head)
-    lines.push(`  ${coloredHead}${rule.severity ? chalk.dim(` (${rule.severity})`) : ''}`)
+    lines.push(`  ${coloredHead}`)
   }
 }
 
@@ -1138,11 +1165,11 @@ function appendSslBaselineMd (lines: string[], resp: Record<string, unknown>): v
       continue
     }
     if (rule.violated == null) {
-      lines.push(`- ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
+      lines.push(`- ${rule.human}`)
       continue
     }
     const sym = rule.violated ? assertionSymbols.error : assertionSymbols.success
-    lines.push(`- ${sym} ${rule.human}${rule.severity ? ` (${rule.severity})` : ''}`)
+    lines.push(`- ${sym} ${rule.human}${rule.value ? `: ${rule.value}` : ''}`)
   }
 }
 
@@ -1176,7 +1203,11 @@ function formatSslResultTerminal (ssl: SslCheckResult): string[] {
   const verdict = str(ssl.baselineVerdict)
   const grade = str(ssl.baselineGrade)
   if (verdict || grade) {
-    const verdictStr = verdict ? (verdict === 'PASS' ? chalk.green(verdict) : chalk.red(verdict)) : ''
+    let verdictStr = ''
+    if (verdict) {
+      const v = verdict.toLowerCase()
+      verdictStr = v === 'pass' ? chalk.green(verdict) : v === 'warn' ? chalk.yellow(verdict) : chalk.red(verdict)
+    }
     lines.push(`${label('Baseline:')}${[verdictStr, grade ? `grade ${grade}` : ''].filter(Boolean).join(' ')}`)
   }
 
