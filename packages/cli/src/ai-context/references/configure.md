@@ -87,9 +87,14 @@ This matters when the local project isn't the whole picture — a partial checko
 
 `deploy` is a write command: without `--force` it returns exit code 2 and a `confirmation_required` envelope. Present its `changes` to the user and run the `confirmCommand` verbatim only after they approve.
 
-Deploy confirms **twice**, and the second one is the one that matters:
+That confirmation happens **before the project is parsed**, so it cannot tell you which resources would be deleted — its `changes` only warn that deletion is possible. There is a second, itemised guard that lists each doomed resource by name, but it is skipped by `--force`, and `--force` is exactly what the `confirmCommand` carries. **An agent following the confirmation protocol never sees that list.** It is a prompt for humans deploying by hand.
 
-1. Up front, before the project is parsed — describes the deploy, and whether checks will be scheduled and resources preserved.
-2. After parsing, **only if resources would actually be deleted** — lists each one by name. This is the point where run history is at stake, so show the user that list rather than a summary of it.
+So when resources may have been removed from the code, don't rely on the confirmation to surface it — preview first:
+
+```bash
+npx checkly deploy --preview
+```
+
+This is a dry run: nothing is applied and nothing is confirmed. It prints the resources that would be created, updated, and deleted (add `--verbose` for names and IDs). Show the user what would be deleted, and only then deploy.
 
 Run `npx checkly skills communicate` for the full protocol.
