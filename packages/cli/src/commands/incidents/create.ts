@@ -51,7 +51,7 @@ export default class IncidentsCreate extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { flags } = await this.parse(IncidentsCreate)
+    const { flags, metadata } = await this.parse(IncidentsCreate)
     this.style.outputFormat = flags.output
 
     const statusPage = await api.statusPages.get(flags['status-page-id'])
@@ -73,6 +73,7 @@ export default class IncidentsCreate extends AuthCommand {
           : 'Subscribers will NOT be notified',
       ],
       flags,
+      flagMetadata: metadata.flags,
       classification: {
         readOnly: IncidentsCreate.readOnly,
         destructive: IncidentsCreate.destructive,

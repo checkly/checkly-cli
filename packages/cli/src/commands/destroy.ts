@@ -31,7 +31,7 @@ export default class Destroy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { flags } = await this.parse(Destroy)
+    const { flags, metadata } = await this.parse(Destroy)
     const {
       config: configFilename,
       'preserve-resources': preserveResources,
@@ -52,6 +52,7 @@ export default class Destroy extends AuthCommand {
           : `PERMANENTLY delete ALL resources associated with the project "${checklyConfig.projectName}" in account "${account.name}"`,
       ],
       flags,
+      flagMetadata: metadata.flags,
       classification: {
         readOnly: Destroy.readOnly,
         destructive: Destroy.destructive,

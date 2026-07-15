@@ -33,7 +33,7 @@ export default class IncidentsResolve extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { args, flags } = await this.parse(IncidentsResolve)
+    const { args, flags, metadata } = await this.parse(IncidentsResolve)
     this.style.outputFormat = flags.output
 
     const incident = await api.incidents.get(args.id)
@@ -48,6 +48,7 @@ export default class IncidentsResolve extends AuthCommand {
           : 'Subscribers will NOT be notified',
       ],
       flags,
+      flagMetadata: metadata.flags,
       args: { id: args.id },
       classification: {
         readOnly: IncidentsResolve.readOnly,

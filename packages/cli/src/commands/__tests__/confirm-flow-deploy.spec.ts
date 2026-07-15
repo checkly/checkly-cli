@@ -1,3 +1,4 @@
+import { Parser } from '@oclif/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../helpers/cli-mode', () => ({
@@ -39,10 +40,22 @@ vi.mock('prompts', () => ({
 }))
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
+import { buildConfirmCommand } from '../../helpers/command-preview.js'
 import * as api from '../../rest/api.js'
 import { parseProject } from '../../services/project-parser.js'
 import { AuthCommand } from '../authCommand.js'
 import Deploy from '../deploy.js'
+
+/** Turn a generated confirmCommand back into argv, so oclif can re-parse it. */
+function flagArgv (confirmCommand: string): string[] {
+  return [...confirmCommand.matchAll(/--[a-zA-Z0-9-]+(?:="[^"]*")?/g)]
+    .map(([token]) => token.replace(/="(.*)"$/, '=$1'))
+}
+
+async function confirmCommandFor (argv: string[]): Promise<string> {
+  const { flags, metadata } = await Parser.parse(argv, { flags: Deploy.flags, strict: true })
+  return buildConfirmCommand('deploy', flags, undefined, metadata.flags)
+}
 
 function createConfirmContext () {
   const logged: string[] = []
@@ -156,6 +169,17 @@ describe('deploy confirmation flow', () => {
         'debug-bundle': false,
         'debug-bundle-output-file': './debug-bundle.json',
       },
+      metadata: {
+        flags: {
+          'preview': { setFromDefault: true },
+          'output': { setFromDefault: true },
+          'verbose': { setFromDefault: true },
+          'schedule-on-deploy': { setFromDefault: true },
+          'verify-runtime-dependencies': { setFromDefault: true },
+          'debug-bundle': { setFromDefault: true },
+          'debug-bundle-output-file': { setFromDefault: true },
+        },
+      },
     })
 
     await expect(
@@ -172,5 +196,28 @@ describe('deploy confirmation flow', () => {
     expect(output.command).toBe('deploy')
     expect(output.classification.idempotent).toBe(true)
     expect(output.confirmCommand).toContain('--force')
+    expect(output.confirmCommand).not.toContain('--no-preview')
+  })
+})
+
+describe('deploy confirmCommand', () => {
+  it('echoes only the flags the user typed', async () => {
+    expect(await confirmCommandFor([])).toBe('checkly deploy --force')
+    expect(await confirmCommandFor(['--preserve-resources'])).toBe('checkly deploy --preserve-resources --force')
+  })
+
+  it('keeps an explicit --no-<flag> for flags that allow it', async () => {
+    expect(await confirmCommandFor(['--no-schedule-on-deploy']))
+      .toBe('checkly deploy --no-schedule-on-deploy --force')
+  })
+
+  it('generates a command oclif can parse back', async () => {
+    for (const argv of [[], ['--preserve-resources'], ['--no-schedule-on-deploy'], ['--verbose']]) {
+      const confirmCommand = await confirmCommandFor(argv)
+      await expect(
+        Parser.parse(flagArgv(confirmCommand), { flags: Deploy.flags, strict: true }),
+        `confirmCommand for "checkly deploy ${argv.join(' ')}" must be runnable: ${confirmCommand}`,
+      ).resolves.toBeDefined()
+    }
   })
 })

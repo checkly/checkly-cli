@@ -4,11 +4,18 @@ export type CommandClassification = {
   idempotent: boolean
 }
 
+/**
+ * The subset of oclif's parse metadata we rely on: which flags were filled in from
+ * `default:` rather than typed by the user. Pass `metadata.flags` from `this.parse()`.
+ */
+export type FlagMetadata = Record<string, { setFromDefault?: boolean } | undefined>
+
 export type CommandPreview = {
   command: string
   description: string
   changes: string[]
   flags: Record<string, unknown>
+  flagMetadata?: FlagMetadata
   args?: Record<string, unknown>
   classification: CommandClassification
 }
@@ -28,6 +35,7 @@ export function buildConfirmCommand (
   command: string,
   flags: Record<string, unknown>,
   args?: Record<string, unknown>,
+  flagMetadata?: FlagMetadata,
 ): string {
   const parts = ['checkly', command]
 
@@ -40,6 +48,9 @@ export function buildConfirmCommand (
   for (const [key, value] of Object.entries(flags)) {
     if (OMITTED_FLAGS.has(key)) continue
     if (value === undefined || value === null) continue
+    // Defaults are not part of what the user asked for, and a default `false` renders as
+    // `--no-x`, which only parses when the flag sets `allowNo: true`.
+    if (flagMetadata?.[key]?.setFromDefault) continue
 
     if (Array.isArray(value)) {
       for (const item of value) {
@@ -66,7 +77,7 @@ export function formatPreviewForAgent (
     description: preview.description,
     classification: preview.classification,
     changes: preview.changes,
-    confirmCommand: buildConfirmCommand(preview.command, preview.flags, preview.args),
+    confirmCommand: buildConfirmCommand(preview.command, preview.flags, preview.args, preview.flagMetadata),
   }
 }
 
