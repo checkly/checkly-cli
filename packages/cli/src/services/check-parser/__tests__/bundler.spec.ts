@@ -66,4 +66,48 @@ describe('Bundler', () => {
       'packages/shared-package/src/index.js',
     ])
   })
+
+  it('archives a symlink when no files below it are selected', async () => {
+    const packagePath = path.join(root, 'packages', 'shared-package')
+    const linkedPackagePath = path.join(
+      root,
+      'packages',
+      'app',
+      'node_modules',
+      '@workspace',
+      'shared-package',
+    )
+
+    await mkdir(path.dirname(linkedPackagePath), { recursive: true })
+    await mkdir(packagePath, { recursive: true })
+    await symlink('../../../shared-package', linkedPackagePath, 'dir')
+
+    const bundler = await Bundler.create({
+      cacheHash: 'cache-hash',
+      tempDir: root,
+      stripPrefix: root,
+    })
+    bundler.registerFiles({ filePath: linkedPackagePath, physical: true })
+
+    const archive = await bundler.finalize()
+    const archiveEntries: Array<{
+      path: string
+      type: string
+      linkpath: string
+    }> = []
+    await list({
+      file: archive.archiveFile,
+      onReadEntry: entry => archiveEntries.push({
+        path: entry.path,
+        type: entry.type,
+        linkpath: entry.linkpath,
+      }),
+    })
+
+    expect(archiveEntries).toEqual([{
+      path: 'packages/app/node_modules/@workspace/shared-package',
+      type: 'SymbolicLink',
+      linkpath: '../../../shared-package',
+    }])
+  })
 })
