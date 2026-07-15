@@ -4,14 +4,19 @@ import prompts from 'prompts'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
-import { planIdFlag } from '../../helpers/flags.js'
+import { dryRunFlag, forceFlag, planIdFlag } from '../../helpers/flags.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
-import { selectPlansOrExit } from '../../helpers/import-plan-selection.js'
+import {
+  reportNoCandidatePlans,
+  selectPlansOrExit,
+  validatePlanFlagsOrExit,
+} from '../../helpers/import-plan-selection.js'
 
 export default class ImportCancelCommand extends AuthCommand {
   static hidden = false
+  static destructive = true
   static idempotent = true
   static description = 'Cancels an ongoing import plan that has not been committed yet.'
 
@@ -25,6 +30,8 @@ export default class ImportCancelCommand extends AuthCommand {
       default: false,
     }),
     'plan-id': planIdFlag(),
+    'force': forceFlag(),
+    'dry-run': dryRunFlag(),
   }
 
   async run (): Promise<void> {
@@ -34,6 +41,10 @@ export default class ImportCancelCommand extends AuthCommand {
       all,
       'plan-id': planId,
     } = flags
+
+    // Validated before any plans are fetched: a contradictory command line is
+    // wrong regardless of what happens to exist remotely.
+    validatePlanFlagsOrExit(this, { all, planId })
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
@@ -48,14 +59,40 @@ export default class ImportCancelCommand extends AuthCommand {
       onlyUncommitted: true,
     })
 
-    if (cancelablePlans.length === 0) {
-      this.style.fatal(`No plans available to cancel.`)
+    const noPlans = reportNoCandidatePlans(this, cancelablePlans, {
+      planId,
+      action: 'cancel',
+      nothingToDo: 'Nothing to cancel — no uncommitted import plans found.',
+    })
+    if (noPlans) {
       return
     }
 
     const plans = await selectPlansOrExit(
       this, cancelablePlans, { all, planId }, 'cancel', () => this.#selectPlans(cancelablePlans),
     )
+
+    // A single target is pinned by ID so the confirming run cannot resolve to a
+    // different plan. Cancelling every plan can only be expressed as --all,
+    // which re-resolves by design: it means "whatever is uncommitted".
+    // `all: false` is dropped rather than passed through, because
+    // `buildConfirmCommand` renders a false boolean as `--no-all`, which is not
+    // a flag this command accepts.
+    const previewFlags = plans.length > 1
+      ? { ...flags, 'all': true, 'plan-id': undefined }
+      : { ...flags, 'all': undefined, 'plan-id': plans[0].id }
+
+    await this.confirmOrAbort({
+      command: 'import cancel',
+      description: 'Cancel import plan(s)',
+      changes: plans.map(plan => `Cancel import plan ${plan.id}, discarding its generated code links`),
+      flags: previewFlags,
+      classification: {
+        readOnly: ImportCancelCommand.readOnly,
+        destructive: ImportCancelCommand.destructive,
+        idempotent: ImportCancelCommand.idempotent,
+      },
+    }, { force: flags.force, dryRun: flags['dry-run'] })
 
     this.style.actionStart('Canceling plan(s)')
 

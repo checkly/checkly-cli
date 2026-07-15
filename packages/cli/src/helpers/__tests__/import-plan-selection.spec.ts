@@ -6,10 +6,27 @@ vi.mock('../cli-mode', () => ({
 
 import { detectCliMode } from '../cli-mode.js'
 import { ImportPlan } from '../../rest/projects.js'
-import { PlanSelectionError, resolvePlanNonInteractively } from '../import-plan-selection.js'
+import {
+  PlanSelectionError,
+  reportNoCandidatePlans,
+  resolvePlanNonInteractively,
+  validatePlanFlagsOrExit,
+} from '../import-plan-selection.js'
 
 function plan (id: string): ImportPlan {
   return { id, createdAt: new Date(0).toISOString() }
+}
+
+function createCommand () {
+  return {
+    log: vi.fn(),
+    exit: vi.fn((code: number) => {
+      throw new Error(`EXIT_${code}`)
+    }),
+    style: {
+      fatal: vi.fn(),
+    },
+  } as any
 }
 
 describe('resolvePlanNonInteractively', () => {
@@ -63,5 +80,65 @@ describe('resolvePlanNonInteractively', () => {
       .toThrowError(PlanSelectionError)
     expect(() => resolvePlanNonInteractively(plans, undefined, 'apply'))
       .toThrowError(/--plan-id/)
+  })
+
+  it('names the candidate plan IDs when the selection is ambiguous', () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const plans = [plan('abc123'), plan('def456')]
+
+    // There is no plan listing command, so an agent can only obtain the IDs it
+    // is being asked to choose between from this message.
+    expect(() => resolvePlanNonInteractively(plans, undefined, 'commit'))
+      .toThrowError(/abc123/)
+    expect(() => resolvePlanNonInteractively(plans, undefined, 'commit'))
+      .toThrowError(/def456/)
+  })
+})
+
+describe('validatePlanFlagsOrExit', () => {
+  it('exits 1 when --all and --plan-id are combined', () => {
+    const command = createCommand()
+
+    expect(() => validatePlanFlagsOrExit(command, { all: true, planId: 'a' })).toThrow('EXIT_1')
+    expect(command.style.fatal).toHaveBeenCalledWith(expect.stringContaining('cannot be used together'))
+  })
+
+  it.each([
+    ['--all alone', { all: true, planId: undefined }],
+    ['--plan-id alone', { all: false, planId: 'a' }],
+    ['neither flag', { all: false, planId: undefined }],
+  ])('accepts %s', (_name, flags) => {
+    const command = createCommand()
+
+    expect(() => validatePlanFlagsOrExit(command, flags)).not.toThrow()
+    expect(command.style.fatal).not.toHaveBeenCalled()
+  })
+})
+
+describe('reportNoCandidatePlans', () => {
+  const options = { action: 'commit', nothingToDo: 'Nothing to commit.' }
+
+  it('returns false and stays quiet when candidates exist', () => {
+    const command = createCommand()
+
+    expect(reportNoCandidatePlans(command, [plan('a')], options)).toBe(false)
+    expect(command.log).not.toHaveBeenCalled()
+    expect(command.style.fatal).not.toHaveBeenCalled()
+  })
+
+  it('exits 1 when an explicit --plan-id cannot be satisfied', () => {
+    const command = createCommand()
+
+    expect(() => reportNoCandidatePlans(command, [], { ...options, planId: 'abc123' })).toThrow('EXIT_1')
+    expect(command.style.fatal).toHaveBeenCalledWith(expect.stringContaining('abc123'))
+  })
+
+  it('reports nothing-to-do without failing when no plan was requested', () => {
+    const command = createCommand()
+
+    expect(reportNoCandidatePlans(command, [], options)).toBe(true)
+    expect(command.log).toHaveBeenCalledWith('Nothing to commit.')
+    expect(command.exit).not.toHaveBeenCalled()
+    expect(command.style.fatal).not.toHaveBeenCalled()
   })
 })

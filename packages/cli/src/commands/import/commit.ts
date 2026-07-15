@@ -6,15 +6,19 @@ import chalk from 'chalk'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
-import { planIdFlag } from '../../helpers/flags.js'
+import { dryRunFlag, forceFlag, planIdFlag } from '../../helpers/flags.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
-import { selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
+  // Committing deletes nothing, so it is not destructive, but it is permanent:
+  // a committed plan can no longer be cancelled. `confirmOrAbort` gates every
+  // non-read-only command, so the authorization step applies either way.
+  static destructive = false
   static description = 'Permanently commit imported resources into your project.'
 
   static flags = {
@@ -23,6 +27,8 @@ export default class ImportCommitCommand extends AuthCommand {
       description: commonMessages.configFile,
     }),
     'plan-id': planIdFlag(),
+    'force': forceFlag(),
+    'dry-run': dryRunFlag(),
   }
 
   async run (): Promise<void> {
@@ -50,14 +56,41 @@ export default class ImportCommitCommand extends AuthCommand {
       return plan.appliedAt
     })
 
-    if (uncommittedPlans.length === 0) {
-      this.style.fatal(`No plans available to commit.`)
+    const noPlans = reportNoCandidatePlans(this, uncommittedPlans, {
+      planId,
+      action: 'commit',
+      nothingToDo: 'Nothing to commit — no applied import plans found.',
+    })
+    if (noPlans) {
       return
     }
 
     const plan = await selectPlanOrExit(
       this, uncommittedPlans, planId, 'commit', () => this.#selectPlan(uncommittedPlans),
     )
+
+    await this.confirmOrAbort({
+      command: 'import commit',
+      description: 'Commit import plan',
+      changes: [
+        `Permanently commit import plan ${plan.id}`,
+        'Imported resources become fully managed by the Checkly CLI',
+        'This cannot be undone — the plan can no longer be cancelled',
+      ],
+      // The resolved plan is pinned into the confirm command. Without it, a
+      // caller that omitted --plan-id would re-resolve on the confirming run and
+      // could commit a plan it never previewed.
+      flags: { ...flags, 'plan-id': plan.id },
+      classification: {
+        readOnly: ImportCommitCommand.readOnly,
+        destructive: ImportCommitCommand.destructive,
+        idempotent: ImportCommitCommand.idempotent,
+      },
+    }, {
+      force: flags.force,
+      dryRun: flags['dry-run'],
+      interactiveConfirm: () => confirmCommit.call(this),
+    })
 
     await performCommitAction.call(this, plan)
   }

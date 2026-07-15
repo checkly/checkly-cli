@@ -6,14 +6,14 @@ import chalk from 'chalk'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
-import { forceFlag, planIdFlag } from '../../helpers/flags.js'
+import { planIdFlag } from '../../helpers/flags.js'
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { confirmCommit, performCommitAction } from './commit.js'
-import { selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
@@ -25,7 +25,10 @@ export default class ImportApplyCommand extends AuthCommand {
       description: commonMessages.configFile,
     }),
     'plan-id': planIdFlag(),
-    'force': forceFlag(),
+    'no-commit': Flags.boolean({
+      description: 'Apply only. Leave the plan pending and skip the commit prompt.',
+      default: false,
+    }),
   }
 
   async run (): Promise<void> {
@@ -33,7 +36,7 @@ export default class ImportApplyCommand extends AuthCommand {
     const {
       config: configFilename,
       'plan-id': planId,
-      force,
+      'no-commit': noCommit,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -49,8 +52,12 @@ export default class ImportApplyCommand extends AuthCommand {
       onlyUnapplied: true,
     })
 
-    if (unappliedPlans.length === 0) {
-      this.style.fatal(`No plans available to apply.`)
+    const noPlans = reportNoCandidatePlans(this, unappliedPlans, {
+      planId,
+      action: 'apply',
+      nothingToDo: 'Nothing to apply — no unapplied import plans found.',
+    })
+    if (noPlans) {
       return
     }
 
@@ -61,10 +68,15 @@ export default class ImportApplyCommand extends AuthCommand {
     await performApplyAction.call(this, plan)
 
     // Applying reserves the resources as pending; committing is a separate,
-    // irreversible step. In non-interactive sessions (agents/CI), or when
-    // --force is given, we stop here and leave finalizing to a later
-    // `checkly deploy` (or an explicit `checkly import commit`).
-    if (force || detectCliMode() !== 'interactive') {
+    // irreversible step. Non-interactive sessions (agents/CI) cannot answer the
+    // commit prompt, and --no-commit opts out of it explicitly. Both leave
+    // finalizing to a later `checkly deploy` or `checkly import commit`.
+    if (noCommit || detectCliMode() !== 'interactive') {
+      this.log(`\
+  The plan is applied but not committed. To commit it, run:
+
+    ${chalk.green(`npx checkly import commit --plan-id ${plan.id}`)}
+`)
       return
     }
 

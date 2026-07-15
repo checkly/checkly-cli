@@ -9,6 +9,73 @@ export class PlanSelectionError extends Error {
   }
 }
 
+export interface PlanFlags {
+  all?: boolean
+  planId?: string
+}
+
+function describePlan (plan: ImportPlan): string {
+  const details = [`created ${plan.createdAt}`]
+
+  if (plan.appliedAt !== undefined) {
+    details.push(`applied ${plan.appliedAt}`)
+  }
+
+  return `  ${plan.id}  (${details.join(', ')})`
+}
+
+/**
+ * Returns the reason a flag combination is contradictory, or `undefined` when
+ * the combination is valid. Contradictions never depend on remote state.
+ */
+function planFlagsConflict ({ all, planId }: PlanFlags): string | undefined {
+  if (all === true && planId !== undefined) {
+    return '--all and --plan-id cannot be used together.'
+  }
+
+  return undefined
+}
+
+/**
+ * Rejects contradictory flag combinations before any plans are fetched, so that
+ * an impossible command line fails identically whether or not plans happen to
+ * exist remotely.
+ */
+export function validatePlanFlagsOrExit (command: BaseCommand, flags: PlanFlags): void {
+  const conflict = planFlagsConflict(flags)
+  if (conflict !== undefined) {
+    command.style.fatal(conflict)
+    command.exit(1)
+  }
+}
+
+/**
+ * Reports the "no candidate plans" case, returning `true` when the caller should
+ * stop.
+ *
+ * An explicit `--plan-id` that cannot be satisfied is a failure and exits 1, so
+ * that agents and CI observe it. Having nothing to do when no specific plan was
+ * requested is not a failure: it exits 0 and reads as information rather than an
+ * error.
+ */
+export function reportNoCandidatePlans (
+  command: BaseCommand,
+  plans: ImportPlan[],
+  options: { planId?: string, action: string, nothingToDo: string },
+): boolean {
+  if (plans.length > 0) {
+    return false
+  }
+
+  if (options.planId !== undefined) {
+    command.style.fatal(`No plan available to ${options.action} with ID "${options.planId}".`)
+    command.exit(1)
+  }
+
+  command.log(options.nothingToDo)
+  return true
+}
+
 /**
  * Resolves a single import plan without prompting when possible, so that agents
  * and CI can drive the import commands headlessly:
@@ -47,9 +114,13 @@ export function resolvePlanNonInteractively (
     return plans[0]
   }
 
+  // A non-interactive caller cannot discover plan IDs on its own — there is no
+  // plan listing command — so an ambiguous selection has to name the candidates
+  // it is asking the caller to choose between.
   throw new PlanSelectionError(
-    `Found ${plans.length} plan(s) available to ${action}. `
-    + `Re-run with --plan-id <id> to choose one non-interactively.`,
+    `Found ${plans.length} plans available to ${action}. `
+    + `Re-run with --plan-id <id> to choose one:\n\n`
+    + `${plans.map(describePlan).join('\n')}\n`,
   )
 }
 
@@ -84,10 +155,9 @@ export async function selectPlanOrExit (
  * falling back to interactive multi-selection when appropriate.
  *
  * - `--all` selects every candidate plan without prompting.
- * - `--all` and `--plan-id` are mutually exclusive: rather than silently letting
- *   one win, the contradictory combination is rejected. This matters most for
- *   the destructive `cancel` command driven by an agent that assembles flags
- *   programmatically.
+ * - `--all` and `--plan-id` are mutually exclusive. Commands are expected to
+ *   reject the combination up front via {@link validatePlanFlagsOrExit}; the
+ *   check is repeated here so the helper is safe to call on its own.
  * - Otherwise a single plan is resolved via {@link resolvePlanNonInteractively},
  *   falling back to interactive selection when it returns `undefined`.
  *
@@ -102,8 +172,9 @@ export async function selectPlansOrExit (
   interactiveFallback: () => Promise<ImportPlan[]>,
 ): Promise<ImportPlan[]> {
   try {
-    if (all && planId !== undefined) {
-      throw new PlanSelectionError(`--all and --plan-id cannot be used together.`)
+    const conflict = planFlagsConflict({ all, planId })
+    if (conflict !== undefined) {
+      throw new PlanSelectionError(conflict)
     }
 
     if (all) {

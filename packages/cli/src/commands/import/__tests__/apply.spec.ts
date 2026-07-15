@@ -65,7 +65,7 @@ describe('import apply command (non-interactive)', () => {
   it('auto-applies the single plan in agent mode and does not commit', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [plan('only')] } as any)
-    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'force': false } })
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'no-commit': false } })
 
     await ImportApplyCommand.prototype.run.call(ctx as any)
 
@@ -78,7 +78,7 @@ describe('import apply command (non-interactive)', () => {
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({
       data: [plan('a'), plan('b'), plan('c')],
     } as any)
-    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': 'b', 'force': false } })
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': 'b', 'no-commit': false } })
 
     await ImportApplyCommand.prototype.run.call(ctx as any)
 
@@ -91,21 +91,54 @@ describe('import apply command (non-interactive)', () => {
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({
       data: [plan('a'), plan('b')],
     } as any)
-    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'force': false } })
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'no-commit': false } })
 
     await expect(ImportApplyCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
     expect(ctx.style.fatal).toHaveBeenCalledWith(expect.stringContaining('--plan-id'))
     expect(api.projects.applyImportPlan).not.toHaveBeenCalled()
   })
 
-  it('applies without committing in interactive mode when --force is given', async () => {
+  it('applies without committing in interactive mode when --no-commit is given', async () => {
     vi.mocked(detectCliMode).mockReturnValue('interactive')
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [plan('only')] } as any)
-    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': 'only', 'force': true } })
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': 'only', 'no-commit': true } })
 
     await ImportApplyCommand.prototype.run.call(ctx as any)
 
     expect(api.projects.applyImportPlan).toHaveBeenCalledWith('only')
     expect(api.projects.commitImportPlan).not.toHaveBeenCalled()
+  })
+
+  it('tells the caller how to commit the plan it left pending', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [plan('abc123')] } as any)
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'no-commit': false } })
+
+    await ImportApplyCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.logged.join('\n')).toContain('import commit --plan-id abc123')
+  })
+
+  it('fails with exit 1 when --plan-id is given but no plans exist', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [] } as any)
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': 'abc123', 'no-commit': false } })
+
+    await expect(ImportApplyCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+    expect(ctx.style.fatal).toHaveBeenCalledWith(expect.stringContaining('abc123'))
+    expect(api.projects.applyImportPlan).not.toHaveBeenCalled()
+  })
+
+  it('reports nothing-to-do without failing when no plans exist and none was requested', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [] } as any)
+    const ctx = createCommandContext({ flags: { 'config': undefined, 'plan-id': undefined, 'no-commit': false } })
+
+    await ImportApplyCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.exit).not.toHaveBeenCalled()
+    expect(ctx.style.fatal).not.toHaveBeenCalled()
+    expect(ctx.logged.join('\n')).toContain('Nothing to apply')
+    expect(api.projects.applyImportPlan).not.toHaveBeenCalled()
   })
 })
