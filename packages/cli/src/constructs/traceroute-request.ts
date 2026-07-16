@@ -37,11 +37,14 @@ export interface TracerouteRequest {
 
   /**
    * The destination port for TCP/UDP/SCTP probes. Ignored (and not sent) when
-   * `protocol` is `ICMP`.
+   * `protocol` is `ICMP`. When omitted, the default is protocol-dependent: `443`
+   * for TCP, and `33434` (a closed high port) for UDP/SCTP — UDP/SCTP arrival is
+   * only confirmed by an ICMP "port unreachable" from a closed port, whereas 443
+   * is typically open and would never confirm arrival.
    *
    * @minimum 1
    * @maximum 65535
-   * @defaultValue 443
+   * @defaultValue 443 for TCP, 33434 for UDP/SCTP
    */
   port?: number
 
