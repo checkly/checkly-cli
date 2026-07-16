@@ -61,6 +61,21 @@ function countOccurrences (text: string, substring: string): number {
   return text.split(substring).length - 1
 }
 
+function withStdoutTty<T> (isTTY: boolean, callback: () => T): T {
+  const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+  Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: isTTY })
+
+  try {
+    return callback()
+  } finally {
+    if (stdoutDescriptor) {
+      Object.defineProperty(process.stdout, 'isTTY', stdoutDescriptor)
+    } else {
+      delete (process.stdout as { isTTY?: boolean }).isTTY
+    }
+  }
+}
+
 describe('AbstractListReporter', () => {
   beforeEach(() => {
     printLnMock.mockClear()
@@ -99,11 +114,13 @@ describe('AbstractListReporter', () => {
   })
 
   it('should populate _clearString after _printSummary runs', () => {
-    const { reporter } = makeReporterWithOneCheck()
+    withStdoutTty(true, () => {
+      const { reporter } = makeReporterWithOneCheck()
 
-    reporter._printSummary()
+      reporter._printSummary()
 
-    expect(reporter._clearString).not.toBe('')
+      expect(reporter._clearString).not.toBe('')
+    })
   })
 
   it('should include cancellation message with --detach hint after onCancel', () => {
@@ -137,6 +154,20 @@ describe('AbstractListReporter', () => {
     expect(countOccurrences(summary, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
     expect(countOccurrences(summary, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
     expect(countOccurrences(summary, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
+  })
+
+  it('does not redraw the check list for detached non-TTY output', () => {
+    withStdoutTty(false, () => {
+      const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
+      reporter.onDetach()
+
+      const summary = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+      expect(countOccurrences(summary, SOURCE_FILE)).toBe(1)
+      expect(countOccurrences(summary, 'My API Check')).toBe(1)
+      expect(summary).toContain('Checks will continue running in the cloud.')
+      expect(summary).toContain('1 scheduling, 1 total')
+      expect(summary).not.toContain('\x1B[K')
+    })
   })
 
   it('should render existing detailed session summary link output', async () => {

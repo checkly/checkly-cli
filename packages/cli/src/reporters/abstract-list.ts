@@ -149,14 +149,26 @@ export default abstract class AbstractListReporter implements Reporter {
 
   onCancel (): void {
     this._isCancelling = true
-    this._clearSummary()
-    this._printSummary()
+    if (this._shouldRenderLiveSummary()) {
+      this._clearSummary()
+      this._printSummary()
+      return
+    }
+    this._printSummary({ includeCheckTitles: false })
   }
 
   onDetach (): void {
     this._isDetaching = true
-    this._clearSummary()
-    this._printSummary()
+    if (this._shouldRenderLiveSummary()) {
+      this._clearSummary()
+      this._printSummary()
+      return
+    }
+    this._printSummary({ includeCheckTitles: false })
+  }
+
+  private _shouldRenderLiveSummary (): boolean {
+    return process.stdout.isTTY === true
   }
 
   // Clear the summary which was printed by _printStatus from stdout
@@ -169,17 +181,18 @@ export default abstract class AbstractListReporter implements Reporter {
     }
   }
 
-  _printSummary (opts: { skipCheckCount?: boolean } = {}) {
+  _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean } = {}) {
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
     }
     const status = []
-    if (this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
+    const includeCheckTitles = opts.includeCheckTitles ?? true
+    if (includeCheckTitles && this.checkFilesMap!.size === 1 && this.checkFilesMap!.has(undefined)) {
       status.push(chalk.bold('Summary:'))
     }
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
-      if (sourceFile) status.push(sourceFile)
+      if (includeCheckTitles && sourceFile) status.push(sourceFile)
       for (const [, { titleString, result, checkStatus }] of checkMap.entries()) {
         if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
@@ -196,7 +209,9 @@ export default abstract class AbstractListReporter implements Reporter {
         } else {
           counts.numPassed++
         }
-        status.push(sourceFile ? indentString(titleString, 2) : titleString)
+        if (includeCheckTitles) {
+          status.push(sourceFile ? indentString(titleString, 2) : titleString)
+        }
       }
     }
 
@@ -241,8 +256,10 @@ export default abstract class AbstractListReporter implements Reporter {
 
     const statusString = status.join('\n')
     printLn(statusString)
-    // Ansi escape code for erasing the line and moving the cursor up
-    this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+    if (this._shouldRenderLiveSummary()) {
+      // Ansi escape code for erasing the line and moving the cursor up.
+      this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+    }
   }
 
   _printBriefSummary () {
@@ -275,8 +292,10 @@ export default abstract class AbstractListReporter implements Reporter {
     status.push('')
     const statusString = status.join('\n')
     printLn(statusString)
-    // Ansi escape code for erasing the line and moving the cursor up
-    this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+    if (this._shouldRenderLiveSummary()) {
+      // Ansi escape code for erasing the line and moving the cursor up.
+      this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
+    }
   }
 
   // Checks that fail with a run error (e.g. the CLI timing out while waiting for a result)
