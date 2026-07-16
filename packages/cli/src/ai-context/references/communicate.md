@@ -4,7 +4,7 @@ Open incidents and lead customer communications via status pages.
 
 ## Confirmation Protocol
 
-Write commands (`incidents create`, `incidents update`, `incidents resolve`, `deploy`, `destroy`) require confirmation before executing. When the CLI detects an agent environment, it returns a JSON envelope with exit code 2 instead of executing:
+Write commands (`incidents create`, `incidents update`, `incidents resolve`, `deploy`, `destroy`, `import commit`, `import cancel`) require confirmation before executing. When the CLI detects an agent environment, it returns a JSON envelope with exit code 2 instead of executing:
 
 ```json
 {
@@ -26,6 +26,10 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
 
 The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `checkly deploy --force` rather than echoing back every boolean the parser filled in. Treat every flag you see there as deliberate.
+
+### Commands that pin a resolved target
+
+A command that picks its own target before confirming writes that target back into the `confirmCommand`. `import commit` and `import cancel` do this: run without `--plan-id` they select the only candidate plan themselves, and confirm as `checkly import commit --plan-id="<resolved-id>" --force` — carrying a flag you never passed. That is deliberate: the pinned ID guarantees the approved run acts on the plan whose `changes` you showed the user, not on whatever happens to be pending by then. Run the `confirmCommand` exactly as returned; do not strip the flag or fall back to the bare command.
 
 ## Available Commands
 

@@ -55,3 +55,9 @@ export function dryRunFlag () {
     default: false,
   })
 }
+
+export function planIdFlag () {
+  return Flags.string({
+    description: 'Target a specific import plan by ID, skipping interactive plan selection.',
+  })
+}

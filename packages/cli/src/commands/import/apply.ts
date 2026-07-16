@@ -6,20 +6,28 @@ import chalk from 'chalk'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
+import { planIdFlag } from '../../helpers/flags.js'
+import { detectCliMode } from '../../helpers/cli-mode.js'
 import { splitConfigFilePath } from '../../services/util.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { confirmCommit, performCommitAction } from './commit.js'
+import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
   static description = 'Attach imported resources into your project in a pending state.'
 
   static flags = {
-    config: Flags.string({
+    'config': Flags.string({
       char: 'c',
       description: commonMessages.configFile,
+    }),
+    'plan-id': planIdFlag(),
+    'no-commit': Flags.boolean({
+      description: 'Apply only. Leave the plan pending and skip the commit prompt.',
+      default: false,
     }),
   }
 
@@ -27,6 +35,8 @@ export default class ImportApplyCommand extends AuthCommand {
     const { flags } = await this.parse(ImportApplyCommand)
     const {
       config: configFilename,
+      'plan-id': planId,
+      'no-commit': noCommit,
     } = flags
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -42,14 +52,33 @@ export default class ImportApplyCommand extends AuthCommand {
       onlyUnapplied: true,
     })
 
-    if (unappliedPlans.length === 0) {
-      this.style.fatal(`No plans available to apply.`)
+    const noPlans = reportNoCandidatePlans(this, unappliedPlans, {
+      planId,
+      action: 'apply',
+      nothingToDo: 'Nothing to apply — no unapplied import plans found.',
+    })
+    if (noPlans) {
       return
     }
 
-    const plan = await this.#selectPlan(unappliedPlans)
+    const plan = await selectPlanOrExit(
+      this, unappliedPlans, planId, 'apply', () => this.#selectPlan(unappliedPlans),
+    )
 
     await performApplyAction.call(this, plan)
+
+    // Applying reserves the resources as pending; committing is a separate,
+    // irreversible step. Non-interactive sessions (agents/CI) cannot answer the
+    // commit prompt, and --no-commit opts out of it explicitly. Both leave
+    // finalizing to a later `checkly deploy` or `checkly import commit`.
+    if (noCommit || detectCliMode() !== 'interactive') {
+      this.log(`\
+  The plan is applied but not committed. To commit it, run:
+
+    ${chalk.green(`npx checkly import commit --plan-id ${plan.id}`)}
+`)
+      return
+    }
 
     const commit = await confirmCommit.call(this)
     if (!commit) {
