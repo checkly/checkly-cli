@@ -95,6 +95,22 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
   include?: string | string[]
 
   /**
+   * Working directory for this check's install and test commands, relative to
+   * the project (the directory that contains your Checkly config). Defaults to
+   * the project directory.
+   *
+   * Set this when a `playwrightChecks` entry points at a self-contained
+   * sub-project with its own package manager and pinned `@playwright/test`: the
+   * CLI then resolves that entry's Playwright version from this directory and
+   * the runner runs its commands from here. This lets one bundled session mix
+   * several fixtures on different Playwright versions without hand-written
+   * `installCommand`/`testCommand` shell surgery.
+   *
+   * @example "playwright-native/yarn-tests"
+   */
+  workingDir?: string
+
+  /**
    * Name of the check group to assign this check to.
    * The group must exist in your project configuration.
    *
@@ -150,6 +166,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwProjects: string[]
   pwTags: string[]
   include: string[]
+  workingDir?: string
   engine?: Engine
   /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
   groupName?: string
@@ -170,6 +187,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     this.include = config.include
       ? (Array.isArray(config.include) ? config.include : [config.include])
       : []
+    this.workingDir = config.workingDir
     this.testCommand = config.testCommand
     this.groupName = config.groupName
     this.playwrightConfigPath = this.resolveContentFilePath(config.playwrightConfigPath)
@@ -491,7 +509,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       relativePlaywrightConfigPath,
       workingDir,
       files,
-    } = await Session.getPlaywrightProjectBundler().bundle(this.playwrightConfigPath, this.include ?? [])
+    } = await Session.getPlaywrightProjectBundler().bundle(
+      this.playwrightConfigPath,
+      this.include ?? [],
+      this.workingDir,
+    )
 
     bundler.registerFiles(...files)
 
