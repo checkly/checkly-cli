@@ -25,7 +25,7 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
 
-The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `checkly deploy --force` rather than echoing back every boolean the parser filled in. It can also carry a flag you did not pass: a command that resolves a target for you pins that target into the `confirmCommand`, so the approved run cannot drift onto a different one. Treat every flag you see there as deliberate.
+The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `checkly deploy --force` rather than echoing back every boolean the parser filled in. Treat every flag you see there as deliberate.
 
 ## Available Commands
 
