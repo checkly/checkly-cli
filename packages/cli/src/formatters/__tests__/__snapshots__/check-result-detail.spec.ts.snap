@@ -303,7 +303,33 @@ exports[`formatResultDetail > SSL check result > renders markdown snapshot > ssl
 - **Chain trusted:** no
 - **Hostname verified:** no
 - **Baseline:** FAIL grade C
-- **Failure:** expired"
+- **Failure:** expired
+
+## Certificate
+- **Subject CN:** expired.example.com
+- **Issuer CN:** Example Issuing CA
+- **Valid:** 2026-01-01T00:00:00Z → 2026-07-01T00:00:00Z
+- **Key:** ECDSA 256-bit
+- **Signature:** ECDSA-SHA256
+- **SHA-256:** \`beab14cf39678fda0ef1606eedb818c2298ba2cc7a00886e7dc2d2410f24cd35\`
+- **SANs:** expired.example.com, www.expired.example.com
+- **Serial:** 35428337808578903465180920265426569102
+- **OCSP stapled:** no
+
+## Security Baseline
+- ✔ min TLS version: TLS 1.3
+- ✔ min key size: 256-bit
+- ✔ weak signature algorithm: ECDSA-SHA256
+- ✖ weak cipher suite: TLS_AES_256_GCM_SHA384
+- ✔ known bad CA
+- ✔ recommended TLS version: TLS 1.3
+- ✔ recommended key size: 256-bit
+- ✔ OCSP must-staple respected: not stapled
+- ✔ SCT present
+
+## Assertions
+- ✖ CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.
+- ✔ CERT_NOT_EXPIRED equals target "true". Received: true."
 `;
 
 exports[`formatResultDetail > SSL check result > renders terminal snapshot > ssl-result-detail-terminal 1`] = `
@@ -326,7 +352,33 @@ Handshake:      48ms
 Chain trusted:  no
 Hostname:       no
 Baseline:       FAIL grade C
-Failure:        expired"
+Failure:        expired
+
+CERTIFICATE
+Subject CN:     expired.example.com
+Issuer CN:      Example Issuing CA
+Valid:          2026-01-01T00:00:00Z → 2026-07-01T00:00:00Z
+Key:            ECDSA 256-bit
+Signature:      ECDSA-SHA256
+SHA-256:        beab14cf39678fda0ef1606eedb818c2298ba2cc7a00886e7dc2d2410f24cd35
+SANs:           expired.example.com, www.expired.example.com
+Serial:         35428337808578903465180920265426569102
+OCSP stapled:   no
+
+SECURITY BASELINE
+  ✔ min TLS version: TLS 1.3
+  ✔ min key size: 256-bit
+  ✔ weak signature algorithm: ECDSA-SHA256
+  ✖ weak cipher suite: TLS_AES_256_GCM_SHA384
+  ✔ known bad CA
+  ✔ recommended TLS version: TLS 1.3
+  ✔ recommended key size: 256-bit
+  ✔ OCSP must-staple respected: not stapled
+  ✔ SCT present
+
+ASSERTIONS
+  ✖ CERT_EXPIRES_IN_DAYS is greater than target "99999". Received: 52.
+  ✔ CERT_NOT_EXPIRED equals target "true". Received: true."
 `;
 
 exports[`formatResultDetail > Traceroute check result > renders markdown snapshot > traceroute-result-detail-md 1`] = `
@@ -345,10 +397,18 @@ exports[`formatResultDetail > Traceroute check result > renders markdown snapsho
 
 ## Traceroute Result
 - **Destination:** unreachable.example.com (203.0.113.10)
+- **Probe protocol:** ICMP
 - **Hops:** 30
 - **Reached:** no
 - **Truncated:** max-hops
-- **Final hop:** avg 24ms / best 22ms / worst 31ms"
+- **Final hop:** avg 24ms / best 22ms / worst 31ms
+
+## Timing
+- **DNS:** 2ms
+
+## Assertions
+- ✖ latency property "avg" is less than target "20". Received: 24.1.
+- ✔ response time is less than target "5000". Received: 1000."
 `;
 
 exports[`formatResultDetail > Traceroute check result > renders terminal snapshot > traceroute-result-detail-terminal 1`] = `
@@ -366,6 +426,7 @@ ID:             result-tr-1
 TRACEROUTE RESULT
 Destination:    unreachable.example.com (203.0.113.10)
 Protocol:       TCP
+Probe protocol: ICMP
 Hops:           30
 Reached:        no
 Truncated:      max-hops
@@ -373,7 +434,14 @@ Final hop:      avg 24ms / best 22ms / worst 31ms
 
 HOPS
    1  10.0.0.1 (gateway.local)  loss 0%  rtt avg 1ms / best 1ms / worst 2ms
-   2  198.51.100.5  loss 100%  AS64500"
+   2  198.51.100.5  loss 100%  AS64500
+
+TIMING
+DNS:            2ms
+
+ASSERTIONS
+  ✖ latency property "avg" is less than target "20". Received: 24.1.
+  ✔ response time is less than target "5000". Received: 1000."
 `;
 
 exports[`formatResultDetail > gRPC check result > renders markdown snapshot > grpc-result-detail-md 1`] = `
@@ -394,7 +462,18 @@ exports[`formatResultDetail > gRPC check result > renders markdown snapshot > gr
 - **Status:** 14 connection refused
 - **Health:** NOT_SERVING
 - **Method:** grpc.health.v1.Health/Check
-- **Discovered methods:** grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch"
+- **Discovered methods:** grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch
+
+## Timing
+| Phase | Duration |
+| --- | --- |
+| DNS | 5ms |
+| Connect | 40ms |
+| **Total** | **90ms** |
+
+## Assertions
+- ✖ status code equals target "0". Received: 14.
+- ✔ health check status equals target "NOT_SERVING". Received: NOT_SERVING."
 `;
 
 exports[`formatResultDetail > gRPC check result > renders terminal snapshot > grpc-result-detail-terminal 1`] = `
@@ -417,5 +496,14 @@ Status:         14 connection refused
 Health:         NOT_SERVING
 Methods:        grpc.health.v1.Health/Check, grpc.health.v1.Health/Watch
 Metadata:       
-  content-type: application/grpc"
+  content-type: application/grpc
+
+TIMING
+DNS:            5ms
+Connect:        40ms
+Total:          90ms
+
+ASSERTIONS
+  ✖ status code equals target "0". Received: 14.
+  ✔ health check status equals target "NOT_SERVING". Received: NOT_SERVING."
 `;

@@ -41,21 +41,21 @@ export interface GrpcConfig {
    * `method`); `HEALTH` queries the standard gRPC health-check service (allows
    * `service`).
    *
-   * @default "BEHAVIOR"
+   * @defaultValue "BEHAVIOR"
    */
   mode?: GrpcMode
 
   /**
    * Whether to use a TLS-encrypted connection to the gRPC server.
    *
-   * @default true
+   * @defaultValue true
    */
   tls?: boolean
 
   /**
    * Whether to store the gRPC response body with the check result.
    *
-   * @default true
+   * @defaultValue true
    */
   storeResponseBody?: boolean
 
@@ -69,7 +69,7 @@ export interface GrpcConfig {
    * uses server reflection; `PROTO_FILE` uses the inline `protoContent`.
    * Forbidden in `HEALTH` mode.
    *
-   * @default "REFLECTION"
+   * @defaultValue "REFLECTION"
    */
   serviceDefinition?: GrpcServiceDefinition
 
@@ -124,14 +124,14 @@ export interface GrpcRequest {
   /**
    * The IP family to use when executing the gRPC check.
    *
-   * @default "IPv4"
+   * @defaultValue "IPv4"
    */
   ipFamily?: IPFamily
 
   /**
    * Whether to skip SSL certificate validation when `tls` is enabled.
    *
-   * @default false
+   * @defaultValue false
    */
   skipSSL?: boolean
 
@@ -141,7 +141,7 @@ export interface GrpcRequest {
    *
    * @minimum 1
    * @maximum 180
-   * @default 60
+   * @defaultValue 60
    */
   timeout?: number
 

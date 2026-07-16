@@ -129,6 +129,10 @@ type ResponseTimeProps = {
 type ResponseTimeLimits = {
   degradedResponseTime: number
   maxResponseTime: number
+  // The per-type default that the backend applies to `maxResponseTime` when the
+  // caller omits it. Used so the degraded <= max cross-check still runs (against
+  // the effective max) when only `degradedResponseTime` is set explicitly.
+  defaultMaxResponseTime?: number
 }
 
 // eslint-disable-next-line require-await
@@ -165,5 +169,27 @@ export async function validateResponseTimes (
         ),
       ))
     }
+  }
+
+  // When `maxResponseTime` is omitted the backend applies a per-type default, so
+  // compare `degradedResponseTime` against that effective max. This catches the
+  // case where an explicit degraded value exceeds the default max (which would
+  // otherwise pass CLI validation but produce a broken check server-side).
+  const effectiveMaxResponseTime = props.maxResponseTime ?? limits.defaultMaxResponseTime
+  if (
+    props.degradedResponseTime !== undefined
+    && effectiveMaxResponseTime !== undefined
+    && props.degradedResponseTime > effectiveMaxResponseTime
+  ) {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'degradedResponseTime',
+      new Error(
+        props.maxResponseTime !== undefined
+          ? `The value of "degradedResponseTime" must be less than or equal to "maxResponseTime".`
+          : `The value of "degradedResponseTime" must be less than or equal to the default `
+            + `"maxResponseTime" of ${effectiveMaxResponseTime}. Set an explicit "maxResponseTime" `
+            + `if you need a higher limit.`,
+      ),
+    ))
   }
 }

@@ -5,10 +5,10 @@ import { IPFamily } from './ip.js'
  * The severity applied to an SSL security-baseline rule.
  *
  * - `fail` marks the monitor as failing when the rule is violated.
- * - `warn` marks the monitor as degraded when the rule is violated.
+ * - `degrade` marks the monitor as degraded when the rule is violated.
  * - `ignore` disables the rule.
  */
-export type SslBaselineSeverity = 'fail' | 'warn' | 'ignore'
+export type SslBaselineSeverity = 'fail' | 'degrade' | 'ignore'
 
 /**
  * A baseline rule whose value is a TLS version string (e.g. `TLS1.2`/`TLS1.3`).
@@ -89,7 +89,7 @@ export interface SslConfig {
    * When true, the certificate chain is not validated against trusted roots
    * (the certificate is still inspected for expiry and the security baseline).
    *
-   * @default false
+   * @defaultValue false
    */
   skipChainValidation?: boolean
 
@@ -99,7 +99,7 @@ export interface SslConfig {
    *
    * @minimum 1000
    * @maximum 30000
-   * @default 10000
+   * @defaultValue 10000
    */
   handshakeTimeout?: number
 
@@ -108,7 +108,7 @@ export interface SslConfig {
    *
    * @minimum 1
    * @maximum 365
-   * @default 20
+   * @defaultValue 20
    */
   alertDaysBeforeExpiry?: number
 
@@ -142,14 +142,14 @@ export interface SslRequest {
    *
    * @minimum 1
    * @maximum 65535
-   * @default 443
+   * @defaultValue 443
    */
   port?: number
 
   /**
    * The IP family to use when executing the check.
    *
-   * @default "IPv4"
+   * @defaultValue "IPv4"
    */
   ipFamily?: IPFamily
 

@@ -50,7 +50,7 @@ export default class IncidentsUpdate extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { args, flags } = await this.parse(IncidentsUpdate)
+    const { args, flags, metadata } = await this.parse(IncidentsUpdate)
     this.style.outputFormat = flags.output
 
     const incident = await api.incidents.get(args.id)
@@ -69,6 +69,7 @@ export default class IncidentsUpdate extends AuthCommand {
       description: 'Post progress update to incident',
       changes,
       flags,
+      flagMetadata: metadata.flags,
       args: { id: args.id },
       classification: {
         readOnly: IncidentsUpdate.readOnly,

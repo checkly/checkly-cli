@@ -63,9 +63,36 @@ export function valueForNumericAssertion<Source extends string> (
   })
 }
 
+// Emits an SSL boolean-source assertion: `Builder.method().equals(true|false)`.
+// The four boolean SSL sources only support EQUALS and carry no property/regex.
+export function valueForBooleanAssertion<Source extends string> (
+  klass: string,
+  method: string,
+  assertion: Assertion<Source>,
+): Value {
+  return expr(ident(klass), builder => {
+    builder.member(ident(method))
+    builder.call(() => {})
+    switch (assertion.comparison) {
+      case 'EQUALS':
+        builder.member(ident('equals'))
+        builder.call(builder => {
+          builder.boolean(assertion.target === 'true')
+        })
+        break
+      default:
+        throw new Error(`Unsupported comparison ${assertion.comparison} for assertion source ${assertion.source}`)
+    }
+  })
+}
+
 export interface ValueForGeneralAssertionOptions {
   hasProperty?: boolean
   hasRegex?: boolean
+  // When set, a `MATCHES` comparison emits `.matches(target)`. Only the SSL string
+  // sources (CIPHER_SUITE/ISSUER_CN/SIGNATURE_ALGORITHM) accept MATCHES; every other
+  // caller leaves it off, so MATCHES stays a `default: throw` for them.
+  hasMatches?: boolean
 }
 
 export function valueForGeneralAssertion<Source extends string> (
@@ -170,6 +197,15 @@ export function valueForGeneralAssertion<Source extends string> (
         builder.member(ident('isNotNull'))
         builder.call(builder => {
           builder.empty()
+        })
+        break
+      case 'MATCHES':
+        if (!options?.hasMatches) {
+          throw new Error(`Unsupported comparison ${assertion.comparison} for assertion source ${assertion.source}`)
+        }
+        builder.member(ident('matches'))
+        builder.call(builder => {
+          builder.string(assertion.target)
         })
         break
       default:

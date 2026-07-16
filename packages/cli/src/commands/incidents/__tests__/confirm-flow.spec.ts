@@ -50,12 +50,12 @@ const incidentFixture = {
   services: [{ id: 'svc-1', name: 'Checkout API', accountId: 'acc-1' }],
 }
 
-function createCommandContext (parsed: unknown) {
+function createCommandContext (parsed: { flags: Record<string, unknown>, args?: unknown, metadata?: unknown }) {
   const logged: string[] = []
   let didExit = false
   let exitCodeValue: number | undefined
   return {
-    parse: vi.fn().mockResolvedValue(parsed),
+    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
     }),

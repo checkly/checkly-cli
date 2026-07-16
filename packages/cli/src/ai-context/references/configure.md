@@ -75,3 +75,26 @@ Run `npx checkly skills manage plan` for the full reference.
 ## Deploying
 
 - Deploy checks using the `npx checkly deploy` command. Use `--output` to see the created, updated, and deleted resources. Use `--verbose` to also include each resource's name and physical ID (UUID), which is useful for programmatically referencing deployed resources (e.g. `npx checkly checks get <id>`).
+- Use `--preview` to see what a deploy would change without applying it.
+
+### Deleted resources
+
+A deploy makes the account match the code. **Any resource that was deployed before and is no longer in the code gets deleted, along with its run history.** Pass `--preserve-resources` to keep those resources and their history in the Checkly account instead, where the user can manage them from the web app.
+
+This matters when the local project isn't the whole picture — a partial checkout, or a project whose checks were also edited elsewhere. If you're not sure the code is the complete source of truth, say so before deploying.
+
+### Confirmation
+
+`deploy` is a write command: without `--force` it returns exit code 2 and a `confirmation_required` envelope. Present its `changes` to the user and run the `confirmCommand` verbatim only after they approve.
+
+That confirmation happens **before the project is parsed**, so it cannot tell you which resources would be deleted — its `changes` only warn that deletion is possible. There is a second, itemised guard that lists each doomed resource by name, but it is skipped by `--force`, and `--force` is exactly what the `confirmCommand` carries. **An agent following the confirmation protocol never sees that list.** It is a prompt for humans deploying by hand.
+
+So when resources may have been removed from the code, don't rely on the confirmation to surface it — preview first:
+
+```bash
+npx checkly deploy --preview
+```
+
+This is a dry run: nothing is applied and nothing is confirmed. It prints the resources that would be created, updated, and deleted (add `--verbose` for names and IDs). Show the user what would be deleted, and only then deploy.
+
+Run `npx checkly skills communicate` for the full protocol.
