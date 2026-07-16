@@ -43,10 +43,13 @@ const statusPageFixture: StatusPage = {
   updated_at: '2026-02-25T10:00:00.000Z',
 }
 
-function createCommandContext (parsed: unknown, CommandClass: any = IncidentsCreate) {
+function createCommandContext (
+  parsed: { flags: Record<string, unknown>, args?: unknown, metadata?: unknown },
+  CommandClass: any = IncidentsCreate,
+) {
   const logged: string[] = []
   return {
-    parse: vi.fn().mockResolvedValue(parsed),
+    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
     }),

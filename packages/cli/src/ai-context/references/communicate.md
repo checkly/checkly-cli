@@ -20,10 +20,12 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 **Rules for agents:**
 
 1. When exit code is 2 and output contains `"status": "confirmation_required"`, **always present the `changes` array to the user** and ask for confirmation.
-2. **Never auto-append `--force`** — only run the `confirmCommand` after the user explicitly approves.
+2. **Run the `confirmCommand` verbatim, and only after the user explicitly approves.** It is normally the command you just ran, plus `--force` to skip the second prompt. Don't append `--force` to anything yourself, and don't edit the `confirmCommand` — changing its flags changes what you were authorized to do.
 3. This applies to **every** write command, not just the first one. Incident updates and resolutions also require confirmation.
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
+
+The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `checkly deploy --force` rather than echoing back every boolean the parser filled in. Treat every flag you see there as deliberate.
 
 ## Available Commands
 

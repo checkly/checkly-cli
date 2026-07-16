@@ -110,7 +110,7 @@ export default class Deploy extends AuthCommand {
   }
 
   async run (): Promise<void> {
-    const { flags } = await this.parse(Deploy)
+    const { flags, metadata } = await this.parse(Deploy)
     const {
       force,
       preview,
@@ -146,6 +146,7 @@ export default class Deploy extends AuthCommand {
             : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',
         ],
         flags,
+        flagMetadata: metadata.flags,
         classification: {
           readOnly: Deploy.readOnly,
           destructive: Deploy.destructive,
@@ -316,6 +317,7 @@ export default class Deploy extends AuthCommand {
               `Delete ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`),
           ],
           flags,
+          flagMetadata: metadata.flags,
           classification: {
             readOnly: Deploy.readOnly,
             destructive: Deploy.destructive,

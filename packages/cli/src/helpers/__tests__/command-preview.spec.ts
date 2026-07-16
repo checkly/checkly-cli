@@ -124,4 +124,22 @@ describe('buildConfirmCommand', () => {
     const result = buildConfirmCommand('incidents update', { message: 'Fix deployed' }, { id: 'inc-123' })
     expect(result).toBe('checkly incidents update inc-123 --message="Fix deployed" --force')
   })
+
+  it('omits flags oclif filled in from their default', () => {
+    const result = buildConfirmCommand('deploy', {
+      'preview': false,
+      'schedule-on-deploy': true,
+      'preserve-resources': true,
+    }, undefined, {
+      'preview': { setFromDefault: true },
+      'schedule-on-deploy': { setFromDefault: true },
+      'preserve-resources': { setFromDefault: false },
+    })
+    expect(result).toBe('checkly deploy --preserve-resources --force')
+  })
+
+  it('keeps default-valued flags when no metadata is given', () => {
+    const result = buildConfirmCommand('deploy', { 'schedule-on-deploy': true })
+    expect(result).toBe('checkly deploy --schedule-on-deploy --force')
+  })
 })

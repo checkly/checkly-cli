@@ -1,3 +1,4 @@
+import { Parser } from '@oclif/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../helpers/cli-mode', () => ({
@@ -29,14 +30,26 @@ vi.mock('prompts', () => ({
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import prompts from 'prompts'
 import * as api from '../../rest/api.js'
+import { buildConfirmCommand } from '../../helpers/command-preview.js'
 import { AuthCommand } from '../authCommand.js'
 import Destroy from '../destroy.js'
 
-function createCommandContext (parsed: unknown) {
+/** Turn a generated confirmCommand back into argv, so oclif can re-parse it. */
+function flagArgv (confirmCommand: string): string[] {
+  return [...confirmCommand.matchAll(/--[a-zA-Z0-9-]+(?:="[^"]*")?/g)]
+    .map(([token]) => token.replace(/="(.*)"$/, '=$1'))
+}
+
+async function confirmCommandFor (argv: string[]): Promise<string> {
+  const { flags, metadata } = await Parser.parse(argv, { flags: Destroy.flags, strict: true })
+  return buildConfirmCommand('destroy', flags, undefined, metadata.flags)
+}
+
+function createCommandContext (parsed: { flags: Record<string, unknown>, metadata?: unknown }) {
   const logged: string[] = []
   let exitCodeValue: number | undefined
   return {
-    parse: vi.fn().mockResolvedValue(parsed),
+    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
     }),
@@ -170,5 +183,22 @@ describe('destroy confirmation flow', () => {
     expect(Destroy.destructive).toBe(true)
     expect(Destroy.readOnly).toBe(false)
     expect(Destroy.idempotent).toBe(false)
+  })
+})
+
+describe('destroy confirmCommand', () => {
+  it('echoes only the flags the user typed', async () => {
+    expect(await confirmCommandFor([])).toBe('checkly destroy --force')
+    expect(await confirmCommandFor(['--preserve-resources'])).toBe('checkly destroy --preserve-resources --force')
+  })
+
+  it('generates a command oclif can parse back', async () => {
+    for (const argv of [[], ['--preserve-resources'], ['--cancel-in-progress-deployment']]) {
+      const confirmCommand = await confirmCommandFor(argv)
+      await expect(
+        Parser.parse(flagArgv(confirmCommand), { flags: Destroy.flags, strict: true }),
+        `confirmCommand for "checkly destroy ${argv.join(' ')}" must be runnable: ${confirmCommand}`,
+      ).resolves.toBeDefined()
+    }
   })
 })
