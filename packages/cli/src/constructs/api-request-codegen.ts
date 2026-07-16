@@ -26,6 +26,10 @@ export function valueForRequest (
       builder.boolean('skipSSL', request.skipSSL)
     }
 
+    if (request.treatResponseBodyAsText === true) {
+      builder.boolean('treatResponseBodyAsText', request.treatResponseBodyAsText)
+    }
+
     if (request.body !== undefined && request.body !== '') {
       builder.string('body', request.body)
     }
