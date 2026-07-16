@@ -34,7 +34,7 @@ import Cancel from './cancel.js'
 import Usage from './usage.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
-import { detectOperator } from '../helpers/cli-mode.js'
+import { detectCliMode, detectOperator } from '../helpers/cli-mode.js'
 import { accountOverrideNotAvailable } from '../helpers/accounts.js'
 
 export function getDefaults () {
@@ -117,7 +117,10 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
     config.headers['x-checkly-account'] = accountId
   }
 
-  config.headers['x-checkly-source'] = 'CLI'
+  // Declare who is driving the CLI. An agent run reports `AGENT` so the backend
+  // can tell agent-created import plans apart from human ones (same API key) —
+  // it keys the abandoned-reservation GC off this. Everything else is `CLI`.
+  config.headers['x-checkly-source'] = detectCliMode() === 'agent' ? 'AGENT' : 'CLI'
   config.headers['x-checkly-ci-name'] = CIname
   config.headers['x-checkly-operator'] = detectOperator()
 
