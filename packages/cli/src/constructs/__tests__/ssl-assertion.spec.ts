@@ -134,9 +134,9 @@ describe('SslAssertionBuilder', () => {
     })
 
     it('rejects unknown property names', () => {
-      // @ts-expect-error 'bogusProperty' is not a CertificateProperty
+      // @ts-expect-error 'bogusProperty' is not an SslCertificateProperty
       SslAssertionBuilder.certificate('bogusProperty')
-      // @ts-expect-error 'bogusProperty' is not a ConnectionProperty
+      // @ts-expect-error 'bogusProperty' is not an SslConnectionProperty
       SslAssertionBuilder.connection('bogusProperty')
     })
 

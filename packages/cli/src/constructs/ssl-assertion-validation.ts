@@ -1,6 +1,6 @@
 import { Diagnostics } from './diagnostics.js'
 import { addAssertionDiagnostic, quotedKeys } from './internal/assertion-validation.js'
-import { SslAssertion } from './ssl-assertion.js'
+import { SslAssertion, SslCertificateProperty, SslConnectionProperty } from './ssl-assertion.js'
 
 // The comparisons the backend accepts per value type. The `>=` operator and the regex
 // operator are both dropped for SSL, so neither appears in any set.
@@ -34,7 +34,10 @@ type SslSourceRule =
   | { properties: Record<string, PropertyRule> }
   | { comparisons: Comparisons }
 
-const certificateProperties: Record<string, PropertyRule> = {
+// Runtime counterparts of unions that exist only at compile time. Typing them as a
+// Record keyed by the union makes a missing or misspelled entry a compile-time error,
+// so neither list can drift from the union it mirrors.
+const certificateProperties: Record<SslCertificateProperty, PropertyRule> = {
   daysUntilExpiry: { comparisons: NUMBER },
   keySizeBits: { comparisons: NUMBER },
   subjectCN: { comparisons: STRING },
@@ -49,7 +52,7 @@ const certificateProperties: Record<string, PropertyRule> = {
   isCA: { comparisons: BOOLEAN, booleanTarget: true },
 }
 
-const connectionProperties: Record<string, PropertyRule> = {
+const connectionProperties: Record<SslConnectionProperty, PropertyRule> = {
   tlsVersion: { comparisons: VERSION },
   cipherSuite: { comparisons: STRING },
   hostnameVerified: { comparisons: BOOLEAN, booleanTarget: true },

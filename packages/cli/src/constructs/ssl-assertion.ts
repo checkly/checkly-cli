@@ -106,9 +106,10 @@ export type SslAssertion = CoreAssertion<SslAssertionSource>
 
 // The certificate/connection property names the backend understands. Narrowing the
 // `property` parameter to these unions turns a typo into a compile error and drives
-// autocomplete. The runtime whitelist in ssl-assertion-validation.ts is the source of
-// truth for object-literal assertions that bypass the builder.
-type CertificateProperty =
+// autocomplete. Object-literal assertions bypass the builder and are checked at deploy
+// time against the runtime whitelists in ssl-assertion-validation.ts, which are keyed
+// by these unions — so adding a member here without a matching rule fails to compile.
+export type SslCertificateProperty =
   | 'daysUntilExpiry'
   | 'subjectCN'
   | 'issuerCN'
@@ -122,7 +123,7 @@ type CertificateProperty =
   | 'selfSigned'
   | 'isCA'
 
-type ConnectionProperty =
+export type SslConnectionProperty =
   | 'tlsVersion'
   | 'cipherSuite'
   | 'hostnameVerified'
@@ -165,8 +166,8 @@ export class SslAssertionBuilder {
    *   `'issuerCN'`, `'signatureAlgorithm'`, `'sans'`, `'selfSigned'`).
    */
   static certificate (property: 'signatureAlgorithm'): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>
-  static certificate (property: CertificateProperty): GeneralAssertionBuilder<SslAssertionSource>
-  static certificate (property: CertificateProperty) {
+  static certificate (property: SslCertificateProperty): GeneralAssertionBuilder<SslAssertionSource>
+  static certificate (property: SslCertificateProperty) {
     return new GeneralAssertionBuilder<SslAssertionSource>('CERTIFICATE', property)
   }
 
@@ -176,8 +177,8 @@ export class SslAssertionBuilder {
    *   `'cipherSuite'`, `'hostnameVerified'`, `'ocspStatus'`, `'resolvedIp'`).
    */
   static connection (property: 'tlsVersion'): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>
-  static connection (property: ConnectionProperty): GeneralAssertionBuilder<SslAssertionSource>
-  static connection (property: ConnectionProperty) {
+  static connection (property: SslConnectionProperty): GeneralAssertionBuilder<SslAssertionSource>
+  static connection (property: SslConnectionProperty) {
     return new GeneralAssertionBuilder<SslAssertionSource>('CONNECTION', property)
   }
 
