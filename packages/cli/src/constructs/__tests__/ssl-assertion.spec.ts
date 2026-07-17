@@ -117,8 +117,10 @@ describe('SslAssertionBuilder', () => {
       expect(SslAssertionBuilder.textResponse().contains('healthy')).toMatchObject({
         source: 'TEXT_RESPONSE', property: '', comparison: 'CONTAINS', target: 'healthy', regex: null,
       })
+      // The pattern rides in `property` — the slot the backend Joi schema and the
+      // go-runner (EvaluateRegExp) read the TEXT_RESPONSE pattern from; `regex` is dead.
       expect(SslAssertionBuilder.textResponse('status: (\\w+)').equals('ok')).toMatchObject({
-        source: 'TEXT_RESPONSE', property: '', comparison: 'EQUALS', target: 'ok', regex: 'status: (\\w+)',
+        source: 'TEXT_RESPONSE', property: 'status: (\\w+)', comparison: 'EQUALS', target: 'ok', regex: null,
       })
     })
   })

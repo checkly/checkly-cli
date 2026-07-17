@@ -501,9 +501,11 @@ export class SslAssertionBuilder {
 
   /**
    * Creates an assertion builder for a text response body.
-   * @param regex Optional regex pattern applied to the response text before comparison.
+   * @param regex Optional regex pattern (with a capture group) used to extract the value
+   *   to compare from the serialized response document. Carried in the assertion's
+   *   `property` field — the slot the backend and runner read the pattern from.
    */
   static textResponse (regex?: string) {
-    return new GeneralAssertionBuilder<SslAssertionSource>('TEXT_RESPONSE', undefined, regex)
+    return new GeneralAssertionBuilder<SslAssertionSource>('TEXT_RESPONSE', regex)
   }
 }

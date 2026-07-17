@@ -8,11 +8,11 @@ import {
 import { isSslNumericTarget, sslPropertyValueType } from './internal/ssl-properties.js'
 import { SslAssertion } from './ssl-assertion.js'
 
-// CERTIFICATE / CONNECTION / JSON_RESPONSE address a value by property name and carry
-// no regex, so the property slot is emitted and the regex slot suppressed.
+// Every SSL source addresses its value through the property slot — CERTIFICATE /
+// CONNECTION use a field selector, JSON_RESPONSE a JSONPath, and TEXT_RESPONSE a
+// regex (the backend and runner read the TEXT_RESPONSE pattern from `property`,
+// not `regex`). The regex slot is never emitted.
 const withProperty = { hasProperty: true, hasRegex: false }
-// TEXT_RESPONSE carries a regex and no property.
-const withRegex = { hasProperty: false, hasRegex: true }
 
 // The comparisons each typed helper can render. A comparison outside the set makes the
 // helper throw, which would abort the whole import over a single assertion, so the
@@ -71,7 +71,7 @@ export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAsse
     case 'JSON_RESPONSE':
       return valueForGeneralAssertion('SslAssertionBuilder', 'jsonResponse', assertion, withProperty)
     case 'TEXT_RESPONSE':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'textResponse', assertion, withRegex)
+      return valueForGeneralAssertion('SslAssertionBuilder', 'textResponse', assertion, withProperty)
     case 'RESPONSE_TIME':
       return valueForNumericAssertion('SslAssertionBuilder', 'responseTime', assertion)
     default:

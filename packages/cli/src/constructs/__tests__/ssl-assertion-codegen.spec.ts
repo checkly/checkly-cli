@@ -48,14 +48,14 @@ describe('SSL Assertion Codegen', () => {
         input: { source: 'JSON_RESPONSE', property: '$.status', comparison: 'EQUALS', target: 'ok', regex: null },
         expected: 'SslAssertionBuilder.jsonResponse(\'$.status\').equals(\'ok\')\n',
       },
-      // TEXT_RESPONSE emits the regex slot, not a property.
+      // TEXT_RESPONSE carries its regex in the property slot (the backend/runner contract).
       {
         input: { source: 'TEXT_RESPONSE', property: '', comparison: 'CONTAINS', target: 'healthy', regex: null },
         expected: 'SslAssertionBuilder.textResponse().contains(\'healthy\')\n',
       },
       {
-        input: { source: 'TEXT_RESPONSE', property: '', comparison: 'EQUALS', target: 'ok', regex: 'status: OK' },
-        expected: 'SslAssertionBuilder.textResponse(\'status: OK\').equals(\'ok\')\n',
+        input: { source: 'TEXT_RESPONSE', property: 'status: (\\w+)', comparison: 'EQUALS', target: 'ok', regex: null },
+        expected: 'SslAssertionBuilder.textResponse(\'status: (\\\\w+)\').equals(\'ok\')\n',
       },
     ]
     for (const test of cases) {
