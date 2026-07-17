@@ -107,6 +107,58 @@ describe('GrpcMonitor', () => {
     expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
   })
 
+  describe('healthCheckStatus assertion builder', () => {
+    it('maps each label to its numeric serving-status wire target', () => {
+      const cases: { label: 'UNKNOWN' | 'SERVING' | 'NOT_SERVING' | 'SERVICE_UNKNOWN', target: string }[] = [
+        { label: 'UNKNOWN', target: '0' },
+        { label: 'SERVING', target: '1' },
+        { label: 'NOT_SERVING', target: '2' },
+        { label: 'SERVICE_UNKNOWN', target: '3' },
+      ]
+      for (const { label, target } of cases) {
+        expect(GrpcAssertionBuilder.healthCheckStatus().equals(label)).toEqual({
+          source: 'GRPC_HEALTHCHECK_STATUS',
+          comparison: 'EQUALS',
+          target,
+          property: '',
+          regex: null,
+        })
+      }
+    })
+
+    it('emits notEquals with the numeric target', () => {
+      expect(GrpcAssertionBuilder.healthCheckStatus().notEquals('NOT_SERVING')).toEqual({
+        source: 'GRPC_HEALTHCHECK_STATUS',
+        comparison: 'NOT_EQUALS',
+        target: '2',
+        property: '',
+        regex: null,
+      })
+    })
+
+    it('accepts the raw numeric enum value for power users', () => {
+      expect(GrpcAssertionBuilder.healthCheckStatus().equals(1)).toEqual({
+        source: 'GRPC_HEALTHCHECK_STATUS',
+        comparison: 'EQUALS',
+        target: '1',
+        property: '',
+        regex: null,
+      })
+    })
+
+    it('accepts the falsy raw numeric enum value 0 (UNKNOWN)', () => {
+      // Pins the falsy boundary: `0` must not be treated as "no target given" by
+      // grpcHealthStatusWireTarget's `typeof target === 'number'` branch.
+      expect(GrpcAssertionBuilder.healthCheckStatus().equals(0)).toEqual({
+        source: 'GRPC_HEALTHCHECK_STATUS',
+        comparison: 'EQUALS',
+        target: '0',
+        property: '',
+        regex: null,
+      })
+    })
+  })
+
   describe('validation', () => {
     it('should error if degradedResponseTime is above 180000', async () => {
       setupProject()
@@ -228,6 +280,67 @@ describe('GrpcMonitor', () => {
           assertions: comparisons.map(comparison => (
             { source: 'GRPC_RESPONSE', property: '', comparison, target: 'x', regex: null }
           )),
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error on a health-check status assertion with a non-numeric target', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          // Object literal bypasses the builder: a raw label can never pass the
+          // runner's numeric evaluation.
+          assertions: [
+            { source: 'GRPC_HEALTHCHECK_STATUS', property: '', comparison: 'EQUALS', target: 'SERVING', regex: null },
+          ],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('has an invalid health-check status target "SERVING"'),
+        }),
+      ]))
+    })
+
+    it('should error on a health-check status assertion with an out-of-range numeric target', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          assertions: [
+            { source: 'GRPC_HEALTHCHECK_STATUS', property: '', comparison: 'EQUALS', target: '9', regex: null },
+          ],
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('has an invalid health-check status target "9"'),
+        }),
+      ]))
+    })
+
+    it('should not error on a health-check status assertion with a numeric target', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          assertions: [
+            { source: 'GRPC_HEALTHCHECK_STATUS', property: '', comparison: 'EQUALS', target: '1', regex: null },
+            GrpcAssertionBuilder.healthCheckStatus().equals('SERVING'),
+          ],
         },
       })
       const diags = new Diagnostics()
