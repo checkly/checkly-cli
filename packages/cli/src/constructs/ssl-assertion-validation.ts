@@ -1,72 +1,63 @@
 import { Diagnostics } from './diagnostics.js'
 import { addAssertionDiagnostic, quotedKeys } from './internal/assertion-validation.js'
+import { SslPropertyValueType, isSslNumericTarget, sslPropertyValueType } from './internal/ssl-properties.js'
 import { SslAssertion, SslCertificateProperty, SslConnectionProperty } from './ssl-assertion.js'
 
-// The comparisons the backend accepts per value type. The `>=` operator and the regex
-// operator are both dropped for SSL, so neither appears in any set.
+// The comparisons the backend accepts. The `>=` operator and the regex operator are both
+// dropped for SSL, so neither appears in any set.
 type Comparisons = Record<string, true>
 
 const NUMBER: Comparisons = { EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true }
 const VERSION: Comparisons = { EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true }
 const STRING: Comparisons = { EQUALS: true, NOT_EQUALS: true, CONTAINS: true, NOT_CONTAINS: true }
-const ID: Comparisons = { EQUALS: true, NOT_EQUALS: true }
-const ENUM: Comparisons = { EQUALS: true, NOT_EQUALS: true }
+const EXACT: Comparisons = { EQUALS: true, NOT_EQUALS: true }
 const STRING_LIST: Comparisons = { CONTAINS: true, NOT_CONTAINS: true }
 const BOOLEAN: Comparisons = { EQUALS: true }
 
-type PropertyRule = {
-  comparisons: Comparisons
-  // Boolean properties compare against 'true'/'false' only; the backend evaluates any
-  // other target as a permanent non-match. Target *values* are validated only for
-  // boolean properties: booleans are a universal two-value set, so a typo is a pure
-  // footgun. The larger closed sets (tlsVersion, signatureAlgorithm) are constrained by
-  // documented constant maps instead; the backend accepts any target string (it is not
-  // rejected at deploy), so a hand-written out-of-set literal simply never matches at
-  // evaluation, and re-validating those here would duplicate the value unions.
-  booleanTarget?: boolean
+// The comparisons each property accepts, mirroring the operators its class in
+// ssl-assertion.ts exposes. Builder callers are already held to this by the class; these
+// tables catch assertions written as object literals, which bypass it.
+//
+// Keyed by the property unions — themselves derived from the operator maps — so a
+// property cannot be added without a rule here.
+const certificateComparisons: Record<SslCertificateProperty, Comparisons> = {
+  daysUntilExpiry: NUMBER,
+  keySizeBits: NUMBER,
+  subjectCN: STRING,
+  issuerCN: STRING,
+  serialNumber: EXACT,
+  fingerprintSha256: EXACT,
+  issuerFingerprintSha256: EXACT,
+  keyAlgorithm: EXACT,
+  signatureAlgorithm: EXACT,
+  sans: STRING_LIST,
+  selfSigned: BOOLEAN,
+  isCA: BOOLEAN,
+}
+
+const connectionComparisons: Record<SslConnectionProperty, Comparisons> = {
+  tlsVersion: VERSION,
+  cipherSuite: STRING,
+  hostnameVerified: BOOLEAN,
+  chainTrusted: BOOLEAN,
+  ocspStapled: BOOLEAN,
+  ocspStatus: EXACT,
+  resolvedIp: STRING,
 }
 
 // CERTIFICATE and CONNECTION are property-scoped: the allowed comparisons depend on the
-// property's value type, and an unknown property is itself an error. RESPONSE_TIME,
-// JSON_RESPONSE and TEXT_RESPONSE carry no whitelisted property (the property slot is a
-// numeric placeholder / JSONPath / regex), so their comparisons are keyed by source.
+// property, and an unknown property is itself an error. RESPONSE_TIME, JSON_RESPONSE and
+// TEXT_RESPONSE carry no whitelisted property (the property slot is a numeric
+// placeholder / JSONPath / regex), so their comparisons are keyed by source.
 type SslSourceRule =
-  | { properties: Record<string, PropertyRule> }
-  | { comparisons: Comparisons }
-
-// Runtime counterparts of unions that exist only at compile time. Typing them as a
-// Record keyed by the union makes a missing or misspelled entry a compile-time error,
-// so neither list can drift from the union it mirrors.
-const certificateProperties: Record<SslCertificateProperty, PropertyRule> = {
-  daysUntilExpiry: { comparisons: NUMBER },
-  keySizeBits: { comparisons: NUMBER },
-  subjectCN: { comparisons: STRING },
-  issuerCN: { comparisons: STRING },
-  serialNumber: { comparisons: ID },
-  fingerprintSha256: { comparisons: ID },
-  issuerFingerprintSha256: { comparisons: ID },
-  keyAlgorithm: { comparisons: ID },
-  signatureAlgorithm: { comparisons: ENUM },
-  sans: { comparisons: STRING_LIST },
-  selfSigned: { comparisons: BOOLEAN, booleanTarget: true },
-  isCA: { comparisons: BOOLEAN, booleanTarget: true },
-}
-
-const connectionProperties: Record<SslConnectionProperty, PropertyRule> = {
-  tlsVersion: { comparisons: VERSION },
-  cipherSuite: { comparisons: STRING },
-  hostnameVerified: { comparisons: BOOLEAN, booleanTarget: true },
-  chainTrusted: { comparisons: BOOLEAN, booleanTarget: true },
-  ocspStapled: { comparisons: BOOLEAN, booleanTarget: true },
-  ocspStatus: { comparisons: ENUM },
-  resolvedIp: { comparisons: STRING },
-}
+  | { properties: Record<string, Comparisons> }
+  | { comparisons: Comparisons, valueType?: SslPropertyValueType }
 
 // Keyed by the source union so adding a source without a rule fails to compile.
 const rules: Record<SslAssertion['source'], SslSourceRule> = {
-  CERTIFICATE: { properties: certificateProperties },
-  CONNECTION: { properties: connectionProperties },
-  RESPONSE_TIME: { comparisons: NUMBER },
+  CERTIFICATE: { properties: certificateComparisons },
+  CONNECTION: { properties: connectionComparisons },
+  RESPONSE_TIME: { comparisons: NUMBER, valueType: 'number' },
   JSON_RESPONSE: {
     comparisons: {
       EQUALS: true,
@@ -95,12 +86,58 @@ const rules: Record<SslAssertion['source'], SslSourceRule> = {
   },
 }
 
-function isPropertyScoped (rule: SslSourceRule): rule is { properties: Record<string, PropertyRule> } {
+function isPropertyScoped (rule: SslSourceRule): rule is { properties: Record<string, Comparisons> } {
   return 'properties' in rule
 }
 
 function formatValue (value: string): string {
   return value === '' ? '(none)' : `"${value}"`
+}
+
+/**
+ * Reports a target that is not of the value type its source or property expects.
+ *
+ * Target *values* are checked where the accepted set is universal — booleans are two
+ * values, numbers are a total predicate — so a typo is a pure footgun the backend will not
+ * catch: it accepts any target string at deploy and simply never matches at evaluation,
+ * leaving an assertion that looks configured but silently never fires.
+ *
+ * The closed *enumerated* sets (tlsVersion, signatureAlgorithm) are deliberately not
+ * checked: the builder's typed operators already constrain them, and restating their
+ * members here would duplicate the value unions.
+ */
+function validateTargetValue (
+  diagnostics: Diagnostics,
+  assertion: SslAssertion,
+  location: string,
+  valueType: SslPropertyValueType | undefined,
+  subject: string,
+): void {
+  // `target` is declared a string, but object-literal assertions are not typechecked when
+  // a check file is loaded, so a hand-written `target: 30` or an omitted target reaches
+  // here as a non-string. Report it rather than dereferencing it — a TypeError out of
+  // validate() would abort the command with no location or message.
+  const target: unknown = assertion.target
+  if (typeof target !== 'string') {
+    if (valueType !== undefined) {
+      addAssertionDiagnostic(diagnostics,
+        `The ${subject} assertion at "${location}" must compare against a ${valueType} written as a string, `
+        + `but got ${JSON.stringify(target) ?? String(target)}.`)
+    }
+    return
+  }
+
+  if (valueType === 'boolean' && target !== 'true' && target !== 'false') {
+    addAssertionDiagnostic(diagnostics,
+      `The ${subject} assertion at "${location}" must compare against "true" or "false", `
+      + `but got "${target}".`)
+  }
+
+  if (valueType === 'number' && !isSslNumericTarget(target)) {
+    addAssertionDiagnostic(diagnostics,
+      `The ${subject} assertion at "${location}" must compare against a number, `
+      + `but got ${formatValue(target)}.`)
+  }
 }
 
 /**
@@ -110,8 +147,8 @@ function formatValue (value: string): string {
  * Assertions written as plain object literals bypass SslAssertionBuilder and are
  * type-legal, because the fields are declared as plain strings. The backend rejects an
  * unknown source, an unknown property or an operator not allowed for the property with
- * a 400; a boolean property with a non-`true`/`false` target is accepted at deploy but
- * never matches at evaluation, so it is reported too.
+ * a 400; a boolean or numeric property whose target is not of that type is accepted at
+ * deploy but never matches at evaluation, so it is reported too.
  */
 export function validateSslAssertion (
   diagnostics: Diagnostics,
@@ -136,28 +173,31 @@ export function validateSslAssertion (
         `The ${assertion.source} assertion at "${location}" has an unsupported comparison `
         + `${formatValue(assertion.comparison)}. Expected one of ${quotedKeys(rule.comparisons)}.`)
     }
+    validateTargetValue(diagnostics, assertion, location, rule.valueType, assertion.source)
     return
   }
 
-  const propertyRule = Object.hasOwn(rule.properties, assertion.property)
+  const comparisons = Object.hasOwn(rule.properties, assertion.property)
     ? rule.properties[assertion.property]
     : undefined
-  if (propertyRule === undefined) {
+  if (comparisons === undefined) {
     addAssertionDiagnostic(diagnostics,
       `The ${assertion.source} assertion at "${location}" has an unknown property `
       + `${formatValue(assertion.property)}. Expected one of ${quotedKeys(rule.properties)}.`)
     return
   }
 
-  if (!Object.hasOwn(propertyRule.comparisons, assertion.comparison)) {
+  if (!Object.hasOwn(comparisons, assertion.comparison)) {
     addAssertionDiagnostic(diagnostics,
       `The ${assertion.source} "${assertion.property}" assertion at "${location}" has an unsupported comparison `
-      + `${formatValue(assertion.comparison)}. Expected one of ${quotedKeys(propertyRule.comparisons)}.`)
+      + `${formatValue(assertion.comparison)}. Expected one of ${quotedKeys(comparisons)}.`)
   }
 
-  if (propertyRule.booleanTarget && assertion.target !== 'true' && assertion.target !== 'false') {
-    addAssertionDiagnostic(diagnostics,
-      `The ${assertion.source} "${assertion.property}" assertion at "${location}" must compare against "true" or "false", `
-      + `but got "${assertion.target}".`)
-  }
+  validateTargetValue(
+    diagnostics,
+    assertion,
+    location,
+    sslPropertyValueType(assertion.source, assertion.property),
+    `${assertion.source} "${assertion.property}"`,
+  )
 }

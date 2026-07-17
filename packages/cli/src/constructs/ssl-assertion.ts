@@ -2,6 +2,7 @@ import {
   Assertion as CoreAssertion,
   GeneralAssertionBuilder,
   NumericAssertionBuilder,
+  toAssertion,
 } from './internal/assertion.js'
 
 /**
@@ -104,33 +105,334 @@ type SslAssertionSource =
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
-// The certificate/connection property names the backend understands. Narrowing the
-// `property` parameter to these unions turns a typo into a compile error and drives
-// autocomplete. Object-literal assertions bypass the builder and are checked at deploy
-// time against the runtime whitelists in ssl-assertion-validation.ts, which are keyed
-// by these unions — so adding a member here without a matching rule fails to compile.
-export type SslCertificateProperty =
-  | 'daysUntilExpiry'
-  | 'subjectCN'
-  | 'issuerCN'
-  | 'serialNumber'
-  | 'fingerprintSha256'
-  | 'issuerFingerprintSha256'
-  | 'keySizeBits'
-  | 'keyAlgorithm'
-  | 'signatureAlgorithm'
-  | 'sans'
-  | 'selfSigned'
-  | 'isCA'
+// One operator class per property, each exposing exactly the comparisons the backend
+// accepts for that property and typing its target accordingly. The classes are stateless
+// — the source and property are baked into each `toAssertion` call — and are not
+// exported: they are reachable only as the return type of an SslAssertionBuilder method,
+// so they stay out of the package's public API, as the per-source builders they replace
+// did.
+//
+// There is one class per property rather than one per value type. A property is the unit
+// a user works in, so its grammar is worth stating outright; several classes coincide
+// today, but each is free to follow its own property when the backend's grammar changes.
 
-export type SslConnectionProperty =
-  | 'tlsVersion'
-  | 'cipherSuite'
-  | 'hostnameVerified'
-  | 'chainTrusted'
-  | 'ocspStapled'
-  | 'ocspStatus'
-  | 'resolvedIp'
+/** Days until the certificate expires (numeric). */
+class SslDaysUntilExpiryOperators {
+  equals (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'daysUntilExpiry')
+  }
+
+  notEquals (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'daysUntilExpiry')
+  }
+
+  greaterThan (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'GREATER_THAN', target, 'daysUntilExpiry')
+  }
+
+  lessThan (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'LESS_THAN', target, 'daysUntilExpiry')
+  }
+}
+
+/** Certificate key size in bits (numeric). */
+class SslKeySizeBitsOperators {
+  equals (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'keySizeBits')
+  }
+
+  notEquals (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'keySizeBits')
+  }
+
+  greaterThan (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'GREATER_THAN', target, 'keySizeBits')
+  }
+
+  lessThan (target: number): SslAssertion {
+    return toAssertion('CERTIFICATE', 'LESS_THAN', target, 'keySizeBits')
+  }
+}
+
+/** Certificate subject common name (free-form string). */
+class SslSubjectCNOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'subjectCN')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'subjectCN')
+  }
+
+  contains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'CONTAINS', target, 'subjectCN')
+  }
+
+  notContains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_CONTAINS', target, 'subjectCN')
+  }
+}
+
+/** Certificate issuer common name (free-form string). */
+class SslIssuerCNOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'issuerCN')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'issuerCN')
+  }
+
+  contains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'CONTAINS', target, 'issuerCN')
+  }
+
+  notContains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_CONTAINS', target, 'issuerCN')
+  }
+}
+
+/** Certificate serial number — an opaque identifier, compared whole. */
+class SslSerialNumberOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'serialNumber')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'serialNumber')
+  }
+}
+
+/** Certificate SHA-256 fingerprint — an opaque identifier, compared whole. */
+class SslFingerprintSha256Operators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'fingerprintSha256')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'fingerprintSha256')
+  }
+}
+
+/** Issuer SHA-256 fingerprint — an opaque identifier, compared whole. */
+class SslIssuerFingerprintSha256Operators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'issuerFingerprintSha256')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'issuerFingerprintSha256')
+  }
+}
+
+/** Certificate public key algorithm (e.g. `'RSA'`, `'ECDSA'`), compared whole. */
+class SslKeyAlgorithmOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'keyAlgorithm')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'keyAlgorithm')
+  }
+}
+
+/**
+ * Certificate signature algorithm. Takes a Go
+ * `x509.Certificate.SignatureAlgorithm.String()` value — use the
+ * {@link SignatureAlgorithm} constants.
+ */
+class SslSignatureAlgorithmOperators {
+  equals (target: SignatureAlgorithmValue): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'signatureAlgorithm')
+  }
+
+  notEquals (target: SignatureAlgorithmValue): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_EQUALS', target, 'signatureAlgorithm')
+  }
+}
+
+/**
+ * Certificate subject alternative names. A list, so only membership can be asserted —
+ * there is no whole-list value to compare against.
+ */
+class SslSansOperators {
+  contains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'CONTAINS', target, 'sans')
+  }
+
+  notContains (target: string): SslAssertion {
+    return toAssertion('CERTIFICATE', 'NOT_CONTAINS', target, 'sans')
+  }
+}
+
+/** Whether the certificate is self-signed (boolean). */
+class SslSelfSignedOperators {
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'selfSigned')
+  }
+}
+
+/** Whether the certificate is a CA certificate (boolean). */
+class SslIsCAOperators {
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CERTIFICATE', 'EQUALS', target, 'isCA')
+  }
+}
+
+/**
+ * Negotiated TLS version. Ordered, so `greaterThan` expresses a minimum — use the
+ * {@link TlsVersion} constants.
+ */
+class SslTlsVersionOperators {
+  equals (target: TlsVersionValue): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'tlsVersion')
+  }
+
+  notEquals (target: TlsVersionValue): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_EQUALS', target, 'tlsVersion')
+  }
+
+  greaterThan (target: TlsVersionValue): SslAssertion {
+    return toAssertion('CONNECTION', 'GREATER_THAN', target, 'tlsVersion')
+  }
+
+  lessThan (target: TlsVersionValue): SslAssertion {
+    return toAssertion('CONNECTION', 'LESS_THAN', target, 'tlsVersion')
+  }
+}
+
+/**
+ * Negotiated cipher suite. Go's `tls.CipherSuiteName()` can return hundreds of IANA
+ * names plus `0x....` hex fallbacks, so the target is unconstrained; use the
+ * {@link CipherSuite} constants for common suites.
+ */
+class SslCipherSuiteOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'cipherSuite')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_EQUALS', target, 'cipherSuite')
+  }
+
+  contains (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'CONTAINS', target, 'cipherSuite')
+  }
+
+  notContains (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_CONTAINS', target, 'cipherSuite')
+  }
+}
+
+/** Whether the hostname is verified against the certificate (boolean). */
+class SslHostnameVerifiedOperators {
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'hostnameVerified')
+  }
+}
+
+/** Whether the certificate chain is trusted (boolean). */
+class SslChainTrustedOperators {
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'chainTrusted')
+  }
+}
+
+/** Whether a stapled OCSP response was provided during the handshake (boolean). */
+class SslOcspStapledOperators {
+  equals (target: boolean): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'ocspStapled')
+  }
+}
+
+/** OCSP revocation status (e.g. `'good'`, `'revoked'`), compared whole. */
+class SslOcspStatusOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'ocspStatus')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_EQUALS', target, 'ocspStatus')
+  }
+}
+
+/** The IP address the hostname resolved to (free-form string). */
+class SslResolvedIpOperators {
+  equals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'EQUALS', target, 'resolvedIp')
+  }
+
+  notEquals (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_EQUALS', target, 'resolvedIp')
+  }
+
+  contains (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'CONTAINS', target, 'resolvedIp')
+  }
+
+  notContains (target: string): SslAssertion {
+    return toAssertion('CONNECTION', 'NOT_CONTAINS', target, 'resolvedIp')
+  }
+}
+
+// Maps each property to its operator class. This is the single place a property is
+// declared: the property unions and the builder return types are both derived from it, so
+// a property cannot exist without operators, or gain operators it does not expose.
+const certificateOperators = {
+  daysUntilExpiry: SslDaysUntilExpiryOperators,
+  keySizeBits: SslKeySizeBitsOperators,
+  subjectCN: SslSubjectCNOperators,
+  issuerCN: SslIssuerCNOperators,
+  serialNumber: SslSerialNumberOperators,
+  fingerprintSha256: SslFingerprintSha256Operators,
+  issuerFingerprintSha256: SslIssuerFingerprintSha256Operators,
+  keyAlgorithm: SslKeyAlgorithmOperators,
+  signatureAlgorithm: SslSignatureAlgorithmOperators,
+  sans: SslSansOperators,
+  selfSigned: SslSelfSignedOperators,
+  isCA: SslIsCAOperators,
+} as const
+
+const connectionOperators = {
+  tlsVersion: SslTlsVersionOperators,
+  cipherSuite: SslCipherSuiteOperators,
+  hostnameVerified: SslHostnameVerifiedOperators,
+  chainTrusted: SslChainTrustedOperators,
+  ocspStapled: SslOcspStapledOperators,
+  ocspStatus: SslOcspStatusOperators,
+  resolvedIp: SslResolvedIpOperators,
+} as const
+
+/** The certificate properties an assertion can be made against. */
+export type SslCertificateProperty = keyof typeof certificateOperators
+
+/** The connection properties an assertion can be made against. */
+export type SslConnectionProperty = keyof typeof connectionOperators
+
+/**
+ * Instantiates the operators for a property.
+ *
+ * The typed signatures make an unknown property a compile error, but plain JavaScript
+ * callers and object-literal assertions still reach this at runtime. Those fall back to
+ * the unconstrained operator set, so the call returns something usable and the property is
+ * reported by `validateSslAssertion` at deploy time rather than throwing here.
+ *
+ * The cast is unavoidable: the return type is computed from the property's literal type,
+ * which the runtime lookup cannot express. It is sound because the operator maps are keyed
+ * by the same properties as the unions derived from them.
+ */
+function operatorsForProperty<Operators extends Record<string, new () => unknown>, Property extends keyof Operators> (
+  operators: Operators,
+  source: SslAssertionSource,
+  property: Property,
+): InstanceType<Operators[Property]> {
+  if (!Object.hasOwn(operators, property)) {
+    return new GeneralAssertionBuilder<SslAssertionSource>(
+      source, String(property),
+    ) as InstanceType<Operators[Property]>
+  }
+  return new operators[property]() as InstanceType<Operators[Property]>
+}
 
 /**
  * Builder class for creating SSL monitor assertions.
@@ -165,10 +467,10 @@ export class SslAssertionBuilder {
    * @param property The certificate property to assert on (e.g. `'daysUntilExpiry'`,
    *   `'issuerCN'`, `'signatureAlgorithm'`, `'sans'`, `'selfSigned'`).
    */
-  static certificate (property: 'signatureAlgorithm'): GeneralAssertionBuilder<SslAssertionSource, SignatureAlgorithmValue>
-  static certificate (property: SslCertificateProperty): GeneralAssertionBuilder<SslAssertionSource>
-  static certificate (property: SslCertificateProperty) {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CERTIFICATE', property)
+  static certificate<Property extends SslCertificateProperty> (
+    property: Property,
+  ): InstanceType<typeof certificateOperators[Property]> {
+    return operatorsForProperty(certificateOperators, 'CERTIFICATE', property)
   }
 
   /**
@@ -176,10 +478,10 @@ export class SslAssertionBuilder {
    * @param property The connection property to assert on (e.g. `'tlsVersion'`,
    *   `'cipherSuite'`, `'hostnameVerified'`, `'ocspStatus'`, `'resolvedIp'`).
    */
-  static connection (property: 'tlsVersion'): GeneralAssertionBuilder<SslAssertionSource, TlsVersionValue>
-  static connection (property: SslConnectionProperty): GeneralAssertionBuilder<SslAssertionSource>
-  static connection (property: SslConnectionProperty) {
-    return new GeneralAssertionBuilder<SslAssertionSource>('CONNECTION', property)
+  static connection<Property extends SslConnectionProperty> (
+    property: Property,
+  ): InstanceType<typeof connectionOperators[Property]> {
+    return operatorsForProperty(connectionOperators, 'CONNECTION', property)
   }
 
   /**

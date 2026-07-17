@@ -49,6 +49,16 @@ describe('SslAssertionBuilder', () => {
         source: 'CERTIFICATE', property: 'isCA', comparison: 'EQUALS', target: 'true',
       })
     })
+
+    // Numeric and boolean targets are narrowed at compile time, so the wire payload is
+    // the only place a wrong-typed target could still surface. These run under vitest
+    // and hold regardless of whether the type-level cases above are ever checked.
+    it('stringifies typed targets onto the wire', () => {
+      expect(SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30).target).toEqual('30')
+      expect(SslAssertionBuilder.certificate('keySizeBits').equals(2048).target).toEqual('2048')
+      expect(SslAssertionBuilder.certificate('selfSigned').equals(false).target).toEqual('false')
+      expect(SslAssertionBuilder.connection('chainTrusted').equals(true).target).toEqual('true')
+    })
   })
 
   describe('connection(property)', () => {
@@ -113,9 +123,10 @@ describe('SslAssertionBuilder', () => {
     })
   })
 
-  // These cases assert compile-time narrowing. The `@ts-expect-error` lines are the
-  // real assertions: `tsc --build` fails if any becomes a false positive (an unused
-  // expect-error). The runtime `expect` keeps the block a valid test.
+  // The `@ts-expect-error` lines below document the intended narrowing but currently
+  // assert nothing: tsconfig.json excludes `src/**/__tests__` and vitest does not
+  // type-check, so no build step ever evaluates them. RED-739 tracks wiring that up.
+  // Until it lands, only the runtime `expect` calls here are enforced.
   describe('type narrowing (compile-time)', () => {
     it('constrains connection(tlsVersion) targets to TlsVersionValue', () => {
       expect(SslAssertionBuilder.connection('tlsVersion').equals(TlsVersion.TLS1_3)).toMatchObject({
@@ -138,6 +149,54 @@ describe('SslAssertionBuilder', () => {
       SslAssertionBuilder.certificate('bogusProperty')
       // @ts-expect-error 'bogusProperty' is not an SslConnectionProperty
       SslAssertionBuilder.connection('bogusProperty')
+    })
+
+    it('constrains numeric certificate properties to number targets', () => {
+      // @ts-expect-error a numeric property does not take a string target
+      SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan('30 days')
+      // @ts-expect-error a numeric property does not take a boolean target
+      SslAssertionBuilder.certificate('keySizeBits').equals(true)
+    })
+
+    it('constrains boolean properties to boolean targets', () => {
+      // @ts-expect-error a boolean property does not take a string target
+      SslAssertionBuilder.certificate('selfSigned').equals('yes')
+      // @ts-expect-error a boolean property does not take a string target
+      SslAssertionBuilder.connection('chainTrusted').equals('yes')
+    })
+
+    // Each property exposes only the operators the backend accepts for its value type,
+    // so an unsupported comparison is a compile error rather than a deploy diagnostic.
+    it('offers only the operators a property supports', () => {
+      // These operators do not exist at runtime, so the body is type-checked but never
+      // executed (an uncalled function) — calling it would throw a TypeError.
+      const _typeChecks = () => {
+        // @ts-expect-error a boolean property supports EQUALS only
+        SslAssertionBuilder.certificate('selfSigned').notEquals(true)
+        // @ts-expect-error a numeric property is not substring-matched
+        SslAssertionBuilder.certificate('keySizeBits').contains('20')
+        // @ts-expect-error an opaque identifier is not substring-matched
+        SslAssertionBuilder.certificate('fingerprintSha256').contains('ab')
+        // @ts-expect-error a string list has no whole-value to compare against
+        SslAssertionBuilder.certificate('sans').equals('example.com')
+        // @ts-expect-error an enum is not ordered
+        SslAssertionBuilder.certificate('signatureAlgorithm').greaterThan('SHA256-RSA')
+        // @ts-expect-error a free-form string is not ordered
+        SslAssertionBuilder.connection('cipherSuite').greaterThan('TLS_AES_256_GCM_SHA384')
+      }
+      expect(_typeChecks).toBeDefined()
+    })
+
+    it('allows the operators a property does support', () => {
+      expect(SslAssertionBuilder.connection('tlsVersion').greaterThan(TlsVersion.TLS1_2)).toMatchObject({
+        source: 'CONNECTION', property: 'tlsVersion', comparison: 'GREATER_THAN', target: 'TLS1.2',
+      })
+      expect(SslAssertionBuilder.certificate('sans').notContains('evil.example.com')).toMatchObject({
+        source: 'CERTIFICATE', property: 'sans', comparison: 'NOT_CONTAINS', target: 'evil.example.com',
+      })
+      expect(SslAssertionBuilder.certificate('serialNumber').notEquals('ab12')).toMatchObject({
+        source: 'CERTIFICATE', property: 'serialNumber', comparison: 'NOT_EQUALS', target: 'ab12',
+      })
     })
 
     it('leaves cipherSuite targets unconstrained (arbitrary string)', () => {

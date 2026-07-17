@@ -207,14 +207,14 @@ describe('SslMonitorCodegen', () => {
         ],
       },
     }))
-    expect(source).toContain('certificate(\'daysUntilExpiry\').greaterThan(\'20\')')
-    expect(source).toContain('certificate(\'keySizeBits\').equals(\'2048\')')
+    expect(source).toContain('certificate(\'daysUntilExpiry\').greaterThan(20)')
+    expect(source).toContain('certificate(\'keySizeBits\').equals(2048)')
     expect(source).toContain('certificate(\'signatureAlgorithm\').equals(\'SHA256-RSA\')')
     expect(source).toContain('certificate(\'issuerCN\').contains(\'Example CA\')')
-    expect(source).toContain('certificate(\'selfSigned\').equals(\'false\')')
+    expect(source).toContain('certificate(\'selfSigned\').equals(false)')
     expect(source).toContain('connection(\'tlsVersion\').equals(\'TLS1.3\')')
     expect(source).toContain('connection(\'cipherSuite\').equals(\'TLS_AES_256_GCM_SHA384\')')
-    expect(source).toContain('connection(\'chainTrusted\').equals(\'true\')')
+    expect(source).toContain('connection(\'chainTrusted\').equals(true)')
     expect(source).toContain('responseTime().lessThan(1000)')
     expect(source).toContain('jsonResponse(\'$.status\').equals(\'ok\')')
     expect(source).toContain('textResponse().contains(\'healthy\')')

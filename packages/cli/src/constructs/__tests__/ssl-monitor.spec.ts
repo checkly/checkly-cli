@@ -338,6 +338,81 @@ describe('SslMonitor', () => {
       ]))
     })
 
+    it('should error on a numeric property with a non-numeric target', async () => {
+      // The builder types these targets as numbers, but an object literal bypasses it and
+      // the backend accepts the string — it just never matches, so the assertion would
+      // silently never fire.
+      const cases: Array<{ target: string, expected: string }> = [
+        { target: '30 days', expected: 'must compare against a number, but got "30 days".' },
+        { target: '', expected: 'must compare against a number, but got (none).' },
+        { target: 'abc', expected: 'must compare against a number, but got "abc".' },
+      ]
+      for (const { target, expected } of cases) {
+        const diags = await validateWith([
+          { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target, regex: null },
+        ])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining(
+              `The CERTIFICATE "daysUntilExpiry" assertion at "request.assertions[0]" ${expected}`,
+            ),
+          }),
+        ]))
+      }
+    })
+
+    it('should error on a non-numeric RESPONSE_TIME target', async () => {
+      const diags = await validateWith([
+        { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1s', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The RESPONSE_TIME assertion at "request.assertions[0]" must compare against a number, but got "1s".',
+          ),
+        }),
+      ]))
+    })
+
+    // Check files are loaded without typechecking, so an object-literal assertion can
+    // carry a non-string target. It must be reported, not thrown on.
+    it('should report rather than crash on a non-string target', async () => {
+      const cases: unknown[] = [
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'EQUALS', target: 30, regex: null },
+        { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: true, regex: null },
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'EQUALS', regex: null },
+      ]
+      for (const assertion of cases) {
+        const diags = await validateWith([assertion] as SslRequest['assertions'])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining('written as a string') }),
+        ]))
+      }
+    })
+
+    // A target that is never inspected must not crash either, whatever its type.
+    it('should not crash on assertions whose target it does not inspect', async () => {
+      const diags = await validateWith([
+        { source: 'TEXT_RESPONSE', property: '', comparison: 'NOT_EMPTY', regex: null },
+        { source: 'JSON_RESPONSE', property: '$.x', comparison: 'IS_NULL', target: null, regex: null },
+        { source: 'CERTIFICATE', property: 'issuerCN', comparison: 'CONTAINS', target: 'CA', regex: null },
+      ] as unknown as SslRequest['assertions'])
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should accept the numeric targets a numeric property does allow', async () => {
+      const diags = await validateWith([
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target: '30', regex: null },
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'LESS_THAN', target: '30.5', regex: null },
+        { source: 'CERTIFICATE', property: 'keySizeBits', comparison: 'EQUALS', target: '2048', regex: null },
+        { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1000', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(false)
+    })
+
     it('should error on a boolean property with a non-boolean target', async () => {
       const diags = await validateWith([
         { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: 'yes', regex: null },
