@@ -62,7 +62,6 @@ describe('GrpcMonitor', () => {
         grpcConfig: {
           mode: 'BEHAVIOR',
           tls: true,
-          storeResponseBody: true,
           serviceDefinition: 'REFLECTION',
           method: '/grpc.health.v1.Health/Check',
         },
