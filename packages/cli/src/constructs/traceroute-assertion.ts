@@ -1,4 +1,6 @@
-import { Assertion as CoreAssertion, toAssertion } from './internal/assertion.js'
+import { Assertion as CoreAssertion } from './internal/assertion.js'
+import { PropertyOperators, operatorsForProperty, operatorsForSource } from './internal/assertion-grammar.js'
+import { hopCountGrammar, packetLossGrammar, tracerouteResponseTimeGrammar } from './traceroute-assertion-grammar.js'
 
 type TracerouteAssertionSource =
   | 'RESPONSE_TIME'
@@ -7,62 +9,9 @@ type TracerouteAssertionSource =
 
 export type TracerouteAssertion = CoreAssertion<TracerouteAssertionSource>
 
-export type TracerouteResponseTimeProperty = 'avg' | 'min' | 'max' | 'stdDev'
-
-// One builder class per source, each exposing only the operators the backend accepts
-// for that source. The classes are stateless — the source (and, for response time, the
-// statistical property) is baked into each `toAssertion` call — and are not exported:
-// they are reachable only through `TracerouteAssertionBuilder`.
-
-/** Response time for a statistical property — accepts the full numeric operator set. */
-class ResponseTimeAssertionBuilder {
-  constructor (private property: TracerouteResponseTimeProperty) {}
-  equals (target: number): TracerouteAssertion {
-    return toAssertion('RESPONSE_TIME', 'EQUALS', target, this.property)
-  }
-
-  notEquals (target: number): TracerouteAssertion {
-    return toAssertion('RESPONSE_TIME', 'NOT_EQUALS', target, this.property)
-  }
-
-  lessThan (target: number): TracerouteAssertion {
-    return toAssertion('RESPONSE_TIME', 'LESS_THAN', target, this.property)
-  }
-
-  greaterThan (target: number): TracerouteAssertion {
-    return toAssertion('RESPONSE_TIME', 'GREATER_THAN', target, this.property)
-  }
-}
-
-/** Number of network hops — accepts EQUALS / LESS_THAN / GREATER_THAN (not NOT_EQUALS). */
-class HopCountAssertionBuilder {
-  equals (target: number): TracerouteAssertion {
-    return toAssertion('HOP_COUNT', 'EQUALS', target)
-  }
-
-  lessThan (target: number): TracerouteAssertion {
-    return toAssertion('HOP_COUNT', 'LESS_THAN', target)
-  }
-
-  greaterThan (target: number): TracerouteAssertion {
-    return toAssertion('HOP_COUNT', 'GREATER_THAN', target)
-  }
-}
-
-/** Packet loss percentage (0-100) — accepts EQUALS / LESS_THAN / GREATER_THAN (not NOT_EQUALS). */
-class PacketLossAssertionBuilder {
-  equals (target: number): TracerouteAssertion {
-    return toAssertion('PACKET_LOSS', 'EQUALS', target)
-  }
-
-  lessThan (target: number): TracerouteAssertion {
-    return toAssertion('PACKET_LOSS', 'LESS_THAN', target)
-  }
-
-  greaterThan (target: number): TracerouteAssertion {
-    return toAssertion('PACKET_LOSS', 'GREATER_THAN', target)
-  }
-}
+// The response-time statistical properties, derived from the grammar table the builder is
+// generated from, so the union and the per-property operators cannot drift.
+export type TracerouteResponseTimeProperty = keyof typeof tracerouteResponseTimeGrammar
 
 /**
  * Builder class for creating traceroute monitor assertions.
@@ -93,23 +42,25 @@ export class TracerouteAssertionBuilder {
    *   - `stdDev`: Standard deviation of round-trip times
    * @returns A numeric assertion builder for the specified response time metric.
    */
-  static responseTime (property: TracerouteResponseTimeProperty = 'avg') {
-    return new ResponseTimeAssertionBuilder(property)
+  static responseTime<Property extends TracerouteResponseTimeProperty = 'avg'> (
+    property: Property = 'avg' as Property,
+  ): PropertyOperators<'RESPONSE_TIME', typeof tracerouteResponseTimeGrammar[Property]> {
+    return operatorsForProperty(tracerouteResponseTimeGrammar, 'RESPONSE_TIME', property)
   }
 
   /**
    * Creates an assertion builder for the number of network hops.
    * @returns A numeric assertion builder for the hop count.
    */
-  static hopCount () {
-    return new HopCountAssertionBuilder()
+  static hopCount (): PropertyOperators<'HOP_COUNT', typeof hopCountGrammar> {
+    return operatorsForSource('HOP_COUNT', hopCountGrammar)
   }
 
   /**
    * Creates an assertion builder for the percentage of packet loss (0-100).
    * @returns A numeric assertion builder for packet loss.
    */
-  static packetLoss () {
-    return new PacketLossAssertionBuilder()
+  static packetLoss (): PropertyOperators<'PACKET_LOSS', typeof packetLossGrammar> {
+    return operatorsForSource('PACKET_LOSS', packetLossGrammar)
   }
 }

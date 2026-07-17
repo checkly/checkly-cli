@@ -117,6 +117,16 @@ export function operatorsForProperty<
   return makeOperators(source, property, grammar[property])
 }
 
+// Resolves the operators for a source-scoped grammar — a single declaration with no
+// property, for sources whose value is the source itself (e.g. traceroute HOP_COUNT). The
+// property slot is emitted empty, matching the wire shape those sources carry.
+export function operatorsForSource<Source extends string, Decl extends PropertyGrammar> (
+  source: Source,
+  decl: Decl,
+): PropertyOperators<Source, Decl> {
+  return makeOperators(source, '', decl)
+}
+
 // Runtime derivations shared by validation and codegen, so both read the same grammar the
 // builder is generated from.
 

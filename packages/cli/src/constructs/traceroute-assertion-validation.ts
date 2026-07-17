@@ -1,16 +1,12 @@
 import { Diagnostics } from './diagnostics.js'
+import { comparisonsForGrammar } from './internal/assertion-grammar.js'
 import { addAssertionDiagnostic, quotedKeys } from './internal/assertion-validation.js'
-import { TracerouteAssertion, TracerouteResponseTimeProperty } from './traceroute-assertion.js'
-
-// Runtime counterparts of unions that exist only at compile time. Typing them as a
-// Record keyed by the union makes a missing or misspelled entry a compile-time error,
-// so neither list can drift from the union it mirrors.
-const responseTimeProperties: Record<TracerouteResponseTimeProperty, true> = {
-  avg: true,
-  min: true,
-  max: true,
-  stdDev: true,
-}
+import { TracerouteAssertion } from './traceroute-assertion.js'
+import {
+  hopCountGrammar,
+  packetLossGrammar,
+  tracerouteResponseTimeComparisons,
+} from './traceroute-assertion-grammar.js'
 
 const assertionSources: Record<TracerouteAssertion['source'], true> = {
   RESPONSE_TIME: true,
@@ -18,20 +14,18 @@ const assertionSources: Record<TracerouteAssertion['source'], true> = {
   PACKET_LOSS: true,
 }
 
-// Comparisons the backend accepts per source. RESPONSE_TIME additionally permits
-// NOT_EQUALS; hop count and packet loss do not. Keep in sync with the backend.
-const responseTimeComparisons: Record<string, true> = {
-  EQUALS: true,
-  NOT_EQUALS: true,
-  GREATER_THAN: true,
-  LESS_THAN: true,
-}
+// Each source's comparison whitelist is derived from the grammar tables the builder is
+// generated from, so validation cannot drift from what the builder produces. RESPONSE_TIME's
+// per-property comparisons come from the grammar module; hop count and packet loss are
+// single scalar sources (they omit notEquals), derived here.
+const hopCountComparisons = comparisonsForGrammar(hopCountGrammar)
+const packetLossComparisons = comparisonsForGrammar(packetLossGrammar)
 
-const numericComparisons: Record<string, true> = {
-  EQUALS: true,
-  GREATER_THAN: true,
-  LESS_THAN: true,
-}
+// The comparisons accepted by any response-time property, for validating the comparison of
+// an assertion whose property is itself invalid (so a bad comparison is still reported
+// alongside the bad property).
+const anyResponseTimeComparison: Record<string, true> =
+  Object.assign({}, ...Object.values(tracerouteResponseTimeComparisons))
 
 /**
  * Reports traceroute assertions whose source, property or comparison the backend
@@ -49,15 +43,19 @@ export function validateTracerouteAssertion (
   const location = `request.assertions[${index}]`
 
   switch (assertion.source) {
-    case 'RESPONSE_TIME':
-      if (!Object.hasOwn(responseTimeProperties, assertion.property)) {
+    case 'RESPONSE_TIME': {
+      const propertyComparisons = Object.hasOwn(tracerouteResponseTimeComparisons, assertion.property)
+        ? tracerouteResponseTimeComparisons[assertion.property]
+        : undefined
+      if (propertyComparisons === undefined) {
         addAssertionDiagnostic(diagnostics,
           `The RESPONSE_TIME assertion at "${location}" has an invalid property `
           + `${assertion.property === '' ? '(none)' : `"${assertion.property}"`}. `
-          + `Expected one of ${quotedKeys(responseTimeProperties)}.`)
+          + `Expected one of ${quotedKeys(tracerouteResponseTimeComparisons)}.`)
       }
-      validateComparison(diagnostics, assertion, location, responseTimeComparisons)
+      validateComparison(diagnostics, assertion, location, propertyComparisons ?? anyResponseTimeComparison)
       break
+    }
     case 'HOP_COUNT':
       // falls through
     case 'PACKET_LOSS':
@@ -66,7 +64,8 @@ export function validateTracerouteAssertion (
           `The ${assertion.source} assertion at "${location}" must not specify a property, `
           + `but got "${assertion.property}".`)
       }
-      validateComparison(diagnostics, assertion, location, numericComparisons)
+      validateComparison(diagnostics, assertion, location,
+        assertion.source === 'HOP_COUNT' ? hopCountComparisons : packetLossComparisons)
       break
     default:
       addAssertionDiagnostic(diagnostics,
