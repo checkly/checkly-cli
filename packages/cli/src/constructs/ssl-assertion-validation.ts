@@ -1,62 +1,29 @@
 import { Diagnostics } from './diagnostics.js'
 import { addAssertionDiagnostic, quotedKeys } from './internal/assertion-validation.js'
-import { SslPropertyValueType, isSslNumericTarget, sslPropertyValueType } from './internal/ssl-properties.js'
-import { SslAssertion, SslCertificateProperty, SslConnectionProperty } from './ssl-assertion.js'
+import { TargetValueType } from './internal/assertion-grammar.js'
+import { isSslNumericTarget, sslComparisonsForSource, sslPropertyValueType } from './ssl-assertion-grammar.js'
+import { SslAssertion } from './ssl-assertion.js'
 
 // The comparisons the backend accepts. The `>=` operator and the regex operator are both
 // dropped for SSL, so neither appears in any set.
 type Comparisons = Record<string, true>
 
 const NUMBER: Comparisons = { EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true }
-const VERSION: Comparisons = { EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true }
-const STRING: Comparisons = { EQUALS: true, NOT_EQUALS: true, CONTAINS: true, NOT_CONTAINS: true }
-const EXACT: Comparisons = { EQUALS: true, NOT_EQUALS: true }
-const STRING_LIST: Comparisons = { CONTAINS: true, NOT_CONTAINS: true }
-const BOOLEAN: Comparisons = { EQUALS: true }
-
-// The comparisons each property accepts, mirroring the operators its class in
-// ssl-assertion.ts exposes. Builder callers are already held to this by the class; these
-// tables catch assertions written as object literals, which bypass it.
-//
-// Keyed by the property unions — themselves derived from the operator maps — so a
-// property cannot be added without a rule here.
-const certificateComparisons: Record<SslCertificateProperty, Comparisons> = {
-  daysUntilExpiry: NUMBER,
-  keySizeBits: NUMBER,
-  subjectCN: STRING,
-  issuerCN: STRING,
-  serialNumber: EXACT,
-  fingerprintSha256: EXACT,
-  issuerFingerprintSha256: EXACT,
-  keyAlgorithm: EXACT,
-  signatureAlgorithm: EXACT,
-  sans: STRING_LIST,
-  selfSigned: BOOLEAN,
-  isCA: BOOLEAN,
-}
-
-const connectionComparisons: Record<SslConnectionProperty, Comparisons> = {
-  tlsVersion: VERSION,
-  cipherSuite: STRING,
-  hostnameVerified: BOOLEAN,
-  chainTrusted: BOOLEAN,
-  ocspStapled: BOOLEAN,
-  ocspStatus: EXACT,
-  resolvedIp: STRING,
-}
 
 // CERTIFICATE and CONNECTION are property-scoped: the allowed comparisons depend on the
-// property, and an unknown property is itself an error. RESPONSE_TIME, JSON_RESPONSE and
-// TEXT_RESPONSE carry no whitelisted property (the property slot is a numeric
+// property, and an unknown property is itself an error. Their whitelists are derived from
+// the grammar tables the builder is generated from (in internal/ssl-grammar.ts), so a
+// property cannot expose an operator the whitelist rejects. RESPONSE_TIME, JSON_RESPONSE
+// and TEXT_RESPONSE carry no whitelisted property (the property slot is a numeric
 // placeholder / JSONPath / regex), so their comparisons are keyed by source.
 type SslSourceRule =
   | { properties: Record<string, Comparisons> }
-  | { comparisons: Comparisons, valueType?: SslPropertyValueType }
+  | { comparisons: Comparisons, valueType?: TargetValueType }
 
 // Keyed by the source union so adding a source without a rule fails to compile.
 const rules: Record<SslAssertion['source'], SslSourceRule> = {
-  CERTIFICATE: { properties: certificateComparisons },
-  CONNECTION: { properties: connectionComparisons },
+  CERTIFICATE: { properties: sslComparisonsForSource('CERTIFICATE') },
+  CONNECTION: { properties: sslComparisonsForSource('CONNECTION') },
   RESPONSE_TIME: { comparisons: NUMBER, valueType: 'number' },
   JSON_RESPONSE: {
     comparisons: {
@@ -110,7 +77,7 @@ function validateTargetValue (
   diagnostics: Diagnostics,
   assertion: SslAssertion,
   location: string,
-  valueType: SslPropertyValueType | undefined,
+  valueType: TargetValueType | undefined,
   subject: string,
 ): void {
   // `target` is declared a string, but object-literal assertions are not typechecked when

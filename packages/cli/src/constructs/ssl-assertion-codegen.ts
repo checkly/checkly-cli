@@ -5,7 +5,7 @@ import {
   valueForGeneralAssertion,
   valueForNumericAssertion,
 } from './internal/assertion-codegen.js'
-import { isSslNumericTarget, sslPropertyValueType } from './internal/ssl-properties.js'
+import { isSslNumericTarget, sslPropertyValueType } from './ssl-assertion-grammar.js'
 import { SslAssertion } from './ssl-assertion.js'
 
 // Every SSL source addresses its value through the property slot — CERTIFICATE /
@@ -16,9 +16,18 @@ const withProperty = { hasProperty: true, hasRegex: false }
 
 // The comparisons each typed helper can render. A comparison outside the set makes the
 // helper throw, which would abort the whole import over a single assertion, so the
-// dispatch below checks membership rather than relying on the throw.
-const numericComparisons: Record<string, true> = {
+// dispatch below checks membership rather than relying on the throw. Exported so the
+// grammar consistency spec can assert numeric properties declare only operators this
+// renders, rather than restating the set.
+export const numericComparisons: Record<string, true> = {
   EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true,
+}
+
+// The boolean helper renders only EQUALS as a bare boolean literal; any other comparison
+// falls through to the quoted-string form, which would not compile against a boolean
+// operator. The grammar spec asserts boolean properties declare only this.
+export const booleanComparisons: Record<string, true> = {
+  EQUALS: true,
 }
 
 // The operators for a numeric or boolean property take a `number` / `boolean`, so their
@@ -51,7 +60,7 @@ function valueForPropertyScopedAssertion (method: string, assertion: SslAssertio
   }
 
   const isRenderableBoolean = valueType === 'boolean'
-    && assertion.comparison === 'EQUALS'
+    && Object.hasOwn(booleanComparisons, assertion.comparison)
     && (assertion.target === 'true' || assertion.target === 'false')
   if (isRenderableBoolean) {
     return valueForBooleanAssertion('SslAssertionBuilder', method, assertion, { hasProperty: true })
