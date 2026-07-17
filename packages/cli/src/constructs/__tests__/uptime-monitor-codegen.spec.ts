@@ -172,14 +172,14 @@ describe('SslMonitorCodegen', () => {
       request: {
         sslConfig: { hostname: 'example.com' },
         assertions: [
-          { source: 'CERT_EXPIRES_IN_DAYS', property: '', comparison: 'GREATER_THAN', target: '20', regex: null },
-          { source: 'CHAIN_TRUSTED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
+          { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target: '20', regex: null },
+          { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: 'true', regex: null },
         ],
       },
     }))
     expect(source).toContain('SslAssertionBuilder')
-    expect(source).toContain('certExpiresInDays()')
-    expect(source).toContain('chainTrusted()')
+    expect(source).toContain('certificate(\'daysUntilExpiry\')')
+    expect(source).toContain('connection(\'chainTrusted\')')
   })
 
   it('emits every SslAssertionBuilder source with its target', async () => {
@@ -187,39 +187,37 @@ describe('SslMonitorCodegen', () => {
       request: {
         sslConfig: { hostname: 'example.com' },
         assertions: [
-          { source: 'CERT_EXPIRES_IN_DAYS', property: '', comparison: 'GREATER_THAN', target: '20', regex: null },
-          { source: 'KEY_SIZE_BITS', property: '', comparison: 'EQUALS', target: '2048', regex: null },
-          { source: 'CERT_NOT_EXPIRED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
-          { source: 'HOSTNAME_VERIFIED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
-          { source: 'CHAIN_TRUSTED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
-          { source: 'OCSP_STAPLED', property: '', comparison: 'EQUALS', target: 'true', regex: null },
-          { source: 'TLS_VERSION', property: '', comparison: 'EQUALS', target: 'TLS1.3', regex: null },
+          { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target: '20', regex: null },
+          { source: 'CERTIFICATE', property: 'keySizeBits', comparison: 'EQUALS', target: '2048', regex: null },
+          { source: 'CERTIFICATE', property: 'signatureAlgorithm', comparison: 'EQUALS', target: 'SHA256-RSA', regex: null },
+          { source: 'CERTIFICATE', property: 'issuerCN', comparison: 'CONTAINS', target: 'Example CA', regex: null },
+          { source: 'CERTIFICATE', property: 'selfSigned', comparison: 'EQUALS', target: 'false', regex: null },
+          { source: 'CONNECTION', property: 'tlsVersion', comparison: 'EQUALS', target: 'TLS1.3', regex: null },
           {
-            source: 'CIPHER_SUITE',
-            property: '',
+            source: 'CONNECTION',
+            property: 'cipherSuite',
             comparison: 'EQUALS',
             target: 'TLS_AES_256_GCM_SHA384',
             regex: null,
           },
-          { source: 'SIGNATURE_ALGORITHM', property: '', comparison: 'EQUALS', target: 'SHA256-RSA', regex: null },
-          { source: 'ISSUER_CN', property: '', comparison: 'EQUALS', target: 'Example CA', regex: null },
-          { source: 'CERT_FINGERPRINT_SHA256', property: '', comparison: 'EQUALS', target: 'abc123', regex: null },
-          { source: 'ISSUER_FINGERPRINT_SHA256', property: '', comparison: 'EQUALS', target: 'def456', regex: null },
+          { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: 'true', regex: null },
+          { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1000', regex: null },
+          { source: 'JSON_RESPONSE', property: '$.status', comparison: 'EQUALS', target: 'ok', regex: null },
+          { source: 'TEXT_RESPONSE', property: '', comparison: 'CONTAINS', target: 'healthy', regex: null },
         ],
       },
     }))
-    expect(source).toContain('certExpiresInDays().greaterThan(20)')
-    expect(source).toContain('keySizeBits().equals(2048)')
-    expect(source).toContain('certNotExpired().equals(true)')
-    expect(source).toContain('hostnameVerified().equals(true)')
-    expect(source).toContain('chainTrusted().equals(true)')
-    expect(source).toContain('ocspStapled().equals(true)')
-    expect(source).toContain('tlsVersion().equals(\'TLS1.3\')')
-    expect(source).toContain('cipherSuite().equals(\'TLS_AES_256_GCM_SHA384\')')
-    expect(source).toContain('signatureAlgorithm().equals(\'SHA256-RSA\')')
-    expect(source).toContain('issuerCn().equals(\'Example CA\')')
-    expect(source).toContain('certFingerprintSha256().equals(\'abc123\')')
-    expect(source).toContain('issuerFingerprintSha256().equals(\'def456\')')
+    expect(source).toContain('certificate(\'daysUntilExpiry\').greaterThan(20)')
+    expect(source).toContain('certificate(\'keySizeBits\').equals(2048)')
+    expect(source).toContain('certificate(\'signatureAlgorithm\').equals(\'SHA256-RSA\')')
+    expect(source).toContain('certificate(\'issuerCN\').contains(\'Example CA\')')
+    expect(source).toContain('certificate(\'selfSigned\').equals(false)')
+    expect(source).toContain('connection(\'tlsVersion\').equals(\'TLS1.3\')')
+    expect(source).toContain('connection(\'cipherSuite\').equals(\'TLS_AES_256_GCM_SHA384\')')
+    expect(source).toContain('connection(\'chainTrusted\').equals(true)')
+    expect(source).toContain('responseTime().lessThan(1000)')
+    expect(source).toContain('jsonResponse(\'$.status\').equals(\'ok\')')
+    expect(source).toContain('textResponse().contains(\'healthy\')')
   })
 })
 

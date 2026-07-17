@@ -5,40 +5,84 @@ import {
   valueForGeneralAssertion,
   valueForNumericAssertion,
 } from './internal/assertion-codegen.js'
+import { isSslNumericTarget, sslPropertyValueType } from './ssl-assertion-grammar.js'
 import { SslAssertion } from './ssl-assertion.js'
 
-const generalNoArgs = { hasProperty: false, hasRegex: false }
-// The string sources additionally accept the MATCHES (regex) operator.
-const generalWithMatches = { hasProperty: false, hasRegex: false, hasMatches: true }
+// Every SSL source addresses its value through the property slot — CERTIFICATE /
+// CONNECTION use a field selector, JSON_RESPONSE a JSONPath, and TEXT_RESPONSE a
+// regex (the backend and runner read the TEXT_RESPONSE pattern from `property`,
+// not `regex`). The regex slot is never emitted.
+const withProperty = { hasProperty: true, hasRegex: false }
+
+// The comparisons each typed helper can render. A comparison outside the set makes the
+// helper throw, which would abort the whole import over a single assertion, so the
+// dispatch below checks membership rather than relying on the throw. Exported so the
+// grammar consistency spec can assert numeric properties declare only operators this
+// renders, rather than restating the set.
+export const numericComparisons: Record<string, true> = {
+  EQUALS: true, NOT_EQUALS: true, GREATER_THAN: true, LESS_THAN: true,
+}
+
+// The boolean helper renders only EQUALS as a bare boolean literal; any other comparison
+// falls through to the quoted-string form, which would not compile against a boolean
+// operator. The grammar spec asserts boolean properties declare only this.
+export const booleanComparisons: Record<string, true> = {
+  EQUALS: true,
+}
+
+// The operators for a numeric or boolean property take a `number` / `boolean`, so their
+// targets must be emitted as bare literals rather than quoted strings — otherwise the
+// generated code does not compile.
+//
+// Each typed path is guarded on the assertion actually fitting it, because remote data is
+// not bound by the builder's types: the backend accepts any target string, so a monitor
+// created via the UI or API can carry `selfSigned = 'yes'` or `keySizeBits = ''`. Coercing
+// those would silently rewrite the assertion on the next deploy ('yes' would become
+// `false`), so they fall through to the string form, which round-trips the value untouched
+// and is reported by validateSslAssertion instead.
+function valueForPropertyScopedAssertion (method: string, assertion: SslAssertion): Value {
+  const valueType = sslPropertyValueType(assertion.source, assertion.property)
+
+  // Rendered with Number, not the helper's default parseInt: isSslNumericTarget has
+  // already established the whole target is a number, and parseInt would truncate '30.5'
+  // to 30 — a silently different assertion on the next deploy. Sharing the predicate with
+  // validateSslAssertion is what keeps the two honest: every target validation accepts is
+  // rendered as a numeric literal the property's operators take, so no assertion the CLI
+  // calls valid is emitted as code that does not compile.
+  const isRenderableNumber = valueType === 'number'
+    && Object.hasOwn(numericComparisons, assertion.comparison)
+    && isSslNumericTarget(assertion.target)
+  if (isRenderableNumber) {
+    return valueForNumericAssertion('SslAssertionBuilder', method, assertion, {
+      hasProperty: true,
+      parse: Number,
+    })
+  }
+
+  const isRenderableBoolean = valueType === 'boolean'
+    && Object.hasOwn(booleanComparisons, assertion.comparison)
+    && (assertion.target === 'true' || assertion.target === 'false')
+  if (isRenderableBoolean) {
+    return valueForBooleanAssertion('SslAssertionBuilder', method, assertion, { hasProperty: true })
+  }
+
+  return valueForGeneralAssertion('SslAssertionBuilder', method, assertion, withProperty)
+}
 
 export function valueForSslAssertion (genfile: GeneratedFile, assertion: SslAssertion): Value {
   genfile.namedImport('SslAssertionBuilder', 'checkly/constructs')
 
   switch (assertion.source) {
-    case 'CERT_EXPIRES_IN_DAYS':
-      return valueForNumericAssertion('SslAssertionBuilder', 'certExpiresInDays', assertion)
-    case 'KEY_SIZE_BITS':
-      return valueForNumericAssertion('SslAssertionBuilder', 'keySizeBits', assertion)
-    case 'CERT_NOT_EXPIRED':
-      return valueForBooleanAssertion('SslAssertionBuilder', 'certNotExpired', assertion)
-    case 'HOSTNAME_VERIFIED':
-      return valueForBooleanAssertion('SslAssertionBuilder', 'hostnameVerified', assertion)
-    case 'CHAIN_TRUSTED':
-      return valueForBooleanAssertion('SslAssertionBuilder', 'chainTrusted', assertion)
-    case 'OCSP_STAPLED':
-      return valueForBooleanAssertion('SslAssertionBuilder', 'ocspStapled', assertion)
-    case 'TLS_VERSION':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'tlsVersion', assertion, generalNoArgs)
-    case 'CIPHER_SUITE':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'cipherSuite', assertion, generalWithMatches)
-    case 'ISSUER_CN':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'issuerCn', assertion, generalWithMatches)
-    case 'CERT_FINGERPRINT_SHA256':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'certFingerprintSha256', assertion, generalNoArgs)
-    case 'ISSUER_FINGERPRINT_SHA256':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'issuerFingerprintSha256', assertion, generalNoArgs)
-    case 'SIGNATURE_ALGORITHM':
-      return valueForGeneralAssertion('SslAssertionBuilder', 'signatureAlgorithm', assertion, generalWithMatches)
+    case 'CERTIFICATE':
+      return valueForPropertyScopedAssertion('certificate', assertion)
+    case 'CONNECTION':
+      return valueForPropertyScopedAssertion('connection', assertion)
+    case 'JSON_RESPONSE':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'jsonResponse', assertion, withProperty)
+    case 'TEXT_RESPONSE':
+      return valueForGeneralAssertion('SslAssertionBuilder', 'textResponse', assertion, withProperty)
+    case 'RESPONSE_TIME':
+      return valueForNumericAssertion('SslAssertionBuilder', 'responseTime', assertion)
     default:
       return unsupportedAssertionSource(assertion.source, 'SSL')
   }

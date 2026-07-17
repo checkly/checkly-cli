@@ -46,8 +46,8 @@ describe('SslMonitor', () => {
           alertDaysBeforeExpiry: 20,
         },
         assertions: [
-          SslAssertionBuilder.certExpiresInDays().greaterThan(20),
-          SslAssertionBuilder.chainTrusted().equals(true),
+          SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(20),
+          SslAssertionBuilder.connection('chainTrusted').equals(true),
         ],
       },
     })
@@ -63,8 +63,8 @@ describe('SslMonitor', () => {
           port: 443,
         },
         assertions: [
-          expect.objectContaining({ source: 'CERT_EXPIRES_IN_DAYS', comparison: 'GREATER_THAN', target: '20' }),
-          expect.objectContaining({ source: 'CHAIN_TRUSTED', comparison: 'EQUALS', target: 'true' }),
+          expect.objectContaining({ source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target: '20' }),
+          expect.objectContaining({ source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: 'true' }),
         ],
       },
     })
@@ -90,7 +90,7 @@ describe('SslMonitor', () => {
           skipChainValidation: false,
         },
         assertions: [
-          SslAssertionBuilder.certExpiresInDays().greaterThan(30),
+          SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30),
         ],
       },
     })
@@ -125,22 +125,22 @@ describe('SslMonitor', () => {
           hostname: 'example.com',
           sslConfig: {},
           assertions: [
-            SslAssertionBuilder.keySizeBits().equals(2048),
-            SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
-            SslAssertionBuilder.cipherSuite().equals('TLS_AES_256_GCM_SHA384'),
-            SslAssertionBuilder.issuerCn().equals('Let\'s Encrypt'),
-            SslAssertionBuilder.ocspStapled().equals(true),
+            SslAssertionBuilder.certificate('keySizeBits').equals(2048),
+            SslAssertionBuilder.connection('tlsVersion').equals('TLS1.3'),
+            SslAssertionBuilder.connection('cipherSuite').equals('TLS_AES_256_GCM_SHA384'),
+            SslAssertionBuilder.certificate('issuerCN').equals('Let\'s Encrypt'),
+            SslAssertionBuilder.connection('ocspStapled').equals(true),
           ],
         },
       })
 
       const payload = check.synthesize() as any
       expect(payload.request.assertions).toEqual([
-        expect.objectContaining({ source: 'KEY_SIZE_BITS', comparison: 'EQUALS', target: '2048' }),
-        expect.objectContaining({ source: 'TLS_VERSION', comparison: 'EQUALS', target: 'TLS1.3' }),
-        expect.objectContaining({ source: 'CIPHER_SUITE', comparison: 'EQUALS', target: 'TLS_AES_256_GCM_SHA384' }),
-        expect.objectContaining({ source: 'ISSUER_CN', comparison: 'EQUALS', target: 'Let\'s Encrypt' }),
-        expect.objectContaining({ source: 'OCSP_STAPLED', comparison: 'EQUALS', target: 'true' }),
+        expect.objectContaining({ source: 'CERTIFICATE', property: 'keySizeBits', comparison: 'EQUALS', target: '2048' }),
+        expect.objectContaining({ source: 'CONNECTION', property: 'tlsVersion', comparison: 'EQUALS', target: 'TLS1.3' }),
+        expect.objectContaining({ source: 'CONNECTION', property: 'cipherSuite', comparison: 'EQUALS', target: 'TLS_AES_256_GCM_SHA384' }),
+        expect.objectContaining({ source: 'CERTIFICATE', property: 'issuerCN', comparison: 'EQUALS', target: 'Let\'s Encrypt' }),
+        expect.objectContaining({ source: 'CONNECTION', property: 'ocspStapled', comparison: 'EQUALS', target: 'true' }),
       ])
     })
 
@@ -294,53 +294,213 @@ describe('SslMonitor', () => {
       ]))
     })
 
+    it('should error on an unknown property for a property-scoped source', async () => {
+      const diags = await validateWith([
+        { source: 'CERTIFICATE', property: 'bogusProperty', comparison: 'EQUALS', target: 'x', regex: null },
+      ] as unknown as SslRequest['assertions'])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The CERTIFICATE assertion at "request.assertions[0]" has an unknown property "bogusProperty".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should error on a comparison the property does not allow', async () => {
+      const diags = await validateWith([
+        // certificate keySizeBits is numeric — CONTAINS is not allowed.
+        { source: 'CERTIFICATE', property: 'keySizeBits', comparison: 'CONTAINS', target: '2048', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The CERTIFICATE "keySizeBits" assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
+          ),
+        }),
+      ]))
+    })
+
     it('should error on a comparison the source does not allow', async () => {
       const diags = await validateWith([
-        // KEY_SIZE_BITS supports EQUALS only.
-        { source: 'KEY_SIZE_BITS', property: '', comparison: 'GREATER_THAN', target: '2048', regex: null },
+        // RESPONSE_TIME is numeric — CONTAINS is not allowed.
+        { source: 'RESPONSE_TIME', property: '', comparison: 'CONTAINS', target: '100', regex: null },
       ])
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
           message: expect.stringContaining(
-            'The KEY_SIZE_BITS assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN".',
+            'The RESPONSE_TIME assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
           ),
         }),
       ]))
     })
 
-    it('should error on MATCHES for a source that does not allow it', async () => {
-      const diags = await validateWith([
-        { source: 'CERT_EXPIRES_IN_DAYS', property: '', comparison: 'MATCHES', target: '.*', regex: null },
-      ])
-      expect(diags.isFatal()).toEqual(true)
-      expect(diags.observations).toEqual(expect.arrayContaining([
-        expect.objectContaining({ message: expect.stringContaining('has an unsupported comparison "MATCHES"') }),
-      ]))
+    it('should error on a numeric property with a non-numeric target', async () => {
+      // The builder types these targets as numbers, but an object literal bypasses it and
+      // the backend accepts the string — it just never matches, so the assertion would
+      // silently never fire.
+      const cases: Array<{ target: string, expected: string }> = [
+        { target: '30 days', expected: 'must compare against a number, but got "30 days".' },
+        { target: '', expected: 'must compare against a number, but got (none).' },
+        { target: 'abc', expected: 'must compare against a number, but got "abc".' },
+      ]
+      for (const { target, expected } of cases) {
+        const diags = await validateWith([
+          { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target, regex: null },
+        ])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining(
+              `The CERTIFICATE "daysUntilExpiry" assertion at "request.assertions[0]" ${expected}`,
+            ),
+          }),
+        ]))
+      }
     })
 
-    it('should error on a boolean source with a non-boolean target', async () => {
+    it('should error on a non-numeric RESPONSE_TIME target', async () => {
       const diags = await validateWith([
-        { source: 'CERT_NOT_EXPIRED', property: '', comparison: 'EQUALS', target: 'yes', regex: null },
+        { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1s', regex: null },
       ])
       expect(diags.isFatal()).toEqual(true)
       expect(diags.observations).toEqual(expect.arrayContaining([
         expect.objectContaining({
           message: expect.stringContaining(
-            'The CERT_NOT_EXPIRED assertion at "request.assertions[0]" must compare against "true" or "false", but got "yes".',
+            'The RESPONSE_TIME assertion at "request.assertions[0]" must compare against a number, but got "1s".',
           ),
         }),
       ]))
+    })
+
+    // Check files are loaded without typechecking, so an object-literal assertion can
+    // carry a non-string target. It must be reported, not thrown on.
+    it('should report rather than crash on a non-string target', async () => {
+      const cases: unknown[] = [
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'EQUALS', target: 30, regex: null },
+        { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: true, regex: null },
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'EQUALS', regex: null },
+      ]
+      for (const assertion of cases) {
+        const diags = await validateWith([assertion] as SslRequest['assertions'])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining('written as a string') }),
+        ]))
+      }
+    })
+
+    // A target that is never inspected must not crash either, whatever its type.
+    it('should not crash on assertions whose target it does not inspect', async () => {
+      const diags = await validateWith([
+        { source: 'TEXT_RESPONSE', property: '', comparison: 'NOT_EMPTY', regex: null },
+        { source: 'JSON_RESPONSE', property: '$.x', comparison: 'IS_NULL', target: null, regex: null },
+        { source: 'CERTIFICATE', property: 'issuerCN', comparison: 'CONTAINS', target: 'CA', regex: null },
+      ] as unknown as SslRequest['assertions'])
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should accept the numeric targets a numeric property does allow', async () => {
+      const diags = await validateWith([
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'GREATER_THAN', target: '30', regex: null },
+        { source: 'CERTIFICATE', property: 'daysUntilExpiry', comparison: 'LESS_THAN', target: '30.5', regex: null },
+        { source: 'CERTIFICATE', property: 'keySizeBits', comparison: 'EQUALS', target: '2048', regex: null },
+        { source: 'RESPONSE_TIME', property: '', comparison: 'LESS_THAN', target: '1000', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error on a boolean property with a non-boolean target', async () => {
+      const diags = await validateWith([
+        { source: 'CONNECTION', property: 'chainTrusted', comparison: 'EQUALS', target: 'yes', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'The CONNECTION "chainTrusted" assertion at "request.assertions[0]" must compare against "true" or "false", but got "yes".',
+          ),
+        }),
+      ]))
+    })
+
+    it('should error on removed SSL-only operators against the new grammar', async () => {
+      // The regex (MATCHES) and >= (GREATER_THAN_OR_EQUAL) operators were dropped for SSL;
+      // they must be rejected on every source that could plausibly carry them.
+      const cases: Array<{ assertion: SslRequest['assertions'][number], message: string }> = [
+        {
+          assertion: { source: 'CERTIFICATE', property: 'signatureAlgorithm', comparison: 'MATCHES', target: 'x', regex: null },
+          message: 'The CERTIFICATE "signatureAlgorithm" assertion at "request.assertions[0]" has an unsupported comparison "MATCHES".',
+        },
+        {
+          assertion: { source: 'CONNECTION', property: 'tlsVersion', comparison: 'GREATER_THAN_OR_EQUAL', target: 'TLS1.2', regex: null },
+          message: 'The CONNECTION "tlsVersion" assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN_OR_EQUAL".',
+        },
+        {
+          assertion: { source: 'RESPONSE_TIME', property: '', comparison: 'GREATER_THAN_OR_EQUAL', target: '100', regex: null },
+          message: 'The RESPONSE_TIME assertion at "request.assertions[0]" has an unsupported comparison "GREATER_THAN_OR_EQUAL".',
+        },
+      ]
+      for (const { assertion, message } of cases) {
+        const diags = await validateWith([assertion])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining(message) }),
+        ]))
+      }
+    })
+
+    it('should enforce the per-property comparison whitelist', async () => {
+      const cases: Array<{ assertion: SslRequest['assertions'][number], message: string }> = [
+        {
+          // sans is STRING_LIST — only CONTAINS / NOT_CONTAINS, so EQUALS is rejected.
+          assertion: { source: 'CERTIFICATE', property: 'sans', comparison: 'EQUALS', target: 'example.com', regex: null },
+          message: 'The CERTIFICATE "sans" assertion at "request.assertions[0]" has an unsupported comparison "EQUALS".',
+        },
+        {
+          // serialNumber is ID — only EQUALS / NOT_EQUALS, so CONTAINS is rejected.
+          assertion: { source: 'CERTIFICATE', property: 'serialNumber', comparison: 'CONTAINS', target: 'ab', regex: null },
+          message: 'The CERTIFICATE "serialNumber" assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
+        },
+        {
+          // ocspStatus is ENUM — only EQUALS / NOT_EQUALS, so CONTAINS is rejected.
+          assertion: { source: 'CONNECTION', property: 'ocspStatus', comparison: 'CONTAINS', target: 'good', regex: null },
+          message: 'The CONNECTION "ocspStatus" assertion at "request.assertions[0]" has an unsupported comparison "CONTAINS".',
+        },
+      ]
+      for (const { assertion, message } of cases) {
+        const diags = await validateWith([assertion])
+        expect(diags.isFatal()).toEqual(true)
+        expect(diags.observations).toEqual(expect.arrayContaining([
+          expect.objectContaining({ message: expect.stringContaining(message) }),
+        ]))
+      }
+    })
+
+    it('should accept the list-oriented comparisons the whitelist allows', async () => {
+      const diags = await validateWith([
+        { source: 'CERTIFICATE', property: 'sans', comparison: 'CONTAINS', target: 'example.com', regex: null },
+        { source: 'CONNECTION', property: 'resolvedIp', comparison: 'NOT_CONTAINS', target: '10.0.0.1', regex: null },
+      ])
+      expect(diags.isFatal()).toEqual(false)
     })
 
     it('should not error on assertions built with SslAssertionBuilder', async () => {
       const diags = await validateWith([
-        SslAssertionBuilder.certExpiresInDays().greaterThan(30),
-        SslAssertionBuilder.keySizeBits().equals(2048),
-        SslAssertionBuilder.chainTrusted().equals(true),
-        SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
-        SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)'),
-        SslAssertionBuilder.issuerCn().matches('^Let\'s Encrypt'),
+        SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30),
+        SslAssertionBuilder.certificate('keySizeBits').equals(2048),
+        SslAssertionBuilder.certificate('issuerCN').contains('Let\'s Encrypt'),
+        SslAssertionBuilder.certificate('signatureAlgorithm').equals('SHA256-RSA'),
+        SslAssertionBuilder.certificate('selfSigned').equals(false),
+        SslAssertionBuilder.connection('chainTrusted').equals(true),
+        SslAssertionBuilder.connection('tlsVersion').equals('TLS1.3'),
+        SslAssertionBuilder.connection('cipherSuite').notEquals('TLS_RSA_WITH_RC4_128_SHA'),
+        SslAssertionBuilder.responseTime().lessThan(1000),
+        SslAssertionBuilder.jsonResponse('$.status').equals('ok'),
+        SslAssertionBuilder.textResponse().contains('healthy'),
       ])
       expect(diags.isFatal()).toEqual(false)
     })

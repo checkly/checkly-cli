@@ -16,6 +16,13 @@ export function unsupportedAssertionSource (source: never, kind?: string): never
 
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean
+  /**
+   * How to read the target as a number. Defaults to `parseInt`, which takes the leading
+   * numeric prefix — lenient by design, since wire targets may carry units ('5%').
+   * Callers that have already established the target is a full number can pass `Number`
+   * to keep fractions and avoid truncating '30.5' to 30.
+   */
+  parse?: (target: string) => number
 }
 
 export function valueForNumericAssertion<Source extends string> (
@@ -24,6 +31,7 @@ export function valueForNumericAssertion<Source extends string> (
   assertion: Assertion<Source>,
   options?: ValueForNumericAssertionOptions,
 ): Value {
+  const parse = options?.parse ?? ((target: string) => parseInt(target, 10))
   return expr(ident(klass), builder => {
     builder.member(ident(method))
     builder.call(builder => {
@@ -36,25 +44,25 @@ export function valueForNumericAssertion<Source extends string> (
       case 'EQUALS':
         builder.member(ident('equals'))
         builder.call(builder => {
-          builder.number(parseInt(assertion.target, 10))
+          builder.number(parse(assertion.target))
         })
         break
       case 'NOT_EQUALS':
         builder.member(ident('notEquals'))
         builder.call(builder => {
-          builder.number(parseInt(assertion.target, 10))
+          builder.number(parse(assertion.target))
         })
         break
       case 'LESS_THAN':
         builder.member(ident('lessThan'))
         builder.call(builder => {
-          builder.number(parseInt(assertion.target, 10))
+          builder.number(parse(assertion.target))
         })
         break
       case 'GREATER_THAN':
         builder.member(ident('greaterThan'))
         builder.call(builder => {
-          builder.number(parseInt(assertion.target, 10))
+          builder.number(parse(assertion.target))
         })
         break
       default:
@@ -63,16 +71,26 @@ export function valueForNumericAssertion<Source extends string> (
   })
 }
 
-// Emits an SSL boolean-source assertion: `Builder.method().equals(true|false)`.
-// The four boolean SSL sources only support EQUALS and carry no property/regex.
+export interface ValueForBooleanAssertionOptions {
+  hasProperty?: boolean
+}
+
+// Emits a boolean-target assertion: `Builder.method([property]).equals(true|false)`.
+// Boolean targets only support EQUALS and carry no regex.
 export function valueForBooleanAssertion<Source extends string> (
   klass: string,
   method: string,
   assertion: Assertion<Source>,
+  options?: ValueForBooleanAssertionOptions,
 ): Value {
   return expr(ident(klass), builder => {
     builder.member(ident(method))
-    builder.call(() => {})
+    builder.call(builder => {
+      const hasProperty = options?.hasProperty ?? false
+      if (hasProperty && assertion.property !== '') {
+        builder.string(assertion.property)
+      }
+    })
     switch (assertion.comparison) {
       case 'EQUALS':
         builder.member(ident('equals'))
@@ -89,10 +107,6 @@ export function valueForBooleanAssertion<Source extends string> (
 export interface ValueForGeneralAssertionOptions {
   hasProperty?: boolean
   hasRegex?: boolean
-  // When set, a `MATCHES` comparison emits `.matches(target)`. Only the SSL string
-  // sources (CIPHER_SUITE/ISSUER_CN/SIGNATURE_ALGORITHM) accept MATCHES; every other
-  // caller leaves it off, so MATCHES stays a `default: throw` for them.
-  hasMatches?: boolean
 }
 
 export function valueForGeneralAssertion<Source extends string> (
@@ -197,15 +211,6 @@ export function valueForGeneralAssertion<Source extends string> (
         builder.member(ident('isNotNull'))
         builder.call(builder => {
           builder.empty()
-        })
-        break
-      case 'MATCHES':
-        if (!options?.hasMatches) {
-          throw new Error(`Unsupported comparison ${assertion.comparison} for assertion source ${assertion.source}`)
-        }
-        builder.member(ident('matches'))
-        builder.call(builder => {
-          builder.string(assertion.target)
         })
         break
       default:

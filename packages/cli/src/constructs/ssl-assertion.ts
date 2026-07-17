@@ -1,11 +1,18 @@
-import { Assertion as CoreAssertion, toAssertion } from './internal/assertion.js'
+import {
+  Assertion as CoreAssertion,
+  GeneralAssertionBuilder,
+  NumericAssertionBuilder,
+} from './internal/assertion.js'
+import { PropertyOperators, operatorsForProperty } from './internal/assertion-grammar.js'
+import { certificateGrammar, connectionGrammar } from './ssl-assertion-grammar.js'
 
 /**
- * Known TLS protocol versions for use with {@link SslAssertionBuilder.tlsVersion}.
+ * Known TLS protocol versions for use as a target of the `tlsVersion` property on
+ * the {@link SslAssertionBuilder.connection} builder.
  *
  * @example
  * ```typescript
- * SslAssertionBuilder.tlsVersion().equals(TlsVersion.TLS1_3)
+ * SslAssertionBuilder.connection('tlsVersion').equals(TlsVersion.TLS1_3)
  * ```
  */
 export const TlsVersion = {
@@ -20,11 +27,12 @@ export type TlsVersionValue = (typeof TlsVersion)[keyof typeof TlsVersion]
 /**
  * Signature algorithms as reported by Go's `x509.Certificate.SignatureAlgorithm.String()`.
  * These are the exact values the SSL runner evaluates assertions against — use these
- * constants (or the string literals they represent) with {@link SslAssertionBuilder.signatureAlgorithm}.
+ * constants (or the string literals they represent) as a target of the
+ * `signatureAlgorithm` property on the {@link SslAssertionBuilder.certificate} builder.
  *
  * @example
  * ```typescript
- * SslAssertionBuilder.signatureAlgorithm().equals(SignatureAlgorithm.SHA256_RSA)
+ * SslAssertionBuilder.certificate('signatureAlgorithm').equals(SignatureAlgorithm.SHA256_RSA)
  * ```
  */
 export const SignatureAlgorithm = {
@@ -53,14 +61,14 @@ export const SignatureAlgorithm = {
 export type SignatureAlgorithmValue = (typeof SignatureAlgorithm)[keyof typeof SignatureAlgorithm]
 
 /**
- * Commonly-used IANA cipher suite names for use with
- * {@link SslAssertionBuilder.cipherSuite}. Includes TLS 1.3 suites and
- * widely-deployed TLS 1.2 suites.
+ * Commonly-used IANA cipher suite names for use as a target of the `cipherSuite`
+ * property on the {@link SslAssertionBuilder.connection} builder. Includes TLS 1.3
+ * suites and widely-deployed TLS 1.2 suites.
  *
  * @example
  * ```typescript
- * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_AES_256_GCM_SHA384)
- * SslAssertionBuilder.cipherSuite().equals(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
+ * SslAssertionBuilder.connection('cipherSuite').equals(CipherSuite.TLS_AES_256_GCM_SHA384)
+ * SslAssertionBuilder.connection('cipherSuite').equals(CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
  * ```
  */
 export const CipherSuite = {
@@ -86,239 +94,102 @@ export const CipherSuite = {
 
 export type CipherSuiteValue = (typeof CipherSuite)[keyof typeof CipherSuite]
 
+// Property-scoped SSL assertion sources. Certificate and connection facts are
+// addressed by a `property` name (e.g. 'daysUntilExpiry', 'tlsVersion'); the
+// remaining sources mirror the API check grammar.
 type SslAssertionSource =
-  | 'CERT_EXPIRES_IN_DAYS'
-  | 'CERT_NOT_EXPIRED'
-  | 'HOSTNAME_VERIFIED'
-  | 'CHAIN_TRUSTED'
-  | 'TLS_VERSION'
-  | 'CIPHER_SUITE'
-  | 'ISSUER_CN'
-  | 'CERT_FINGERPRINT_SHA256'
-  | 'ISSUER_FINGERPRINT_SHA256'
-  | 'KEY_SIZE_BITS'
-  | 'SIGNATURE_ALGORITHM'
-  | 'OCSP_STAPLED'
+  | 'CERTIFICATE'
+  | 'CONNECTION'
+  | 'RESPONSE_TIME'
+  | 'JSON_RESPONSE'
+  | 'TEXT_RESPONSE'
 
 export type SslAssertion = CoreAssertion<SslAssertionSource>
 
-// One builder class per SSL source, each exposing only the operators (and value
-// type) the backend accepts for that source. The classes are stateless — the source
-// is baked into each `toAssertion` call — and are not exported: they are reachable
-// only through `SslAssertionBuilder`, so they stay out of the package's public API.
+// The certificate and connection assertion grammar is declared once, as data, in
+// internal/ssl-grammar.ts: each property's row states the operators it exposes and its
+// target type. The property unions below and the per-property builders returned by
+// SslAssertionBuilder are derived from those tables, and validation and codegen read the
+// same tables — so a property's grammar lives in one place, not four.
 
-/** Days until the certificate expires (numeric). */
-class CertExpiresInDaysAssertionBuilder {
-  equals (target: number): SslAssertion {
-    return toAssertion('CERT_EXPIRES_IN_DAYS', 'EQUALS', target)
-  }
+/** The certificate properties an assertion can be made against. */
+export type SslCertificateProperty = keyof typeof certificateGrammar
 
-  notEquals (target: number): SslAssertion {
-    return toAssertion('CERT_EXPIRES_IN_DAYS', 'NOT_EQUALS', target)
-  }
-
-  lessThan (target: number): SslAssertion {
-    return toAssertion('CERT_EXPIRES_IN_DAYS', 'LESS_THAN', target)
-  }
-
-  greaterThan (target: number): SslAssertion {
-    return toAssertion('CERT_EXPIRES_IN_DAYS', 'GREATER_THAN', target)
-  }
-}
-
-/** Certificate key size in bits (numeric, exact match only). */
-class KeySizeBitsAssertionBuilder {
-  equals (target: number): SslAssertion {
-    return toAssertion('KEY_SIZE_BITS', 'EQUALS', target)
-  }
-}
-
-/** Whether the certificate is not expired (boolean). */
-class CertNotExpiredAssertionBuilder {
-  equals (target: boolean): SslAssertion {
-    return toAssertion('CERT_NOT_EXPIRED', 'EQUALS', target)
-  }
-}
-
-/** Whether the hostname is verified (boolean). */
-class HostnameVerifiedAssertionBuilder {
-  equals (target: boolean): SslAssertion {
-    return toAssertion('HOSTNAME_VERIFIED', 'EQUALS', target)
-  }
-}
-
-/** Whether the certificate chain is trusted (boolean). */
-class ChainTrustedAssertionBuilder {
-  equals (target: boolean): SslAssertion {
-    return toAssertion('CHAIN_TRUSTED', 'EQUALS', target)
-  }
-}
-
-/** Whether a stapled OCSP response was provided during the handshake (boolean). */
-class OcspStapledAssertionBuilder {
-  equals (target: boolean): SslAssertion {
-    return toAssertion('OCSP_STAPLED', 'EQUALS', target)
-  }
-}
-
-/** Negotiated TLS version — `.equals()` accepts only known TLS version strings. */
-class TlsVersionAssertionBuilder {
-  equals (target: TlsVersionValue): SslAssertion {
-    return toAssertion('TLS_VERSION', 'EQUALS', target)
-  }
-}
-
-/**
- * Certificate signature algorithm. `.equals()` takes a Go
- * `x509.Certificate.SignatureAlgorithm.String()` value; `.matches()` takes a regex.
- */
-class SignatureAlgorithmAssertionBuilder {
-  equals (target: SignatureAlgorithmValue): SslAssertion {
-    return toAssertion('SIGNATURE_ALGORITHM', 'EQUALS', target)
-  }
-
-  matches (target: string): SslAssertion {
-    return toAssertion('SIGNATURE_ALGORITHM', 'MATCHES', target)
-  }
-}
-
-/** Negotiated cipher suite (string) — exact, not-equal, or regex match. */
-class CipherSuiteAssertionBuilder {
-  equals (target: string): SslAssertion {
-    return toAssertion('CIPHER_SUITE', 'EQUALS', target)
-  }
-
-  notEquals (target: string): SslAssertion {
-    return toAssertion('CIPHER_SUITE', 'NOT_EQUALS', target)
-  }
-
-  matches (target: string): SslAssertion {
-    return toAssertion('CIPHER_SUITE', 'MATCHES', target)
-  }
-}
-
-/** Certificate issuer common name (string) — exact, not-equal, or regex match. */
-class IssuerCnAssertionBuilder {
-  equals (target: string): SslAssertion {
-    return toAssertion('ISSUER_CN', 'EQUALS', target)
-  }
-
-  notEquals (target: string): SslAssertion {
-    return toAssertion('ISSUER_CN', 'NOT_EQUALS', target)
-  }
-
-  matches (target: string): SslAssertion {
-    return toAssertion('ISSUER_CN', 'MATCHES', target)
-  }
-}
-
-/** Certificate SHA-256 fingerprint (string, exact match only). */
-class CertFingerprintSha256AssertionBuilder {
-  equals (target: string): SslAssertion {
-    return toAssertion('CERT_FINGERPRINT_SHA256', 'EQUALS', target)
-  }
-}
-
-/** Issuer SHA-256 fingerprint (string, exact match only). */
-class IssuerFingerprintSha256AssertionBuilder {
-  equals (target: string): SslAssertion {
-    return toAssertion('ISSUER_FINGERPRINT_SHA256', 'EQUALS', target)
-  }
-}
+/** The connection properties an assertion can be made against. */
+export type SslConnectionProperty = keyof typeof connectionGrammar
 
 /**
  * Builder class for creating SSL monitor assertions.
- * Provides methods to create assertions for TLS certificates.
+ *
+ * Assertions are property-scoped: {@link certificate} and {@link connection} take the
+ * name of a certificate/connection property, {@link jsonResponse} takes a JSONPath and
+ * {@link textResponse} an optional regex. The comparison operators the backend accepts
+ * depend on the property's value type and are validated at deploy time.
  *
  * @example
  * ```typescript
- * // Alert when the certificate is within 30 days of expiry
- * SslAssertionBuilder.certExpiresInDays().greaterThan(30)
+ * // Certificate facts, addressed by property name
+ * SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30)
+ * SslAssertionBuilder.certificate('issuerCN').contains("Let's Encrypt")
+ * SslAssertionBuilder.certificate('signatureAlgorithm').equals(SignatureAlgorithm.SHA256_RSA)
+ * SslAssertionBuilder.certificate('selfSigned').equals(false)
  *
- * // Require a trusted chain and a verified hostname
- * SslAssertionBuilder.chainTrusted().equals(true)
- * SslAssertionBuilder.hostnameVerified().equals(true)
+ * // Connection / handshake facts
+ * SslAssertionBuilder.connection('tlsVersion').equals(TlsVersion.TLS1_3)
+ * SslAssertionBuilder.connection('cipherSuite').equals(CipherSuite.TLS_AES_256_GCM_SHA384)
+ * SslAssertionBuilder.connection('chainTrusted').equals(true)
  *
- * // Enforce a specific TLS version and key size
- * SslAssertionBuilder.tlsVersion().equals('TLS1.3')
- * SslAssertionBuilder.keySizeBits().equals(2048)
- *
- * // Match the issuer or cipher suite against a regex
- * SslAssertionBuilder.issuerCn().matches("^Let's Encrypt")
- * SslAssertionBuilder.cipherSuite().matches('TLS_(AES|CHACHA)')
+ * // Response time, JSON and text responses
+ * SslAssertionBuilder.responseTime().lessThan(1000)
+ * SslAssertionBuilder.jsonResponse('$.status').equals('ok')
+ * SslAssertionBuilder.textResponse().contains('healthy')
  * ```
  */
 export class SslAssertionBuilder {
-  /** Assertion builder for the number of days until the certificate expires. */
-  static certExpiresInDays () {
-    return new CertExpiresInDaysAssertionBuilder()
-  }
-
-  /** Assertion builder for the certificate key size in bits. */
-  static keySizeBits () {
-    return new KeySizeBitsAssertionBuilder()
-  }
-
-  /** Assertion builder for whether the certificate is not expired. */
-  static certNotExpired () {
-    return new CertNotExpiredAssertionBuilder()
-  }
-
-  /** Assertion builder for whether the hostname is verified. */
-  static hostnameVerified () {
-    return new HostnameVerifiedAssertionBuilder()
-  }
-
-  /** Assertion builder for whether the certificate chain is trusted. */
-  static chainTrusted () {
-    return new ChainTrustedAssertionBuilder()
+  /**
+   * Creates an assertion builder for a certificate property.
+   * @param property The certificate property to assert on (e.g. `'daysUntilExpiry'`,
+   *   `'issuerCN'`, `'signatureAlgorithm'`, `'sans'`, `'selfSigned'`).
+   */
+  static certificate<Property extends SslCertificateProperty> (
+    property: Property,
+  ): PropertyOperators<'CERTIFICATE', typeof certificateGrammar[Property]> {
+    return operatorsForProperty(certificateGrammar, 'CERTIFICATE', property)
   }
 
   /**
-   * Assertion builder for the negotiated TLS version. `.equals()` accepts only the
-   * known TLS version strings — use the {@link TlsVersion} constants or the string
-   * literals `'TLS1.0'`…`'TLS1.3'`.
+   * Creates an assertion builder for a connection property.
+   * @param property The connection property to assert on (e.g. `'tlsVersion'`,
+   *   `'cipherSuite'`, `'hostnameVerified'`, `'ocspStatus'`, `'resolvedIp'`).
    */
-  static tlsVersion () {
-    return new TlsVersionAssertionBuilder()
+  static connection<Property extends SslConnectionProperty> (
+    property: Property,
+  ): PropertyOperators<'CONNECTION', typeof connectionGrammar[Property]> {
+    return operatorsForProperty(connectionGrammar, 'CONNECTION', property)
   }
 
   /**
-   * Assertion builder for the negotiated cipher suite. Go's `tls.CipherSuiteName()`
-   * can return hundreds of IANA names plus `0x....` hex fallbacks, so `.equals()` is
-   * unconstrained; use the {@link CipherSuite} constants for common suites, or
-   * `.matches()` with a regex pattern.
+   * Creates an assertion builder for the TLS handshake response time in milliseconds.
    */
-  static cipherSuite () {
-    return new CipherSuiteAssertionBuilder()
-  }
-
-  /** Assertion builder for the certificate issuer common name. */
-  static issuerCn () {
-    return new IssuerCnAssertionBuilder()
-  }
-
-  /** Assertion builder for the certificate SHA-256 fingerprint. */
-  static certFingerprintSha256 () {
-    return new CertFingerprintSha256AssertionBuilder()
-  }
-
-  /** Assertion builder for the issuer SHA-256 fingerprint. */
-  static issuerFingerprintSha256 () {
-    return new IssuerFingerprintSha256AssertionBuilder()
+  static responseTime () {
+    return new NumericAssertionBuilder<SslAssertionSource>('RESPONSE_TIME')
   }
 
   /**
-   * Assertion builder for the certificate signature algorithm. `.equals()` takes a
-   * Go `x509.Certificate.SignatureAlgorithm.String()` value (e.g. `'SHA256-RSA'`) —
-   * use the {@link SignatureAlgorithm} constants — or `.matches()` with a regex.
+   * Creates an assertion builder for a JSON response body.
+   * @param property Optional JSONPath to a specific value (e.g. `'$.status'`).
    */
-  static signatureAlgorithm () {
-    return new SignatureAlgorithmAssertionBuilder()
+  static jsonResponse (property?: string) {
+    return new GeneralAssertionBuilder<SslAssertionSource>('JSON_RESPONSE', property)
   }
 
-  /** Assertion builder for whether a stapled OCSP response was provided. */
-  static ocspStapled () {
-    return new OcspStapledAssertionBuilder()
+  /**
+   * Creates an assertion builder for a text response body.
+   * @param regex Optional regex pattern (with a capture group) used to extract the value
+   *   to compare from the serialized response document. Carried in the assertion's
+   *   `property` field — the slot the backend and runner read the pattern from.
+   */
+  static textResponse (regex?: string) {
+    return new GeneralAssertionBuilder<SslAssertionSource>('TEXT_RESPONSE', regex)
   }
 }
