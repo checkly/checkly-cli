@@ -53,13 +53,6 @@ export interface GrpcConfig {
   tls?: boolean
 
   /**
-   * Whether to store the gRPC response body with the check result.
-   *
-   * @defaultValue true
-   */
-  storeResponseBody?: boolean
-
-  /**
    * gRPC metadata (request headers) sent with the call.
    */
   metadata?: Array<GrpcMetadata>

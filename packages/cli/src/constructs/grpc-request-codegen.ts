@@ -35,10 +35,6 @@ export function valueForGrpcRequest (
         builder.boolean('tls', config.tls)
       }
 
-      if (config.storeResponseBody !== undefined) {
-        builder.boolean('storeResponseBody', config.storeResponseBody)
-      }
-
       if (config.serviceDefinition) {
         builder.string('serviceDefinition', config.serviceDefinition)
       }

@@ -36,7 +36,6 @@ describe('backend-style export snippets', () => {
         grpcConfig: {
           mode: 'BEHAVIOR',
           tls: true,
-          storeResponseBody: true,
           serviceDefinition: 'REFLECTION',
           method: '/grpc.health.v1.Health/Check',
         },
