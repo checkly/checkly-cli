@@ -174,7 +174,15 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
-      - run: pnpm --filter checkly run test:e2e -- --shard=${{ matrix.shard }}
+      # Deliberately no `--` separator: pnpm appends trailing args to the
+      # script command as-is, so --shard reaches vitest without one. Unlike
+      # npm, pnpm forwards a literal `--` verbatim into the script, where
+      # vitest's parser collects everything after it into an argument list it
+      # never reads — silently discarding --shard. The suite still passes when
+      # that happens, so a green run is not evidence the flag landed; check
+      # that each shard reports fewer test files than the full suite and that
+      # the four counts sum to it.
+      - run: pnpm --filter checkly run test:e2e --shard=${{ matrix.shard }}
         env:
           CHECKLY_ACCOUNT_NAME: ${{ secrets.E2E_CHECKLY_ACCOUNT_NAME }}
           CHECKLY_ACCOUNT_ID: ${{ secrets.E2E_CHECKLY_ACCOUNT_ID }}
