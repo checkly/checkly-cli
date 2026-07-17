@@ -21,7 +21,8 @@ All paths below are relative to the repo root unless noted otherwise.
 
 ## Phase 1: Survey what is outdated
 
-- [ ] Run `pnpm outdated -r` to list outdated direct dependencies across all workspace packages.
+- [ ] Run `pnpm install` first. `pnpm outdated` compares the **installed** tree against the registry, so without `node_modules` it reports every package as `missing (wanted …)` and the survey is worthless — it lists every direct dependency, including ones already up to date, rather than only what is actually outdated. A fresh git worktree never has `node_modules` (gitignored artifacts are not shared between worktrees), so this step is essential there; elsewhere it is idempotent and safe to repeat.
+- [ ] Run `pnpm outdated -r` to list outdated direct dependencies across all workspace packages. If the `Current` column reads `missing` for everything, the install above did not happen — stop and install before going further.
 
 ## Phase 2: Choose target versions (compatibility- and embargo-aware)
 
