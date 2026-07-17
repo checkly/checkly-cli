@@ -18,10 +18,10 @@ new SslMonitor('example-com-ssl', {
       alertDaysBeforeExpiry: 30,
     },
     assertions: [
-      SslAssertionBuilder.certExpiresInDays().greaterThan(30),
-      SslAssertionBuilder.chainTrusted().equals(true),
-      SslAssertionBuilder.hostnameVerified().equals(true),
-      SslAssertionBuilder.tlsVersion().equals('TLS1.3'),
+      SslAssertionBuilder.certificate('daysUntilExpiry').greaterThan(30),
+      SslAssertionBuilder.connection('chainTrusted').equals(true),
+      SslAssertionBuilder.connection('hostnameVerified').equals(true),
+      SslAssertionBuilder.connection('tlsVersion').equals('TLS1.3'),
     ],
   },
 })
