@@ -22,6 +22,30 @@ export type DnsProtocol =
   | 'TCP'
 
 /**
+ * Record change-detection settings for DNS requests. When enabled, the monitor
+ * snapshots the normalized answer records on each run and raises a change event
+ * when they differ from the confirmed baseline.
+ */
+export interface DnsChangeDetection {
+  /**
+   * Whether record change-detection is enabled. When omitted or `false`, the
+   * monitor behaves as a plain v1 DNS check with no snapshotting.
+   *
+   * @default false
+   */
+  enabled: boolean
+
+  /**
+   * When `true`, TTL values are included in the normalized snapshot comparison,
+   * so a TTL-only change is treated as a record change. When omitted, TTL is
+   * ignored and only the record set (name/type/data) is compared.
+   *
+   * @default false
+   */
+  includeTtl?: boolean
+}
+
+/**
  * Advanced resolver configuration for DNS requests. All fields are optional;
  * omitted fields fall back to the backend defaults.
  */
@@ -45,6 +69,12 @@ export interface DnsConfig {
    * @default false
    */
   followCname?: boolean
+
+  /**
+   * Record change-detection settings. Optional — omit (or set `enabled: false`)
+   * to keep plain v1 DNS behavior with no snapshotting.
+   */
+  changeDetection?: DnsChangeDetection
 }
 
 /**

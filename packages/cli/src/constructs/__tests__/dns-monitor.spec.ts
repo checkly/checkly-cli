@@ -406,5 +406,28 @@ describe('DnsMonitor', () => {
         },
       })
     })
+
+    it('should carry dnsConfig.changeDetection through the request', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          recordType: 'A',
+          query: 'acme.com',
+          dnsConfig: { changeDetection: { enabled: true, includeTtl: true } },
+        },
+      })
+
+      expect(check.synthesize()).toMatchObject({
+        checkType: 'DNS',
+        request: {
+          dnsConfig: { changeDetection: { enabled: true, includeTtl: true } },
+        },
+      })
+    })
   })
 })

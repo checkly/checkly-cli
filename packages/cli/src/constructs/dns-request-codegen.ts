@@ -35,6 +35,17 @@ export function valueForDnsRequest (
         if (dnsConfig.followCname !== undefined) {
           builder.boolean('followCname', dnsConfig.followCname)
         }
+
+        if (dnsConfig.changeDetection !== undefined) {
+          const changeDetection = dnsConfig.changeDetection
+          builder.object('changeDetection', builder => {
+            builder.boolean('enabled', changeDetection.enabled)
+
+            if (changeDetection.includeTtl !== undefined) {
+              builder.boolean('includeTtl', changeDetection.includeTtl)
+            }
+          })
+        }
       })
     }
 

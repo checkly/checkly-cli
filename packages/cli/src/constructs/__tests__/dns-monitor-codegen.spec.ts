@@ -79,6 +79,52 @@ describe('DnsMonitorCodegen', () => {
     expect(source).toContain('followCname: true')
   })
 
+  it('should roundtrip dnsConfig.changeDetection', async () => {
+    const source = await renderResource(env, baseResource({
+      recordType: 'A',
+      query: 'acme.com',
+      dnsConfig: {
+        changeDetection: {
+          enabled: true,
+          includeTtl: true,
+        },
+      },
+    }))
+
+    expect(source).toContain('dnsConfig: {')
+    expect(source).toContain('changeDetection: {')
+    expect(source).toContain('enabled: true')
+    expect(source).toContain('includeTtl: true')
+  })
+
+  it('should omit includeTtl from changeDetection when absent', async () => {
+    const source = await renderResource(env, baseResource({
+      recordType: 'A',
+      query: 'acme.com',
+      dnsConfig: {
+        changeDetection: {
+          enabled: false,
+        },
+      },
+    }))
+
+    expect(source).toContain('changeDetection: {')
+    expect(source).toContain('enabled: false')
+    expect(source).not.toContain('includeTtl')
+  })
+
+  it('should omit changeDetection when absent', async () => {
+    const source = await renderResource(env, baseResource({
+      recordType: 'A',
+      query: 'acme.com',
+      dnsConfig: {
+        followCname: true,
+      },
+    }))
+
+    expect(source).not.toContain('changeDetection')
+  })
+
   it('should roundtrip ANSWER assertions with quantifiers and matches', async () => {
     const source = await renderResource(env, baseResource({
       recordType: 'A',
