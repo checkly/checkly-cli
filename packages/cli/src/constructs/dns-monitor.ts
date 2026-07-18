@@ -1,9 +1,11 @@
+import { isIP } from 'node:net'
+
 import { Monitor, MonitorProps } from './monitor'
 import { Session } from './project'
 import { Diagnostics } from './diagnostics'
 import { validateResponseTimes } from './internal/common-diagnostics'
 import { DnsRequest } from './dns-request'
-import { RequiredPropertyDiagnostic } from './construct-diagnostics'
+import { InvalidPropertyValueDiagnostic, RequiredPropertyDiagnostic } from './construct-diagnostics'
 
 export interface DnsMonitorProps extends MonitorProps {
   /**
@@ -94,6 +96,40 @@ export class DnsMonitor extends Monitor {
         'nameServer',
         new Error(
           `A value for "nameServer" is required when "port" is set.`,
+        ),
+      ))
+    }
+
+    // Mirror the backend cross-field rules (validate-dns-query.ts): an IP-shaped
+    // query is only meaningful for a PTR (reverse) lookup, and the query must be
+    // ASCII (internationalized domain names have to be punycode-encoded).
+    if (isIP(this.request.query) !== 0 && this.request.recordType !== 'PTR') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'query',
+        new Error(
+          `A "query" may only be an IP address when "recordType" is "PTR".`,
+        ),
+      ))
+    }
+
+    // eslint-disable-next-line no-control-regex
+    if (/[^\x00-\x7F]/.test(this.request.query)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'query',
+        new Error(
+          `A "query" must be ASCII; encode internationalized domain names as punycode (xn--).`,
+        ),
+      ))
+    }
+
+    // Mirror the backend `queryTimeoutSeconds` bound (integer, 1..30).
+    const queryTimeoutSeconds = this.request.dnsConfig?.queryTimeoutSeconds
+    if (queryTimeoutSeconds !== undefined
+      && (!Number.isInteger(queryTimeoutSeconds) || queryTimeoutSeconds < 1 || queryTimeoutSeconds > 30)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'queryTimeoutSeconds',
+        new Error(
+          `A "queryTimeoutSeconds" must be an integer between 1 and 30.`,
         ),
       ))
     }

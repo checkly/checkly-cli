@@ -8,10 +8,44 @@ export type DnsRecordType =
   | 'NS'
   | 'TXT'
   | 'SOA'
+  | 'HTTPS'
+  | 'PTR'
+  | 'SRV'
+  | 'CAA'
+  | 'DS'
+  | 'DNSKEY'
+  | 'TLSA'
+  | 'NAPTR'
 
 export type DnsProtocol =
   | 'UDP'
   | 'TCP'
+
+/**
+ * Advanced resolver configuration for DNS requests. All fields are optional;
+ * omitted fields fall back to the backend defaults.
+ */
+export interface DnsConfig {
+  /**
+   * The maximum time in seconds to wait for each DNS query attempt (applied
+   * per attempt in the resolver failover loop).
+   *
+   * @minimum 1
+   * @maximum 30
+   * @default 5
+   */
+  queryTimeoutSeconds?: number
+
+  /**
+   * When `true` and `recordType` is not `CNAME`, a CNAME-only answer for the
+   * query name is followed to its canonical target (bounded depth, loop
+   * detection, shared query-timeout budget) and the final answer feeds the
+   * assertions.
+   *
+   * @default false
+   */
+  followCname?: boolean
+}
 
 /**
  * Configuration for DNS requests.
@@ -62,6 +96,12 @@ export interface DnsRequest {
    * @default "UDP"
    */
   protocol?: DnsProtocol
+
+  /**
+   * Advanced resolver configuration (query timeout, CNAME chasing). Optional —
+   * omit to use the backend defaults.
+   */
+  dnsConfig?: DnsConfig
 
   /**
    * Assertions to validate the DNS response.

@@ -147,6 +147,18 @@ export function valueForGeneralAssertion<Source extends string> (
           builder.string(assertion.target)
         })
         break
+      case 'MATCHES':
+        builder.member(ident('matches'))
+        builder.call(builder => {
+          builder.string(assertion.target)
+        })
+        break
+      case 'NOT_MATCHES':
+        builder.member(ident('notMatches'))
+        builder.call(builder => {
+          builder.string(assertion.target)
+        })
+        break
       case 'IS_NULL':
         builder.member(ident('isNull'))
         builder.call(builder => {

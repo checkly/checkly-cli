@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { DnsMonitor, CheckGroup, DnsRequest, Diagnostics } from '../index'
+import { DnsMonitor, CheckGroup, DnsRequest, DnsAssertionBuilder, Diagnostics } from '../index'
 import { Project, Session } from '../project'
 import { Bundler } from '../../services/check-parser/bundler'
 
@@ -256,6 +256,155 @@ describe('DnsMonitor', () => {
       await check.validate(diags)
 
       expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error if an IP-shaped query is used with a non-PTR record type', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          recordType: 'A',
+          query: '192.0.2.1',
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('may only be an IP address when "recordType" is "PTR"'),
+        }),
+      ]))
+    })
+
+    it('should not error if an IP-shaped query is used with a PTR record type', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          recordType: 'PTR',
+          query: '192.0.2.1',
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should error if the query is not ASCII', async () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          recordType: 'A',
+          query: 'münchen.example.com',
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('must be ASCII'),
+        }),
+      ]))
+    })
+
+    it.each([1, 30])('should not error if queryTimeoutSeconds is %i', async queryTimeoutSeconds => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          dnsConfig: { queryTimeoutSeconds },
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it.each([0, 31, 5.5])('should error if queryTimeoutSeconds is %s', async queryTimeoutSeconds => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          dnsConfig: { queryTimeoutSeconds },
+        },
+      })
+
+      const diags = new Diagnostics()
+      await check.validate(diags)
+
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('"queryTimeoutSeconds" must be an integer between 1 and 30'),
+        }),
+      ]))
+    })
+  })
+
+  describe('synthesize', () => {
+    it('should include dnsConfig and ANSWER assertions in the request', () => {
+      Session.project = new Project('project-id', {
+        name: 'Test Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+      })
+
+      const check = new DnsMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          recordType: 'SRV',
+          query: '_sip._tcp.example.com',
+          dnsConfig: { queryTimeoutSeconds: 3, followCname: true },
+          assertions: [
+            DnsAssertionBuilder.answerData('EVERY').matches('.*example.com.'),
+            DnsAssertionBuilder.answerCount().greaterThan(0),
+          ],
+        },
+      })
+
+      expect(check.synthesize()).toMatchObject({
+        checkType: 'DNS',
+        request: {
+          recordType: 'SRV',
+          dnsConfig: { queryTimeoutSeconds: 3, followCname: true },
+          assertions: [
+            { source: 'ANSWER', property: 'data', quantifier: 'EVERY', comparison: 'MATCHES' },
+            { source: 'ANSWER', property: 'count', comparison: 'GREATER_THAN', target: '0' },
+          ],
+        },
+      })
     })
   })
 })

@@ -25,6 +25,19 @@ export function valueForDnsRequest (
       builder.string('protocol', request.protocol)
     }
 
+    if (request.dnsConfig) {
+      const dnsConfig = request.dnsConfig
+      builder.object('dnsConfig', builder => {
+        if (dnsConfig.queryTimeoutSeconds !== undefined) {
+          builder.number('queryTimeoutSeconds', dnsConfig.queryTimeoutSeconds)
+        }
+
+        if (dnsConfig.followCname !== undefined) {
+          builder.boolean('followCname', dnsConfig.followCname)
+        }
+      })
+    }
+
     if (request.assertions) {
       const assertions = request.assertions
       if (assertions.length > 0) {
