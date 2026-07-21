@@ -78,7 +78,7 @@
         "description": "List and download result assets."
       },
       "checks": {
-        "description": "List and inspect checks in your Checkly account."
+        "description": "List, inspect, and run checks in your Checkly account."
       },
       "env": {
         "description": "Manage Checkly environment variables."
