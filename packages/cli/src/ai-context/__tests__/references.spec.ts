@@ -47,6 +47,9 @@ describe('AI context investigation references', () => {
   it('documents check result attempts and asset retrieval', async () => {
     const content = normalizeLineEndings(await readReference('investigate-checks.md'))
 
+    expect(content).toContain('npx checkly checks run --tags production')
+    expect(content).toContain('creates ordinary Check Sessions')
+    expect(content).toContain('Test Sessions do not update normal check health')
     expect(content).toContain('npx checkly checks get <check-id> --result <result-id> --include-attempts --output json')
     expect(content).toContain('"result": {}')
     expect(content).toContain('"attempts": []')
