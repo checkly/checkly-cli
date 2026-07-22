@@ -184,6 +184,20 @@ describe('checks run command', () => {
     expect(process.exitCode).toBeUndefined()
   })
 
+  it('prints an empty JSON envelope when no checks match without failing', async () => {
+    vi.mocked(api.checkSessions.trigger).mockRejectedValue(new NoMatchingChecksError())
+    const ctx = createCommandContext(defaultFlags({
+      'fail-on-no-matching': false,
+      'output': 'json',
+    }))
+
+    await ChecksRun.prototype.run.call(ctx as any)
+
+    expect(ctx.logged).toHaveLength(1)
+    expect(JSON.parse(ctx.logged[0])).toEqual({ sessions: [] })
+    expect(process.exitCode).toBeUndefined()
+  })
+
   it('reports an overall completion timeout and leaves sessions running', async () => {
     vi.mocked(api.checkSessions.trigger).mockResolvedValue({ sessions: [pendingSessions[0]] })
     vi.mocked(api.checkSessions.pollUntilComplete)

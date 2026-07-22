@@ -145,7 +145,11 @@ export default class ChecksRun extends AuthCommand {
       }
 
       if (err instanceof NoMatchingChecksError) {
-        this.log('No matching checks were found.')
+        if (flags.output === 'json') {
+          this.log(JSON.stringify({ sessions: [] }, null, 2))
+        } else {
+          this.log('No matching checks were found.')
+        }
         if (flags['fail-on-no-matching']) {
           process.exitCode = 1
         }
