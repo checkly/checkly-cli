@@ -14,6 +14,7 @@ import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:bundler')
+const FILESYSTEM_CONCURRENCY = 32
 
 export interface CreateBundleArchiveOptions {
   tempDir?: string
@@ -307,20 +308,57 @@ export class Bundler {
   }
 
   async finalize (): Promise<FinalizedBundleArchive> {
+    let files = Array.from(this.#files.values())
+    files.sort((a, b) => {
+      return a.filePath.localeCompare(b.filePath)
+    })
+    files = await omitSymlinksWithSelectedDescendants(files)
+
     const archive = await BundleArchive.create({
       tempDir: this.#tempDir,
       stripPrefix: this.#stripPrefix,
-    })
-
-    const files = Array.from(this.#files.values())
-    files.sort((a, b) => {
-      return a.filePath.localeCompare(b.filePath)
     })
 
     await archive.add(...files)
 
     return await archive.finalize()
   }
+}
+
+async function omitSymlinksWithSelectedDescendants (files: File[]): Promise<File[]> {
+  const physicalFiles = files.filter(file => file.physical)
+  const symlinkPaths = new Set<string>()
+  for (let offset = 0; offset < physicalFiles.length; offset += FILESYSTEM_CONCURRENCY) {
+    const batch = physicalFiles.slice(offset, offset + FILESYSTEM_CONCURRENCY)
+    const symlinks = await Promise.all(batch.map(async file => {
+      if (!(await fs.lstat(file.filePath)).isSymbolicLink()) {
+        return undefined
+      }
+
+      return path.resolve(file.filePath)
+    }))
+    for (const symlink of symlinks) {
+      if (symlink !== undefined) {
+        symlinkPaths.add(symlink)
+      }
+    }
+  }
+
+  const symlinksWithSelectedDescendants = new Set<string>()
+  for (const file of files) {
+    const filePath = path.resolve(file.filePath)
+    let parentPath = path.dirname(filePath)
+    while (parentPath !== path.dirname(parentPath)) {
+      if (symlinkPaths.has(parentPath)) {
+        symlinksWithSelectedDescendants.add(parentPath)
+      }
+      parentPath = path.dirname(parentPath)
+    }
+  }
+
+  return files.filter(file => {
+    return !symlinksWithSelectedDescendants.has(path.resolve(file.filePath))
+  })
 }
 
 async function createArchiver (): Promise<Archiver> {
