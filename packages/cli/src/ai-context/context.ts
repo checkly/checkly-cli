@@ -72,7 +72,7 @@ export const REFERENCES = [
 export const INVESTIGATE_REFERENCES = [
   {
     id: 'investigate-checks',
-    description: 'Inspect checks (`checks list`, `checks get`), retry attempts, result assets, and trigger on-demand runs',
+    description: 'Inspect checks (`checks list`, `checks get`), retry attempts, result assets, and run on-demand monitoring or test sessions',
   },
   {
     id: 'investigate-alerting',

@@ -11,6 +11,7 @@ import Runtimes from './runtimes.js'
 import PrivateLocations from './private-locations.js'
 import Locations from './locations.js'
 import TestSessions from './test-sessions.js'
+import CheckSessions from './check-sessions.js'
 import EnvironmentVariables from './environment-variables.js'
 import HeartbeatChecks from './heartbeat-checks.js'
 import ChecklyStorage from './checkly-storage.js'
@@ -120,6 +121,7 @@ export const runtimes = new Runtimes(api)
 export const locations = new Locations(api)
 export const privateLocations = new PrivateLocations(api)
 export const testSessions = new TestSessions(api)
+export const checkSessions = new CheckSessions(api)
 export const environmentVariables = new EnvironmentVariables(api)
 export const heartbeatCheck = new HeartbeatChecks(api)
 export const checklyStorage = new ChecklyStorage(api)

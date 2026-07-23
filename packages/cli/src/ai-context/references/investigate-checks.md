@@ -146,11 +146,27 @@ Flags:
 
 Pass one or more check IDs as positional arguments to get stats for specific checks only.
 
-## Trigger checks
+## Run checks with normal monitoring behavior
+
+```bash
+npx checkly checks run --tags production
+npx checkly checks run --check-id <check-id>
+npx checkly checks run --tags critical,api --detach
+```
+
+`checks run` creates ordinary Check Sessions using the checks' deployed
+configuration and locations. These runs update check health and apply configured
+alerting rules. The command waits for completion by default; use `--detach` to
+schedule the runs and exit immediately.
+
+## Trigger a recorded test session
 
 ```bash
 npx checkly trigger --tags production
 npx checkly trigger --tags critical,api
 ```
 
-Triggers existing deployed checks by tag. Useful for on-demand verification.
+`trigger` runs deployed checks as a Test Session. Use it for CI verification or
+when you need Test Session options such as location, environment, or retry
+overrides. Test Sessions do not update normal check health or send configured
+monitoring alerts.

@@ -57,7 +57,7 @@ describe('help', () => {
   alert-channels   List and inspect alert channels in your Checkly account.
   api              Make an authenticated HTTP request to the Checkly API.
   assets           List and download result assets.
-  checks           List and inspect checks in your Checkly account.
+  checks           List, inspect, and run checks in your Checkly account.
   destroy          Destroy your project with all its related resources.
   env              Manage Checkly environment variables.
   help             Display help for checkly.

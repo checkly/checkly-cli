@@ -5,6 +5,7 @@ import { BaseCommand } from '../baseCommand.js'
 import ChecksList from '../checks/list.js'
 import ChecksGet from '../checks/get.js'
 import ChecksStats from '../checks/stats.js'
+import ChecksRun from '../checks/run.js'
 import StatusPagesList from '../status-pages/list.js'
 import StatusPagesGet from '../status-pages/get.js'
 import AlertChannelsList from '../alert-channels/list.js'
@@ -62,6 +63,7 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['checks list', ChecksList],
   ['checks get', ChecksGet],
   ['checks stats', ChecksStats],
+  ['checks run', ChecksRun],
   ['status-pages list', StatusPagesList],
   ['status-pages get', StatusPagesGet],
   ['test-sessions list', TestSessionsList],
