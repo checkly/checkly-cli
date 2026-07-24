@@ -62,7 +62,7 @@ export default class Trigger extends AuthCommand {
     }),
     'timeout': Flags.integer({
       default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
-      description: 'A timeout (in seconds) to wait for checks to complete.',
+      description: 'A timeout (in seconds) to wait for each check result once the check starts running. Checks awaiting scheduling get additional headroom for the server-side dispatch stagger.',
     }),
     'verbose': Flags.boolean({
       char: 'v',
