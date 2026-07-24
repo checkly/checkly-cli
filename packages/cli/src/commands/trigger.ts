@@ -14,6 +14,7 @@ import {
   PrivateRunLocation,
   SequenceId,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+  MAX_SCHEDULING_DELAY_SECONDS,
 } from '../services/abstract-check-runner.js'
 import config from '../services/config.js'
 import { createReporters, ReporterType } from '../reporters/reporter.js'
@@ -63,7 +64,8 @@ export default class Trigger extends AuthCommand {
     }),
     'timeout': Flags.integer({
       default: DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
-      description: 'A timeout (in seconds) to wait for each check to make progress: start running, report a retry attempt, or report its result.',
+      description: 'A timeout (in seconds) to wait for each check to make progress once it starts running: report a retry attempt or its result. '
+        + `Checks that have not started yet get up to ${MAX_SCHEDULING_DELAY_SECONDS} additional seconds for server-side scheduling.`,
     }),
     'verbose': Flags.boolean({
       char: 'v',
