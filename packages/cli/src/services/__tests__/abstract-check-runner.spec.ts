@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import AbstractCheckRunner, { Events, SequenceId } from '../abstract-check-runner.js'
+import { NoMatchingChecksError } from '../../rest/test-sessions.js'
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be hoisted before any imports that pull these in
@@ -238,5 +239,82 @@ describe('AbstractCheckRunner — SocketClient lifecycle', () => {
     await runner.run()
 
     expect(mockClient.endAsync).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports safe diagnostics when MQTT connection fails without a message', async () => {
+    const connectionError = Object.assign(new Error(''), { code: 'ECONNRESET' })
+    vi.mocked(SocketClient.connect).mockRejectedValueOnce(connectionError)
+    const runner = makeRunner()
+    const errors: Error[] = []
+    runner.on(Events.ERROR, error => errors.push(error))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toBe('MQTT connection failed: no error message was provided (code: ECONNRESET)')
+  })
+
+  it('omits unsafe MQTT connection error codes from fallback diagnostics', async () => {
+    const connectionError = Object.assign(new Error(''), { code: 'api-key=secret-value' })
+    vi.mocked(SocketClient.connect).mockRejectedValueOnce(connectionError)
+    const runner = makeRunner()
+    const errors: Error[] = []
+    runner.on(Events.ERROR, error => errors.push(error))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toBe('MQTT connection failed: no error message was provided')
+    expect(errors[0].message).not.toContain('secret-value')
+  })
+
+  it('preserves useful MQTT connection error messages', async () => {
+    const connectionError = new Error('Connection refused')
+    vi.mocked(SocketClient.connect).mockRejectedValueOnce(connectionError)
+    const runner = makeRunner()
+    const errors: Error[] = []
+    runner.on(Events.ERROR, error => errors.push(error))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toBe('Connection refused')
+  })
+
+  it('reports safe diagnostics when MQTT subscription fails without a message', async () => {
+    const subscriptionError = Object.assign(new Error(''), { code: 135 })
+    const mockClient = {
+      on: vi.fn(),
+      subscribeAsync: vi.fn().mockRejectedValue(subscriptionError),
+      endAsync: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.mocked(SocketClient.connect).mockResolvedValueOnce(mockClient as any)
+    const runner = makeRunner()
+    const errors: Error[] = []
+    runner.on(Events.ERROR, error => errors.push(error))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toBe('MQTT subscription failed: no error message was provided (code: 135)')
+  })
+
+  it('preserves typed scheduling errors', async () => {
+    const mockClient = {
+      on: vi.fn(),
+      subscribeAsync: vi.fn().mockResolvedValue(undefined),
+      endAsync: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.mocked(SocketClient.connect).mockResolvedValueOnce(mockClient as any)
+    const schedulingError = new NoMatchingChecksError()
+    const runner = makeRunner()
+    runner.scheduleChecks = vi.fn().mockRejectedValue(schedulingError)
+    const errors: Error[] = []
+    runner.on(Events.ERROR, error => errors.push(error))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toBeInstanceOf(NoMatchingChecksError)
   })
 })

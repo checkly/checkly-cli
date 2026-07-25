@@ -44,6 +44,21 @@ export const DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS = 1200
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
+function ensureErrorMessage (err: unknown, fallback: string): Error {
+  if (!(err instanceof Error)) {
+    return new Error(fallback)
+  }
+  if (err.message.trim()) {
+    return err
+  }
+
+  const code = (err as Error & { code?: unknown }).code
+  const isSafeNumericCode = typeof code === 'number' && Number.isFinite(code)
+  const isSafeStringCode = typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)
+  err.message = isSafeNumericCode || isSafeStringCode ? `${fallback} (code: ${code})` : fallback
+  return err
+}
+
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<SequenceId, { check: any }>
   testSessionId?: string
@@ -96,10 +111,18 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         return
       }
 
-      socketClient = await SocketClient.connect()
+      try {
+        socketClient = await SocketClient.connect()
+      } catch (err) {
+        throw ensureErrorMessage(err, 'MQTT connection failed: no error message was provided')
+      }
 
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
-      await this.configureResultListener(checkRunSuiteId, socketClient)
+      try {
+        await this.configureResultListener(checkRunSuiteId, socketClient)
+      } catch (err) {
+        throw ensureErrorMessage(err, 'MQTT subscription failed: no error message was provided')
+      }
 
       const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
       this.testSessionId = testSessionId
