@@ -29,7 +29,7 @@ function deferred<T> () {
 // Subclass that stubs the real bundling so we can count how many times it runs
 // and control its timing, without needing a full Session/filesystem setup.
 class CountingBundler extends PlaywrightProjectBundler {
-  calls: Array<{ config: string, include: string[] }> = []
+  calls: Array<{ config: string, include: string[], workingDir?: string }> = []
   #gate?: Promise<void>
 
   constructor (gate?: Promise<void>) {
@@ -37,8 +37,12 @@ class CountingBundler extends PlaywrightProjectBundler {
     this.#gate = gate
   }
 
-  protected async bundleProject (config: string, include: string[]): Promise<PlaywrightProjectBundle> {
-    this.calls.push({ config, include })
+  protected async bundleProject (
+    config: string,
+    include: string[],
+    workingDir?: string,
+  ): Promise<PlaywrightProjectBundle> {
+    this.calls.push({ config, include, workingDir })
     if (this.#gate) {
       await this.#gate
     }
@@ -95,6 +99,25 @@ describe('PlaywrightProjectBundler cache', () => {
     await bundler.bundle('b/pw.config.ts', [])
 
     expect(bundler.calls).toHaveLength(2)
+  })
+
+  it('bundles separately for different working directories', async () => {
+    const bundler = new CountingBundler()
+
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/bar')
+
+    expect(bundler.calls).toHaveLength(2)
+  })
+
+  it('threads the working directory through and reuses the cache for the same key', async () => {
+    const bundler = new CountingBundler()
+
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+    await bundler.bundle('pw.config.ts', ['a/**'], 'packages/foo')
+
+    expect(bundler.calls).toHaveLength(1)
+    expect(bundler.calls[0].workingDir).toBe('packages/foo')
   })
 })
 
@@ -293,5 +316,146 @@ describe('resolvePlaywrightVersion()', () => {
 
     const version = await resolvePlaywrightVersion(otherPackage)
     expect(version).toBe('1.41.0')
+  })
+
+  // Builds a monorepo root that owns a pnpm workspace lockfile pinning
+  // `monorepoVersion`, and wires it up as Session.workspace exactly like
+  // project-parser would for the checkly monorepo. Per-entry working dirs live
+  // in subdirectories *below* this root; each test adds its own fixture under
+  // `root` with its own self-contained lockfile. The fix must resolve each
+  // fixture's own version, never collapsing to this monorepo version.
+  async function setupMonorepo (monorepoVersion: string): Promise<string> {
+    const root = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-pw-monorepo-')),
+    )
+
+    await fs.writeFile(
+      path.join(root, 'package.json'),
+      JSON.stringify({
+        name: 'monorepo',
+        version: '1.0.0',
+        devDependencies: { '@playwright/test': `${monorepoVersion}` },
+      }),
+    )
+
+    await fs.writeFile(
+      path.join(root, 'pnpm-lock.yaml'),
+      `lockfileVersion: '9.0'\n`
+      + `importers:\n`
+      + `  .:\n`
+      + `    devDependencies:\n`
+      + `      '@playwright/test':\n`
+      + `        specifier: ${monorepoVersion}\n`
+      + `        version: ${monorepoVersion}\n`,
+    )
+
+    const workspace = new Workspace({
+      root: new Package({ name: 'monorepo', path: root }),
+      packages: [],
+      lockfile: Ok(path.join(root, 'pnpm-lock.yaml')),
+      configFile: Err(new Error('none')),
+    })
+
+    Session.packageManager = new PNpmDetector()
+    Session.workspace = Ok(workspace)
+
+    return root
+  }
+
+  it('resolves a self-contained fixture from its own (yarn) lockfile, not the monorepo lockfile', async () => {
+    // The monorepo pins 1.40.0; a per-entry workingDir fixture has its OWN
+    // yarn.lock + package.json pinning 1.49.0. The fixture's lockfile is the
+    // source of truth for that entry — note the fixture even uses a *different*
+    // package manager (yarn) than the monorepo (pnpm), so we must detect the
+    // fixture's package manager rather than reuse Session.packageManager.
+    const root = await setupMonorepo('1.40.0')
+
+    const fixtureDir = path.join(root, 'fixtures', 'yarn-app')
+    await fs.mkdir(fixtureDir, { recursive: true })
+
+    await fs.writeFile(
+      path.join(fixtureDir, 'package.json'),
+      JSON.stringify({
+        name: 'yarn-app',
+        version: '1.0.0',
+        devDependencies: { '@playwright/test': '^1.49.0' },
+      }),
+    )
+
+    // yarn classic lockfile pinning 1.49.0.
+    await fs.writeFile(
+      path.join(fixtureDir, 'yarn.lock'),
+      `"@playwright/test@^1.49.0":\n`
+      + `  version "1.49.0"\n`
+      + `  resolved "https://registry.yarnpkg.com/@playwright/test/-/test-1.49.0.tgz"\n`,
+    )
+
+    const version = await resolvePlaywrightVersion(fixtureDir)
+    expect(version).toBe('1.49.0')
+  })
+
+  it('resolves a pnpm workspace-member fixture from the lockfile above the workingDir, not the monorepo lockfile', async () => {
+    // The trap: the workingDir points at a workspace MEMBER subdir whose own
+    // lockfile lives at the fixture's workspace root ABOVE it (the member has
+    // no lockfile of its own). The search must walk UP from the workingDir to
+    // that fixture workspace lockfile (pinning 1.49.0) — but stop before the
+    // monorepo lockfile (pinning 1.40.0).
+    const root = await setupMonorepo('1.40.0')
+
+    const fixtureWorkspaceRoot = path.join(root, 'fixtures', 'pnpm-ws')
+    const memberDir = path.join(fixtureWorkspaceRoot, 'packages', 'member')
+    await fs.mkdir(memberDir, { recursive: true })
+
+    await fs.writeFile(
+      path.join(fixtureWorkspaceRoot, 'package.json'),
+      JSON.stringify({ name: 'pnpm-ws', version: '1.0.0' }),
+    )
+    await fs.writeFile(
+      path.join(fixtureWorkspaceRoot, 'pnpm-workspace.yaml'),
+      `packages:\n  - 'packages/*'\n`,
+    )
+    await fs.writeFile(
+      path.join(memberDir, 'package.json'),
+      JSON.stringify({
+        name: 'member',
+        version: '1.0.0',
+        devDependencies: { '@playwright/test': '^1.49.0' },
+      }),
+    )
+
+    // The fixture workspace lockfile records the member importer relative to
+    // the fixture workspace root (packages/member), pinning 1.49.0.
+    await fs.writeFile(
+      path.join(fixtureWorkspaceRoot, 'pnpm-lock.yaml'),
+      `lockfileVersion: '9.0'\n`
+      + `importers:\n`
+      + `  .: {}\n`
+      + `  packages/member:\n`
+      + `    devDependencies:\n`
+      + `      '@playwright/test':\n`
+      + `        specifier: ^1.49.0\n`
+      + `        version: 1.49.0\n`,
+    )
+
+    const version = await resolvePlaywrightVersion(memberDir)
+    expect(version).toBe('1.49.0')
+  })
+
+  it('falls back to the monorepo workspace lockfile when the entry has no fixture-local lockfile', async () => {
+    // No regression: a workingDir whose nearest lockfile walking up IS the
+    // monorepo lockfile must resolve the monorepo version. The fixture-local
+    // search must NOT cross into / use the monorepo lockfile, so it finds
+    // nothing and the existing Session.workspace path resolves 1.40.0.
+    const root = await setupMonorepo('1.40.0')
+
+    const entryDir = path.join(root, 'apps', 'no-lockfile-entry')
+    await fs.mkdir(entryDir, { recursive: true })
+    await fs.writeFile(
+      path.join(entryDir, 'package.json'),
+      JSON.stringify({ name: 'no-lockfile-entry', version: '1.0.0' }),
+    )
+
+    const version = await resolvePlaywrightVersion(entryDir)
+    expect(version).toBe('1.40.0')
   })
 })
