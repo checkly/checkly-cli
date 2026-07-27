@@ -48,6 +48,19 @@ export const DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS = 1200
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
+// The backend staggers large sessions with SQS DelaySeconds and widens its
+// batches so no check is ever delayed beyond SQS's 15-minute ceiling. Until a
+// check's run-start message arrives, its timer must allow for that worst-case
+// queue delay on top of the execution timeout — otherwise the timer expires
+// for checks the server has not started yet. Once the check starts, the timer
+// is re-armed to the plain execution timeout.
+//
+// The 900s ceiling is a backend contract (the dispatch stagger is capped at
+// SQS's DelaySeconds maximum; RED-814 records where the backend enforces
+// it). If the backend's stagger ceiling ever changes, this constant must
+// follow.
+const MAX_SCHEDULING_DELAY_SECONDS = 900
+
 function schedulingFailedError (operation: TestSessionSchedulingOperation): TestSessionSchedulingFailedError {
   return new TestSessionSchedulingFailedError(
     operation.error?.message ?? 'The test session could not be scheduled.',
@@ -277,6 +290,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
     const { check } = this.checks.get(sequenceId)!
     if (subtopic === 'run-start') {
+      // The check is running: drop the scheduling-delay headroom so --timeout
+      // measures execution from here on. A retry attempt re-arms the timer
+      // again, giving each attempt a fresh execution window; the retry's
+      // backoff delay runs against the previous attempt's window, without
+      // extra headroom — no worse than the pre-existing behavior where all
+      // attempts and backoffs shared a single window from run start.
+      this.restartTimeoutForExecution(sequenceId, check)
       this.emit(Events.CHECK_INPROGRESS, check, sequenceId)
     } else if (subtopic === 'result') {
       const { result, testResultId, resultType } = message
@@ -344,28 +364,55 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     })
   }
 
+  private executionTimeoutSeconds (check: any): number {
+    // Playwright checks can take longer; bump the default (only) accordingly.
+    return (check instanceof PlaywrightCheck && this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS)
+      ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
+      : this.timeout
+  }
+
+  private armTimeout (sequenceId: SequenceId, check: any, seconds: number, hasStarted: boolean) {
+    this.timeouts.set(sequenceId, setTimeout(() => {
+      this.timeouts.delete(sequenceId)
+      let errorMessage = hasStarted
+        ? `Reached timeout of ${seconds} seconds waiting for check result.`
+        : `Check did not start within ${seconds} seconds (execution timeout plus the maximum scheduling delay).`
+      // Playwright checks can take longer.
+      // We should point the user to the --timeout flag in that case.
+      if (check instanceof PlaywrightCheck) {
+        errorMessage += ' Use a custom timeout with --timeout'
+      } else if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+        // Checkly should always report a result within 240s of a check
+        // starting, and a check that never started at all is even more likely
+        // a Checkly-side problem. If the default timeout was used, point the
+        // user to the status page and support email.
+        errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
+      }
+      this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
+      this.emit(Events.CHECK_FINISHED, check)
+    }, seconds * 1000),
+    )
+  }
+
   private setAllTimeouts () {
-    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) => {
-      const checkTimeout = (check instanceof PlaywrightCheck && this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS)
-        ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
-        : this.timeout
-      this.timeouts.set(sequenceId, setTimeout(() => {
-        this.timeouts.delete(sequenceId)
-        let errorMessage = `Reached timeout of ${checkTimeout} seconds waiting for check result.`
-        // Playwright checks can take longer.
-        // We should point the user to the --timeout flag in that case.
-        if (check instanceof PlaywrightCheck) {
-          errorMessage += ' Use a custom timeout with --timeout'
-        } else if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
-          // Checkly should always report a result within 240s.
-          // If the default timeout was used, we should point the user to the status page and support email.
-          errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
-        }
-        this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
-        this.emit(Events.CHECK_FINISHED, check)
-      }, checkTimeout * 1000),
-      )
-    })
+    // Pre-start timers carry scheduling-delay headroom: a check at the tail
+    // of a large staggered session may legitimately sit in a delay slot for
+    // up to MAX_SCHEDULING_DELAY_SECONDS before it runs. The timer is
+    // re-armed to the plain execution timeout when run-start arrives (see
+    // processMessage). Every check must keep a `timeouts` entry from run
+    // start — processMessage treats a missing entry as "already timed out"
+    // and drops the check's messages.
+    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) =>
+      this.armTimeout(sequenceId, check, this.executionTimeoutSeconds(check) + MAX_SCHEDULING_DELAY_SECONDS, false))
+  }
+
+  private restartTimeoutForExecution (sequenceId: SequenceId, check: any) {
+    if (!this.timeouts.has(sequenceId)) {
+      // Already timed out; do not resurrect the check.
+      return
+    }
+    this.disableTimeout(sequenceId)
+    this.armTimeout(sequenceId, check, this.executionTimeoutSeconds(check), true)
   }
 
   private disableAllTimeouts () {
