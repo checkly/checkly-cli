@@ -5,7 +5,11 @@ import * as uuid from 'uuid'
 import { EventEmitter } from 'node:events'
 import type { MqttClient } from 'mqtt'
 import type { Region } from '../index.js'
-import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import {
+  TestResultsShortLinks,
+  TestSessionSchedulingFailedError,
+  TestSessionSchedulingOperation,
+} from '../rest/test-sessions.js'
 import { PlaywrightCheck } from '../constructs/index.js'
 
 // eslint-disable-next-line no-restricted-syntax
@@ -44,6 +48,13 @@ export const DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS = 1200
 
 const DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS = 20000
 
+function schedulingFailedError (operation: TestSessionSchedulingOperation): TestSessionSchedulingFailedError {
+  return new TestSessionSchedulingFailedError(
+    operation.error?.message ?? 'The test session could not be scheduled.',
+    { code: operation.error?.code },
+  )
+}
+
 export default abstract class AbstractCheckRunner extends EventEmitter {
   checks: Map<SequenceId, { check: any }>
   testSessionId?: string
@@ -75,6 +86,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   abstract scheduleChecks (checkRunSuiteId: string): Promise<{
     testSessionId?: string
+    /** Present when the run was dispatched asynchronously (POST /v1/test-sessions/run). */
+    schedulingId?: string
     checks: Array<{ check: any, sequenceId: SequenceId }>
   }>
 
@@ -82,15 +95,20 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     let socketClient = null
     let sigintHandler: (() => void) | null = null
     let previousSigintListeners: Array<(...args: any[]) => void> = []
+    const schedulingWatchAbort = new AbortController()
     try {
       const checkRunSuiteId = uuid.v4()
 
       if (this.detach) {
-        const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
+        const { testSessionId, schedulingId, checks } = await this.scheduleChecks(checkRunSuiteId)
         this.testSessionId = testSessionId
         this.checks = new Map(
           checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
         )
+        // Dispatch happens in the background after the 202: confirm it
+        // succeeded (a matter of seconds) before detaching, so a dispatch
+        // failure still exits non-zero like the old synchronous endpoint did.
+        await this.assertSchedulingSucceeded(schedulingId)
         this.emit(Events.RUN_STARTED, checks, testSessionId)
         this.emit(Events.DETACH)
         return
@@ -101,7 +119,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Configure the socket listener and allChecksFinished listener before starting checks to avoid race conditions
       await this.configureResultListener(checkRunSuiteId, socketClient)
 
-      const { testSessionId, checks } = await this.scheduleChecks(checkRunSuiteId)
+      const { testSessionId, schedulingId, checks } = await this.scheduleChecks(checkRunSuiteId)
       this.testSessionId = testSessionId
       this.checks = new Map(
         checks.map(({ check, sequenceId }) => [sequenceId, { check }]),
@@ -146,17 +164,31 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // `allChecksFinished` should be started before processing check results in `queue.start()`.
       // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
       const allChecksFinished = this.allChecksFinished()
+      // The server dispatches the check runs in the background after the 202;
+      // watch the scheduling operation so a dispatch failure fails the run
+      // immediately with the real error instead of waiting out the per-check
+      // result timeouts. The promise only ever rejects (successful dispatch
+      // means results keep arriving over MQTT), so the race stays decided by
+      // allChecksFinished in the happy path.
+      const schedulingFailed = this.watchScheduling(schedulingId, schedulingWatchAbort.signal)
+      // Defensive: keep the promise permanently handled so its rejection can
+      // never become a global unhandled rejection if a future refactor inserts
+      // an await (or a throwing emit) before the race below observes it.
+      schedulingFailed.catch(() => {})
       /// / Need to structure the checks depending on how it went
       this.emit(Events.RUN_STARTED, checks, testSessionId)
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
 
-      await allChecksFinished
+      await Promise.race([allChecksFinished, schedulingFailed])
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
       this.disableAllTimeouts()
       this.emit(Events.ERROR, err)
     } finally {
+      // Stop any in-flight scheduling long-poll so it doesn't hold the
+      // process open after the run has settled.
+      schedulingWatchAbort.abort()
       if (sigintHandler) {
         process.off('SIGINT', sigintHandler)
         for (const listener of previousSigintListeners) {
@@ -166,6 +198,51 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       if (socketClient) {
         await socketClient.endAsync()
       }
+    }
+  }
+
+  /**
+   * Watches the run's scheduling operation and rejects with
+   * {@link TestSessionSchedulingFailedError} if the background dispatch fails.
+   * Never resolves: on successful dispatch the results keep streaming over
+   * MQTT and there is nothing to report. Watching is best-effort — polling
+   * errors (abort, network issues) never fail the run.
+   */
+  private watchScheduling (schedulingId: string | undefined, signal: AbortSignal): Promise<never> {
+    return new Promise<never>((_, reject) => {
+      if (!schedulingId) {
+        return
+      }
+      testSessions.pollSchedulingUntilComplete(schedulingId, { signal })
+        .then(operation => {
+          if (operation.status === 'FAILED') {
+            reject(schedulingFailedError(operation))
+          }
+        })
+        .catch(() => {
+          // Best-effort: only a definitive FAILED operation may fail the run.
+        })
+    })
+  }
+
+  /**
+   * Detach-mode counterpart of {@link watchScheduling}: waits for the
+   * scheduling operation to finish and throws if dispatch failed. Polling
+   * errors are swallowed (best-effort), matching the watch.
+   */
+  private async assertSchedulingSucceeded (schedulingId: string | undefined): Promise<void> {
+    if (!schedulingId) {
+      return
+    }
+    let operation
+    try {
+      operation = await testSessions.pollSchedulingUntilComplete(schedulingId)
+    } catch {
+      // Best-effort: only a definitive FAILED operation may fail the run.
+      return
+    }
+    if (operation.status === 'FAILED') {
+      throw schedulingFailedError(operation)
     }
   }
 
