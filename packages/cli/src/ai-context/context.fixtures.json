@@ -1153,6 +1153,101 @@
           "sslExpiryThreshold": 30,
           "autoSubscribe": false
         }
+      },
+      {
+        "logicalId": "example-telegram-alert-channel",
+        "physicalId": 1000016,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000016,
+          "type": "WEBHOOK",
+          "config": {
+            "name": "Ops Telegram",
+            "webhookType": "WEBHOOK_TELEGRAM",
+            "url": "https://api.telegram.org/botINSERT_TELEGRAM_API_KEY/sendMessage",
+            "template": "chat_id=INSERT_TELEGRAM_CHAT_ID&message_thread_id=INSERT_TELEGRAM_THREAD_ID&parse_mode=HTML&text=<b>{{ALERT_TITLE}}</b> at {{RUN_LOCATION}} ({{RESPONSE_TIME}}ms)\n{{#if AI_ANALYSIS_CLASSIFICATION}}\nAI Analysis: <i>{{AI_ANALYSIS_CLASSIFICATION}}</i>\n\n{{AI_ANALYSIS_ROOT_CAUSE}}\n<a href=\"{{AI_ANALYSIS_LINK}}\">Read full analysis</a>\n{{/if}}\n\nTags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/each}}\n<a href=\"{{RESULT_LINK}}\">View check result</a>\n",
+            "method": "POST",
+            "headers": [],
+            "queryParameters": [],
+            "webhookSecret": null
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:42:00.000Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-incidentio-alert-channel",
+        "physicalId": 1000017,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000017,
+          "type": "WEBHOOK",
+          "config": {
+            "name": "Ops Incidents",
+            "webhookType": "WEBHOOK_INCIDENTIO",
+            "url": "INSERT_INCIDENTIO_URL",
+            "template": "{\n  \"title\": \"{{ALERT_TITLE}}\",\n  \"description\": \"{{ALERT_TITLE}} at {{STARTED_AT}} in {{RUN_LOCATION}} {{RESPONSE_TIME}}ms\\n\\n{{#if AI_ANALYSIS_CLASSIFICATION}}# AI Analysis\\n\\n{{AI_ANALYSIS_CLASSIFICATION}}\\n\\n{{{AI_ANALYSIS_ROOT_CAUSE}}}\\nRead full analysis: {{AI_ANALYSIS_LINK}}{{/if}}\",\n  \"deduplication_key\": \"{{CHECK_ID}}\",\n  \"metadata\": {\n    \"alertType\": \"{{ALERT_TYPE}}\",\n    \"check_result_id\": \"{{CHECK_RESULT_ID}}\",\n    \"resultLink\": \"{{RESULT_LINK}}\"\n  },\n  {{#contains ALERT_TYPE \"RECOVERY\"}}\n  \"status\": \"resolved\"\n  {{else}}\n  \"status\": \"firing\"\n  {{/contains}}\n}\n",
+            "method": "POST",
+            "headers": [
+              {
+                "key": "authorization",
+                "value": "Bearer INSERT_INCIDENTIO_API_KEY",
+                "locked": false
+              }
+            ],
+            "queryParameters": [],
+            "webhookSecret": null
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:44:00.000Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
+      },
+      {
+        "logicalId": "example-msteams-alert-channel",
+        "physicalId": 1000018,
+        "type": "alert-channel",
+        "member": true,
+        "pending": true,
+        "payload": {
+          "id": 100000018,
+          "type": "WEBHOOK",
+          "config": {
+            "name": "Ops Teams",
+            "webhookType": "WEBHOOK_MSTEAMS",
+            "url": "INSERT_MSTEAMS_URL",
+            "template": "{\n  \"type\":\"message\",\n  \"attachments\":[\n    {\n      \"contentType\":\"application/vnd.microsoft.card.adaptive\",\n      \"contentUrl\":null,\n      \"content\":{\n        \"$schema\":\"http://adaptivecards.io/schemas/adaptive-card.json\",\n        \"type\":\"AdaptiveCard\",\n        \"version\":\"1.2\",\n        \"body\":[\n          {\n            \"type\": \"Container\",\n            \"items\": [\n              {\n                \"type\": \"TextBlock\",\n                \"text\": \"{{ALERT_TITLE}}\",\n                \"weight\": \"Bolder\",\n                \"size\": \"Large\",\n                \"style\": \"heading\"\n              },\n              {{#if AI_ANALYSIS_CLASSIFICATION}}\n              {\n                \"type\": \"TextBlock\",\n                \"text\": \"AI analysis\",\n                \"weight\": \"Bolder\",\n                \"size\": \"Default\",\n                \"style\": \"heading\"\n              },\n              {\n                \"type\": \"ColumnSet\",\n                \"columns\": [\n                  {\n                    \"type\": \"Column\",\n                    \"width\": \"stretch\",\n                    \"items\": [\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"{{AI_ANALYSIS_CLASSIFICATION}}\",\n                        \"weight\": \"Bolder\",\n                        \"wrap\": true\n                      },\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"{{AI_ANALYSIS_ROOT_CAUSE}}\",\n                        \"wrap\": true\n                      }\n                    ]\n                  }\n                ]\n              },\n              {\n                \"type\": \"ActionSet\",\n                \"actions\": [\n                  {\n                    \"type\": \"Action.OpenUrl\",\n                    \"title\": \"Read full analysis\",\n                    \"url\": \"{{AI_ANALYSIS_LINK}}\",\n                    \"style\": \"positive\",\n                    \"iconUrl\": \"icon:Sparkle\"\n                  }\n                ]\n              },\n              {{/if}}\n              {\n                \"type\": \"ColumnSet\",\n                \"columns\": [\n                  {\n                    \"type\": \"Column\",\n                    \"width\": \"stretch\",\n                    \"items\": [\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"Response time: {{RESPONSE_TIME}}ms\",\n                        \"wrap\": true\n                      },\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"Location: {{RUN_LOCATION}}\",\n                        \"wrap\": true\n                      },\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"Timestamp: {{STARTED_AT}}\",\n                        \"wrap\": true\n                      },\n                      {{#if GROUP_NAME}}\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"Group: {{GROUP_NAME}}\",\n                        \"wrap\": true\n                      },\n                      {{/if}}\n                      {\n                        \"type\": \"TextBlock\",\n                        \"text\": \"Tags: {{#each TAGS}} {{this}} {{#unless @last}},{{/unless}} {{/each}}\",\n                        \"wrap\": true\n                      }\n                    ]\n                  }\n                ]\n              }\n            ]\n          }\n        ],\n        \"actions\":[\n          {\n            \"type\":\"Action.OpenUrl\",\n            \"title\":\"View in Checkly\",\n            \"url\":\"{{RESULT_LINK}}\",\n            \"style\": \"positive\"\n          }\n        ]\n      }\n    }\n  ]\n}\n",
+            "method": "POST",
+            "headers": [],
+            "queryParameters": []
+          },
+          "accountId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          "created_at": "2025-07-07T11:46:00.000Z",
+          "updated_at": null,
+          "sendRecovery": true,
+          "sendFailure": true,
+          "sendDegraded": false,
+          "sslExpiry": false,
+          "sslExpiryThreshold": 30,
+          "autoSubscribe": false
+        }
       }
     ],
     "friends": [],

@@ -22,3 +22,21 @@ For new Slack notifications, prefer `SlackAppAlertChannel`. It uses the Checkly 
 ## Slack App Alert Channel
 
 <!-- EXAMPLE: SLACK_APP_ALERT_CHANNEL -->
+
+## Telegram Alert Channel
+
+Sends alerts to a Telegram chat via a bot. Use the optional `messageThreadId` property to post into a specific forum topic within a Telegram group.
+
+<!-- EXAMPLE: TELEGRAM_ALERT_CHANNEL -->
+
+## Incident.io Alert Channel
+
+Sends alerts to Incident.io via the webhook URL and API key created when installing the Checkly integration.
+
+<!-- EXAMPLE: INCIDENTIO_ALERT_CHANNEL -->
+
+## Microsoft Teams Alert Channel
+
+Sends alerts to a Microsoft Teams channel via an incoming webhook URL.
+
+<!-- EXAMPLE: MSTEAMS_ALERT_CHANNEL -->
