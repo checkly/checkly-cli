@@ -57,7 +57,7 @@ export const REFERENCES = [
   },
   {
     id: 'configure-alert-channels',
-    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), Slack App (`SlackAppAlertChannel`), and other alert channels',
+    description: 'Email (`EmailAlertChannel`), Phone (`PhoneCallAlertChannel`), Slack App (`SlackAppAlertChannel`), Telegram (`TelegramAlertChannel`), Incident.io (`IncidentioAlertChannel`), Microsoft Teams (`MSTeamsAlertChannel`), and other alert channels',
   },
   {
     id: 'configure-supporting-constructs',
@@ -373,5 +373,20 @@ new TracerouteMonitor('example-com-traceroute', {
     templateString: '<!-- EXAMPLE: SLACK_APP_ALERT_CHANNEL -->',
     exampleConfigPath: 'resources/alert-channels/slack-app/alerts-ops-alice.check.ts',
     reference: 'https://www.checklyhq.com/docs/constructs/slack-app-alert-channel/',
+  },
+  TELEGRAM_ALERT_CHANNEL: {
+    templateString: '<!-- EXAMPLE: TELEGRAM_ALERT_CHANNEL -->',
+    exampleConfigPath: 'resources/alert-channels/telegram/ops-telegram.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/telegram-alert-channel/',
+  },
+  INCIDENTIO_ALERT_CHANNEL: {
+    templateString: '<!-- EXAMPLE: INCIDENTIO_ALERT_CHANNEL -->',
+    exampleConfigPath: 'resources/alert-channels/incident-io/ops-incidents.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/incidentio-alert-channel/',
+  },
+  MSTEAMS_ALERT_CHANNEL: {
+    templateString: '<!-- EXAMPLE: MSTEAMS_ALERT_CHANNEL -->',
+    exampleConfigPath: 'resources/alert-channels/ms-teams/ops-teams.check.ts',
+    reference: 'https://www.checklyhq.com/docs/constructs/msteams-alert-channel/',
   },
 }
