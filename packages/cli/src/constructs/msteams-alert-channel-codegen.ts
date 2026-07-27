@@ -28,7 +28,7 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
       throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
     }
 
-    if (config.webhookSecret !== undefined) {
+    if (config.webhookSecret) {
       throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
     }
   }
