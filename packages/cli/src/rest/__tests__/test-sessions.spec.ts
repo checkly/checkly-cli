@@ -41,7 +41,7 @@ describe('TestSessions REST client', () => {
       shouldRecord: true,
     } as any)
 
-    expect(api.post).toHaveBeenCalledWith('/next/test-sessions/run', expect.objectContaining({
+    expect(api.post).toHaveBeenCalledWith('/v1/test-sessions/run', expect.objectContaining({
       repoInfo: githubRepoInfo,
     }), expect.any(Object))
   })
@@ -124,6 +124,71 @@ describe('TestSessions REST client', () => {
     expect(api.get).toHaveBeenCalledWith('/v1/test-sessions/session-id/completion', {
       params: { maxWaitSeconds: 30 },
     })
+  })
+
+  it('runs a test session via the async v1 endpoint', async () => {
+    const api = {
+      post: vi.fn().mockResolvedValue({ data: { schedulingId: 'op-id', sequenceIds: {} } }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    const payload = { name: 'project', checkRunJobs: [], project: { logicalId: 'p' }, runLocation: 'eu-central-1', shouldRecord: false }
+    await testSessions.run(payload as any)
+
+    expect(api.post).toHaveBeenCalledWith('/v1/test-sessions/run', payload, expect.objectContaining({
+      transformRequest: expect.any(Function),
+    }))
+  })
+
+  it('gets scheduling completion by ID', async () => {
+    const api = {
+      get: vi.fn().mockResolvedValue({ data: { schedulingId: 'op-id', status: 'SUCCEEDED', error: null } }),
+    }
+    const testSessions = new TestSessions(api as any)
+    const signal = new AbortController().signal
+
+    await testSessions.getSchedulingCompletion('op-id', { signal })
+
+    expect(api.get).toHaveBeenCalledWith('/v1/test-sessions/scheduling/op-id/completion', {
+      params: { maxWaitSeconds: 30 },
+      signal,
+    })
+  })
+
+  it('polls scheduling completion timeouts until complete', async () => {
+    const completed = { schedulingId: 'op-id', status: 'FAILED', error: { code: 'SCHEDULING_ERROR', message: 'nope' } }
+    const api = {
+      get: vi.fn()
+        .mockRejectedValueOnce(new RequestTimeoutError({
+          statusCode: 408,
+          error: 'Request Timeout',
+          message: 'Scheduling is still in progress, but maximum per-request wait time was exceeded. Please retry.',
+        }))
+        .mockResolvedValueOnce({ data: completed }),
+    }
+    const testSessions = new TestSessions(api as any)
+
+    const result = await testSessions.pollSchedulingUntilComplete('op-id')
+
+    expect(result).toEqual(completed)
+    expect(api.get).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops polling scheduling when the signal is aborted', async () => {
+    const api = {
+      get: vi.fn().mockRejectedValue(new RequestTimeoutError({
+        statusCode: 408,
+        error: 'Request Timeout',
+        message: 'Still in progress.',
+      })),
+    }
+    const testSessions = new TestSessions(api as any)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(testSessions.pollSchedulingUntilComplete('op-id', { signal: controller.signal }))
+      .rejects.toBeInstanceOf(RequestTimeoutError)
+    expect(api.get).toHaveBeenCalledTimes(1)
   })
 
   it('lists public test sessions with filters', async () => {

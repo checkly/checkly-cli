@@ -9,6 +9,7 @@ vi.mock('../../rest/api.js', () => ({
   testSessions: {
     run: vi.fn().mockResolvedValue({ data: { testSessionId: 'ts-123', sequenceIds: {} } }),
     getResultShortLinks: vi.fn().mockResolvedValue({ data: {} }),
+    pollSchedulingUntilComplete: vi.fn(),
   },
   assets: {
     getLogs: vi.fn().mockResolvedValue([]),
@@ -32,6 +33,8 @@ vi.mock('../socket-client.js', () => ({
 // ---------------------------------------------------------------------------
 
 import { SocketClient } from '../socket-client.js'
+import { testSessions } from '../../rest/api.js'
+import { TestSessionSchedulingFailedError } from '../../rest/test-sessions.js'
 
 /** Minimal concrete subclass — scheduleChecks immediately returns with zero checks so the runner exits cleanly. */
 class StubCheckRunner extends AbstractCheckRunner {
@@ -238,5 +241,137 @@ describe('AbstractCheckRunner — SocketClient lifecycle', () => {
     await runner.run()
 
     expect(mockClient.endAsync).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Scheduling watch
+// ---------------------------------------------------------------------------
+
+/** Returns a schedulingId and one pending check, so the run only settles via a
+ * check result or a scheduling failure. */
+class SchedulingStubRunner extends AbstractCheckRunner {
+  checksToSchedule: Array<{ check: any, sequenceId: SequenceId }>
+
+  constructor (checks: Array<{ check: any, sequenceId: SequenceId }>) {
+    super('acc-1', 60, false, false)
+    this.checksToSchedule = checks
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  scheduleChecks (_checkRunSuiteId: string): Promise<{
+    testSessionId?: string
+    schedulingId?: string
+    checks: Array<{ check: any, sequenceId: SequenceId }>
+  }> {
+    return Promise.resolve({ testSessionId: 'ts-stub', schedulingId: 'op-1', checks: this.checksToSchedule })
+  }
+}
+
+describe('AbstractCheckRunner — scheduling watch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(SocketClient.connect).mockResolvedValue({
+      on: vi.fn(),
+      subscribeAsync: vi.fn().mockResolvedValue(undefined),
+      endAsync: vi.fn().mockResolvedValue(undefined),
+    } as any)
+    vi.spyOn(process, 'rawListeners').mockReturnValue([])
+    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    vi.spyOn(process, 'on').mockReturnValue(process)
+    vi.spyOn(process, 'off').mockReturnValue(process)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('fails the run immediately when the scheduling operation reports FAILED', async () => {
+    vi.mocked(testSessions.pollSchedulingUntilComplete).mockResolvedValue({
+      schedulingId: 'op-1',
+      testSessionId: 'ts-stub',
+      status: 'FAILED',
+      checksTotal: 1,
+      error: { code: 'SCHEDULING_ERROR', message: 'Unable to find private location' },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      startedAt: null,
+      endedAt: null,
+    })
+
+    const runner = new SchedulingStubRunner([{ check: {}, sequenceId: 'seq-1' }])
+    const errors: Error[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+
+    await runner.run()
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toBeInstanceOf(TestSessionSchedulingFailedError)
+    expect(errors[0].message).toEqual('Unable to find private location')
+    expect(testSessions.pollSchedulingUntilComplete).toHaveBeenCalledWith('op-1', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }))
+  })
+
+  it('does not settle the run when the scheduling operation succeeds', async () => {
+    vi.mocked(testSessions.pollSchedulingUntilComplete).mockResolvedValue({
+      schedulingId: 'op-1',
+      testSessionId: 'ts-stub',
+      status: 'SUCCEEDED',
+      checksTotal: 1,
+      error: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      startedAt: null,
+      endedAt: null,
+    })
+
+    // One pending check: the run may only settle once that check finishes —
+    // the SUCCEEDED watch must neither error nor resolve the race early.
+    const runner = new SchedulingStubRunner([{ check: {}, sequenceId: 'seq-1' }])
+    const errors: Error[] = []
+    let finished = false
+    runner.on(Events.ERROR, err => errors.push(err))
+    runner.on(Events.RUN_FINISHED, () => {
+      finished = true
+    })
+
+    const runPromise = runner.run()
+    // Let the (mock-resolved) scheduling watch settle before the check does.
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(finished).toBe(false)
+    runner.emit(Events.CHECK_FINISHED)
+    await runPromise
+    ;(runner as any).disableAllTimeouts()
+
+    expect(errors).toHaveLength(0)
+    expect(finished).toBe(true)
+  })
+
+  it('fails a detached run when dispatch fails', async () => {
+    vi.mocked(testSessions.pollSchedulingUntilComplete).mockResolvedValue({
+      schedulingId: 'op-1',
+      testSessionId: 'ts-stub',
+      status: 'FAILED',
+      checksTotal: 1,
+      error: { code: 'ABANDONED', message: 'the worker stopped reporting progress' },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      startedAt: null,
+      endedAt: null,
+    })
+
+    const runner = new SchedulingStubRunner([{ check: {}, sequenceId: 'seq-1' }])
+    ;(runner as any).detach = true
+    const errors: Array<Error & { code?: string }> = []
+    let detached = false
+    runner.on(Events.ERROR, err => errors.push(err))
+    runner.on(Events.DETACH, () => {
+      detached = true
+    })
+
+    await runner.run()
+
+    expect(detached).toBe(false)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toBeInstanceOf(TestSessionSchedulingFailedError)
+    expect(errors[0].code).toEqual('ABANDONED')
   })
 })
