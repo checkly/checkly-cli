@@ -21,6 +21,7 @@ function apiKeyFromUrl (url: string): string | undefined {
 
 interface TemplateValues {
   chatId?: string
+  messageThreadId?: string
   text?: string
 }
 
@@ -37,6 +38,7 @@ function parseTemplate (template: string): TemplateValues {
 
   return {
     chatId: singleValue('chat_id'),
+    messageThreadId: singleValue('message_thread_id'),
     text: singleValue('text'),
   }
 }
@@ -110,11 +112,15 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
             }
 
             if (config.template) {
-              const { chatId, text } = parseTemplate(config.template)
+              const { chatId, messageThreadId, text } = parseTemplate(config.template)
               if (chatId) {
                 builder.string('chatId', chatId)
               } else {
                 throw new Error(`Failed to extract Telegram Chat ID from webhook template: ${config.template}`)
+              }
+
+              if (messageThreadId) {
+                builder.string('messageThreadId', messageThreadId)
               }
 
               if (text) {

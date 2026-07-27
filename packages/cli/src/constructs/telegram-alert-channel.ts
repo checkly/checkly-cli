@@ -17,6 +17,11 @@ export interface TelegramAlertChannelProps extends AlertChannelProps {
    */
   apiKey: string
   /**
+   * The optional message thread ID of a Telegram forum topic.
+   * {@link https://core.telegram.org/bots/api#sendmessage}
+   */
+  messageThreadId?: string
+  /**
    * An optional custom payload. If not given,
    * `TelegramAlertChannel.DEFAULT_PAYLOAD` will be used.
    */
@@ -57,9 +62,12 @@ Tags: {{#each TAGS}} <i><b>{{this}}</b></i> {{#unless @last}},{{/unless}} {{/eac
     this.webhookType = 'WEBHOOK_TELEGRAM'
     this.method = 'POST'
     const payload = props.payload ?? TelegramAlertChannel.DEFAULT_PAYLOAD
+    const messageThreadPart = props.messageThreadId
+      ? `&message_thread_id=${props.messageThreadId}`
+      : ''
     // For historical reasons the payload is not escaped even though it
     // should be.
-    this.template = `chat_id=${props.chatId}&parse_mode=HTML&text=${payload}`
+    this.template = `chat_id=${props.chatId}${messageThreadPart}&parse_mode=HTML&text=${payload}`
     this.url = `https://api.telegram.org/bot${props.apiKey}/sendMessage`
   }
 
