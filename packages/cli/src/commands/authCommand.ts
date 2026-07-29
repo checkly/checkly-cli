@@ -2,6 +2,7 @@ import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import * as api from '../rest/api.js'
 import { Account } from '../rest/accounts.js'
+import { Session } from '../constructs/session.js'
 import { detectCliMode } from '../helpers/cli-mode.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
 import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
@@ -22,6 +23,9 @@ export abstract class AuthCommand extends BaseCommand {
   protected async init (): Promise<any> {
     await super.init()
     this.#account = await api.validateAuthentication()
+    // Constructs validate against account-specific limits and have no access to
+    // the command instance.
+    Session.accountFeatures = this.#account?.features ?? []
   }
 
   protected async confirmOrAbort (

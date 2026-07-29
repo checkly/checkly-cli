@@ -10,6 +10,7 @@ import { Diagnostics } from './diagnostics.js'
 import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle.js'
 import { Assertion } from './api-assertion.js'
+import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 
@@ -257,10 +258,7 @@ export class ApiCheck extends RuntimeCheck {
       }
     }
 
-    await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 30_000,
-      maxResponseTime: 30_000,
-    })
+    await validateResponseTimes(diagnostics, this, responseTimeLimits(30_000))
   }
 
   async bundle (bundler: Bundler): Promise<ApiCheckBundle> {

@@ -3,6 +3,7 @@ import { IPFamily } from './ip.js'
 import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 import { Diagnostics } from './diagnostics.js'
+import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
@@ -158,10 +159,7 @@ export class TcpMonitor extends Monitor {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
-    await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 5_000,
-      maxResponseTime: 5_000,
-    })
+    await validateResponseTimes(diagnostics, this, responseTimeLimits(5_000))
   }
 
   synthesize () {

@@ -12,6 +12,11 @@ export interface Account {
   plan?: string
   planDisplayName?: string
   addons?: Record<string, AddonTier>
+  /**
+   * Client-visible account feature flags. Absent when the API predates them,
+   * in which case standard limits apply.
+   */
+  features?: string[]
 }
 
 class Accounts {

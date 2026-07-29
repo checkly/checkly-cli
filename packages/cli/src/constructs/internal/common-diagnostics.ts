@@ -126,7 +126,7 @@ type ResponseTimeProps = {
   maxResponseTime?: number
 }
 
-type ResponseTimeLimits = {
+export type ResponseTimeLimits = {
   degradedResponseTime: number
   maxResponseTime: number
   // The per-type default that the backend applies to `maxResponseTime` when the
