@@ -4,6 +4,7 @@ import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { validateGrpcAssertion } from './grpc-assertion-validation.js'
 import { GrpcRequest } from './grpc-request.js'
+import { responseTimeLimits } from './internal/account-features.js'
 
 export interface GrpcMonitorProps extends MonitorProps {
   /**
@@ -79,8 +80,7 @@ export class GrpcMonitor extends Monitor {
     await validateResponseTimes(diagnostics, this, {
       // gRPC allows thresholds up to 180s (calls can run to the 180s timeout),
       // matching the backend's gRPC response-time limits.
-      degradedResponseTime: 180_000,
-      maxResponseTime: 180_000,
+      ...responseTimeLimits(180_000),
       // Backend default applied when maxResponseTime is omitted.
       defaultMaxResponseTime: 20_000,
     })
