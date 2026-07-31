@@ -66,6 +66,7 @@ export class Session {
   static verifyRuntimeDependencies = true
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
+  static accountFeatures: string[] = []
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static playwrightProjectBundler?: PlaywrightProjectBundler
@@ -91,6 +92,7 @@ export class Session {
     this.verifyRuntimeDependencies = true
     this.loadingChecklyConfigFile = false
     this.checklyConfigFileConstructs = undefined
+    this.accountFeatures = []
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()
     this.playwrightProjectBundler = undefined

@@ -5,6 +5,7 @@ import { SslRequest } from './ssl-request.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { validateSslAssertion } from './ssl-assertion-validation.js'
 import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
+import { responseTimeLimits } from './internal/account-features.js'
 
 export interface SslMonitorProps extends MonitorProps {
   /**
@@ -81,8 +82,7 @@ export class SslMonitor extends Monitor {
     }
 
     await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 30_000,
-      maxResponseTime: 30_000,
+      ...responseTimeLimits(30_000),
       // Backend default applied when maxResponseTime is omitted.
       defaultMaxResponseTime: 10_000,
     })

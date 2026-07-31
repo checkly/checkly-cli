@@ -1,4 +1,5 @@
 import { Diagnostics } from './diagnostics.js'
+import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
@@ -139,10 +140,7 @@ export class UrlMonitor extends Monitor {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
-    await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 30_000,
-      maxResponseTime: 30_000,
-    })
+    await validateResponseTimes(diagnostics, this, responseTimeLimits(30_000))
   }
 
   synthesize () {

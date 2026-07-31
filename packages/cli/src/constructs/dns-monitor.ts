@@ -4,6 +4,7 @@ import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { DnsRequest } from './dns-request.js'
 import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
+import { responseTimeLimits } from './internal/account-features.js'
 
 export interface DnsMonitorProps extends MonitorProps {
   /**
@@ -99,8 +100,7 @@ export class DnsMonitor extends Monitor {
     }
 
     await validateResponseTimes(diagnostics, this, {
-      degradedResponseTime: 5_000,
-      maxResponseTime: 5_000,
+      ...responseTimeLimits(5_000),
     })
   }
 
