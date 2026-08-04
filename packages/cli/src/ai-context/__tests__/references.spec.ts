@@ -14,6 +14,16 @@ function normalizeLineEndings (content: string): string {
 }
 
 describe('AI context investigation references', () => {
+  it('does not promise every disabled entitlement has an upgrade URL', async () => {
+    const files = ['configure.md', 'initialize.md', 'manage.md', 'manage-plan.md']
+    const contents = await Promise.all(files.map(async file => normalizeLineEndings(await readReference(file))))
+
+    for (const content of contents) {
+      expect(content).not.toMatch(/each disabled entitlement includes an `upgradeUrl`/i)
+      expect(content).toMatch(/may include an `upgradeUrl`|only when .*includes|only when present/i)
+    }
+  })
+
   it('documents read-only alerting investigation without claiming unavailable globals', async () => {
     const content = normalizeLineEndings(await readReference('investigate-alerting.md'))
 

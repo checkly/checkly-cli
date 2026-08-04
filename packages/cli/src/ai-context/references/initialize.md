@@ -75,7 +75,7 @@ This shows your entitlements, limits, and available locations. Use this data whe
 - **Check feature availability** before configuring constructs like private locations, advanced alert channels, or higher-frequency schedules.
 - **Respect metered limits** — the `quantity` field shows maximums for each metered feature.
 
-If a feature the user wants is disabled, the response includes an `upgradeUrl` — share it so they can upgrade their plan.
+If a feature the user wants is disabled, share its `upgradeUrl` only when the response includes one. A disabled entitlement without an upgrade URL is unavailable.
 
 Run `npx checkly skills manage plan` for the full reference.
 

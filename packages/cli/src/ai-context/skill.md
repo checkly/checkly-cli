@@ -1,6 +1,6 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with Agentic Checks, API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
 allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
 metadata:
   author: checkly
@@ -28,7 +28,7 @@ Agents load what they need for each task.
 
 ## Plan Awareness
 
-Before configuring checks, run `npx checkly account plan --output json` to see what features, locations, and limits are available on the current plan. Disabled features include an `upgradeUrl` pointing to the self-service checkout page or the enterprise contact sales page — share these with the user when they need a feature that's not on their plan.
+Before configuring checks, run `npx checkly account plan --output json` to see what features, locations, and limits are available on the current plan. A disabled entitlement may include an `upgradeUrl` for self-service checkout or enterprise contact sales. Share it only when present; otherwise the entitlement is unavailable.
 
 Run `npx checkly skills manage` for the full reference.
 

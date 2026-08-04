@@ -46,4 +46,4 @@ npx checkly account plan --help                    # Full flag reference
 1. **Locations:** Filter `locations.all` to entries where `available === true`. Use only those IDs in `checkly.config.ts` and check constructs. Respect `maxPerCheck` as the upper bound per check.
 2. **Metered entitlements:** Check `quantity` for limits. `enabled: false` means the feature is not available.
 3. **Flag entitlements:** `enabled: true` means available, `false` means not on this plan.
-4. **Disabled features:** Each includes an `upgradeUrl`. Share this with the user — it points to the self-service checkout page or the enterprise contact sales page depending on the required plan.
+4. **Disabled features:** An entitlement may include an `upgradeUrl`. Share it only when present; it points to self-service checkout or enterprise contact sales depending on the required plan. Without one, the entitlement is unavailable.

@@ -112,7 +112,7 @@ Flags:
 - `-w, --watch` - wait for completion and print the analysis.
 - `-o, --output <format>` - `detail` (default), `json`, or `md`; watch mode is only supported with detail output.
 
-If RCA is unavailable because of plan or entitlement limits, run `npx checkly account plan --output json` and report the relevant entitlement or upgrade URL.
+If RCA is unavailable because of plan or entitlement limits, run `npx checkly account plan --output json` and report the relevant entitlement and its upgrade URL only if one is present.
 
 ## Retrieve result assets
 
