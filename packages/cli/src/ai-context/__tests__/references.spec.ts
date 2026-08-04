@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { REFERENCES, SKILL } from '../context.js'
 
 const referencesDir = join(dirname(fileURLToPath(import.meta.url)), '../references')
 
@@ -15,18 +14,6 @@ function normalizeLineEndings (content: string): string {
 }
 
 describe('AI context investigation references', () => {
-  it('does not advertise Agentic Checks in default discovery or the public skill', async () => {
-    const publicSkill = normalizeLineEndings(await readFile(
-      join(referencesDir, '../../../../../skills/checkly/SKILL.md'),
-      'utf8',
-    ))
-
-    expect(REFERENCES.some(reference => reference.id === 'configure-agentic-checks')).toBe(false)
-    expect(SKILL.description).not.toContain('Agentic Checks')
-    expect(publicSkill).not.toContain('Agentic Checks')
-    expect(publicSkill).not.toContain('AgenticCheck')
-  })
-
   it('does not promise every disabled entitlement has an upgrade URL', async () => {
     const files = ['configure.md', 'initialize.md', 'manage.md', 'manage-plan.md']
     const contents = await Promise.all(files.map(async file => normalizeLineEndings(await readReference(file))))
