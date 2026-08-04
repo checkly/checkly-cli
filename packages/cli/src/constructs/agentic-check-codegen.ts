@@ -52,6 +52,7 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
 
           buildCheckProps(this.program, file, builder, resource, context, {
             skipRetryStrategy: true,
+            skipIntent: true,
           })
         })
       })

@@ -2,8 +2,9 @@ import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { IcmpRequest } from './icmp-request.js'
+import { CheckIntent, CheckIntentProps } from './check.js'
 
-export interface IcmpMonitorProps extends MonitorProps {
+export interface IcmpMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
    */
@@ -42,6 +43,7 @@ export interface IcmpMonitorProps extends MonitorProps {
  * Creates an ICMP Monitor
  */
 export class IcmpMonitor extends Monitor {
+  intent?: CheckIntent | null
   request: IcmpRequest
   degradedPacketLossThreshold?: number
   maxPacketLossThreshold?: number
@@ -58,6 +60,8 @@ export class IcmpMonitor extends Monitor {
   constructor (logicalId: string, props: IcmpMonitorProps) {
     super(logicalId, props)
 
+    this.intent = props.intent
+    this.setIntent(props.intent)
     this.request = props.request
     this.degradedPacketLossThreshold = props.degradedPacketLossThreshold
     this.maxPacketLossThreshold = props.maxPacketLossThreshold

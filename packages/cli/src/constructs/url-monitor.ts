@@ -2,6 +2,7 @@ import { Diagnostics } from './diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { Monitor, MonitorProps } from './monitor.js'
+import { CheckIntent, CheckIntentProps } from './check.js'
 import { Session } from './session.js'
 import { UrlRequest } from './url-request.js'
 
@@ -9,7 +10,7 @@ import { UrlRequest } from './url-request.js'
  * Configuration properties for UrlMonitor.
  * Extends MonitorProps with URL-specific settings.
  */
-export interface UrlMonitorProps extends MonitorProps {
+export interface UrlMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
    * Defines the URL and validation rules for the HTTP check.
@@ -104,6 +105,7 @@ export interface UrlMonitorProps extends MonitorProps {
  * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
 export class UrlMonitor extends Monitor {
+  readonly intent?: CheckIntent | null
   readonly request: UrlRequest
   readonly degradedResponseTime?: number
   readonly maxResponseTime?: number
@@ -120,6 +122,8 @@ export class UrlMonitor extends Monitor {
   constructor (logicalId: string, props: UrlMonitorProps) {
     super(logicalId, props)
 
+    this.intent = props.intent
+    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

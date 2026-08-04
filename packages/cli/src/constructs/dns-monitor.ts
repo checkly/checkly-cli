@@ -5,8 +5,9 @@ import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { DnsRequest } from './dns-request.js'
 import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
+import { CheckIntent, CheckIntentProps } from './check.js'
 
-export interface DnsMonitorProps extends MonitorProps {
+export interface DnsMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
    */
@@ -49,6 +50,7 @@ export interface DnsMonitorProps extends MonitorProps {
  * Creates a DNS Monitor
  */
 export class DnsMonitor extends Monitor {
+  intent?: CheckIntent | null
   request: DnsRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -65,6 +67,8 @@ export class DnsMonitor extends Monitor {
   constructor (logicalId: string, props: DnsMonitorProps) {
     super(logicalId, props)
 
+    this.intent = props.intent
+    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

@@ -83,7 +83,9 @@ export class SslMonitorCodegen extends Codegen<SslMonitorResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildMonitorProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context, {
+            skipIntent: true,
+          })
 
           builder.value('request', valueForSslRequest(this.program, file, context, constructRequest))
         })

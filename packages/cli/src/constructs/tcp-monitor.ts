@@ -4,6 +4,7 @@ import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 import { Diagnostics } from './diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
+import { CheckIntent, CheckIntentProps } from './check.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
@@ -89,7 +90,7 @@ export interface TcpRequest {
   data?: string
 }
 
-export interface TcpMonitorProps extends MonitorProps {
+export interface TcpMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the check is going to run.
    */
@@ -127,6 +128,7 @@ export interface TcpMonitorProps extends MonitorProps {
  * Creates a TCP Monitor
  */
 export class TcpMonitor extends Monitor {
+  intent?: CheckIntent | null
   request: TcpRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -143,6 +145,8 @@ export class TcpMonitor extends Monitor {
   constructor (logicalId: string, props: TcpMonitorProps) {
     super(logicalId, props)
 
+    this.intent = props.intent
+    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

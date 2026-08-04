@@ -5,8 +5,9 @@ import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { validateGrpcAssertion } from './grpc-assertion-validation.js'
 import { GrpcRequest } from './grpc-request.js'
 import { responseTimeLimits } from './internal/account-features.js'
+import { CheckIntent, CheckIntentProps } from './check.js'
 
-export interface GrpcMonitorProps extends MonitorProps {
+export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
    */
@@ -45,6 +46,7 @@ export interface GrpcMonitorProps extends MonitorProps {
  * Creates a gRPC Monitor
  */
 export class GrpcMonitor extends Monitor {
+  intent?: CheckIntent | null
   request: GrpcRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -61,6 +63,8 @@ export class GrpcMonitor extends Monitor {
   constructor (logicalId: string, props: GrpcMonitorProps) {
     super(logicalId, props)
 
+    this.intent = props.intent
+    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
