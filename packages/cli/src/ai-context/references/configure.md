@@ -64,7 +64,7 @@ Not all features and locations are available on all plans. **Before configuring 
 npx checkly account plan --output json
 ```
 
-This returns your exact entitlements and available locations. Use only locations where `available` is `true` in the `locations.all` array. If a feature is disabled, the response includes an `upgradeUrl` to share with the user.
+This returns your exact entitlements and available locations. Use only locations where `available` is `true` in the `locations.all` array. A disabled feature may include an `upgradeUrl`; share it only when present. Without one, the feature is unavailable.
 
 Run `npx checkly skills manage plan` for the full reference.
 

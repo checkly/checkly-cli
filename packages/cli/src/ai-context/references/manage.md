@@ -12,12 +12,12 @@ Checkly accounts have different capabilities depending on the plan (Hobby, Start
 npx checkly account plan --output json
 ```
 
-This returns your entitlements (enabled/disabled with limits), available locations, and upgrade URLs. Use this to:
+This returns your entitlements (enabled/disabled with limits), available locations, and any applicable upgrade URLs. Use this to:
 
 - **Filter locations** to only those where `available` is `true` in `locations.all`
 - **Check feature flags** before using constructs (e.g. private locations, advanced alert channels)
 - **Respect metered limits** (e.g. max browser checks, max alert channels)
-- **Surface upgrade paths** when a feature is disabled — each disabled entitlement includes an `upgradeUrl` pointing to the self-service checkout or the contact sales page
+- **Surface upgrade paths** only when a disabled entitlement includes an `upgradeUrl`; otherwise report the entitlement as unavailable
 
 ## Applying entitlements to check configuration
 
@@ -40,7 +40,7 @@ npx checkly account plan --output json --search "uptime"
 npx checkly account plan --disabled --search "retry"
 ```
 
-**When a feature is disabled:** Do not use it. Omit the property from the construct — Checkly will apply safe defaults. If the user needs the feature, share the `upgradeUrl` from the entitlement.
+**When a feature is disabled:** Do not use it. Omit the property from the construct — Checkly will apply safe defaults. If the entitlement includes an `upgradeUrl`, share it with the user; otherwise report that the feature is unavailable.
 
 ## Available Commands
 

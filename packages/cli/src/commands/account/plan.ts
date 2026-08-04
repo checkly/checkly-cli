@@ -12,9 +12,10 @@ import {
 } from '../../formatters/account-plan.js'
 import type { Entitlement } from '../../rest/entitlements.js'
 
-function withUpgradeUrl (e: Entitlement, checkoutUrl: string) {
+export function withUpgradeUrl (e: Entitlement, checkoutUrl: string) {
   if (e.enabled) return e
-  return { ...e, upgradeUrl: getEntitlementUpgradeUrl(e, checkoutUrl) }
+  const upgradeUrl = getEntitlementUpgradeUrl(e, checkoutUrl)
+  return upgradeUrl ? { ...e, upgradeUrl } : e
 }
 
 export default class AccountPlan extends AuthCommand {

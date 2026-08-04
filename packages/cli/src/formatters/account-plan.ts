@@ -71,23 +71,23 @@ export function formatLocations (locations: AccountLocations, format: OutputForm
 // --- Column definitions ---
 
 export const CONTACT_SALES_URL = 'https://www.checklyhq.com/contact-sales/'
-const CONTACT_SALES_LABEL = 'Contact sales'
+const UNAVAILABLE_LABEL = 'Unavailable'
 
 /**
  * Returns the appropriate upgrade URL for a disabled entitlement:
  * - CONTRACT plan → contact sales
  * - Self-serve plan/addon → billing checkout
- * - No upgrade data → contact sales (fallback)
+ * - No upgrade data → no upgrade path is available
  */
-export function getEntitlementUpgradeUrl (e: Entitlement, checkoutUrl: string): string {
+export function getEntitlementUpgradeUrl (e: Entitlement, checkoutUrl: string): string | undefined {
   if (e.requiredPlan === 'CONTRACT') return CONTACT_SALES_URL
   if (e.requiredPlan || e.requiredAddon) return checkoutUrl
-  return CONTACT_SALES_URL
+  return undefined
 }
 
 function upgradeLabel (e: Entitlement): string {
   if (e.enabled) return '-'
-  return formatUpgradePath(e) ?? CONTACT_SALES_LABEL
+  return formatUpgradePath(e) ?? UNAVAILABLE_LABEL
 }
 
 const upgradeColumn: ColumnDef<Entitlement> = {
@@ -189,11 +189,11 @@ const detailFields = (upgradeUrl: string): DetailField<Entitlement>[] => [
   },
   {
     label: 'Required Upgrade',
-    value: e => e.enabled ? null : (formatUpgradePath(e) ?? CONTACT_SALES_LABEL),
+    value: e => e.enabled ? null : (formatUpgradePath(e) ?? UNAVAILABLE_LABEL),
   },
   {
     label: 'Upgrade Link',
-    value: e => e.enabled ? null : getEntitlementUpgradeUrl(e, upgradeUrl),
+    value: e => e.enabled ? null : (getEntitlementUpgradeUrl(e, upgradeUrl) ?? null),
   },
 ]
 

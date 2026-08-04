@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { stripAnsi } from '../render.js'
 import {
   formatUpgradePath,
+  getEntitlementUpgradeUrl,
   formatLocations,
   formatPlanHeader,
   formatPlanSummary,
@@ -45,6 +46,20 @@ describe('formatUpgradePath', () => {
       requiredPlanDisplayName: undefined,
     }
     expect(formatUpgradePath(entitlement)).toBe('Team plan')
+  })
+})
+
+describe('getEntitlementUpgradeUrl', () => {
+  it('returns no upgrade URL for a disabled entitlement with no upgrade data', () => {
+    expect(getEntitlementUpgradeUrl(disabledFlagNoUpgradeData, 'https://example.com')).toBeUndefined()
+  })
+
+  it('preserves checkout and contact-sales upgrade URLs when the API provides upgrade data', () => {
+    expect(getEntitlementUpgradeUrl(disabledFlagPlanOnly, 'https://example.com')).toBe('https://example.com')
+    expect(getEntitlementUpgradeUrl({
+      ...disabledFlagPlanOnly,
+      requiredPlan: 'CONTRACT',
+    }, 'https://example.com')).toContain('checklyhq.com/contact-sales')
   })
 })
 
@@ -162,12 +177,12 @@ describe('formatEntitlementDetail', () => {
     expect(plain).not.toContain('Upgrade Link:')
   })
 
-  it('shows Contact sales for disabled entitlement with no upgrade data', () => {
+  it('shows Unavailable with no upgrade link for disabled entitlement with no upgrade data', () => {
     const result = formatEntitlementDetail(hobbyPlan, disabledFlagNoUpgradeData, 'terminal', 'https://example.com')
     const plain = stripAnsi(result)
     expect(plain).toContain('Required Upgrade:')
-    expect(plain).toContain('Contact sales')
-    expect(plain).toContain('checklyhq.com/contact-sales')
+    expect(plain).toContain('Unavailable')
+    expect(plain).not.toContain('Upgrade Link:')
   })
 })
 
@@ -178,7 +193,7 @@ describe('formatFilteredEntitlements', () => {
     const plain = stripAnsi(result)
     expect(plain).toContain('REQUIRED UPGRADE')
     expect(plain).toContain('Team plan')
-    expect(plain).toContain('Contact sales')
+    expect(plain).toContain('Unavailable')
   })
 
   it('includes REQUIRED UPGRADE column in metered table', () => {
