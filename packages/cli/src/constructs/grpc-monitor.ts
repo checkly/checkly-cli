@@ -46,10 +46,17 @@ export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
  * Creates a gRPC Monitor
  */
 export class GrpcMonitor extends Monitor {
-  intent?: CheckIntent | null
   request: GrpcRequest
   degradedResponseTime?: number
   maxResponseTime?: number
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
 
   /**
    * Constructs the gRPC Monitor instance
@@ -64,7 +71,6 @@ export class GrpcMonitor extends Monitor {
     super(logicalId, props)
 
     this.intent = props.intent
-    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

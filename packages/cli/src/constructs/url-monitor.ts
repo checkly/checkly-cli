@@ -105,10 +105,13 @@ export interface UrlMonitorProps extends MonitorProps, CheckIntentProps {
  * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
 export class UrlMonitor extends Monitor {
-  readonly intent?: CheckIntent | null
   readonly request: UrlRequest
   readonly degradedResponseTime?: number
   readonly maxResponseTime?: number
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
 
   /**
    * Constructs the URL Monitor instance
@@ -122,8 +125,7 @@ export class UrlMonitor extends Monitor {
   constructor (logicalId: string, props: UrlMonitorProps) {
     super(logicalId, props)
 
-    this.intent = props.intent
-    this.setIntent(props.intent)
+    this.checkIntent = props.intent
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

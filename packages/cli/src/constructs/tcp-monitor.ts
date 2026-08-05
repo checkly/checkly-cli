@@ -128,10 +128,17 @@ export interface TcpMonitorProps extends MonitorProps, CheckIntentProps {
  * Creates a TCP Monitor
  */
 export class TcpMonitor extends Monitor {
-  intent?: CheckIntent | null
   request: TcpRequest
   degradedResponseTime?: number
   maxResponseTime?: number
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
 
   /**
    * Constructs the TCP Monitor instance
@@ -146,7 +153,6 @@ export class TcpMonitor extends Monitor {
     super(logicalId, props)
 
     this.intent = props.intent
-    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime

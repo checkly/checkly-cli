@@ -414,7 +414,11 @@ export abstract class Check extends Construct {
     return false
   }
 
-  protected setIntent (intent: CheckIntent | null | undefined): void {
+  protected get checkIntent (): CheckIntent | null | undefined {
+    return this.#intent
+  }
+
+  protected set checkIntent (intent: CheckIntent | null | undefined) {
     this.#intent = intent
   }
 
@@ -699,15 +703,21 @@ export interface RuntimeCheckProps extends CheckProps, CheckIntentProps {
 }
 
 export abstract class RuntimeCheck extends Check {
-  intent?: CheckIntent | null
   runtimeId?: string
   environmentVariables?: EnvironmentVariable[]
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
 
   protected constructor (logicalId: string, props: RuntimeCheckProps) {
     super(logicalId, props)
     const config = this.applyConfigDefaults(props)
     this.intent = props.intent
-    this.setIntent(props.intent)
     this.runtimeId = config.runtimeId
     this.environmentVariables = config.environmentVariables ?? []
   }

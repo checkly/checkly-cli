@@ -43,10 +43,17 @@ export interface IcmpMonitorProps extends MonitorProps, CheckIntentProps {
  * Creates an ICMP Monitor
  */
 export class IcmpMonitor extends Monitor {
-  intent?: CheckIntent | null
   request: IcmpRequest
   degradedPacketLossThreshold?: number
   maxPacketLossThreshold?: number
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
 
   /**
    * Constructs the ICMP Monitor instance
@@ -61,7 +68,6 @@ export class IcmpMonitor extends Monitor {
     super(logicalId, props)
 
     this.intent = props.intent
-    this.setIntent(props.intent)
     this.request = props.request
     this.degradedPacketLossThreshold = props.degradedPacketLossThreshold
     this.maxPacketLossThreshold = props.maxPacketLossThreshold

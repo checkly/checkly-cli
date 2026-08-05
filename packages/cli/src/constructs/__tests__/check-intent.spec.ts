@@ -1,22 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { AgenticCheckProps } from '../agentic-check.js'
-import { ApiCheck, ApiCheckProps } from '../api-check.js'
-import { BrowserCheckProps } from '../browser-check.js'
+import { ApiCheck } from '../api-check.js'
 import { CheckIntent } from '../check.js'
 import { Diagnostics } from '../diagnostics.js'
-import { DnsMonitorProps } from '../dns-monitor.js'
-import { GrpcMonitorProps } from '../grpc-monitor.js'
-import { HeartbeatMonitorProps } from '../heartbeat-monitor.js'
-import { IcmpMonitorProps } from '../icmp-monitor.js'
-import { MultiStepCheckProps } from '../multi-step-check.js'
-import { PlaywrightCheck, PlaywrightCheckProps } from '../playwright-check.js'
+import { DnsMonitor } from '../dns-monitor.js'
+import { PlaywrightCheck } from '../playwright-check.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
-import { SslMonitorProps } from '../ssl-monitor.js'
-import { TcpMonitorProps } from '../tcp-monitor.js'
-import { TracerouteMonitorProps } from '../traceroute-monitor.js'
-import { UrlMonitor, UrlMonitorProps } from '../url-monitor.js'
+import { UrlMonitor } from '../url-monitor.js'
 
 const completeIntent: CheckIntent = {
   goal: 'Verify that authenticated users can open the dashboard.',
@@ -115,6 +106,43 @@ describe('check intent', () => {
 
     it('synthesizes null to explicitly clear intent', () => {
       expect(apiCheck(null).synthesize()).toHaveProperty('intent', null)
+    })
+
+    it('uses reassigned runtime-check intent for validation and synthesis', async () => {
+      const check = apiCheck(completeIntent)
+      check.intent = { goal: '   ' }
+
+      const diagnostics = new Diagnostics()
+      await check.validate(diagnostics)
+
+      expect(messages(diagnostics)).toEqual(expect.arrayContaining([
+        expect.stringContaining('The intent goal must not be blank.'),
+      ]))
+
+      check.intent = { goal: '  Verify the replacement dashboard flow.  ' }
+      expect(check.synthesize()).toHaveProperty('intent', {
+        goal: 'Verify the replacement dashboard flow.',
+        requiredOutcomes: [],
+        mustPreserve: [],
+      })
+
+      check.intent = null
+      expect(check.synthesize()).toHaveProperty('intent', null)
+    })
+
+    it('uses reassigned monitor intent when synthesizing an explicit clear', () => {
+      const monitor = new DnsMonitor('dns-intent-reassignment', {
+        name: 'Dashboard DNS',
+        intent: completeIntent,
+        request: {
+          recordType: 'A',
+          query: 'example.com',
+        },
+      })
+
+      monitor.intent = null
+
+      expect(monitor.synthesize()).toHaveProperty('intent', null)
     })
   })
 
@@ -221,57 +249,6 @@ describe('check intent', () => {
         expect.stringContaining('"intent.requiredOutcomes" must be an array of strings.'),
         expect.stringContaining('The intent must-preserve guardrail must be a string.'),
       ]))
-    })
-  })
-
-  it('exposes intent only on supported construct prop types', () => {
-    type HasIntent<Props> = 'intent' extends keyof Props ? true : false
-    type IntentExposure = {
-      api: HasIntent<ApiCheckProps>
-      browser: HasIntent<BrowserCheckProps>
-      multiStep: HasIntent<MultiStepCheckProps>
-      url: HasIntent<UrlMonitorProps>
-      dns: HasIntent<DnsMonitorProps>
-      icmp: HasIntent<IcmpMonitorProps>
-      tcp: HasIntent<TcpMonitorProps>
-      grpc: HasIntent<GrpcMonitorProps>
-      playwright: HasIntent<PlaywrightCheckProps>
-      agentic: HasIntent<AgenticCheckProps>
-      heartbeat: HasIntent<HeartbeatMonitorProps>
-      ssl: HasIntent<SslMonitorProps>
-      traceroute: HasIntent<TracerouteMonitorProps>
-    }
-
-    const exposure: IntentExposure = {
-      api: true,
-      browser: true,
-      multiStep: true,
-      url: true,
-      dns: true,
-      icmp: true,
-      tcp: true,
-      grpc: true,
-      playwright: true,
-      agentic: false,
-      heartbeat: false,
-      ssl: false,
-      traceroute: false,
-    }
-
-    expect(exposure).toEqual({
-      api: true,
-      browser: true,
-      multiStep: true,
-      url: true,
-      dns: true,
-      icmp: true,
-      tcp: true,
-      grpc: true,
-      playwright: true,
-      agentic: false,
-      heartbeat: false,
-      ssl: false,
-      traceroute: false,
     })
   })
 })

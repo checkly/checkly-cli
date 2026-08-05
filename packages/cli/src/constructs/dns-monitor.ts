@@ -50,10 +50,17 @@ export interface DnsMonitorProps extends MonitorProps, CheckIntentProps {
  * Creates a DNS Monitor
  */
 export class DnsMonitor extends Monitor {
-  intent?: CheckIntent | null
   request: DnsRequest
   degradedResponseTime?: number
   maxResponseTime?: number
+
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
 
   /**
    * Constructs the DNS Monitor instance
@@ -68,7 +75,6 @@ export class DnsMonitor extends Monitor {
     super(logicalId, props)
 
     this.intent = props.intent
-    this.setIntent(props.intent)
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
