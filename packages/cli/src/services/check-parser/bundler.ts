@@ -26,9 +26,14 @@ function archivePath (file: File, stripPrefix?: string): string {
     return file.archivePath
   }
 
-  return stripPrefix
+  // Posix form, because this value keys the bundler's dedup registry alongside
+  // resolver-carried archive paths, which are always posix. On Windows,
+  // path.relative produces a backslash spelling that would not collide with the
+  // posix spelling of the same path, and the archive would end up with
+  // duplicate entries (archiver normalizes both to the same tar name).
+  return pathToPosix(stripPrefix
     ? path.relative(stripPrefix, file.filePath)
-    : file.filePath
+    : file.filePath)
 }
 
 /**
@@ -43,6 +48,8 @@ function archivePath (file: File, stripPrefix?: string): string {
  * registered at its path *through* that link, which puts it under a link the
  * resolver quite reasonably kept.
  *
+ * Entry names are posix by construction — archivePath() guarantees it.
+ *
  * The link is what goes, rather than the files: the files are content, and they
  * extract perfectly well as ordinary files, whereas the link takes the whole
  * archive down with it.
@@ -52,7 +59,7 @@ function dropSymlinksWithChildren (entries: Array<[string, File]>): File[] {
 
   for (const [name] of entries) {
     for (
-      let parent = path.posix.dirname(pathToPosix(name));
+      let parent = path.posix.dirname(name);
       parent !== '.' && parent !== '/' && parent !== '' && !directories.has(parent);
       parent = path.posix.dirname(parent)
     ) {
@@ -66,7 +73,7 @@ function dropSymlinksWithChildren (entries: Array<[string, File]>): File[] {
         return true
       }
 
-      if (!directories.has(pathToPosix(name))) {
+      if (!directories.has(name)) {
         return true
       }
 
