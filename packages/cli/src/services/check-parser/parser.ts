@@ -149,6 +149,13 @@ export type PhysicalFile = {
    * copy of the file's contents. Relative to the entry's own archive directory.
    */
   symlinkTarget?: string
+  /**
+   * Marks a symlink entry that a bundled file's own path references depend on
+   * (e.g. a Playwright config's testDir spelled through the link). If such a
+   * link cannot make it into the archive, those references break at run time —
+   * dropping it deserves a warning, not just a debug line.
+   */
+  referencedLink?: true
 }
 
 export type File =
@@ -253,8 +260,15 @@ export class Parser {
     files: File[]
     errors: string[]
   }> {
-    const files = new Set(await this.#configExpander.findTestFiles(playwrightConfig))
-    files.add(playwrightConfig.configFilePath)
+    // The result includes the config file itself; the expander seeds it, so it
+    // goes through the same root-spelling reconciliation as everything else.
+    const files = new Set(await this.#configExpander.findTestFiles(playwrightConfig, {
+      // The workspace root doubles as the bundle root (the Bundler's strip
+      // prefix); discovered paths must be spelled relative to it or their
+      // archive names go wrong. Without a workspace there is no bundle root and
+      // paths pass through as discovered.
+      bundleRoot: this.workspace?.root.path,
+    }))
     const errors = new Set<string>()
     const missingFiles = new Set<string>()
     const resultFileSet = new Set<string>()

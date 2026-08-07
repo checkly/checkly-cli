@@ -61,10 +61,12 @@ interface BundleOptions {
   cwd?: string
   /** The archive root. Defaults to the sandbox root. */
   bundleRoot?: string
+  /** Spelled paths whose traversed links must travel with the bundle. */
+  referencedPaths?: string[]
 }
 
 async function bundle (root: string, patterns: string[], options: BundleOptions = {}): Promise<PhysicalFile[]> {
-  const { ignore = [], cwd = root, bundleRoot = root } = options
+  const { ignore = [], cwd = root, bundleRoot = root, referencedPaths } = options
 
   const matchedPaths = await findFilesWithPattern(cwd, patterns, ignore)
 
@@ -73,6 +75,7 @@ async function bundle (root: string, patterns: string[], options: BundleOptions 
     bundleRoot,
     ignoreCwd: cwd,
     ignorePatterns: ignore,
+    referencedPaths,
   })
 
   // The archive must never contain a symlink with entries beneath it, whatever
@@ -459,6 +462,156 @@ describe('resolveBundleFiles', () => {
       'b/to-a -> ../a',
     ])
     expectNoSymlinkHasChildren(files)
+  })
+
+  describe('referenced paths', () => {
+    it('should carry the links a referenced path traverses, without expanding their targets', async () => {
+      // The shape of a config whose testDir runs through a link: content is
+      // discovered at real paths by someone else (the parser); the resolver's
+      // job is only to make the spelled path resolve in the archive.
+      const root = await makeSandbox({
+        'shared/tests/a.spec.ts': 'test',
+        'shared/other/unrelated.txt': 'not asked for',
+        'linked': link('shared'),
+        'package.json': '{}',
+      })
+
+      const files = await bundle(root, ['package.json'], {
+        referencedPaths: [path.join(root, 'linked', 'tests')],
+      })
+
+      // The link travels; the target's content does not (no expansion).
+      expect(entries(files)).toEqual([
+        'linked -> shared',
+        'package.json',
+      ])
+    })
+
+    it('should carry every link in a chained referenced path, each at its real path', async () => {
+      const root = await makeSandbox({
+        'real-a/sub/marker.txt': 'a',
+        'real-b/file.txt': 'b',
+        'link-a': link('real-a'),
+        'package.json': '{}',
+      })
+      // A second link *inside* the first link's target.
+      await fs.symlink(path.join('..', '..', 'real-b'), path.join(root, 'real-a', 'sub', 'link-b'))
+
+      const files = await bundle(root, ['package.json'], {
+        referencedPaths: [path.join(root, 'link-a', 'sub', 'link-b', 'file.txt')],
+      })
+
+      // Each link sits at its own symlink-free archive path — the second at its
+      // real-namespace location, never beneath the first.
+      expect(entries(files)).toEqual([
+        'link-a -> real-a',
+        'package.json',
+        'real-a/sub/link-b -> ../../real-b',
+      ])
+    })
+
+    it('should not let the prune pass drop a referenced link with no resolver-visible content', async () => {
+      // The referenced link's target content is bundled by the parser, which
+      // the resolver cannot see — target occupancy must not be required here.
+      const root = await makeSandbox({
+        'shared/tests/a.spec.ts': 'test',
+        'linked': link('shared'),
+        'package.json': '{}',
+      })
+
+      const files = await bundle(root, [], {
+        referencedPaths: [path.join(root, 'linked')],
+      })
+
+      expect(entries(files)).toEqual([
+        'linked -> shared',
+      ])
+    })
+
+    it('should emit nothing when the referenced path is the bundle root reached through a link', async () => {
+      // `checkly deploy --config /path/to/link-to-proj/checkly.config.ts`: the
+      // whole project is reached through a symlink, and the config directory —
+      // which testDir defaults to — IS the bundle root. The root is not an
+      // archive entry; emitting a link at the empty name aborts the archive.
+      const outer = await makeSandbox({
+        'real-proj/tests/a.spec.ts': 'test',
+        'real-proj/package.json': '{}',
+        'alias-proj': link('real-proj'),
+      })
+      const root = path.join(outer, 'alias-proj')
+
+      const files = await bundle(root, ['package.json'], {
+        bundleRoot: root,
+        referencedPaths: [root],
+      })
+
+      expect(entries(files)).toEqual([
+        'package.json',
+      ])
+    })
+
+    it('should discard the whole chain when a later hop leaves the bundle root', async () => {
+      // The first hop stays inside the root, but the reference's content leaves
+      // it at the second hop — so discovery bundles the content at the spelled
+      // path as real directories. Emitting the first link anyway would place it
+      // above those directories, guaranteeing its own removal later.
+      const outer = await makeSandbox({
+        'outside/tests/a.spec.ts': 'test',
+        'proj/b/marker.txt': 'b',
+        'proj/package.json': '{}',
+      })
+      const root = path.join(outer, 'proj')
+      await fs.symlink('b', path.join(root, 'a'))
+      await fs.symlink(path.join('..', '..', 'outside', 'tests'), path.join(root, 'b', 'tests'))
+
+      const files = await bundle(root, ['package.json'], {
+        bundleRoot: root,
+        referencedPaths: [path.join(root, 'a', 'tests')],
+      })
+
+      expect(entries(files)).toEqual([
+        'package.json',
+      ])
+    })
+
+    it('should mark a link as referenced even when an include pattern emitted it first', async () => {
+      // Being referenced is a property of the link, not of which pass reached
+      // it first — the marker is what makes the bundler warn instead of staying
+      // silent if the link later has to be dropped.
+      const root = await makeSandbox({
+        'shared/tests/a.spec.ts': 'test',
+        'linked': link('shared'),
+        'package.json': '{}',
+      })
+
+      const files = await bundle(root, ['linked', 'package.json'], {
+        referencedPaths: [path.join(root, 'linked')],
+      })
+
+      const entry = files.find(file => file.archivePath === 'linked')
+      expect(entry?.symlinkTarget).toBe('shared')
+      expect(entry?.referencedLink).toBe(true)
+    })
+
+    it('should skip referenced links whose target is outside the bundle root', async () => {
+      // Discovery already turned the out-of-root content into a hard error;
+      // there is nothing sensible left to emit for the link itself.
+      const outer = await makeSandbox({
+        'outside/tests/a.spec.ts': 'test',
+        'proj/package.json': '{}',
+      })
+      const root = path.join(outer, 'proj')
+      await fs.symlink(path.join('..', 'outside'), path.join(root, 'linked'))
+
+      const files = await bundle(root, ['package.json'], {
+        bundleRoot: root,
+        referencedPaths: [path.join(root, 'linked', 'tests')],
+      })
+
+      expect(entries(files)).toEqual([
+        'package.json',
+      ])
+    })
   })
 
   describe('broken symlinks', () => {

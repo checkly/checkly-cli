@@ -125,6 +125,11 @@ export class PlaywrightProjectBundler {
         bundleRoot,
         ignoreCwd: dir,
         ignorePatterns: ignoredFiles,
+        // The config's own path references (testDir, globalSetup, ...) are
+        // discovered at their real paths, but the config file still spells them
+        // as written — through any symlink on the way. Those links must travel
+        // with the bundle or the spellings resolve to nothing on the runner.
+        referencedPaths: Array.from(pwConfigParsed.referencedPaths.keys()),
       }))
     }
 

@@ -1189,6 +1189,58 @@ describe('PlaywrightCheck', () => {
     }, DEFAULT_TEST_TIMEOUT)
   })
 
+  describe('bundling with testDir through a symlink', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-linked-testdir'),
+      })
+
+      // The config's testDir and globalSetup both run through this link.
+      await fs.symlink(
+        path.join('shared', 'tests'),
+        path.join(fixt.root, 'linked-tests'),
+      )
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should bundle content at real paths and carry the link the config spells its paths through', async () => {
+      const output = await parseProject(fixt)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const entries = await listTarEntries(codeBundlePath)
+      expectNoSymlinkHasChildren(entries)
+
+      const files = entries.filter(entry => entry.type !== 'SymbolicLink').map(entry => entry.path)
+      const symlinks = entries
+        .filter(entry => entry.type === 'SymbolicLink')
+        .map(entry => `${entry.path} -> ${entry.linkpath}`)
+
+      // Content lives at its real paths — never at the through-link spelling,
+      // which under a kept link would be the symlink-with-children shape tar
+      // cannot extract.
+      expect(files).toEqual(expect.arrayContaining([
+        'shared/tests/example.spec.ts',
+        'shared/tests/setup.ts',
+        'playwright.config.ts',
+      ]))
+      expect(files.filter(file => file.startsWith('linked-tests/'))).toEqual([])
+
+      // The archived config still says './linked-tests', so the link must
+      // travel with the bundle for that spelling to resolve on the runner.
+      expect(symlinks).toEqual([
+        'linked-tests -> shared/tests',
+      ])
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
   describe('bundling with subdirectory playwright config', () => {
     let fixt: FixtureSandbox
 

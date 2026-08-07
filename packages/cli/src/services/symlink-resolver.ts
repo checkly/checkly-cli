@@ -35,6 +35,16 @@ export interface ResolveBundleFilesOptions {
   /** Directory the ignore patterns are relative to (the include glob's cwd). */
   ignoreCwd: string
   ignorePatterns: string[]
+  /**
+   * Paths that files in the bundle refer to by spelling — e.g. a Playwright
+   * config's testDir or globalSetup, exactly as written. Content discovery
+   * resolves such paths through any symlinks and bundles the real files, but
+   * the reference itself still reads the original spelling at run time, so
+   * every symlink it traverses must exist in the archive for it to resolve.
+   * The links are carried as symlink entries only; what they point at is
+   * bundled by whoever discovered the content.
+   */
+  referencedPaths?: string[]
 }
 
 /**
@@ -61,7 +71,7 @@ export interface ResolveBundleFilesOptions {
  */
 export async function resolveBundleFiles (options: ResolveBundleFilesOptions): Promise<PhysicalFile[]> {
   const resolver = new SymlinkResolver(options)
-  return await resolver.resolve(options.matchedPaths)
+  return await resolver.resolve(options.matchedPaths, options.referencedPaths ?? [])
 }
 
 class SymlinkResolver {
@@ -101,7 +111,7 @@ class SymlinkResolver {
     this.#roots = [options.bundleRoot]
   }
 
-  async resolve (matchedPaths: string[]): Promise<PhysicalFile[]> {
+  async resolve (matchedPaths: string[], referencedPaths: string[]): Promise<PhysicalFile[]> {
     const [bundleRoot] = this.#roots
 
     // The canonical root is what real paths are measured against; the lexical
@@ -128,9 +138,86 @@ class SymlinkResolver {
       await this.#classify(matchedPath)
     }
 
+    for (const referencedPath of referencedPaths) {
+      await this.#carryReferencedLinks(referencedPath)
+    }
+
     this.#pruneSymlinks()
 
     return Array.from(this.#entries.values())
+  }
+
+  /**
+   * Emits a symlink entry for every link a referenced path traverses, so the
+   * path resolves in the extracted archive exactly as spelled. Content is not
+   * this method's concern — whoever referenced the path also discovers and
+   * bundles what it points at (at real paths). Only the links travel here.
+   *
+   * The walk mirrors #classify's first-symlink rule: find the first symlinked
+   * component, emit it, jump into the target's real namespace, and continue —
+   * so every emitted link sits at a symlink-free archive path of its own and
+   * the extractability invariant holds by construction.
+   */
+  async #carryReferencedLinks (referencedPath: string): Promise<void> {
+    // Emissions are buffered until the whole walk succeeds. When a later hop
+    // leaves the bundle root, discovery has fallen back to bundling the content
+    // at the spelled path — real directories — and an already-emitted earlier
+    // link would then sit above those very directories, guaranteeing its own
+    // removal (and a spurious warning) at the bundler.
+    const chain: Array<[string, string]> = []
+    let current = referencedPath
+
+    for (;;) {
+      const symlink = await this.#firstSymlinkComponent(current)
+      if (symlink === undefined) {
+        break
+      }
+
+      const archivePath = this.#archivePathOf(symlink)
+      if (archivePath === undefined || archivePath === '') {
+        // The "link" is the bundle root itself — the whole project is reached
+        // through a symlink, which the two-root reconciliation already absorbs.
+        // The root is not an entry; emitting one at the empty name would abort
+        // the archive.
+        return
+      }
+
+      const target = await this.#realpath(symlink)
+      if (target === undefined) {
+        // Broken; the reference cannot resolve locally either.
+        this.#skipDanglingSymlink(symlink)
+        return
+      }
+
+      if (this.#archivePathOf(target) === undefined) {
+        // The reference's content is outside the bundle root: discovery bundles
+        // it at the spelled path (or errors), so the spelled tree extracts as
+        // ordinary directories and no link entry is wanted anywhere along the
+        // spelling.
+        return
+      }
+
+      chain.push([symlink, target])
+
+      if (current === symlink) {
+        break
+      }
+
+      current = path.join(target, path.relative(symlink, current))
+    }
+
+    for (const [symlink, target] of chain) {
+      this.#emitSymlink(symlink, target, { referenced: true })
+
+      // The same link may already be in the archive because an include pattern
+      // matched it; being referenced is a property of the link, not of which
+      // pass got to it first.
+      const archivePath = this.#archivePathOf(symlink)
+      const existing = archivePath !== undefined ? this.#entries.get(archivePath) : undefined
+      if (existing !== undefined && existing.symlinkTarget !== undefined) {
+        existing.referencedLink = true
+      }
+    }
   }
 
   /**
@@ -179,8 +266,12 @@ class SymlinkResolver {
           .some(other => other.startsWith(`${archivePath}/`))
 
         const target = resolveArchivePath(archivePath, file.symlinkTarget)
-        // A link onto the archive root always resolves; the root is not an entry.
-        const resolves = target === '' || occupied.has(target)
+        // A link onto the archive root always resolves; the root is not an
+        // entry. A link carried for a referenced path resolves too: its target
+        // content is bundled by the parser, which this resolver cannot see.
+        const resolves = target === ''
+          || occupied.has(target)
+          || file.referencedLink === true
 
         if (hasChildren || !resolves) {
           debug(`Dropping symlink ${archivePath}: ${hasChildren ? 'has children' : 'target is not bundled'}`)
@@ -575,17 +666,22 @@ class SymlinkResolver {
     )
   }
 
-  #emitSymlink (symlink: string, target: string): void {
+  #emitSymlink (symlink: string, target: string, options: { referenced?: boolean } = {}): void {
     const archivePath = this.#archivePathOf(symlink)
     const targetArchivePath = this.#archivePathOf(target)
     if (archivePath === undefined || targetArchivePath === undefined) {
       return
     }
 
-    this.#emitSymlinkEntry(symlink, archivePath, targetArchivePath)
+    this.#emitSymlinkEntry(symlink, archivePath, targetArchivePath, options)
   }
 
-  #emitSymlinkEntry (symlink: string, archivePath: string, targetArchivePath: string): void {
+  #emitSymlinkEntry (
+    symlink: string,
+    archivePath: string,
+    targetArchivePath: string,
+    options: { referenced?: boolean } = {},
+  ): void {
     // The link target is computed between archive paths, not filesystem paths,
     // so it stays valid wherever the archive is extracted. Both are anchored to
     // '/' first: path.posix.relative() resolves bare relative paths against the
@@ -604,6 +700,7 @@ class SymlinkResolver {
       physical: true,
       archivePath,
       symlinkTarget,
+      ...(options.referenced ? { referencedLink: true as const } : {}),
     })
   }
 

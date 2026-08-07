@@ -70,6 +70,19 @@ function dropSymlinksWithChildren (entries: Array<[string, File]>): File[] {
         return true
       }
 
+      if (file.referencedLink) {
+        // Path references in a bundled file (e.g. a Playwright config's
+        // testDir) depend on this link, and they will not resolve without it.
+        // The situation is a conflict between those references and files
+        // archived beneath the link's own path — say so, rather than letting
+        // the check fail only in the cloud.
+        process.stderr.write(
+          `Warning: ${name} is a symlink that bundled configuration refers to, but other files `
+          + `are archived beneath its path, so the symlink itself cannot be included. References `
+          + `through it may not resolve when the check runs.\n`,
+        )
+      }
+
       debug(`Dropping symlink ${name}: other files are archived beneath it`)
 
       return false
