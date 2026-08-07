@@ -968,10 +968,23 @@ describe('PlaywrightCheck', () => {
     }, DEFAULT_TEST_TIMEOUT)
 
     it('should include explicit node_modules patterns bypassing default ignores', async () => {
+      // Built at run time as real directories: the sandbox's own top-level
+      // node_modules is a symlink to a shared template outside the sandbox,
+      // which include patterns are no longer allowed to reach through.
+      await fs.mkdir(path.join(fixt.root, 'sub', 'node_modules', 'pkg'), { recursive: true })
+      await fs.writeFile(
+        path.join(fixt.root, 'sub', 'node_modules', 'pkg', 'package.json'),
+        '{"name":"pkg","version":"1.0.0"}',
+      )
+      await fs.writeFile(
+        path.join(fixt.root, 'sub', 'node_modules', 'pkg', 'index.js'),
+        'module.exports = {}',
+      )
+
       const output = await parseProject(
         fixt,
         '--config',
-        'checkly.include-node-modules-if-explicit.config.ts',
+        'checkly.include-nested-node-modules.config.ts',
       )
 
       expect(output).toEqual(expect.objectContaining({
@@ -999,19 +1012,38 @@ describe('PlaywrightCheck', () => {
       const entries = await listTarEntries(codeBundlePath)
       const files = entries.map(entry => entry.path)
 
+      // The include pattern names a node_modules path, which switches off the
+      // default **/node_modules/** ignore — the whole point of this test.
       expect(files.sort()).toEqual(expect.arrayContaining([
-        'node_modules/checkly/package.json',
+        'sub/node_modules/pkg/index.js',
+        'sub/node_modules/pkg/package.json',
         'package.json',
         'playwright.config.ts',
         'pnpm-lock.yaml',
         'tests/example.spec.ts',
       ]))
-
-      // The package list stays permissive because the checkly package's own
-      // contents change, but the archive still has to be extractable — and
-      // `node_modules/checkly` is a pnpm symlink, so this is exactly where a
-      // symlink entry used to appear with files nested beneath it.
       expectNoSymlinkHasChildren(entries)
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('should fail with a clear error when include reaches through a link pointing outside the project', async () => {
+      // The sandbox's top-level node_modules is a symlink to a shared template
+      // outside the sandbox — the same shape as a node_modules symlinked to a
+      // cache volume. Previously the target's contents were silently flattened
+      // into the archive, producing bundles that only half-worked; now it is a
+      // fatal diagnostic (which fails `deploy` and `test`).
+      const output = await parseProject(
+        fixt,
+        '--config',
+        'checkly.include-node-modules-if-explicit.config.ts',
+      )
+
+      expect(output).toEqual(expect.objectContaining({
+        errors: expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('outside the project\'s bundle root'),
+          }),
+        ]),
+      }))
     }, DEFAULT_TEST_TIMEOUT)
 
     it('should still respect custom ignoreDirectoriesMatch for explicit patterns', async () => {

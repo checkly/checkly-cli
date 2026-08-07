@@ -45,6 +45,16 @@ export interface ResolveBundleFilesOptions {
    * bundled by whoever discovered the content.
    */
   referencedPaths?: string[]
+  /**
+   * The workspace's member packages, in any order. A package link whose target
+   * is a member directory — and whose node_modules name matches the member's
+   * package name, so the import parser can resolve it — gets selective
+   * treatment: link + manifest + whatever was matched through it, instead of
+   * whole-directory expansion, mirroring how non-linked workspace dependencies
+   * are bundled. Empty or absent means no workspace: every in-root link target
+   * keeps the expansion behaviour.
+   */
+  workspaceMembers?: Array<{ path: string, name: string }>
 }
 
 /**
@@ -71,7 +81,11 @@ export interface ResolveBundleFilesOptions {
  */
 export async function resolveBundleFiles (options: ResolveBundleFilesOptions): Promise<PhysicalFile[]> {
   const resolver = new SymlinkResolver(options)
-  return await resolver.resolve(options.matchedPaths, options.referencedPaths ?? [])
+  return await resolver.resolve(
+    options.matchedPaths,
+    options.referencedPaths ?? [],
+    options.workspaceMembers ?? [],
+  )
 }
 
 class SymlinkResolver {
@@ -100,8 +114,10 @@ class SymlinkResolver {
    * even an acyclic graph would be walked once per distinct path through it.
    */
   #closed = new Set<string>()
+  /** Workspace member package names, keyed by canonical member directory. */
+  #memberNames = new Map<string, string>()
   /** Out-of-root directories already copied, and where each one landed. */
-  #dereferenced = new Map<string, string>()
+  #copiedTrees = new Map<string, string>()
   #lstatCache = new Map<string, Stats | undefined>()
   #warned = new Set<string>()
 
@@ -111,7 +127,11 @@ class SymlinkResolver {
     this.#roots = [options.bundleRoot]
   }
 
-  async resolve (matchedPaths: string[], referencedPaths: string[]): Promise<PhysicalFile[]> {
+  async resolve (
+    matchedPaths: string[],
+    referencedPaths: string[],
+    workspaceMembers: Array<{ path: string, name: string }>,
+  ): Promise<PhysicalFile[]> {
     const [bundleRoot] = this.#roots
 
     // The canonical root is what real paths are measured against; the lexical
@@ -124,6 +144,13 @@ class SymlinkResolver {
       }
     } catch {
       // Root does not exist; nothing can be inside it anyway.
+    }
+
+    // Member paths are stored canonically: the workspace model records them as
+    // given (sometimes lexical), while the link targets they are compared with
+    // arrive here as realpaths.
+    for (const member of workspaceMembers) {
+      this.#memberNames.set(await this.#realpath(member.path) ?? member.path, member.name)
     }
 
     // Which paths the include globs matched is a property of the path, not of
@@ -207,16 +234,11 @@ class SymlinkResolver {
     }
 
     for (const [symlink, target] of chain) {
-      this.#emitSymlink(symlink, target, { referenced: true })
-
-      // The same link may already be in the archive because an include pattern
-      // matched it; being referenced is a property of the link, not of which
-      // pass got to it first.
-      const archivePath = this.#archivePathOf(symlink)
-      const existing = archivePath !== undefined ? this.#entries.get(archivePath) : undefined
-      if (existing !== undefined && existing.symlinkTarget !== undefined) {
-        existing.referencedLink = true
-      }
+      this.#emitSymlink(symlink, target)
+      // Marked separately: the same link may already be in the archive because
+      // an include pattern matched it, and being referenced is a property of
+      // the link, not of which pass got to it first.
+      this.#markLinkReferenced(symlink)
     }
   }
 
@@ -372,12 +394,50 @@ class SymlinkResolver {
 
     const targetArchivePath = this.#archivePathOf(target)
     if (targetArchivePath === undefined) {
-      // The target lives outside the archive root (a globally linked package, a
-      // dependency outside the repository, and — in our own test sandbox — a
-      // node_modules directory linked to a shared template). It has no
-      // expressible path in the archive, so a symlink entry would dangle after
-      // extraction. Copy the bytes across instead.
-      await this.#dereference(symlink, matchedPath)
+      const symlinkArchivePath = this.#archivePathOf(symlink)
+      if (symlinkArchivePath !== undefined && this.#isIgnoredArchivePathOrContents(symlinkArchivePath)) {
+        // The escape hatch: the user excluded the link itself.
+        this.#warnOnce(
+          symlink,
+          `${symlink} is excluded from the bundle by the ignore patterns. Skipping the symlink.`,
+        )
+        return
+      }
+
+      // For node_modules shapes the user matched outright — a package link, or
+      // a node_modules directory itself linked elsewhere (a cache volume, a
+      // relocated virtual store) — the old behaviour of silently flattening the
+      // target's contents produced bundles that only half-worked: a pnpm
+      // package's dependencies are its store siblings, which never came along.
+      // Fail loudly instead. The error is reserved for what the include
+      // patterns named directly: a link this resolver reached on its own (a
+      // store sibling pointing out of the project, say) must not turn a
+      // previously-bundling project into a hard failure.
+      const isNodeModulesShape = isInsideNodeModules(symlink) || path.basename(symlink) === NODE_MODULES
+      if (isNodeModulesShape && this.#directPaths.has(matchedPath)) {
+        throw new Error(
+          `${symlink} points at ${target}, which is outside the project's bundle root `
+          + `(${this.#roots[0]}). Files outside it cannot be included in the code bundle. The `
+          + `bundle root is your workspace root, or the nearest package.json directory when the `
+          + `project is not part of a workspace — if the target belongs to your monorepo, make `
+          + `sure the package containing your Checkly config is listed in the workspace `
+          + `configuration. Otherwise, move the target inside the project, exclude the symlink `
+          + `via ignoreDirectoriesMatch, or narrow your include patterns.`,
+        )
+      }
+
+      // A plain file or asset-directory link has no such failure mode: copying
+      // the bytes to the spelled path produces a complete, working bundle, as
+      // it always has. For node_modules shapes reached indirectly the copy is
+      // the best available fallback — say what it cannot deliver.
+      this.#warnOnce(
+        symlink,
+        isNodeModulesShape
+          ? `${symlink} is linked from outside the project. Its contents will be bundled, but its `
+          + `dependencies cannot be, so it may fail to resolve them when the check runs.`
+          : `${symlink} points outside the project. Bundling its contents instead of the symlink.`,
+      )
+      await this.#copyOutOfRootLink(matchedPath)
       return
     }
 
@@ -407,6 +467,61 @@ class SymlinkResolver {
     }
 
     const isPackageLink = isInsideNodeModules(symlink)
+
+    // A workspace member reached through a package link is handled selectively,
+    // the way the CLI treats every other workspace dependency: the link travels,
+    // the member's manifest travels, whatever the include patterns matched
+    // through the link travels — and the rest of the member's content is the
+    // import parser's business, not a wholesale directory copy.
+    //
+    // Three qualifiers, each load-bearing:
+    // - The store-shape check comes first: a pnpm store can live inside a member
+    //   directory, and store packages need the expansion and sibling-closure
+    //   treatment no matter where the store sits.
+    // - The target must be the member directory itself. A link into a member's
+    //   subdirectory (`link:./packages/x/dist`) names content the parser will
+    //   never bundle, so it keeps expansion.
+    // - The link's node_modules name must equal the member's package name. The
+    //   parser resolves workspace dependencies by import specifier, so an
+    //   aliased dependency (`"ui": "file:../ui"` for a package named @scope/ui)
+    //   is invisible to it — selective treatment would ship an empty package.
+    // The member branch is reserved for links the include patterns matched
+    // (directly, or by matching files through them): those express user intent
+    // the parser complements. A member link this resolver reached on its own —
+    // a pnpm store package depending on a workspace member — has no parser
+    // coverage at all (the parser never reads store-internal code), so it keeps
+    // whole-target expansion below.
+    if (
+      isPackageLink
+      && !this.#isPnpmStoreLocation(target)
+      && this.#memberNames.has(target)
+      && this.#directPaths.has(matchedPath)
+    ) {
+      if (this.#linkName(symlink) === this.#memberNames.get(target)) {
+        // The emitted manifest is also what keeps the link alive: it occupies
+        // the target, so the prune pass sees the link as resolvable. If the
+        // manifest cannot be emitted, the prune drops the link rather than
+        // shipping it dangling.
+        await this.#emitMemberPackageJson(target)
+
+        if (matchedPath === symlink) {
+          // The include pattern named this link outright, but a workspace
+          // member travels selectively — a silent narrowing worth surfacing,
+          // since include exists for assets the import parser cannot see.
+          this.#warnOnce(
+            `${symlink}\0member`,
+            `${symlink} resolves to the workspace package at ${target}. Only its manifest and `
+            + `files reached through imports or matching include patterns are bundled. To bundle `
+            + `other files from it, add include patterns for its own path.`,
+          )
+        }
+
+        if (matchedPath !== symlink) {
+          await this.#classify(path.join(target, path.relative(symlink, matchedPath)))
+        }
+        return
+      }
+    }
 
     // Expanding the target subtree is what puts the package's own files in the
     // archive. Do it when the pattern matched the link itself, and for package
@@ -442,6 +557,143 @@ class SymlinkResolver {
     // Whether this link survives — whether its target contributed anything, and
     // whether anything landed beneath the link itself — is only knowable once
     // every path has been classified. #pruneSymlinks decides that at the end.
+  }
+
+  /**
+   * The name the link resolves as at run time — its path under the enclosing
+   * node_modules directory. When this equals the target package's declared
+   * name, the import parser can resolve the package; that equality is the
+   * member branch's precondition.
+   */
+  #linkName (symlink: string): string | undefined {
+    const nodeModules = enclosingNodeModules(symlink)
+    if (nodeModules === undefined) {
+      return undefined
+    }
+
+    return pathToPosix(path.relative(nodeModules, symlink))
+  }
+
+  /**
+   * Copies an out-of-root link's content to the archive at the spelled path,
+   * where it extracts as ordinary files. Nested directory links recurse
+   * (anything they point at is out of root as well); the ancestor set cuts
+   * cycles.
+   */
+  async #copyOutOfRootLink (matchedPath: string): Promise<void> {
+    const archivePath = this.#archivePathOf(matchedPath)
+    if (archivePath === undefined) {
+      return
+    }
+
+    const stats = await this.#statThroughLink(matchedPath)
+    if (stats === undefined) {
+      // Dangling somewhere along the way; nothing to copy.
+      return
+    }
+
+    if (!stats.isDirectory()) {
+      // The bytes are readable straight through the link at the matched path,
+      // which is exactly where they belong in the archive.
+      this.#emitFile(matchedPath, archivePath)
+      return
+    }
+
+    // The matched path itself may be a nested directory link inside the
+    // out-of-root tree (glob reports such links as files); its contents belong
+    // at its archive path just like the top link's do.
+    await this.#copyTree(matchedPath, archivePath, new Set())
+  }
+
+  async #copyTree (directory: string, archiveDirectory: string, ancestors: Set<string>): Promise<void> {
+    const real = await this.#realpath(directory)
+    if (real === undefined || ancestors.has(real)) {
+      return
+    }
+
+    // A directory reachable by more than one route is copied once; every later
+    // route becomes a link to the first copy. Re-copying per route would take
+    // time exponential in the depth of a link fan-out. If files also arrive
+    // beneath a later route, that link gains children and the prune pass drops
+    // it in favour of them.
+    const copied = this.#copiedTrees.get(real)
+    if (copied !== undefined) {
+      if (copied !== archiveDirectory) {
+        this.#emitSymlinkEntry(directory, archiveDirectory, copied)
+      }
+      return
+    }
+    this.#copiedTrees.set(real, archiveDirectory)
+
+    const visited = new Set(ancestors).add(real)
+
+    for (const entry of await this.#enumerate(real)) {
+      const archivePath = path.posix.join(archiveDirectory, pathToPosix(path.relative(real, entry)))
+
+      if (this.#isIgnoredArchivePath(archivePath)) {
+        continue
+      }
+
+      const stats = await this.#lstat(entry)
+      if (!stats?.isSymbolicLink()) {
+        this.#emitFile(entry, archivePath)
+        continue
+      }
+
+      const linkStats = await this.#statThroughLink(entry)
+      if (linkStats === undefined) {
+        // Dangling. A link to nothing is worth nothing on the runner.
+        continue
+      }
+
+      if (linkStats.isDirectory()) {
+        await this.#copyTree(entry, archivePath, visited)
+        continue
+      }
+
+      this.#emitFile(entry, archivePath)
+    }
+  }
+
+  /**
+   * The member's manifest carries load-bearing metadata (`type`, `exports`) and
+   * may exist in the archive only as the parser's faux placeholder; the real
+   * one wins by the registry's prefer-physical rule.
+   */
+  async #emitMemberPackageJson (member: string): Promise<boolean> {
+    const packageJson = path.join(member, 'package.json')
+    // Stat through any link: a manifest that is itself a symlink still reads as
+    // a file when the archive is built.
+    const stats = await this.#statThroughLink(packageJson)
+    if (stats === undefined || !stats.isFile()) {
+      return false
+    }
+
+    const archivePath = this.#archivePathOf(packageJson)
+    if (archivePath === undefined || this.#isIgnoredArchivePath(archivePath)) {
+      return false
+    }
+
+    this.#emitFile(packageJson, archivePath)
+    return true
+  }
+
+  /**
+   * Marks a link whose target content arrives through the parser rather than
+   * through this resolver — the prune pass must not treat its target as absent,
+   * and the bundler should warn if a conflict ever forces the link out.
+   */
+  #markLinkReferenced (symlink: string): void {
+    const archivePath = this.#archivePathOf(symlink)
+    const existing = archivePath !== undefined ? this.#entries.get(archivePath) : undefined
+    if (existing !== undefined && existing.symlinkTarget !== undefined) {
+      existing.referencedLink = true
+    }
+  }
+
+  /** Whether a real directory sits inside a pnpm store (`.pnpm/<pkg>@<v>/node_modules/...`). */
+  #isPnpmStoreLocation (target: string): boolean {
+    return pnpmStoreNodeModules(target) !== undefined
   }
 
   /**
@@ -484,15 +736,11 @@ class SymlinkResolver {
    * pnpm's own strictness makes rare.
    */
   async #addDependencyClosure (packageDirectory: string): Promise<void> {
-    const nodeModules = enclosingNodeModules(packageDirectory)
-    if (nodeModules === undefined) {
-      return
-    }
-
     // A pnpm store package's node_modules directory looks like
     // <...>/.pnpm/<package>@<version>/node_modules. Anything else — including a
     // node_modules directory bundled *inside* a package — must not trigger this.
-    if (path.basename(path.dirname(path.dirname(nodeModules))) !== PNPM_STORE) {
+    const nodeModules = pnpmStoreNodeModules(packageDirectory)
+    if (nodeModules === undefined) {
       return
     }
 
@@ -544,117 +792,6 @@ class SymlinkResolver {
   }
 
   /**
-   * Copies the contents of an out-of-root symlink target into the archive at the
-   * path the link occupies, emitting no symlink entry. Nested symlinks are
-   * dereferenced too, since anything they point at is out of root as well.
-   */
-  async #dereference (symlink: string, matchedPath: string): Promise<void> {
-    if (isInsideNodeModules(symlink) && (await this.#isPnpmStorePackage(symlink))) {
-      // A package linked in from outside the project — a globally linked package,
-      // or a virtual store relocated out of the workspace. Its dependencies are
-      // siblings of it inside that store, and they have no archive path either,
-      // so they cannot travel with it: the package arrives without anything it
-      // needs. Say so, rather than reporting a success the runner will not see.
-      this.#warnOnce(
-        symlink,
-        `${symlink} is linked from outside the project. Its contents will be bundled, but its `
-        + `dependencies cannot be, so it may fail to resolve them when the check runs.`,
-      )
-    } else {
-      this.#warnOnce(
-        symlink,
-        `${symlink} points outside the project. Bundling its contents instead of the symlink.`,
-      )
-    }
-
-    // Whatever was matched belongs in the archive at the path it was matched at.
-    // Its bytes are readable straight through the link.
-    await this.#dereferenceEntry(matchedPath)
-  }
-
-  /**
-   * Bundles one path from inside an out-of-root tree. The path may itself be a
-   * symlink — a package directory reached through a linked node_modules can
-   * contain more links — and those get dereferenced too, since anything they
-   * point at is out of root as well.
-   */
-  async #dereferenceEntry (target: string): Promise<void> {
-    const archivePath = this.#archivePathOf(target)
-    if (archivePath === undefined) {
-      return
-    }
-
-    const stats = await this.#lstat(target)
-    if (stats?.isSymbolicLink()) {
-      const linkStats = await this.#statThroughLink(target)
-      if (linkStats === undefined) {
-        // Dangling. A link to nothing is worth nothing on the runner.
-        return
-      }
-
-      if (linkStats.isDirectory()) {
-        await this.#dereferenceTree(target, archivePath, new Set())
-        return
-      }
-    }
-
-    this.#emitFile(target, archivePath)
-  }
-
-  async #dereferenceTree (directory: string, archiveDirectory: string, ancestors: Set<string>): Promise<void> {
-    const real = await this.#realpath(directory)
-    if (real === undefined || ancestors.has(real)) {
-      return
-    }
-
-    // A directory reachable by more than one route is copied once, and every
-    // later route becomes a link to that copy. Copying it again per route would
-    // duplicate the bytes and, on a graph where links fan out, take time
-    // exponential in its depth.
-    //
-    // Should files also arrive beneath the later route — glob does walk into a
-    // symlinked directory for a `**/*` pattern — that link would have children,
-    // and #pruneSymlinks drops it in favour of them.
-    const copied = this.#dereferenced.get(real)
-    if (copied !== undefined) {
-      if (copied !== archiveDirectory) {
-        this.#emitSymlinkEntry(directory, archiveDirectory, copied)
-      }
-      return
-    }
-    this.#dereferenced.set(real, archiveDirectory)
-
-    const visited = new Set(ancestors).add(real)
-
-    for (const entry of await this.#enumerate(real)) {
-      const archivePath = path.posix.join(archiveDirectory, pathToPosix(path.relative(real, entry)))
-
-      if (this.#isIgnoredArchivePath(archivePath)) {
-        continue
-      }
-
-      const stats = await this.#lstat(entry)
-      if (!stats?.isSymbolicLink()) {
-        this.#emitFile(entry, archivePath)
-        continue
-      }
-
-      const linkStats = await this.#statThroughLink(entry)
-      if (linkStats === undefined) {
-        // Dangling. A link to nothing is worth nothing on the runner.
-        continue
-      }
-
-      if (linkStats.isDirectory()) {
-        await this.#dereferenceTree(entry, archivePath, visited)
-        continue
-      }
-
-      this.#emitFile(entry, archivePath)
-    }
-  }
-
-  /**
    * A broken symlink is not bundled. Whatever it points at does not exist here
    * and so cannot travel with it, leaving a link to nothing on the runner. (Were
    * it kept, #pruneSymlinks would drop it anyway, its target having no entry.)
@@ -666,22 +803,17 @@ class SymlinkResolver {
     )
   }
 
-  #emitSymlink (symlink: string, target: string, options: { referenced?: boolean } = {}): void {
+  #emitSymlink (symlink: string, target: string): void {
     const archivePath = this.#archivePathOf(symlink)
     const targetArchivePath = this.#archivePathOf(target)
     if (archivePath === undefined || targetArchivePath === undefined) {
       return
     }
 
-    this.#emitSymlinkEntry(symlink, archivePath, targetArchivePath, options)
+    this.#emitSymlinkEntry(symlink, archivePath, targetArchivePath)
   }
 
-  #emitSymlinkEntry (
-    symlink: string,
-    archivePath: string,
-    targetArchivePath: string,
-    options: { referenced?: boolean } = {},
-  ): void {
+  #emitSymlinkEntry (symlink: string, archivePath: string, targetArchivePath: string): void {
     // The link target is computed between archive paths, not filesystem paths,
     // so it stays valid wherever the archive is extracted. Both are anchored to
     // '/' first: path.posix.relative() resolves bare relative paths against the
@@ -700,7 +832,6 @@ class SymlinkResolver {
       physical: true,
       archivePath,
       symlinkTarget,
-      ...(options.referenced ? { referencedLink: true as const } : {}),
     })
   }
 
@@ -765,6 +896,21 @@ class SymlinkResolver {
     return this.#isIgnoredArchivePath(archivePath)
   }
 
+  /**
+   * Whether the ignore patterns exclude an archive path either directly or in
+   * its entirety via a directory-shaped pattern. The distinction matters for
+   * deciding whether a *link* counts as excluded: the pattern shape the CLI's
+   * own docs teach (a globstar prefix, then the directory name, then a trailing
+   * globstar) matches everything under the directory but not the bare directory
+   * entry itself — a trailing globstar requires at least one segment. Probing
+   * with a synthetic child answers "did the user exclude this subtree" for both
+   * spellings.
+   */
+  #isIgnoredArchivePathOrContents (archivePath: string): boolean {
+    return this.#isIgnoredArchivePath(archivePath)
+      || this.#isIgnoredArchivePath(path.posix.join(archivePath, 'x'))
+  }
+
   #isIgnoredArchivePath (archivePath: string): boolean {
     return this.#ignorePatterns.some(pattern => minimatch(archivePath, pattern, { dot: true }))
   }
@@ -811,21 +957,6 @@ class SymlinkResolver {
     } catch {
       return undefined
     }
-  }
-
-  /** Whether a link resolves into a pnpm store, where a package's deps are siblings. */
-  async #isPnpmStorePackage (symlink: string): Promise<boolean> {
-    const target = await this.#realpath(symlink)
-    if (target === undefined) {
-      return false
-    }
-
-    const nodeModules = enclosingNodeModules(target)
-    if (nodeModules === undefined) {
-      return false
-    }
-
-    return path.basename(path.dirname(path.dirname(nodeModules))) === PNPM_STORE
   }
 
   /** Undefined when the path is a broken or cyclic symlink. */
@@ -884,6 +1015,20 @@ function isPackageManagerStateFile (target: string): boolean {
 /** Whether a path is a package inside a node_modules directory, scope included. */
 function isInsideNodeModules (target: string): boolean {
   return enclosingNodeModules(target) !== undefined
+}
+
+/**
+ * The pnpm store node_modules directory enclosing a package directory
+ * (`<...>/.pnpm/<pkg>@<v>/node_modules`), or undefined when the package does
+ * not sit in a store.
+ */
+function pnpmStoreNodeModules (packageDirectory: string): string | undefined {
+  const nodeModules = enclosingNodeModules(packageDirectory)
+  if (nodeModules === undefined) {
+    return undefined
+  }
+
+  return path.basename(path.dirname(path.dirname(nodeModules))) === PNPM_STORE ? nodeModules : undefined
 }
 
 /**

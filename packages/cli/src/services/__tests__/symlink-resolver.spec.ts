@@ -287,7 +287,298 @@ describe('resolveBundleFiles', () => {
     })
   })
 
-  it('should keep a workspace link and bundle the package it points at', async () => {
+  describe('workspace member links', () => {
+    // The customer shape: a workspace package's node_modules holds links
+    // straight to sibling member directories, and the member's content reaches
+    // the bundle through the import parser rather than through expansion.
+    const workspace: TreeSpec = {
+      'packages/x/package.json': '{"name":"@scope/x"}',
+      'packages/x/src/index.ts': 'export const x = 1',
+      'packages/x/tests/a.spec.ts': 'test',
+      'packages/x/node_modules/.keep': '',
+      'packages/c/node_modules/@scope/x': link('../../../x'),
+      'packages/c/package.json': '{"name":"@scope/c"}',
+      'package.json': '{}',
+    }
+    const members = (root: string) => [
+      { path: root, name: 'workspace-root' },
+      { path: path.join(root, 'packages', 'c'), name: '@scope/c' },
+      { path: path.join(root, 'packages', 'x'), name: '@scope/x' },
+    ]
+
+    async function bundleWorkspace (root: string, patterns: string[], extra: BundleOptions = {}) {
+      const { ignore = [], cwd = root } = extra
+      const matchedPaths = await findFilesWithPattern(cwd, patterns, ignore)
+      const files = await resolveBundleFiles({
+        matchedPaths,
+        bundleRoot: root,
+        ignoreCwd: cwd,
+        ignorePatterns: ignore,
+        workspaceMembers: members(root),
+      })
+      expectNoSymlinkHasChildren(files)
+      return files
+    }
+
+    it('should keep the link and the manifest, without expanding the member', async () => {
+      const root = await makeSandbox(workspace)
+
+      const files = await bundleWorkspace(root, ['node_modules/**'], {
+        cwd: path.join(root, 'packages', 'c'),
+      })
+
+      // The link and the member's real package.json travel; the member's other
+      // files and its node_modules do not — they are the parser's business.
+      // The manifest is also what keeps the link past the prune: it occupies
+      // the link's target.
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/@scope/x -> ../../../x',
+        'packages/x/package.json',
+      ])
+    })
+
+    it('should keep expansion for a member link the resolver reached on its own', async () => {
+      // A pnpm store package can depend on a workspace member, giving the store
+      // a member link no include pattern ever matched. The parser never reads
+      // store-internal code, so nothing would supply the member's sources —
+      // such links keep whole-target expansion.
+      const root = await makeSandbox({
+        'packages/x/package.json': '{"name":"@scope/x"}',
+        'packages/x/src/index.js': 'x',
+        'node_modules/.pnpm/foo@1.0.0/node_modules/foo/index.js': 'foo',
+        'node_modules/.pnpm/foo@1.0.0/node_modules/@scope/x': link('../../../../../packages/x'),
+        'node_modules/foo': link('.pnpm/foo@1.0.0/node_modules/foo'),
+        'package.json': '{}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'node_modules', 'foo')],
+        bundleRoot: root,
+        ignoreCwd: root,
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: root, name: 'workspace-root' },
+          { path: path.join(root, 'packages', 'x'), name: '@scope/x' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      // The member link arrived via the store's dependency closure, not via an
+      // include pattern — its target is fully expanded.
+      expect(entries(files)).toEqual(expect.arrayContaining([
+        'node_modules/.pnpm/foo@1.0.0/node_modules/@scope/x -> ../../../../../packages/x',
+        'packages/x/package.json',
+        'packages/x/src/index.js',
+      ]))
+    })
+
+    it('should bundle files matched through the member link at their real paths', async () => {
+      const root = await makeSandbox(workspace)
+
+      const files = await bundleWorkspace(root, ['node_modules/@scope/x/tests/**'], {
+        cwd: path.join(root, 'packages', 'c'),
+      })
+
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/@scope/x -> ../../../x',
+        'packages/x/package.json',
+        'packages/x/tests/a.spec.ts',
+      ])
+    })
+
+    it('should give a member-local pnpm store the store treatment, not the member treatment', async () => {
+      // A store can live inside a member directory; its packages need expansion
+      // and the sibling closure no matter where the store sits.
+      const root = await makeSandbox({
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/pkg/index.js': 'pkg',
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/dep': link('../../dep@2.0.0/node_modules/dep'),
+        'packages/c/node_modules/.pnpm/dep@2.0.0/node_modules/dep/index.js': 'dep',
+        'packages/c/node_modules/pkg': link('.pnpm/pkg@1.0.0/node_modules/pkg'),
+        'packages/c/package.json': '{"name":"@scope/c"}',
+        'package.json': '{}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'packages', 'c', 'node_modules', 'pkg')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'packages', 'c'),
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: root, name: 'workspace-root' },
+          { path: path.join(root, 'packages', 'c'), name: '@scope/c' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/.pnpm/dep@2.0.0/node_modules/dep/index.js',
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/dep -> ../../dep@2.0.0/node_modules/dep',
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/pkg/index.js',
+        'packages/c/node_modules/pkg -> .pnpm/pkg@1.0.0/node_modules/pkg',
+      ])
+    })
+
+    it('should keep expansion for a link into a member subdirectory', async () => {
+      // A link into a member's subdirectory (`link:./packages/y/dist`) names
+      // content the import parser will never bundle — selective treatment would
+      // ship a link to nothing. Such links keep whole-target expansion, which
+      // is bounded to the subdirectory.
+      const root = await makeSandbox({
+        'packages/y/package.json': '{"name":"@scope/y"}',
+        'packages/y/dist/index.js': 'y',
+        'packages/y/src/ignored-by-narrow-target.ts': 'src',
+        'packages/c/node_modules/@scope/y-dist': link('../../../y/dist'),
+        'packages/c/package.json': '{"name":"@scope/c"}',
+        'package.json': '{}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'packages', 'c', 'node_modules', '@scope', 'y-dist')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'packages', 'c'),
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: root, name: 'workspace-root' },
+          { path: path.join(root, 'packages', 'c'), name: '@scope/c' },
+          { path: path.join(root, 'packages', 'y'), name: '@scope/y' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/@scope/y-dist -> ../../../y/dist',
+        'packages/y/dist/index.js',
+      ])
+    })
+
+    it('should keep expansion for an aliased member dependency', async () => {
+      // `"ui": "file:../ui"` where the package is named @scope/ui: the parser
+      // resolves imports by specifier, so `import 'ui'` never reaches the
+      // member — selective treatment would ship an empty package. The name
+      // mismatch routes the link back to expansion.
+      const root = await makeSandbox({
+        'packages/ui/package.json': '{"name":"@scope/ui"}',
+        'packages/ui/src/index.js': 'ui',
+        'packages/c/node_modules/ui': link('../../ui'),
+        'packages/c/package.json': '{"name":"@scope/c"}',
+        'package.json': '{}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'packages', 'c', 'node_modules', 'ui')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'packages', 'c'),
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: root, name: 'workspace-root' },
+          { path: path.join(root, 'packages', 'c'), name: '@scope/c' },
+          { path: path.join(root, 'packages', 'ui'), name: '@scope/ui' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/ui -> ../../ui',
+        'packages/ui/package.json',
+        'packages/ui/src/index.js',
+      ])
+    })
+
+    it('should recognize members given in a lexical spelling', async () => {
+      // Workspace member paths can be lexical (npm/yarn workspaces record the
+      // directory the package.json was found at), while link targets arrive as
+      // realpaths. Registration canonicalizes, or every member would be missed
+      // and the branch would silently revert to expansion.
+      const outer = await makeSandbox({
+        'real/packages/x/package.json': '{"name":"@scope/x"}',
+        'real/packages/x/src/index.ts': 'x',
+        'real/packages/c/node_modules/@scope/x': link('../../../x'),
+        'real/packages/c/package.json': '{"name":"@scope/c"}',
+        'real/package.json': '{}',
+        'alias': link('real'),
+      })
+      const lexicalRoot = path.join(outer, 'alias')
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(outer, 'real', 'packages', 'c', 'node_modules', '@scope', 'x')],
+        bundleRoot: lexicalRoot,
+        ignoreCwd: path.join(lexicalRoot, 'packages', 'c'),
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: lexicalRoot, name: 'workspace-root' },
+          { path: path.join(lexicalRoot, 'packages', 'c'), name: '@scope/c' },
+          { path: path.join(lexicalRoot, 'packages', 'x'), name: '@scope/x' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      // Member branch, not expansion: no src/index.ts sweep.
+      expect(entries(files)).toEqual([
+        'packages/c/node_modules/@scope/x -> ../../../x',
+        'packages/x/package.json',
+      ])
+    })
+
+    it('should keep expansion for a plain directory link to a member target', async () => {
+      // The member branch is for package links: assets are not imports and the
+      // parser cannot compensate for them, so a plain directory link keeps
+      // today's whole-target expansion.
+      const root = await makeSandbox({
+        'packages/data/package.json': '{"name":"@scope/data"}',
+        'packages/data/mock.json': '{}',
+        'packages/c/fixtures': link('../data'),
+        'packages/c/package.json': '{"name":"@scope/c"}',
+        'package.json': '{}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'packages', 'c', 'fixtures')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'packages', 'c'),
+        ignorePatterns: [],
+        workspaceMembers: [
+          { path: root, name: 'workspace-root' },
+          { path: path.join(root, 'packages', 'c'), name: '@scope/c' },
+          { path: path.join(root, 'packages', 'data'), name: '@scope/data' },
+        ],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      expect(entries(files)).toEqual([
+        'packages/c/fixtures -> ../data',
+        'packages/data/mock.json',
+        'packages/data/package.json',
+      ])
+    })
+
+    it('should treat a self-dependency link to the root as a member link', async () => {
+      // pnpm creates node_modules/<name> -> .. for a `file:.` dependency; the
+      // root is a member, so the link travels with the root manifest and
+      // nothing gets expanded.
+      const root = await makeSandbox({
+        'src/index.ts': 'code',
+        'private-notes.txt': 'secret',
+        'node_modules/app': link('..'),
+        'package.json': '{"name":"app"}',
+      })
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'node_modules', 'app')],
+        bundleRoot: root,
+        ignoreCwd: root,
+        ignorePatterns: [],
+        workspaceMembers: [{ path: root, name: 'app' }],
+      })
+      expectNoSymlinkHasChildren(files)
+
+      expect(entries(files)).toEqual([
+        'node_modules/app -> ..',
+        'package.json',
+      ])
+    })
+  })
+
+  it('should keep a workspace-shaped link and bundle the package it points at when no members are known', async () => {
     const root = await makeSandbox({
       'packages/shared-lib/src/index.ts': 'export const x = 1',
       'packages/shared-lib/package.json': '{"name":"@scope/shared-lib"}',
@@ -363,67 +654,154 @@ describe('resolveBundleFiles', () => {
   })
 
   describe('targets outside the archive root', () => {
-    it('should bundle the contents of an out-of-root link, without a symlink entry', async () => {
+    it('should copy an out-of-root file link at its spelled path', async () => {
+      // A plain file link (a shared .env, a linked config) has no pnpm-store
+      // failure mode: the bytes at the spelled path are a complete bundle.
       const outer = await makeSandbox({
-        'external/pkg/index.js': 'pkg',
-        'project/node_modules/pkg': link('../../external/pkg'),
+        'shared/config.json': '{"shared":true}',
         'project/package.json': '{}',
       })
       const root = path.join(outer, 'project')
+      await fs.symlink(path.join('..', 'shared', 'config.json'), path.join(root, 'config.json'))
 
-      const files = await bundle(root, ['node_modules/pkg/**', 'package.json'], { bundleRoot: root })
+      const files = await bundle(root, ['*'], { bundleRoot: root })
 
-      // The target cannot be named inside the archive, so a symlink entry would
-      // dangle after extraction. Copy the bytes to where the link sits instead.
       expect(entries(files)).toEqual([
-        'node_modules/pkg/index.js',
+        'config.json',
         'package.json',
       ])
-      expect(files.filter(file => file.symlinkTarget !== undefined)).toEqual([])
     })
 
-    it('should not leave a symlink with entries beneath it when two links share a target', async () => {
-      // Two links to one directory, and a pattern that matches files through
-      // both. glob traverses a symlinked directory for `**/*` (it does not for a
-      // bare `**`), so files arrive under both link paths — and if the second
-      // link is archived as a symlink to the first, those files sit beneath a
-      // symlink entry. That is exactly the archive tar cannot extract.
+    it('should copy an out-of-root asset directory link at its spelled path', async () => {
       const outer = await makeSandbox({
-        'external/pkg/index.js': 'pkg',
-        'external/other/o.js': 'other',
-        'external/pkg/aliasA': link('../other'),
-        'external/pkg/aliasB': link('../other'),
-        'project/node_modules/pkg': link('../../external/pkg'),
+        'shared-fixtures/data.json': '{}',
+        'shared-fixtures/nested/more.json': '{}',
         'project/package.json': '{}',
       })
       const root = path.join(outer, 'project')
+      await fs.symlink(path.join('..', 'shared-fixtures'), path.join(root, 'fixtures'))
 
-      const files = await bundle(root, ['node_modules/pkg/**/*'], { bundleRoot: root })
-
-      expectNoSymlinkHasChildren(files)
-      expect(entries(files)).toEqual(expect.arrayContaining([
-        'node_modules/pkg/aliasA/o.js',
-        'node_modules/pkg/index.js',
-      ]))
-    })
-
-    it('should dereference symlinks nested inside an out-of-root tree', async () => {
-      const outer = await makeSandbox({
-        'external/pkg/index.js': 'pkg',
-        'external/pkg/vendor': link('../vendored'),
-        'external/vendored/lib.js': 'lib',
-        'project/node_modules/pkg': link('../../external/pkg'),
-        'project/package.json': '{}',
-      })
-      const root = path.join(outer, 'project')
-
-      const files = await bundle(root, ['node_modules/pkg/**'], { bundleRoot: root })
+      const files = await bundle(root, ['fixtures', 'package.json'], { bundleRoot: root })
 
       expect(entries(files)).toEqual([
-        'node_modules/pkg/index.js',
-        'node_modules/pkg/vendor/lib.js',
+        'fixtures/data.json',
+        'fixtures/nested/more.json',
+        'package.json',
       ])
-      expect(files.filter(file => file.symlinkTarget !== undefined)).toEqual([])
+    })
+
+    it('should copy the contents of a directory link nested inside an out-of-root tree', async () => {
+      // glob reports the nested link as a file (`fixtures/*` matches it without
+      // matching the top link), and its contents must still travel — at its
+      // archive path, as plain files.
+      const outer = await makeSandbox({
+        'shared-fixtures/data.json': '{}',
+        'vendored/lib.js': 'lib',
+        'project/package.json': '{}',
+      })
+      const root = path.join(outer, 'project')
+      await fs.symlink(path.join('..', 'vendored'), path.join(outer, 'shared-fixtures', 'vendor'))
+      await fs.symlink(path.join('..', 'shared-fixtures'), path.join(root, 'fixtures'))
+
+      const files = await bundle(root, ['fixtures/*', 'package.json'], { bundleRoot: root })
+
+      expect(entries(files)).toEqual([
+        'fixtures/data.json',
+        'fixtures/vendor/lib.js',
+        'package.json',
+      ])
+    })
+
+    it('should copy an out-of-root fan-out of directory links in linear time', async () => {
+      // Each level links twice to the next, so the number of routes is
+      // exponential in the depth while the number of directories is not.
+      // Copying per route would take minutes; copying per directory, with later
+      // routes becoming links to the first copy, stays instant.
+      const spec: TreeSpec = { 'project/package.json': '{}' }
+      const depth = 12
+      for (let i = 0; i < depth; i++) {
+        spec[`external/l${i}/file.js`] = `l${i}`
+      }
+      const outer = await makeSandbox(spec)
+      for (let i = 0; i + 1 < depth; i++) {
+        await fs.symlink(path.join('..', `l${i + 1}`), path.join(outer, 'external', `l${i}`, 'a'))
+        await fs.symlink(path.join('..', `l${i + 1}`), path.join(outer, 'external', `l${i}`, 'b'))
+      }
+      const root = path.join(outer, 'project')
+      await fs.symlink(path.join('..', 'external', 'l0'), path.join(root, 'assets'))
+
+      const files = await bundle(root, ['assets'], { bundleRoot: root })
+
+      // Each level's file appears once at the first route that reached it; the
+      // result stays proportional to the number of directories.
+      expect(files.length).toBeLessThan(depth * 4)
+      expect(entries(files)).toContain('assets/file.js')
+    }, 20_000)
+
+    it('should error on a matched link whose target is outside the bundle root', async () => {
+      // The old behaviour silently flattened the target's contents into the
+      // archive — a bundle that only half-worked, since a pnpm package's
+      // dependencies are its store siblings and never came along. Failing
+      // loudly is the deliberate replacement.
+      const outer = await makeSandbox({
+        'external/pkg/index.js': 'pkg',
+        'project/node_modules/pkg': link('../../external/pkg'),
+        'project/package.json': '{}',
+      })
+      const root = path.join(outer, 'project')
+
+      await expect(bundle(root, ['node_modules/pkg/**', 'package.json'], { bundleRoot: root }))
+        .rejects.toThrow(/outside the project's bundle root/)
+    })
+
+    it('should skip an out-of-root link the ignore patterns exclude, instead of erroring', async () => {
+      // The escape hatch the error message names: excluding the link via
+      // ignoreDirectoriesMatch acknowledges it should not be bundled. Matched
+      // paths are passed directly here because the include glob's own ignore
+      // handling runs in a different namespace (the config directory) and can
+      // therefore miss patterns that do match the link's bundle-root-relative
+      // path — the resolver's check is the backstop.
+      const outer = await makeSandbox({
+        'external/pkg/index.js': 'pkg',
+        'project/node_modules/pkg': link('../../external/pkg'),
+        'project/package.json': '{}',
+      })
+      const root = path.join(outer, 'project')
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'node_modules', 'pkg'), path.join(root, 'package.json')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'apps'),
+        ignorePatterns: ['node_modules/**'],
+      })
+
+      expect(entries(files)).toEqual([
+        'package.json',
+      ])
+    })
+
+    it('should honor a directory-shaped ignore pattern for the whole node_modules link', async () => {
+      // The spelling the CLI's own docs teach: `**/node_modules/**` matches the
+      // contents but not the bare `node_modules` entry itself. Excluding the
+      // subtree must still count as excluding the link, or the escape hatch the
+      // error message advertises is a dead end.
+      const outer = await makeSandbox({
+        'cache/node_modules/pkg/index.js': 'pkg',
+        'project/package.json': '{}',
+      })
+      const root = path.join(outer, 'project')
+      await fs.symlink(path.join('..', 'cache', 'node_modules'), path.join(root, 'node_modules'))
+
+      const files = await resolveBundleFiles({
+        matchedPaths: [path.join(root, 'node_modules'), path.join(root, 'package.json')],
+        bundleRoot: root,
+        ignoreCwd: path.join(root, 'apps'),
+        ignorePatterns: ['**/node_modules/**'],
+      })
+
+      expect(entries(files)).toEqual([
+        'package.json',
+      ])
     })
   })
 
@@ -791,34 +1169,6 @@ describe('resolveBundleFiles', () => {
       'src/index.ts',
     ])
   })
-
-  it('should copy an out-of-root directory once, however many links reach it', async () => {
-    // Each level fans out to the next by two links, so the number of distinct
-    // routes through the tree is exponential in its depth while the number of
-    // directories is not.
-    const spec: TreeSpec = { 'project/package.json': '{}' }
-    const depth = 12
-    for (let i = 0; i < depth; i++) {
-      spec[`external/l${i}/file.js`] = `l${i}`
-      if (i + 1 < depth) {
-        spec[`external/l${i}/a`] = link(`../l${i + 1}`)
-        spec[`external/l${i}/b`] = link(`../l${i + 1}`)
-      }
-    }
-    spec['project/node_modules/pkg'] = link('../../external/l0')
-    const outer = await makeSandbox(spec)
-    const root = path.join(outer, 'project')
-
-    const files = await bundle(root, ['node_modules/pkg/**'], { bundleRoot: root })
-
-    // Each level's file is copied exactly once; the second route to a directory
-    // becomes a link to the first copy rather than another copy of it.
-    for (let i = 0; i < depth; i++) {
-      const copies = entries(files).filter(entry => entry.endsWith(`/file.js`) && entry.includes(`l${i}`) === false)
-      expect(copies.length).toBeLessThanOrEqual(depth)
-    }
-    expect(files.length).toBeLessThan(depth * 4)
-  }, 20_000)
 
   it('should refuse to bundle pnpm state files even when named outright', async () => {
     const root = await makeSandbox({

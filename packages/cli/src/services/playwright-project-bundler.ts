@@ -15,16 +15,24 @@ import { findFilesWithPattern, pathToPosix } from './util.js'
 import { Session } from '../constructs/session.js'
 
 /**
- * The directory archive paths are relative to. Must match the bundler's strip
- * prefix (see Bundler.createForWorkspace), or archive paths won't line up.
+ * The directory archive paths are relative to — the workspace root, which is
+ * also the bundler's strip prefix (see Bundler.createForWorkspace) — together
+ * with the workspace's member directories.
  */
-function bundleRootPath (): string | undefined {
+function workspaceBundleInfo (): {
+  bundleRoot: string
+  members: Array<{ path: string, name: string }>
+} | undefined {
   const workspace = Session.workspace
   if (!workspace.isOk()) {
     return undefined
   }
 
-  return workspace.unwrap().root.path
+  const { root, packages } = workspace.unwrap()
+  return {
+    bundleRoot: root.path,
+    members: [root, ...packages].map(({ path, name }) => ({ path, name })),
+  }
 }
 
 export interface PlaywrightProjectBundle {
@@ -111,8 +119,8 @@ export class PlaywrightProjectBundler {
     // Included paths may run through symlinks — under pnpm every package in
     // node_modules is one. Left alone they produce an archive that tar cannot
     // extract, so resolve them into entries that can be.
-    const bundleRoot = bundleRootPath()
-    if (bundleRoot === undefined) {
+    const workspaceInfo = workspaceBundleInfo()
+    if (workspaceInfo === undefined) {
       for (const filePath of includedFiles) {
         files.push({
           filePath,
@@ -122,7 +130,7 @@ export class PlaywrightProjectBundler {
     } else {
       files.push(...await resolveBundleFiles({
         matchedPaths: includedFiles,
-        bundleRoot,
+        bundleRoot: workspaceInfo.bundleRoot,
         ignoreCwd: dir,
         ignorePatterns: ignoredFiles,
         // The config's own path references (testDir, globalSetup, ...) are
@@ -130,6 +138,7 @@ export class PlaywrightProjectBundler {
         // as written — through any symlink on the way. Those links must travel
         // with the bundle or the spellings resolve to nothing on the runner.
         referencedPaths: Array.from(pwConfigParsed.referencedPaths.keys()),
+        workspaceMembers: workspaceInfo.members,
       }))
     }
 
