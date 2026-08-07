@@ -1221,6 +1221,111 @@ describe('PlaywrightCheck', () => {
     }, DEFAULT_TEST_TIMEOUT)
   })
 
+  describe('bundling a pnpm workspace with member links', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-workspace-symlinks'),
+      })
+
+      // What pnpm builds for workspace dependencies: links straight to the
+      // member directories. Built at run time (files exist first — Windows
+      // types links by their target). The Playwright config's testDir runs
+      // *through* the @scope/x link into a subdirectory of the member.
+      const cNodeModules = path.join(fixt.root, 'packages', 'c', 'node_modules', '@scope')
+      await fs.mkdir(cNodeModules, { recursive: true })
+      await fs.symlink(path.join('..', '..', '..', 'x'), path.join(cNodeModules, 'x'))
+
+      const xNodeModules = path.join(fixt.root, 'packages', 'x', 'node_modules', '@scope')
+      await fs.mkdir(xNodeModules, { recursive: true })
+      await fs.symlink(path.join('..', '..', '..', 'w'), path.join(xNodeModules, 'w'))
+
+      // A registry dependency in pnpm store shape next to the member link, so
+      // the two treatments coexist in one bundle: the store package expands
+      // with its sibling closure, the member stays selective.
+      const store = path.join(fixt.root, 'packages', 'c', 'node_modules', '.pnpm')
+      await fs.mkdir(path.join(store, 'pkg@1.0.0', 'node_modules', 'pkg'), { recursive: true })
+      await fs.mkdir(path.join(store, 'dep@2.0.0', 'node_modules', 'dep'), { recursive: true })
+      await fs.writeFile(path.join(store, 'pkg@1.0.0', 'node_modules', 'pkg', 'index.js'), 'pkg')
+      await fs.writeFile(path.join(store, 'dep@2.0.0', 'node_modules', 'dep', 'index.js'), 'dep')
+      await fs.symlink(
+        path.join('..', '..', 'dep@2.0.0', 'node_modules', 'dep'),
+        path.join(store, 'pkg@1.0.0', 'node_modules', 'dep'),
+      )
+      await fs.symlink(
+        path.join('.pnpm', 'pkg@1.0.0', 'node_modules', 'pkg'),
+        path.join(fixt.root, 'packages', 'c', 'node_modules', 'pkg'),
+      )
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should bundle members selectively and keep the workspace links resolvable', async () => {
+      const result = await fixt.run('pnpm', [
+        'checkly', 'debug', 'parse-project', '--config', 'packages/c/checkly.config.ts',
+      ])
+      expect(result.exitCode).toBe(0)
+      const output: ParseProjectOutput = JSON.parse(result.stdout)
+
+      // The member branch announces that it narrows a directly-matched link.
+      expect(String(result.stderr)).toContain('resolves to the workspace package')
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const entries = await listTarEntries(codeBundlePath)
+      expectNoSymlinkHasChildren(entries)
+
+      const files = entries.filter(entry => entry.type !== 'SymbolicLink').map(entry => entry.path)
+      const symlinks = entries
+        .filter(entry => entry.type === 'SymbolicLink')
+        .map(entry => `${entry.path} -> ${entry.linkpath}`)
+        .sort()
+
+      // Exactly these links and no others. X's own @scope/w link is
+      // deliberately absent: no include pattern matches it, and like every
+      // parser-bundled workspace dependency it is recreated by the runner's
+      // install from pnpm-workspace.yaml + the bundled member directories.
+      expect(symlinks).toEqual([
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/dep -> ../../dep@2.0.0/node_modules/dep',
+        'packages/c/node_modules/@scope/x -> ../../../x',
+        'packages/c/node_modules/pkg -> .pnpm/pkg@1.0.0/node_modules/pkg',
+      ])
+
+      // The member's exact contribution: manifest, the testDir-discovered spec,
+      // its relative import, and the include-matched asset — at real paths,
+      // nothing more. not-imported.ts absent is the selectivity claim.
+      expect(files.filter(file => file.startsWith('packages/x/')).sort()).toEqual([
+        'packages/x/package.json',
+        'packages/x/src/assets/data.json',
+        'packages/x/src/helper.ts',
+        'packages/x/src/tests/flows/checkout.spec.ts',
+      ])
+
+      // The member imported by name contributes manifest + entry file.
+      expect(files.filter(file => file.startsWith('packages/w/')).sort()).toEqual([
+        'packages/w/package.json',
+        'packages/w/src/index.js',
+      ])
+
+      // The store package expands with its sibling closure, coexisting with the
+      // selective member treatment.
+      expect(files).toEqual(expect.arrayContaining([
+        'packages/c/node_modules/.pnpm/pkg@1.0.0/node_modules/pkg/index.js',
+        'packages/c/node_modules/.pnpm/dep@2.0.0/node_modules/dep/index.js',
+        'packages/c/playwright.config.ts',
+        'pnpm-workspace.yaml',
+      ]))
+
+      // Nothing lands at through-link spellings.
+      expect(files.filter(file => file.includes('node_modules/@scope/x/'))).toEqual([])
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
   describe('bundling with testDir through a symlink', () => {
     let fixt: FixtureSandbox
 

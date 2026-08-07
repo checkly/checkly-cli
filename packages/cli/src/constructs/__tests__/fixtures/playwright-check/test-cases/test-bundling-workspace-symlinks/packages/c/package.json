@@ -1,0 +1,9 @@
+{
+  "name": "@scope/c",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "^1.55.1",
+    "@scope/x": "workspace:*"
+  }
+}
