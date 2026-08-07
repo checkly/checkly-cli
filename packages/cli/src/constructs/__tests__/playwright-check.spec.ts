@@ -1145,10 +1145,14 @@ describe('PlaywrightCheck', () => {
         await fs.writeFile(filePath, content)
       }
 
+      // The explicit 'dir' type matters on Windows, which otherwise picks the
+      // link's type by looking at its target when the link is created — and a
+      // target that does not exist yet produces a file-typed link that cannot
+      // then be opened as a directory. Other platforms ignore the type.
       const symlink = async (relativePath: string, target: string) => {
         const linkPath = path.join(nodeModules, relativePath)
         await fs.mkdir(path.dirname(linkPath), { recursive: true })
-        await fs.symlink(target, linkPath)
+        await fs.symlink(target, linkPath, 'dir')
       }
 
       // What pnpm builds: packages live in a store, and node_modules holds links
@@ -1156,9 +1160,9 @@ describe('PlaywrightCheck', () => {
       // not underneath it.
       await writeFile('.pnpm/pkg@1.0.0/node_modules/pkg/index.js', 'module.exports = require(\'dep\')\n')
       await writeFile('.pnpm/pkg@1.0.0/node_modules/pkg/package.json', '{"name":"pkg","version":"1.0.0"}')
-      await symlink('.pnpm/pkg@1.0.0/node_modules/dep', '../../dep@2.0.0/node_modules/dep')
       await writeFile('.pnpm/dep@2.0.0/node_modules/dep/index.js', 'module.exports = \'dep\'\n')
       await writeFile('.pnpm/dep@2.0.0/node_modules/dep/package.json', '{"name":"dep","version":"2.0.0"}')
+      await symlink('.pnpm/pkg@1.0.0/node_modules/dep', '../../dep@2.0.0/node_modules/dep')
       await symlink('pkg', '.pnpm/pkg@1.0.0/node_modules/pkg')
 
       // A linked workspace package, which is how a monorepo shares code.
@@ -1168,7 +1172,7 @@ describe('PlaywrightCheck', () => {
       // parser registers what the spec imports at its path *through* the link,
       // without resolving it — so its files arrive beneath a link the symlink
       // resolver kept, from a code path the resolver never sees.
-      await fs.symlink('../shared-helpers', path.join(fixt.root, 'packages', 'e2e', 'helpers'))
+      await fs.symlink('../shared-helpers', path.join(fixt.root, 'packages', 'e2e', 'helpers'), 'dir')
     }, DEFAULT_TEST_TIMEOUT)
 
     afterAll(async () => {
@@ -1230,16 +1234,17 @@ describe('PlaywrightCheck', () => {
       })
 
       // What pnpm builds for workspace dependencies: links straight to the
-      // member directories. Built at run time (files exist first — Windows
-      // types links by their target). The Playwright config's testDir runs
-      // *through* the @scope/x link into a subdirectory of the member.
+      // member directories. Built at run time; the explicit 'dir' type is for
+      // Windows, which otherwise infers a link's type from its target. The
+      // Playwright config's testDir runs *through* the @scope/x link into a
+      // subdirectory of the member.
       const cNodeModules = path.join(fixt.root, 'packages', 'c', 'node_modules', '@scope')
       await fs.mkdir(cNodeModules, { recursive: true })
-      await fs.symlink(path.join('..', '..', '..', 'x'), path.join(cNodeModules, 'x'))
+      await fs.symlink(path.join('..', '..', '..', 'x'), path.join(cNodeModules, 'x'), 'dir')
 
       const xNodeModules = path.join(fixt.root, 'packages', 'x', 'node_modules', '@scope')
       await fs.mkdir(xNodeModules, { recursive: true })
-      await fs.symlink(path.join('..', '..', '..', 'w'), path.join(xNodeModules, 'w'))
+      await fs.symlink(path.join('..', '..', '..', 'w'), path.join(xNodeModules, 'w'), 'dir')
 
       // A registry dependency in pnpm store shape next to the member link, so
       // the two treatments coexist in one bundle: the store package expands
@@ -1252,10 +1257,12 @@ describe('PlaywrightCheck', () => {
       await fs.symlink(
         path.join('..', '..', 'dep@2.0.0', 'node_modules', 'dep'),
         path.join(store, 'pkg@1.0.0', 'node_modules', 'dep'),
+        'dir',
       )
       await fs.symlink(
         path.join('.pnpm', 'pkg@1.0.0', 'node_modules', 'pkg'),
         path.join(fixt.root, 'packages', 'c', 'node_modules', 'pkg'),
+        'dir',
       )
     }, DEFAULT_TEST_TIMEOUT)
 
@@ -1338,6 +1345,7 @@ describe('PlaywrightCheck', () => {
       await fs.symlink(
         path.join('shared', 'tests'),
         path.join(fixt.root, 'linked-tests'),
+        'dir',
       )
     }, DEFAULT_TEST_TIMEOUT)
 
