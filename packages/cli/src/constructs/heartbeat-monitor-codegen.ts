@@ -32,7 +32,9 @@ export class HeartbeatMonitorCodegen extends Codegen<HeartbeatMonitorResource> {
           builder.number('grace', resource.heartbeat.grace)
           builder.string('graceUnit', resource.heartbeat.graceUnit)
 
-          buildMonitorProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context, {
+            skipIntent: true,
+          })
         })
       })
     }))

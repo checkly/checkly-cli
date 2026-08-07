@@ -20,12 +20,14 @@ import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen.
 import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.js'
 import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
+import { CheckIntent } from './check.js'
 
 export interface CheckResource {
   id: string
   checkType: string
   name: string
   description?: string | null
+  intent?: CheckIntent | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -60,6 +62,11 @@ export interface BuildCheckPropsOptions {
    * an explicit flag.
    */
   skipRetryStrategy?: boolean
+
+  /**
+   * Skip emitting the `intent` property for constructs that do not support it.
+   */
+  skipIntent?: boolean
 }
 
 export function buildCheckProps (
@@ -74,6 +81,31 @@ export function buildCheckProps (
 
   if (resource.description != null) {
     builder.string('description', resource.description)
+  }
+
+  if (!options.skipIntent && resource.intent != null) {
+    const intent = resource.intent
+    builder.object('intent', builder => {
+      builder.string('goal', intent.goal)
+
+      const requiredOutcomes = intent.requiredOutcomes ?? []
+      if (requiredOutcomes.length > 0) {
+        builder.array('requiredOutcomes', builder => {
+          for (const statement of requiredOutcomes) {
+            builder.string(statement)
+          }
+        })
+      }
+
+      const mustPreserve = intent.mustPreserve ?? []
+      if (mustPreserve.length > 0) {
+        builder.array('mustPreserve', builder => {
+          for (const statement of mustPreserve) {
+            builder.string(statement)
+          }
+        })
+      }
+    })
   }
 
   if (resource.activated !== undefined) {

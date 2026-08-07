@@ -116,6 +116,16 @@ describe('AgenticCheckCodegen', () => {
       expect(source).not.toContain('RetryStrategyBuilder')
     })
 
+    it('should not emit intent because AgenticCheck does not support it', async () => {
+      const source = await renderResource(env, baseResource({
+        intent: {
+          goal: 'Backend data that must not be exposed on this construct.',
+        },
+      }))
+
+      expect(source).not.toContain('intent:')
+    })
+
     it('should not emit `agentRuntime` when `agenticCheckData` is missing', async () => {
       const source = await renderResource(env, baseResource())
       expect(source).not.toContain('agentRuntime')
