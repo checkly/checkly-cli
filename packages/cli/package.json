@@ -157,7 +157,7 @@
     "@types/prompts": "^2.4.9",
     "@types/semver": "^7.8.0",
     "@types/ws": "^8.5.5",
-    "config": "^4.4.2",
+    "config": "^5.0.0",
     "cross-env": "^10.1.0",
     "nanoid": "^5.1.16",
     "oclif": "^4.23.30",
