@@ -42,6 +42,12 @@ export interface ComposeCacheHashInput {
   packageJsons: PackageJsonInput[]
   npmrcs?: NpmrcInput[]
   excludedFields: string[]
+  /**
+   * Optional user-provided cache version, already normalized to a string.
+   * An empty string is treated the same as undefined: no record is written,
+   * so the digest stays identical to one computed without this input.
+   */
+  dependencyCacheVersion?: string
 }
 
 const PACKAGE_JSON_EXCLUDED_FIELDS = ['version']
@@ -155,6 +161,11 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *   3. One record per .npmrc sorted byte-wise by path, labeled
  *      `npmrc:<relative/path>`, whose content is the raw 32-byte SHA-256
  *      digest of the .npmrc contents.
+ *   4. The dependency cache version record (if set to a non-empty string),
+ *      labeled `dependency-cache-version`, whose content is the raw UTF-8
+ *      bytes of the user-provided value. An empty string is treated as
+ *      absent so that e.g. an unset environment variable interpolated into
+ *      the config leaves the digest unchanged.
  */
 export function composeCacheHash (input: ComposeCacheHashInput): string {
   const hash = createHash('sha256')
@@ -190,6 +201,10 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
 
   for (const entry of sortedNpmrcs) {
     writeRecord(`npmrc:${entry.path}`, entry.hash)
+  }
+
+  if (input.dependencyCacheVersion) {
+    writeRecord('dependency-cache-version', Buffer.from(input.dependencyCacheVersion, 'utf8'))
   }
 
   return hash.digest('hex')
@@ -264,14 +279,51 @@ export async function loadWorkspaceCacheHashInputs (
   return { lockfile, packageJsons, npmrcs }
 }
 
+export interface ComputeWorkspaceCacheHashOptions {
+  /**
+   * Optional user-provided cache version (`caching.dependencyCache.version`
+   * in the checkly config) mixed into the hash as an extra record. Numbers
+   * are converted with {@link String} and must be safe integers — larger or
+   * fractional values do not stringify exactly (or use exponent notation),
+   * which would break parity with non-JavaScript implementations of this
+   * hash. Undefined and the empty string leave the digest unchanged.
+   */
+  dependencyCacheVersion?: string | number
+}
+
+/**
+ * Normalizes a user-provided dependency cache version to the exact string
+ * that gets hashed, or undefined when the value is unset (or an empty
+ * string, which is treated as unset).
+ */
+export function normalizeDependencyCacheVersion (version: string | number | undefined): string | undefined {
+  if (version === undefined || version === '') {
+    return undefined
+  }
+  if (typeof version === 'number') {
+    if (!Number.isSafeInteger(version)) {
+      throw new Error(`Dependency cache version must be a safe integer if given as a number, got ${version}`)
+    }
+    return String(version)
+  }
+  if (typeof version !== 'string') {
+    throw new Error(`Dependency cache version must be a string or a safe integer, got ${typeof version}`)
+  }
+  return version
+}
+
 /**
  * Convenience wrapper that loads workspace inputs and composes the cache
  * hash with the standard set of excluded package.json fields.
  */
-export async function computeWorkspaceCacheHash (workspace: Workspace): Promise<string> {
+export async function computeWorkspaceCacheHash (
+  workspace: Workspace,
+  options?: ComputeWorkspaceCacheHashOptions,
+): Promise<string> {
   const inputs = await loadWorkspaceCacheHashInputs(workspace)
   return composeCacheHash({
     ...inputs,
     excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
+    dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
   })
 }
