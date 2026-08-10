@@ -54,9 +54,9 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^4.13.2",
-    "@oclif/plugin-help": "^6.2.55",
-    "@oclif/plugin-warn-if-update-available": "^3.1.70",
+    "@oclif/core": "^4.13.3",
+    "@oclif/plugin-help": "^6.2.56",
+    "@oclif/plugin-warn-if-update-available": "^3.1.71",
     "axios": "^1.19.0",
     "chalk": "^5.6.2",
     "debug": "^4.4.3",
