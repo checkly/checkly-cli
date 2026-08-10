@@ -9,6 +9,7 @@ import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
+import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -96,6 +97,34 @@ export type ChecklyConfig = {
      * List of playwright checks that use the defined playwright config path
      */
     playwrightChecks?: PlaywrightSlimmedProp[]
+  }
+  /**
+   * Caching-related configuration properties.
+   */
+  caching?: {
+    /**
+     * Controls the dependency cache used by Checkly runners when executing
+     * the Playwright Check Suite code bundle. Has no effect on browser or
+     * multistep checks.
+     */
+    dependencyCache?: {
+      /**
+       * Optional value mixed into the code bundle's cache hash in addition
+       * to its usual inputs (lockfile, package.json and .npmrc files).
+       * Change the value to force runners to reinstall the bundle's
+       * dependencies. Setting it for the first time invalidates the cache
+       * once. Numbers must be safe integers; unset and empty string leave
+       * the hash unchanged, so a dynamic value such as
+       * `process.env.DEPENDENCY_CACHE_VERSION` behaves sanely when the
+       * environment variable is missing.
+       *
+       * Unlike the `--refresh-cache` flag available on the run/test
+       * commands, which forces a reinstall for a single ad-hoc run, this
+       * value is persistent and also applies to deployed, scheduled
+       * checks.
+       */
+      version?: string | number
+    }
   }
   /**
    * CLI default configuration properties.
@@ -196,6 +225,7 @@ export async function loadChecklyConfig (
       config = await handleMissingConfig(dir, filenames, writeChecklyConfig, playwrightConfigPath)
     }
     validateConfigFields(config, ['logicalId', 'projectName'] as const)
+    validateDependencyCacheVersion(config)
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -232,5 +262,16 @@ function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConf
     if (!config?.[field] || !isString(config[field])) {
       throw new Error(`Config object missing a ${field} as type string`)
     }
+  }
+}
+
+function validateDependencyCacheVersion (config: ChecklyConfig): void {
+  try {
+    normalizeDependencyCacheVersion(config.caching?.dependencyCache?.version)
+  } catch (cause) {
+    throw new Error(
+      `Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`,
+      { cause },
+    )
   }
 }

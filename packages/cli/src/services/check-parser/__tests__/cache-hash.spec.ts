@@ -1,13 +1,19 @@
 import { createHash } from 'node:crypto'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterAll } from 'vitest'
 
 import {
   canonicalizePackageJson,
   composeCacheHash,
+  computeWorkspaceCacheHash,
   normalizeDependencyCacheVersion,
   stableJsonEncode,
 } from '../cache-hash.js'
+import { Package, Workspace } from '../package-files/workspace.js'
+import { Err } from '../package-files/result.js'
 
 const sha256 = (s: string): Buffer => createHash('sha256').update(s).digest()
 
@@ -416,6 +422,40 @@ describe('composeCacheHash', () => {
     })
 
     expect(digest).toBe('344f037a55163ba59146d9cdb71ef702782e3690a9f666067c0ccdf091214eb6')
+  })
+})
+
+describe('computeWorkspaceCacheHash', () => {
+  const tempDirs: string[] = []
+
+  afterAll(async () => {
+    await Promise.all(tempDirs.map(dir => fs.rm(dir, { recursive: true, force: true })))
+  })
+
+  const makeWorkspace = async (): Promise<Workspace> => {
+    const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cache-hash-')))
+    tempDirs.push(dir)
+    await fs.writeFile(path.join(dir, 'package.json'), '{"name":"fixture-root"}\n')
+    return new Workspace({
+      root: new Package({ name: 'fixture-root', path: dir }),
+      packages: [],
+      lockfile: Err(new Error('no lockfile')),
+      configFile: Err(new Error('no config file')),
+    })
+  }
+
+  test('dependencyCacheVersion option flows into the hash', async () => {
+    const workspace = await makeWorkspace()
+    const base = await computeWorkspaceCacheHash(workspace)
+    expect(base).toBe(await computeWorkspaceCacheHash(workspace, {}))
+    expect(base).toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: '' }))
+    expect(base).not.toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: 'v2' }))
+  })
+
+  test('a number and its string form produce the same hash', async () => {
+    const workspace = await makeWorkspace()
+    expect(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: 2 }))
+      .toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: '2' }))
   })
 })
 

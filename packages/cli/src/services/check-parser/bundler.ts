@@ -9,7 +9,7 @@ import Debug from 'debug'
 import * as uuid from 'uuid'
 
 import { checklyStorage } from '../../rest/api.js'
-import { computeWorkspaceCacheHash } from './cache-hash.js'
+import { computeWorkspaceCacheHash, ComputeWorkspaceCacheHashOptions } from './cache-hash.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
 import { pathToPosix } from '../util.js'
@@ -330,7 +330,8 @@ export interface CreateBundlerOptions {
   stripPrefix?: string
 }
 
-export type CreateBundlerForWorkspaceOptions = Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'>
+export type CreateBundlerForWorkspaceOptions =
+  Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'> & ComputeWorkspaceCacheHashOptions
 
 interface BundlerOptions {
   tempDir?: string
@@ -374,9 +375,10 @@ export class Bundler {
 
     const {
       tempDir,
+      dependencyCacheVersion,
     } = options
 
-    const cacheHash = await computeWorkspaceCacheHash(workspace)
+    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion })
 
     return new Bundler({
       tempDir,
