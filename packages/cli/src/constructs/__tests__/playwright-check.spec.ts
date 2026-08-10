@@ -696,6 +696,35 @@ describe('PlaywrightCheck', () => {
       }, DEFAULT_TEST_TIMEOUT)
     })
 
+    describe('dependencyCacheVersion', () => {
+      it('should change the cacheHash when caching.dependencyCache.version is set', async () => {
+        const fixt = await FixtureSandbox.create({
+          template: 'playwright',
+          source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-dependency-cache-version'),
+        })
+
+        const cacheHashFor = async (...args: string[]): Promise<string> => {
+          const output = await parseProject(fixt, ...args)
+          expect(output.diagnostics).toEqual(expect.objectContaining({
+            fatal: false,
+          }))
+          const check = output.payload.resources.find(resource => resource.type === 'check')!
+          const cacheHash = (check.payload as any).cacheHash
+          expect(cacheHash).toMatch(/^[0-9a-f]{64}$/)
+          return cacheHash
+        }
+
+        try {
+          const withoutVersion = await cacheHashFor()
+          const withVersion = await cacheHashFor('--config', 'checkly.with-version.config.ts')
+
+          expect(withVersion).not.toBe(withoutVersion)
+        } finally {
+          await fixt.destroy()
+        }
+      }, DEFAULT_TEST_TIMEOUT)
+    })
+
     describe('testCommand', () => {
       it('should warn when testCommand contains playwright install', async () => {
         const fixt = await FixtureSandbox.create({
