@@ -1,7 +1,7 @@
 ---
 name: checkly
 description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
-allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
+allowed-tools: Bash(npx checkly:*), Bash(npm install:*)
 metadata:
   author: checkly
 ---
