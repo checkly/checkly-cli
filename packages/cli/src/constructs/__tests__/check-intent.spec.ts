@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ApiCheck } from '../api-check.js'
-import { CheckIntent } from '../check.js'
+import { CheckIntent, CheckIntentConstraintType } from '../check.js'
 import { Diagnostics } from '../diagnostics.js'
 import { DnsMonitor } from '../dns-monitor.js'
 import { PlaywrightCheck } from '../playwright-check.js'
@@ -11,6 +11,28 @@ import { UrlMonitor } from '../url-monitor.js'
 
 const completeIntent: CheckIntent = {
   goal: 'Verify that authenticated users can open the dashboard.',
+  constraints: [
+    {
+      type: 'required_outcome',
+      statement: 'Authentication succeeds for a valid user.',
+    },
+    {
+      type: 'required_outcome',
+      statement: 'The dashboard displays the account overview.',
+    },
+    {
+      type: 'must_preserve',
+      statement: 'Do not remove or weaken the authentication assertion.',
+    },
+    {
+      type: 'must_preserve',
+      statement: 'Do not replace the dashboard assertion with a generic page-load assertion.',
+    },
+  ],
+}
+
+const synthesizedCompleteIntent = {
+  goal: completeIntent.goal,
   requiredOutcomes: [
     'Authentication succeeds for a valid user.',
     'The dashboard displays the account overview.',
@@ -44,6 +66,10 @@ function messages (diagnostics: Diagnostics): string[] {
   return diagnostics.observations.map(observation => observation.message)
 }
 
+function constraint (type: CheckIntentConstraintType, statement: string) {
+  return { type, statement }
+}
+
 describe('check intent', () => {
   beforeEach(() => {
     nextLogicalId = 0
@@ -75,7 +101,7 @@ describe('check intent', () => {
 
       expect(check.intent).toBe(completeIntent)
       expect(check.synthesize()).toMatchObject({
-        intent: completeIntent,
+        intent: synthesizedCompleteIntent,
       })
     })
 
@@ -93,11 +119,11 @@ describe('check intent', () => {
         playwrightConfigPath: '/tmp/playwright.config.ts',
       })
 
-      expect(apiCheck(completeIntent).synthesize()).toHaveProperty('intent', completeIntent)
+      expect(apiCheck(completeIntent).synthesize()).toHaveProperty('intent', synthesizedCompleteIntent)
       expect(monitor.intent).toBe(completeIntent)
-      expect(monitor.synthesize()).toHaveProperty('intent', completeIntent)
+      expect(monitor.synthesize()).toHaveProperty('intent', synthesizedCompleteIntent)
       expect(playwright.intent).toBe(completeIntent)
-      expect(playwright.synthesize()).toHaveProperty('intent', completeIntent)
+      expect(playwright.synthesize()).toHaveProperty('intent', synthesizedCompleteIntent)
     })
 
     it('omits undefined intent so deployments do not take ownership of existing intent', () => {
@@ -167,43 +193,55 @@ describe('check intent', () => {
       ]))
     })
 
-    it('accepts 20 required outcomes and rejects 21', async () => {
+    it('accepts 20 required-outcome constraints and rejects 21', async () => {
       expect((await validateIntent({
         goal: 'Verify the dashboard.',
-        requiredOutcomes: Array.from({ length: 20 }, (_, index) => `Outcome ${index}`),
+        constraints: Array.from(
+          { length: 20 },
+          (_, index) => constraint('required_outcome', `Outcome ${index}`),
+        ),
       })).isFatal()).toBe(false)
 
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
-        requiredOutcomes: Array.from({ length: 21 }, (_, index) => `Outcome ${index}`),
+        constraints: Array.from(
+          { length: 21 },
+          (_, index) => constraint('required_outcome', `Outcome ${index}`),
+        ),
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
-        expect.stringContaining('may contain at most 20 required outcomes, got 21.'),
+        expect.stringContaining('may contain at most 20 required-outcome constraints, got 21.'),
       ]))
     })
 
-    it('accepts 20 must-preserve guardrails and rejects 21', async () => {
+    it('accepts 20 must-preserve constraints and rejects 21', async () => {
       expect((await validateIntent({
         goal: 'Verify the dashboard.',
-        mustPreserve: Array.from({ length: 20 }, (_, index) => `Guardrail ${index}`),
+        constraints: Array.from(
+          { length: 20 },
+          (_, index) => constraint('must_preserve', `Guardrail ${index}`),
+        ),
       })).isFatal()).toBe(false)
 
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
-        mustPreserve: Array.from({ length: 21 }, (_, index) => `Guardrail ${index}`),
+        constraints: Array.from(
+          { length: 21 },
+          (_, index) => constraint('must_preserve', `Guardrail ${index}`),
+        ),
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
-        expect.stringContaining('may contain at most 20 must-preserve guardrails, got 21.'),
+        expect.stringContaining('may contain at most 20 must-preserve constraints, got 21.'),
       ]))
     })
 
     it.each([
-      ['required outcome', 'requiredOutcomes'],
-      ['must-preserve guardrail', 'mustPreserve'],
-    ] as const)('rejects a blank %s statement', async (label, property) => {
+      ['required-outcome constraint statement', 'required_outcome'],
+      ['must-preserve constraint statement', 'must_preserve'],
+    ] as const)('rejects a blank %s', async (label, type) => {
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
-        [property]: ['   '],
+        constraints: [constraint(type, '   ')],
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
         expect.stringContaining(`The intent ${label} must not be blank.`),
@@ -211,43 +249,88 @@ describe('check intent', () => {
     })
 
     it.each([
-      ['required outcome', 'requiredOutcomes'],
-      ['must-preserve guardrail', 'mustPreserve'],
-    ] as const)('accepts a 1,000-character %s and rejects 1,001 characters', async (label, property) => {
+      ['required-outcome constraint statement', 'required_outcome'],
+      ['must-preserve constraint statement', 'must_preserve'],
+    ] as const)('accepts a 1,000-character %s and rejects 1,001 characters', async (label, type) => {
       expect((await validateIntent({
         goal: 'Verify the dashboard.',
-        [property]: ['s'.repeat(1_000)],
+        constraints: [constraint(type, 's'.repeat(1_000))],
       })).isFatal()).toBe(false)
 
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
-        [property]: ['s'.repeat(1_001)],
+        constraints: [constraint(type, 's'.repeat(1_001))],
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
         expect.stringContaining(`The intent ${label} must be at most 1000 characters after trimming, got 1001.`),
       ]))
     })
 
-    it('rejects unknown fields instead of silently discarding them', async () => {
+    it('rejects unknown intent and constraint fields instead of silently discarding them', async () => {
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
         assertion: 'The dashboard is visible.',
+        constraints: [{
+          type: 'required_outcome',
+          statement: 'The dashboard loads.',
+          priority: 'high',
+        }],
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
         expect.stringContaining('"intent" contains unknown field "assertion".'),
+        expect.stringContaining('"intent.constraints[0]" contains unknown field "priority".'),
       ]))
     })
 
-    it('rejects non-string statements and non-array statement sections', async () => {
+    it('rejects non-array constraints and non-object constraint entries', async () => {
+      const nonArrayDiagnostics = await validateIntent({
+        goal: 'Verify the dashboard.',
+        constraints: 'The dashboard loads.',
+      })
+      const nonObjectDiagnostics = await validateIntent({
+        goal: 'Verify the dashboard.',
+        constraints: ['The dashboard loads.'],
+      })
+
+      expect(messages(nonArrayDiagnostics)).toEqual(expect.arrayContaining([
+        expect.stringContaining('"intent.constraints" must be an array of constraint objects.'),
+      ]))
+      expect(messages(nonObjectDiagnostics)).toEqual(expect.arrayContaining([
+        expect.stringContaining('"intent.constraints[0]" must be a constraint object.'),
+      ]))
+    })
+
+    it('rejects missing or unsupported constraint types', async () => {
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
-        requiredOutcomes: 'The dashboard loads.',
-        mustPreserve: [42],
+        constraints: [
+          { statement: 'The dashboard loads.' },
+          { type: 'nice_to_have', statement: 'The dashboard loads quickly.' },
+        ],
       })
 
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
-        expect.stringContaining('"intent.requiredOutcomes" must be an array of strings.'),
-        expect.stringContaining('The intent must-preserve guardrail must be a string.'),
+        expect.stringContaining(
+          'The intent constraint type must be "required_outcome" or "must_preserve", got undefined.',
+        ),
+        expect.stringContaining(
+          'The intent constraint type must be "required_outcome" or "must_preserve", got "nice_to_have".',
+        ),
+      ]))
+    })
+
+    it('rejects missing or non-string constraint statements', async () => {
+      const diagnostics = await validateIntent({
+        goal: 'Verify the dashboard.',
+        constraints: [
+          { type: 'required_outcome' },
+          { type: 'must_preserve', statement: 42 },
+        ],
+      })
+
+      expect(messages(diagnostics)).toEqual(expect.arrayContaining([
+        expect.stringContaining('The intent required-outcome constraint statement must be a string.'),
+        expect.stringContaining('The intent must-preserve constraint statement must be a string.'),
       ]))
     })
   })

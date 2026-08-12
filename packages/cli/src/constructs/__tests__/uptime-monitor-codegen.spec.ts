@@ -124,11 +124,15 @@ describe('GrpcMonitorCodegen', () => {
 
     expect(source).toContain(`intent: {
     goal: 'Verify that the gRPC health service is available.',
-    requiredOutcomes: [
-      'The health RPC returns a serving response.',
-    ],
-    mustPreserve: [
-      'Do not weaken the serving-status assertion.',
+    constraints: [
+      {
+        type: 'required_outcome',
+        statement: 'The health RPC returns a serving response.',
+      },
+      {
+        type: 'must_preserve',
+        statement: 'Do not weaken the serving-status assertion.',
+      },
     ],
   }`)
     expect(source.indexOf('name:')).toBeLessThan(source.indexOf('intent:'))

@@ -20,14 +20,25 @@ import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen.
 import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.js'
 import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
-import { CheckIntent } from './check.js'
+
+/**
+ * Intent shape returned by the checks resource API.
+ *
+ * Construct code generation adapts this wire representation to typed intent
+ * constraints so exported resources round-trip through Monitoring as Code.
+ */
+export interface CheckIntentResource {
+  goal: string
+  requiredOutcomes?: string[]
+  mustPreserve?: string[]
+}
 
 export interface CheckResource {
   id: string
   checkType: string
   name: string
   description?: string | null
-  intent?: CheckIntent | null
+  intent?: CheckIntentResource | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -89,19 +100,20 @@ export function buildCheckProps (
       builder.string('goal', intent.goal)
 
       const requiredOutcomes = intent.requiredOutcomes ?? []
-      if (requiredOutcomes.length > 0) {
-        builder.array('requiredOutcomes', builder => {
-          for (const statement of requiredOutcomes) {
-            builder.string(statement)
-          }
-        })
-      }
-
       const mustPreserve = intent.mustPreserve ?? []
-      if (mustPreserve.length > 0) {
-        builder.array('mustPreserve', builder => {
+      if (requiredOutcomes.length > 0 || mustPreserve.length > 0) {
+        builder.array('constraints', builder => {
+          for (const statement of requiredOutcomes) {
+            builder.object(builder => {
+              builder.string('type', 'required_outcome')
+              builder.string('statement', statement)
+            })
+          }
           for (const statement of mustPreserve) {
-            builder.string(statement)
+            builder.object(builder => {
+              builder.string('type', 'must_preserve')
+              builder.string('statement', statement)
+            })
           }
         })
       }
