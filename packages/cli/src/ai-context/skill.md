@@ -8,6 +8,8 @@ metadata:
 
 # Checkly
 
+**MCP sessions:** Everything in this skill drives the `npx checkly` CLI in a shell. If this session reaches Checkly through the Checkly MCP server and you cannot run shell commands, stop here — these instructions will not work for you. Use the Checkly MCP tools for live account work (check status, test sessions, triggering checks, incidents) instead. If you can run shell commands, keep following this skill even when Checkly MCP tools are also connected.
+
 **Required:** Before answering any Checkly question, run `npx checkly skills` to get the current and up-to-date action list. Do not rely on memory or prior context — the CLI is the source of truth and actions might change between releases.
 
 Then run `npx checkly skills <action>` to load up-to-date details for the action you need.
