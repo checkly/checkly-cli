@@ -105,6 +105,31 @@ describe('loadChecklyConfig()', () => {
       ['dependency-cache-version-bad-type.js'],
     )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
   })
+  it('accepts valid checks.embeddedPackages entries', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-valid.ts'],
+    )
+    expect(config.checks?.embeddedPackages).toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0'])
+  })
+  it('rejects a checks.embeddedPackages that is not an array', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-not-array.js'],
+    )).rejects.toThrow(`Config field 'checks.embeddedPackages' must be an array of strings if set`)
+  })
+  it('rejects a checks.embeddedPackages entry that is not a valid package name', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-bad-name.js'],
+    )).rejects.toThrow(`is not a valid npm package name`)
+  })
+  it('rejects a checks.embeddedPackages entry with a version range', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-range-version.js'],
+    )).rejects.toThrow(`is not an exact semver version`)
+  })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'
     const configFile = `./fixtures/configs/${filename}`

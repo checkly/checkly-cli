@@ -10,6 +10,7 @@ import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
+import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -93,6 +94,19 @@ export type ChecklyConfig = {
      * Extra files to be included into the playwright bundle
      */
     include?: string | string[]
+    /**
+     * Dependencies whose registry tarballs should be embedded into the
+     * Playwright Check Suite code bundle, letting Checkly runners install
+     * packages they cannot fetch themselves — e.g. packages from a private
+     * registry that is only reachable from your own network. Has no effect
+     * on browser or multistep checks.
+     *
+     * Each entry is a package name (`'@acme/private-utils'`), which embeds
+     * every version of that package found in the workspace lockfile, or a
+     * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
+     * version.
+     */
+    embeddedPackages?: string[]
     /**
      * List of playwright checks that use the defined playwright config path
      */
@@ -226,6 +240,7 @@ export async function loadChecklyConfig (
     }
     validateConfigFields(config, ['logicalId', 'projectName'] as const)
     validateDependencyCacheVersion(config)
+    validateEmbeddedPackages(config)
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -273,5 +288,24 @@ function validateDependencyCacheVersion (config: ChecklyConfig): void {
       `Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`,
       { cause },
     )
+  }
+}
+
+function validateEmbeddedPackages (config: ChecklyConfig): void {
+  const embeddedPackages = config.checks?.embeddedPackages
+  if (embeddedPackages === undefined) {
+    return
+  }
+
+  if (!Array.isArray(embeddedPackages)) {
+    throw new Error(`Config field 'checks.embeddedPackages' must be an array of strings if set`)
+  }
+
+  for (const spec of embeddedPackages) {
+    try {
+      parseEmbeddedPackageSpec(spec)
+    } catch (cause) {
+      throw new Error(`Config field 'checks.embeddedPackages' is invalid: ${(cause as Error).message}`, { cause })
+    }
   }
 }
