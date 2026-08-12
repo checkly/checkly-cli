@@ -142,6 +142,22 @@ export class PlaywrightProjectBundler {
       }))
     }
 
+    // Embedded package tarballs live in the CLI cache, outside the bundle
+    // root, so they carry an explicit archive path instead of relying on the
+    // strip prefix. The materializer memoizes, so concurrent bundles share
+    // one download run, and the Bundler dedupes registrations by archive
+    // path across checks.
+    const materializer = Session.getEmbeddedPackagesMaterializer()
+    if (materializer !== undefined) {
+      for (const tarball of await materializer.materialize()) {
+        files.push({
+          filePath: tarball.filePath,
+          physical: true,
+          archivePath: tarball.archivePath,
+        })
+      }
+    }
+
     return {
       browsers: pwConfigParsed.getBrowsers(),
       playwrightVersion,

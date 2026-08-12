@@ -1,19 +1,30 @@
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { list } from 'tar'
 
-import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
+import { FixtureSandbox, RunOptions } from '../../testing/fixture-sandbox.js'
 import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
+import { TarballCache } from '../../services/embedded-packages/cache.js'
 
 async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
+  return await parseProjectWithOptions(fixt, {}, ...args)
+}
+
+async function parseProjectWithOptions (
+  fixt: FixtureSandbox,
+  options: RunOptions,
+  ...args: string[]
+): Promise<ParseProjectOutput> {
   const result = await fixt.run('pnpm', [
     'checkly',
     'debug',
     'parse-project',
     ...args,
-  ])
+  ], options)
 
   if (result.exitCode !== 0) {
     // eslint-disable-next-line no-console
@@ -1491,6 +1502,121 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       expect(files).toContain('patches/some-package+1.0.0.patch')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  /**
+   * Creates a temp CLI cache dir seeded with committed tarball fixtures so
+   * that embedded-packages tests run offline: with CHECKLY_CACHE_DIR set to
+   * the returned dir, the materializer finds every tarball in the CLI cache
+   * and never contacts a registry.
+   */
+  async function seedTarballCache (...tarballFilenames: string[]): Promise<string> {
+    const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-embed-cache-'))
+    const cache = TarballCache.default({ CHECKLY_CACHE_DIR: cacheDir })
+    for (const filename of tarballFilenames) {
+      const content = await fs.readFile(
+        path.join(__dirname, 'fixtures', 'playwright-check', 'embedded-tarballs', filename),
+      )
+      const integrity = `sha512-${createHash('sha512').update(content).digest('base64')}`
+      await cache.put(integrity, content)
+    }
+    return cacheDir
+  }
+
+  describe('bundling with embedded packages', () => {
+    let fixt: FixtureSandbox
+    let cacheDir: string
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-embedded-packages'),
+      })
+      cacheDir = await seedTarballCache('@acme+private-utils@1.2.3.tgz', 'legacy-private-pkg@2.1.0.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+      if (cacheDir) {
+        await fs.rm(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('should embed configured tarballs at the contract path', async () => {
+      const output = await parseProjectWithOptions(fixt, { env: { CHECKLY_CACHE_DIR: cacheDir } })
+
+      expect(output.diagnostics.fatal).toBe(false)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
+      expect(files).toContain('.checkly/embedded-packages/legacy-private-pkg@2.1.0.tgz')
+      // The lockfile also contains legacy-private-pkg@3.0.0; the exact
+      // version pin must exclude it.
+      expect(files).not.toContain('.checkly/embedded-packages/legacy-private-pkg@3.0.0.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling with embedded packages and subdirectory playwright config', () => {
+    let fixt: FixtureSandbox
+    let cacheDir: string
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-embedded-packages-subdir'),
+      })
+      cacheDir = await seedTarballCache('@acme+private-utils@1.2.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+      if (cacheDir) {
+        await fs.rm(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('should embed tarballs at the contract path when playwright config is in a subdirectory', async () => {
+      const output = await parseProjectWithOptions(fixt, { env: { CHECKLY_CACHE_DIR: cacheDir } })
+
+      expect(output.diagnostics.fatal).toBe(false)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('embedded packages validation', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-embedded-packages-not-found'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('should fail validation for a package that is not in the lockfile', async () => {
+      const output = await parseProject(fixt)
+
+      expect(output.diagnostics.fatal).toBe(true)
+      expect(output.payload).toBeNull()
+
+      const observation = output.diagnostics.observations.find(obs => obs.message.includes('no-such-package'))
+      expect(observation).toBeDefined()
+      expect(observation?.fatal).toBe(true)
+      expect(observation?.message).toContain('does not match any package in the lockfile')
     }, DEFAULT_TEST_TIMEOUT)
   })
 

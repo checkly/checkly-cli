@@ -1,0 +1,3 @@
+# The repo root ignores *.tgz for pnpm-pack output; these committed tarballs
+# are test fixtures for the embedded-packages feature.
+!*.tgz
