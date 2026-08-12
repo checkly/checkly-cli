@@ -108,6 +108,18 @@ describe('lookupNpmCacache()', () => {
     await expect(lookupNpmCacache(sha1, {}, 'linux', home)).resolves.toBeUndefined()
   })
 
+  it('uses the LOCALAPPDATA npm-cache location on Windows', async () => {
+    const localAppData = path.join(home, 'AppDataLocal')
+    const contentPath = path.join(
+      localAppData, 'npm-cache', '_cacache', 'content-v2', 'sha512',
+      sha512Hex.slice(0, 2), sha512Hex.slice(2, 4), sha512Hex.slice(4),
+    )
+    await fs.mkdir(path.dirname(contentPath), { recursive: true })
+    await fs.writeFile(contentPath, content)
+    await expect(lookupNpmCacache(integrity, { LOCALAPPDATA: localAppData }, 'win32', home))
+      .resolves.toEqual(content)
+  })
+
   it('rejects cacache content that fails integrity verification', async () => {
     const contentPath = path.join(
       home, '.npm', '_cacache', 'content-v2', 'sha512',
