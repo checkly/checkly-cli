@@ -72,6 +72,7 @@ export class Session {
   static playwrightProjectBundler?: PlaywrightProjectBundler
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
+  static embeddedPackages?: string[]
   static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
@@ -98,6 +99,7 @@ export class Session {
     this.playwrightProjectBundler = undefined
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
+    this.embeddedPackages = undefined
     this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))

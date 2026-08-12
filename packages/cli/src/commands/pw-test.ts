@@ -214,6 +214,7 @@ export default class PwTestCommand extends AuthCommand {
       checklyConfigConstructs,
       playwrightConfigPath,
       include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
+      embeddedPackages: checklyConfig.checks?.embeddedPackages,
       playwrightChecks: [playwrightCheck],
       loadPlaywrightChecksOnly: true,
       warnOnWebServerConfig: !(includeFlag.length > 0),
