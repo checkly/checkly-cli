@@ -209,15 +209,22 @@ packages: {}
     })
 
     it('uses npm cacache content without hitting the network', async () => {
+      const npmCacheDir = path.join(homedir, '.npm')
       const hex = createHash('sha512').update(barTarball).digest('hex')
       const contentPath = path.join(
-        homedir, '.npm', '_cacache', 'content-v2', 'sha512',
+        npmCacheDir, '_cacache', 'content-v2', 'sha512',
         hex.slice(0, 2), hex.slice(2, 4), hex.slice(4),
       )
       await fs.mkdir(path.dirname(contentPath), { recursive: true })
       await fs.writeFile(contentPath, barTarball)
 
-      const tarballs = await makeMaterializer(['bar@2.0.0']).materialize()
+      // Pin the npm cache location: the platform default differs (~/.npm on
+      // POSIX, %LOCALAPPDATA%\npm-cache on Windows) and the production code
+      // uses the real process.platform.
+      const materializer = makeMaterializer(['bar@2.0.0'], {
+        env: { CHECKLY_CACHE_DIR: cacheDir, npm_config_cache: npmCacheDir },
+      })
+      const tarballs = await materializer.materialize()
       expect(requests).toHaveLength(0)
       await expect(fs.readFile(tarballs[0].filePath)).resolves.toEqual(barTarball)
     })
