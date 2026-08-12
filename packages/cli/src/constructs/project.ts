@@ -6,10 +6,15 @@ import { Construct } from './construct.js'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  StatusPage, StatusPageService,
+  StatusPage, StatusPageService, PlaywrightCheck,
 } from './/index.js'
 import { Diagnostics } from './diagnostics.js'
-import { ConstructDiagnostic, ConstructDiagnostics, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import {
+  ConstructDiagnostic,
+  ConstructDiagnostics,
+  InvalidPropertyValueDiagnostic,
+  UnsatisfiedLocalPrerequisitesDiagnostic,
+} from './construct-diagnostics.js'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 import { Session } from './session.js'
@@ -110,6 +115,57 @@ export class Project extends Construct {
     )
 
     diagnostics.extend(...constructDiagnostics)
+
+    await this.#validateEmbeddedPackages(diagnostics)
+  }
+
+  /**
+   * Validates the project-wide `checks.embeddedPackages` option once per
+   * project (individual checks share the session-level materializer). Only
+   * local checks run here — resolving the configured specs against the
+   * lockfile — no tarballs are fetched until bundling. Skipped when the
+   * project has no Playwright checks: the option only affects Playwright
+   * code bundles, and no bundling (or materialization) happens without one.
+   * Deliberately ignores testOnly flags and the session check filter — a
+   * configuration problem should surface even on a run that happens to
+   * filter out every Playwright check.
+   */
+  async #validateEmbeddedPackages (diagnostics: Diagnostics): Promise<void> {
+    const materializer = Session.getEmbeddedPackagesMaterializer()
+    if (materializer === undefined) {
+      return
+    }
+
+    const hasPlaywrightChecks = Object.values(this.data.check)
+      .some(check => check instanceof PlaywrightCheck)
+    if (!hasPlaywrightChecks) {
+      return
+    }
+
+    const { issues } = await materializer.plan()
+
+    // A large monorepo can legitimately embed dozens of packages, so a
+    // stale config could produce dozens of issues; keep the output
+    // readable by grouping the per-entry issues into one diagnostic.
+    const lockfileIssues = issues.filter(issue =>
+      issue.type === 'missing-lockfile' || issue.type === 'unsupported-lockfile')
+    const specIssues = issues.filter(issue => !lockfileIssues.includes(issue))
+
+    for (const issue of lockfileIssues) {
+      diagnostics.add(new UnsatisfiedLocalPrerequisitesDiagnostic(new Error(issue.message)))
+    }
+
+    if (specIssues.length === 1) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic('checks.embeddedPackages', new Error(specIssues[0].message)))
+    } else if (specIssues.length > 1) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'checks.embeddedPackages',
+        new Error(
+          `${specIssues.length} entries have problems:\n\n`
+          + specIssues.map(issue => `  - ${issue.message}`).join('\n'),
+        ),
+      ))
+    }
   }
 
   allowTestOnly (enabled: boolean) {

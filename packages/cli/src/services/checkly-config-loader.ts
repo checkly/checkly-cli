@@ -104,7 +104,21 @@ export type ChecklyConfig = {
      * Each entry is a package name (`'@acme/private-utils'`), which embeds
      * every version of that package found in the workspace lockfile, or a
      * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
-     * version.
+     * version. List every package the runner cannot fetch, including
+     * private packages that only appear as (transitive) dependencies of
+     * other private packages — dependencies of listed packages are not
+     * embedded automatically.
+     *
+     * Tarballs are resolved against the workspace root lockfile
+     * (`pnpm-lock.yaml` or `package-lock.json`), reused from local caches
+     * (the CLI's own, then npm's) when possible and otherwise downloaded
+     * from the registry configured in `.npmrc` (including scoped registries
+     * and auth tokens), and always verified against the lockfile's recorded
+     * integrity. The project tree is never written to; downloads are kept
+     * in a per-user cache directory (override with `CHECKLY_CACHE_DIR`).
+     * In the code bundle the tarballs land at
+     * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
+     * through a local registry during dependency installation.
      */
     embeddedPackages?: string[]
     /**

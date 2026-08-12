@@ -186,6 +186,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
   Session.embeddedPackages = embeddedPackages
+  // The materializer snapshots specs and workspace paths at first use, so a
+  // repeated in-process parse with different options must not reuse it.
+  Session.embeddedPackagesMaterializer = undefined
   Session.warnOnWebServerConfig = warnOnWebServerConfig
   Session.packageManager = packageManager
   Session.workspace = workspace
