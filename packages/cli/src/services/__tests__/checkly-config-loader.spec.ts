@@ -125,6 +125,18 @@ describe('loadChecklyConfig()', () => {
       ['embedded-packages-bad-name.js'],
     )).rejects.toThrow(`is not a valid npm package name`)
   })
+  it('rejects a non-boolean checks.detectEmbeddedPackages', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['detect-embedded-packages-bad-type.js'],
+    )).rejects.toThrow(`Config field 'checks.detectEmbeddedPackages' must be a boolean if set`)
+  })
+  it('rejects an invalid checks.detectEmbeddedPackagesFallback', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['detect-fallback-bad-value.js'],
+    )).rejects.toThrow(`Config field 'checks.detectEmbeddedPackagesFallback' must be 'skip' or 'public-registry' if set`)
+  })
   it('rejects a checks.embeddedPackages entry with a version range', async () => {
     await expect(loadChecklyConfig(
       path.join(__dirname, 'fixtures', 'configs'),

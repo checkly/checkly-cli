@@ -97,6 +97,11 @@ export default class Deploy extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    'detect-embedded-packages': Flags.boolean({
+      description: '[default: true] Automatically embed dependencies that Checkly cannot fetch from the public npm registry (see checks.detectEmbeddedPackages).',
+      allowNo: true,
+      env: 'CHECKLY_DETECT_EMBEDDED_PACKAGES',
+    }),
     'debug-bundle': Flags.boolean({
       description: 'Output the project bundle to a file without deploying any resources.',
       default: false,
@@ -179,6 +184,8 @@ export default class Deploy extends AuthCommand {
       playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
       include: checklyConfig.checks?.include,
       embeddedPackages: checklyConfig.checks?.embeddedPackages,
+      detectEmbeddedPackages: flags['detect-embedded-packages'] ?? checklyConfig.checks?.detectEmbeddedPackages,
+      detectEmbeddedPackagesFallback: checklyConfig.checks?.detectEmbeddedPackagesFallback,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const repoInfo = getGitInformation(project.repoUrl)

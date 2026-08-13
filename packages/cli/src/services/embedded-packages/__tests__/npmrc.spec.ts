@@ -100,7 +100,7 @@ describe('npmrcConfigFromEnv()', () => {
 
 describe('defaultNpmrcPaths()', () => {
   it('orders context dir before workspace root before home', () => {
-    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws/packages/a')).toEqual([
+    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws/packages/a', {})).toEqual([
       path.join('/ws/packages/a', '.npmrc'),
       path.join('/ws', '.npmrc'),
       path.join('/home/user', '.npmrc'),
@@ -108,9 +108,41 @@ describe('defaultNpmrcPaths()', () => {
   })
 
   it('deduplicates when the context dir is the workspace root', () => {
-    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws')).toEqual([
+    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws', {})).toEqual([
       path.join('/ws', '.npmrc'),
       path.join('/home/user', '.npmrc'),
+    ])
+  })
+
+  it('lets npm_config_userconfig replace the user-level path, like npm', () => {
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { npm_config_userconfig: '/etc/ci-npmrc' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      '/etc/ci-npmrc',
+    ])
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { NPM_CONFIG_USERCONFIG: '/etc/ci-npmrc' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      '/etc/ci-npmrc',
+    ])
+    // npm ignores empty env config values.
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { npm_config_userconfig: '' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      path.join('/home/user', '.npmrc'),
+    ])
+  })
+
+  it('expands a leading ~ in npm_config_userconfig against the home directory', () => {
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { npm_config_userconfig: '~/.npmrc-work' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      path.join('/home/user', '.npmrc-work'),
+    ])
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { npm_config_userconfig: '~' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      '/home/user',
+    ])
+    // Only a leading tilde segment is home-relative.
+    expect(defaultNpmrcPaths('/ws', '/home/user', undefined, { npm_config_userconfig: '/etc/~npmrc' })).toEqual([
+      path.join('/ws', '.npmrc'),
+      '/etc/~npmrc',
     ])
   })
 })

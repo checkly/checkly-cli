@@ -135,6 +135,54 @@ export type ChecklyConfig = {
      */
     embeddedPackages?: string[]
     /**
+     * Whether to automatically detect and embed dependencies that Checkly
+     * runners cannot fetch from the public npm registry, in addition to
+     * any explicit `embeddedPackages` entries. Defaults to `true`; the
+     * `--no-detect-embedded-packages` flag overrides per run.
+     *
+     * Detection is free of network traffic when the effective registry is
+     * the public one; with a private registry, undecided packages are
+     * resolved by asking that registry which packages it hosts, and the
+     * result is cached (keyed by the lockfile), so repeat runs cost
+     * nothing. A detected package never overrides an explicit
+     * `embeddedPackages` entry for the same name.
+     *
+     * Private package names never leave your machine by default: the
+     * registry interrogation uses the Sonatype Nexus REST API of the
+     * instance each package's lockfile-recorded source points at (the npm
+     * credentials must be able to browse every npm hosted repository on
+     * it). Packages whose lockfile records no source URL at all —
+     * `pnpm-lock.yaml` records none — are classified by the configured
+     * registry's inventory: hosted means embed, absent means public. A
+     * recorded source that doesn't look like a Nexus content URL is
+     * checked against the configured registry too, but only when it shares
+     * that registry's host, and only to confirm a package is hosted there
+     * — a package the instance doesn't host stays unclassified rather
+     * than being assumed public. See `detectEmbeddedPackagesFallback` for
+     * what happens to unclassified packages. Detection assumes proxy repositories on your
+     * registry front the public npm registry — packages served through a
+     * proxy of *another private* registry are not detected and should be
+     * listed in `embeddedPackages` explicitly.
+     */
+    detectEmbeddedPackages?: boolean
+    /**
+     * What detection does with packages it cannot classify without
+     * querying the public npm registry — because the registry's REST API
+     * is not accessible with the configured npm credentials, because a
+     * package's recorded source shares the configured registry's host but
+     * is not hosted on it, or because the registry configuration itself
+     * cannot be resolved (for example an unset environment variable
+     * referenced in `.npmrc`, which is also warned about separately).
+     * `'skip'` (the default) leaves them un-embedded and prints a warning;
+     * `'public-registry'` allows integrity lookups against the public npm
+     * registry — accurate for any registry product, but it transmits the
+     * undecided package names (potentially private ones) to the public
+     * registry. Verdicts obtained from the public registry are cached as
+     * immutable proofs and continue to apply after the option is set back
+     * to `'skip'`; clear the CLI cache to discard them.
+     */
+    detectEmbeddedPackagesFallback?: 'skip' | 'public-registry'
+    /**
      * List of playwright checks that use the defined playwright config path
      */
     playwrightChecks?: PlaywrightSlimmedProp[]
@@ -319,6 +367,16 @@ function validateDependencyCacheVersion (config: ChecklyConfig): void {
 }
 
 function validateEmbeddedPackages (config: ChecklyConfig): void {
+  const detect = config.checks?.detectEmbeddedPackages
+  if (detect !== undefined && typeof detect !== 'boolean') {
+    throw new Error(`Config field 'checks.detectEmbeddedPackages' must be a boolean if set`)
+  }
+
+  const fallback = config.checks?.detectEmbeddedPackagesFallback
+  if (fallback !== undefined && fallback !== 'skip' && fallback !== 'public-registry') {
+    throw new Error(`Config field 'checks.detectEmbeddedPackagesFallback' must be 'skip' or 'public-registry' if set`)
+  }
+
   const embeddedPackages = config.checks?.embeddedPackages
   if (embeddedPackages === undefined) {
     return

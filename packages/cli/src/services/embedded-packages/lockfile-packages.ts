@@ -57,9 +57,9 @@ export class UnsupportedLockfileError extends Error {
  * registry packages and excluded (git/file/link/integrity-less) entries.
  * Supports `pnpm-lock.yaml` (v6/v9) and `package-lock.json` (v2/v3).
  */
-export async function loadLockfilePackages (lockfilePath: string): Promise<LockfilePackages> {
+export async function loadLockfilePackages (lockfilePath: string, content?: string): Promise<LockfilePackages> {
   const basename = path.basename(lockfilePath)
-  const content = await fs.readFile(lockfilePath, 'utf8')
+  content ??= await fs.readFile(lockfilePath, 'utf8')
 
   switch (basename) {
     case 'pnpm-lock.yaml':

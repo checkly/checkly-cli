@@ -46,6 +46,8 @@ type ProjectParseOpts = {
   playwrightConfigPath?: string
   include?: string | string[]
   embeddedPackages?: string[]
+  detectEmbeddedPackages?: boolean
+  detectEmbeddedPackagesFallback?: 'skip' | 'public-registry'
   playwrightChecks?: PlaywrightSlimmedProp[]
   loadPlaywrightChecksOnly?: boolean
   warnOnWebServerConfig?: boolean
@@ -146,6 +148,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     playwrightConfigPath,
     include,
     embeddedPackages,
+    detectEmbeddedPackages,
+    detectEmbeddedPackagesFallback,
     playwrightChecks,
     loadPlaywrightChecksOnly,
     warnOnWebServerConfig,
@@ -186,6 +190,8 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.verifyRuntimeDependencies = verifyRuntimeDependencies ?? true
   Session.ignoreDirectoriesMatch = ignoreDirectoriesMatch
   Session.embeddedPackages = embeddedPackages
+  Session.detectEmbeddedPackages = detectEmbeddedPackages
+  Session.detectEmbeddedPackagesFallback = detectEmbeddedPackagesFallback
   // The materializer snapshots specs and workspace paths at first use, so a
   // repeated in-process parse with different options must not reuse it.
   Session.embeddedPackagesMaterializer = undefined

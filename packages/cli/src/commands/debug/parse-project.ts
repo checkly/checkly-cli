@@ -150,6 +150,8 @@ export default class ParseProjectCommand extends Command {
         playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
         include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
         embeddedPackages: checklyConfig.checks?.embeddedPackages,
+        detectEmbeddedPackages: checklyConfig.checks?.detectEmbeddedPackages,
+        detectEmbeddedPackagesFallback: checklyConfig.checks?.detectEmbeddedPackagesFallback,
         playwrightChecks: checklyConfig.checks?.playwrightChecks,
         loadPlaywrightChecksOnly: emulatePwTest,
         warnOnWebServerConfig: emulatePwTest && !(includeFlag.length > 0),
