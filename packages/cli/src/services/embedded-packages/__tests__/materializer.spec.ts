@@ -201,6 +201,20 @@ packages: {}
       expect(requests.every(r => r.acceptEncoding === 'identity')).toBe(true)
     })
 
+    it('defaults the cache to node_modules/.cache/checkly under the workspace root', async () => {
+      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {} }).materialize()
+      expect(tarballs[0].filePath.startsWith(
+        path.join(workspaceRoot, 'node_modules', '.cache', 'checkly', 'embedded-packages'),
+      )).toBe(true)
+    })
+
+    it('derives the project root from the lockfile path when no workspace root is given', async () => {
+      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {}, workspaceRoot: undefined }).materialize()
+      expect(tarballs[0].filePath.startsWith(path.join(
+        path.dirname(lockfilePath), 'node_modules', '.cache', 'checkly', 'embedded-packages',
+      ))).toBe(true)
+    })
+
     it('reuses the CLI cache instead of downloading again', async () => {
       await makeMaterializer(['bar@2.0.0']).materialize()
       expect(requests).toHaveLength(1)
