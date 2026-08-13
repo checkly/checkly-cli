@@ -114,9 +114,12 @@ export type ChecklyConfig = {
      * (the CLI's own, then npm's) when possible and otherwise downloaded
      * from the registry configured in `.npmrc` (including scoped registries
      * and auth tokens), and always verified against the lockfile's recorded
-     * integrity. The project tree is never written to; downloads are kept
-     * in a per-user cache directory (override with `CHECKLY_CACHE_DIR`).
-     * In the code bundle the tarballs land at
+     * integrity. Downloads are cached under the workspace root's
+     * `node_modules/.cache/checkly`
+     * (override with `CHECKLY_CACHE_DIR`; a per-user cache directory
+     * serves as the fallback if the project location isn't writable), so
+     * nothing lands in the project outside `node_modules`. In the code
+     * bundle the tarballs land at
      * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
      * through a local registry during dependency installation.
      */

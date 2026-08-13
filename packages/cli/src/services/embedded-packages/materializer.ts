@@ -124,7 +124,12 @@ export class EmbeddedPackagesMaterializer {
     this.#options = options
     this.#env = options.env ?? process.env
     this.#homedir = options.homedir ?? os.homedir()
-    this.#cache = TarballCache.default(this.#env, process.platform, this.#homedir)
+    this.#cache = TarballCache.default(this.#env, this.#projectRoot, process.platform, this.#homedir)
+  }
+
+  get #projectRoot (): string | undefined {
+    const { workspaceRoot, lockfilePath } = this.#options
+    return workspaceRoot ?? (lockfilePath !== undefined ? path.dirname(lockfilePath) : undefined)
   }
 
   plan (): Promise<EmbeddedPackagesPlan> {
@@ -246,8 +251,10 @@ export class EmbeddedPackagesMaterializer {
       return []
     }
 
+    // Safe to assert: a missing lockfile is a plan issue, and issues abort
+    // above.
     const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
-      this.#options.workspaceRoot ?? path.dirname(this.#options.lockfilePath!),
+      this.#projectRoot!,
       this.#homedir,
       this.#options.contextDir,
     ), this.#env)

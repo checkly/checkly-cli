@@ -5,32 +5,40 @@ import path from 'node:path'
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-import { TarballCache, lookupNpmCacache, resolveCacheDir } from '../cache.js'
+import { TarballCache, lookupNpmCacache, resolveCacheDirs } from '../cache.js'
 
 const content = Buffer.from('fake tarball content')
 const sha512Base64 = createHash('sha512').update(content).digest('base64')
 const sha512Hex = createHash('sha512').update(content).digest('hex')
 const integrity = `sha512-${sha512Base64}`
 
-describe('resolveCacheDir()', () => {
+describe('resolveCacheDirs()', () => {
   const home = path.sep === '/' ? '/home/user' : 'C:\\Users\\user'
 
-  it('honors CHECKLY_CACHE_DIR', () => {
-    expect(resolveCacheDir({ CHECKLY_CACHE_DIR: '/tmp/custom-cache' }, 'linux', home))
-      .toBe(path.resolve('/tmp/custom-cache'))
+  it('makes CHECKLY_CACHE_DIR the sole location', () => {
+    expect(resolveCacheDirs({ CHECKLY_CACHE_DIR: '/tmp/custom-cache' }, '/proj', 'linux', home))
+      .toEqual([path.resolve('/tmp/custom-cache')])
   })
 
-  it('uses Library/Caches on macOS', () => {
-    expect(resolveCacheDir({}, 'darwin', home)).toBe(path.join(home, 'Library', 'Caches', 'checkly'))
+  it('puts node_modules/.cache/checkly first, backed by the per-user dir', () => {
+    expect(resolveCacheDirs({}, '/proj', 'linux', home)).toEqual([
+      path.join('/proj', 'node_modules', '.cache', 'checkly'),
+      path.join(home, '.cache', 'checkly'),
+    ])
   })
 
-  it('uses XDG_CACHE_HOME when set', () => {
-    expect(resolveCacheDir({ XDG_CACHE_HOME: '/xdg-cache' }, 'linux', home))
-      .toBe(path.join('/xdg-cache', 'checkly'))
+  it('uses Library/Caches on macOS without a project root', () => {
+    expect(resolveCacheDirs({}, undefined, 'darwin', home))
+      .toEqual([path.join(home, 'Library', 'Caches', 'checkly')])
   })
 
-  it('falls back to ~/.cache elsewhere', () => {
-    expect(resolveCacheDir({}, 'linux', home)).toBe(path.join(home, '.cache', 'checkly'))
+  it('uses XDG_CACHE_HOME when set without a project root', () => {
+    expect(resolveCacheDirs({ XDG_CACHE_HOME: '/xdg-cache' }, undefined, 'linux', home))
+      .toEqual([path.join('/xdg-cache', 'checkly')])
+  })
+
+  it('falls back to ~/.cache elsewhere without a project root', () => {
+    expect(resolveCacheDirs({}, undefined, 'linux', home)).toEqual([path.join(home, '.cache', 'checkly')])
   })
 })
 
@@ -131,14 +139,57 @@ describe('lookupNpmCacache()', () => {
 })
 
 describe('TarballCache.default()', () => {
-  it('derives the cache location from the injected env, platform and homedir', async () => {
-    const home = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-cache-home-'))
-    try {
-      const cache = TarballCache.default({}, 'linux', home)
-      const putPath = await cache.put(integrity, content)
-      expect(putPath.startsWith(path.join(home, '.cache', 'checkly', 'embedded-packages'))).toBe(true)
-    } finally {
-      await fs.rm(home, { recursive: true, force: true })
-    }
+  let home: string
+  let projectRoot: string
+
+  beforeEach(async () => {
+    home = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-cache-home-'))
+    projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-cache-proj-'))
+  })
+
+  afterEach(async () => {
+    await fs.rm(home, { recursive: true, force: true })
+    await fs.rm(projectRoot, { recursive: true, force: true })
+  })
+
+  it('writes to node_modules/.cache under the project root', async () => {
+    const cache = TarballCache.default({}, projectRoot, 'linux', home)
+    const putPath = await cache.put(integrity, content)
+    expect(putPath.startsWith(
+      path.join(projectRoot, 'node_modules', '.cache', 'checkly', 'embedded-packages'),
+    )).toBe(true)
+  })
+
+  it('falls back to the per-user cache when the project location is not writable', async () => {
+    // A regular file where node_modules would go makes every mkdir under it
+    // fail deterministically on all platforms.
+    await fs.writeFile(path.join(projectRoot, 'node_modules'), 'not a directory')
+
+    const cache = TarballCache.default({}, projectRoot, 'linux', home)
+    const putPath = await cache.put(integrity, content)
+    expect(putPath.startsWith(path.join(home, '.cache', 'checkly', 'embedded-packages'))).toBe(true)
+  })
+
+  it('reads entries from the per-user fallback tier', async () => {
+    const userCache = TarballCache.default({}, undefined, 'linux', home)
+    await userCache.put(integrity, content)
+
+    const cache = TarballCache.default({}, projectRoot, 'linux', home)
+    await expect(cache.get(integrity)).resolves.toBeDefined()
+  })
+
+  it('throws an actionable error when no cache location is writable', async () => {
+    const blocker = path.join(projectRoot, 'blocker')
+    await fs.writeFile(blocker, 'not a directory')
+
+    const cache = TarballCache.default(
+      { CHECKLY_CACHE_DIR: path.join(blocker, 'cache') }, projectRoot, 'linux', home,
+    )
+    const error = await cache.put(integrity, content).catch(err => err)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).toContain('Unable to write the embedded-packages cache')
+    expect(error.message).toContain(path.join(blocker, 'cache'))
+    expect(error.message).toContain('CHECKLY_CACHE_DIR')
+    expect(error.cause).toBeDefined()
   })
 })
