@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { constants, createWriteStream } from 'node:fs'
 import { access, mkdir, rename, rm } from 'node:fs/promises'
 import { Transform } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
+import { finished, pipeline } from 'node:stream/promises'
+import Debug from 'debug'
 import { minimatch } from 'minimatch'
 import * as api from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
@@ -14,6 +15,8 @@ import type {
   AssetManifestEntry,
 } from '../rest/asset-manifests.js'
 import { assetSelectorValue } from '../formatters/assets.js'
+
+const debug = Debug('checkly:cli:helpers:result-assets')
 
 export const assetTypes = [
   'log',
@@ -404,17 +407,29 @@ export async function downloadAssetToFile (
   await mkdir(path.dirname(filePath), { recursive: true })
   const tempPath = temporaryDownloadPath(filePath)
 
+  const response = await fetchAssetStream(asset.url)
+  const transform = progressTransform(parseContentLength(response.headers), options.onProgress)
+  const writable = createWriteStream(tempPath)
+
   try {
-    const response = await fetchAssetStream(asset.url)
-    const transform = progressTransform(parseContentLength(response.headers), options.onProgress)
     if (transform) {
-      await pipeline(response.data, transform, createWriteStream(tempPath))
+      await pipeline(response.data, transform, writable)
     } else {
-      await pipeline(response.data, createWriteStream(tempPath))
+      await pipeline(response.data, writable)
     }
     await rename(tempPath, filePath)
   } catch (err) {
-    await rm(tempPath, { force: true })
+    writable.destroy()
+    // Wait for the underlying file handle to finish opening and close before
+    // removing the temp file; otherwise a still-pending open can recreate it
+    // after rm, or (on Windows) keep the unlinked entry visible in readdir.
+    await finished(writable).catch(() => {})
+    // Cleanup is best-effort: a leaked temp file is preferable to masking the
+    // original download error with an rm failure. maxRetries covers Windows
+    // EBUSY/EPERM from external processes briefly holding the fresh temp file.
+    await rm(tempPath, { force: true, maxRetries: 3 }).catch((cleanupErr: unknown) => {
+      debug('Failed to remove temporary download file %s: %O', tempPath, cleanupErr)
+    })
     throw err
   }
 
