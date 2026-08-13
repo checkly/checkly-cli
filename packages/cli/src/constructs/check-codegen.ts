@@ -105,13 +105,13 @@ export function buildCheckProps (
         builder.array('constraints', builder => {
           for (const statement of requiredOutcomes) {
             builder.object(builder => {
-              builder.string('type', 'required_outcome')
+              builder.string('type', 'REQUIRED_OUTCOME')
               builder.string('statement', statement)
             })
           }
           for (const statement of mustPreserve) {
             builder.object(builder => {
-              builder.string('type', 'must_preserve')
+              builder.string('type', 'MUST_PRESERVE')
               builder.string('statement', statement)
             })
           }

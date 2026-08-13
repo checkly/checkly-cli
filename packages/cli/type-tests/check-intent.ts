@@ -57,11 +57,11 @@ export const completeIntent: CheckIntent = {
   goal: 'Verify that authenticated users can open the dashboard.',
   constraints: [
     {
-      type: 'required_outcome',
+      type: 'REQUIRED_OUTCOME',
       statement: 'The dashboard displays the account overview.',
     },
     {
-      type: 'must_preserve',
+      type: 'MUST_PRESERVE',
       statement: 'Do not weaken the authentication assertion.',
     },
   ],
@@ -77,7 +77,7 @@ export const unsupportedConstraintTypeIsRejected: CheckIntent = {
   goal: 'Verify that authenticated users can open the dashboard.',
   constraints: [{
     // @ts-expect-error New constraint types require explicit CLI and backend support.
-    type: 'nice_to_have',
+    type: 'NICE_TO_HAVE',
     statement: 'The dashboard loads quickly.',
   }],
 }

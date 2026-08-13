@@ -126,11 +126,11 @@ describe('GrpcMonitorCodegen', () => {
     goal: 'Verify that the gRPC health service is available.',
     constraints: [
       {
-        type: 'required_outcome',
+        type: 'REQUIRED_OUTCOME',
         statement: 'The health RPC returns a serving response.',
       },
       {
-        type: 'must_preserve',
+        type: 'MUST_PRESERVE',
         statement: 'Do not weaken the serving-status assertion.',
       },
     ],

@@ -53,7 +53,7 @@ export type CheckRetryStrategy =
 /**
  * The kind of durable guidance expressed by a check intent constraint.
  */
-export type CheckIntentConstraintType = 'required_outcome' | 'must_preserve'
+export type CheckIntentConstraintType = 'REQUIRED_OUTCOME' | 'MUST_PRESERVE'
 
 /**
  * A typed statement that refines a check's goal.
@@ -118,11 +118,11 @@ export interface CheckIntentProps {
    *   goal: 'Verify that authenticated users can open the dashboard.',
    *   constraints: [
    *     {
-   *       type: 'required_outcome',
+   *       type: 'REQUIRED_OUTCOME',
    *       statement: 'Authentication succeeds for a valid user.',
    *     },
    *     {
-   *       type: 'must_preserve',
+   *       type: 'MUST_PRESERVE',
    *       statement: 'Do not remove or weaken the authentication assertion.',
    *     },
    *   ],
@@ -488,8 +488,8 @@ export abstract class Check extends Construct {
     }
 
     const counts: Record<CheckIntentConstraintType, number> = {
-      required_outcome: 0,
-      must_preserve: 0,
+      REQUIRED_OUTCOME: 0,
+      MUST_PRESERVE: 0,
     }
 
     for (const [index, constraint] of value.entries()) {
@@ -517,20 +517,20 @@ export abstract class Check extends Construct {
       }
 
       const type = fields.type
-      if (type !== 'required_outcome' && type !== 'must_preserve') {
+      if (type !== 'REQUIRED_OUTCOME' && type !== 'MUST_PRESERVE') {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           `${property}.type`,
           new Error(
-            `The intent constraint type must be "required_outcome" or "must_preserve", got ${JSON.stringify(type)}.`,
+            `The intent constraint type must be "REQUIRED_OUTCOME" or "MUST_PRESERVE", got ${JSON.stringify(type)}.`,
           ),
         ))
       } else {
         counts[type] += 1
       }
 
-      const statementLabel = type === 'required_outcome'
+      const statementLabel = type === 'REQUIRED_OUTCOME'
         ? 'required-outcome constraint statement'
-        : type === 'must_preserve'
+        : type === 'MUST_PRESERVE'
           ? 'must-preserve constraint statement'
           : 'constraint statement'
       this.validateIntentStatement(
@@ -543,10 +543,10 @@ export abstract class Check extends Construct {
     }
 
     const constraintLabels: Record<CheckIntentConstraintType, string> = {
-      required_outcome: 'required-outcome constraints',
-      must_preserve: 'must-preserve constraints',
+      REQUIRED_OUTCOME: 'required-outcome constraints',
+      MUST_PRESERVE: 'must-preserve constraints',
     }
-    for (const type of ['required_outcome', 'must_preserve'] as const) {
+    for (const type of ['REQUIRED_OUTCOME', 'MUST_PRESERVE'] as const) {
       if (counts[type] > 20) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
           'intent.constraints',
@@ -695,10 +695,10 @@ export abstract class Check extends Construct {
             : {
                 goal: this.#intent.goal.trim(),
                 requiredOutcomes: (this.#intent.constraints ?? [])
-                  .filter(constraint => constraint.type === 'required_outcome')
+                  .filter(constraint => constraint.type === 'REQUIRED_OUTCOME')
                   .map(constraint => constraint.statement.trim()),
                 mustPreserve: (this.#intent.constraints ?? [])
-                  .filter(constraint => constraint.type === 'must_preserve')
+                  .filter(constraint => constraint.type === 'MUST_PRESERVE')
                   .map(constraint => constraint.statement.trim()),
               },
         }

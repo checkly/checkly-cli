@@ -6,11 +6,11 @@ new ApiCheck('dashboard-intent', {
     goal: 'Verify that authenticated users can open the dashboard.',
     constraints: [
       {
-        type: 'required_outcome',
+        type: 'REQUIRED_OUTCOME',
         statement: 'The dashboard displays the account overview.',
       },
       {
-        type: 'must_preserve',
+        type: 'MUST_PRESERVE',
         statement: 'Do not weaken the authentication assertion.',
       },
     ],

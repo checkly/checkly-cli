@@ -13,19 +13,19 @@ const completeIntent: CheckIntent = {
   goal: 'Verify that authenticated users can open the dashboard.',
   constraints: [
     {
-      type: 'required_outcome',
+      type: 'REQUIRED_OUTCOME',
       statement: 'Authentication succeeds for a valid user.',
     },
     {
-      type: 'required_outcome',
+      type: 'REQUIRED_OUTCOME',
       statement: 'The dashboard displays the account overview.',
     },
     {
-      type: 'must_preserve',
+      type: 'MUST_PRESERVE',
       statement: 'Do not remove or weaken the authentication assertion.',
     },
     {
-      type: 'must_preserve',
+      type: 'MUST_PRESERVE',
       statement: 'Do not replace the dashboard assertion with a generic page-load assertion.',
     },
   ],
@@ -198,7 +198,7 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         constraints: Array.from(
           { length: 20 },
-          (_, index) => constraint('required_outcome', `Outcome ${index}`),
+          (_, index) => constraint('REQUIRED_OUTCOME', `Outcome ${index}`),
         ),
       })).isFatal()).toBe(false)
 
@@ -206,7 +206,7 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         constraints: Array.from(
           { length: 21 },
-          (_, index) => constraint('required_outcome', `Outcome ${index}`),
+          (_, index) => constraint('REQUIRED_OUTCOME', `Outcome ${index}`),
         ),
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
@@ -219,7 +219,7 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         constraints: Array.from(
           { length: 20 },
-          (_, index) => constraint('must_preserve', `Guardrail ${index}`),
+          (_, index) => constraint('MUST_PRESERVE', `Guardrail ${index}`),
         ),
       })).isFatal()).toBe(false)
 
@@ -227,7 +227,7 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         constraints: Array.from(
           { length: 21 },
-          (_, index) => constraint('must_preserve', `Guardrail ${index}`),
+          (_, index) => constraint('MUST_PRESERVE', `Guardrail ${index}`),
         ),
       })
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
@@ -236,8 +236,8 @@ describe('check intent', () => {
     })
 
     it.each([
-      ['required-outcome constraint statement', 'required_outcome'],
-      ['must-preserve constraint statement', 'must_preserve'],
+      ['required-outcome constraint statement', 'REQUIRED_OUTCOME'],
+      ['must-preserve constraint statement', 'MUST_PRESERVE'],
     ] as const)('rejects a blank %s', async (label, type) => {
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
@@ -249,8 +249,8 @@ describe('check intent', () => {
     })
 
     it.each([
-      ['required-outcome constraint statement', 'required_outcome'],
-      ['must-preserve constraint statement', 'must_preserve'],
+      ['required-outcome constraint statement', 'REQUIRED_OUTCOME'],
+      ['must-preserve constraint statement', 'MUST_PRESERVE'],
     ] as const)('accepts a 1,000-character %s and rejects 1,001 characters', async (label, type) => {
       expect((await validateIntent({
         goal: 'Verify the dashboard.',
@@ -271,7 +271,7 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         assertion: 'The dashboard is visible.',
         constraints: [{
-          type: 'required_outcome',
+          type: 'REQUIRED_OUTCOME',
           statement: 'The dashboard loads.',
           priority: 'high',
         }],
@@ -305,16 +305,16 @@ describe('check intent', () => {
         goal: 'Verify the dashboard.',
         constraints: [
           { statement: 'The dashboard loads.' },
-          { type: 'nice_to_have', statement: 'The dashboard loads quickly.' },
+          { type: 'NICE_TO_HAVE', statement: 'The dashboard loads quickly.' },
         ],
       })
 
       expect(messages(diagnostics)).toEqual(expect.arrayContaining([
         expect.stringContaining(
-          'The intent constraint type must be "required_outcome" or "must_preserve", got undefined.',
+          'The intent constraint type must be "REQUIRED_OUTCOME" or "MUST_PRESERVE", got undefined.',
         ),
         expect.stringContaining(
-          'The intent constraint type must be "required_outcome" or "must_preserve", got "nice_to_have".',
+          'The intent constraint type must be "REQUIRED_OUTCOME" or "MUST_PRESERVE", got "NICE_TO_HAVE".',
         ),
       ]))
     })
@@ -323,8 +323,8 @@ describe('check intent', () => {
       const diagnostics = await validateIntent({
         goal: 'Verify the dashboard.',
         constraints: [
-          { type: 'required_outcome' },
-          { type: 'must_preserve', statement: 42 },
+          { type: 'REQUIRED_OUTCOME' },
+          { type: 'MUST_PRESERVE', statement: 42 },
         ],
       })
 
