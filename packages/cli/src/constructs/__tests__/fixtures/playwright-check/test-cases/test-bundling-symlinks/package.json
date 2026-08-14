@@ -1,0 +1,7 @@
+{
+  "name": "playwright-symlink-bundle-test",
+  "version": "1.0.0",
+  "dependencies": {
+    "@playwright/test": "^1.55.1"
+  }
+}

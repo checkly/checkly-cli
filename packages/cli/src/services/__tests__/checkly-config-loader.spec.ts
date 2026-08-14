@@ -73,6 +73,38 @@ describe('loadChecklyConfig()', () => {
       },
     })
   })
+  it('accepts a string caching.dependencyCache.version', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['dependency-cache-version-string.ts'],
+    )
+    expect(config.caching?.dependencyCache?.version).toBe('v2')
+  })
+  it('accepts 0 as a caching.dependencyCache.version', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['dependency-cache-version-zero.ts'],
+    )
+    expect(config.caching?.dependencyCache?.version).toBe(0)
+  })
+  it('rejects a non-integer caching.dependencyCache.version', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['dependency-cache-version-float.js'],
+    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+  })
+  it('rejects an unsafe integer caching.dependencyCache.version', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['dependency-cache-version-unsafe-integer.js'],
+    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+  })
+  it('rejects a caching.dependencyCache.version that is neither string nor number', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['dependency-cache-version-bad-type.js'],
+    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+  })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'
     const configFile = `./fixtures/configs/${filename}`

@@ -1,12 +1,19 @@
 import { createHash } from 'node:crypto'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, afterAll } from 'vitest'
 
 import {
   canonicalizePackageJson,
   composeCacheHash,
+  computeWorkspaceCacheHash,
+  normalizeDependencyCacheVersion,
   stableJsonEncode,
 } from '../cache-hash.js'
+import { Package, Workspace } from '../package-files/workspace.js'
+import { Err } from '../package-files/result.js'
 
 const sha256 = (s: string): Buffer => createHash('sha256').update(s).digest()
 
@@ -277,15 +284,69 @@ describe('composeCacheHash', () => {
     }))
   })
 
+  test('omitting dependencyCacheVersion matches passing undefined or an empty string (no-op)', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const base = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+      dependencyCacheVersion: undefined,
+    })).toBe(base)
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+      dependencyCacheVersion: '',
+    })).toBe(base)
+  })
+
+  test('setting a dependencyCacheVersion changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const without = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    const withVersion = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+      dependencyCacheVersion: '1',
+    })
+    expect(without).not.toBe(withVersion)
+  })
+
+  test('changing the dependencyCacheVersion changes the hash, same value is stable', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const compose = (dependencyCacheVersion: string) => composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+      dependencyCacheVersion,
+    })
+    expect(compose('1')).toBe(compose('1'))
+    expect(compose('1')).not.toBe(compose('2'))
+  })
+
   // Cross-language parity fixture. The same lockfile + package.json bytes
   // and the same excluded fields must produce this exact digest in
   // terraform-provider-checkly's composeBundleChecksum. If you change this
   // fixture, mirror the change in the TF provider's test suite.
   //
   // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
-  // bundling). This fixture has no .npmrc so the digest is unchanged, but
-  // projects that DO have an .npmrc will hash differently until the TF
-  // provider mirrors the npmrc record type.
+  // bundling) and a `dependency-cache-version` record (the user-provided
+  // caching.dependencyCache.version config value). This fixture uses
+  // neither so the digest is unchanged, but projects that DO have an
+  // .npmrc or set a dependency cache version will hash differently until
+  // the TF provider mirrors those record types.
   test('matches the cross-language parity fixture digest', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
@@ -325,5 +386,110 @@ describe('composeCacheHash', () => {
     })
 
     expect(digest).toBe('4d3072de5db2f0f8a5e29b72013dd7e4dfb25686023931ee98050d58ba4503f8')
+  })
+
+  // Same parity contract as above, but with an .npmrc and a dependency cache
+  // version set, pinning the record order (npmrc records before the
+  // dependency-cache-version record). The TF provider must produce this
+  // exact digest once it mirrors both record types.
+  test('matches the cross-language parity fixture digest with an npmrc and a dependency cache version', () => {
+    const lockfileBytes = buf('{"lockfileVersion":3}\n')
+    const rootPackageJson = buf([
+      '{',
+      '  "name": "fixture-root",',
+      '  "version": "0.0.0-SNAPSHOT",',
+      '  "private": true,',
+      '  "devDependencies": {',
+      '    "@playwright/test": "1.50.0"',
+      '  }',
+      '}',
+      '',
+    ].join('\n'))
+
+    const digest = composeCacheHash({
+      lockfile: {
+        name: 'package-lock.json',
+        hash: createHash('sha256').update(lockfileBytes).digest(),
+      },
+      packageJsons: [
+        { path: 'package.json', raw: rootPackageJson },
+      ],
+      npmrcs: [
+        { path: '.npmrc', hash: sha256('registry=https://registry.example.com/\n') },
+      ],
+      excludedFields: ['version'],
+      dependencyCacheVersion: '2',
+    })
+
+    expect(digest).toBe('344f037a55163ba59146d9cdb71ef702782e3690a9f666067c0ccdf091214eb6')
+  })
+})
+
+describe('computeWorkspaceCacheHash', () => {
+  const tempDirs: string[] = []
+
+  afterAll(async () => {
+    await Promise.all(tempDirs.map(dir => fs.rm(dir, { recursive: true, force: true })))
+  })
+
+  const makeWorkspace = async (): Promise<Workspace> => {
+    const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cache-hash-')))
+    tempDirs.push(dir)
+    await fs.writeFile(path.join(dir, 'package.json'), '{"name":"fixture-root"}\n')
+    return new Workspace({
+      root: new Package({ name: 'fixture-root', path: dir }),
+      packages: [],
+      lockfile: Err(new Error('no lockfile')),
+      configFile: Err(new Error('no config file')),
+    })
+  }
+
+  test('dependencyCacheVersion option flows into the hash', async () => {
+    const workspace = await makeWorkspace()
+    const base = await computeWorkspaceCacheHash(workspace)
+    expect(base).toBe(await computeWorkspaceCacheHash(workspace, {}))
+    expect(base).toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: '' }))
+    expect(base).not.toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: 'v2' }))
+  })
+
+  test('a number and its string form produce the same hash', async () => {
+    const workspace = await makeWorkspace()
+    expect(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: 2 }))
+      .toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: '2' }))
+  })
+})
+
+describe('normalizeDependencyCacheVersion', () => {
+  test('passes strings through unchanged', () => {
+    expect(normalizeDependencyCacheVersion('v2')).toBe('v2')
+  })
+
+  test('treats undefined and empty string as unset', () => {
+    expect(normalizeDependencyCacheVersion(undefined)).toBeUndefined()
+    expect(normalizeDependencyCacheVersion('')).toBeUndefined()
+  })
+
+  test('stringifies safe integers, including 0 and negatives', () => {
+    expect(normalizeDependencyCacheVersion(1)).toBe('1')
+    expect(normalizeDependencyCacheVersion(0)).toBe('0')
+    expect(normalizeDependencyCacheVersion(-3)).toBe('-3')
+  })
+
+  test('a number and its string form normalize identically', () => {
+    expect(normalizeDependencyCacheVersion(1)).toBe(normalizeDependencyCacheVersion('1'))
+  })
+
+  test('rejects unsafe or non-integer numbers', () => {
+    expect(() => normalizeDependencyCacheVersion(1.5)).toThrow()
+    expect(() => normalizeDependencyCacheVersion(1e21)).toThrow()
+    expect(() => normalizeDependencyCacheVersion(2 ** 53)).toThrow()
+    expect(() => normalizeDependencyCacheVersion(NaN)).toThrow()
+    expect(() => normalizeDependencyCacheVersion(Infinity)).toThrow()
+  })
+
+  test('rejects values that are neither string nor number', () => {
+    expect(() => normalizeDependencyCacheVersion(null as any)).toThrow()
+    expect(() => normalizeDependencyCacheVersion(true as any)).toThrow()
+    expect(() => normalizeDependencyCacheVersion({} as any)).toThrow()
   })
 })

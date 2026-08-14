@@ -1,14 +1,34 @@
 ---
 name: checkly
 description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
-allowed-tools: Bash(npx:checkly:*) Bash(npm:install:*)
+allowed-tools: Bash(npx checkly:*), Bash(npm install:*)
 metadata:
   author: checkly
 ---
 
 # Checkly
 
-**Required:** Before answering any Checkly question, run `npx checkly skills` to get the current and up-to-date action list. Do not rely on memory or prior context — the CLI is the source of truth and actions might change between releases.
+## CLI or MCP? Establish your path first
+
+This skill drives the `npx checkly` CLI in a shell. The Checkly MCP server covers a subset — live account work: check status and results, test sessions, root cause analyses (RCA), triggering existing checks, and incidents. Only the CLI can author, test, and deploy Monitoring as Code.
+
+Before your first command that talks to the Checkly API, establish your path:
+
+1. **No shell access** (chat-only session): stop following this skill and use the Checkly MCP tools if they're connected; if not, tell the user you need either a shell or the Checkly MCP server to work with Checkly.
+2. **Shell access**: run `npx checkly whoami` once.
+   - **Succeeds** → use the CLI for everything and keep following this skill, even when Checkly MCP tools are also connected.
+   - **Fails with an auth error** → route by task:
+     - *Authoring, testing, or deploying checks*: MCP cannot do this. Ask the user to authenticate — `npx checkly login`, or `CHECKLY_API_KEY` + `CHECKLY_ACCOUNT_ID` in the environment or `.env` — then re-run `whoami`. Don't work around a missing login.
+     - *Live account work* (status, results, test sessions, RCA, triggering, incidents): fall back to the Checkly MCP tools if they're connected. Call the MCP `whoami` tool first and tell the user which account you're operating on. If MCP isn't connected either, ask the user to authenticate the CLI as above.
+
+Two rules that survive any fallback:
+
+- **Account parity.** CLI auth and the MCP session can point at different accounts — users often belong to several. Never mix CLI and MCP results in one task without confirming both use the same account ID, and always name the account after a fallback.
+- **Writes still need confirmation.** The CLI's confirmation protocol (below) does not travel with you to MCP. If you fall back for a write action (e.g. creating an incident), present the intended change and get the user's approval before calling the tool.
+
+## Always load the current action list first
+
+**Required:** Before answering any Checkly question, run `npx checkly skills` to get the current and up-to-date action list. Do not rely on memory or prior context — the CLI is the source of truth and actions might change between releases. `npx checkly skills` runs locally — it needs no authentication or API access, so it works before you've established your path above.
 
 Then run `npx checkly skills <action>` to load up-to-date details for the action you need.
 
