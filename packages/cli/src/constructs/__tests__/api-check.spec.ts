@@ -161,11 +161,15 @@ describe('ApiCheck', () => {
             payload: expect.objectContaining({
               intent: {
                 goal: 'Verify that authenticated users can open the dashboard.',
-                requiredOutcomes: [
-                  'The dashboard displays the account overview.',
-                ],
-                mustPreserve: [
-                  'Do not weaken the authentication assertion.',
+                constraints: [
+                  {
+                    type: 'REQUIRED_OUTCOME',
+                    statement: 'The dashboard displays the account overview.',
+                  },
+                  {
+                    type: 'MUST_PRESERVE',
+                    statement: 'Do not weaken the authentication assertion.',
+                  },
                 ],
               },
             }),

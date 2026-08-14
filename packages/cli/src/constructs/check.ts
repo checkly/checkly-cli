@@ -694,12 +694,10 @@ export abstract class Check extends Construct {
             ? null
             : {
                 goal: this.#intent.goal.trim(),
-                requiredOutcomes: (this.#intent.constraints ?? [])
-                  .filter(constraint => constraint.type === 'REQUIRED_OUTCOME')
-                  .map(constraint => constraint.statement.trim()),
-                mustPreserve: (this.#intent.constraints ?? [])
-                  .filter(constraint => constraint.type === 'MUST_PRESERVE')
-                  .map(constraint => constraint.statement.trim()),
+                constraints: (this.#intent.constraints ?? []).map(constraint => ({
+                  type: constraint.type,
+                  statement: constraint.statement.trim(),
+                })),
               },
         }
 

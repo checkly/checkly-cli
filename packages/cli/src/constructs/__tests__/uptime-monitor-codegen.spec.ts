@@ -113,11 +113,9 @@ describe('GrpcMonitorCodegen', () => {
     const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
       intent: {
         goal: 'Verify that the gRPC health service is available.',
-        requiredOutcomes: [
-          'The health RPC returns a serving response.',
-        ],
-        mustPreserve: [
-          'Do not weaken the serving-status assertion.',
+        constraints: [
+          { type: 'REQUIRED_OUTCOME', statement: 'The health RPC returns a serving response.' },
+          { type: 'MUST_PRESERVE', statement: 'Do not weaken the serving-status assertion.' },
         ],
       },
     }))
@@ -137,6 +135,27 @@ describe('GrpcMonitorCodegen', () => {
   }`)
     expect(source.indexOf('name:')).toBeLessThan(source.indexOf('intent:'))
     expect(source.indexOf('intent:')).toBeLessThan(source.indexOf('request:'))
+  })
+
+  it('supports stored-shape intent from import plans created before the backend cutover', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
+      intent: {
+        goal: 'Verify that the gRPC health service is available.',
+        requiredOutcomes: ['The health RPC returns a serving response.'],
+        mustPreserve: ['Do not weaken the serving-status assertion.'],
+      },
+    }))
+
+    expect(source).toContain(`constraints: [
+      {
+        type: 'REQUIRED_OUTCOME',
+        statement: 'The health RPC returns a serving response.',
+      },
+      {
+        type: 'MUST_PRESERVE',
+        statement: 'Do not weaken the serving-status assertion.',
+      },
+    ]`)
   })
 
   it('omits intent when the backend resource has no intent', async () => {

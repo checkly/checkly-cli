@@ -33,14 +33,7 @@ const completeIntent: CheckIntent = {
 
 const synthesizedCompleteIntent = {
   goal: completeIntent.goal,
-  requiredOutcomes: [
-    'Authentication succeeds for a valid user.',
-    'The dashboard displays the account overview.',
-  ],
-  mustPreserve: [
-    'Do not remove or weaken the authentication assertion.',
-    'Do not replace the dashboard assertion with a generic page-load assertion.',
-  ],
+  constraints: completeIntent.constraints,
 }
 
 let nextLogicalId = 0
@@ -91,8 +84,7 @@ describe('check intent', () => {
 
       expect(synthesized.intent).toEqual({
         goal: 'Verify that authenticated users can open the dashboard.',
-        requiredOutcomes: [],
-        mustPreserve: [],
+        constraints: [],
       })
     })
 
@@ -148,8 +140,7 @@ describe('check intent', () => {
       check.intent = { goal: '  Verify the replacement dashboard flow.  ' }
       expect(check.synthesize()).toHaveProperty('intent', {
         goal: 'Verify the replacement dashboard flow.',
-        requiredOutcomes: [],
-        mustPreserve: [],
+        constraints: [],
       })
 
       check.intent = null

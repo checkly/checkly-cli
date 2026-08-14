@@ -29,7 +29,13 @@ import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './tracerout
  */
 export interface CheckIntentResource {
   goal: string
+  constraints?: Array<{
+    type: 'REQUIRED_OUTCOME' | 'MUST_PRESERVE'
+    statement: string
+  }>
+  /** Compatibility with import plans created before construct-shaped intent was deployed. */
   requiredOutcomes?: string[]
+  /** Compatibility with import plans created before construct-shaped intent was deployed. */
   mustPreserve?: string[]
 }
 
@@ -99,20 +105,16 @@ export function buildCheckProps (
     builder.object('intent', builder => {
       builder.string('goal', intent.goal)
 
-      const requiredOutcomes = intent.requiredOutcomes ?? []
-      const mustPreserve = intent.mustPreserve ?? []
-      if (requiredOutcomes.length > 0 || mustPreserve.length > 0) {
+      const constraints = intent.constraints ?? [
+        ...(intent.requiredOutcomes ?? []).map(statement => ({ type: 'REQUIRED_OUTCOME' as const, statement })),
+        ...(intent.mustPreserve ?? []).map(statement => ({ type: 'MUST_PRESERVE' as const, statement })),
+      ]
+      if (constraints.length > 0) {
         builder.array('constraints', builder => {
-          for (const statement of requiredOutcomes) {
+          for (const constraint of constraints) {
             builder.object(builder => {
-              builder.string('type', 'REQUIRED_OUTCOME')
-              builder.string('statement', statement)
-            })
-          }
-          for (const statement of mustPreserve) {
-            builder.object(builder => {
-              builder.string('type', 'MUST_PRESERVE')
-              builder.string('statement', statement)
+              builder.string('type', constraint.type)
+              builder.string('statement', constraint.statement)
             })
           }
         })
