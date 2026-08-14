@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from
 import { Project } from '../project.js'
 import { PlaywrightCheck } from '../playwright-check.js'
 import { Session } from '../session.js'
-import { Diagnostics } from '../diagnostics.js'
+import { Diagnostics, WarningDiagnostic } from '../diagnostics.js'
 import { InvalidPropertyValueDiagnostic, UnsatisfiedLocalPrerequisitesDiagnostic } from '../construct-diagnostics.js'
 import { Package, Workspace } from '../../services/check-parser/package-files/workspace.js'
 import { Ok, Err } from '../../services/check-parser/package-files/result.js'
@@ -23,6 +23,8 @@ describe('Project embedded packages validation', () => {
       `packages:`,
       `  present-pkg@1.0.0:`,
       `    resolution: {integrity: sha512-aaa}`,
+      `  'present-git@https://codeload.github.com/user/present-git/tar.gz/abc':`,
+      `    resolution: {tarball: https://codeload.github.com/user/present-git/tar.gz/abc}`,
     ].join('\n'))
     await fs.writeFile(path.join(dir, 'yarn.lock'), '')
   })
@@ -75,6 +77,21 @@ describe('Project embedded packages validation', () => {
       diag instanceof UnsatisfiedLocalPrerequisitesDiagnostic
       || (diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'checks.embeddedPackages'))
   }
+
+  it('surfaces plan warnings as non-fatal warning diagnostics', async () => {
+    const project = setupProject()
+    Session.embeddedPackages = ['present-*']
+    const diagnostics = new Diagnostics()
+    await project.validate(diagnostics)
+    const warning = diagnostics.observations.find((diag): diag is WarningDiagnostic =>
+      diag instanceof WarningDiagnostic && diag.title === 'Embedded packages')
+    expect(warning).toBeDefined()
+    expect(warning?.message).toContain('present-git')
+    expect(warning?.isFatal()).toBe(false)
+    // The wildcard resolves present-pkg, so no fatal issue accompanies it.
+    expect(diagnostics.observations.filter(diag =>
+      diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'checks.embeddedPackages')).toEqual([])
+  })
 
   it('maps a missing lockfile to an unsatisfied-prerequisites diagnostic', async () => {
     const project = setupProject({ lockfile: null })

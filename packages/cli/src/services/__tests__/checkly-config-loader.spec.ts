@@ -110,7 +110,8 @@ describe('loadChecklyConfig()', () => {
       path.join(__dirname, 'fixtures', 'configs'),
       ['embedded-packages-valid.ts'],
     )
-    expect(config.checks?.embeddedPackages).toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0'])
+    expect(config.checks?.embeddedPackages)
+      .toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*'])
   })
   it('rejects a checks.embeddedPackages that is not an array', async () => {
     await expect(loadChecklyConfig(

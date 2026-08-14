@@ -104,10 +104,20 @@ export type ChecklyConfig = {
      * Each entry is a package name (`'@acme/private-utils'`), which embeds
      * every version of that package found in the workspace lockfile, or a
      * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
-     * version. List every package the runner cannot fetch, including
-     * private packages that only appear as (transitive) dependencies of
-     * other private packages — dependencies of listed packages are not
-     * embedded automatically.
+     * version. Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`,
+     * `'@acme/*-utils'`); each `*` matches any run of characters except
+     * `/`, so a wildcard never crosses the scope separator. As long as a
+     * wildcard matches at least one registry package, matches that are not
+     * registry packages are skipped — workspace members silently, git/file/
+     * URL dependencies with a warning (the runner must fetch those
+     * itself); a wildcard whose only matches cannot be embedded, or that
+     * matches nothing at all, is an error. A pattern embeds every lockfile
+     * version of every package it matches, so scope it to the packages
+     * the runner genuinely cannot fetch. List every package the runner
+     * cannot fetch,
+     * including private packages that only appear as (transitive)
+     * dependencies of other private packages — dependencies of listed
+     * packages are not embedded automatically.
      *
      * Tarballs are resolved against the workspace root lockfile
      * (`pnpm-lock.yaml` or `package-lock.json`), reused from local caches

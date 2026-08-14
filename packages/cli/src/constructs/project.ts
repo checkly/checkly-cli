@@ -8,7 +8,7 @@ import {
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService, PlaywrightCheck,
 } from './/index.js'
-import { Diagnostics } from './diagnostics.js'
+import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import {
   ConstructDiagnostic,
   ConstructDiagnostics,
@@ -142,7 +142,14 @@ export class Project extends Construct {
       return
     }
 
-    const { issues } = await materializer.plan()
+    const { issues, warnings } = await materializer.plan()
+
+    for (const warning of warnings) {
+      diagnostics.add(new WarningDiagnostic({
+        title: 'Embedded packages',
+        message: warning,
+      }))
+    }
 
     // A large monorepo can legitimately embed dozens of packages, so a
     // stale config could produce dozens of issues; keep the output

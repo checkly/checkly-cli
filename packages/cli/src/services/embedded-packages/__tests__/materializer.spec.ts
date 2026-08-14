@@ -29,6 +29,21 @@ packages:
 `
 }
 
+async function captureStderr (fn: () => Promise<void>): Promise<string[]> {
+  const written: string[] = []
+  const original = process.stderr.write.bind(process.stderr)
+  process.stderr.write = ((chunk: string) => {
+    written.push(String(chunk))
+    return true
+  }) as never
+  try {
+    await fn()
+  } finally {
+    process.stderr.write = original
+  }
+  return written
+}
+
 describe('EmbeddedPackagesMaterializer', () => {
   let workspaceRoot: string
   let homedir: string
@@ -106,6 +121,213 @@ describe('EmbeddedPackagesMaterializer', () => {
     it('deduplicates overlapping specs', async () => {
       const { tarballs } = await makeMaterializer(['bar', 'bar@2.0.0']).plan()
       expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+    })
+
+    it('resolves a scope wildcard to every matching package and version', async () => {
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  '@acme/foo@1.2.3':
+    resolution: {integrity: ${fooIntegrity}}
+  '@acme/foo-utils@2.0.0':
+    resolution: {integrity: ${barIntegrity}}
+  '@other/pkg@1.0.0':
+    resolution: {integrity: ${barIntegrity}}
+  bar@2.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      const { tarballs, issues } = await makeMaterializer(['@acme/*']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename).sort()).toEqual([
+        '@acme+foo-utils@2.0.0.tgz',
+        '@acme+foo@1.2.3.tgz',
+      ])
+    })
+
+    it('resolves prefix and suffix wildcards against unscoped names only', async () => {
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  acme-utils@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  acme-core@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  '@acme/acme-extra@1.0.0':
+    resolution: {integrity: ${barIntegrity}}
+`)
+      const { tarballs, issues } = await makeMaterializer(['acme-*']).plan()
+      expect(issues).toEqual([])
+      // The wildcard does not cross the scope separator, so the scoped
+      // package stays out even though its name part matches.
+      expect(tarballs.map(t => t.archiveFilename).sort()).toEqual([
+        'acme-core@1.0.0.tgz',
+        'acme-utils@1.0.0.tgz',
+      ])
+    })
+
+    it('filters wildcard matches by an exact version pin', async () => {
+      const { tarballs, issues } = await makeMaterializer(['ba*@2.0.0']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz'])
+    })
+
+    it('reports a wildcard that matches nothing in the lockfile', async () => {
+      const { issues } = await makeMaterializer(['@nomatch/*']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-not-found')
+      expect(issues[0].message).toContain('pattern matches')
+    })
+
+    it('reports a wildcard that only matches workspace packages', async () => {
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      '@acme/shared':
+        specifier: workspace:*
+        version: link:packages/shared
+packages: {}
+`)
+      const { issues } = await makeMaterializer(['@acme/*']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-not-embeddable')
+      expect(issues[0].message).toContain('workspace package')
+    })
+
+    it('silently skips workspace packages a wildcard also matches', async () => {
+      // The monorepo case: the scope holds both registry packages and
+      // workspace members. The wildcard embeds the former and skips the
+      // latter without erroring.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      '@acme/shared':
+        specifier: workspace:*
+        version: link:packages/shared
+packages:
+  '@acme/foo@1.2.3':
+    resolution: {integrity: ${fooIntegrity}}
+`)
+      const { tarballs, issues } = await makeMaterializer(['@acme/*']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['@acme+foo@1.2.3.tgz'])
+    })
+
+    it('reports unfetchable wildcard matches as plan warnings and announces matches when materializing', async () => {
+      // A bare * matches bar (registry, both versions) and git-dep (a git
+      // dependency the CLI cannot embed): the registry matches embed, the
+      // git dependency surfaces as a plan warning naming it, and the
+      // wildcard's selection is announced during materialization.
+      const materializer = makeMaterializer(['*'])
+      const { tarballs, issues, warnings } = await materializer.plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toContain('git-dep')
+      expect(warnings[0]).toContain('cannot be embedded')
+      const written = await captureStderr(async () => {
+        await materializer.materialize()
+      })
+      const announcement = written.find(line => line.includes('matched 2 package(s)'))
+      expect(announcement).toContain(`'*'`)
+      expect(announcement).toContain('bar@2.0.0')
+    })
+
+    it('does not warn about unfetchable matches a version pin already excludes', async () => {
+      const npmLockfilePath = path.join(workspaceRoot, 'package-lock.json')
+      await fs.writeFile(npmLockfilePath, JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          'node_modules/@acme/foo': {
+            version: '1.2.3',
+            resolved: 'https://registry.npmjs.org/@acme/foo/-/foo-1.2.3.tgz',
+            integrity: fooIntegrity,
+          },
+          'node_modules/@acme/legacy': {
+            version: '2.0.0',
+            resolved: 'git+ssh://git@github.com/acme/legacy.git#abc123',
+          },
+        },
+      }))
+      const { warnings, issues } = await makeMaterializer(['@acme/*@1.2.3'], { lockfilePath: npmLockfilePath }).plan()
+      expect(issues).toEqual([])
+      // @acme/legacy@2.0.0 was excluded by the pin, not by embeddability —
+      // warning about it would send the user chasing a non-issue.
+      expect(warnings).toEqual([])
+    })
+
+    it('does not warn about integrity-less duplicates of embedded registry entries', async () => {
+      // npm nests integrity-less bundled copies of packages that also
+      // exist as proper registry entries; the artifact IS embedded, so
+      // the duplicate must not surface as a skipped unfetchable match.
+      const npmLockfilePath = path.join(workspaceRoot, 'package-lock.json')
+      await fs.writeFile(npmLockfilePath, JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          'node_modules/dup': {
+            version: '1.0.0',
+            resolved: 'https://registry.npmjs.org/dup/-/dup-1.0.0.tgz',
+            integrity: barIntegrity,
+          },
+          'node_modules/a/node_modules/dup': { version: '1.0.0', inBundle: true },
+        },
+      }))
+      const { tarballs, warnings, issues } = await makeMaterializer(['du*'], { lockfilePath: npmLockfilePath }).plan()
+      expect(issues).toEqual([])
+      expect(warnings).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['dup@1.0.0.tgz'])
+    })
+
+    it('prefers the actionable excluded reason over version blame for an exact pinned spec', async () => {
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  foo@2.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  foo@1.0.0:
+    resolution: {}
+`)
+      const { issues } = await makeMaterializer(['foo@1.0.0']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-not-embeddable')
+      expect(issues[0].message).toContain('integrity')
+    })
+
+    it('stays silent on stderr for plain specs', async () => {
+      const materializer = makeMaterializer(['bar@2.0.0'])
+      const written = await captureStderr(async () => {
+        const { warnings } = await materializer.plan()
+        expect(warnings).toEqual([])
+        await materializer.materialize()
+      })
+      // Filtered rather than asserting total silence: the debug package
+      // also writes to stderr when DEBUG is enabled.
+      expect(written.filter(line => line.includes('Embedded package'))).toEqual([])
+    })
+
+    it('blames the version pin when a wildcard matches names but no version', async () => {
+      // The workspace link sharing the scope must not be blamed: the
+      // pattern matched registry names, the pin filtered them out.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      '@acme/shared':
+        specifier: workspace:*
+        version: link:packages/shared
+packages:
+  '@acme/foo@1.2.3':
+    resolution: {integrity: ${fooIntegrity}}
+`)
+      const { issues } = await makeMaterializer(['@acme/*@9.9.9']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-not-found')
+      expect(issues[0].message).toContain('9.9.9')
+      expect(issues[0].message).not.toContain('workspace')
     })
 
     it('converts scope slashes for the archive filename', async () => {

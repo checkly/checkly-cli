@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { parseEmbeddedPackageSpec, InvalidEmbeddedPackageSpecError } from '../spec.js'
+import { parseEmbeddedPackageSpec, InvalidEmbeddedPackageSpecError, specMatchesPackageName } from '../spec.js'
 
 describe('parseEmbeddedPackageSpec()', () => {
   it('parses a bare package name', () => {
@@ -78,5 +78,70 @@ describe('parseEmbeddedPackageSpec()', () => {
 
   it('rejects a dist-tag as version', () => {
     expect(() => parseEmbeddedPackageSpec('some-package@latest')).toThrow(/not an exact semver version/)
+  })
+})
+
+describe('wildcard specs', () => {
+  const parse = parseEmbeddedPackageSpec
+  const matches = (raw: string, name: string) => specMatchesPackageName(parse(raw), name)
+
+  it('parses a scope wildcard', () => {
+    const spec = parse('@checkly/*')
+    expect(spec.name).toBe('@checkly/*')
+    expect(spec.namePattern).toBeDefined()
+    expect(spec.version).toBeUndefined()
+  })
+
+  it('leaves plain specs without a pattern', () => {
+    expect(parse('@checkly/foo').namePattern).toBeUndefined()
+  })
+
+  it('matches every package in a scope', () => {
+    expect(matches('@checkly/*', '@checkly/foo')).toBe(true)
+    expect(matches('@checkly/*', '@checkly/foo-bar')).toBe(true)
+    expect(matches('@checkly/*', '@other/foo')).toBe(false)
+    expect(matches('@checkly/*', 'checkly')).toBe(false)
+  })
+
+  it('matches unscoped prefixes and suffixes', () => {
+    expect(matches('checkly-*', 'checkly-utils')).toBe(true)
+    expect(matches('checkly-*', 'checkly')).toBe(false)
+    expect(matches('*-utils', 'checkly-utils')).toBe(true)
+    expect(matches('*-utils', 'utils')).toBe(false)
+  })
+
+  it('matches infix wildcards inside a scope', () => {
+    expect(matches('@checkly/foo-*', '@checkly/foo-bar')).toBe(true)
+    expect(matches('@checkly/foo-*', '@checkly/foobar')).toBe(false)
+    expect(matches('@checkly/*-foo', '@checkly/bar-foo')).toBe(true)
+    expect(matches('@checkly/*-foo', '@checkly/foo')).toBe(false)
+  })
+
+  it('never crosses the scope separator', () => {
+    expect(matches('*', 'unscoped')).toBe(true)
+    expect(matches('*', '@checkly/foo')).toBe(false)
+    expect(matches('checkly-*', '@checkly/x')).toBe(false)
+  })
+
+  it('does not treat other regex characters as special', () => {
+    expect(matches('@checkly/foo.*', '@checkly/fooXbar')).toBe(false)
+    expect(matches('@checkly/foo.*', '@checkly/foo.bar')).toBe(true)
+  })
+
+  it('combines a wildcard with an exact version pin', () => {
+    const spec = parse('@checkly/*@1.2.3')
+    expect(spec.namePattern).toBeDefined()
+    expect(spec.version).toBe('1.2.3')
+  })
+
+  it('collapses consecutive wildcards, avoiding pathological backtracking', () => {
+    expect(matches('a**b', 'axb')).toBe(true)
+    expect(matches('a**b', 'ab')).toBe(true)
+    // A long scoped mismatch resolves instantly rather than backtracking.
+    expect(matches('*'.repeat(20), `@${'x'.repeat(120)}/pkg`)).toBe(false)
+  })
+
+  it('rejects a wildcard that is not name-shaped', () => {
+    expect(() => parse('@/*')).toThrow(/not a valid npm package name pattern/)
   })
 })
