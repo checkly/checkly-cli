@@ -230,7 +230,46 @@ packages:
       {
         name: '@acme/shared',
         reason: `'@acme/shared' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
       },
+    ])
+  })
+})
+
+describe('parsePnpmLockfilePackages() outside links', () => {
+  it('distinguishes workspace links from links escaping the workspace', () => {
+    const { excluded } = parsePnpmLockfilePackages(`
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      '@acme/member':
+        specifier: workspace:*
+        version: link:packages/member
+      '@acme/outside':
+        specifier: file:../elsewhere
+        version: link:../elsewhere
+packages: {}
+`)
+    expect(excluded.map(entry => ({ name: entry.name, kind: entry.kind }))).toEqual([
+      { name: '@acme/member', kind: 'workspace' },
+      { name: '@acme/outside', kind: 'unfetchable' },
+    ])
+  })
+})
+
+describe('parseNpmLockfilePackages() links', () => {
+  it('distinguishes workspace links from links escaping the workspace', () => {
+    const { excluded } = parseNpmLockfilePackages(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        'node_modules/@acme/member': { link: true, resolved: 'packages/member' },
+        'node_modules/@acme/outside': { link: true, resolved: '../elsewhere/outside' },
+      },
+    }))
+    expect(excluded.map(entry => ({ name: entry.name, kind: entry.kind }))).toEqual([
+      { name: '@acme/member', kind: 'workspace' },
+      { name: '@acme/outside', kind: 'unfetchable' },
     ])
   })
 })

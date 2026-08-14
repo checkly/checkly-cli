@@ -30,6 +30,14 @@ export interface ExcludedLockfilePackage {
   name: string
   version?: string
   reason: string
+  /**
+   * Why the entry is excluded, machine-readable: 'workspace' entries are
+   * part of the project itself (safe for a wildcard to skip silently),
+   * while 'unfetchable' entries (git/file/URL dependencies, or entries
+   * without an integrity hash) cannot be embedded but may still be needed
+   * at install time.
+   */
+  kind: 'workspace' | 'unfetchable'
 }
 
 export interface LockfilePackages {
@@ -107,9 +115,18 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
           const version = typeof dep === 'string' ? dep : dep?.version
           if (typeof version === 'string' && version.startsWith('link:') && !linkedNames.has(name)) {
             linkedNames.add(name)
+            // Same distinction as npm's `link: true` entries: a link whose
+            // target escapes the workspace is not part of the project the
+            // bundle carries.
+            const target = version.slice('link:'.length)
+            const escapesWorkspace = target === '..' || target.startsWith('../') || path.isAbsolute(target)
             result.excluded.push({
               name,
-              reason: `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+              reason: escapesWorkspace
+                ? `'${name}' is a local directory link outside the workspace, which cannot be embedded`
+                + ` as a registry tarball`
+                : `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+              kind: escapesWorkspace ? 'unfetchable' : 'workspace',
             })
           }
         }
@@ -152,6 +169,7 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
         name,
         reason: `'${name}@${ref}' resolves to a git, file or URL dependency,`
           + ` which cannot be embedded as a registry tarball`,
+        kind: 'unfetchable',
       })
       continue
     }
@@ -164,6 +182,7 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
         version,
         reason: `the lockfile records no integrity hash for '${name}@${version}',`
           + ` which is required to embed it`,
+        kind: 'unfetchable',
       })
       continue
     }
@@ -214,9 +233,19 @@ export function parseNpmLockfilePackages (content: string): LockfilePackages {
       : key.slice(lastNodeModules + 'node_modules/'.length)
 
     if (entry?.link === true) {
+      // `link: true` covers both workspace members and `file:` directory
+      // dependencies. A link whose target escapes the workspace is not
+      // part of the project the bundle carries, so a wildcard must not
+      // skip it silently.
+      const target = typeof entry?.resolved === 'string' ? entry.resolved : ''
+      const escapesWorkspace = target === '..' || target.startsWith('../') || path.isAbsolute(target)
       result.excluded.push({
         name: key.slice(lastNodeModules + 'node_modules/'.length),
-        reason: `'${key}' is a workspace link, which cannot be embedded as a registry tarball`,
+        reason: escapesWorkspace
+          ? `'${key}' is a local directory link outside the workspace, which cannot be embedded`
+          + ` as a registry tarball`
+          : `'${key}' is a workspace link, which cannot be embedded as a registry tarball`,
+        kind: escapesWorkspace ? 'unfetchable' : 'workspace',
       })
       continue
     }
@@ -233,6 +262,7 @@ export function parseNpmLockfilePackages (content: string): LockfilePackages {
         version: version ?? undefined,
         reason: `'${key}' resolves to a git, file or URL dependency,`
           + ` which cannot be embedded as a registry tarball`,
+        kind: 'unfetchable',
       })
       continue
     }
@@ -251,6 +281,7 @@ export function parseNpmLockfilePackages (content: string): LockfilePackages {
         version,
         reason: `the lockfile records no integrity hash for '${name}@${version}'`
           + ` (typically a bundled dependency), which is required to embed it`,
+        kind: 'unfetchable',
       })
       continue
     }
