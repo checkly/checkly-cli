@@ -32,6 +32,7 @@ import AlertNotifications from './alert-notifications.js'
 import Rca from './rca.js'
 import Cancel from './cancel.js'
 import { handleErrorResponse, UnauthorizedError } from './errors.js'
+import { createRetryInterceptor } from './retry.js'
 import { detectOperator } from '../helpers/cli-mode.js'
 
 export function getDefaults () {
@@ -101,6 +102,11 @@ function init (): AxiosInstance {
   const api = axios.create(axiosConf)
 
   api.interceptors.request.use(requestInterceptor)
+
+  // Must be registered before the error-mapping interceptor: this handler
+  // needs the raw AxiosError, and its resolved retries flow into the next
+  // interceptor's fulfilled handler.
+  api.interceptors.response.use(undefined, createRetryInterceptor(api))
 
   api.interceptors.response.use(
     response => response,
