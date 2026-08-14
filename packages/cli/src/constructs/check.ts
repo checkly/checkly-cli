@@ -51,6 +51,88 @@ export type CheckRetryStrategy =
   | NoRetriesRetryStrategy
 
 /**
+ * The kind of durable guidance expressed by a check intent constraint.
+ */
+export type CheckIntentConstraintType = 'REQUIRED_OUTCOME' | 'MUST_PRESERVE'
+
+/**
+ * A typed statement that refines a check's goal.
+ *
+ * New constraint types can be added without changing the overall intent shape.
+ */
+export interface CheckIntentConstraint {
+  /**
+   * How root cause analysis and check repair should interpret the statement.
+   */
+  type: CheckIntentConstraintType
+
+  /**
+   * The durable guidance for this constraint.
+   * Leading and trailing whitespace is removed during synthesis.
+   *
+   * @minLength 1
+   * @maxLength 1000
+   */
+  statement: string
+}
+
+/**
+ * Durable guidance describing what a check is intended to verify.
+ *
+ * Intent is used by Checkly's root cause analysis and check repair features.
+ * It is separate from the check description and from executable assertions.
+ */
+export interface CheckIntent {
+  /**
+   * The user-visible outcome the check should verify.
+   * Leading and trailing whitespace is removed during synthesis.
+   *
+   * @minLength 1
+   * @maxLength 2000
+   */
+  goal: string
+
+  /**
+   * Typed outcomes and guardrails that refine the goal.
+   * Omitted values are synthesized as empty backend constraint sections.
+   * At most 20 constraints of each supported type may be provided.
+   */
+  constraints?: CheckIntentConstraint[]
+}
+
+/**
+ * Intent authoring properties shared by checks and monitors that support RCA
+ * and check repair.
+ */
+export interface CheckIntentProps {
+  /**
+   * Durable guidance for root cause analysis and check repair.
+   *
+   * - Omit this property to leave an existing backend-authored intent unchanged.
+   * - Provide an object to set or update intent.
+   * - Set it to `null` to explicitly clear intent.
+   *
+   * @example
+   * ```typescript
+   * intent: {
+   *   goal: 'Verify that authenticated users can open the dashboard.',
+   *   constraints: [
+   *     {
+   *       type: 'REQUIRED_OUTCOME',
+   *       statement: 'Authentication succeeds for a valid user.',
+   *     },
+   *     {
+   *       type: 'MUST_PRESERVE',
+   *       statement: 'Do not remove or weaken the authentication assertion.',
+   *     },
+   *   ],
+   * }
+   * ```
+   */
+  intent?: CheckIntent | null
+}
+
+/**
  * Base configuration properties for all check types.
  * These properties are inherited by ApiCheck, BrowserCheck, and other check types.
  */
@@ -276,6 +358,7 @@ export abstract class Check extends Construct {
   runParallel?: boolean
   triggerIncident?: IncidentTrigger
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
+  #intent?: CheckIntent | null
 
   static readonly __checklyType = 'check'
 
@@ -349,10 +432,169 @@ export abstract class Check extends Construct {
     return false
   }
 
+  protected get checkIntent (): CheckIntent | null | undefined {
+    return this.#intent
+  }
+
+  protected set checkIntent (intent: CheckIntent | null | undefined) {
+    this.#intent = intent
+  }
+
+  protected validateIntent (diagnostics: Diagnostics): void {
+    if (this.#intent === undefined || this.#intent === null) {
+      return
+    }
+
+    if (typeof this.#intent !== 'object' || Array.isArray(this.#intent)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'intent',
+        new Error('"intent" must be an object or null.'),
+      ))
+      return
+    }
+
+    const intent = this.#intent as unknown as Record<string, unknown>
+    const supportedFields = new Set(['goal', 'constraints'])
+    for (const field of Object.keys(intent)) {
+      if (!supportedFields.has(field)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'intent',
+          new Error(
+            `"intent" contains unknown field "${field}". `
+            + 'Supported fields are "goal" and "constraints".',
+          ),
+        ))
+      }
+    }
+
+    this.validateIntentStatement(diagnostics, 'intent.goal', 'goal', intent.goal, 2_000)
+    this.validateIntentConstraints(diagnostics, intent.constraints)
+  }
+
+  private validateIntentConstraints (
+    diagnostics: Diagnostics,
+    value: unknown,
+  ): void {
+    if (value === undefined) {
+      return
+    }
+
+    if (!Array.isArray(value)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'intent.constraints',
+        new Error('"intent.constraints" must be an array of constraint objects.'),
+      ))
+      return
+    }
+
+    const counts: Record<CheckIntentConstraintType, number> = {
+      REQUIRED_OUTCOME: 0,
+      MUST_PRESERVE: 0,
+    }
+
+    for (const [index, constraint] of value.entries()) {
+      const property = `intent.constraints[${index}]`
+      if (typeof constraint !== 'object' || constraint === null || Array.isArray(constraint)) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          property,
+          new Error(`"${property}" must be a constraint object.`),
+        ))
+        continue
+      }
+
+      const fields = constraint as Record<string, unknown>
+      const supportedFields = new Set(['type', 'statement'])
+      for (const field of Object.keys(fields)) {
+        if (!supportedFields.has(field)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            property,
+            new Error(
+              `"${property}" contains unknown field "${field}". `
+              + 'Supported fields are "type" and "statement".',
+            ),
+          ))
+        }
+      }
+
+      const type = fields.type
+      if (type !== 'REQUIRED_OUTCOME' && type !== 'MUST_PRESERVE') {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          `${property}.type`,
+          new Error(
+            `The intent constraint type must be "REQUIRED_OUTCOME" or "MUST_PRESERVE", got ${JSON.stringify(type)}.`,
+          ),
+        ))
+      } else {
+        counts[type] += 1
+      }
+
+      const statementLabel = type === 'REQUIRED_OUTCOME'
+        ? 'required-outcome constraint statement'
+        : type === 'MUST_PRESERVE'
+          ? 'must-preserve constraint statement'
+          : 'constraint statement'
+      this.validateIntentStatement(
+        diagnostics,
+        `${property}.statement`,
+        statementLabel,
+        fields.statement,
+        1_000,
+      )
+    }
+
+    const constraintLabels: Record<CheckIntentConstraintType, string> = {
+      REQUIRED_OUTCOME: 'required-outcome constraints',
+      MUST_PRESERVE: 'must-preserve constraints',
+    }
+    for (const type of ['REQUIRED_OUTCOME', 'MUST_PRESERVE'] as const) {
+      if (counts[type] > 20) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'intent.constraints',
+          new Error(
+            `"intent.constraints" may contain at most 20 ${constraintLabels[type]}, got ${counts[type]}.`,
+          ),
+        ))
+      }
+    }
+  }
+
+  private validateIntentStatement (
+    diagnostics: Diagnostics,
+    property: string,
+    label: string,
+    value: unknown,
+    maximumLength: number,
+  ): void {
+    if (typeof value !== 'string') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        property,
+        new Error(`The intent ${label} must be a string.`),
+      ))
+      return
+    }
+
+    const trimmed = value.trim()
+    if (trimmed.length === 0) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        property,
+        new Error(`The intent ${label} must not be blank.`),
+      ))
+    } else if (trimmed.length > maximumLength) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        property,
+        new Error(
+          `The intent ${label} must be at most ${maximumLength} characters after trimming, `
+          + `got ${trimmed.length}.`,
+        ),
+      ))
+    }
+  }
+
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
     await this.validateDoubleCheck(diagnostics)
     await this.validateRetryStrategyOnlyOn(diagnostics)
+    this.validateIntent(diagnostics)
   }
 
   protected configDefaultsGetter (props: CheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
@@ -445,9 +687,24 @@ export abstract class Check extends Construct {
       }
     })()
 
+    const intent = this.#intent === undefined
+      ? {}
+      : {
+          intent: this.#intent === null
+            ? null
+            : {
+                goal: this.#intent.goal.trim(),
+                constraints: (this.#intent.constraints ?? []).map(constraint => ({
+                  type: constraint.type,
+                  statement: constraint.statement.trim(),
+                })),
+              },
+        }
+
     return {
       name: this.name,
       ...(this.description != null && { description: this.description }),
+      ...intent,
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,
@@ -480,7 +737,7 @@ export abstract class Check extends Construct {
   }
 }
 
-export interface RuntimeCheckProps extends CheckProps {
+export interface RuntimeCheckProps extends CheckProps, CheckIntentProps {
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to execute this check.
    *
@@ -509,9 +766,18 @@ export abstract class RuntimeCheck extends Check {
   runtimeId?: string
   environmentVariables?: EnvironmentVariable[]
 
+  get intent (): CheckIntent | null | undefined {
+    return this.checkIntent
+  }
+
+  set intent (intent: CheckIntent | null | undefined) {
+    this.checkIntent = intent
+  }
+
   protected constructor (logicalId: string, props: RuntimeCheckProps) {
     super(logicalId, props)
     const config = this.applyConfigDefaults(props)
+    this.intent = props.intent
     this.runtimeId = config.runtimeId
     this.environmentVariables = config.environmentVariables ?? []
   }

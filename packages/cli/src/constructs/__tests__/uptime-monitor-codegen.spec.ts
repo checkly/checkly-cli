@@ -109,6 +109,65 @@ describe('GrpcMonitorCodegen', () => {
     expect(source).toContain('responseTime()')
   })
 
+  it('emits complete structured intent in stable property order', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
+      intent: {
+        goal: 'Verify that the gRPC health service is available.',
+        constraints: [
+          { type: 'REQUIRED_OUTCOME', statement: 'The health RPC returns a serving response.' },
+          { type: 'MUST_PRESERVE', statement: 'Do not weaken the serving-status assertion.' },
+        ],
+      },
+    }))
+
+    expect(source).toContain(`intent: {
+    goal: 'Verify that the gRPC health service is available.',
+    constraints: [
+      {
+        type: 'REQUIRED_OUTCOME',
+        statement: 'The health RPC returns a serving response.',
+      },
+      {
+        type: 'MUST_PRESERVE',
+        statement: 'Do not weaken the serving-status assertion.',
+      },
+    ],
+  }`)
+    expect(source.indexOf('name:')).toBeLessThan(source.indexOf('intent:'))
+    expect(source.indexOf('intent:')).toBeLessThan(source.indexOf('request:'))
+  })
+
+  it('supports stored-shape intent from import plans created before the backend cutover', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
+      intent: {
+        goal: 'Verify that the gRPC health service is available.',
+        requiredOutcomes: ['The health RPC returns a serving response.'],
+        mustPreserve: ['Do not weaken the serving-status assertion.'],
+      },
+    }))
+
+    expect(source).toContain(`constraints: [
+      {
+        type: 'REQUIRED_OUTCOME',
+        statement: 'The health RPC returns a serving response.',
+      },
+      {
+        type: 'MUST_PRESERVE',
+        statement: 'Do not weaken the serving-status assertion.',
+      },
+    ]`)
+  })
+
+  it('omits intent when the backend resource has no intent', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource())
+    expect(source).not.toContain('intent:')
+  })
+
+  it('omits intent when the backend resource returns null for absent intent', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({ intent: null }))
+    expect(source).not.toContain('intent:')
+  })
+
   it('describes the resource by name', () => {
     const program = new Program({
       rootDirectory: env.rootDirectory,
@@ -164,6 +223,16 @@ describe('SslMonitorCodegen', () => {
     // Must NOT use the old wire-format names
     expect(source).not.toContain('degradedResponseTimeMs:')
     expect(source).not.toContain('maxResponseTimeMs:')
+  })
+
+  it('does not emit intent because SslMonitor does not support it', async () => {
+    const source = await renderResource(env, p => new SslMonitorCodegen(p), resource({
+      intent: {
+        goal: 'Backend data that must not be exposed on this construct.',
+      },
+    }))
+
+    expect(source).not.toContain('intent:')
   })
 
   it('emits assertions through SslAssertionBuilder', async () => {

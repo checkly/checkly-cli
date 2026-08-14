@@ -141,6 +141,44 @@ describe('ApiCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
+  it('should synthesize normalized intent from a packed fixture project', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-intent/checkly.config.js'),
+    )
+
+    expect(output).toEqual(expect.objectContaining({
+      diagnostics: expect.objectContaining({
+        fatal: false,
+      }),
+      payload: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'dashboard-intent',
+            type: 'check',
+            member: true,
+            payload: expect.objectContaining({
+              intent: {
+                goal: 'Verify that authenticated users can open the dashboard.',
+                constraints: [
+                  {
+                    type: 'REQUIRED_OUTCOME',
+                    statement: 'The dashboard displays the account overview.',
+                  },
+                  {
+                    type: 'MUST_PRESERVE',
+                    statement: 'Do not weaken the authentication assertion.',
+                  },
+                ],
+              },
+            }),
+          }),
+        ]),
+      }),
+    }))
+  }, DEFAULT_TEST_TIMEOUT)
+
   it('should not synthesize default runtime', async () => {
     const output = await parseProject(
       fixt,

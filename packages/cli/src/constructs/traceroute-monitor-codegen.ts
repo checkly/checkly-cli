@@ -40,7 +40,9 @@ export class TracerouteMonitorCodegen extends Codegen<TracerouteMonitorResource>
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildMonitorProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context, {
+            skipIntent: true,
+          })
 
           builder.value('request', valueForTracerouteRequest(this.program, file, context, resource.request))
         })

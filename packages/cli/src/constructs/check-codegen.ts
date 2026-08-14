@@ -21,11 +21,30 @@ import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.
 import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
 
+/**
+ * Intent shape returned by the checks resource API.
+ *
+ * Construct code generation adapts this wire representation to typed intent
+ * constraints so exported resources round-trip through Monitoring as Code.
+ */
+export interface CheckIntentResource {
+  goal: string
+  constraints?: Array<{
+    type: 'REQUIRED_OUTCOME' | 'MUST_PRESERVE'
+    statement: string
+  }>
+  /** Compatibility with import plans created before construct-shaped intent was deployed. */
+  requiredOutcomes?: string[]
+  /** Compatibility with import plans created before construct-shaped intent was deployed. */
+  mustPreserve?: string[]
+}
+
 export interface CheckResource {
   id: string
   checkType: string
   name: string
   description?: string | null
+  intent?: CheckIntentResource | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -60,6 +79,11 @@ export interface BuildCheckPropsOptions {
    * an explicit flag.
    */
   skipRetryStrategy?: boolean
+
+  /**
+   * Skip emitting the `intent` property for constructs that do not support it.
+   */
+  skipIntent?: boolean
 }
 
 export function buildCheckProps (
@@ -74,6 +98,28 @@ export function buildCheckProps (
 
   if (resource.description != null) {
     builder.string('description', resource.description)
+  }
+
+  if (!options.skipIntent && resource.intent != null) {
+    const intent = resource.intent
+    builder.object('intent', builder => {
+      builder.string('goal', intent.goal)
+
+      const constraints = intent.constraints ?? [
+        ...(intent.requiredOutcomes ?? []).map(statement => ({ type: 'REQUIRED_OUTCOME' as const, statement })),
+        ...(intent.mustPreserve ?? []).map(statement => ({ type: 'MUST_PRESERVE' as const, statement })),
+      ]
+      if (constraints.length > 0) {
+        builder.array('constraints', builder => {
+          for (const constraint of constraints) {
+            builder.object(builder => {
+              builder.string('type', constraint.type)
+              builder.string('statement', constraint.statement)
+            })
+          }
+        })
+      }
+    })
   }
 
   if (resource.activated !== undefined) {
