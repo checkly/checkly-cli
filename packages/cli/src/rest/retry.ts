@@ -34,8 +34,10 @@ export interface RetryOptions {
   attempts?: number
   /** Base delay for exponential backoff, in milliseconds. */
   baseDelayMs?: number
-  /** Cap for a single delay (backoff or Retry-After), in milliseconds. */
-  maxDelayMs?: number
+  /** Cap for a single jittered backoff delay, in milliseconds. */
+  maxBackoffDelayMs?: number
+  /** Largest server-provided Retry-After honored verbatim, in milliseconds. */
+  maxRetryAfterMs?: number
   /**
    * Overridable in tests to avoid real sleeps. The abort signal fires when
    * the wait is abandoned early; a sleep should cancel its timer then.
@@ -47,7 +49,10 @@ export interface RetryOptions {
 
 const DEFAULT_ATTEMPTS = 3
 const DEFAULT_BASE_DELAY_MS = 250
-const DEFAULT_MAX_DELAY_MS = 2000
+const DEFAULT_MAX_BACKOFF_DELAY_MS = 2000
+// An explicit server hint is trusted for longer than our own backoff would
+// wait, but still bounded so interactive commands cannot stall indefinitely.
+const DEFAULT_MAX_RETRY_AFTER_MS = 10_000
 
 // The transient gateway class only. 408 is deliberately excluded: the API
 // uses it to end long-poll requests, and the polling callers own that retry
@@ -190,7 +195,8 @@ export function createRetryInterceptor (api: AxiosInstance, options?: RetryOptio
   const {
     attempts = DEFAULT_ATTEMPTS,
     baseDelayMs = DEFAULT_BASE_DELAY_MS,
-    maxDelayMs = DEFAULT_MAX_DELAY_MS,
+    maxBackoffDelayMs = DEFAULT_MAX_BACKOFF_DELAY_MS,
+    maxRetryAfterMs = DEFAULT_MAX_RETRY_AFTER_MS,
     sleep = defaultSleep,
     random = Math.random,
   } = options ?? {}
@@ -215,7 +221,7 @@ export function createRetryInterceptor (api: AxiosInstance, options?: RetryOptio
     const retryAfterMs = parseRetryAfter(error.response?.headers?.['retry-after'])
 
     let delayMs: number
-    if (retryAfterMs !== undefined && retryAfterMs <= maxDelayMs) {
+    if (retryAfterMs !== undefined && retryAfterMs <= maxRetryAfterMs) {
       delayMs = retryAfterMs
     } else if (status === 429 && retryAfterMs !== undefined) {
       // The server asked for a longer wait than our delay budget allows.
@@ -225,7 +231,7 @@ export function createRetryInterceptor (api: AxiosInstance, options?: RetryOptio
     } else {
       // Full jitter: a uniformly random delay up to the exponential bound
       // spreads out concurrent clients hitting the same degraded gateway.
-      delayMs = Math.round(random() * Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)))
+      delayMs = Math.round(random() * Math.min(maxBackoffDelayMs, baseDelayMs * 2 ** (attempt - 1)))
     }
 
     debug(

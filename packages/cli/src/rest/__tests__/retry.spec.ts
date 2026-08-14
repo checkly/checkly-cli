@@ -137,7 +137,19 @@ describe('createRetryInterceptor', () => {
     expect(adapter).toHaveBeenCalledTimes(2)
   })
 
-  it('does not retry a 429 whose Retry-After exceeds the delay cap', async () => {
+  it('honors a 429 Retry-After larger than the backoff cap, up to the Retry-After cap', async () => {
+    const { api, adapter, delays } = createApi()
+    adapter
+      .mockImplementationOnce(failWith(429, { 'retry-after': '10' }))
+      .mockImplementationOnce(succeedWith({ ok: true }))
+
+    await api.get('/test')
+
+    expect(delays).toEqual([10_000])
+    expect(adapter).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a 429 whose Retry-After exceeds the Retry-After cap', async () => {
     const { api, adapter } = createApi()
     adapter.mockImplementation(failWith(429, { 'retry-after': '30' }))
 
@@ -145,7 +157,19 @@ describe('createRetryInterceptor', () => {
     expect(adapter).toHaveBeenCalledTimes(1)
   })
 
-  it('retries a 503 whose Retry-After exceeds the delay cap using backoff instead', async () => {
+  it('honors a 5xx Retry-After between the backoff cap and the Retry-After cap', async () => {
+    const { api, adapter, delays } = createApi()
+    adapter
+      .mockImplementationOnce(failWith(503, { 'retry-after': '5' }))
+      .mockImplementationOnce(succeedWith({ ok: true }))
+
+    await api.get('/test')
+
+    expect(delays).toEqual([5000])
+    expect(adapter).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a 503 whose Retry-After exceeds the Retry-After cap using backoff instead', async () => {
     const { api, adapter, delays } = createApi()
     adapter
       .mockImplementationOnce(failWith(503, { 'retry-after': '30' }))
