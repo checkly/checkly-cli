@@ -89,7 +89,9 @@ class ChecklyConfig {
 
   getMqttUrl (): string {
     const environments = {
-      local: 'wss://events-local.checklyhq.com',
+      // Overridable for local development setups whose event stream is served
+      // from a different broker, mirroring how CHECKLY_API_URL overrides the API.
+      local: process.env.CHECKLY_MQTT_URL || 'wss://events-local.checklyhq.com',
       development: 'wss://events-dev.checklyhq.com',
       staging: 'wss://events-test.checklyhq.com',
       production: 'wss://events.checklyhq.com',
