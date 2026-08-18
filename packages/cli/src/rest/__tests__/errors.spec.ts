@@ -1,7 +1,7 @@
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { handleErrorResponse, MissingResponseError, ProxyConnectionError } from '../errors.js'
+import { handleErrorResponse, MissingResponseError, PayloadTooLargeError, ProxyConnectionError } from '../errors.js'
 
 const proxyVars = ['http_proxy', 'HTTP_PROXY', 'https_proxy', 'HTTPS_PROXY', 'no_proxy', 'NO_PROXY', 'all_proxy', 'ALL_PROXY']
 const savedEnv: Record<string, string | undefined> = {}
@@ -74,6 +74,35 @@ describe('handleErrorResponse without a proxy', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(MissingResponseError)
       expect(err).not.toBeInstanceOf(ProxyConnectionError)
+    }
+  })
+})
+
+function responseError (status: number, data: unknown): AxiosError {
+  const config = { baseURL: 'https://api.checklyhq.com', url: '/next/checkly-storage/upload-code-bundle' } as
+    InternalAxiosRequestConfig
+  return new AxiosError('failed', 'ERR_BAD_REQUEST', config, {}, {
+    status,
+    statusText: 'error',
+    headers: {},
+    config,
+    data,
+  })
+}
+
+describe('handleErrorResponse for a 413 response', () => {
+  it('maps the response to a PayloadTooLargeError preserving the server message', () => {
+    try {
+      handleErrorResponse(responseError(413, {
+        statusCode: 413,
+        error: 'Request Entity Too Large',
+        message: 'Payload content length greater than maximum allowed: 31457280',
+      }))
+      expect.unreachable()
+    } catch (err) {
+      expect(err).toBeInstanceOf(PayloadTooLargeError)
+      expect((err as PayloadTooLargeError).data.message)
+        .toBe('Payload content length greater than maximum allowed: 31457280')
     }
   })
 })

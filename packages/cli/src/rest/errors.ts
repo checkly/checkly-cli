@@ -80,6 +80,17 @@ export class ConflictError extends ApiError {
 }
 
 /**
+ * Error thrown when an API response indicates that the request payload
+ * exceeded the maximum size the endpoint accepts.
+ */
+export class PayloadTooLargeError extends ApiError {
+  constructor (data: ErrorData, options?: ErrorOptions) {
+    super(data, options)
+    this.name = 'PayloadTooLargeError'
+  }
+}
+
+/**
  * Error thrown when an API response indicates a server error.
  */
 export class ServerError extends ApiError {
@@ -354,6 +365,10 @@ export function handleErrorResponse (err: Error): never {
 
       if (statusCode === 409) {
         throw new ConflictError(errorData, { cause: err })
+      }
+
+      if (statusCode === 413) {
+        throw new PayloadTooLargeError(errorData, { cause: err })
       }
 
       if (statusCode >= 500) {
