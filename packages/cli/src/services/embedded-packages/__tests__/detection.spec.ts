@@ -7,11 +7,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   DetectionUnavailableError,
   NexusRegistryApi,
+  PropagationContext,
   classifyEntries,
   decideWithHostedInventory,
   diffAgainstPublicRegistry,
+  graphKey,
+  planPropagationRound,
 } from '../detection.js'
-import { LockfileRegistryPackage } from '../lockfile-packages.js'
+import { LockfileDependencyGraph, LockfileRegistryPackage } from '../lockfile-packages.js'
 import { parseNpmrc } from '../npmrc.js'
 
 const entry = (name: string, version: string, integrity: string, tarballUrl?: string): LockfileRegistryPackage => ({
@@ -418,5 +421,188 @@ describe('diffAgainstPublicRegistry()', () => {
       [entry('foo', '1.0.0', publicIntegrity)],
       { publicRegistryUrl: 'http://127.0.0.1:1/' },
     )).rejects.toThrow(DetectionUnavailableError)
+  })
+})
+
+describe('planPropagationRound()', () => {
+  const graphOf = (edges: Record<string, string[]>, roots: string[] = []): LockfileDependencyGraph => ({
+    edges: new Map(Object.entries(edges).map(([source, targets]) => [source, new Set(targets)])),
+    roots: new Set(roots),
+  })
+
+  const contextOf = (
+    graph: LockfileDependencyGraph,
+    options: {
+      publicKeys?: string[]
+      embedKeys?: string[]
+      privateNames?: string[]
+      multiUndecidedNames?: string[]
+    } = {},
+  ): PropagationContext => ({
+    graph,
+    publicKeys: new Set(options.publicKeys),
+    embedKeys: new Set(options.embedKeys),
+    privateNames: new Set(options.privateNames),
+    assumedCount: 0,
+    multiUndecidedNames: new Set(options.multiUndecidedNames),
+  })
+
+  const keys = (entries: LockfileRegistryPackage[]) => entries.map(graphKey).sort()
+
+  it('assumes one layer per round, deferring entries whose parents are still undecided', () => {
+    const graph = graphOf({ 'top@1.0.0': ['mid@1.0.0'], 'mid@1.0.0': ['leaf@1.0.0'] })
+    const context = contextOf(graph, { publicKeys: ['top@1.0.0'] })
+    const undecided = [
+      entry('mid', '1.0.0', 'sha512-aaa'),
+      entry('leaf', '1.0.0', 'sha512-bbb'),
+    ]
+    // mid's only parent is decided (public), so it is assumed; leaf's
+    // parent mid is still undecided — its verdict could yet prove
+    // private — so leaf waits.
+    const first = planPropagationRound(undecided, context)
+    expect(keys(first.assumed)).toEqual(['mid@1.0.0'])
+    expect(first.frontier).toEqual([])
+
+    // Once mid settles into publicKeys, the next round assumes leaf.
+    context.publicKeys.add('mid@1.0.0')
+    const second = planPropagationRound([undecided[1]], context)
+    expect(keys(second.assumed)).toEqual(['leaf@1.0.0'])
+  })
+
+  it('exposes roots and waits for entries whose parents are undecided', () => {
+    const undecided = [
+      entry('top', '1.0.0', 'sha512-aaa'),
+      entry('mid', '1.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'top@1.0.0': ['mid@1.0.0'] }, ['top@1.0.0']),
+    ))
+    expect(keys(round.frontier)).toEqual(['top@1.0.0'])
+    expect(round.assumed).toEqual([])
+  })
+
+  it('exposes children of embedded packages and orphans of non-registry parents', () => {
+    const undecided = [
+      entry('private-dep', '1.0.0', 'sha512-aaa'),
+      entry('git-child', '1.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      // The git parent's key is not a registry entry, so its edge source
+      // is outside the universe and git-child counts as parentless.
+      graphOf({ '@acme/private@2.0.0': ['private-dep@1.0.0'], 'git-pkg@1.0.0': ['git-child@1.0.0'] }),
+      {
+        embedKeys: ['@acme/private@2.0.0'],
+      },
+    ))
+    expect(keys(round.frontier)).toEqual(['git-child@1.0.0', 'private-dep@1.0.0'])
+  })
+
+  it('exposes a root even when a public parent vouches for it', () => {
+    // A privately patched fork of a public name is most likely a direct
+    // dependency; verification, not assumption, is what catches it.
+    const undecided = [entry('chalk', '5.3.0', 'sha512-fork')]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'pub@1.0.0': ['chalk@5.3.0'] }, ['chalk@5.3.0']),
+      {
+        publicKeys: ['pub@1.0.0'],
+      },
+    ))
+    expect(round.assumed).toEqual([])
+    expect(keys(round.frontier)).toEqual(['chalk@5.3.0'])
+  })
+
+  it('exposes a child of an embedded package even when a public parent also vouches for it', () => {
+    const undecided = [
+      entry('shared-dep', '1.0.0', 'sha512-aaa'),
+      entry('below', '1.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({
+        'pub@1.0.0': ['shared-dep@1.0.0'],
+        '@acme/private@2.0.0': ['shared-dep@1.0.0'],
+        'shared-dep@1.0.0': ['below@1.0.0'],
+      }),
+      {
+        publicKeys: ['pub@1.0.0'],
+        embedKeys: ['@acme/private@2.0.0'],
+      },
+    ))
+    expect(keys(round.frontier)).toEqual(['shared-dep@1.0.0'])
+    // Nothing traverses through the exposed entry: its child waits for its
+    // verdict rather than borrowing publicness across it.
+    expect(round.assumed).toEqual([])
+  })
+
+  it('terminates on dependency cycles without assuming or exposing them', () => {
+    const undecided = [
+      entry('a', '1.0.0', 'sha512-aaa'),
+      entry('b', '1.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'a@1.0.0': ['b@1.0.0'], 'b@1.0.0': ['a@1.0.0'] }),
+    ))
+    // A cycle unreachable from any root or public parent stays entirely
+    // unplanned; the caller's last resort queries whatever remains.
+    expect(round.assumed).toEqual([])
+    expect(round.frontier).toEqual([])
+    expect(round.stallBreakers).toEqual([])
+  })
+
+  it('marks a cycle entry point a public parent reaches as a stall breaker', () => {
+    // Cycle members always have an undecided parent (each other), so they
+    // are never assumed. The member a proven-public parent reaches is the
+    // minimal query that breaks the stall — its verdict unlocks the rest
+    // of the cycle (and its descendants) for later rounds, without
+    // transmitting their names.
+    const undecided = [
+      entry('a', '1.0.0', 'sha512-aaa'),
+      entry('b', '1.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'seed@1.0.0': ['a@1.0.0'], 'a@1.0.0': ['b@1.0.0'], 'b@1.0.0': ['a@1.0.0'] }),
+      {
+        publicKeys: ['seed@1.0.0'],
+      },
+    ))
+    expect(round.assumed).toEqual([])
+    expect(round.frontier).toEqual([])
+    expect(keys(round.stallBreakers)).toEqual(['a@1.0.0'])
+  })
+
+  it('never assumes a version of a name while another version is unresolved', () => {
+    // Divergent versions of one name are weak fork evidence, and the
+    // sibling's verdict may prove the name private — both versions are
+    // stall breakers, verified together via one packument. The set is
+    // run-wide (the materializer seeds it across detection groups), so
+    // the guard holds even when the sibling lives in another group.
+    const undecided = [
+      entry('foo', '1.0.0', 'sha512-aaa'),
+      entry('foo', '2.0.0', 'sha512-bbb'),
+    ]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'pub-a@1.0.0': ['foo@1.0.0'], 'pub-b@1.0.0': ['foo@2.0.0'] }),
+      {
+        publicKeys: ['pub-a@1.0.0', 'pub-b@1.0.0'],
+        multiUndecidedNames: ['foo'],
+      },
+    ))
+    expect(round.assumed).toEqual([])
+    expect(keys(round.stallBreakers)).toEqual(['foo@1.0.0', 'foo@2.0.0'])
+  })
+
+  it('never assumes a version of a name with known private versions', () => {
+    // The user pinned foo@1.0.0 as private; foo@3.0.0 under a public
+    // parent must be verified, not assumed — a name with private
+    // versions is exactly where a fork of a public name lives.
+    const undecided = [entry('foo', '3.0.0', 'sha512-aaa')]
+    const round = planPropagationRound(undecided, contextOf(
+      graphOf({ 'pub@1.0.0': ['foo@3.0.0'] }),
+      {
+        publicKeys: ['pub@1.0.0'],
+        privateNames: ['foo'],
+      },
+    ))
+    expect(round.assumed).toEqual([])
+    expect(keys(round.frontier)).toEqual(['foo@3.0.0'])
   })
 })

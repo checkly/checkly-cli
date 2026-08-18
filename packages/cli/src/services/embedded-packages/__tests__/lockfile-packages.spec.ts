@@ -298,6 +298,245 @@ packages:
   })
 })
 
+describe('parsePnpmLockfilePackages() dependency graph', () => {
+  it('builds edges from v9 snapshots and roots from importers', () => {
+    const { graph } = parsePnpmLockfilePackages(`
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      root-pkg:
+        specifier: ^1.0.0
+        version: 1.0.0
+    devDependencies:
+      '@acme/tool':
+        specifier: ^2.0.0
+        version: 2.0.0(react@18.2.0)
+      linked-member:
+        specifier: workspace:*
+        version: link:packages/member
+packages:
+  root-pkg@1.0.0:
+    resolution: {integrity: sha512-aaa}
+  '@acme/tool@2.0.0':
+    resolution: {integrity: sha512-bbb}
+  mid@1.5.0:
+    resolution: {integrity: sha512-ccc}
+  leaf@0.3.0:
+    resolution: {integrity: sha512-ddd}
+snapshots:
+  root-pkg@1.0.0:
+    dependencies:
+      mid: 1.5.0
+  '@acme/tool@2.0.0(react@18.2.0)':
+    dependencies:
+      mid: 1.5.0
+  mid@1.5.0:
+    dependencies:
+      leaf: 0.3.0
+      git-dep: https://codeload.github.com/user/git-dep/tar.gz/abc123
+  leaf@0.3.0: {}
+`)
+    expect([...graph.roots].sort()).toEqual(['@acme/tool@2.0.0', 'root-pkg@1.0.0'])
+    expect([...graph.edges.get('root-pkg@1.0.0')!]).toEqual(['mid@1.5.0'])
+    expect([...graph.edges.get('@acme/tool@2.0.0')!]).toEqual(['mid@1.5.0'])
+    // The git dependency cannot be a registry entry, so it contributes no edge.
+    expect([...graph.edges.get('mid@1.5.0')!]).toEqual(['leaf@0.3.0'])
+    expect(graph.edges.has('leaf@0.3.0')).toBe(false)
+  })
+
+  it('unions edges across peer-variant snapshots of one version', () => {
+    const { graph } = parsePnpmLockfilePackages(`
+lockfileVersion: '9.0'
+packages:
+  dual@1.0.0:
+    resolution: {integrity: sha512-aaa}
+snapshots:
+  dual@1.0.0(react@17.0.0):
+    dependencies:
+      left: 1.0.0
+  dual@1.0.0(react@18.2.0):
+    dependencies:
+      right: 2.0.0
+`)
+    expect([...graph.edges.get('dual@1.0.0')!].sort()).toEqual(['left@1.0.0', 'right@2.0.0'])
+  })
+
+  it('resolves aliased dependency values to the real package', () => {
+    const { graph } = parsePnpmLockfilePackages(`
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      my-alias:
+        specifier: npm:real-name@^1.0.0
+        version: real-name@1.0.0
+packages:
+  real-name@1.0.0:
+    resolution: {integrity: sha512-aaa}
+`)
+    expect([...graph.roots]).toEqual(['real-name@1.0.0'])
+  })
+
+  it('collects roots from the document root of a v6 non-workspace lockfile', () => {
+    const { graph } = parsePnpmLockfilePackages(`
+lockfileVersion: '6.0'
+dependencies:
+  top:
+    specifier: ^1.0.0
+    version: 1.0.0
+packages:
+  /top@1.0.0:
+    resolution: {integrity: sha512-aaa}
+`)
+    expect([...graph.roots]).toEqual(['top@1.0.0'])
+  })
+
+  it('records root-level link dependencies of a v6 non-workspace lockfile as excluded', () => {
+    const { excluded } = parsePnpmLockfilePackages(`
+lockfileVersion: '6.0'
+dependencies:
+  outside-pkg:
+    specifier: link:../elsewhere
+    version: link:../elsewhere
+packages: {}
+`)
+    expect(excluded.map(entry => ({ name: entry.name, kind: entry.kind }))).toEqual([
+      { name: 'outside-pkg', kind: 'unfetchable' },
+    ])
+  })
+
+  it('builds edges from v6 inline package dependencies', () => {
+    const { graph } = parsePnpmLockfilePackages(`
+lockfileVersion: '6.0'
+importers:
+  .:
+    dependencies:
+      top:
+        specifier: ^1.0.0
+        version: 1.0.0
+packages:
+  /top@1.0.0:
+    resolution: {integrity: sha512-aaa}
+    dependencies:
+      nested: 2.0.0
+  /nested@2.0.0:
+    resolution: {integrity: sha512-bbb}
+`)
+    expect([...graph.roots]).toEqual(['top@1.0.0'])
+    expect([...graph.edges.get('top@1.0.0')!]).toEqual(['nested@2.0.0'])
+  })
+})
+
+describe('parseNpmLockfilePackages() dependency graph', () => {
+  it('resolves edges through node_modules nesting and collects member roots', () => {
+    const { graph } = parseNpmLockfilePackages(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        '': {
+          name: 'root',
+          version: '1.0.0',
+          dependencies: { top: '^1.0.0' },
+          devDependencies: { 'dev-tool': '^1.0.0' },
+        },
+        'packages/member': {
+          name: 'member-pkg',
+          version: '1.0.0',
+          dependencies: { 'member-dep': '^3.0.0' },
+        },
+        'node_modules/member-pkg': { link: true, resolved: 'packages/member' },
+        'node_modules/top': {
+          version: '1.0.0',
+          resolved: 'https://registry.npmjs.org/top/-/top-1.0.0.tgz',
+          integrity: 'sha512-aaa',
+          dependencies: { shared: '^1.0.0' },
+        },
+        'node_modules/dev-tool': {
+          version: '1.0.0',
+          resolved: 'https://registry.npmjs.org/dev-tool/-/dev-tool-1.0.0.tgz',
+          integrity: 'sha512-bbb',
+        },
+        'node_modules/member-dep': {
+          version: '3.0.0',
+          resolved: 'https://registry.npmjs.org/member-dep/-/member-dep-3.0.0.tgz',
+          integrity: 'sha512-ccc',
+          dependencies: { shared: '^2.0.0' },
+        },
+        // member-dep needs a different major of shared, nested under it.
+        'node_modules/member-dep/node_modules/shared': {
+          version: '2.0.0',
+          resolved: 'https://registry.npmjs.org/shared/-/shared-2.0.0.tgz',
+          integrity: 'sha512-ddd',
+        },
+        'node_modules/shared': {
+          version: '1.0.0',
+          resolved: 'https://registry.npmjs.org/shared/-/shared-1.0.0.tgz',
+          integrity: 'sha512-eee',
+        },
+      },
+    }))
+    expect([...graph.roots].sort()).toEqual(['dev-tool@1.0.0', 'member-dep@3.0.0', 'top@1.0.0'])
+    expect([...graph.edges.get('top@1.0.0')!]).toEqual(['shared@1.0.0'])
+    expect([...graph.edges.get('member-dep@3.0.0')!]).toEqual(['shared@2.0.0'])
+  })
+
+  it('resolves aliased dependencies to the real package name', () => {
+    const { graph } = parseNpmLockfilePackages(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        '': { name: 'root', version: '1.0.0', dependencies: { 'my-alias': 'npm:real-package@^1.0.0' } },
+        'node_modules/my-alias': {
+          name: 'real-package',
+          version: '1.0.0',
+          resolved: 'https://registry.npmjs.org/real-package/-/real-package-1.0.0.tgz',
+          integrity: 'sha512-aaa',
+        },
+      },
+    }))
+    expect([...graph.roots]).toEqual(['real-package@1.0.0'])
+  })
+
+  it('excludes git-resolved entries from the graph entirely', () => {
+    // A git-resolved copy shares name@version with a registry copy; its
+    // dependencies must not be attributed to the registry package, and it
+    // must not become an edge target either.
+    const { graph } = parseNpmLockfilePackages(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        '': { name: 'root', version: '1.0.0', dependencies: { forked: '^1.0.0' } },
+        'node_modules/forked': {
+          version: '1.0.0',
+          resolved: 'git+ssh://git@github.com/acme/forked.git#abc',
+          dependencies: { '@acme/internal': '^2.0.0' },
+        },
+        'node_modules/@acme/internal': {
+          version: '2.0.0',
+          resolved: 'https://registry.npmjs.org/@acme/internal/-/internal-2.0.0.tgz',
+          integrity: 'sha512-aaa',
+        },
+      },
+    }))
+    expect(graph.edges.has('forked@1.0.0')).toBe(false)
+    expect(graph.roots.has('forked@1.0.0')).toBe(false)
+  })
+
+  it('skips uninstalled optional peer dependencies', () => {
+    const { graph } = parseNpmLockfilePackages(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        '': { name: 'root', version: '1.0.0', dependencies: { plugin: '^1.0.0' } },
+        'node_modules/plugin': {
+          version: '1.0.0',
+          resolved: 'https://registry.npmjs.org/plugin/-/plugin-1.0.0.tgz',
+          integrity: 'sha512-aaa',
+          peerDependencies: { 'absent-host': '^4.0.0' },
+        },
+      },
+    }))
+    expect(graph.edges.has('plugin@1.0.0')).toBe(false)
+  })
+})
+
 describe('loadLockfilePackages()', () => {
   it('dispatches package-lock.json to the npm parser', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-lockfile-'))

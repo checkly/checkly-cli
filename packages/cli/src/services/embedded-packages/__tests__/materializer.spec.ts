@@ -763,6 +763,213 @@ packages:
       expect(requests.map(r => r.url).filter(url => url.startsWith('/public/'))).toEqual(['/public/baz'])
     })
 
+    it('prunes fallback lookups to the dependency-graph frontier and never persists assumptions', async () => {
+      // A five-package tree with two workspace-direct dependencies:
+      //   top-pub -> mid-pub -> leaf-pub     (all public)
+      //   priv-root -> priv-dep              (private root, public dep)
+      // Only the frontier needs lookups: the roots, then priv-dep once
+      // priv-root proves private. mid-pub and leaf-pub are vouched for by
+      // top-pub and must never be queried.
+      const topIntegrity = `sha512-${createHash('sha512').update('top-pub bytes').digest('base64')}`
+      const depIntegrity = `sha512-${createHash('sha512').update('priv-dep bytes').digest('base64')}`
+      restMode = 'forbidden'
+      // The packages section comes last so the second half of the test can
+      // append a new entry to it.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      top-pub:
+        specifier: ^1.0.0
+        version: 1.0.0
+      priv-root:
+        specifier: ^1.0.0
+        version: 1.0.0
+snapshots:
+  top-pub@1.0.0:
+    dependencies:
+      mid-pub: 1.0.0
+  mid-pub@1.0.0:
+    dependencies:
+      leaf-pub: 1.0.0
+  leaf-pub@1.0.0: {}
+  priv-root@1.0.0:
+    dependencies:
+      priv-dep: 1.0.0
+  priv-dep@1.0.0: {}
+packages:
+  top-pub@1.0.0:
+    resolution: {integrity: ${topIntegrity}}
+  mid-pub@1.0.0:
+    resolution: {integrity: ${pubIntegrity}}
+  leaf-pub@1.0.0:
+    resolution: {integrity: ${pubIntegrity}}
+  priv-root@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  priv-dep@1.0.0:
+    resolution: {integrity: ${depIntegrity}}
+`)
+      const packuments: Record<string, unknown> = {
+        '/public/top-pub': { versions: { '1.0.0': { dist: { integrity: topIntegrity } } } },
+        '/public/priv-dep': { versions: { '1.0.0': { dist: { integrity: depIntegrity } } } },
+      }
+      server.removeAllListeners('request')
+      server.on('request', (req, res) => {
+        requests.push({ url: req.url!, authorization: req.headers.authorization })
+        if (req.url!.startsWith('/service/rest/v1/')) {
+          res.statusCode = 403
+          return res.end('forbidden')
+        }
+        if (req.url! in packuments) {
+          res.setHeader('content-type', 'application/json')
+          return res.end(JSON.stringify(packuments[req.url!]))
+        }
+        if (req.url!.startsWith('/public/')) {
+          res.statusCode = 404
+          return res.end('not found')
+        }
+        if (req.url!.endsWith('.tgz')) {
+          return res.end(barTarball)
+        }
+        res.statusCode = 404
+        res.end('not found')
+      })
+
+      const tarballs = await makeDetecting([], { detectionFallback: 'public-registry' }).materialize()
+      expect(tarballs.map(t => `${t.name}@${t.version}`)).toEqual(['priv-root@1.0.0'])
+      expect(requests.map(r => r.url).filter(url => url.startsWith('/public/')).sort()).toEqual([
+        '/public/priv-dep',
+        '/public/priv-root',
+        '/public/top-pub',
+      ])
+
+      // Assumed verdicts are refutable and must not have been persisted:
+      // with the fallback off and the lockfile grown (to miss the summary
+      // cache), the cached proofs (top-pub, priv-root, priv-dep) apply,
+      // while mid-pub, leaf-pub and the new baz stay undecided and are
+      // skipped once the registry API refuses again.
+      await fs.writeFile(lockfilePath, `${(await fs.readFile(lockfilePath, 'utf8'))}  baz@3.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      requests = []
+      let secondRun: Awaited<ReturnType<EmbeddedPackagesMaterializer['materialize']>> = []
+      const written = await captureStderr(async () => {
+        secondRun = await makeDetecting().materialize()
+      })
+      expect(secondRun.map(t => `${t.name}@${t.version}`)).toEqual(['priv-root@1.0.0'])
+      expect(requests.some(r => r.url.startsWith('/public/'))).toBe(false)
+      const warning = written.find(line => line.includes('could not determine'))
+      expect(warning).toContain('3 package(s)')
+    })
+
+    it('breaks a cycle stall minimally without transmitting the names below it', async () => {
+      // pub-root -> cyc-x <-> cyc-y -> deep-leaf: the cycle blocks
+      // assumption for itself and everything below it. Only the cycle's
+      // public-reachable entry point (cyc-x) is queried to break the
+      // stall; cyc-y and deep-leaf then resolve by assumption and their
+      // names never leave the machine.
+      const cycXIntegrity = `sha512-${createHash('sha512').update('cyc-x bytes').digest('base64')}`
+      restMode = 'forbidden'
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      pub-root:
+        specifier: ^1.0.0
+        version: 1.0.0
+snapshots:
+  pub-root@1.0.0:
+    dependencies:
+      cyc-x: 1.0.0
+  cyc-x@1.0.0:
+    dependencies:
+      cyc-y: 1.0.0
+  cyc-y@1.0.0:
+    dependencies:
+      cyc-x: 1.0.0
+      deep-leaf: 1.0.0
+  deep-leaf@1.0.0: {}
+packages:
+  pub-root@1.0.0:
+    resolution: {integrity: ${pubIntegrity}}
+  cyc-x@1.0.0:
+    resolution: {integrity: ${cycXIntegrity}}
+  cyc-y@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  deep-leaf@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      const packuments: Record<string, unknown> = {
+        '/public/pub-root': { versions: { '1.0.0': { dist: { integrity: pubIntegrity } } } },
+        '/public/cyc-x': { versions: { '1.0.0': { dist: { integrity: cycXIntegrity } } } },
+      }
+      server.removeAllListeners('request')
+      server.on('request', (req, res) => {
+        requests.push({ url: req.url!, authorization: req.headers.authorization })
+        if (req.url! in packuments) {
+          res.setHeader('content-type', 'application/json')
+          return res.end(JSON.stringify(packuments[req.url!]))
+        }
+        res.statusCode = req.url!.startsWith('/service/rest/v1/') ? 403 : 404
+        res.end('no')
+      })
+
+      const tarballs = await makeDetecting([], { detectionFallback: 'public-registry' }).materialize()
+      expect(tarballs).toEqual([])
+      expect(requests.map(r => r.url).filter(url => url.startsWith('/public/')).sort()).toEqual([
+        '/public/cyc-x',
+        '/public/pub-root',
+      ])
+    })
+
+    it('verifies a dependency cycle no root or public parent reaches instead of hanging', async () => {
+      // cycle-a and cycle-b only reference each other: neither is a
+      // workspace-direct dependency, neither is parentless, and nothing
+      // public vouches for them, so the planner's frontier is empty while
+      // both stay undecided — the safety valve must query them anyway.
+      const cycleAIntegrity = `sha512-${createHash('sha512').update('cycle-a bytes').digest('base64')}`
+      const cycleBIntegrity = `sha512-${createHash('sha512').update('cycle-b bytes').digest('base64')}`
+      restMode = 'forbidden'
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+snapshots:
+  cycle-a@1.0.0:
+    dependencies:
+      cycle-b: 1.0.0
+  cycle-b@1.0.0:
+    dependencies:
+      cycle-a: 1.0.0
+packages:
+  cycle-a@1.0.0:
+    resolution: {integrity: ${cycleAIntegrity}}
+  cycle-b@1.0.0:
+    resolution: {integrity: ${cycleBIntegrity}}
+`)
+      const packuments: Record<string, unknown> = {
+        '/public/cycle-a': { versions: { '1.0.0': { dist: { integrity: cycleAIntegrity } } } },
+        '/public/cycle-b': { versions: { '1.0.0': { dist: { integrity: cycleBIntegrity } } } },
+      }
+      server.removeAllListeners('request')
+      server.on('request', (req, res) => {
+        requests.push({ url: req.url!, authorization: req.headers.authorization })
+        if (req.url! in packuments) {
+          res.setHeader('content-type', 'application/json')
+          return res.end(JSON.stringify(packuments[req.url!]))
+        }
+        res.statusCode = req.url!.startsWith('/service/rest/v1/') ? 403 : 404
+        res.end('no')
+      })
+
+      const tarballs = await makeDetecting([], { detectionFallback: 'public-registry' }).materialize()
+      expect(tarballs).toEqual([])
+      expect(requests.map(r => r.url).filter(url => url.startsWith('/public/')).sort()).toEqual([
+        '/public/cycle-a',
+        '/public/cycle-b',
+      ])
+    })
+
     it('lets an explicit entry take over its name, but warns about pin-blocked private versions', async () => {
       // Both bar versions are in the lockfile and privately hosted. The
       // explicit pin owns the name, so detection must not add bar@3.0.0 —

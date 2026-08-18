@@ -177,9 +177,22 @@ export type ChecklyConfig = {
      * `'public-registry'` allows integrity lookups against the public npm
      * registry — accurate for any registry product, but it transmits the
      * undecided package names (potentially private ones) to the public
-     * registry. Verdicts obtained from the public registry are cached as
+     * registry. Lookups are pruned along the lockfile's dependency graph:
+     * a package that a provably public package depends on is assumed
+     * public without a lookup (an assumed package's name is not
+     * transmitted), so typically the queried names are your direct
+     * dependencies, the dependencies of private packages, and any name
+     * your lockfile resolves at more than one version (divergent
+     * versions are never assumed). The assumption can miss a privately
+     * published artifact that shares a name a public package depends on —
+     * the runner's install then fails its lockfile integrity check — in
+     * which case list that package in `embeddedPackages` explicitly.
+     * Verdicts actually obtained from the public registry are cached as
      * immutable proofs and continue to apply after the option is set back
-     * to `'skip'`; clear the CLI cache to discard them.
+     * to `'skip'`; clear the CLI cache to discard them. Packages that
+     * were assumed public (never looked up) re-degrade to undecided —
+     * with the corresponding warning — once the option is off, so prefer
+     * leaving it enabled once opted in.
      */
     detectEmbeddedPackagesFallback?: 'skip' | 'public-registry'
     /**

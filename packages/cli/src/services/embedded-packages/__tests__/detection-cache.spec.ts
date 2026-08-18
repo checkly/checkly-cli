@@ -26,6 +26,16 @@ describe('detectionInputDigest()', () => {
     expect(detectionInputDigest(lockfile, a)).not.toBe(detectionInputDigest(lockfile, b))
   })
 
+  it('changes when the detection fallback mode changes', () => {
+    // A summary derived with graph assumptions under 'public-registry'
+    // must not be served after the option is set back to 'skip'.
+    const config = parseNpmrc('registry=https://nexus.local/npm/')
+    expect(detectionInputDigest(lockfile, config, {}, [], 'public-registry'))
+      .not.toBe(detectionInputDigest(lockfile, config, {}, [], 'skip'))
+    expect(detectionInputDigest(lockfile, config, {}, [], 'skip'))
+      .toBe(detectionInputDigest(lockfile, config, {}, []))
+  })
+
   it('changes when a ${VAR}-referenced registry value changes', () => {
     const config = parseNpmrc('registry=${MY_REGISTRY}')
     expect(detectionInputDigest(lockfile, config, { MY_REGISTRY: 'https://a.example.com/' }))

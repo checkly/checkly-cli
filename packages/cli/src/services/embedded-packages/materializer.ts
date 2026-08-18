@@ -14,13 +14,18 @@ import {
   DetectionUnavailableError,
   DetectionVerdict,
   NexusRegistryApi,
+  PropagationContext,
   classifyEntries,
   decideWithHostedInventory,
   diffAgainstPublicRegistry,
+  graphKey,
   nexusContentBase,
+  planPropagationRound,
+  recordEmbedEvidence,
 } from './detection.js'
 import { verifyIntegrity } from './integrity.js'
 import {
+  LockfileDependencyGraph,
   LockfileRegistryPackage,
   UnsupportedLockfileError,
   loadLockfilePackages,
@@ -495,10 +500,12 @@ export class EmbeddedPackagesMaterializer {
 
     let lockfileContent: string
     let registry: LockfileRegistryPackage[]
+    let graph: LockfileDependencyGraph
     try {
       const { content, packages } = await this.#loadLockfile(lockfilePath)
       lockfileContent = content
       registry = packages.registry
+      graph = packages.graph
     } catch (err) {
       debug('detection skipped, cannot enumerate lockfile %s: %s', lockfilePath, (err as Error).message)
       return []
@@ -524,7 +531,9 @@ export class EmbeddedPackagesMaterializer {
     const detectableRegistry = registry
       .filter(entry => !explicitKeys.has(`${entry.name}@${entry.version}`))
 
-    const inputDigest = detectionInputDigest(lockfileContent, npmrcConfig, this.#env, this.#options.specs)
+    const inputDigest = detectionInputDigest(
+      lockfileContent, npmrcConfig, this.#env, this.#options.specs,
+      this.#options.detectionFallback ?? 'skip')
 
     let embedKeys: Set<string>
     const summary = await this.#detectionCache.getSummary(inputDigest)
@@ -532,14 +541,17 @@ export class EmbeddedPackagesMaterializer {
       debug('detection summary cache hit (%d packages to embed)', summary.embedKeys.length)
       embedKeys = new Set(summary.embedKeys)
     } else {
-      const detected = await this.#runDetection(detectableRegistry, npmrcConfig)
+      const detected = await this.#runDetection(detectableRegistry, npmrcConfig, graph, explicitKeys, explicitNames)
       embedKeys = detected.embedKeys
-      if (!detected.degraded) {
+      if (!detected.degraded && !detected.usedAssumptions) {
         await this.#detectionCache.putSummary(inputDigest, { embedKeys: [...embedKeys] })
       }
       // Degraded runs still embed what the sound tiers proved (e.g.
       // scope-mapped packages), but are deliberately not cached so the
-      // next run retries the undecided remainder.
+      // next run retries the undecided remainder. Runs that decided
+      // anything by graph assumption are not cached either: the
+      // assumptions must be re-derived — and replaced by real verdicts
+      // once the private registry becomes interrogable — on every run.
     }
 
     // Rehydrate full entries from the lockfile: the cache contributes only
@@ -609,7 +621,10 @@ export class EmbeddedPackagesMaterializer {
   async #runDetection (
     registry: LockfileRegistryPackage[],
     npmrcConfig: NpmrcConfig,
-  ): Promise<{ embedKeys: Set<string>, degraded: boolean }> {
+    graph: LockfileDependencyGraph,
+    explicitKeys: Set<string>,
+    explicitNames: Set<string>,
+  ): Promise<{ embedKeys: Set<string>, degraded: boolean, usedAssumptions: boolean }> {
     const classified = classifyEntries(registry, npmrcConfig, this.#env)
     debug(
       'detection: %d public by configuration, %d embed by scope mapping, %d undecided',
@@ -618,6 +633,28 @@ export class EmbeddedPackagesMaterializer {
 
     const embedKeys = new Set(classified.embed.map(verdictKey))
     let undecided = classified.undecided
+
+    // Graph propagation lets the public-registry diff skip lookups for
+    // packages a provably public parent vouches for. Seeded with what the
+    // zero-network tier proved; verdicts settle into it as tiers run.
+    // Explicitly listed packages count as embedded so their dependency
+    // subtrees are verified rather than assumed. (An edgeless graph
+    // degrades cleanly: every entry is parentless, so the whole set is
+    // frontier and one diff verifies everything.)
+    const propagation: PropagationContext = {
+      graph,
+      publicKeys: new Set(classified.public.map(graphKey)),
+      embedKeys: new Set([...classified.embed.map(graphKey), ...explicitKeys]),
+      privateNames: new Set([...classified.embed.map(entry => entry.name), ...explicitNames]),
+      assumedCount: 0,
+      multiUndecidedNames: new Set(),
+    }
+    // The single mutation point for "this entry is private": both key
+    // spaces and the name-level evidence stay in sync.
+    const recordEmbed = (entry: LockfileRegistryPackage): void => {
+      embedKeys.add(verdictKey(entry))
+      recordEmbedEvidence(propagation, entry)
+    }
 
     // Configuration problems are diagnosed from configuration alone, up
     // front: a later tier may still decide the entries (or the verdict
@@ -654,14 +691,32 @@ export class EmbeddedPackagesMaterializer {
       undecided = undecided.filter(entry => {
         const verdict = known[verdictKey(entry)]
         if (verdict === 'embed') {
-          embedKeys.add(verdictKey(entry))
+          recordEmbed(entry)
+        } else if (verdict === 'public') {
+          // Cached diff verdicts are integrity proofs, so they seed graph
+          // propagation just like the zero-network tier's publics.
+          propagation.publicKeys.add(graphKey(entry))
         }
         return verdict === undefined
       })
     }
 
     if (undecided.length === 0) {
-      return { embedKeys, degraded: configErrors.size > 0 }
+      return { embedKeys, degraded: configErrors.size > 0, usedAssumptions: false }
+    }
+
+    // Computed over the run-wide undecided set, after the verdict cache is
+    // applied but before grouping: groups run sequentially, and a
+    // per-group count would miss a sibling version living in another
+    // group.
+    const undecidedNameCounts = new Map<string, number>()
+    for (const entry of undecided) {
+      undecidedNameCounts.set(entry.name, (undecidedNameCounts.get(entry.name) ?? 0) + 1)
+    }
+    for (const [name, count] of undecidedNameCounts) {
+      if (count > 1) {
+        propagation.multiUndecidedNames.add(name)
+      }
     }
 
     // Group undecided entries by the registry instance to interrogate: the
@@ -730,26 +785,56 @@ export class EmbeddedPackagesMaterializer {
     }
     const skipped: Array<{ entry: LockfileRegistryPackage, reason: string }> = []
     let restRemediable = false
-    for (const group of groups.values()) {
+    // Nexus-shaped groups run first: embeds their inventories prove then
+    // expose those packages' children to later groups' diffs, which would
+    // otherwise be free to assume them public via some other public
+    // parent. This is a heuristic ordering, not a guarantee — a group
+    // whose registry unexpectedly fails mid-run still leaves its verdicts
+    // unknown to groups already processed.
+    const inventoryCapable = (group: DetectionGroup): boolean => {
+      if (group.unavailableReason !== undefined) {
+        return false
+      }
+      try {
+        // The same predicate #decideUndecided applies, so the ordering
+        // cannot drift from what the registry API actually supports.
+        return NexusRegistryApi.forRegistry(group.registryUrl, npmrcConfig, this.#env) !== undefined
+      } catch {
+        return false
+      }
+    }
+    const orderedGroups = [...groups.values()]
+      .sort((a, b) => Number(inventoryCapable(b)) - Number(inventoryCapable(a)))
+    for (const group of orderedGroups) {
       try {
         const { verdicts, tier } = await this.#decideUndecided(
-          group.registryUrl, group.entries, npmrcConfig, instanceState, group.unavailableReason)
+          group.registryUrl, group.entries, npmrcConfig, instanceState, propagation, group.unavailableReason)
         // The conservative rule only distrusts the hosted inventory's
-        // silence — a 'public' verdict from the public-registry integrity
-        // diff is a proof and holds for conservative groups too.
+        // silence — a 'public' verdict from the public-registry diff (an
+        // integrity proof, or the graph assumption that deliberately rides
+        // along with it) holds for conservative groups too. The
+        // assumption's risk profile is uniform across groups: every
+        // undecided entry resolves from a non-public source, whichever
+        // group it lands in, and excluding conservative groups would
+        // disable the pruning for exactly the non-Nexus registries the
+        // fallback exists for.
         const unresolved: LockfileRegistryPackage[] = []
         for (const [entry, verdict] of verdicts) {
           if (verdict === 'embed') {
-            embedKeys.add(verdictKey(entry))
+            // Registry-inventory embeds settle into the propagation state
+            // too, exposing the children of hosted private packages to
+            // later groups' diffs. (Inventory 'public' means only "not
+            // hosted here" — never a propagation seed.)
+            recordEmbed(entry)
           } else if (group.conservative && tier === 'registry-inventory') {
             unresolved.push(entry)
           }
         }
         if (unresolved.length > 0) {
-          skipped.push(...await this.#settleConservativeLeftovers(unresolved, embedKeys))
+          skipped.push(...await this.#settleConservativeLeftovers(unresolved, recordEmbed, propagation))
         }
       } catch (err) {
-        const partial = this.#applyPartialVerdicts(err, embedKeys)
+        const partial = this.#applyPartialVerdicts(err, recordEmbed)
         const reason = err instanceof DetectionUnavailableError
           ? err.message
           : `Unexpected error: ${(err as Error).message}`
@@ -791,7 +876,7 @@ export class EmbeddedPackagesMaterializer {
       )
     }
 
-    return { embedKeys, degraded }
+    return { embedKeys, degraded, usedAssumptions: propagation.assumedCount > 0 }
   }
 
   /**
@@ -802,21 +887,22 @@ export class EmbeddedPackagesMaterializer {
    */
   async #settleConservativeLeftovers (
     unresolved: LockfileRegistryPackage[],
-    embedKeys: Set<string>,
+    recordEmbed: (entry: LockfileRegistryPackage) => void,
+    propagation: PropagationContext,
   ): Promise<Array<{ entry: LockfileRegistryPackage, reason: string }>> {
     if (this.#options.detectionFallback !== 'public-registry') {
       return unresolved.map(entry => ({ entry, reason: CONSERVATIVE_UNDETERMINED_REASON }))
     }
     try {
-      const diffed = await this.#diffAndCacheVerdicts(unresolved)
+      const diffed = await this.#diffAndCacheVerdicts(unresolved, propagation)
       for (const [entry, verdict] of diffed) {
         if (verdict === 'embed') {
-          embedKeys.add(verdictKey(entry))
+          recordEmbed(entry)
         }
       }
       return []
     } catch (err) {
-      const partial = this.#applyPartialVerdicts(err, embedKeys)
+      const partial = this.#applyPartialVerdicts(err, recordEmbed)
       // Both branches keep the same-origin context so the warning states
       // which tier stayed silent and which one then failed.
       const reason = err instanceof DetectionUnavailableError
@@ -836,12 +922,15 @@ export class EmbeddedPackagesMaterializer {
    */
   #applyPartialVerdicts (
     err: unknown,
-    embedKeys: Set<string>,
+    recordEmbed: (entry: LockfileRegistryPackage) => void,
   ): Map<LockfileRegistryPackage, DetectionVerdict> | undefined {
     const partial = err instanceof DetectionUnavailableError ? err.partialVerdicts : undefined
     for (const [entry, verdict] of partial ?? []) {
       if (verdict === 'embed') {
-        embedKeys.add(verdictKey(entry))
+        // Recording seeds the propagation state too, so children of a
+        // package a failed diff still proved private are verified rather
+        // than assumed in later groups.
+        recordEmbed(entry)
       }
     }
     return partial
@@ -860,6 +949,7 @@ export class EmbeddedPackagesMaterializer {
     entries: LockfileRegistryPackage[],
     npmrcConfig: NpmrcConfig,
     instanceState: InstanceState,
+    propagation: PropagationContext,
     unavailableReason?: string,
   ): Promise<{
     verdicts: Map<LockfileRegistryPackage, DetectionVerdict>
@@ -892,7 +982,7 @@ export class EmbeddedPackagesMaterializer {
       }
       debug('detection: registry API unavailable (%s), using the public registry fallback', (err as Error).message)
       try {
-        return { verdicts: await this.#diffAndCacheVerdicts(entries), tier: 'public-diff' }
+        return { verdicts: await this.#diffAndCacheVerdicts(entries, propagation), tier: 'public-diff' }
       } catch (fallbackErr) {
         // The fallback failing must not erase the registry tier's failure:
         // the warning needs both causes, and the REST remedy stays
@@ -916,15 +1006,27 @@ export class EmbeddedPackagesMaterializer {
   }
 
   /**
-   * The opt-in public-registry diff. Every verdict it obtains is persisted
-   * — including the partial results of a failed run — because these
-   * verdicts compare immutable artifacts and are cacheable forever, and a
-   * name transmitted once should never need transmitting again. Callers
-   * pass cache misses only: #runDetection applies the persistent verdict
-   * cache before any tier runs.
+   * The opt-in public-registry diff. Every PROVEN verdict it obtains is
+   * persisted — including the partial results of a failed run — because
+   * those verdicts compare immutable artifacts and are cacheable forever,
+   * and a name transmitted once should never need transmitting again.
+   * Callers pass cache misses only: #runDetection applies the persistent
+   * verdict cache before any tier runs.
+   *
+   * The diff runs in dependency-graph frontier rounds: entries a provably
+   * public parent vouches for are assumed public without a lookup (their
+   * names are never transmitted), and only the exposed surface —
+   * workspace-direct dependencies, children of embedded packages,
+   * parentless entries — is verified. Each round's proofs propagate before
+   * the next round runs, so verification stops at the boundary of the
+   * public part of the tree. Assumed verdicts are refutable (a private
+   * artifact shadowing a public name under a public parent would be
+   * missed, failing the runner's lockfile integrity check loudly at
+   * install time) and are therefore never persisted.
    */
   async #diffAndCacheVerdicts (
     entries: LockfileRegistryPackage[],
+    propagation: PropagationContext,
   ): Promise<Map<LockfileRegistryPackage, DetectionVerdict>> {
     const persist = async (diffed: Map<LockfileRegistryPackage, DetectionVerdict>): Promise<void> => {
       if (diffed.size === 0) {
@@ -933,18 +1035,72 @@ export class EmbeddedPackagesMaterializer {
       await this.#detectionCache.putVerdicts(
         Object.fromEntries([...diffed].map(([entry, verdict]) => [verdictKey(entry), verdict])))
     }
-    try {
-      const diffed = await diffAgainstPublicRegistry(entries, {
-        publicRegistryUrl: this.#options.publicRegistryUrl,
-      })
-      await persist(diffed)
-      return diffed
-    } catch (err) {
-      if (err instanceof DetectionUnavailableError && err.partialVerdicts !== undefined) {
-        await persist(err.partialVerdicts)
+
+    const verdicts = new Map<LockfileRegistryPackage, DetectionVerdict>()
+    let undecided = entries
+    while (undecided.length > 0) {
+      const round = planPropagationRound(undecided, propagation)
+
+      // Assumption is the last resort before actual stalls: it runs only
+      // when no exposed entry remains to verify, so every proof — and
+      // every piece of embed/private-name evidence a query can surface —
+      // has landed before anything is assumed.
+      if (round.frontier.length === 0 && round.assumed.length > 0) {
+        debug('detection: %d package(s) assumed public via public parents', round.assumed.length)
+        propagation.assumedCount += round.assumed.length
+        const assumedSet = new Set(round.assumed)
+        for (const entry of round.assumed) {
+          verdicts.set(entry, 'public')
+          propagation.publicKeys.add(graphKey(entry))
+        }
+        undecided = undecided.filter(entry => !assumedSet.has(entry))
+        continue
       }
-      throw err
+
+      // Query priority: the exposed frontier; failing that, the minimal
+      // stall-breaking set (cycle entry points and multi-version names a
+      // public parent reaches — their verdicts unlock their deferred
+      // descendants for assumption); failing that, everything left (no
+      // public parent reaches the remainder, so nothing could ever be
+      // assumed anyway). One packument settles every version of a name,
+      // so same-name entries ride along for free.
+      const toQuery = round.frontier.length > 0
+        ? round.frontier
+        : round.stallBreakers.length > 0 ? round.stallBreakers : undecided
+      const queriedNames = new Set(toQuery.map(entry => entry.name))
+      const frontier = undecided.filter(entry => queriedNames.has(entry.name))
+
+      try {
+        const diffed = await diffAgainstPublicRegistry(frontier, {
+          publicRegistryUrl: this.#options.publicRegistryUrl,
+        })
+        await persist(diffed)
+        for (const [entry, verdict] of diffed) {
+          verdicts.set(entry, verdict)
+          if (verdict === 'public') {
+            propagation.publicKeys.add(graphKey(entry))
+          } else {
+            recordEmbedEvidence(propagation, entry)
+          }
+        }
+        undecided = undecided.filter(entry => !diffed.has(entry))
+      } catch (err) {
+        if (err instanceof DetectionUnavailableError) {
+          await persist(err.partialVerdicts ?? new Map())
+          // Callers treat partialVerdicts as "already decided" — merge in
+          // the earlier rounds' proofs and the assumed publics so only
+          // what genuinely stayed undecided is reported skipped. Proofs
+          // were persisted as their rounds completed; the merged map is
+          // never persisted again.
+          const merged = new Map([...verdicts, ...err.partialVerdicts ?? []])
+          if (merged.size > 0) {
+            err.partialVerdicts = merged
+          }
+        }
+        throw err
+      }
     }
+    return verdicts
   }
 
   async #obtainTarball (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): Promise<string> {

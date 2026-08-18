@@ -18,7 +18,7 @@ const debug = Debug('checkly:cli:services:embedded-packages')
  * alter the embed set changes — the detection algorithm itself, but also
  * lockfile enumeration and registry-configuration handling.
  */
-export const DETECTOR_VERSION = 3
+export const DETECTOR_VERSION = 4
 
 /**
  * Versions the per-entry verdict file separately from the summaries:
@@ -55,15 +55,16 @@ export function verdictKey (entry: LockfileRegistryPackage): string {
  * The digest identifying a whole detection run: the lockfile bytes, the
  * registry-affecting npm configuration (`registry` and `@scope:registry`
  * entries, with `${VAR}` references expanded), the (expanded) credential
- * entries, and the explicitly configured package names — any of these
- * changing must invalidate the summary even when the lockfile is
- * unchanged.
+ * entries, the explicitly configured package names, and the fallback mode
+ * — any of these changing must invalidate the summary even when the
+ * lockfile is unchanged.
  */
 export function detectionInputDigest (
   lockfileContent: string,
   npmrcConfig: NpmrcConfig,
   env: NodeJS.ProcessEnv = process.env,
   explicitSpecs: string[] = [],
+  detectionFallback = 'skip',
 ): string {
   // Expanded values: a registry remap expressed through an environment
   // variable reference must invalidate the summary too.
@@ -86,6 +87,12 @@ export function detectionInputDigest (
     // must trigger re-detection.
     .update('\0')
     .update(JSON.stringify([...explicitSpecs].sort()))
+    // The fallback mode changes what a run can decide — an embed set
+    // derived with graph assumptions under 'public-registry' must not be
+    // served from the summary cache after the option is set back to
+    // 'skip'.
+    .update('\0')
+    .update(detectionFallback)
     .digest('hex')
 }
 
