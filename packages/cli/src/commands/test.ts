@@ -116,6 +116,11 @@ export default class Test extends AuthCommand {
       allowNo: true,
       env: 'CHECKLY_VERIFY_RUNTIME_DEPENDENCIES',
     }),
+    'detect-embedded-packages': Flags.boolean({
+      description: '[default: true] Automatically embed dependencies that Checkly cannot fetch from the public npm registry (see checks.detectEmbeddedPackages).',
+      allowNo: true,
+      env: 'CHECKLY_DETECT_EMBEDDED_PACKAGES',
+    }),
     'refresh-cache': Flags.boolean({
       description: 'Force a fresh install of dependencies and update the cached version.',
       default: false,
@@ -207,6 +212,8 @@ export default class Test extends AuthCommand {
       playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
       include: checklyConfig.checks?.include,
       embeddedPackages: checklyConfig.checks?.embeddedPackages,
+      detectEmbeddedPackages: flags['detect-embedded-packages'] ?? checklyConfig.checks?.detectEmbeddedPackages,
+      detectEmbeddedPackagesFallback: checklyConfig.checks?.detectEmbeddedPackagesFallback,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
       checkFilter: check => {
         if (check instanceof HeartbeatMonitor) {

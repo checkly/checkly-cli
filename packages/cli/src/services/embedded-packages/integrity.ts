@@ -71,3 +71,23 @@ export function verifyIntegrity (content: Buffer, integrity: string): boolean {
 export function integrityHashToHex (hash: IntegrityHash): string {
   return Buffer.from(hash.digestBase64, 'base64').toString('hex')
 }
+
+/**
+ * The SRI form of a legacy hex sha1 shasum (registry packuments expose old
+ * artifacts with `dist.shasum` only, no `dist.integrity`).
+ */
+export function shasumToIntegrity (shasumHex: string): string {
+  return `sha1-${Buffer.from(shasumHex, 'hex').toString('base64')}`
+}
+
+/**
+ * Whether two SRI strings agree on at least one common algorithm: same
+ * algorithm and same digest for it. Returns false when they share no
+ * supported algorithm — the caller must treat that as "incomparable", not
+ * as a match.
+ */
+export function integrityIntersects (a: string, b: string): boolean {
+  const hashesB = parseIntegrity(b)
+  return parseIntegrity(a).some(hashA =>
+    hashesB.some(hashB => hashB.algorithm === hashA.algorithm && hashB.digestBase64 === hashA.digestBase64))
+}

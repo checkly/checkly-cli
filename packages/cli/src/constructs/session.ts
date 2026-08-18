@@ -75,6 +75,8 @@ export class Session {
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
   static embeddedPackages?: string[]
+  static detectEmbeddedPackages?: boolean
+  static detectEmbeddedPackagesFallback?: 'skip' | 'public-registry'
   static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
@@ -103,6 +105,8 @@ export class Session {
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
     this.embeddedPackages = undefined
+    this.detectEmbeddedPackages = undefined
+    this.detectEmbeddedPackagesFallback = undefined
     this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
@@ -239,13 +243,16 @@ export class Session {
    * every concurrently bundling check share one plan and one download run.
    */
   static getEmbeddedPackagesMaterializer (): EmbeddedPackagesMaterializer | undefined {
-    const specs = this.embeddedPackages
-    if (specs === undefined || specs.length === 0) {
+    const specs = this.embeddedPackages ?? []
+    const detect = this.detectEmbeddedPackages ?? true
+    if (specs.length === 0 && !detect) {
       return undefined
     }
     if (this.embeddedPackagesMaterializer === undefined) {
       this.embeddedPackagesMaterializer = new EmbeddedPackagesMaterializer({
         specs,
+        detect,
+        detectionFallback: this.detectEmbeddedPackagesFallback,
         lockfilePath: this.workspace.ok()?.lockfile.ok(),
         workspaceRoot: this.basePath,
         contextDir: this.contextPath,

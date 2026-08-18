@@ -14,6 +14,13 @@ async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<P
   return await parseProjectWithOptions(fixt, {}, ...args)
 }
 
+// A throwaway user-level npm config path for the CLI subprocess: without
+// it, the machine's real `~/.npmrc` (registry and scope mappings) would
+// change detection outcomes and could trigger real network downloads. The
+// file is never created — the CLI treats a missing userconfig as empty —
+// so a plain unique path is all that is needed.
+const HERMETIC_USERCONFIG = path.join(os.tmpdir(), `checkly-hermetic-${process.pid}.npmrc`)
+
 async function parseProjectWithOptions (
   fixt: FixtureSandbox,
   options: RunOptions,
@@ -24,7 +31,19 @@ async function parseProjectWithOptions (
     'debug',
     'parse-project',
     ...args,
-  ], options)
+  ], {
+    ...options,
+    env: {
+      // `pnpm run` itself injects npm_config_registry into child processes,
+      // and env config outranks every .npmrc in the CLI's loader — pin it
+      // to the public default so runs are deterministic on machines whose
+      // pnpm registry is private. Fixture-level configuration must use
+      // scope mappings, which this does not outrank.
+      npm_config_registry: 'https://registry.npmjs.org/',
+      npm_config_userconfig: HERMETIC_USERCONFIG,
+      ...options.env,
+    },
+  })
 
   if (result.exitCode !== 0) {
     // eslint-disable-next-line no-console
@@ -1591,6 +1610,60 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       expect(files).toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling with auto-detected embedded packages', () => {
+    let fixt: FixtureSandbox
+    let cacheDir: string
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-embedded-packages-detect'),
+      })
+      cacheDir = await seedTarballCache('@acme+private-utils@1.2.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+      if (cacheDir) {
+        await fs.rm(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('should embed a scope-mapped package without configuration', async () => {
+      // The fixture's .npmrc maps @acme to a private registry, so detection
+      // embeds @acme/private-utils with zero network traffic; the tarball
+      // comes from the pre-seeded CLI cache.
+      const output = await parseProjectWithOptions(fixt, { env: { CHECKLY_CACHE_DIR: cacheDir } })
+
+      expect(output.diagnostics.fatal).toBe(false)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files).toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('should not embed anything when detection is disabled', async () => {
+      const output = await parseProjectWithOptions(
+        fixt,
+        { env: { CHECKLY_CACHE_DIR: cacheDir } },
+        '--config', 'checkly.detect-off.config.ts',
+      )
+
+      expect(output.diagnostics.fatal).toBe(false)
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      expect(files.some(file => file.startsWith('.checkly/'))).toBe(false)
     }, DEFAULT_TEST_TIMEOUT)
   })
 

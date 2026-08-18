@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -8,8 +9,29 @@ import PQueue from 'p-queue'
 
 import { assignProxy } from '../proxy.js'
 import { TarballCache, lookupNpmCacache } from './cache.js'
+import {
+  DetectionCache,
+  RegistrySnapshot,
+  detectionInputDigest,
+  projectRepositories,
+  verdictKey,
+} from './detection-cache.js'
+import {
+  DetectionUnavailableError,
+  DetectionVerdict,
+  NexusRegistryApi,
+  PropagationContext,
+  classifyEntries,
+  decideWithHostedInventory,
+  diffAgainstPublicRegistry,
+  graphKey,
+  nexusContentBase,
+  planPropagationRound,
+  recordEmbedEvidence,
+} from './detection.js'
 import { verifyIntegrity } from './integrity.js'
 import {
+  LockfileDependencyGraph,
   LockfileRegistryPackage,
   UnsupportedLockfileError,
   loadLockfilePackages,
@@ -39,6 +61,12 @@ export interface EmbeddedPackagesIssue {
 export interface PlannedTarball extends LockfileRegistryPackage {
   /** Archive filename, e.g. `@acme+foo@1.2.3.tgz` (scope slash → `+`). */
   archiveFilename: string
+  /**
+   * Present when auto-detection selected this tarball. Detected tarballs
+   * fail soft: a download problem skips the tarball with a warning instead
+   * of aborting the run, unlike explicitly configured ones.
+   */
+  detected?: true
 }
 
 export interface EmbeddedPackagesPlan {
@@ -75,6 +103,19 @@ export class EmbeddedPackageError extends Error {
 export interface EmbeddedPackagesMaterializerOptions {
   /** Raw `checks.embeddedPackages` entries. */
   specs: string[]
+  /**
+   * Whether to auto-detect packages to embed from the lockfile in addition
+   * to the explicit specs. Detected entries never override an explicitly
+   * configured name (per-name precedence).
+   */
+  detect?: boolean
+  /**
+   * What to do when detection cannot decide packages without querying the
+   * public npm registry (which would transmit private package names).
+   * `'skip'` (default) leaves them un-embedded with a warning;
+   * `'public-registry'` opts into the integrity diff against public npm.
+   */
+  detectionFallback?: 'skip' | 'public-registry'
   /** Absolute path of the workspace root lockfile, when one exists. */
   lockfilePath?: string
   /** Workspace root directory, used to locate the root `.npmrc`. */
@@ -86,11 +127,18 @@ export interface EmbeddedPackagesMaterializerOptions {
   contextDir?: string
   env?: NodeJS.ProcessEnv
   homedir?: string
+  /** Public registry base URL for detection; tests point this at a local server. */
+  publicRegistryUrl?: string
 }
 
 const DOWNLOAD_CONCURRENCY = 5
 const DOWNLOAD_TIMEOUT_MS = 120_000
 const MAX_TARBALL_BYTES = 1024 * 1024 * 1024
+
+// The skip reason for conservative same-origin entries the instance does
+// not host.
+const CONSERVATIVE_UNDETERMINED_REASON = `the packages' recorded source shares the configured registry's host but`
+  + ` is not hosted on it, so their availability cannot be determined`
 
 /**
  * Removes userinfo credentials from a URL so it can be safely included in
@@ -110,6 +158,40 @@ function redactUrl (url: string): string {
 }
 
 /**
+ * Per-run shared registry API state, keyed by REST base + credentials.
+ * The up-front snapshot resolution in #runDetection pre-seeds the memo
+ * maps from an accepted snapshot; anything not seeded is fetched live by
+ * the first group that needs it.
+ */
+interface InstanceState {
+  repositories: Map<string, Promise<unknown[]>>
+  inventories: Map<string, Promise<Set<string>>>
+  /**
+   * Live responses fetched this run, flushed to the snapshot cache only
+   * when the run cannot cache its summary (degraded or assumption-using)
+   * — the only runs a snapshot would ever be read by.
+   */
+  pendingSnapshots: Map<string, RegistrySnapshot>
+}
+
+function getOrCreate<V> (map: Map<string, V>, key: string, create: () => V): V {
+  let value = map.get(key)
+  if (value === undefined) {
+    value = create()
+    map.set(key, value)
+  }
+  return value
+}
+
+function sameOrigin (a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin
+  } catch {
+    return false
+  }
+}
+
+/**
  * Resolves the configured `checks.embeddedPackages` specs against the
  * workspace lockfile (plan) and sources the selected tarballs into the CLI
  * cache (materialize), through a chain of CLI cache → npm cacache →
@@ -122,17 +204,20 @@ function redactUrl (url: string): string {
 export class EmbeddedPackagesMaterializer {
   #options: EmbeddedPackagesMaterializerOptions
   #cache: TarballCache
+  #detectionCache: DetectionCache
   #env: NodeJS.ProcessEnv
   #homedir: string
 
   #plan?: Promise<EmbeddedPackagesPlan>
   #materialized?: Promise<MaterializedTarball[]>
+  #lockfile?: Promise<{ content: string, packages: Awaited<ReturnType<typeof loadLockfilePackages>> }>
 
   constructor (options: EmbeddedPackagesMaterializerOptions) {
     this.#options = options
     this.#env = options.env ?? process.env
     this.#homedir = options.homedir ?? os.homedir()
     this.#cache = TarballCache.default(this.#env, this.#projectRoot, process.platform, this.#homedir)
+    this.#detectionCache = DetectionCache.default(this.#env, this.#projectRoot, process.platform, this.#homedir)
   }
 
   get #projectRoot (): string | undefined {
@@ -145,8 +230,12 @@ export class EmbeddedPackagesMaterializer {
     return this.#plan
   }
 
-  #info (message: string): void {
-    process.stderr.write(`${message}\n`)
+  #loadLockfile (lockfilePath: string) {
+    this.#lockfile ??= (async () => {
+      const content = await fs.readFile(lockfilePath, 'utf8')
+      return { content, packages: await loadLockfilePackages(lockfilePath, content) }
+    })()
+    return this.#lockfile
   }
 
   materialize (): Promise<MaterializedTarball[]> {
@@ -155,6 +244,14 @@ export class EmbeddedPackagesMaterializer {
   }
 
   async #createPlan (): Promise<EmbeddedPackagesPlan> {
+    // Without explicit specs there is nothing to validate: auto-detection
+    // (when enabled) runs at materialize time and cannot produce spec
+    // issues, and a project without a lockfile must not fail validation
+    // just because detection is on by default.
+    if (this.#options.specs.length === 0) {
+      return { tarballs: [], issues: [], warnings: [], wildcardMatches: [] }
+    }
+
     const issues: EmbeddedPackagesIssue[] = []
     const warnings: string[] = []
     const wildcardMatches: Array<{ spec: string, packages: string[] }> = []
@@ -180,7 +277,7 @@ export class EmbeddedPackagesMaterializer {
 
     let packages
     try {
-      packages = await loadLockfilePackages(lockfilePath)
+      packages = (await this.#loadLockfile(lockfilePath)).packages
     } catch (err) {
       // Any failure to read or parse the lockfile (missing file, merge
       // conflict markers, unknown format) becomes a diagnostic naming the
@@ -304,7 +401,7 @@ export class EmbeddedPackagesMaterializer {
   }
 
   async #materializeAll (): Promise<MaterializedTarball[]> {
-    const { tarballs, issues, wildcardMatches } = await this.plan()
+    const { tarballs: explicitTarballs, issues, wildcardMatches } = await this.plan()
 
     // Commands validate before bundling and exit on fatal diagnostics, so
     // this is a defensive backstop for direct/programmatic use.
@@ -324,21 +421,65 @@ export class EmbeddedPackagesMaterializer {
       )
     }
 
+    const detect = this.#options.detect === true && this.#projectRoot !== undefined
+    if (explicitTarballs.length === 0 && !detect) {
+      return []
+    }
+
+    // npm configuration problems (e.g. an unreadable .npmrc) must stay
+    // fatal when the user explicitly configured packages — downloads need
+    // the registry and credentials — but must not break projects that only
+    // have default-on detection.
+    let npmrcConfig: NpmrcConfig
+    try {
+      npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
+        // The project root is always derivable here: explicit tarballs
+        // imply a lockfile (missing one is a plan issue) and detection is
+        // gated on it above.
+        this.#projectRoot!,
+        this.#homedir,
+        this.#options.contextDir,
+        this.#env,
+      ), this.#env)
+    } catch (err) {
+      if (explicitTarballs.length > 0) {
+        throw err
+      }
+      this.#warn(`Embedded package detection skipped: ${(err as Error).message}`)
+      return []
+    }
+
+    const tarballs = [...explicitTarballs]
+    if (detect) {
+      try {
+        tarballs.push(...await this.#detectTarballs(npmrcConfig, explicitTarballs))
+      } catch (err) {
+        this.#warn(`Embedded package detection failed and was skipped: ${(err as Error).message}`)
+      }
+    }
+
     if (tarballs.length === 0) {
       return []
     }
 
-    // Safe to assert: a missing lockfile is a plan issue, and issues abort
-    // above.
-    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
-      this.#projectRoot!,
-      this.#homedir,
-      this.#options.contextDir,
-    ), this.#env)
-
     const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
-    const results = await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
-      const filePath = await this.#obtainTarball(tarball, npmrcConfig)
+    const results = await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball | undefined> => {
+      let filePath: string
+      try {
+        filePath = await this.#obtainTarball(tarball, npmrcConfig)
+      } catch (err) {
+        // Auto-detected tarballs fail soft: the run proceeds without them,
+        // exactly as it would have before detection existed. Explicitly
+        // configured tarballs keep their guarantee.
+        if (tarball.detected === true) {
+          this.#warn(
+            `Could not embed auto-detected package ${tarball.name}@${tarball.version}:`
+            + ` ${(err as Error).message}`,
+          )
+          return undefined
+        }
+        throw err
+      }
       return {
         ...tarball,
         filePath,
@@ -346,7 +487,738 @@ export class EmbeddedPackagesMaterializer {
       }
     }))
 
-    return results
+    return results.filter((result): result is MaterializedTarball => result !== undefined)
+  }
+
+  #warn (message: string): void {
+    process.stderr.write(`Warning: ${message}\n`)
+  }
+
+  #info (message: string): void {
+    process.stderr.write(`${message}\n`)
+  }
+
+  /**
+   * Auto-detects lockfile packages the runner cannot fetch from the public
+   * registry and returns them as planned tarballs, excluding names the
+   * user configured explicitly (an explicit entry takes over its name).
+   *
+   * Everything here fails soft: detection is on by default, so an
+   * unsupported lockfile, an unavailable registry API, or any unexpected
+   * error must degrade to "detect nothing extra" with at most a warning,
+   * unlike explicit specs which error. The caller catches whatever this
+   * method throws and downgrades it to a warning.
+   */
+  async #detectTarballs (npmrcConfig: NpmrcConfig, explicitTarballs: PlannedTarball[]): Promise<PlannedTarball[]> {
+    const { lockfilePath } = this.#options
+    if (lockfilePath === undefined) {
+      return []
+    }
+
+    let lockfileContent: string
+    let registry: LockfileRegistryPackage[]
+    let graph: LockfileDependencyGraph
+    try {
+      const { content, packages } = await this.#loadLockfile(lockfilePath)
+      lockfileContent = content
+      registry = packages.registry
+      graph = packages.graph
+    } catch (err) {
+      debug('detection skipped, cannot enumerate lockfile %s: %s', lockfilePath, (err as Error).message)
+      return []
+    }
+
+    // The plan already resolved every explicit spec against the lockfile
+    // (unresolvable specs threw before detection could run), so the
+    // planned tarballs are the authoritative record of explicit coverage:
+    // an unpinned spec plans every lockfile version of its name, a pinned
+    // spec only its own. An explicit spec takes over its package NAME for
+    // embedding, but only the exact versions it materializes count as
+    // covered for warning/degradation purposes.
+    const explicitNames = new Set(explicitTarballs.map(tarball => tarball.name))
+    const explicitKeys = new Set(explicitTarballs.map(tarball => `${tarball.name}@${tarball.version}`))
+
+    // Entries whose exact name@version the explicit list already
+    // materializes are withheld from detection: their verdicts would be
+    // discarded at rehydration anyway, and this keeps their identities out
+    // of even the opted-in public registry diff. Key-level on purpose —
+    // OTHER lockfile versions of a listed name still flow through
+    // detection (and, when opted in, the public diff, transmitting the
+    // name) so the pin-blocked warning below can name them.
+    const detectableRegistry = registry
+      .filter(entry => !explicitKeys.has(`${entry.name}@${entry.version}`))
+
+    const inputDigest = detectionInputDigest(
+      lockfileContent, npmrcConfig, this.#env, this.#options.specs,
+      this.#options.detectionFallback ?? 'skip')
+
+    let embedKeys: Set<string>
+    const summary = await this.#detectionCache.getSummary(inputDigest)
+    if (summary !== undefined) {
+      debug('detection summary cache hit (%d packages to embed)', summary.embedKeys.length)
+      embedKeys = new Set(summary.embedKeys)
+    } else {
+      const detected = await this.#runDetection(
+        detectableRegistry, npmrcConfig, graph, explicitKeys, explicitNames, inputDigest)
+      embedKeys = detected.embedKeys
+      if (!detected.degraded && !detected.usedAssumptions) {
+        await this.#detectionCache.putSummary(inputDigest, { embedKeys: [...embedKeys] })
+      }
+      // Degraded runs still embed what the sound tiers proved (e.g.
+      // scope-mapped packages), but are deliberately not cached so the
+      // next run re-attempts the undecided remainder — from the registry
+      // snapshot where one exists, live otherwise — and the warnings
+      // repeat until the cause is fixed. Runs that decided anything by
+      // graph assumption are not cached either: the assumptions must be
+      // re-derived — and replaced by real verdicts once the private
+      // registry becomes interrogable — on every run.
+    }
+
+    // Rehydrate full entries from the lockfile: the cache contributes only
+    // identities, never artifact locations or hashes.
+    const detected: PlannedTarball[] = []
+    const pinBlocked: string[] = []
+    for (const entry of registry) {
+      if (!embedKeys.has(verdictKey(entry))) {
+        continue
+      }
+      if (explicitNames.has(entry.name)) {
+        // An explicit entry takes over its package name: detection never
+        // adds other versions of a listed name. When a pinned spec does
+        // not materialize this exact version, though, detection has proved
+        // private a version the bundle will not carry — that must be said
+        // out loud, not dropped silently. (The exact-covered guard also
+        // shields against a tampered summary smuggling covered keys in.)
+        if (!explicitKeys.has(`${entry.name}@${entry.version}`)) {
+          pinBlocked.push(`${entry.name}@${entry.version}`)
+        }
+        continue
+      }
+      detected.push({
+        ...entry,
+        archiveFilename: `${entry.name.replace(/\//g, '+')}@${entry.version}.tgz`,
+        detected: true,
+      })
+    }
+    if (pinBlocked.length > 0) {
+      this.#warn(
+        `Embedded package detection determined the following are private, but they are not embedded`
+        + ` because 'checks.embeddedPackages' pins their names to other versions: ${pinBlocked.join(', ')}.`
+        + ` Add them to 'checks.embeddedPackages' to embed them.`,
+      )
+    }
+
+    if (detected.length > 0) {
+      const names = detected.map(tarball => `${tarball.name}@${tarball.version}`)
+      const shown = names.slice(0, 8).join(', ')
+      const more = names.length > 8 ? ` and ${names.length - 8} more` : ''
+      // Informational, not a warning: this is the feature working as
+      // designed.
+      this.#info(
+        `Embedding ${names.length} auto-detected private package(s): ${shown}${more}.`
+        + ` Disable with --no-detect-embedded-packages or 'checks.detectEmbeddedPackages: false'.`,
+      )
+    }
+
+    return detected
+  }
+
+  /**
+   * Runs detection tiers over the lockfile's registry entries. Returns the
+   * {@link verdictKey}s to embed plus whether the run degraded (some
+   * undecided entries could not be classified — the sound tiers'
+   * results are still returned, but must not be cached as a summary).
+   *
+   * Private package names never leave the machine by default: undecided
+   * entries are resolved by asking the project's own registry which
+   * packages it hosts. Only the explicit `'public-registry'` fallback ever
+   * queries public npm with package names, and only its verdicts are
+   * cached per entry — they compare immutable artifacts, whereas
+   * registry-inventory verdicts depend on the registry's topology and are
+   * covered by the summary cache (whose key includes the registry
+   * configuration) instead.
+   */
+  async #runDetection (
+    registry: LockfileRegistryPackage[],
+    npmrcConfig: NpmrcConfig,
+    graph: LockfileDependencyGraph,
+    explicitKeys: Set<string>,
+    explicitNames: Set<string>,
+    inputDigest: string,
+  ): Promise<{ embedKeys: Set<string>, degraded: boolean, usedAssumptions: boolean }> {
+    const classified = classifyEntries(registry, npmrcConfig, this.#env)
+    debug(
+      'detection: %d public by configuration, %d embed by scope mapping, %d undecided',
+      classified.public.length, classified.embed.length, classified.undecided.length,
+    )
+
+    const embedKeys = new Set(classified.embed.map(verdictKey))
+    let undecided = classified.undecided
+
+    // Graph propagation lets the public-registry diff skip lookups for
+    // packages a provably public parent vouches for. Seeded with what the
+    // zero-network tier proved; verdicts settle into it as tiers run.
+    // Explicitly listed packages count as embedded so their dependency
+    // subtrees are verified rather than assumed. (An edgeless graph
+    // degrades cleanly: every entry is parentless, so the whole set is
+    // frontier and one diff verifies everything.)
+    const propagation: PropagationContext = {
+      graph,
+      publicKeys: new Set(classified.public.map(graphKey)),
+      embedKeys: new Set([...classified.embed.map(graphKey), ...explicitKeys]),
+      privateNames: new Set([...classified.embed.map(entry => entry.name), ...explicitNames]),
+      assumedCount: 0,
+      multiUndecidedNames: new Set(),
+    }
+    // The single mutation point for "this entry is private": both key
+    // spaces and the name-level evidence stay in sync.
+    const recordEmbed = (entry: LockfileRegistryPackage): void => {
+      embedKeys.add(verdictKey(entry))
+      recordEmbedEvidence(propagation, entry)
+    }
+
+    // Configuration problems are diagnosed from configuration alone, up
+    // front: a later tier may still decide the entries (or the verdict
+    // cache may absorb them entirely), but a broken .npmrc must keep
+    // warning — and keep the run uncached — until it is fixed. Covers both
+    // registry mappings and credentials, for every entry detection will
+    // act on (embed-tier entries get downloaded; undecided ones decided).
+    const configErrors = new Set<string>()
+    for (const entry of [...classified.embed, ...undecided]) {
+      const recorded = entry.tarballUrl !== undefined ? nexusContentBase(entry.tarballUrl) : undefined
+      try {
+        const entryRegistryUrl = recorded ?? resolveRegistryUrl(npmrcConfig, entry.name, this.#env)
+        resolveAuthHeader(npmrcConfig, entryRegistryUrl, this.#env)
+      } catch (err) {
+        configErrors.add(`the npm configuration could not be resolved (${(err as Error).message})`)
+      }
+    }
+    for (const reason of configErrors) {
+      this.#warn(
+        `Embedded package detection hit a configuration problem: ${reason}.`
+        + ` Detection continues with what it can prove, but the result is not cached and may differ`
+        + ` from what a correct configuration would produce.`,
+      )
+    }
+
+    if (undecided.length > 0) {
+      // Per-entry verdicts cached from a previous run are immutable
+      // integrity proofs (see #diffAndCacheVerdicts). Applying them is a
+      // pure disk read — no network traffic and no privacy cost — so they
+      // are deliberately not gated on the public-registry opt-in that
+      // originally produced them; the cache directory carries the same
+      // local trust the summary cache already gets.
+      const known = await this.#detectionCache.getVerdicts()
+      undecided = undecided.filter(entry => {
+        const verdict = known[verdictKey(entry)]
+        if (verdict === 'embed') {
+          recordEmbed(entry)
+        } else if (verdict === 'public') {
+          // Cached diff verdicts are integrity proofs, so they seed graph
+          // propagation just like the zero-network tier's publics.
+          propagation.publicKeys.add(graphKey(entry))
+        }
+        return verdict === undefined
+      })
+    }
+
+    if (undecided.length === 0) {
+      return { embedKeys, degraded: configErrors.size > 0, usedAssumptions: false }
+    }
+
+    // Computed over the run-wide undecided set, after the verdict cache is
+    // applied but before grouping: groups run sequentially, and a
+    // per-group count would miss a sibling version living in another
+    // group.
+    const undecidedNameCounts = new Map<string, number>()
+    for (const entry of undecided) {
+      undecidedNameCounts.set(entry.name, (undecidedNameCounts.get(entry.name) ?? 0) + 1)
+    }
+    for (const [name, count] of undecidedNameCounts) {
+      if (count > 1) {
+        propagation.multiUndecidedNames.add(name)
+      }
+    }
+
+    // Group undecided entries by the registry instance to interrogate: the
+    // recorded source URL when the lockfile has a usable (Nexus-shaped)
+    // one — it names the instance the artifact really came from, which
+    // current configuration may no longer point at. A non-Nexus-shaped
+    // recorded source falls back to the configured registry only when it
+    // shares that registry's origin, and only CONSERVATIVELY: the fallback
+    // instance may prove such an entry private (hosted => embed; safe by
+    // the over-embed rule) but its silence proves nothing — a same-origin
+    // host can path-route several registry products — so "not hosted"
+    // leaves the entry undecided instead of minting a public verdict.
+    // Entries from unrelated hosts degrade outright ('' group).
+    interface DetectionGroup {
+      registryUrl: string
+      entries: LockfileRegistryPackage[]
+      conservative: boolean
+      /**
+       * Why the group's registry cannot be interrogated, when known at
+       * grouping time. The group still runs through the tiers so the
+       * opted-in fallback can decide it; without the opt-in this becomes
+       * the skip reason.
+       */
+      unavailableReason?: string
+    }
+    const groups = new Map<string, DetectionGroup>()
+    for (const entry of undecided) {
+      let registryUrl = entry.tarballUrl !== undefined
+        ? nexusContentBase(entry.tarballUrl)
+        : undefined
+      let conservative = false
+      let unavailableReason: string | undefined
+      if (registryUrl === undefined) {
+        let configured: string | undefined
+        try {
+          configured = resolveRegistryUrl(npmrcConfig, entry.name, this.#env)
+        } catch (err) {
+          unavailableReason = `the configured registry could not be resolved (${(err as Error).message})`
+        }
+        if (entry.tarballUrl === undefined) {
+          registryUrl = configured ?? ''
+        } else if (configured !== undefined && sameOrigin(entry.tarballUrl, configured)) {
+          registryUrl = configured
+          conservative = true
+        } else {
+          registryUrl = ''
+        }
+      }
+      if (registryUrl === '' && unavailableReason === undefined) {
+        unavailableReason = `The packages' recorded source cannot be interrogated and does not match`
+          + ` the configured registry`
+      }
+      const key = `${conservative ? 'conservative' : 'authoritative'}\0${registryUrl}\0${unavailableReason ?? ''}`
+      const group = groups.get(key) ?? { registryUrl, entries: [], conservative, unavailableReason }
+      group.entries.push(entry)
+      groups.set(key, group)
+    }
+
+    // Interrogating the same instance twice (two groups sharing one REST
+    // base) would double the request budget for nothing; share the
+    // repository listing and inventory per instance. The per-group
+    // source-repo visibility guard still runs for every group.
+    const instanceState: InstanceState = {
+      repositories: new Map(),
+      inventories: new Map(),
+      pendingSnapshots: new Map(),
+    }
+    const skipped: Array<{ entry: LockfileRegistryPackage, reason: string }> = []
+    let restRemediable = false
+    // Each group's registry API handle, resolved once: it drives the
+    // processing order and the per-instance snapshot validation guards.
+    // The same predicate #decideUndecided applies, so neither can drift
+    // from what the registry API actually supports. Interrogable groups
+    // run first: embeds their inventories prove then expose those
+    // packages' children to later groups' diffs, which would otherwise be
+    // free to assume them public via some other public parent. This is a
+    // heuristic ordering, not a guarantee — a group whose registry
+    // unexpectedly fails mid-run still leaves its verdicts unknown to
+    // groups already processed.
+    const interrogable: DetectionGroup[] = []
+    const uninterrogable: DetectionGroup[] = []
+    const instanceGuards = new Map<string, NexusRegistryApi[]>()
+    for (const group of groups.values()) {
+      let api: NexusRegistryApi | undefined
+      if (group.unavailableReason === undefined) {
+        try {
+          api = NexusRegistryApi.forRegistry(group.registryUrl, npmrcConfig, this.#env)
+        } catch {
+          api = undefined
+        }
+      }
+      if (api === undefined) {
+        uninterrogable.push(group)
+        continue
+      }
+      interrogable.push(group)
+      getOrCreate(instanceGuards, api.cacheKey, () => [] as NexusRegistryApi[]).push(api)
+    }
+
+    // Resolve each instance's snapshot up front, before any group runs: a
+    // snapshot serves its whole instance or not at all, so no group can
+    // keep verdicts from a listing a later group would reveal as stale.
+    // When the cached listing fails a guard — e.g. the credentials still
+    // cannot see a source repository — the listing alone is re-fetched
+    // live (one request, the minimum that can notice a registry-side
+    // permission grant): if it is unchanged, the guard failure is current
+    // and the cached inventory remains valid; if it differs, the snapshot
+    // is discarded and everything is fetched fresh.
+    for (const [cacheKey, guards] of instanceGuards) {
+      const cached = await this.#detectionCache.getRegistrySnapshot(inputDigest, cacheKey)
+      if (cached === undefined) {
+        continue
+      }
+      const guardsPass = (listing: unknown[]): boolean => guards.every(guard => {
+        try {
+          guard.assertSourceRepoVisible(listing)
+          return true
+        } catch {
+          return false
+        }
+      })
+      const accept = (snapshot: RegistrySnapshot): void => {
+        instanceState.repositories.set(cacheKey, Promise.resolve(snapshot.repositories))
+        instanceState.inventories.set(cacheKey, Promise.resolve(new Set(snapshot.inventory)))
+      }
+      if (guardsPass(cached.repositories)) {
+        debug('detection: registry snapshot hit')
+        accept(cached)
+        continue
+      }
+      let liveListing: unknown[]
+      try {
+        liveListing = projectRepositories(await guards[0].listRepositories())
+      } catch {
+        // The live re-check failed outright; the group loop retries and
+        // surfaces the failure through its normal error handling.
+        continue
+      }
+      if (JSON.stringify(liveListing) === JSON.stringify(cached.repositories)) {
+        debug('detection: registry listing unchanged, reusing the snapshot inventory')
+        accept(cached)
+      } else {
+        debug('detection: registry listing changed, snapshot discarded')
+        instanceState.repositories.set(cacheKey, Promise.resolve(liveListing))
+        // Also gone from disk: the run has proven this snapshot stale, and
+        // a later run under the same digest (e.g. after a branch switch
+        // back to this lockfile) must not be able to resurrect it.
+        await this.#detectionCache.deleteRegistrySnapshot(inputDigest, cacheKey)
+      }
+    }
+
+    for (const group of [...interrogable, ...uninterrogable]) {
+      try {
+        const { verdicts, tier } = await this.#decideUndecided(
+          group.registryUrl, group.entries, npmrcConfig, instanceState, propagation, group.unavailableReason)
+        // The conservative rule only distrusts the hosted inventory's
+        // silence — a 'public' verdict from the public-registry diff (an
+        // integrity proof, or the graph assumption that deliberately rides
+        // along with it) holds for conservative groups too. The
+        // assumption's risk profile is uniform across groups: every
+        // undecided entry resolves from a non-public source, whichever
+        // group it lands in, and excluding conservative groups would
+        // disable the pruning for exactly the non-Nexus registries the
+        // fallback exists for.
+        const unresolved: LockfileRegistryPackage[] = []
+        for (const [entry, verdict] of verdicts) {
+          if (verdict === 'embed') {
+            // Registry-inventory embeds settle into the propagation state
+            // too, exposing the children of hosted private packages to
+            // later groups' diffs. (Inventory 'public' means only "not
+            // hosted here" — never a propagation seed.)
+            recordEmbed(entry)
+          } else if (group.conservative && tier === 'registry-inventory') {
+            unresolved.push(entry)
+          }
+        }
+        if (unresolved.length > 0) {
+          skipped.push(...await this.#settleConservativeLeftovers(unresolved, recordEmbed, propagation))
+        }
+      } catch (err) {
+        const partial = this.#applyPartialVerdicts(err, recordEmbed)
+        const reason = err instanceof DetectionUnavailableError
+          ? err.message
+          : `Unexpected error: ${(err as Error).message}`
+        restRemediable ||= err instanceof DetectionUnavailableError && err.restAccessRemediable === true
+        skipped.push(...group.entries
+          .filter(entry => partial?.has(entry) !== true)
+          .map(entry => ({ entry, reason })))
+      }
+    }
+
+    // Every skipped entry warns and keeps the run uncached: entries the
+    // explicit list covers were filtered out before the tiers ran.
+    const degraded = skipped.length > 0 || configErrors.size > 0
+    if (skipped.length > 0) {
+      const reasons = [...new Set(skipped.map(({ reason }) => reason))]
+      const remedies = [
+        ...(configErrors.size > 0
+          ? [`fix the configuration problem(s) named in the preceding warning`]
+          : []),
+        // Only offered when some failure was actually about REST access —
+        // for e.g. conservative same-origin skips the REST API answered
+        // fine, and permission advice would just mislead.
+        ...(restRemediable
+          ? [`grant the configured npm credentials access to the registry's REST API`
+            + ` (detection needs to browse every npm hosted repository on the instance)`]
+          : []),
+        `list the packages in 'checks.embeddedPackages'`,
+        ...(this.#options.detectionFallback !== 'public-registry'
+          ? [`set 'checks.detectEmbeddedPackagesFallback: "public-registry"' to allow public npm`
+            + ` registry lookups`]
+          : []),
+        `disable detection with --no-detect-embedded-packages or 'checks.detectEmbeddedPackages: false'`,
+      ]
+      this.#warn(
+        `Embedded package detection could not determine whether ${skipped.length} package(s)`
+        + ` from your registry are private, and skipped embedding them.`
+        + ` Reason(s): ${reasons.join('; ')}.`
+        + ` To fix this, ${remedies.slice(0, -1).join(', ')}, or ${remedies[remedies.length - 1]}.`,
+      )
+    }
+
+    const usedAssumptions = propagation.assumedCount > 0
+    if (degraded || usedAssumptions) {
+      // Only runs that cannot cache their summary ever read a snapshot on
+      // a later run; a clean run's summary short-circuits detection
+      // entirely, so persisting its responses would only spill registry
+      // data to disk for nothing. The inventory is restricted to the keys
+      // this run's lockfile can ask about — an instance's whole hosted
+      // catalog carries unrelated private package names that must not
+      // land in a cache directory CI setups commonly archive.
+      const lockfileKeys = new Set(registry.map(graphKey))
+      for (const [instanceCacheKey, snapshot] of instanceState.pendingSnapshots) {
+        await this.#detectionCache.putRegistrySnapshot(inputDigest, instanceCacheKey, {
+          ...snapshot,
+          inventory: snapshot.inventory.filter(key => lockfileKeys.has(key)),
+        })
+      }
+    }
+
+    return { embedKeys, degraded, usedAssumptions }
+  }
+
+  /**
+   * Conservative-group entries the hosted inventory stayed silent about
+   * are still undecided. The opted-in public-registry diff can settle them
+   * (its verdicts are integrity proofs); without the opt-in — or when the
+   * diff itself fails — they are skipped.
+   */
+  async #settleConservativeLeftovers (
+    unresolved: LockfileRegistryPackage[],
+    recordEmbed: (entry: LockfileRegistryPackage) => void,
+    propagation: PropagationContext,
+  ): Promise<Array<{ entry: LockfileRegistryPackage, reason: string }>> {
+    if (this.#options.detectionFallback !== 'public-registry') {
+      return unresolved.map(entry => ({ entry, reason: CONSERVATIVE_UNDETERMINED_REASON }))
+    }
+    try {
+      const diffed = await this.#diffAndCacheVerdicts(unresolved, propagation)
+      for (const [entry, verdict] of diffed) {
+        if (verdict === 'embed') {
+          recordEmbed(entry)
+        }
+      }
+      return []
+    } catch (err) {
+      const partial = this.#applyPartialVerdicts(err, recordEmbed)
+      // Both branches keep the same-origin context so the warning states
+      // which tier stayed silent and which one then failed.
+      const reason = err instanceof DetectionUnavailableError
+        ? `${CONSERVATIVE_UNDETERMINED_REASON}, and the public registry fallback failed (${err.message})`
+        : `${CONSERVATIVE_UNDETERMINED_REASON}, and the public registry fallback failed unexpectedly`
+          + ` (${(err as Error).message})`
+      return unresolved
+        .filter(entry => partial?.has(entry) !== true)
+        .map(entry => ({ entry, reason }))
+    }
+  }
+
+  /**
+   * A failed public diff still carries the verdicts it collected before
+   * failing. Applies the 'embed' ones and returns the partial map so the
+   * caller can skip only what genuinely stayed undecided.
+   */
+  #applyPartialVerdicts (
+    err: unknown,
+    recordEmbed: (entry: LockfileRegistryPackage) => void,
+  ): Map<LockfileRegistryPackage, DetectionVerdict> | undefined {
+    const partial = err instanceof DetectionUnavailableError ? err.partialVerdicts : undefined
+    for (const [entry, verdict] of partial ?? []) {
+      if (verdict === 'embed') {
+        // Recording seeds the propagation state too, so children of a
+        // package a failed diff still proved private are verified rather
+        // than assumed in later groups.
+        recordEmbed(entry)
+      }
+    }
+    return partial
+  }
+
+  /**
+   * Decides one registry's worth of undecided entries: primarily by
+   * interrogating that registry's REST API (no package names leave the
+   * machine), with the public-registry integrity diff as an explicit
+   * opt-in fallback. The returned tier states which of the two produced
+   * the verdicts — a hosted inventory's 'public' means only "not hosted
+   * here", whereas the diff's 'public' is an integrity proof.
+   */
+  async #decideUndecided (
+    registryUrl: string,
+    entries: LockfileRegistryPackage[],
+    npmrcConfig: NpmrcConfig,
+    instanceState: InstanceState,
+    propagation: PropagationContext,
+    unavailableReason?: string,
+  ): Promise<{
+    verdicts: Map<LockfileRegistryPackage, DetectionVerdict>
+    tier: 'registry-inventory' | 'public-diff'
+  }> {
+    try {
+      if (unavailableReason !== undefined) {
+        throw new DetectionUnavailableError(unavailableReason)
+      }
+      const nexus = NexusRegistryApi.forRegistry(registryUrl, npmrcConfig, this.#env)
+      if (nexus === undefined) {
+        throw new DetectionUnavailableError(
+          `The registry URL does not look like a Sonatype Nexus Repository instance,`
+          + ` which is the only registry API supported for private package detection`,
+        )
+      }
+      debug('detection: consulting the registry API for %d entries', entries.length)
+      // Memoized per instance AND credentials (the listing is permission
+      // filtered); the visibility guard still runs per group, since two
+      // groups on one instance may install from different repositories.
+      //
+      // The instance's raw responses are also cached across runs, keyed by
+      // the same input digest as the run summary: when the summary itself
+      // cannot be cached (a degraded run, or one that decided anything by
+      // graph assumption), repeat runs still make no registry requests —
+      // verdicts are recomputed from data identical to what the registry
+      // returned under these exact inputs. Only successful responses are
+      // snapshotted, so an interrogation failure is retried every run.
+      const repositories = await getOrCreate(instanceState.repositories, nexus.cacheKey,
+        async () => projectRepositories(await nexus.listRepositories()))
+      nexus.assertSourceRepoVisible(repositories)
+      const inventory = getOrCreate(instanceState.inventories, nexus.cacheKey, async () => {
+        const result = await nexus.hostedInventory(repositories)
+        // Not persisted yet: #runDetection flushes these at the end, for
+        // exactly the runs that could ever read a snapshot back.
+        instanceState.pendingSnapshots.set(nexus.cacheKey, {
+          repositories,
+          inventory: [...result],
+        })
+        return result
+      })
+      return { verdicts: decideWithHostedInventory(entries, await inventory), tier: 'registry-inventory' }
+    } catch (err) {
+      if (this.#options.detectionFallback !== 'public-registry') {
+        throw err
+      }
+      debug('detection: registry API unavailable (%s), using the public registry fallback', (err as Error).message)
+      try {
+        return { verdicts: await this.#diffAndCacheVerdicts(entries, propagation), tier: 'public-diff' }
+      } catch (fallbackErr) {
+        // The fallback failing must not erase the registry tier's failure:
+        // the warning needs both causes, and the REST remedy stays
+        // applicable when the registry tier was permission-refused.
+        const combined = new DetectionUnavailableError(
+          `${(err as Error).message}; the public registry fallback then also failed`
+          + ` (${(fallbackErr as Error).message})`,
+          {
+            cause: fallbackErr,
+            restAccessRemediable:
+              (err instanceof DetectionUnavailableError && err.restAccessRemediable === true)
+              || (fallbackErr instanceof DetectionUnavailableError && fallbackErr.restAccessRemediable === true),
+          },
+        )
+        if (fallbackErr instanceof DetectionUnavailableError) {
+          combined.partialVerdicts = fallbackErr.partialVerdicts
+        }
+        throw combined
+      }
+    }
+  }
+
+  /**
+   * The opt-in public-registry diff. Every PROVEN verdict it obtains is
+   * persisted — including the partial results of a failed run — because
+   * those verdicts compare immutable artifacts and are cacheable forever,
+   * and a name transmitted once should never need transmitting again.
+   * Callers pass cache misses only: #runDetection applies the persistent
+   * verdict cache before any tier runs.
+   *
+   * The diff runs in dependency-graph frontier rounds: entries a provably
+   * public parent vouches for are assumed public without a lookup (their
+   * names are never transmitted), and only the exposed surface —
+   * workspace-direct dependencies, children of embedded packages,
+   * parentless entries — is verified. Each round's proofs propagate before
+   * the next round runs, so verification stops at the boundary of the
+   * public part of the tree. Assumed verdicts are refutable (a private
+   * artifact shadowing a public name under a public parent would be
+   * missed, failing the runner's lockfile integrity check loudly at
+   * install time) and are therefore never persisted.
+   */
+  async #diffAndCacheVerdicts (
+    entries: LockfileRegistryPackage[],
+    propagation: PropagationContext,
+  ): Promise<Map<LockfileRegistryPackage, DetectionVerdict>> {
+    const persist = async (diffed: Map<LockfileRegistryPackage, DetectionVerdict>): Promise<void> => {
+      if (diffed.size === 0) {
+        return
+      }
+      await this.#detectionCache.putVerdicts(
+        Object.fromEntries([...diffed].map(([entry, verdict]) => [verdictKey(entry), verdict])))
+    }
+
+    const verdicts = new Map<LockfileRegistryPackage, DetectionVerdict>()
+    let undecided = entries
+    while (undecided.length > 0) {
+      const round = planPropagationRound(undecided, propagation)
+
+      // Assumption is the last resort before actual stalls: it runs only
+      // when no exposed entry remains to verify, so every proof — and
+      // every piece of embed/private-name evidence a query can surface —
+      // has landed before anything is assumed.
+      if (round.frontier.length === 0 && round.assumed.length > 0) {
+        debug('detection: %d package(s) assumed public via public parents', round.assumed.length)
+        propagation.assumedCount += round.assumed.length
+        const assumedSet = new Set(round.assumed)
+        for (const entry of round.assumed) {
+          verdicts.set(entry, 'public')
+          propagation.publicKeys.add(graphKey(entry))
+        }
+        undecided = undecided.filter(entry => !assumedSet.has(entry))
+        continue
+      }
+
+      // Query priority: the exposed frontier; failing that, the minimal
+      // stall-breaking set (cycle entry points and multi-version names a
+      // public parent reaches — their verdicts unlock their deferred
+      // descendants for assumption); failing that, everything left (no
+      // public parent reaches the remainder, so nothing could ever be
+      // assumed anyway). One packument settles every version of a name,
+      // so same-name entries ride along for free.
+      const toQuery = round.frontier.length > 0
+        ? round.frontier
+        : round.stallBreakers.length > 0 ? round.stallBreakers : undecided
+      const queriedNames = new Set(toQuery.map(entry => entry.name))
+      const frontier = undecided.filter(entry => queriedNames.has(entry.name))
+
+      try {
+        const diffed = await diffAgainstPublicRegistry(frontier, {
+          publicRegistryUrl: this.#options.publicRegistryUrl,
+        })
+        await persist(diffed)
+        for (const [entry, verdict] of diffed) {
+          verdicts.set(entry, verdict)
+          if (verdict === 'public') {
+            propagation.publicKeys.add(graphKey(entry))
+          } else {
+            recordEmbedEvidence(propagation, entry)
+          }
+        }
+        undecided = undecided.filter(entry => !diffed.has(entry))
+      } catch (err) {
+        if (err instanceof DetectionUnavailableError) {
+          await persist(err.partialVerdicts ?? new Map())
+          // Callers treat partialVerdicts as "already decided" — merge in
+          // the earlier rounds' proofs and the assumed publics so only
+          // what genuinely stayed undecided is reported skipped. Proofs
+          // were persisted as their rounds completed; the merged map is
+          // never persisted again.
+          const merged = new Map([...verdicts, ...err.partialVerdicts ?? []])
+          if (merged.size > 0) {
+            err.partialVerdicts = merged
+          }
+        }
+        throw err
+      }
+    }
+    return verdicts
   }
 
   async #obtainTarball (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): Promise<string> {

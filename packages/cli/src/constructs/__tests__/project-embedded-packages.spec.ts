@@ -146,10 +146,21 @@ describe('Session.getEmbeddedPackagesMaterializer()', () => {
     Session.reset()
   })
 
-  it('returns undefined without configuration', () => {
+  it('exists by default because detection defaults to on', () => {
+    expect(Session.getEmbeddedPackagesMaterializer()).toBeDefined()
+  })
+
+  it('returns undefined when detection is off and nothing is configured', () => {
+    Session.detectEmbeddedPackages = false
     expect(Session.getEmbeddedPackagesMaterializer()).toBeUndefined()
     Session.embeddedPackages = []
     expect(Session.getEmbeddedPackagesMaterializer()).toBeUndefined()
+  })
+
+  it('exists with explicit packages even when detection is off', () => {
+    Session.detectEmbeddedPackages = false
+    Session.embeddedPackages = ['some-pkg']
+    expect(Session.getEmbeddedPackagesMaterializer()).toBeDefined()
   })
 
   it('memoizes the instance and reset() clears it', () => {

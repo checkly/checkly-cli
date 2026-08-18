@@ -2,7 +2,14 @@ import { createHash } from 'node:crypto'
 
 import { describe, it, expect } from 'vitest'
 
-import { integrityHashToHex, parseIntegrity, strongestIntegrityHash, verifyIntegrity } from '../integrity.js'
+import {
+  integrityHashToHex,
+  integrityIntersects,
+  parseIntegrity,
+  shasumToIntegrity,
+  strongestIntegrityHash,
+  verifyIntegrity,
+} from '../integrity.js'
 
 const content = Buffer.from('fake tarball content')
 const sha512 = `sha512-${createHash('sha512').update(content).digest('base64')}`
@@ -61,5 +68,27 @@ describe('integrityHashToHex()', () => {
   it('round-trips base64 to hex', () => {
     const hash = strongestIntegrityHash(sha512)!
     expect(integrityHashToHex(hash)).toBe(createHash('sha512').update(content).digest('hex'))
+  })
+})
+
+describe('shasumToIntegrity()', () => {
+  it('converts a hex sha1 shasum to its SRI form', () => {
+    expect(shasumToIntegrity(createHash('sha1').update(content).digest('hex'))).toBe(sha1)
+  })
+})
+
+describe('integrityIntersects()', () => {
+  it('matches when a common algorithm agrees', () => {
+    expect(integrityIntersects(sha512, `${sha1} ${sha512}`)).toBe(true)
+    expect(integrityIntersects(sha1, `${sha1} ${sha512}`)).toBe(true)
+  })
+
+  it('rejects a disagreement on a common algorithm', () => {
+    const other = `sha512-${createHash('sha512').update('other').digest('base64')}`
+    expect(integrityIntersects(sha512, other)).toBe(false)
+  })
+
+  it('is false when no algorithm is shared (incomparable)', () => {
+    expect(integrityIntersects(sha512, sha1)).toBe(false)
   })
 })

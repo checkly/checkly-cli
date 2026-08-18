@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import process from 'node:process'
 
 export const DEFAULT_REGISTRY_URL = 'https://registry.npmjs.org/'
 
@@ -122,19 +123,41 @@ export async function loadNpmrcConfig (
  * The `.npmrc` locations relevant to a project, in npm's precedence order:
  * the directory the Checkly project lives in (the nearest project config,
  * which may be a workspace member), the workspace root, then the
- * user-level file. (npm's global and builtin configs are not consulted.)
+ * user-level file — `~/.npmrc`, or the file `npm_config_userconfig` names,
+ * matching npm's own userconfig override. (npm's global and builtin
+ * configs are not consulted.)
  */
 export function defaultNpmrcPaths (
   workspaceRoot: string,
   homedir = os.homedir(),
   contextDir?: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): string[] {
+  const userconfig = env.npm_config_userconfig ?? env.NPM_CONFIG_USERCONFIG
   const paths = [
     ...(contextDir !== undefined ? [path.join(contextDir, '.npmrc')] : []),
     path.join(workspaceRoot, '.npmrc'),
-    path.join(homedir, '.npmrc'),
+    userconfig !== undefined && userconfig !== ''
+      ? expandTilde(userconfig, homedir)
+      : path.join(homedir, '.npmrc'),
   ]
   return [...new Set(paths)]
+}
+
+/**
+ * npm treats path-type config values starting with `~` as home-relative
+ * (a quoted `NPM_CONFIG_USERCONFIG="~/.npmrc-work"` reaches us with the
+ * tilde literal). Left unexpanded, the path would silently ENOENT and drop
+ * the user-level config entirely.
+ */
+function expandTilde (value: string, homedir: string): string {
+  if (value === '~') {
+    return homedir
+  }
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return path.join(homedir, value.slice(2))
+  }
+  return value
 }
 
 function expandValue (key: string, value: string, env: NodeJS.ProcessEnv): string {
@@ -153,6 +176,57 @@ function getExpanded (config: NpmrcConfig, key: string, env: NodeJS.ProcessEnv):
     return undefined
   }
   return expandValue(key, value, env)
+}
+
+/**
+ * The registry-affecting configuration entries (`registry` and
+ * `@scope:registry`), with `${VAR}` references expanded against the given
+ * environment (kept verbatim when the variable is unset, so the result is
+ * deterministic). Sorted by key. Used to key detection caches: the
+ * *effective* registry mapping must invalidate them, including when only a
+ * referenced environment variable changes.
+ */
+export function expandedRegistryEntries (
+  config: NpmrcConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): Array<[string, string]> {
+  return expandedEntries(config, env, key => key === 'registry' || key.endsWith(':registry'))
+}
+
+function expandedEntries (
+  config: NpmrcConfig,
+  env: NodeJS.ProcessEnv,
+  keep: (key: string) => boolean,
+): Array<[string, string]> {
+  const entries: Array<[string, string]> = []
+  for (const [key, value] of config) {
+    if (!keep(key)) {
+      continue
+    }
+    let expanded: string
+    try {
+      expanded = expandValue(key, value, env)
+    } catch {
+      expanded = value
+    }
+    entries.push([key, expanded])
+  }
+  return entries.sort(([a], [b]) => a.localeCompare(b))
+}
+
+/**
+ * The credential configuration entries (nerf-darted `//host/...:key`
+ * lines), with `${VAR}` references expanded against the given environment
+ * (kept verbatim when the variable is unset). Sorted by key. Used to key
+ * detection caches: rotating a token — including through the standard
+ * `${NPM_TOKEN}` indirection — must invalidate them, since the registry
+ * API filters results by permission. Values only ever feed a hash.
+ */
+export function expandedCredentialEntries (
+  config: NpmrcConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): Array<[string, string]> {
+  return expandedEntries(config, env, key => key.startsWith('//'))
 }
 
 /**

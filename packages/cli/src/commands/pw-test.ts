@@ -112,6 +112,11 @@ export default class PwTestCommand extends AuthCommand {
       multiple: true,
       default: [],
     }),
+    'detect-embedded-packages': Flags.boolean({
+      description: '[default: true] Automatically embed dependencies that Checkly cannot fetch from the public npm registry (see checks.detectEmbeddedPackages).',
+      allowNo: true,
+      env: 'CHECKLY_DETECT_EMBEDDED_PACKAGES',
+    }),
     'install-command': Flags.string({
       description: 'Command to install dependencies before running tests.',
     }),
@@ -215,6 +220,8 @@ export default class PwTestCommand extends AuthCommand {
       playwrightConfigPath,
       include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
       embeddedPackages: checklyConfig.checks?.embeddedPackages,
+      detectEmbeddedPackages: flags['detect-embedded-packages'] ?? checklyConfig.checks?.detectEmbeddedPackages,
+      detectEmbeddedPackagesFallback: checklyConfig.checks?.detectEmbeddedPackagesFallback,
       playwrightChecks: [playwrightCheck],
       loadPlaywrightChecksOnly: true,
       warnOnWebServerConfig: !(includeFlag.length > 0),
