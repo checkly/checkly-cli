@@ -54,9 +54,9 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^4.13.3",
-    "@oclif/plugin-help": "^6.2.56",
-    "@oclif/plugin-warn-if-update-available": "^3.1.71",
+    "@oclif/core": "^4.13.5",
+    "@oclif/plugin-help": "^6.2.58",
+    "@oclif/plugin-warn-if-update-available": "^3.1.73",
     "axios": "^1.19.0",
     "chalk": "^5.6.2",
     "debug": "^4.4.3",
@@ -67,7 +67,7 @@
     "ora": "^9.4.1",
     "passwd-user": "^4.0.0",
     "prompts": "^2.4.2",
-    "recast": "^0.23.19",
+    "recast": "^0.23.21",
     "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
