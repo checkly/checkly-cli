@@ -9,7 +9,13 @@ import PQueue from 'p-queue'
 
 import { assignProxy } from '../proxy.js'
 import { TarballCache, lookupNpmCacache } from './cache.js'
-import { DetectionCache, detectionInputDigest, verdictKey } from './detection-cache.js'
+import {
+  DetectionCache,
+  RegistrySnapshot,
+  detectionInputDigest,
+  projectRepositories,
+  verdictKey,
+} from './detection-cache.js'
 import {
   DetectionUnavailableError,
   DetectionVerdict,
@@ -151,10 +157,21 @@ function redactUrl (url: string): string {
   }
 }
 
-/** Per-run shared registry API state, keyed by REST base. */
+/**
+ * Per-run shared registry API state, keyed by REST base + credentials.
+ * The up-front snapshot resolution in #runDetection pre-seeds the memo
+ * maps from an accepted snapshot; anything not seeded is fetched live by
+ * the first group that needs it.
+ */
 interface InstanceState {
   repositories: Map<string, Promise<unknown[]>>
   inventories: Map<string, Promise<Set<string>>>
+  /**
+   * Live responses fetched this run, flushed to the snapshot cache only
+   * when the run cannot cache its summary (degraded or assumption-using)
+   * — the only runs a snapshot would ever be read by.
+   */
+  pendingSnapshots: Map<string, RegistrySnapshot>
 }
 
 function getOrCreate<V> (map: Map<string, V>, key: string, create: () => V): V {
@@ -541,17 +558,20 @@ export class EmbeddedPackagesMaterializer {
       debug('detection summary cache hit (%d packages to embed)', summary.embedKeys.length)
       embedKeys = new Set(summary.embedKeys)
     } else {
-      const detected = await this.#runDetection(detectableRegistry, npmrcConfig, graph, explicitKeys, explicitNames)
+      const detected = await this.#runDetection(
+        detectableRegistry, npmrcConfig, graph, explicitKeys, explicitNames, inputDigest)
       embedKeys = detected.embedKeys
       if (!detected.degraded && !detected.usedAssumptions) {
         await this.#detectionCache.putSummary(inputDigest, { embedKeys: [...embedKeys] })
       }
       // Degraded runs still embed what the sound tiers proved (e.g.
       // scope-mapped packages), but are deliberately not cached so the
-      // next run retries the undecided remainder. Runs that decided
-      // anything by graph assumption are not cached either: the
-      // assumptions must be re-derived — and replaced by real verdicts
-      // once the private registry becomes interrogable — on every run.
+      // next run re-attempts the undecided remainder — from the registry
+      // snapshot where one exists, live otherwise — and the warnings
+      // repeat until the cause is fixed. Runs that decided anything by
+      // graph assumption are not cached either: the assumptions must be
+      // re-derived — and replaced by real verdicts once the private
+      // registry becomes interrogable — on every run.
     }
 
     // Rehydrate full entries from the lockfile: the cache contributes only
@@ -624,6 +644,7 @@ export class EmbeddedPackagesMaterializer {
     graph: LockfileDependencyGraph,
     explicitKeys: Set<string>,
     explicitNames: Set<string>,
+    inputDigest: string,
   ): Promise<{ embedKeys: Set<string>, degraded: boolean, usedAssumptions: boolean }> {
     const classified = classifyEntries(registry, npmrcConfig, this.#env)
     debug(
@@ -782,30 +803,93 @@ export class EmbeddedPackagesMaterializer {
     const instanceState: InstanceState = {
       repositories: new Map(),
       inventories: new Map(),
+      pendingSnapshots: new Map(),
     }
     const skipped: Array<{ entry: LockfileRegistryPackage, reason: string }> = []
     let restRemediable = false
-    // Nexus-shaped groups run first: embeds their inventories prove then
-    // expose those packages' children to later groups' diffs, which would
-    // otherwise be free to assume them public via some other public
-    // parent. This is a heuristic ordering, not a guarantee — a group
-    // whose registry unexpectedly fails mid-run still leaves its verdicts
-    // unknown to groups already processed.
-    const inventoryCapable = (group: DetectionGroup): boolean => {
-      if (group.unavailableReason !== undefined) {
-        return false
+    // Each group's registry API handle, resolved once: it drives the
+    // processing order and the per-instance snapshot validation guards.
+    // The same predicate #decideUndecided applies, so neither can drift
+    // from what the registry API actually supports. Interrogable groups
+    // run first: embeds their inventories prove then expose those
+    // packages' children to later groups' diffs, which would otherwise be
+    // free to assume them public via some other public parent. This is a
+    // heuristic ordering, not a guarantee — a group whose registry
+    // unexpectedly fails mid-run still leaves its verdicts unknown to
+    // groups already processed.
+    const interrogable: DetectionGroup[] = []
+    const uninterrogable: DetectionGroup[] = []
+    const instanceGuards = new Map<string, NexusRegistryApi[]>()
+    for (const group of groups.values()) {
+      let api: NexusRegistryApi | undefined
+      if (group.unavailableReason === undefined) {
+        try {
+          api = NexusRegistryApi.forRegistry(group.registryUrl, npmrcConfig, this.#env)
+        } catch {
+          api = undefined
+        }
       }
+      if (api === undefined) {
+        uninterrogable.push(group)
+        continue
+      }
+      interrogable.push(group)
+      getOrCreate(instanceGuards, api.cacheKey, () => [] as NexusRegistryApi[]).push(api)
+    }
+
+    // Resolve each instance's snapshot up front, before any group runs: a
+    // snapshot serves its whole instance or not at all, so no group can
+    // keep verdicts from a listing a later group would reveal as stale.
+    // When the cached listing fails a guard — e.g. the credentials still
+    // cannot see a source repository — the listing alone is re-fetched
+    // live (one request, the minimum that can notice a registry-side
+    // permission grant): if it is unchanged, the guard failure is current
+    // and the cached inventory remains valid; if it differs, the snapshot
+    // is discarded and everything is fetched fresh.
+    for (const [cacheKey, guards] of instanceGuards) {
+      const cached = await this.#detectionCache.getRegistrySnapshot(inputDigest, cacheKey)
+      if (cached === undefined) {
+        continue
+      }
+      const guardsPass = (listing: unknown[]): boolean => guards.every(guard => {
+        try {
+          guard.assertSourceRepoVisible(listing)
+          return true
+        } catch {
+          return false
+        }
+      })
+      const accept = (snapshot: RegistrySnapshot): void => {
+        instanceState.repositories.set(cacheKey, Promise.resolve(snapshot.repositories))
+        instanceState.inventories.set(cacheKey, Promise.resolve(new Set(snapshot.inventory)))
+      }
+      if (guardsPass(cached.repositories)) {
+        debug('detection: registry snapshot hit')
+        accept(cached)
+        continue
+      }
+      let liveListing: unknown[]
       try {
-        // The same predicate #decideUndecided applies, so the ordering
-        // cannot drift from what the registry API actually supports.
-        return NexusRegistryApi.forRegistry(group.registryUrl, npmrcConfig, this.#env) !== undefined
+        liveListing = projectRepositories(await guards[0].listRepositories())
       } catch {
-        return false
+        // The live re-check failed outright; the group loop retries and
+        // surfaces the failure through its normal error handling.
+        continue
+      }
+      if (JSON.stringify(liveListing) === JSON.stringify(cached.repositories)) {
+        debug('detection: registry listing unchanged, reusing the snapshot inventory')
+        accept(cached)
+      } else {
+        debug('detection: registry listing changed, snapshot discarded')
+        instanceState.repositories.set(cacheKey, Promise.resolve(liveListing))
+        // Also gone from disk: the run has proven this snapshot stale, and
+        // a later run under the same digest (e.g. after a branch switch
+        // back to this lockfile) must not be able to resurrect it.
+        await this.#detectionCache.deleteRegistrySnapshot(inputDigest, cacheKey)
       }
     }
-    const orderedGroups = [...groups.values()]
-      .sort((a, b) => Number(inventoryCapable(b)) - Number(inventoryCapable(a)))
-    for (const group of orderedGroups) {
+
+    for (const group of [...interrogable, ...uninterrogable]) {
       try {
         const { verdicts, tier } = await this.#decideUndecided(
           group.registryUrl, group.entries, npmrcConfig, instanceState, propagation, group.unavailableReason)
@@ -876,7 +960,25 @@ export class EmbeddedPackagesMaterializer {
       )
     }
 
-    return { embedKeys, degraded, usedAssumptions: propagation.assumedCount > 0 }
+    const usedAssumptions = propagation.assumedCount > 0
+    if (degraded || usedAssumptions) {
+      // Only runs that cannot cache their summary ever read a snapshot on
+      // a later run; a clean run's summary short-circuits detection
+      // entirely, so persisting its responses would only spill registry
+      // data to disk for nothing. The inventory is restricted to the keys
+      // this run's lockfile can ask about — an instance's whole hosted
+      // catalog carries unrelated private package names that must not
+      // land in a cache directory CI setups commonly archive.
+      const lockfileKeys = new Set(registry.map(graphKey))
+      for (const [instanceCacheKey, snapshot] of instanceState.pendingSnapshots) {
+        await this.#detectionCache.putRegistrySnapshot(inputDigest, instanceCacheKey, {
+          ...snapshot,
+          inventory: snapshot.inventory.filter(key => lockfileKeys.has(key)),
+        })
+      }
+    }
+
+    return { embedKeys, degraded, usedAssumptions }
   }
 
   /**
@@ -970,11 +1072,27 @@ export class EmbeddedPackagesMaterializer {
       // Memoized per instance AND credentials (the listing is permission
       // filtered); the visibility guard still runs per group, since two
       // groups on one instance may install from different repositories.
-      const repositories = getOrCreate(instanceState.repositories, nexus.cacheKey,
-        () => nexus.listRepositories())
-      nexus.assertSourceRepoVisible(await repositories)
-      const inventory = getOrCreate(instanceState.inventories, nexus.cacheKey,
-        () => repositories.then(list => nexus.hostedInventory(list)))
+      //
+      // The instance's raw responses are also cached across runs, keyed by
+      // the same input digest as the run summary: when the summary itself
+      // cannot be cached (a degraded run, or one that decided anything by
+      // graph assumption), repeat runs still make no registry requests —
+      // verdicts are recomputed from data identical to what the registry
+      // returned under these exact inputs. Only successful responses are
+      // snapshotted, so an interrogation failure is retried every run.
+      const repositories = await getOrCreate(instanceState.repositories, nexus.cacheKey,
+        async () => projectRepositories(await nexus.listRepositories()))
+      nexus.assertSourceRepoVisible(repositories)
+      const inventory = getOrCreate(instanceState.inventories, nexus.cacheKey, async () => {
+        const result = await nexus.hostedInventory(repositories)
+        // Not persisted yet: #runDetection flushes these at the end, for
+        // exactly the runs that could ever read a snapshot back.
+        instanceState.pendingSnapshots.set(nexus.cacheKey, {
+          repositories,
+          inventory: [...result],
+        })
+        return result
+      })
       return { verdicts: decideWithHostedInventory(entries, await inventory), tier: 'registry-inventory' }
     } catch (err) {
       if (this.#options.detectionFallback !== 'public-registry') {

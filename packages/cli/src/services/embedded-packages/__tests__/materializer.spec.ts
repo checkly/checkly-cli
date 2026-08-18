@@ -578,7 +578,7 @@ packages:
     // The server plays three roles: the project's Nexus-shaped registry
     // (content under /repository/, REST API under /service/rest/v1) and,
     // for fallback tests, a fake public registry under /public/.
-    let restMode: 'ok' | 'forbidden'
+    let restMode: 'ok' | 'forbidden' | 'components-forbidden'
     let publicBarMode: 'ok' | 'error'
     let registryUrl: string
 
@@ -592,6 +592,10 @@ packages:
         }
         if (req.url!.startsWith('/service/rest/v1/')) {
           if (restMode === 'forbidden') {
+            res.statusCode = 403
+            return res.end('forbidden')
+          }
+          if (restMode === 'components-forbidden' && req.url!.startsWith('/service/rest/v1/components')) {
             res.statusCode = 403
             return res.end('forbidden')
           }
@@ -750,6 +754,161 @@ packages:
       // registry topology and are deliberately not cached per entry), but
       // the already-cached tarball is not re-downloaded.
       expect(requests.map(r => r.url).every(url => url.startsWith('/service/rest/v1/'))).toBe(true)
+    })
+
+    it('reuses the registry inventory across runs when the summary cannot be cached', async () => {
+      // A broken scope mapping degrades the run (config-problem warning),
+      // so the summary is never cached — but the registry's raw responses
+      // are snapshotted, and the repeat run must recompute its verdicts
+      // without a single registry request.
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${registryUrl}`,
+
+        '@broken:registry=${UNSET_DETECTION_VAR}',
+      ].join('\n'))
+      const brokenIntegrity = `sha512-${createHash('sha512').update('broken bytes').digest('base64')}`
+      await fs.writeFile(lockfilePath, `${detectLockfile()}  '@broken/pkg@1.0.0':
+    resolution: {integrity: ${brokenIntegrity}}
+`)
+
+      let tarballs: Awaited<ReturnType<EmbeddedPackagesMaterializer['materialize']>> = []
+      await captureStderr(async () => {
+        tarballs = await makeDetecting().materialize()
+      })
+      expect(tarballs.map(t => t.name)).toEqual(['bar'])
+      expect(requests.some(r => r.url.startsWith('/service/rest/v1/'))).toBe(true)
+
+      // The persisted snapshot holds only the inventory keys this run's
+      // lockfile can ask about — the instance also hosts bar@3.0.0 and
+      // odd-pkg@1.0.0, and neither may reach disk.
+      const detectionDir = path.join(cacheDir, 'embedded-packages', 'detection')
+      const snapshotFiles = (await fs.readdir(detectionDir)).filter(name => name.startsWith('snapshot-'))
+      expect(snapshotFiles).toHaveLength(1)
+      const persisted = JSON.parse(await fs.readFile(path.join(detectionDir, snapshotFiles[0]), 'utf8'))
+      expect(persisted.inventory).toEqual(['bar@2.0.0'])
+
+      requests = []
+      await captureStderr(async () => {
+        tarballs = await makeDetecting().materialize()
+      })
+      expect(tarballs.map(t => t.name)).toEqual(['bar'])
+      expect(requests).toEqual([])
+    })
+
+    it('writes no registry snapshot for a run whose summary is cached', async () => {
+      await makeDetecting().materialize()
+      const detectionDir = path.join(cacheDir, 'embedded-packages', 'detection')
+      const files: string[] = await fs.readdir(detectionDir).catch(() => [])
+      // The summary proves the path is right; a clean run must not spill
+      // registry data into a snapshot nothing will ever read.
+      expect(files.some(name => name.startsWith('summary-'))).toBe(true)
+      expect(files.filter(name => name.startsWith('snapshot-'))).toEqual([])
+    })
+
+    it('never snapshots a partially failed interrogation', async () => {
+      // The listing succeeds but the component enumeration is refused: no
+      // snapshot may be written, and the next run must retry live.
+      restMode = 'components-forbidden'
+      await captureStderr(async () => {
+        await makeDetecting().materialize()
+      })
+      const detectionDir = path.join(cacheDir, 'embedded-packages', 'detection')
+      const files: string[] = await fs.readdir(detectionDir).catch(() => [])
+      expect(files.filter(name => name.startsWith('snapshot-'))).toEqual([])
+      requests = []
+      await captureStderr(async () => {
+        await makeDetecting().materialize()
+      })
+      expect(requests.some(r => r.url.startsWith('/service/rest/v1/'))).toBe(true)
+    })
+
+    it('re-checks a snapshot-failed visibility guard live, so registry-side grants are noticed', async () => {
+      // Run 1: the credentials cannot see npm-hidden, so its group
+      // degrades while the instance's responses are snapshotted. The
+      // admin then grants visibility — nothing changes locally, so the
+      // digest (and the snapshot) stay the same. The failed guard must
+      // re-check against a live listing and pick the grant up.
+      let hiddenVisible = false
+      server.removeAllListeners('request')
+      server.on('request', (req, res) => {
+        requests.push({ url: req.url!, authorization: req.headers.authorization })
+        const respond = (body: unknown) => {
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify(body))
+        }
+        if (req.url === '/service/rest/v1/repositories') {
+          return respond([
+            { name: 'npm-private', format: 'npm', type: 'hosted' },
+            ...hiddenVisible ? [{ name: 'npm-hidden', format: 'npm', type: 'hosted' }] : [],
+            { name: 'npm-group', format: 'npm', type: 'group' },
+          ])
+        }
+        if (req.url!.startsWith('/service/rest/v1/components?repository=npm-private')) {
+          return respond({
+            items: [{
+              repository: 'npm-private',
+              format: 'npm',
+              group: null,
+              name: 'bar',
+              version: '2.0.0',
+              assets: [{ checksum: {}, npm: { name: 'bar', version: '2.0.0' } }],
+            }],
+            continuationToken: null,
+          })
+        }
+        if (req.url!.startsWith('/service/rest/v1/components?repository=npm-hidden')) {
+          return respond({
+            items: [{
+              repository: 'npm-hidden',
+              format: 'npm',
+              group: null,
+              name: 'other-pkg',
+              version: '1.0.0',
+              assets: [{ checksum: {}, npm: { name: 'other-pkg', version: '1.0.0' } }],
+            }],
+            continuationToken: null,
+          })
+        }
+        if (req.url!.endsWith('.tgz')) {
+          return res.end(barTarball)
+        }
+        res.statusCode = 404
+        res.end('not found')
+      })
+      const npmLockfilePath = await writeNpmLockfile({
+        'bar': barLockEntry(),
+        'other-pkg': {
+          version: '1.0.0',
+          resolved: `${serverUrl}repository/npm-hidden/other-pkg/-/other-pkg-1.0.0.tgz`,
+          integrity: barIntegrity,
+        },
+      })
+
+      let tarballs: Awaited<ReturnType<EmbeddedPackagesMaterializer['materialize']>> = []
+      await captureStderr(async () => {
+        tarballs = await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
+      })
+      expect(tarballs.map(t => t.name)).toEqual(['bar'])
+
+      // Still no grant: the repeat run re-fetches only the listing — the
+      // minimum that can notice a grant — and reuses the snapshotted
+      // inventory since the listing is unchanged.
+      requests = []
+      await captureStderr(async () => {
+        tarballs = await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
+      })
+      expect(tarballs.map(t => t.name)).toEqual(['bar'])
+      expect(requests.map(r => r.url)).toEqual(['/service/rest/v1/repositories'])
+
+      hiddenVisible = true
+      requests = []
+      await captureStderr(async () => {
+        tarballs = await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
+      })
+      expect(tarballs.map(t => t.name).sort()).toEqual(['bar', 'other-pkg'])
+      // Exactly one listing fetch: the revalidation's live listing is
+      // seeded into the run, never fetched a second time by the groups.
+      expect(requests.filter(r => r.url === '/service/rest/v1/repositories')).toHaveLength(1)
     })
 
     it('caches fallback verdicts per entry so only new entries are diffed', async () => {
@@ -1238,9 +1397,14 @@ packages:
       expect(warning).toContain('checks.embeddedPackages')
       expect(warning).toContain('detectEmbeddedPackagesFallback')
       requests = []
-      // Degraded => not cached => the next run interrogates again.
-      await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
-      expect(requests.length).toBeGreaterThan(0)
+      // Degraded => the summary is not cached and the warning repeats —
+      // but the registry's snapshotted responses are reused, so the
+      // repeat run makes no requests.
+      const secondWarnings = await captureStderr(async () => {
+        await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
+      })
+      expect(secondWarnings.find(line => line.includes('could not determine'))).toBeDefined()
+      expect(requests).toEqual([])
     })
 
     it('memoizes instance data across groups while running the visibility guard per group', async () => {
@@ -1408,12 +1572,13 @@ packages:
           },
         })
 
-        // Undecidable foreign origin: the run degrades, so nothing is
-        // cached and the second run interrogates again.
+        // Undecidable foreign origin: the run degrades, so no summary is
+        // cached — but the second run recomputes from the registry
+        // snapshot and the tarball cache without any request.
         await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
         requests = []
         await makeDetecting([], { lockfilePath: npmLockfilePath }).materialize()
-        expect(requests.length).toBeGreaterThan(0)
+        expect(requests).toEqual([])
 
         // Listing the undecidable package explicitly covers it: the run no
         // longer counts as degraded and the summary caches.

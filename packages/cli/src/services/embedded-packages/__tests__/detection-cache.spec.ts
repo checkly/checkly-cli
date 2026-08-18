@@ -100,6 +100,54 @@ describe('DetectionCache', () => {
     await expect(cache.getSummary('digest-1')).resolves.toBeUndefined()
   })
 
+  it('round-trips a registry snapshot by input digest and instance identity', async () => {
+    const instanceKey = 'https://nexus.local/service/rest/\0Basic czNjcjN0'
+    const snapshot = {
+      repositories: [{ name: 'npm-private', format: 'npm', type: 'hosted' }],
+      inventory: ['bar@2.0.0'],
+    }
+    await expect(cache.getRegistrySnapshot('digest-1', instanceKey)).resolves.toBeUndefined()
+    await cache.putRegistrySnapshot('digest-1', instanceKey, snapshot)
+    await expect(cache.getRegistrySnapshot('digest-1', instanceKey)).resolves.toEqual(snapshot)
+    // A different input state or instance identity misses.
+    await expect(cache.getRegistrySnapshot('digest-2', instanceKey)).resolves.toBeUndefined()
+    await expect(cache.getRegistrySnapshot('digest-1', 'other\0')).resolves.toBeUndefined()
+  })
+
+  it('never lets credentials reach the snapshot filename or contents', async () => {
+    const authHeader = 'Basic dG9wLXMzY3IzdA=='
+    const upstreamSecret = 'https://svc:hunter2@upstream.example/npm/'
+    await cache.putRegistrySnapshot('digest-1', `https://nexus.local/service/rest/\0${authHeader}`, {
+      // A proxy repository's raw listing entry can embed upstream
+      // credentials in registry-side configuration; only the projected
+      // fields may be persisted.
+      repositories: [{
+        name: 'npm-proxy',
+        format: 'npm',
+        type: 'proxy',
+        attributes: { proxy: { remoteUrl: upstreamSecret } },
+      }],
+      inventory: [],
+    })
+    const files = (await fs.readdir(dir)).filter(name => name.startsWith('snapshot-'))
+    // Guard against passing vacuously: the write must actually happen for
+    // the containment assertions below to mean anything.
+    expect(files).toHaveLength(1)
+    for (const file of files) {
+      expect(file).not.toContain(authHeader)
+      const content = await fs.readFile(path.join(dir, file), 'utf8')
+      expect(content).not.toContain(authHeader)
+      expect(content).not.toContain('hunter2')
+    }
+  })
+
+  it('treats a structurally wrong snapshot as a miss', async () => {
+    await cache.putRegistrySnapshot('digest-1', 'key', { repositories: [], inventory: [] })
+    const [file] = (await fs.readdir(dir)).filter(name => name.startsWith('snapshot-'))
+    await fs.writeFile(path.join(dir, file), JSON.stringify({ repositories: [], inventory: 'not-an-array' }))
+    await expect(cache.getRegistrySnapshot('digest-1', 'key')).resolves.toBeUndefined()
+  })
+
   it('merges verdicts across writes', async () => {
     const entryA = { name: 'a', version: '1.0.0', integrity: 'sha512-aaa' }
     const entryB = { name: 'b', version: '2.0.0', integrity: 'sha512-bbb' }

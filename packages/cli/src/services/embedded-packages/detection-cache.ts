@@ -14,9 +14,10 @@ import { NpmrcConfig, expandedCredentialEntries, expandedRegistryEntries } from 
 const debug = Debug('checkly:cli:services:embedded-packages')
 
 /**
- * Bump to invalidate cached detection summaries when anything that could
- * alter the embed set changes — the detection algorithm itself, but also
- * lockfile enumeration and registry-configuration handling.
+ * Bump to invalidate cached detection summaries and registry snapshots
+ * when anything that could alter the embed set changes — the detection
+ * algorithm itself, but also lockfile enumeration and
+ * registry-configuration handling.
  */
 export const DETECTOR_VERSION = 4
 
@@ -39,6 +40,43 @@ export interface DetectionSummary {
    * does not vouch for.
    */
   embedKeys: string[]
+}
+
+/**
+ * The responses one registry instance gave for one detection input state.
+ * See {@link DetectionCache.getRegistrySnapshot} for why data is cached
+ * instead of verdicts.
+ */
+export interface RegistrySnapshot {
+  /**
+   * The repository listing, always in {@link projectRepositories} form —
+   * the raw listing carries registry configuration (e.g. a proxy
+   * repository's upstream URL, which can embed credentials) that must
+   * never reach disk.
+   */
+  repositories: unknown[]
+  /**
+   * Hosted inventory keys (`name@version`), restricted to the keys the
+   * run's lockfile can ask about — persisting an instance's whole hosted
+   * catalog would spill unrelated private package names into a cache
+   * directory CI setups commonly archive.
+   */
+  inventory: string[]
+}
+
+/**
+ * Reduces a repository listing to the fields detection reads (the
+ * visibility guard reads `name`; the inventory enumeration reads `name`,
+ * `format` and `type`), dropping everything else the registry may attach —
+ * proxy upstream URLs, cleanup policies, arbitrary attributes. Applied at
+ * fetch time, so a listing has ONE shape everywhere: in memory, in
+ * snapshot-equality comparisons, and on disk.
+ */
+export function projectRepositories (repositories: unknown[]): unknown[] {
+  return repositories.map(repo => {
+    const { name, format, type } = Object(repo)
+    return { name, format, type }
+  })
 }
 
 /**
@@ -102,9 +140,12 @@ export function detectionInputDigest (
  * per-user directory as read tier and write fallback). Two levels:
  *
  * - a summary (the full embed set) keyed by {@link detectionInputDigest},
- *   making repeat runs with an unchanged lockfile free, and
+ *   making repeat runs with an unchanged lockfile free,
  * - per-entry verdicts keyed by {@link verdictKey}, so a lockfile change
- *   only pays for entries not seen before.
+ *   only pays for entries not seen before, and
+ * - registry snapshots (raw instance responses) keyed by input digest and
+ *   instance, so runs that cannot cache a summary still repeat without
+ *   registry requests.
  *
  * All operations are best-effort: a cache problem degrades to re-detection,
  * never to a user-facing error.
@@ -132,6 +173,16 @@ export class DetectionCache {
 
   #verdictsFilename (): string {
     return `verdicts-v${VERDICTS_VERSION}.json`
+  }
+
+  /**
+   * The instance identity (REST base plus the credentials that
+   * permission-filtered its responses) is hashed so credentials never
+   * appear in a filename.
+   */
+  #snapshotFilename (inputDigest: string, instanceCacheKey: string): string {
+    const instanceDigest = createHash('sha256').update(instanceCacheKey).digest('hex')
+    return `snapshot-v${DETECTOR_VERSION}-${inputDigest}-${instanceDigest}.json`
   }
 
   async #readJsonFrom<T> (rootDir: string, filename: string): Promise<T | undefined> {
@@ -183,17 +234,18 @@ export class DetectionCache {
   async putSummary (inputDigest: string, summary: DetectionSummary): Promise<void> {
     const rootDir = await this.#writeJson(this.#summaryFilename(inputDigest), summary)
     if (rootDir !== undefined) {
-      await this.#pruneSummaries(rootDir)
+      await this.#pruneByPattern(rootDir, /^summary-v\d+-[0-9a-f]+\.json$/)
     }
   }
 
   /**
-   * Keeps only the most recent summary files: they are keyed by lockfile
-   * revision and would otherwise accumulate forever.
+   * Keeps only the most recent files of one category: summaries and
+   * snapshots are keyed by lockfile revision and would otherwise
+   * accumulate forever.
    */
-  async #pruneSummaries (rootDir: string, keep = 10): Promise<void> {
+  async #pruneByPattern (rootDir: string, pattern: RegExp, keep = 10): Promise<void> {
     try {
-      const names = (await fs.readdir(rootDir)).filter(name => /^summary-v\d+-[0-9a-f]+\.json$/.test(name))
+      const names = (await fs.readdir(rootDir)).filter(name => pattern.test(name))
       if (names.length <= keep) {
         return
       }
@@ -207,6 +259,50 @@ export class DetectionCache {
       }
     } catch (err) {
       debug('detection cache prune failed: %s', (err as Error).message)
+    }
+  }
+
+  /**
+   * The raw data one registry instance's REST API returned for one
+   * detection input state: the (permission-filtered) repository listing
+   * and the hosted-component inventory. Caching the data rather than any
+   * verdict derived from it keeps re-runs sound: verdicts are recomputed
+   * each run from exactly what the registry would have returned under
+   * these inputs, and any input change — lockfile, registry config,
+   * credentials, fallback mode — misses the digest and refetches.
+   * Failures are never snapshotted, so a registry that becomes
+   * interrogable is noticed on the next run.
+   */
+  async getRegistrySnapshot (inputDigest: string, instanceCacheKey: string): Promise<RegistrySnapshot | undefined> {
+    const snapshot = await this.#readJson<RegistrySnapshot>(this.#snapshotFilename(inputDigest, instanceCacheKey))
+    if (
+      !Array.isArray(snapshot?.repositories)
+      || !Array.isArray(snapshot.inventory)
+      || snapshot.inventory.some(key => typeof key !== 'string')
+    ) {
+      return undefined
+    }
+    return snapshot
+  }
+
+  /**
+   * Best-effort removal of a snapshot a run has proven stale, so no later
+   * run under the same digest can resurrect it.
+   */
+  async deleteRegistrySnapshot (inputDigest: string, instanceCacheKey: string): Promise<void> {
+    for (const rootDir of this.#rootDirs) {
+      await fs.rm(path.join(rootDir, this.#snapshotFilename(inputDigest, instanceCacheKey)), { force: true })
+        .catch(() => {})
+    }
+  }
+
+  async putRegistrySnapshot (inputDigest: string, instanceCacheKey: string, snapshot: RegistrySnapshot): Promise<void> {
+    const rootDir = await this.#writeJson(this.#snapshotFilename(inputDigest, instanceCacheKey), {
+      ...snapshot,
+      repositories: projectRepositories(snapshot.repositories),
+    })
+    if (rootDir !== undefined) {
+      await this.#pruneByPattern(rootDir, /^snapshot-v\d+-[0-9a-f]+-[0-9a-f]+\.json$/)
     }
   }
 
