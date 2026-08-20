@@ -120,7 +120,7 @@ export class Project extends Construct {
   }
 
   /**
-   * Validates the project-wide `checks.embeddedPackages` option once per
+   * Validates the project-wide `bundle.packages.embed` option once per
    * project (individual checks share the session-level materializer). Only
    * local checks run here — resolving the configured specs against the
    * lockfile — no tarballs are fetched until bundling. Skipped when the
@@ -163,10 +163,10 @@ export class Project extends Construct {
     }
 
     if (specIssues.length === 1) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic('checks.embeddedPackages', new Error(specIssues[0].message)))
+      diagnostics.add(new InvalidPropertyValueDiagnostic('bundle.packages.embed', new Error(specIssues[0].message)))
     } else if (specIssues.length > 1) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'checks.embeddedPackages',
+        'bundle.packages.embed',
         new Error(
           `${specIssues.length} entries have problems:\n\n`
           + specIssues.map(issue => `  - ${issue.message}`).join('\n'),

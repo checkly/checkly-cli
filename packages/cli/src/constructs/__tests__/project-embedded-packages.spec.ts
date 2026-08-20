@@ -75,7 +75,7 @@ describe('Project embedded packages validation', () => {
     // project-level embedded-packages ones are under test here.
     return diagnostics.observations.filter(diag =>
       diag instanceof UnsatisfiedLocalPrerequisitesDiagnostic
-      || (diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'checks.embeddedPackages'))
+      || (diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'bundle.packages.embed'))
   }
 
   it('surfaces plan warnings as non-fatal warning diagnostics', async () => {
@@ -90,7 +90,7 @@ describe('Project embedded packages validation', () => {
     expect(warning?.isFatal()).toBe(false)
     // The wildcard resolves present-pkg, so no fatal issue accompanies it.
     expect(diagnostics.observations.filter(diag =>
-      diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'checks.embeddedPackages')).toEqual([])
+      diag instanceof InvalidPropertyValueDiagnostic && diag.property === 'bundle.packages.embed')).toEqual([])
   })
 
   it('maps a missing lockfile to an unsatisfied-prerequisites diagnostic', async () => {

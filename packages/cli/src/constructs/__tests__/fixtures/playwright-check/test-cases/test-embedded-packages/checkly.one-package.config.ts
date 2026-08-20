@@ -10,13 +10,17 @@ const config = defineConfig({
     checkMatch: '**/*.check.ts',
     ignoreDirectoriesMatch: [],
     playwrightConfigPath: './playwright.config.ts',
-    embeddedPackages: ['@acme/private-utils'],
     playwrightChecks: [
       {
         logicalId: 'playwright-check-suite',
         name: 'Playwright Check Suite',
       }
     ],
+  },
+  bundle: {
+    packages: {
+      embed: ['@acme/private-utils'],
+    },
   },
 })
 

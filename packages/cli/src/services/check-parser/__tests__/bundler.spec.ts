@@ -58,10 +58,10 @@ describe('BundleTooLargeError', () => {
 
   it('suggests embedding fewer packages only when the bundle embeds some', () => {
     const without = new BundleTooLargeError({ sizeBytes: 1048576 })
-    expect(without.message).not.toContain('embeddedPackages')
+    expect(without.message).not.toContain('bundle.packages.embed')
 
     const withPackages = new BundleTooLargeError({ sizeBytes: 1048576, containsEmbeddedPackages: true })
-    expect(withPackages.message).toContain(`embedding fewer private packages ('checks.embeddedPackages')`)
+    expect(withPackages.message).toContain(`embedding fewer private packages ('bundle.packages.embed')`)
   })
 })
 
@@ -97,7 +97,7 @@ describe('FinalizedBundleArchive.store()', () => {
     expect(failure.message).toMatch(
       /code bundle is too large to upload: the compressed bundle is 2 MB, but the Checkly API accepts at most 1 MB/,
     )
-    expect(failure.message).not.toContain('embeddedPackages')
+    expect(failure.message).not.toContain('bundle.packages.embed')
   })
 
   it('handles a 413 response that does not name the limit', async () => {
@@ -153,7 +153,7 @@ describe('BundleArchive embedded package detection', () => {
       message: 'Payload content length greater than maximum allowed: 31457280',
     }))
 
-    await expect(archive.store()).rejects.toThrow(`'checks.embeddedPackages'`)
+    await expect(archive.store()).rejects.toThrow(`'bundle.packages.embed'`)
   })
 })
 

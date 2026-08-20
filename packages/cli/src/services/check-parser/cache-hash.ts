@@ -52,7 +52,7 @@ export interface ComposeCacheHashInput {
   npmrcs?: NpmrcInput[]
   /**
    * The resolved set of embedded package tarballs shipped in the bundle
-   * (`checks.embeddedPackages` after lockfile resolution). Embedded tarballs
+   * (`bundle.packages.embed` after lockfile resolution). Embedded tarballs
    * change the runner's install-step inputs without necessarily touching the
    * lockfile, so they must contribute to the hash. An empty or absent list
    * writes no records, leaving the digest identical to one computed before

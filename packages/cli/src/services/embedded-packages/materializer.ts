@@ -28,7 +28,7 @@ export const EMBEDDED_PACKAGES_ARCHIVE_DIR = '.checkly/embedded-packages'
 
 export interface EmbeddedPackagesIssue {
   type: 'invalid-spec' | 'missing-lockfile' | 'unsupported-lockfile' | 'spec-not-found' | 'spec-not-embeddable'
-  /** The offending `checks.embeddedPackages` entry, when tied to one. */
+  /** The offending `bundle.packages.embed` entry, when tied to one. */
   spec?: string
   message: string
 }
@@ -73,7 +73,7 @@ export class EmbeddedPackageError extends Error {
 }
 
 export interface EmbeddedPackagesMaterializerOptions {
-  /** Raw `checks.embeddedPackages` entries. */
+  /** Raw `bundle.packages.embed` entries. */
   specs: string[]
   /** Absolute path of the workspace root lockfile, when one exists. */
   lockfilePath?: string
@@ -110,7 +110,7 @@ function redactUrl (url: string): string {
 }
 
 /**
- * Resolves the configured `checks.embeddedPackages` specs against the
+ * Resolves the configured `bundle.packages.embed` specs against the
  * workspace lockfile (plan) and sources the selected tarballs into the CLI
  * cache (materialize), through a chain of CLI cache → npm cacache →
  * registry download, always verified against the lockfile integrity.

@@ -234,7 +234,7 @@ export class Session {
   }
 
   /**
-   * The materializer for the project's `checks.embeddedPackages` option, or
+   * The materializer for the project's `bundle.packages.embed` option, or
    * undefined when the option is not set. Memoized so that validation and
    * every concurrently bundling check share one plan and one download run.
    */

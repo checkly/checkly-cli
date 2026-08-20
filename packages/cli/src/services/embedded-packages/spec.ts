@@ -1,7 +1,7 @@
 import semver from 'semver'
 
 /**
- * A parsed `checks.embeddedPackages` entry: a package name — or a name
+ * A parsed `bundle.packages.embed` entry: a package name — or a name
  * pattern with `*` wildcards — with an optional exact version pin
  * (`name` or `name@version`).
  */
@@ -60,7 +60,7 @@ export class InvalidEmbeddedPackageSpecError extends Error {
 }
 
 /**
- * Parses a `checks.embeddedPackages` entry into a package name and an
+ * Parses a `bundle.packages.embed` entry into a package name and an
  * optional exact version pin.
  *
  * Accepts `name` (embed every lockfile version of the package) and

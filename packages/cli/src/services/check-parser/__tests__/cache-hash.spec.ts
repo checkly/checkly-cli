@@ -407,7 +407,7 @@ describe('composeCacheHash', () => {
   //
   // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
   // bundling), `embedded-package:` records (the resolved
-  // checks.embeddedPackages tarball set), and a `dependency-cache-version`
+  // bundle.packages.embed tarball set), and a `dependency-cache-version`
   // record (the user-provided caching.dependencyCache.version config
   // value). This fixture uses none of them so the digest is unchanged, but
   // projects that DO have an .npmrc, embed packages, or set a dependency

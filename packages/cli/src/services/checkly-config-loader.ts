@@ -95,51 +95,65 @@ export type ChecklyConfig = {
      */
     include?: string | string[]
     /**
-     * Dependencies whose registry tarballs should be embedded into the
-     * Playwright Check Suite code bundle, letting Checkly runners install
-     * packages they cannot fetch themselves — e.g. packages from a private
-     * registry that is only reachable from your own network. Has no effect
-     * on browser or multistep checks.
-     *
-     * Each entry is a package name (`'@acme/private-utils'`), which embeds
-     * every version of that package found in the workspace lockfile, or a
-     * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
-     * version. Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`,
-     * `'@acme/*-utils'`); each `*` matches any run of characters except
-     * `/`, so a wildcard never crosses the scope separator. As long as a
-     * wildcard matches at least one registry package, matches that are not
-     * registry packages are skipped — workspace members silently, git/file/
-     * URL dependencies with a warning (the runner must fetch those
-     * itself); a wildcard whose only matches cannot be embedded, or that
-     * matches nothing at all, is an error. A pattern embeds every lockfile
-     * version of every package it matches, so scope it to the packages
-     * the runner genuinely cannot fetch. List every package the runner
-     * cannot fetch,
-     * including private packages that only appear as (transitive)
-     * dependencies of other private packages — dependencies of listed
-     * packages are not embedded automatically.
-     *
-     * Tarballs are resolved against the workspace root lockfile
-     * (`pnpm-lock.yaml` or `package-lock.json`), reused from local caches
-     * (the CLI's own, then npm's) when possible and otherwise downloaded
-     * from the registry configured in `.npmrc` (including scoped registries
-     * and auth tokens), and always verified against the lockfile's recorded
-     * integrity. Downloads are cached under the workspace root's
-     * `node_modules/.cache/checkly`
-     * (override with `CHECKLY_CACHE_DIR`; a per-user cache directory
-     * serves as the fallback if the project location isn't writable), so
-     * nothing lands in the project outside `node_modules`. In the code
-     * bundle the tarballs land at
-     * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
-     * through a local registry during dependency installation. Changing
-     * the resolved set of embedded packages invalidates the runner's
-     * dependency cache, so the next run reinstalls with the new tarballs.
-     */
-    embeddedPackages?: string[]
-    /**
      * List of playwright checks that use the defined playwright config path
      */
     playwrightChecks?: PlaywrightSlimmedProp[]
+  }
+  /**
+   * Code-bundle configuration properties. New options that shape the
+   * Playwright Check Suite code bundle belong here; `checks.include`,
+   * `checks.playwrightConfigPath` and `caching.dependencyCache` predate
+   * this section and stay where they are for compatibility.
+   */
+  bundle?: {
+    /**
+     * Configuration for npm packages shipped inside the Playwright Check
+     * Suite code bundle.
+     */
+    packages?: {
+      /**
+       * Dependencies whose registry tarballs should be embedded into the
+       * Playwright Check Suite code bundle, letting Checkly runners install
+       * packages they cannot fetch themselves — e.g. packages from a private
+       * registry that is only reachable from your own network. Has no effect
+       * on browser or multistep checks.
+       *
+       * Each entry is a package name (`'@acme/private-utils'`), which embeds
+       * every version of that package found in the workspace lockfile, or a
+       * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
+       * version. Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`,
+       * `'@acme/*-utils'`); each `*` matches any run of characters except
+       * `/`, so a wildcard never crosses the scope separator. As long as a
+       * wildcard matches at least one registry package, matches that are not
+       * registry packages are skipped — workspace members silently, git/file/
+       * URL dependencies with a warning (the runner must fetch those
+       * itself); a wildcard whose only matches cannot be embedded, or that
+       * matches nothing at all, is an error. A pattern embeds every lockfile
+       * version of every package it matches, so scope it to the packages
+       * the runner genuinely cannot fetch. List every package the runner
+       * cannot fetch,
+       * including private packages that only appear as (transitive)
+       * dependencies of other private packages — dependencies of listed
+       * packages are not embedded automatically.
+       *
+       * Tarballs are resolved against the workspace root lockfile
+       * (`pnpm-lock.yaml` or `package-lock.json`), reused from local caches
+       * (the CLI's own, then npm's) when possible and otherwise downloaded
+       * from the registry configured in `.npmrc` (including scoped registries
+       * and auth tokens), and always verified against the lockfile's recorded
+       * integrity. Downloads are cached under the workspace root's
+       * `node_modules/.cache/checkly`
+       * (override with `CHECKLY_CACHE_DIR`; a per-user cache directory
+       * serves as the fallback if the project location isn't writable), so
+       * nothing lands in the project outside `node_modules`. In the code
+       * bundle the tarballs land at
+       * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
+       * through a local registry during dependency installation. Changing
+       * the resolved set of embedded packages invalidates the runner's
+       * dependency cache, so the next run reinstalls with the new tarballs.
+       */
+      embed?: string[]
+    }
   }
   /**
    * Caching-related configuration properties.
@@ -154,7 +168,7 @@ export type ChecklyConfig = {
       /**
        * Optional value mixed into the code bundle's cache hash in addition
        * to its usual inputs (lockfile, package.json and .npmrc files, and
-       * the resolved `checks.embeddedPackages` tarball set).
+       * the resolved `bundle.packages.embed` tarball set).
        * Change the value to force runners to reinstall the bundle's
        * dependencies. Setting it for the first time invalidates the cache
        * once. Numbers must be safe integers; unset and empty string leave
@@ -270,7 +284,7 @@ export async function loadChecklyConfig (
     }
     validateConfigFields(config, ['logicalId', 'projectName'] as const)
     validateDependencyCacheVersion(config)
-    validateEmbeddedPackages(config)
+    validateBundle(config)
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -321,21 +335,43 @@ function validateDependencyCacheVersion (config: ChecklyConfig): void {
   }
 }
 
-function validateEmbeddedPackages (config: ChecklyConfig): void {
-  const embeddedPackages = config.checks?.embeddedPackages
+function validateBundle (config: ChecklyConfig): void {
+  const { bundle } = config
+  if (bundle === undefined) {
+    return
+  }
+
+  // A misshapen `bundle` block would otherwise read as `embed: undefined`
+  // and silently disable embedding, surfacing only as an install failure on
+  // the runner. Plain-JS configs bypass the TypeScript type, so the shape
+  // must be enforced at runtime.
+  if (bundle === null || typeof bundle !== 'object' || Array.isArray(bundle)) {
+    throw new Error(`Config field 'bundle' must be an object if set`)
+  }
+
+  const { packages } = bundle
+  if (packages === undefined) {
+    return
+  }
+
+  if (packages === null || typeof packages !== 'object' || Array.isArray(packages)) {
+    throw new Error(`Config field 'bundle.packages' must be an object if set`)
+  }
+
+  const embeddedPackages = packages.embed
   if (embeddedPackages === undefined) {
     return
   }
 
   if (!Array.isArray(embeddedPackages)) {
-    throw new Error(`Config field 'checks.embeddedPackages' must be an array of strings if set`)
+    throw new Error(`Config field 'bundle.packages.embed' must be an array of strings if set`)
   }
 
   for (const spec of embeddedPackages) {
     try {
       parseEmbeddedPackageSpec(spec)
     } catch (cause) {
-      throw new Error(`Config field 'checks.embeddedPackages' is invalid: ${(cause as Error).message}`, { cause })
+      throw new Error(`Config field 'bundle.packages.embed' is invalid: ${(cause as Error).message}`, { cause })
     }
   }
 }

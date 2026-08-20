@@ -298,7 +298,7 @@ export class BundleTooLargeError extends Error {
 
     const remedies = containsEmbeddedPackages
       ? `removing large files from the Playwright project, narrowing any 'include' patterns, `
-      + `or embedding fewer private packages ('checks.embeddedPackages')`
+      + `or embedding fewer private packages ('bundle.packages.embed')`
       : `removing large files from the Playwright project or narrowing any 'include' patterns`
 
     super(
@@ -449,7 +449,7 @@ export type CreateBundlerForWorkspaceOptions =
   & Omit<ComputeWorkspaceCacheHashOptions, 'embeddedPackages'>
   & {
     /**
-     * The materializer for the project's `checks.embeddedPackages` option,
+     * The materializer for the project's `bundle.packages.embed` option,
      * when set. Its resolved tarball set (name, version, integrity) is mixed
      * into the cache hash: embedded tarballs change the runner's install-step
      * inputs without necessarily touching the lockfile, so a changed embed
