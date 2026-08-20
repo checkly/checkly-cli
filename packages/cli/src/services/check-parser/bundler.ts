@@ -11,7 +11,7 @@ import * as uuid from 'uuid'
 
 import { checklyStorage } from '../../rest/api.js'
 import { PayloadTooLargeError } from '../../rest/errors.js'
-import { EMBEDDED_PACKAGES_ARCHIVE_DIR } from '../embedded-packages/materializer.js'
+import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer } from '../embedded-packages/materializer.js'
 import { computeWorkspaceCacheHash, ComputeWorkspaceCacheHashOptions } from './cache-hash.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
@@ -445,7 +445,18 @@ export interface CreateBundlerOptions {
 }
 
 export type CreateBundlerForWorkspaceOptions =
-  Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'> & ComputeWorkspaceCacheHashOptions
+  Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'>
+  & Omit<ComputeWorkspaceCacheHashOptions, 'embeddedPackages'>
+  & {
+    /**
+     * The materializer for the project's `checks.embeddedPackages` option,
+     * when set. Its resolved tarball set (name, version, integrity) is mixed
+     * into the cache hash: embedded tarballs change the runner's install-step
+     * inputs without necessarily touching the lockfile, so a changed embed
+     * set must invalidate the dependency cache.
+     */
+    embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
+  }
 
 interface BundlerOptions {
   tempDir?: string
@@ -490,9 +501,12 @@ export class Bundler {
     const {
       tempDir,
       dependencyCacheVersion,
+      embeddedPackagesMaterializer,
     } = options
 
-    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion })
+    const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
+
+    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion, embeddedPackages })
 
     return new Bundler({
       tempDir,

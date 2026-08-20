@@ -4,7 +4,10 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { BundleArchive, BundleTooLargeError, FinalizedBundleArchive } from '../bundler.js'
+import { BundleArchive, BundleTooLargeError, Bundler, FinalizedBundleArchive } from '../bundler.js'
+import { Package, Workspace } from '../package-files/workspace.js'
+import { Err, Ok } from '../package-files/result.js'
+import { EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
 import { PayloadTooLargeError } from '../../../rest/errors.js'
 
 const uploadCodeBundle = vi.hoisted(() => vi.fn())
@@ -151,5 +154,46 @@ describe('BundleArchive embedded package detection', () => {
     }))
 
     await expect(archive.store()).rejects.toThrow(`'checks.embeddedPackages'`)
+  })
+})
+
+describe('Bundler.createForWorkspace', () => {
+  let dir: string
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-')))
+    await fs.writeFile(path.join(dir, 'package.json'), '{"name":"fixture-root"}\n')
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  it('mixes the embedded packages materializer plan into the cache hash', async () => {
+    const lockfilePath = path.join(dir, 'pnpm-lock.yaml')
+    await fs.writeFile(lockfilePath, [
+      `lockfileVersion: '9.0'`,
+      `packages:`,
+      `  '@acme/foo@1.2.3':`,
+      `    resolution: {integrity: sha512-aaa}`,
+      ``,
+    ].join('\n'))
+    const workspace = new Workspace({
+      root: new Package({ name: 'fixture-root', path: dir }),
+      packages: [],
+      lockfile: Ok(lockfilePath),
+      configFile: Err(new Error('no config file')),
+    })
+
+    const without = await Bundler.createForWorkspace(workspace)
+    const withFoo = await Bundler.createForWorkspace(workspace, {
+      embeddedPackagesMaterializer: new EmbeddedPackagesMaterializer({
+        specs: ['@acme/foo'],
+        lockfilePath,
+        workspaceRoot: dir,
+      }),
+    })
+
+    expect(without.cacheHash).not.toBe(withFoo.cacheHash)
   })
 })

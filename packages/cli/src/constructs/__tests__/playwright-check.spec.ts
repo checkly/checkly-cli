@@ -1559,6 +1559,21 @@ describe('PlaywrightCheck', () => {
       // version pin must exclude it.
       expect(files).not.toContain('.checkly/embedded-packages/legacy-private-pkg@3.0.0.tgz')
     }, DEFAULT_TEST_TIMEOUT)
+
+    it('should change the payload cacheHash when the embed list changes', async () => {
+      const cacheHashFor = async (...args: string[]): Promise<string> => {
+        const output = await parseProjectWithOptions(fixt, { env: { CHECKLY_CACHE_DIR: cacheDir } }, ...args)
+        expect(output.diagnostics.fatal).toBe(false)
+        const cacheHash = (output.payload.resources[0].payload as any).cacheHash
+        expect(cacheHash).toMatch(/^[0-9a-f]{64}$/)
+        return cacheHash
+      }
+
+      const bothPackages = await cacheHashFor()
+      const onePackage = await cacheHashFor('--config', 'checkly.one-package.config.ts')
+
+      expect(onePackage).not.toBe(bothPackages)
+    }, DEFAULT_TEST_TIMEOUT)
   })
 
   describe('bundling with embedded packages and subdirectory playwright config', () => {

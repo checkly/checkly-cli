@@ -323,6 +323,70 @@ describe('composeCacheHash', () => {
     expect(without).not.toBe(withVersion)
   })
 
+  test('omitting embeddedPackages matches passing an empty list (no-op)', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      embeddedPackages: [],
+      excludedFields: ['version'],
+    }))
+  })
+
+  test('adding an embedded package changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const without = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    const withEmbedded = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      embeddedPackages: [{ name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' }],
+      excludedFields: ['version'],
+    })
+    expect(without).not.toBe(withEmbedded)
+  })
+
+  test('embedded packages hash independently of their input order', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const foo = { name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' }
+    const bar = { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb' }
+    expect(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      embeddedPackages: [foo, bar],
+      excludedFields: ['version'],
+    })).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      embeddedPackages: [bar, foo],
+      excludedFields: ['version'],
+    }))
+  })
+
+  test('changing an embedded package version or integrity changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
+    const compose = (version: string, integrity: string) => composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      embeddedPackages: [{ name: '@acme/foo', version, integrity }],
+      excludedFields: ['version'],
+    })
+    expect(compose('1.2.3', 'sha512-aaa')).toBe(compose('1.2.3', 'sha512-aaa'))
+    expect(compose('1.2.3', 'sha512-aaa')).not.toBe(compose('1.2.4', 'sha512-aaa'))
+    expect(compose('1.2.3', 'sha512-aaa')).not.toBe(compose('1.2.3', 'sha512-bbb'))
+  })
+
   test('changing the dependencyCacheVersion changes the hash, same value is stable', () => {
     const root = buf('{"name":"root"}')
     const lockfile = { name: 'package-lock.json', hash: sha256('lock') }
@@ -342,11 +406,14 @@ describe('composeCacheHash', () => {
   // fixture, mirror the change in the TF provider's test suite.
   //
   // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
-  // bundling) and a `dependency-cache-version` record (the user-provided
-  // caching.dependencyCache.version config value). This fixture uses
-  // neither so the digest is unchanged, but projects that DO have an
-  // .npmrc or set a dependency cache version will hash differently until
-  // the TF provider mirrors those record types.
+  // bundling), `embedded-package:` records (the resolved
+  // checks.embeddedPackages tarball set), and a `dependency-cache-version`
+  // record (the user-provided caching.dependencyCache.version config
+  // value). This fixture uses none of them so the digest is unchanged, but
+  // projects that DO have an .npmrc, embed packages, or set a dependency
+  // cache version will hash differently until the TF provider mirrors
+  // those record types. The fixture two tests down pins all three optional
+  // record groups together, in order.
   test('matches the cross-language parity fixture digest', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
@@ -423,6 +490,48 @@ describe('composeCacheHash', () => {
 
     expect(digest).toBe('344f037a55163ba59146d9cdb71ef702782e3690a9f666067c0ccdf091214eb6')
   })
+
+  // Same parity contract as above, but with all four optional record groups
+  // present, pinning the full record order (npmrc records, then
+  // embedded-package records, then the dependency-cache-version record) and
+  // the sort of the `name@version` record labels. The TF provider must
+  // produce this exact digest once it mirrors the embedded-package record
+  // type.
+  test('matches the cross-language parity fixture digest with embedded packages', () => {
+    const lockfileBytes = buf('{"lockfileVersion":3}\n')
+    const rootPackageJson = buf([
+      '{',
+      '  "name": "fixture-root",',
+      '  "version": "0.0.0-SNAPSHOT",',
+      '  "private": true,',
+      '  "dependencies": {',
+      '    "@acme/foo": "1.2.3"',
+      '  }',
+      '}',
+      '',
+    ].join('\n'))
+
+    const digest = composeCacheHash({
+      lockfile: {
+        name: 'package-lock.json',
+        hash: createHash('sha256').update(lockfileBytes).digest(),
+      },
+      packageJsons: [
+        { path: 'package.json', raw: rootPackageJson },
+      ],
+      npmrcs: [
+        { path: '.npmrc', hash: sha256('registry=https://registry.example.com/\n') },
+      ],
+      embeddedPackages: [
+        { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb' },
+        { name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' },
+      ],
+      excludedFields: ['version'],
+      dependencyCacheVersion: '2',
+    })
+
+    expect(digest).toBe('4d9ce4b49fe543b4ec303ae17b1e98c7c9d0e37d8e17c57e78b36555abdf5207')
+  })
 })
 
 describe('computeWorkspaceCacheHash', () => {
@@ -456,6 +565,15 @@ describe('computeWorkspaceCacheHash', () => {
     const workspace = await makeWorkspace()
     expect(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: 2 }))
       .toBe(await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion: '2' }))
+  })
+
+  test('embeddedPackages option flows into the hash', async () => {
+    const workspace = await makeWorkspace()
+    const base = await computeWorkspaceCacheHash(workspace)
+    expect(base).toBe(await computeWorkspaceCacheHash(workspace, { embeddedPackages: [] }))
+    expect(base).not.toBe(await computeWorkspaceCacheHash(workspace, {
+      embeddedPackages: [{ name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' }],
+    }))
   })
 })
 

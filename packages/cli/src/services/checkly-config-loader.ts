@@ -131,7 +131,9 @@ export type ChecklyConfig = {
      * nothing lands in the project outside `node_modules`. In the code
      * bundle the tarballs land at
      * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
-     * through a local registry during dependency installation.
+     * through a local registry during dependency installation. Changing
+     * the resolved set of embedded packages invalidates the runner's
+     * dependency cache, so the next run reinstalls with the new tarballs.
      */
     embeddedPackages?: string[]
     /**
@@ -151,7 +153,8 @@ export type ChecklyConfig = {
     dependencyCache?: {
       /**
        * Optional value mixed into the code bundle's cache hash in addition
-       * to its usual inputs (lockfile, package.json and .npmrc files).
+       * to its usual inputs (lockfile, package.json and .npmrc files, and
+       * the resolved `checks.embeddedPackages` tarball set).
        * Change the value to force runners to reinstall the bundle's
        * dependencies. Setting it for the first time invalidates the cache
        * once. Numbers must be safe integers; unset and empty string leave

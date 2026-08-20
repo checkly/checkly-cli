@@ -168,6 +168,7 @@ export default class ParseProjectCommand extends Command {
 
         const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
           dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+          embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
         })
 
         const bundleStartedAt = performance.now()
