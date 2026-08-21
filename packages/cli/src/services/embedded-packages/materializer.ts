@@ -15,7 +15,12 @@ import {
   loadLockfilePackages,
 } from './lockfile-packages.js'
 import { NpmrcConfig, defaultNpmrcPaths, loadNpmrcConfig, resolveAuthHeader, resolveRegistryUrl } from './npmrc.js'
-import { EmbeddedPackageSpec, parseEmbeddedPackageSpec, specMatchesPackageName } from './spec.js'
+import {
+  EmbeddedPackageSpec,
+  InvalidEmbeddedPackageSpecError,
+  parseEmbeddedPackageSpec,
+  specMatchesPackageName,
+} from './spec.js'
 
 const debug = Debug('checkly:cli:services:embedded-packages')
 
@@ -27,10 +32,18 @@ const debug = Debug('checkly:cli:services:embedded-packages')
 export const EMBEDDED_PACKAGES_ARCHIVE_DIR = '.checkly/embedded-packages'
 
 export interface EmbeddedPackagesIssue {
-  type: 'invalid-spec' | 'missing-lockfile' | 'unsupported-lockfile' | 'spec-not-found' | 'spec-not-embeddable'
+  type: 'invalid-spec' | 'missing-lockfile' | 'unsupported-lockfile'
+    | 'spec-not-found' | 'spec-version-not-found' | 'spec-not-embeddable'
   /** The offending `bundle.packages.embed` entry, when tied to one. */
   spec?: string
+  /** Standalone sentence describing the issue, usable on its own. */
   message: string
+  /**
+   * Entry-scoped detail for grouped diagnostics, phrased to follow the
+   * entry under a per-type heading — e.g. the versions the lockfile does
+   * have, or the reasons the matches cannot be embedded.
+   */
+  detail?: string
 }
 
 /**
@@ -50,8 +63,13 @@ export interface EmbeddedPackagesPlan {
    * diagnostics channel during project validation.
    */
   warnings: string[]
-  /** What each wildcard spec resolved to, announced during bundling. */
-  wildcardMatches: Array<{ spec: string, packages: string[] }>
+  /**
+   * The lockfile the specs were resolved against, for diagnostics that
+   * name it once instead of once per issue. Absent when resolution never
+   * happened — no lockfile found, or an unsupported/unparsable one (the
+   * corresponding lockfile issue explains it).
+   */
+  lockfilePath?: string
 }
 
 /**
@@ -91,6 +109,16 @@ export interface EmbeddedPackagesMaterializerOptions {
 const DOWNLOAD_CONCURRENCY = 5
 const DOWNLOAD_TIMEOUT_MS = 120_000
 const MAX_TARBALL_BYTES = 1024 * 1024 * 1024
+
+/**
+ * Joins up to 8 items, appending `<overflow>N more` for the rest — the
+ * uniform truncation for user-facing lists of packages, versions and
+ * reasons.
+ */
+function capList (items: string[], separator: string, overflow: string): string {
+  const shown = items.slice(0, 8).join(separator)
+  return items.length > 8 ? `${shown}${overflow}${items.length - 8} more` : shown
+}
 
 /**
  * Removes userinfo credentials from a URL so it can be safely included in
@@ -145,10 +173,6 @@ export class EmbeddedPackagesMaterializer {
     return this.#plan
   }
 
-  #info (message: string): void {
-    process.stderr.write(`${message}\n`)
-  }
-
   materialize (): Promise<MaterializedTarball[]> {
     this.#materialized ??= this.#materializeAll()
     return this.#materialized
@@ -157,14 +181,18 @@ export class EmbeddedPackagesMaterializer {
   async #createPlan (): Promise<EmbeddedPackagesPlan> {
     const issues: EmbeddedPackagesIssue[] = []
     const warnings: string[] = []
-    const wildcardMatches: Array<{ spec: string, packages: string[] }> = []
 
     const specs: EmbeddedPackageSpec[] = []
     for (const raw of this.#options.specs) {
       try {
         specs.push(parseEmbeddedPackageSpec(raw))
       } catch (err) {
-        issues.push({ type: 'invalid-spec', spec: String(raw), message: (err as Error).message })
+        issues.push({
+          type: 'invalid-spec',
+          spec: String(raw),
+          message: (err as Error).message,
+          detail: err instanceof InvalidEmbeddedPackageSpecError ? err.reason : (err as Error).message,
+        })
       }
     }
 
@@ -175,7 +203,7 @@ export class EmbeddedPackagesMaterializer {
         message: `Embedded packages require a lockfile to resolve package versions and`
           + ` integrity hashes, but no lockfile was found for the project.`,
       })
-      return { tarballs: [], issues, warnings, wildcardMatches }
+      return { tarballs: [], issues, warnings }
     }
 
     let packages
@@ -188,8 +216,10 @@ export class EmbeddedPackagesMaterializer {
       const message = err instanceof UnsupportedLockfileError
         ? err.message
         : `Failed to read or parse the lockfile ('${lockfilePath}'): ${(err as Error).message}`
+      // No lockfilePath in the result: the specs were never resolved
+      // against the lockfile, so diagnostics must not credit it.
       issues.push({ type: 'unsupported-lockfile', message })
-      return { tarballs: [], issues, warnings, wildcardMatches }
+      return { tarballs: [], issues, warnings }
     }
 
     debug(
@@ -228,20 +258,22 @@ export class EmbeddedPackagesMaterializer {
           ? strictExcluded
           : nameMatches.length === 0 ? looseExcluded : []
         if (excludedMatches.length > 0) {
-          const reasons = [...new Set(excludedMatches.map(entry => entry.reason))]
-          const shownReasons = reasons.slice(0, 8).join('; ')
-          const moreReasons = reasons.length > 8 ? `; and ${reasons.length - 8} more` : ''
+          const reasons = capList([...new Set(excludedMatches.map(entry => entry.reason))], '; ', '; and ')
           issues.push({
             type: 'spec-not-embeddable',
             spec: spec.raw,
-            message: `Embedded package '${spec.raw}' cannot be embedded: ${shownReasons}${moreReasons}.`,
+            message: `Embedded package '${spec.raw}' cannot be embedded: ${reasons}.`,
+            detail: reasons,
           })
         } else if (nameMatches.length > 0) {
+          const versions = capList([...new Set(nameMatches.map(entry => entry.version))], ', ', ' and ')
           issues.push({
-            type: 'spec-not-found',
+            type: 'spec-version-not-found',
             spec: spec.raw,
             message: `Embedded package '${spec.raw}' matches package name(s) in the lockfile`
-              + ` ('${lockfilePath}'), but none of them at version ${spec.version}.`,
+              + ` ('${lockfilePath}'), but none of them at version ${spec.version}`
+              + ` (lockfile has: ${versions}).`,
+            detail: `lockfile has: ${versions}`,
           })
         } else {
           const hint = spec.namePattern !== undefined
@@ -270,19 +302,19 @@ export class EmbeddedPackagesMaterializer {
       const unfetchable = looseExcluded.filter(entry => entry.kind === 'unfetchable')
       if (unfetchable.length > 0) {
         const names = [...new Set(unfetchable.map(entry => entry.name))]
-        const shown = names.slice(0, 8).join(', ')
-        const more = names.length > 8 ? ` and ${names.length - 8} more` : ''
         warnings.push(
           `Embedded package '${spec.raw}' also matches ${names.length} package(s) that cannot`
-          + ` be embedded as registry tarballs and were skipped: ${shown}${more}.`
+          + ` be embedded as registry tarballs and were skipped: ${capList(names, ', ', ' and ')}.`
           + ` The runner must be able to fetch these itself.`,
         )
       }
       if (spec.namePattern !== undefined) {
-        wildcardMatches.push({
-          spec: spec.raw,
-          packages: candidates.map(entry => `${entry.name}@${entry.version}`),
-        })
+        // Wildcards select invisibly, but only the debug log says what they
+        // selected. Selections that need attention surface louder: a
+        // pattern matching nothing is a fatal validation issue, and matches
+        // that cannot be embedded produce a warning diagnostic.
+        debug('pattern %s matched %d package(s): %j',
+          spec.raw, candidates.length, candidates.map(entry => `${entry.name}@${entry.version}`))
       }
 
       for (const entry of candidates) {
@@ -299,12 +331,12 @@ export class EmbeddedPackagesMaterializer {
       tarballs: [...tarballs.values()].sort((a, b) => a.archiveFilename.localeCompare(b.archiveFilename)),
       issues,
       warnings,
-      wildcardMatches,
+      lockfilePath,
     }
   }
 
   async #materializeAll (): Promise<MaterializedTarball[]> {
-    const { tarballs, issues, wildcardMatches } = await this.plan()
+    const { tarballs, issues } = await this.plan()
 
     // Commands validate before bundling and exit on fatal diagnostics, so
     // this is a defensive backstop for direct/programmatic use.
@@ -312,15 +344,6 @@ export class EmbeddedPackagesMaterializer {
       throw new EmbeddedPackageError(
         `Cannot embed packages due to configuration issues:\n\n`
         + issues.map(issue => `  ${issue.message}`).join('\n'),
-      )
-    }
-
-    // Wildcards select invisibly, so say what they selected.
-    for (const match of wildcardMatches) {
-      const shown = match.packages.slice(0, 8).join(', ')
-      const more = match.packages.length > 8 ? ` and ${match.packages.length - 8} more` : ''
-      this.#info(
-        `Embedded package pattern '${match.spec}' matched ${match.packages.length} package(s): ${shown}${more}.`,
       )
     }
 

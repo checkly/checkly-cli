@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { AddressInfo } from 'node:net'
 
+import Debug from 'debug'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { EmbeddedPackageError, EmbeddedPackagesMaterializer } from '../materializer.js'
@@ -216,11 +217,13 @@ packages:
       expect(tarballs.map(t => t.archiveFilename)).toEqual(['@acme+foo@1.2.3.tgz'])
     })
 
-    it('reports unfetchable wildcard matches as plan warnings and announces matches when materializing', async () => {
+    it('reports unfetchable wildcard matches as plan warnings without writing to stderr', async () => {
       // A bare * matches bar (registry, both versions) and git-dep (a git
-      // dependency the CLI cannot embed): the registry matches embed, the
-      // git dependency surfaces as a plan warning naming it, and the
-      // wildcard's selection is announced during materialization.
+      // dependency the CLI cannot embed): the registry matches embed and
+      // the git dependency surfaces as a plan warning naming it. The
+      // wildcard's selection itself is debug-logged only — materializing
+      // writes nothing to stderr that would interrupt styled command
+      // output.
       const materializer = makeMaterializer(['*'])
       const { tarballs, issues, warnings } = await materializer.plan()
       expect(issues).toEqual([])
@@ -231,9 +234,25 @@ packages:
       const written = await captureStderr(async () => {
         await materializer.materialize()
       })
-      const announcement = written.find(line => line.includes('matched 2 package(s)'))
-      expect(announcement).toContain(`'*'`)
-      expect(announcement).toContain('bar@2.0.0')
+      // Filtered rather than asserting total silence: the debug package
+      // also writes to stderr when DEBUG is enabled.
+      expect(written.filter(line => line.includes('Embedded package'))).toEqual([])
+    })
+
+    it('debug-logs what a wildcard selected during planning', async () => {
+      // The wildcard selection has no user-facing output; the debug channel
+      // is the only place it is visible, so pin that it actually fires —
+      // and fires during plan(), covering validate-only and failing runs.
+      const previouslyEnabled = Debug.disable()
+      Debug.enable('checkly:cli:services:embedded-packages')
+      try {
+        const written = await captureStderr(async () => {
+          await makeMaterializer(['*']).plan()
+        })
+        expect(written.join('')).toContain('pattern * matched 2 package(s)')
+      } finally {
+        Debug.enable(previouslyEnabled)
+      }
     })
 
     it('does not warn about unfetchable matches a version pin already excludes', async () => {
@@ -325,7 +344,7 @@ packages:
 `)
       const { issues } = await makeMaterializer(['@acme/*@9.9.9']).plan()
       expect(issues).toHaveLength(1)
-      expect(issues[0].type).toBe('spec-not-found')
+      expect(issues[0].type).toBe('spec-version-not-found')
       expect(issues[0].message).toContain('9.9.9')
       expect(issues[0].message).not.toContain('workspace')
     })
@@ -342,9 +361,11 @@ packages:
       expect(issues[0].message).toContain('no-such-package')
     })
 
-    it('reports a version pin that matches nothing in the lockfile', async () => {
+    it('reports a version pin that matches nothing in the lockfile, naming the available versions', async () => {
       const { issues } = await makeMaterializer(['bar@9.9.9']).plan()
-      expect(issues[0].type).toBe('spec-not-found')
+      expect(issues[0].type).toBe('spec-version-not-found')
+      expect(issues[0].message).toContain('none of them at version 9.9.9')
+      expect(issues[0].detail).toContain('lockfile has: ')
     })
 
     it('reports a spec that only matches a git dependency', async () => {

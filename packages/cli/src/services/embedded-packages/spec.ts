@@ -53,9 +53,13 @@ function compileNamePattern (name: string): RegExp {
 const PACKAGE_NAME_RE = /^(@[a-zA-Z0-9-~][a-zA-Z0-9-~._]*\/)?[a-zA-Z0-9-~][a-zA-Z0-9-._~]*$/
 
 export class InvalidEmbeddedPackageSpecError extends Error {
+  /** The failure alone, without the `Invalid embedded package '<spec>':` prefix. */
+  readonly reason: string
+
   constructor (spec: string, reason: string) {
     super(`Invalid embedded package '${spec}': ${reason}`)
     this.name = 'InvalidEmbeddedPackageSpecError'
+    this.reason = reason
   }
 }
 

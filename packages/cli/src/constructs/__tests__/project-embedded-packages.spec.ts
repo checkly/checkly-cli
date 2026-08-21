@@ -11,6 +11,7 @@ import { Diagnostics, WarningDiagnostic } from '../diagnostics.js'
 import { InvalidPropertyValueDiagnostic, UnsatisfiedLocalPrerequisitesDiagnostic } from '../construct-diagnostics.js'
 import { Package, Workspace } from '../../services/check-parser/package-files/workspace.js'
 import { Ok, Err } from '../../services/check-parser/package-files/result.js'
+import { wrap } from '../../helpers/wrap.js'
 
 describe('Project embedded packages validation', () => {
   let dir: string
@@ -113,15 +114,57 @@ describe('Project embedded packages validation', () => {
     expect(observations[0].message).toContain('yarn.lock')
   })
 
-  it('groups multiple spec issues into a single diagnostic', async () => {
+  it('groups multiple spec issues into a single diagnostic by problem type', async () => {
     const project = setupProject()
-    Session.embeddedPackages = ['missing-one', 'missing-two']
+    Session.embeddedPackages = ['Bad Name!', 'missing-one', 'present-pkg@9.9.9', 'present-git']
 
     const observations = await validateEmbeddedDiagnostics(project)
     expect(observations).toHaveLength(1)
     expect(observations[0]).toBeInstanceOf(InvalidPropertyValueDiagnostic)
-    expect(observations[0].message).toContain('missing-one')
-    expect(observations[0].message).toContain('missing-two')
+    const { message } = observations[0]
+    // Exact block: pins the group order, the per-entry shape of every
+    // group, and that the lockfile is named once in the header rather
+    // than once per entry.
+    expect(message).toContain([
+      `4 entries have problems (lockfile: '${path.join(dir, 'pnpm-lock.yaml')}'):`,
+      ``,
+      `  Invalid entries:`,
+      `    - 'Bad Name!': 'Bad Name!' is not a valid npm package name`,
+      ``,
+      `  Not found in the lockfile — make sure the packages are installed`,
+      `  and the entries are spelled correctly:`,
+      `    - 'missing-one'`,
+      ``,
+      `  Found, but not at the pinned version:`,
+      `    - 'present-pkg@9.9.9' (lockfile has: 1.0.0)`,
+      ``,
+      `  Cannot be embedded as registry tarballs:`,
+      `    - 'present-git': 'present-git@https://codeload.github.com/user/present-git/tar.gz/abc'`
+      + ` resolves to a git, file or URL dependency, which cannot be embedded as a registry tarball`,
+    ].join('\n'))
+    expect(message.match(/pnpm-lock\.yaml/g)).toHaveLength(1)
+
+    // The command renderer re-wraps messages at 78 columns with a 2-space
+    // prefix, dedenting overflow lines to that prefix. Group headers are
+    // pre-wrapped to survive it: rendered this way, the header keeps its
+    // indentation and its entries stay deeper than it.
+    const rendered = wrap(message, { prefix: '  ', length: 78 })
+    expect(rendered).toContain([
+      `    Not found in the lockfile — make sure the packages are installed`,
+      `    and the entries are spelled correctly:`,
+      `      - 'missing-one'`,
+    ].join('\n'))
+  })
+
+  it('does not credit the lockfile when no entry was resolved against it', async () => {
+    const project = setupProject()
+    Session.embeddedPackages = ['Bad Name!', 'Worse Name!']
+
+    const observations = await validateEmbeddedDiagnostics(project)
+    expect(observations).toHaveLength(1)
+    const { message } = observations[0]
+    expect(message).toContain('2 entries have problems:')
+    expect(message).not.toContain('pnpm-lock.yaml')
   })
 
   it('accepts specs that resolve against the lockfile', async () => {

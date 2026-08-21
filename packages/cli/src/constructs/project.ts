@@ -17,6 +17,7 @@ import {
 } from './construct-diagnostics.js'
 import { ProjectBundle, ProjectDataBundle } from './project-bundle.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+import { EmbeddedPackagesIssue } from '../services/embedded-packages/materializer.js'
 import { Session } from './session.js'
 
 // Cap how many constructs bundle concurrently. Bundling parses and resolves
@@ -142,7 +143,7 @@ export class Project extends Construct {
       return
     }
 
-    const { issues, warnings } = await materializer.plan()
+    const { issues, warnings, lockfilePath } = await materializer.plan()
 
     for (const warning of warnings) {
       diagnostics.add(new WarningDiagnostic({
@@ -167,10 +168,7 @@ export class Project extends Construct {
     } else if (specIssues.length > 1) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'bundle.packages.embed',
-        new Error(
-          `${specIssues.length} entries have problems:\n\n`
-          + specIssues.map(issue => `  - ${issue.message}`).join('\n'),
-        ),
+        new Error(formatEmbeddedPackagesSpecIssues(specIssues, lockfilePath)),
       ))
     }
   }
@@ -269,4 +267,68 @@ export class Project extends Construct {
       .filter((construct: Construct) => construct instanceof HeartbeatMonitor)
       .map((construct: Check) => construct.logicalId)
   }
+}
+
+type EmbeddedPackagesSpecIssueType = Exclude<
+  EmbeddedPackagesIssue['type'],
+  'missing-lockfile' | 'unsupported-lockfile'
+>
+
+// Exhaustive over the per-entry issue types (and rendered in this order),
+// so that adding a type to EmbeddedPackagesIssue without a header here is
+// a compile error rather than an entry silently missing from the output.
+//
+// The command style renderer re-wraps at 78 columns and dedents overflow
+// to its own base prefix, destroying the grouping indentation — so any
+// header longer than that is pre-wrapped here, with the continuation
+// carrying the same two-space indent the section builder adds.
+const EMBEDDED_PACKAGES_SPEC_ISSUE_HEADERS: Record<EmbeddedPackagesSpecIssueType, string> = {
+  'invalid-spec': `Invalid entries:`,
+  'spec-not-found': `Not found in the lockfile — make sure the packages are installed\n`
+    + `  and the entries are spelled correctly:`,
+  'spec-version-not-found': `Found, but not at the pinned version:`,
+  'spec-not-embeddable': `Cannot be embedded as registry tarballs:`,
+}
+
+/**
+ * Renders multiple per-entry embedded-package issues as one message,
+ * grouping entries by problem so that shared explanations — and the
+ * lockfile path — appear once instead of once per entry.
+ */
+function formatEmbeddedPackagesSpecIssues (issues: EmbeddedPackagesIssue[], lockfilePath?: string): string {
+  const types = Object.keys(EMBEDDED_PACKAGES_SPEC_ISSUE_HEADERS) as EmbeddedPackagesSpecIssueType[]
+
+  const sections = types.flatMap(type => {
+    const members = issues.filter(issue => issue.type === type)
+    if (members.length === 0) {
+      return []
+    }
+    const entries = members.map(issue => {
+      const spec = `'${issue.spec}'`
+      if (issue.detail === undefined) {
+        return `    - ${spec}`
+      }
+      // A short parenthetical (available versions) reads best inline; the
+      // longer not-embeddable reasons and parse errors follow a colon.
+      return issue.type === 'spec-version-not-found'
+        ? `    - ${spec} (${issue.detail})`
+        : `    - ${spec}: ${issue.detail}`
+    })
+    return [`  ${EMBEDDED_PACKAGES_SPEC_ISSUE_HEADERS[type]}\n${entries.join('\n')}`]
+  })
+
+  // Never let the header count entries the body does not show: an issue
+  // type without a heading (e.g. a lockfile-level issue misrouted here)
+  // still renders, via its standalone message.
+  const leftovers = issues.filter(issue => !(issue.type in EMBEDDED_PACKAGES_SPEC_ISSUE_HEADERS))
+  if (leftovers.length > 0) {
+    sections.push(`  Other problems:\n${leftovers.map(issue => `    - ${issue.message}`).join('\n')}`)
+  }
+
+  // Credit the lockfile only when an entry was actually resolved against
+  // it — invalid entries fail parsing before any lockfile lookup, so a
+  // group of only those must not imply a lockfile search came up empty.
+  const lockfileResolved = issues.some(issue => issue.type !== 'invalid-spec')
+  const lockfile = lockfileResolved && lockfilePath !== undefined ? ` (lockfile: '${lockfilePath}')` : ''
+  return `${issues.length} entries have problems${lockfile}:\n\n${sections.join('\n\n')}`
 }
