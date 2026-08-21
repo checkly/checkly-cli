@@ -178,6 +178,7 @@ export default class Deploy extends AuthCommand {
       checklyConfigConstructs,
       playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
       include: checklyConfig.checks?.include,
+      embeddedPackages: checklyConfig.bundle?.packages?.embed,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const repoInfo = getGitInformation(project.repoUrl)
@@ -209,6 +210,7 @@ export default class Deploy extends AuthCommand {
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+      embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
     })
 
     this.style.actionStart('Bundling project resources')

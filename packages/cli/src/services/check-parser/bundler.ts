@@ -1,3 +1,4 @@
+import { once } from 'node:events'
 import { createReadStream, createWriteStream, WriteStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -9,6 +10,8 @@ import Debug from 'debug'
 import * as uuid from 'uuid'
 
 import { checklyStorage } from '../../rest/api.js'
+import { PayloadTooLargeError } from '../../rest/errors.js'
+import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer } from '../embedded-packages/materializer.js'
 import { computeWorkspaceCacheHash, ComputeWorkspaceCacheHashOptions } from './cache-hash.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
@@ -119,6 +122,7 @@ export class BundleArchive {
   #archiveFileWriteStream: WriteStream
   #stripPrefix?: string
   #archive: Archiver
+  #containsEmbeddedPackages = false
 
   private constructor (options: BundleArchiveOptions) {
     const {
@@ -198,6 +202,10 @@ export class BundleArchive {
     for (const [index, file] of files.entries()) {
       const name = archivePath(file, this.#stripPrefix)
 
+      if (name.startsWith(`${EMBEDDED_PACKAGES_ARCHIVE_DIR}/`)) {
+        this.#containsEmbeddedPackages = true
+      }
+
       const entry = {
         mode: 0o755, // Default mode for files in the archive
         name,
@@ -232,6 +240,7 @@ export class BundleArchive {
 
     return await FinalizedBundleArchive.create({
       archiveFile: this.#archiveFile,
+      containsEmbeddedPackages: this.#containsEmbeddedPackages,
     })
   }
 
@@ -245,23 +254,101 @@ export class BundleArchive {
   }
 }
 
+export interface BundleTooLargeErrorOptions {
+  sizeBytes: number
+  maxBytes?: number
+  containsEmbeddedPackages?: boolean
+  cause?: unknown
+}
+
+/**
+ * Error thrown when the Checkly API rejects the code bundle upload because
+ * the bundle exceeds the maximum size the API accepts (HTTP 413). The size
+ * limit is enforced server-side and is not known ahead of time; it is parsed
+ * from the response when the server names it.
+ */
+export class BundleTooLargeError extends Error {
+  readonly sizeBytes: number
+  readonly maxBytes?: number
+  readonly containsEmbeddedPackages: boolean
+
+  constructor (options: BundleTooLargeErrorOptions) {
+    const {
+      sizeBytes,
+      maxBytes,
+      containsEmbeddedPackages,
+      cause,
+    } = options
+
+    // Round the bundle size up and the limit down so that a bundle just
+    // barely over the limit cannot render as two equal figures ("the
+    // compressed bundle is 30 MB, but the Checkly API accepts at most
+    // 30 MB").
+    const size = formatMegabytes(sizeBytes, Math.ceil)
+
+    // Attribute the limit to the Checkly API only when a plausible one is
+    // known (given, and not so small that it floors to "0 MB"). A 413 can
+    // also come from an intermediary (e.g. a corporate proxy with its own
+    // upload cap), but such a response would not use the API's own message
+    // phrasing that maxBytes is parsed from, and ends up here undefined.
+    const formattedLimit = maxBytes !== undefined ? formatMegabytes(maxBytes, Math.floor) : undefined
+    const limit = formattedLimit !== undefined && formattedLimit !== '0 MB'
+      ? `but the Checkly API accepts at most ${formattedLimit}`
+      : `which exceeds what the upload endpoint accepts`
+
+    const remedies = containsEmbeddedPackages
+      ? `removing large files from the Playwright project, narrowing any 'include' patterns, `
+      + `or embedding fewer private packages ('bundle.packages.embed')`
+      : `removing large files from the Playwright project or narrowing any 'include' patterns`
+
+    super(
+      `The code bundle is too large to upload: the compressed bundle is ${size}, ${limit}. `
+      + `Reduce the bundle size by ${remedies}.`,
+      { cause },
+    )
+    this.name = 'BundleTooLargeError'
+    this.sizeBytes = sizeBytes
+    this.maxBytes = maxBytes
+    this.containsEmbeddedPackages = containsEmbeddedPackages ?? false
+  }
+}
+
+function formatMegabytes (bytes: number, round: (value: number) => number): string {
+  return `${round(bytes / 1048576 * 10) / 10} MB`
+}
+
+/**
+ * A 413 response names the size limit only inside hapi's message text
+ * ("Payload content length greater than maximum allowed: <bytes>"); there is
+ * no structured field carrying it.
+ */
+function parseMaxBytes (message: string): number | undefined {
+  const match = /maximum allowed: (\d+)/.exec(message)
+  return match !== null ? Number(match[1]) : undefined
+}
+
 export interface CreateFinalizedBundleArchiveOptions {
   archiveFile: string
+  containsEmbeddedPackages?: boolean
 }
 
 interface FinalizedBundleArchiveOptions {
   archiveFile: string
+  containsEmbeddedPackages?: boolean
 }
 
 export class FinalizedBundleArchive {
   #archiveFile: string
+  #containsEmbeddedPackages: boolean
 
   private constructor (options: FinalizedBundleArchiveOptions) {
     const {
       archiveFile,
+      containsEmbeddedPackages,
     } = options
 
     this.#archiveFile = archiveFile
+    this.#containsEmbeddedPackages = containsEmbeddedPackages ?? false
   }
 
   // eslint-disable-next-line require-await
@@ -274,24 +361,51 @@ export class FinalizedBundleArchive {
   }
 
   async store (): Promise<RemoteBundleArchive> {
-    const {
-      data: {
-        key,
-      },
-    } = await this.#uploadCodeBundle(this.#archiveFile)
+    const { size } = await fs.stat(this.#archiveFile)
 
-    return await RemoteBundleArchive.create({
-      key,
-    })
+    try {
+      const {
+        data: {
+          key,
+        },
+      } = await this.#uploadCodeBundle(this.#archiveFile, size)
+
+      return await RemoteBundleArchive.create({
+        key,
+      })
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        throw new BundleTooLargeError({
+          sizeBytes: size,
+          maxBytes: parseMaxBytes(err.data.message),
+          containsEmbeddedPackages: this.#containsEmbeddedPackages,
+          cause: err,
+        })
+      }
+
+      throw err
+    }
   }
 
-  async #uploadCodeBundle (filePath: string): Promise<AxiosResponse> {
-    const { size } = await fs.stat(filePath)
+  async #uploadCodeBundle (filePath: string, size: number): Promise<AxiosResponse> {
     const stream = createReadStream(filePath)
     stream.on('error', err => {
       throw new Error(`Failed to read Playwright project file: ${err.message}`)
     })
-    return checklyStorage.uploadCodeBundle(stream, size)
+    try {
+      return await checklyStorage.uploadCodeBundle(stream, size)
+    } finally {
+      // A failed upload leaves the stream unconsumed and its file handle
+      // open; on Windows the open handle blocks deleting the archive's
+      // temp directory. destroy() only schedules the close, so wait for it
+      // to complete before continuing to any cleanup. (After a fully
+      // consumed upload the stream has already auto-closed and both calls
+      // are no-ops.)
+      stream.destroy()
+      if (!stream.closed) {
+        await once(stream, 'close')
+      }
+    }
   }
 }
 
@@ -331,7 +445,18 @@ export interface CreateBundlerOptions {
 }
 
 export type CreateBundlerForWorkspaceOptions =
-  Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'> & ComputeWorkspaceCacheHashOptions
+  Omit<CreateBundlerOptions, 'cacheHash' | 'stripPrefix'>
+  & Omit<ComputeWorkspaceCacheHashOptions, 'embeddedPackages'>
+  & {
+    /**
+     * The materializer for the project's `bundle.packages.embed` option,
+     * when set. Its resolved tarball set (name, version, integrity) is mixed
+     * into the cache hash: embedded tarballs change the runner's install-step
+     * inputs without necessarily touching the lockfile, so a changed embed
+     * set must invalidate the dependency cache.
+     */
+    embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
+  }
 
 interface BundlerOptions {
   tempDir?: string
@@ -376,9 +501,12 @@ export class Bundler {
     const {
       tempDir,
       dependencyCacheVersion,
+      embeddedPackagesMaterializer,
     } = options
 
-    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion })
+    const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
+
+    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion, embeddedPackages })
 
     return new Bundler({
       tempDir,

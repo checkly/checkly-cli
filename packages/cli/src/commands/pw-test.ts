@@ -214,6 +214,7 @@ export default class PwTestCommand extends AuthCommand {
       checklyConfigConstructs,
       playwrightConfigPath,
       include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
+      embeddedPackages: checklyConfig.bundle?.packages?.embed,
       playwrightChecks: [playwrightCheck],
       loadPlaywrightChecksOnly: true,
       warnOnWebServerConfig: !(includeFlag.length > 0),
@@ -266,6 +267,7 @@ export default class PwTestCommand extends AuthCommand {
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+      embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
     })
 
     this.style.actionStart('Bundling project resources')

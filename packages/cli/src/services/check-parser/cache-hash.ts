@@ -37,10 +37,28 @@ export interface NpmrcInput {
   hash: Buffer
 }
 
+export interface EmbeddedPackageInput {
+  /** Package name as recorded in the lockfile, e.g. `@acme/foo`. */
+  name: string
+  /** Exact version, e.g. `1.2.3`. */
+  version: string
+  /** The lockfile's recorded integrity for the artifact (SRI string). */
+  integrity: string
+}
+
 export interface ComposeCacheHashInput {
   lockfile?: LockfileInput
   packageJsons: PackageJsonInput[]
   npmrcs?: NpmrcInput[]
+  /**
+   * The resolved set of embedded package tarballs shipped in the bundle
+   * (`bundle.packages.embed` after lockfile resolution). Embedded tarballs
+   * change the runner's install-step inputs without necessarily touching the
+   * lockfile, so they must contribute to the hash. An empty or absent list
+   * writes no records, leaving the digest identical to one computed before
+   * this input existed.
+   */
+  embeddedPackages?: EmbeddedPackageInput[]
   excludedFields: string[]
   /**
    * Optional user-provided cache version, already normalized to a string.
@@ -155,17 +173,28 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  * Records are written in the following order:
  *   1. The lockfile record (if present), labeled `lockfile:<basename>`,
  *      whose content is the raw 32-byte SHA-256 digest of the lockfile.
- *   2. One record per package.json sorted byte-wise by path, labeled
+ *   2. One record per package.json sorted by path, labeled
  *      `package.json:<relative/path>`, whose content is the canonicalized
  *      package.json bytes.
- *   3. One record per .npmrc sorted byte-wise by path, labeled
+ *   3. One record per .npmrc sorted by path, labeled
  *      `npmrc:<relative/path>`, whose content is the raw 32-byte SHA-256
  *      digest of the .npmrc contents.
- *   4. The dependency cache version record (if set to a non-empty string),
+ *   4. One record per embedded package sorted by `name@version`, labeled
+ *      `embedded-package:<name@version>`, whose content is the raw UTF-8
+ *      bytes of the lockfile's integrity string for the artifact. Callers
+ *      must pass at most one entry per `name@version` (the materializer
+ *      already de-duplicates); the record order among duplicate keys is
+ *      undefined.
+ *   5. The dependency cache version record (if set to a non-empty string),
  *      labeled `dependency-cache-version`, whose content is the raw UTF-8
  *      bytes of the user-provided value. An empty string is treated as
  *      absent so that e.g. an unset environment variable interpolated into
  *      the config leaves the digest unchanged.
+ *
+ * All sorts compare strings by UTF-16 code unit (JavaScript's `<`/`>`),
+ * which coincides with byte-wise UTF-8 order for ASCII inputs — the only
+ * kind that occurs in practice. Mirror implementations in other languages
+ * must reproduce this order exactly.
  */
 export function composeCacheHash (input: ComposeCacheHashInput): string {
   const hash = createHash('sha256')
@@ -182,25 +211,25 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
     writeRecord(`lockfile:${input.lockfile.name}`, input.lockfile.hash)
   }
 
-  const sorted = [...input.packageJsons].sort((a, b) => {
-    if (a.path < b.path) return -1
-    if (a.path > b.path) return 1
-    return 0
-  })
+  const sorted = [...input.packageJsons].sort((a, b) => compareStrings(a.path, b.path))
 
   for (const entry of sorted) {
     const canonical = canonicalizePackageJson(entry.raw, input.excludedFields)
     writeRecord(`package.json:${entry.path}`, canonical)
   }
 
-  const sortedNpmrcs = [...(input.npmrcs ?? [])].sort((a, b) => {
-    if (a.path < b.path) return -1
-    if (a.path > b.path) return 1
-    return 0
-  })
+  const sortedNpmrcs = [...(input.npmrcs ?? [])].sort((a, b) => compareStrings(a.path, b.path))
 
   for (const entry of sortedNpmrcs) {
     writeRecord(`npmrc:${entry.path}`, entry.hash)
+  }
+
+  const sortedEmbedded = (input.embeddedPackages ?? [])
+    .map(entry => ({ key: `${entry.name}@${entry.version}`, integrity: entry.integrity }))
+    .sort((a, b) => compareStrings(a.key, b.key))
+
+  for (const entry of sortedEmbedded) {
+    writeRecord(`embedded-package:${entry.key}`, Buffer.from(entry.integrity, 'utf8'))
   }
 
   if (input.dependencyCacheVersion) {
@@ -208,6 +237,12 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
   }
 
   return hash.digest('hex')
+}
+
+function compareStrings (a: string, b: string): number {
+  if (a < b) return -1
+  if (a > b) return 1
+  return 0
 }
 
 function uint64BE (n: number): Buffer {
@@ -289,6 +324,11 @@ export interface ComputeWorkspaceCacheHashOptions {
    * hash. Undefined and the empty string leave the digest unchanged.
    */
   dependencyCacheVersion?: string | number
+  /**
+   * The resolved set of embedded package tarballs shipped in the bundle.
+   * See {@link ComposeCacheHashInput.embeddedPackages}.
+   */
+  embeddedPackages?: EmbeddedPackageInput[]
 }
 
 /**
@@ -323,6 +363,7 @@ export async function computeWorkspaceCacheHash (
   const inputs = await loadWorkspaceCacheHashInputs(workspace)
   return composeCacheHash({
     ...inputs,
+    embeddedPackages: options?.embeddedPackages,
     excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
     dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
   })

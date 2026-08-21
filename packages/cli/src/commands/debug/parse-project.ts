@@ -149,6 +149,7 @@ export default class ParseProjectCommand extends Command {
         checklyConfigConstructs,
         playwrightConfigPath: checklyConfig.checks?.playwrightConfigPath,
         include: includeFlag.length ? includeFlag : checklyConfig.checks?.include,
+        embeddedPackages: checklyConfig.bundle?.packages?.embed,
         playwrightChecks: checklyConfig.checks?.playwrightChecks,
         loadPlaywrightChecksOnly: emulatePwTest,
         warnOnWebServerConfig: emulatePwTest && !(includeFlag.length > 0),
@@ -167,6 +168,7 @@ export default class ParseProjectCommand extends Command {
 
         const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
           dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+          embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
         })
 
         const bundleStartedAt = performance.now()

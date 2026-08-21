@@ -18,6 +18,7 @@ import { Workspace } from '../services/check-parser/package-files/workspace.js'
 import { npmPackageManager, PackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { Err, Result } from '../services/check-parser/package-files/result.js'
 import { Runtime } from '../runtimes/index.js'
+import { EmbeddedPackagesMaterializer } from '../services/embedded-packages/materializer.js'
 import { PlaywrightProjectBundler } from '../services/playwright-project-bundler.js'
 import { PROJECT_CONSTRUCT_TYPE } from '../constants.js'
 
@@ -70,8 +71,10 @@ export class Session {
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static playwrightProjectBundler?: PlaywrightProjectBundler
+  static embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
   static constructExports: ConstructExport[] = []
   static ignoreDirectoriesMatch: string[] = []
+  static embeddedPackages?: string[]
   static warnOnWebServerConfig?: boolean
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
@@ -96,8 +99,10 @@ export class Session {
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()
     this.playwrightProjectBundler = undefined
+    this.embeddedPackagesMaterializer = undefined
     this.constructExports = []
     this.ignoreDirectoriesMatch = []
+    this.embeddedPackages = undefined
     this.warnOnWebServerConfig = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
@@ -226,6 +231,27 @@ export class Session {
       this.playwrightProjectBundler = new PlaywrightProjectBundler()
     }
     return this.playwrightProjectBundler
+  }
+
+  /**
+   * The materializer for the project's `bundle.packages.embed` option, or
+   * undefined when the option is not set. Memoized so that validation and
+   * every concurrently bundling check share one plan and one download run.
+   */
+  static getEmbeddedPackagesMaterializer (): EmbeddedPackagesMaterializer | undefined {
+    const specs = this.embeddedPackages
+    if (specs === undefined || specs.length === 0) {
+      return undefined
+    }
+    if (this.embeddedPackagesMaterializer === undefined) {
+      this.embeddedPackagesMaterializer = new EmbeddedPackagesMaterializer({
+        specs,
+        lockfilePath: this.workspace.ok()?.lockfile.ok(),
+        workspaceRoot: this.basePath,
+        contextDir: this.contextPath,
+      })
+    }
+    return this.embeddedPackagesMaterializer
   }
 
   static relativePosixPath (filePath: string): string {

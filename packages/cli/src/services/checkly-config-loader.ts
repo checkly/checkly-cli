@@ -10,6 +10,7 @@ import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
+import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -99,6 +100,38 @@ export type ChecklyConfig = {
     playwrightChecks?: PlaywrightSlimmedProp[]
   }
   /**
+   * Code-bundle configuration properties.
+   */
+  bundle?: {
+    /**
+     * Configuration for npm packages shipped inside the code bundle.
+     */
+    packages?: {
+      /**
+       * Dependencies to embed into the code bundle, letting Checkly runners
+       * install packages they cannot fetch themselves — e.g. packages from a
+       * private registry that is only reachable from your own network.
+       * Applies to Playwright Check Suites only.
+       *
+       * Each entry is a package name (`'@acme/private-utils'`), which embeds
+       * every version of that package found in the workspace lockfile, or an
+       * exact `name@version` pin (`'legacy-private-pkg@2.1.0'`). Names may
+       * contain `*` wildcards (`'@acme/*'`, `'acme-*'`); a wildcard never
+       * crosses the `/` scope separator. List every package the runner
+       * cannot fetch, including private packages that only appear as
+       * transitive dependencies of other private packages — dependencies of
+       * listed packages are not embedded automatically.
+       *
+       * Only npm and pnpm are supported at this time: packages are resolved
+       * against the workspace lockfile (`pnpm-lock.yaml` or
+       * `package-lock.json`) and always verified against its recorded
+       * integrity hashes. Changing the resolved set of embedded packages
+       * invalidates the runner's dependency cache.
+       */
+      embed?: string[]
+    }
+  }
+  /**
    * Caching-related configuration properties.
    */
   caching?: {
@@ -110,7 +143,8 @@ export type ChecklyConfig = {
     dependencyCache?: {
       /**
        * Optional value mixed into the code bundle's cache hash in addition
-       * to its usual inputs (lockfile, package.json and .npmrc files).
+       * to its usual inputs (lockfile, package.json and .npmrc files, and
+       * the resolved `bundle.packages.embed` tarball set).
        * Change the value to force runners to reinstall the bundle's
        * dependencies. Setting it for the first time invalidates the cache
        * once. Numbers must be safe integers; unset and empty string leave
@@ -226,6 +260,7 @@ export async function loadChecklyConfig (
     }
     validateConfigFields(config, ['logicalId', 'projectName'] as const)
     validateDependencyCacheVersion(config)
+    validateBundle(config)
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -273,5 +308,46 @@ function validateDependencyCacheVersion (config: ChecklyConfig): void {
       `Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`,
       { cause },
     )
+  }
+}
+
+function validateBundle (config: ChecklyConfig): void {
+  const { bundle } = config
+  if (bundle === undefined) {
+    return
+  }
+
+  // A misshapen `bundle` block would otherwise read as `embed: undefined`
+  // and silently disable embedding, surfacing only as an install failure on
+  // the runner. Plain-JS configs bypass the TypeScript type, so the shape
+  // must be enforced at runtime.
+  if (bundle === null || typeof bundle !== 'object' || Array.isArray(bundle)) {
+    throw new Error(`Config field 'bundle' must be an object if set`)
+  }
+
+  const { packages } = bundle
+  if (packages === undefined) {
+    return
+  }
+
+  if (packages === null || typeof packages !== 'object' || Array.isArray(packages)) {
+    throw new Error(`Config field 'bundle.packages' must be an object if set`)
+  }
+
+  const embeddedPackages = packages.embed
+  if (embeddedPackages === undefined) {
+    return
+  }
+
+  if (!Array.isArray(embeddedPackages)) {
+    throw new Error(`Config field 'bundle.packages.embed' must be an array of strings if set`)
+  }
+
+  for (const spec of embeddedPackages) {
+    try {
+      parseEmbeddedPackageSpec(spec)
+    } catch (cause) {
+      throw new Error(`Config field 'bundle.packages.embed' is invalid: ${(cause as Error).message}`, { cause })
+    }
   }
 }

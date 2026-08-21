@@ -105,6 +105,44 @@ describe('loadChecklyConfig()', () => {
       ['dependency-cache-version-bad-type.js'],
     )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
   })
+  it('accepts valid bundle.packages.embed entries', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-valid.ts'],
+    )
+    expect(config.bundle?.packages?.embed)
+      .toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*'])
+  })
+  it('rejects a bundle.packages.embed that is not an array', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-not-array.js'],
+    )).rejects.toThrow(`Config field 'bundle.packages.embed' must be an array of strings if set`)
+  })
+  it('rejects a bundle that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-bundle-not-object.js'],
+    )).rejects.toThrow(`Config field 'bundle' must be an object if set`)
+  })
+  it('rejects a bundle.packages that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-packages-not-object.js'],
+    )).rejects.toThrow(`Config field 'bundle.packages' must be an object if set`)
+  })
+  it('rejects a bundle.packages.embed entry that is not a valid package name', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-bad-name.js'],
+    )).rejects.toThrow(`is not a valid npm package name`)
+  })
+  it('rejects a bundle.packages.embed entry with a version range', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['embedded-packages-range-version.js'],
+    )).rejects.toThrow(`is not an exact semver version`)
+  })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'
     const configFile = `./fixtures/configs/${filename}`
