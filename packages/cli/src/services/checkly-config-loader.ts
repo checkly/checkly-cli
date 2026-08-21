@@ -100,57 +100,33 @@ export type ChecklyConfig = {
     playwrightChecks?: PlaywrightSlimmedProp[]
   }
   /**
-   * Code-bundle configuration properties. New options that shape the
-   * Playwright Check Suite code bundle belong here; `checks.include`,
-   * `checks.playwrightConfigPath` and `caching.dependencyCache` predate
-   * this section and stay where they are for compatibility.
+   * Code-bundle configuration properties.
    */
   bundle?: {
     /**
-     * Configuration for npm packages shipped inside the Playwright Check
-     * Suite code bundle.
+     * Configuration for npm packages shipped inside the code bundle.
      */
     packages?: {
       /**
-       * Dependencies whose registry tarballs should be embedded into the
-       * Playwright Check Suite code bundle, letting Checkly runners install
-       * packages they cannot fetch themselves — e.g. packages from a private
-       * registry that is only reachable from your own network. Has no effect
-       * on browser or multistep checks.
+       * Dependencies to embed into the code bundle, letting Checkly runners
+       * install packages they cannot fetch themselves — e.g. packages from a
+       * private registry that is only reachable from your own network.
+       * Applies to Playwright Check Suites only.
        *
        * Each entry is a package name (`'@acme/private-utils'`), which embeds
-       * every version of that package found in the workspace lockfile, or a
-       * `name@version` pin (`'legacy-private-pkg@2.1.0'`) with an exact semver
-       * version. Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`,
-       * `'@acme/*-utils'`); each `*` matches any run of characters except
-       * `/`, so a wildcard never crosses the scope separator. As long as a
-       * wildcard matches at least one registry package, matches that are not
-       * registry packages are skipped — workspace members silently, git/file/
-       * URL dependencies with a warning (the runner must fetch those
-       * itself); a wildcard whose only matches cannot be embedded, or that
-       * matches nothing at all, is an error. A pattern embeds every lockfile
-       * version of every package it matches, so scope it to the packages
-       * the runner genuinely cannot fetch. List every package the runner
-       * cannot fetch,
-       * including private packages that only appear as (transitive)
-       * dependencies of other private packages — dependencies of listed
-       * packages are not embedded automatically.
+       * every version of that package found in the workspace lockfile, or an
+       * exact `name@version` pin (`'legacy-private-pkg@2.1.0'`). Names may
+       * contain `*` wildcards (`'@acme/*'`, `'acme-*'`); a wildcard never
+       * crosses the `/` scope separator. List every package the runner
+       * cannot fetch, including private packages that only appear as
+       * transitive dependencies of other private packages — dependencies of
+       * listed packages are not embedded automatically.
        *
-       * Tarballs are resolved against the workspace root lockfile
-       * (`pnpm-lock.yaml` or `package-lock.json`), reused from local caches
-       * (the CLI's own, then npm's) when possible and otherwise downloaded
-       * from the registry configured in `.npmrc` (including scoped registries
-       * and auth tokens), and always verified against the lockfile's recorded
-       * integrity. Downloads are cached under the workspace root's
-       * `node_modules/.cache/checkly`
-       * (override with `CHECKLY_CACHE_DIR`; a per-user cache directory
-       * serves as the fallback if the project location isn't writable), so
-       * nothing lands in the project outside `node_modules`. In the code
-       * bundle the tarballs land at
-       * `.checkly/embedded-packages/*.tgz`, where Checkly runners serve them
-       * through a local registry during dependency installation. Changing
-       * the resolved set of embedded packages invalidates the runner's
-       * dependency cache, so the next run reinstalls with the new tarballs.
+       * Only npm and pnpm are supported at this time: packages are resolved
+       * against the workspace lockfile (`pnpm-lock.yaml` or
+       * `package-lock.json`) and always verified against its recorded
+       * integrity hashes. Changing the resolved set of embedded packages
+       * invalidates the runner's dependency cache.
        */
       embed?: string[]
     }
