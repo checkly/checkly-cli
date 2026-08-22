@@ -5,7 +5,9 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  BunDetector,
   CNpmDetector,
+  DenoDetector,
   detectNearestConfigFiles,
   detectNearestLockfiles,
   detectPackageManager,
@@ -15,6 +17,7 @@ import {
   NpmDetector,
   npmPackageManager,
   PackageManagerDetector,
+  PNpmDetector,
   YarnDetector,
 } from '../package-manager.js'
 
@@ -567,5 +570,26 @@ describe('detectNearestConfigFiles', () => {
 
     await expect(detectNearestConfigFiles(root, { detectors: pnpmDeno, root }))
       .rejects.toBeInstanceOf(NoConfigFileFoundError)
+  })
+})
+
+describe('lockfileOnlyInstallCommand', () => {
+  it('regenerates the lockfile without installing for pnpm', () => {
+    const runnable = new PNpmDetector().lockfileOnlyInstallCommand()
+    expect(runnable?.executable).toEqual('pnpm')
+    expect(runnable?.args).toEqual(['install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile'])
+  })
+
+  it('regenerates the lockfile without installing for npm', () => {
+    const runnable = new NpmDetector().lockfileOnlyInstallCommand()
+    expect(runnable?.executable).toEqual('npm')
+    expect(runnable?.args).toEqual(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
+  })
+
+  it('is unsupported for cnpm, yarn, deno and bun', () => {
+    expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+    expect(new YarnDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+    expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+    expect(new BunDetector().lockfileOnlyInstallCommand()).toBeUndefined()
   })
 })

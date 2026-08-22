@@ -44,6 +44,12 @@ export interface PackageManager {
   installCommand (): Runnable
   addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
+  /**
+   * Command that regenerates the lockfile from the manifests on disk without
+   * installing anything (resolution only). Undefined when the package
+   * manager has no such mode the CLI supports.
+   */
+  lockfileOnlyInstallCommand (): Runnable | undefined
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
   /**
    * Resolves the version of a single package as recorded in the package
@@ -127,6 +133,20 @@ export abstract class PackageManagerDetector {
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
 
   /**
+   * Default: no supported lockfile-only resolution mode, so callers skip
+   * lockfile pruning. Package managers with such a mode override this.
+   *
+   * Note that a lockfile-only mode existing is not the same as it being
+   * supported here: Yarn Berry (`yarn install --mode=update-lockfile`) and
+   * recent Bun (`bun install --lockfile-only`) have one, but their behavior
+   * has not been verified for the CLI's use, so they deliberately stay on
+   * this default for now (Yarn Classic has no such mode at all).
+   */
+  lockfileOnlyInstallCommand (): Runnable | undefined {
+    return undefined
+  }
+
+  /**
    * Default: lockfile parsing is unsupported, so callers fall back. Package
    * managers that can parse their lockfile override this.
    */
@@ -185,6 +205,10 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('npm', ['install'])
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    return new Runnable('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
   }
 
   addCommand (options: AddCommandOptions): Runnable {
@@ -313,6 +337,13 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('pnpm', ['install'])
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    // --no-frozen-lockfile is load-bearing: pnpm auto-enables frozen mode
+    // when CI=true, and a lockfile-only regeneration is by definition not a
+    // frozen install.
+    return new Runnable('pnpm', ['install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile'])
   }
 
   addCommand (options: AddCommandOptions): Runnable {
