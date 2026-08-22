@@ -352,6 +352,7 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       type PnpmProjectOutput = {
         name: string
         path: string
+        version?: string
       }
 
       const output: PnpmProjectOutput[] = JSON.parse(result.stdout)
@@ -382,13 +383,15 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       const rootPackage = new Package({
         name: root.name,
         path: root.path,
+        version: root.version,
         workspaces: dependencies.map(dep => dep.path),
       })
 
-      const packages = dependencies.map(({ name, path }) => {
+      const packages = dependencies.map(({ name, path, version }) => {
         return new Package({
           name,
           path,
+          version,
         })
       })
 
@@ -1053,6 +1056,7 @@ export async function fauxWorkspaceFromPackageJson (
   const rootPackage = new Package({
     name: packageJsonFile.name!,
     path: packageJsonFile.basePath,
+    version: packageJsonFile.version,
   })
 
   return await initWorkspace(packageManager.detector(), {

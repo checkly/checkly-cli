@@ -91,10 +91,24 @@ describe('dependency-parser - parser()', () => {
         }
       }
 
+      // Faux manifests must carry the member's real name and version (so that
+      // workspace specifiers still resolve to the workspace package during the
+      // remote install), and nothing else besides the placeholder description
+      // and the private flag.
       const fauxFileEntry = (filePath: string) => {
+        const realPackageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'))
         return {
           filePath,
-          content: expect.stringContaining(FAUX_PACKAGE_DESCRIPTION),
+          content: JSON.stringify(
+            {
+              name: realPackageJson.name,
+              version: realPackageJson.version,
+              description: FAUX_PACKAGE_DESCRIPTION,
+              private: true,
+            },
+            undefined,
+            2,
+          ),
         }
       }
 

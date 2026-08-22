@@ -15,6 +15,12 @@ export interface PackageOptions {
   path: string
 
   /**
+   * The version of the package, if one is declared. Values that are not
+   * non-empty strings are normalized to undefined by the constructor.
+   */
+  version?: string
+
+  /**
    * Whether the package is a workspace.
    */
   workspaces?: string[]
@@ -23,11 +29,17 @@ export interface PackageOptions {
 export class Package {
   name: string
   path: string
+  version?: string
   workspaces?: string[]
 
-  constructor ({ name, path, workspaces }: PackageOptions) {
+  constructor ({ name, path, version, workspaces }: PackageOptions) {
     this.name = name
     this.path = path
+    // The version usually originates from a plain JSON.parse of a package.json
+    // (or from `pnpm list --json` output), so despite the declared type it may
+    // be any JSON value at runtime. Normalize here so consumers can trust the
+    // declared type.
+    this.version = typeof version === 'string' && version !== '' ? version : undefined
     this.workspaces = workspaces
   }
 
@@ -37,7 +49,7 @@ export class Package {
 
   // eslint-disable-next-line require-await
   static async loadFromPackageJsonFile (packageJson: PackageJsonFile): Promise<Package | undefined> {
-    const { name, workspaces } = packageJson
+    const { name, version, workspaces } = packageJson
     if (name === undefined) {
       return
     }
@@ -45,6 +57,7 @@ export class Package {
     return new Package({
       name,
       path: packageJson.meta.dirname,
+      version,
       workspaces,
     })
   }
