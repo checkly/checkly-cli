@@ -1,6 +1,7 @@
 import { glob } from 'glob'
 
 import { PackageJsonFile } from './package-json-file.js'
+import { PnpmfileInfo } from './pnpmfile.js'
 import { Result } from './result.js'
 
 export interface PackageOptions {
@@ -79,6 +80,7 @@ export interface WorkspaceOptions {
   packages: Package[]
   lockfile: OptionalWorkspaceFile
   configFile: OptionalWorkspaceFile
+  pnpmfiles?: PnpmfileInfo[]
 }
 
 export class Workspace {
@@ -102,12 +104,21 @@ export class Workspace {
    */
   configFile: OptionalWorkspaceFile
 
+  /**
+   * The pnpmfiles found at the workspace root, when the workspace uses pnpm.
+   * Entries without a `skipReason` are safe to bundle; see
+   * {@link PnpmfileInfo}. Empty for workspaces that use another package
+   * manager.
+   */
+  pnpmfiles: PnpmfileInfo[]
+
   #membersByName = new Map<string, Package>()
   #membersByPath = new Map<string, Package>()
 
   constructor (options: WorkspaceOptions) {
     this.root = options.root
     this.packages = options.packages
+    this.pnpmfiles = options.pnpmfiles ?? []
     this.#membersByName = [options.root, ...options.packages].reduce(
       (map, pkg) => map.set(pkg.name, pkg),
       new Map<string, Package>(),

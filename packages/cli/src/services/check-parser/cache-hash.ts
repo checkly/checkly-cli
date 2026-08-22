@@ -37,6 +37,18 @@ export interface NpmrcInput {
   hash: Buffer
 }
 
+export interface PnpmfileInput {
+  /**
+   * Forward-slash relative path matching the pnpmfile's location in the
+   * eventual archive (e.g. ".pnpmfile.cjs" or ".pnpmfile.mjs").
+   */
+  path: string
+  /**
+   * Raw 32-byte SHA-256 digest of the pnpmfile contents.
+   */
+  hash: Buffer
+}
+
 export interface EmbeddedPackageInput {
   /** Package name as recorded in the lockfile, e.g. `@acme/foo`. */
   name: string
@@ -50,6 +62,15 @@ export interface ComposeCacheHashInput {
   lockfile?: LockfileInput
   packageJsons: PackageJsonInput[]
   npmrcs?: NpmrcInput[]
+  /**
+   * The workspace root's bundleable pnpmfiles (pnpm workspaces only). pnpm's
+   * install hooks change resolution results without necessarily touching the
+   * lockfile (the recorded `pnpmfileChecksum` only updates when the user
+   * reinstalls), so the bundled files must contribute to the hash. An empty
+   * or absent list writes no records, leaving the digest identical to one
+   * computed before this input existed.
+   */
+  pnpmfiles?: PnpmfileInput[]
   /**
    * The resolved set of embedded package tarballs shipped in the bundle
    * (`bundle.packages.embed` after lockfile resolution). Embedded tarballs
@@ -179,13 +200,16 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *   3. One record per .npmrc sorted by path, labeled
  *      `npmrc:<relative/path>`, whose content is the raw 32-byte SHA-256
  *      digest of the .npmrc contents.
- *   4. One record per embedded package sorted by `name@version`, labeled
+ *   4. One record per bundleable pnpmfile sorted by path, labeled
+ *      `pnpmfile:<relative/path>`, whose content is the raw 32-byte SHA-256
+ *      digest of the pnpmfile contents.
+ *   5. One record per embedded package sorted by `name@version`, labeled
  *      `embedded-package:<name@version>`, whose content is the raw UTF-8
  *      bytes of the lockfile's integrity string for the artifact. Callers
  *      must pass at most one entry per `name@version` (the materializer
  *      already de-duplicates); the record order among duplicate keys is
  *      undefined.
- *   5. The dependency cache version record (if set to a non-empty string),
+ *   6. The dependency cache version record (if set to a non-empty string),
  *      labeled `dependency-cache-version`, whose content is the raw UTF-8
  *      bytes of the user-provided value. An empty string is treated as
  *      absent so that e.g. an unset environment variable interpolated into
@@ -222,6 +246,12 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
 
   for (const entry of sortedNpmrcs) {
     writeRecord(`npmrc:${entry.path}`, entry.hash)
+  }
+
+  const sortedPnpmfiles = [...(input.pnpmfiles ?? [])].sort((a, b) => compareStrings(a.path, b.path))
+
+  for (const entry of sortedPnpmfiles) {
+    writeRecord(`pnpmfile:${entry.path}`, entry.hash)
   }
 
   const sortedEmbedded = (input.embeddedPackages ?? [])
@@ -263,10 +293,21 @@ function uint64BE (n: number): Buffer {
  * lockfile) invalidates the bundle cache. Packages without an `.npmrc`
  * contribute nothing, so a workspace with no `.npmrc` produces a hash
  * identical to before this input existed.
+ *
+ * The workspace's bundleable pnpmfiles (see {@link Workspace.pnpmfiles}) are
+ * hashed for the same reason: their install hooks change resolution results,
+ * and the lockfile's recorded `pnpmfileChecksum` only updates when the user
+ * reinstalls, so the lockfile bytes alone do not cover them. A workspace
+ * without bundleable pnpmfiles contributes nothing.
  */
 export async function loadWorkspaceCacheHashInputs (
   workspace: Workspace,
-): Promise<{ lockfile?: LockfileInput, packageJsons: PackageJsonInput[], npmrcs: NpmrcInput[] }> {
+): Promise<{
+  lockfile?: LockfileInput
+  packageJsons: PackageJsonInput[]
+  npmrcs: NpmrcInput[]
+  pnpmfiles: PnpmfileInput[]
+}> {
   const allPackages = [workspace.root, ...workspace.packages]
 
   const packageJsons = await Promise.all(allPackages.map(async pkg => {
@@ -311,7 +352,21 @@ export async function loadWorkspaceCacheHashInputs (
     }
   }
 
-  return { lockfile, packageJsons, npmrcs }
+  // Hash exactly the pnpmfiles that get bundled (Workspace.pnpmfiles is the
+  // shared source of truth), so the cache key always reflects the bundle
+  // contents. A read error here must surface: silently dropping a file that
+  // would still be bundled would desync the cache key from the bundle.
+  const pnpmfiles = await Promise.all(workspace.pnpmfiles
+    .filter(info => info.skipReason === undefined)
+    .map(async (info): Promise<PnpmfileInput> => {
+      const bytes = await fs.readFile(info.path)
+      return {
+        path: path.relative(workspace.root.path, info.path).split(path.sep).join('/'),
+        hash: createHash('sha256').update(bytes).digest(),
+      }
+    }))
+
+  return { lockfile, packageJsons, npmrcs, pnpmfiles }
 }
 
 export interface ComputeWorkspaceCacheHashOptions {

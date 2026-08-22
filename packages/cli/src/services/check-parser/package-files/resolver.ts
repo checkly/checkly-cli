@@ -19,6 +19,24 @@ const debug = Debug('checkly:cli:services:check-parser:resolver')
 
 const NPMRC_FILENAME = '.npmrc'
 
+// resolveDependenciesForFilePath runs for every resolved file, and a project
+// creates multiple resolver instances (one per parser), so warnings emitted
+// from it are deduplicated process-wide rather than per instance — the user
+// should see each warning once per run, not once per check suite.
+const emittedWarnings = new Set<string>()
+
+function warnOnce (key: string, message: string): void {
+  if (emittedWarnings.has(key)) {
+    return
+  }
+  emittedWarnings.add(key)
+  process.stderr.write(message)
+}
+
+export function resetEmittedWarningsForTesting (): void {
+  emittedWarnings.clear()
+}
+
 /**
  * Candidate file paths for an `extends` target. TypeScript appends `.json` when
  * the specifier has no extension and falls back to `<dir>/tsconfig.json` when it
@@ -247,6 +265,12 @@ type WorkspaceNpmrcLocalDependency = {
   sourceFile: SourceFile
 }
 
+type WorkspaceRootPnpmfileLocalDependency = {
+  kind: 'workspace-root-pnpmfile'
+  importPath: string
+  sourceFile: SourceFile
+}
+
 type NearestPackageJsonFileLocalDependency = {
   kind: 'nearest-package-json-file'
   importPath: string
@@ -315,6 +339,7 @@ type LocalDependency =
   | WorkspaceRootLockfileLocalDependency
   | WorkspaceRootConfigFileLocalDependency
   | WorkspaceNpmrcLocalDependency
+  | WorkspaceRootPnpmfileLocalDependency
   | NearestPackageJsonFileLocalDependency
   | NearestTSConfigFileLocalDependency
   | SupportingTSConfigFileLocalDependency
@@ -609,6 +634,32 @@ export class PackageFilesResolver {
             kind: 'workspace-npmrc',
             importPath: filePath,
             sourceFile: npmrc,
+          })
+        }
+      }
+
+      // Bundle the workspace root's pnpmfiles (pnpm workspaces only; see
+      // Workspace.pnpmfiles). pnpm records a checksum of the pnpmfile in the
+      // lockfile (`pnpmfileChecksum`), and installing without the file makes
+      // pnpm consider the lockfile out of date and silently re-resolve
+      // everything — so a bundle that carries the lockfile should carry the
+      // pnpmfile too. Only bundleable (self-contained) pnpmfiles are included;
+      // like .npmrc, they are also fed into the workspace cache hash so the
+      // bundled set is always reflected in the cache key.
+      for (const pnpmfileInfo of this.workspace.pnpmfiles) {
+        if (pnpmfileInfo.skipReason !== undefined) {
+          warnOnce(pnpmfileInfo.path,
+            `Warning: not bundling pnpmfile '${pnpmfileInfo.path}': ${pnpmfileInfo.skipReason}. `
+            + `The remote install may re-resolve dependencies instead of using the lockfile.\n`)
+          continue
+        }
+        const pnpmfile = await this.cache.exactSourceFile(pnpmfileInfo.path)
+        if (pnpmfile !== undefined) {
+          debug('Found workspace root pnpmfile %s', pnpmfile.meta.filePath)
+          resolved.local.push({
+            kind: 'workspace-root-pnpmfile',
+            importPath: filePath,
+            sourceFile: pnpmfile,
           })
         }
       }

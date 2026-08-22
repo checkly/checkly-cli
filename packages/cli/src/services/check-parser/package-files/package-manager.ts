@@ -8,6 +8,7 @@ import { shellQuote } from '../../../services/shell.js'
 import { PackageJsonFile } from './package-json-file.js'
 import { JsonSourceFile } from './json-source-file.js'
 import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace.js'
+import { loadWorkspacePnpmfiles } from './pnpmfile.js'
 import { Err, Ok } from './result.js'
 import {
   LockfilePackageQuery,
@@ -1108,9 +1109,17 @@ async function initWorkspace (
     reason => Err(reason),
   )
 
+  // Pnpmfiles are only meaningful for pnpm workspaces. Discovering them here
+  // gives the bundler and the cache hash a single source of truth for which
+  // pnpmfiles exist and whether they can be bundled.
+  const pnpmfiles = detector.name === 'pnpm'
+    ? await loadWorkspacePnpmfiles(options.root.path, configFile.ok())
+    : []
+
   return new Workspace({
     ...options,
     lockfile,
     configFile,
+    pnpmfiles,
   })
 }
