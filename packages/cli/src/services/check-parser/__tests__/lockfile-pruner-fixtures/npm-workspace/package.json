@@ -1,0 +1,12 @@
+{
+  "name": "lockfile-pruner-npm-fixture",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "@fixture/used": "^1.0.0",
+    "@fixture/shimmed": "^1.0.0",
+    "@fixture/absent": "^1.0.0"
+  }
+}
