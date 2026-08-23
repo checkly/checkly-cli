@@ -100,6 +100,28 @@ jobs:
         with:
           node-version: '20.x'
           cache: "pnpm"
+      # Provisions a corepack-managed yarn for the real-yarn lockfile-pruner
+      # tests (the fixture's packageManager field pins the exact Yarn Berry
+      # version). Scoped to yarn on purpose: a bare `corepack enable` would
+      # also shim pnpm into the setup-node bin dir, which precedes PNPM_HOME
+      # in PATH and would silently replace the pinned pnpm for every later
+      # step (this repo has no root packageManager field for corepack to
+      # resolve).
+      - run: corepack enable yarn
+      # Downloads the fixture-pinned Yarn versions (Berry 4 and 3) now, so
+      # a registry or corepack failure surfaces here with an obvious
+      # message instead of inside the pruner's timed subprocess during the
+      # test run. The env var suppresses corepack's download notice/prompt
+      # as defense in depth (Actions has no TTY, so corepack would not
+      # prompt anyway).
+      - run: yarn --version
+        working-directory: packages/cli/src/services/check-parser/__tests__/lockfile-pruner-fixtures/yarn-workspace
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      - run: yarn --version
+        working-directory: packages/cli/src/services/check-parser/__tests__/lockfile-pruner-fixtures/yarn3-workspace
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
       - run: pnpm run test
@@ -108,6 +130,12 @@ jobs:
           # lost setup-bun step fails loudly instead of silently skipping
           # the real-bun lockfile-pruner tests.
           CHECKLY_EXPECT_BUN: '1'
+          # Same assertion for the corepack-managed Yarn Berry. The suite's
+          # probe checks the resolved major version from the fixture
+          # directory, so a preinstalled Classic yarn shadowing the corepack
+          # shim fails the assertion rather than silently skipping the
+          # real-yarn lockfile-pruner tests.
+          CHECKLY_EXPECT_YARN: '1'
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
@@ -134,12 +162,25 @@ jobs:
         with:
           node-version: '20.x'
           cache: "pnpm"
+      # See test-ubuntu: yarn-scoped so the corepack pnpm shim cannot shadow
+      # the pinned pnpm, and pre-downloaded so a corepack failure surfaces
+      # here instead of inside the timed pruner subprocess.
+      - run: corepack enable yarn
+      - run: yarn --version
+        working-directory: packages/cli/src/services/check-parser/__tests__/lockfile-pruner-fixtures/yarn-workspace
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      - run: yarn --version
+        working-directory: packages/cli/src/services/check-parser/__tests__/lockfile-pruner-fixtures/yarn3-workspace
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
       - run: pnpm run test
         env:
           # See test-ubuntu.
           CHECKLY_EXPECT_BUN: '1'
+          CHECKLY_EXPECT_YARN: '1'
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
