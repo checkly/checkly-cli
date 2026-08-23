@@ -321,12 +321,23 @@ describe('lockfile-pruner', () => {
       const { workspace, files } = makePnpmScenario()
       const outFile = path.join(await makeTempDir(), 'env.json')
       const script = `require('fs').writeFileSync(${JSON.stringify(outFile)}, JSON.stringify(process.env))`
+      // On win32, node's spawn sorts env keys and deduplicates them
+      // case-insensitively keeping the first — uppercase sorts before
+      // lowercase, so an ambient case-variant (NPM_CONFIG_REGISTRY on the
+      // CI runner) would silently displace the lowercase sentinel below.
+      // Drop every ambient variant first so exactly one casing exists.
+      const baseEnv = testEnv()
+      for (const key of Object.keys(baseEnv)) {
+        if (key.toLowerCase() === 'npm_config_registry') {
+          delete baseEnv[key]
+        }
+      }
       await pruneBundledLockfile({
         workspace,
         packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
         files,
         env: {
-          ...testEnv(),
+          ...baseEnv,
           npm_config_frozen_lockfile: 'true',
           npm_config_dry_run: 'true',
           NPM_CONFIG_LOCKFILE: 'false',
