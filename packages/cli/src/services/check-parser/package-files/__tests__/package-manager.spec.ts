@@ -17,6 +17,7 @@ import {
   NpmDetector,
   npmPackageManager,
   PackageManagerDetector,
+  PathLookup,
   PNpmDetector,
   YarnDetector,
 } from '../package-manager.js'
@@ -598,5 +599,29 @@ describe('lockfileOnlyInstallCommand', () => {
     expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new YarnDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+  })
+})
+
+describe('PathLookup', () => {
+  // The lookup must resolve like the spawn's own resolver (cross-spawn →
+  // which) or the two disagree about whether an executable exists. The
+  // Windows-specific behaviors depend on the platform's path delimiter, so
+  // they can only run there — Windows CI covers this.
+  it.skipIf(process.platform !== 'win32')('strips quoted Path entries and defaults PATHEXT on Windows', () => {
+    vi.stubEnv('Path', `C:\\Windows;"C:\\Program Files\\nodejs"`)
+    vi.stubEnv('PATHEXT', undefined)
+    try {
+      const lookup = new PathLookup()
+      expect(lookup.paths).toEqual(['C:\\Windows', 'C:\\Program Files\\nodejs'])
+      expect(lookup.pathext).toEqual(['.EXE', '.CMD', '.BAT', '.COM'])
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('resolves an executable that exists on PATH and misses one that does not', async () => {
+    const lookup = new PathLookup()
+    expect(await lookup.lookupPath('node')).toBeDefined()
+    expect(await lookup.lookupPath('checkly-no-such-executable-xyz')).toBeUndefined()
   })
 })

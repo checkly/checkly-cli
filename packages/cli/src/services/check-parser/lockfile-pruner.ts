@@ -10,7 +10,7 @@ import { parse as parseYaml } from 'yaml'
 import { createFauxPackageFiles } from './faux-package.js'
 import { isPnpmfilePath } from './package-files/pnpmfile.js'
 import { lineage } from './package-files/walk.js'
-import { PackageManager } from './package-files/package-manager.js'
+import { PackageManager, PathLookup } from './package-files/package-manager.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { File, VirtualFile } from './parser.js'
 import { pathToPosix } from '../util.js'
@@ -646,6 +646,19 @@ const TEMP_DIR_VANISHED: PruneBundledLockfileResult = {
   reason: 'the temp directory disappeared while the command ran',
 }
 
+// A missing package manager binary is a real situation for bun, whose
+// detection needs only a committed bun.lock. Pruning was never attempted,
+// so it is a notable skip, not a failure whose message would suggest the
+// lockfile is broken — and installing the package manager, not disabling
+// pruning, is the fix.
+function executableMissing (executable: string): PruneBundledLockfileResult {
+  return {
+    status: 'skipped',
+    reason: `${executable} is not installed or not on PATH; install it so the lockfile can be pruned`,
+    notable: true,
+  }
+}
+
 /**
  * Walks from `startDir` to the filesystem root looking for a package.json
  * that declares npm workspaces. The caller treats any hit as "this location
@@ -853,20 +866,23 @@ export async function pruneBundledLockfile (
       if (!await directoryExists(tempDir)) {
         return TEMP_DIR_VANISHED
       }
-      // The lockfile's package manager isn't installed on this machine — a
-      // real situation for bun, whose detection needs only a committed
-      // bun.lock. Pruning was never attempted, so this is a notable skip,
-      // not a failure whose message would suggest the lockfile is broken —
-      // and installing the package manager, not disabling pruning, is the
-      // fix.
-      return {
-        status: 'skipped',
-        reason: `${runnable.executable} is not installed or not on PATH;`
-          + ' install it so the lockfile can be pruned',
-        notable: true,
-      }
+      return executableMissing(runnable.executable)
     }
     if (result.failed || result.exitCode !== 0) {
+      // On Windows a missing executable never surfaces as a spawn ENOENT:
+      // execa spawns through cross-spawn, which wraps an unresolvable
+      // command in cmd.exe, so the child "runs" and exits non-zero with
+      // cmd.exe's not-recognized message. Classify after the fact with a
+      // PATH probe — safe against probe/spawn resolution differences,
+      // because the command has already failed either way and only the
+      // reporting is at stake. Executables given as a path are left to the
+      // spawn's own error detail.
+      if (path.basename(runnable.executable) === runnable.executable) {
+        const executablePath = await new PathLookup().lookupPath(runnable.executable)
+        if (executablePath === undefined) {
+          return executableMissing(runnable.executable)
+        }
+      }
       const detail = [result.stderr, result.stdout, (result as any).shortMessage]
         .find(value => typeof value === 'string' && value.trim() !== '') ?? 'unknown error'
       return {

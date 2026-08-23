@@ -744,14 +744,24 @@ function* chunks<T> (array: T[], size: number): Generator<T[], void> {
 export class PathLookup {
   static win = process.platform.startsWith('win')
 
+  // Mirrors the fallback the `which` package (and through it cross-spawn,
+  // i.e. what execa actually spawns with) applies when PATHEXT is unset —
+  // without it, a lookup on such a system would only probe the
+  // extensionless name and miss every .CMD/.EXE shim.
+  static defaultWinPathext = ['.EXE', '.CMD', '.BAT', '.COM']
+
   paths: string[]
   pathext: string[]
   pathextSet = new Set<string>()
 
   constructor () {
     if (PathLookup.win) {
-      this.paths = process.env['Path']?.split(path.delimiter) ?? []
-      this.pathext = process.env['PATHEXT']?.split(path.delimiter) ?? []
+      // Windows allows individually quoted Path entries
+      // (`C:\Windows;"C:\Program Files\nodejs"`); the spawn's own resolver
+      // strips the quotes, so this lookup must too or the two disagree.
+      this.paths = (process.env['Path']?.split(path.delimiter) ?? [])
+        .map(entry => entry.replace(/^"(.*)"$/, '$1'))
+      this.pathext = process.env['PATHEXT']?.split(path.delimiter) ?? [...PathLookup.defaultWinPathext]
       this.pathext.forEach(ext => this.pathextSet.add(ext.toUpperCase()))
     } else {
       this.paths = process.env['PATH']?.split(path.delimiter) ?? []
@@ -759,6 +769,12 @@ export class PathLookup {
     }
   }
 
+  // FIXME(RED-887): the missing `await` below means `foundPath` is a
+  // Promise — always defined — so this never throws and executable
+  // detection always "succeeds". Fixing it changes package-manager
+  // detection outcomes on machines that lack the executable, so it is
+  // tracked as a follow-up rather than fixed in passing; use lookupPath()
+  // for a working check.
   // eslint-disable-next-line require-await
   async detectPresence (executable: string): Promise<void> {
     const foundPath = this.lookupPath(executable)
