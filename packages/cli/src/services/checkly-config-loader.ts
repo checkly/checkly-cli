@@ -125,8 +125,16 @@ export type ChecklyConfig = {
        * Only npm and pnpm are supported at this time: packages are resolved
        * against the workspace lockfile (`pnpm-lock.yaml` or
        * `package-lock.json`) and always verified against its recorded
-       * integrity hashes. Changing the resolved set of embedded packages
-       * invalidates the runner's dependency cache.
+       * integrity hashes. When the bundled lockfile is pruned to the code
+       * bundle's contents, the embedded set follows it: packages the pruned
+       * lockfile no longer references — dependencies of workspace members
+       * that are not part of the bundle — are neither embedded nor
+       * downloaded, even if an entry matches them. That usually means the
+       * runner does not need the package at all; if the checks genuinely
+       * need it, make the depending workspace member part of the bundle
+       * rather than disabling pruning (`CHECKLY_LOCKFILE_PRUNE=0` restores
+       * the unfiltered set, as a last resort). Changing the resolved set of
+       * embedded packages invalidates the runner's dependency cache.
        */
       embed?: string[]
     }
