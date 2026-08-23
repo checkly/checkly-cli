@@ -88,6 +88,14 @@ jobs:
       - uses: pnpm/action-setup@v5
         with:
           version: 10
+      # The lockfile-pruner tests exercising a real bun install skip themselves
+      # when bun is not on PATH, so without this step they would silently never
+      # run in CI. The version is pinned because the tests regenerate a
+      # committed bun.lock fixture and a future bun may serialize it
+      # differently.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.11'
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
@@ -95,6 +103,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
       - run: pnpm run test
+        env:
+          # Makes the test suite assert that bun is actually on PATH, so a
+          # lost setup-bun step fails loudly instead of silently skipping
+          # the real-bun lockfile-pruner tests.
+          CHECKLY_EXPECT_BUN: '1'
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
@@ -112,6 +125,11 @@ jobs:
       - uses: pnpm/action-setup@v5
         with:
           version: 10
+      # See test-ubuntu: provisions bun for the real-bun lockfile-pruner tests,
+      # which otherwise skip themselves.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.11'
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
@@ -119,6 +137,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
       - run: pnpm run test
+        env:
+          # See test-ubuntu.
+          CHECKLY_EXPECT_BUN: '1'
       - name: Save LLM rules as an artifact
         uses: actions/upload-artifact@v4
         with:
