@@ -140,12 +140,15 @@ function redactUrl (url: string): string {
 /**
  * Resolves the configured `bundle.packages.embed` specs against the
  * workspace lockfile (plan) and sources the selected tarballs into the CLI
- * cache (materialize), through a chain of CLI cache → npm cacache →
+ * cache (materializeTarballs), through a chain of CLI cache → npm cacache →
  * registry download, always verified against the lockfile integrity.
  *
- * Both stages memoize their in-flight promise: multiple Playwright checks
- * bundle concurrently, and validation and bundling share one instance per
- * parsed project, so the work runs exactly once.
+ * The plan memoizes its in-flight promise: validation and bundling share
+ * one instance per parsed project, so the (purely local) resolution runs
+ * exactly once. Materialization has a single caller — the Bundler, at
+ * finalize time, after the bundled lockfile has been pruned — which passes
+ * the subset of the plan the shipped lockfile still references, so
+ * pruned-away tarballs are never downloaded.
  */
 export class EmbeddedPackagesMaterializer {
   #options: EmbeddedPackagesMaterializerOptions
@@ -154,7 +157,6 @@ export class EmbeddedPackagesMaterializer {
   #homedir: string
 
   #plan?: Promise<EmbeddedPackagesPlan>
-  #materialized?: Promise<MaterializedTarball[]>
 
   constructor (options: EmbeddedPackagesMaterializerOptions) {
     this.#options = options
@@ -173,9 +175,47 @@ export class EmbeddedPackagesMaterializer {
     return this.#plan
   }
 
-  materialize (): Promise<MaterializedTarball[]> {
-    this.#materialized ??= this.#materializeAll()
-    return this.#materialized
+  /**
+   * Sources the given subset of the planned tarballs (CLI cache → npm
+   * cacache → registry download, verified against the lockfile integrity).
+   * Lets the caller materialize only the tarballs a pruned bundled lockfile
+   * still references, so pruned-away packages are never downloaded.
+   */
+  async materializeTarballs (tarballs: PlannedTarball[]): Promise<MaterializedTarball[]> {
+    const { issues } = await this.plan()
+
+    // Commands validate before bundling and exit on fatal diagnostics, so
+    // this is a defensive backstop for direct/programmatic use. Checked
+    // before the empty-list short-circuit: an invalid configuration must
+    // not pass silently just because nothing was requested.
+    if (issues.length > 0) {
+      throw new EmbeddedPackageError(
+        `Cannot embed packages due to configuration issues:\n\n`
+        + issues.map(issue => `  ${issue.message}`).join('\n'),
+      )
+    }
+
+    if (tarballs.length === 0) {
+      return []
+    }
+
+    // Safe to assert: a missing lockfile is a plan issue, and issues abort
+    // above.
+    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
+      this.#projectRoot!,
+      this.#homedir,
+      this.#options.contextDir,
+    ), this.#env)
+
+    const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
+    return await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
+      const filePath = await this.#obtainTarball(tarball, npmrcConfig)
+      return {
+        ...tarball,
+        filePath,
+        archivePath: `${EMBEDDED_PACKAGES_ARCHIVE_DIR}/${tarball.archiveFilename}`,
+      }
+    }))
   }
 
   async #createPlan (): Promise<EmbeddedPackagesPlan> {
@@ -333,43 +373,6 @@ export class EmbeddedPackagesMaterializer {
       warnings,
       lockfilePath,
     }
-  }
-
-  async #materializeAll (): Promise<MaterializedTarball[]> {
-    const { tarballs, issues } = await this.plan()
-
-    // Commands validate before bundling and exit on fatal diagnostics, so
-    // this is a defensive backstop for direct/programmatic use.
-    if (issues.length > 0) {
-      throw new EmbeddedPackageError(
-        `Cannot embed packages due to configuration issues:\n\n`
-        + issues.map(issue => `  ${issue.message}`).join('\n'),
-      )
-    }
-
-    if (tarballs.length === 0) {
-      return []
-    }
-
-    // Safe to assert: a missing lockfile is a plan issue, and issues abort
-    // above.
-    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
-      this.#projectRoot!,
-      this.#homedir,
-      this.#options.contextDir,
-    ), this.#env)
-
-    const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
-    const results = await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
-      const filePath = await this.#obtainTarball(tarball, npmrcConfig)
-      return {
-        ...tarball,
-        filePath,
-        archivePath: `${EMBEDDED_PACKAGES_ARCHIVE_DIR}/${tarball.archiveFilename}`,
-      }
-    }))
-
-    return results
   }
 
   async #obtainTarball (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): Promise<string> {

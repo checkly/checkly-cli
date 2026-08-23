@@ -85,11 +85,12 @@ export interface ComposeCacheHashInput {
   pnpmfiles?: PnpmfileInput[]
   /**
    * The resolved set of embedded package tarballs shipped in the bundle
-   * (`bundle.packages.embed` after lockfile resolution). Embedded tarballs
-   * change the runner's install-step inputs without necessarily touching the
-   * lockfile, so they must contribute to the hash. An empty or absent list
-   * writes no records, leaving the digest identical to one computed before
-   * this input existed.
+   * (`bundle.packages.embed` after lockfile resolution, filtered to what
+   * the shipped — possibly pruned — bundled lockfile still references).
+   * Embedded tarballs change the runner's install-step inputs without
+   * necessarily touching the lockfile, so they must contribute to the hash.
+   * An empty or absent list writes no records, leaving the digest identical
+   * to one computed before this input existed.
    */
   embeddedPackages?: EmbeddedPackageInput[]
   excludedFields: string[]

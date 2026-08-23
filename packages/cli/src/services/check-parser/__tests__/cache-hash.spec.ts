@@ -484,7 +484,8 @@ describe('composeCacheHash', () => {
   // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
   // bundling), a `pnpmfile:` record (the workspace root's .pnpmfile.cjs),
   // `embedded-package:` records (the resolved bundle.packages.embed tarball
-  // set), a `dependency-cache-version` record (the user-provided
+  // set, filtered to what the shipped — possibly pruned — bundled lockfile
+  // still references), a `dependency-cache-version` record (the user-provided
   // caching.dependencyCache.version config value), `faux-package.json:`
   // records (synthesized workspace member manifests shipped in the bundle),
   // and a `pruned-lockfile:` record (when lockfile pruning replaced the

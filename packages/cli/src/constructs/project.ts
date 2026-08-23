@@ -122,9 +122,12 @@ export class Project extends Construct {
 
   /**
    * Validates the project-wide `bundle.packages.embed` option once per
-   * project (individual checks share the session-level materializer). Only
+   * project (validation and the Bundler share one session-level
+   * materializer: one plan, one materialization at finalize). Only
    * local checks run here — resolving the configured specs against the
-   * lockfile — no tarballs are fetched until bundling. Skipped when the
+   * lockfile — no tarballs are fetched until the bundle is finalized (the
+   * shipped set is filtered to what the possibly-pruned bundled lockfile
+   * still references, and only that set is downloaded). Skipped when the
    * project has no Playwright checks: the option only affects Playwright
    * code bundles, and no bundling (or materialization) happens without one.
    * Deliberately ignores testOnly flags and the session check filter — a

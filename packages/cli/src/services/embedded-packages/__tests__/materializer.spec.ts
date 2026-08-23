@@ -65,6 +65,12 @@ describe('EmbeddedPackagesMaterializer', () => {
     })
   }
 
+  // Materializes the full plan, the way the Bundler does at finalize time
+  // (production passes the subset the pruned lockfile still references).
+  const materializeAll = async (materializer: EmbeddedPackagesMaterializer) => {
+    return materializer.materializeTarballs((await materializer.plan()).tarballs)
+  }
+
   beforeEach(async () => {
     workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-embed-ws-'))
     homedir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-embed-home-'))
@@ -232,7 +238,7 @@ packages:
       expect(warnings[0]).toContain('git-dep')
       expect(warnings[0]).toContain('cannot be embedded')
       const written = await captureStderr(async () => {
-        await materializer.materialize()
+        await materializeAll(materializer)
       })
       // Filtered rather than asserting total silence: the debug package
       // also writes to stderr when DEBUG is enabled.
@@ -320,7 +326,7 @@ packages:
       const written = await captureStderr(async () => {
         const { warnings } = await materializer.plan()
         expect(warnings).toEqual([])
-        await materializer.materialize()
+        await materializeAll(materializer)
       })
       // Filtered rather than asserting total silence: the debug package
       // also writes to stderr when DEBUG is enabled.
@@ -427,9 +433,37 @@ packages: {}
     })
   })
 
-  describe('materialize()', () => {
+  describe('materializeTarballs()', () => {
+    it('materializes only the requested subset of the plan', async () => {
+      const materializer = makeMaterializer(['@acme/foo', 'bar@2.0.0'])
+      const { tarballs } = await materializer.plan()
+      const barOnly = tarballs.filter(tarball => tarball.name === 'bar')
+      const materialized = await materializer.materializeTarballs(barOnly)
+      expect(materialized.map(t => t.archivePath)).toEqual([
+        '.checkly/embedded-packages/bar@2.0.0.tgz',
+      ])
+      // The unrequested tarball must produce no registry traffic at all.
+      expect(requests.map(r => r.url)).toEqual(['/bar/-/bar-2.0.0.tgz'])
+    })
+
+    it('returns nothing for an empty subset without touching the registry', async () => {
+      const materialized = await makeMaterializer(['bar@2.0.0']).materializeTarballs([])
+      expect(materialized).toEqual([])
+      expect(requests).toHaveLength(0)
+    })
+
+    it('refuses even an empty subset when the plan has issues', async () => {
+      // The issues backstop is checked before the empty-list short-circuit:
+      // an invalid configuration must not pass silently just because
+      // nothing was requested.
+      const materializer = makeMaterializer(['no-such-package'])
+      await expect(materializer.materializeTarballs([])).rejects.toThrow(EmbeddedPackageError)
+    })
+  })
+
+  describe('materializeTarballs() over the full plan', () => {
     it('downloads tarballs from the registry and verifies them', async () => {
-      const tarballs = await makeMaterializer(['@acme/foo', 'bar@2.0.0']).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['@acme/foo', 'bar@2.0.0']))
       expect(tarballs.map(t => t.archivePath)).toEqual([
         '.checkly/embedded-packages/@acme+foo@1.2.3.tgz',
         '.checkly/embedded-packages/bar@2.0.0.tgz',
@@ -445,23 +479,23 @@ packages: {}
     })
 
     it('defaults the cache to node_modules/.cache/checkly under the workspace root', async () => {
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {} }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { env: {} }))
       expect(tarballs[0].filePath.startsWith(
         path.join(workspaceRoot, 'node_modules', '.cache', 'checkly', 'embedded-packages'),
       )).toBe(true)
     })
 
     it('derives the project root from the lockfile path when no workspace root is given', async () => {
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {}, workspaceRoot: undefined }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { env: {}, workspaceRoot: undefined }))
       expect(tarballs[0].filePath.startsWith(path.join(
         path.dirname(lockfilePath), 'node_modules', '.cache', 'checkly', 'embedded-packages',
       ))).toBe(true)
     })
 
     it('reuses the CLI cache instead of downloading again', async () => {
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests).toHaveLength(1)
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests).toHaveLength(1)
     })
 
@@ -481,7 +515,7 @@ packages: {}
       const materializer = makeMaterializer(['bar@2.0.0'], {
         env: { CHECKLY_CACHE_DIR: cacheDir, npm_config_cache: npmCacheDir },
       })
-      const tarballs = await materializer.materialize()
+      const tarballs = await materializeAll(materializer)
       expect(requests).toHaveLength(0)
       await expect(fs.readFile(tarballs[0].filePath)).resolves.toEqual(barTarball)
     })
@@ -492,7 +526,7 @@ packages: {}
         `//127.0.0.1:${(server.address() as AddressInfo).port}/:_authToken=secret`,
       ].join('\n'))
 
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0].authorization).toBe('Bearer secret')
     })
 
@@ -509,7 +543,7 @@ packages:
         res.end(barTarball)
       })
 
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0].url).toBe('/custom/path/bar-2.0.0.tgz')
     })
 
@@ -517,7 +551,7 @@ packages:
       server.removeAllListeners('request')
       server.on('request', (req, res) => res.end('tampered content'))
 
-      await expect(makeMaterializer(['bar@2.0.0']).materialize())
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
         .rejects.toThrow(/does not match the integrity hash recorded in the lockfile/)
     })
 
@@ -528,12 +562,12 @@ packages:
   secured@1.0.0:
     resolution: {integrity: ${barIntegrity}}
 `)
-      await expect(makeMaterializer(['secured']).materialize())
+      await expect(materializeAll(makeMaterializer(['secured'])))
         .rejects.toThrow(/Failed to download embedded package 'secured@1\.0\.0'.*HTTP 401.*credentials/s)
     })
 
     it('refuses to materialize when the plan has issues', async () => {
-      await expect(makeMaterializer(['no-such-package']).materialize())
+      await expect(materializeAll(makeMaterializer(['no-such-package'])))
         .rejects.toThrow(EmbeddedPackageError)
     })
 
@@ -543,7 +577,7 @@ packages:
       await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=http://127.0.0.1:1/\n')
       await fs.writeFile(path.join(contextDir, '.npmrc'), `registry=${serverUrl}\n`)
 
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { contextDir }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { contextDir }))
       expect(tarballs).toHaveLength(1)
       expect(requests).toHaveLength(1)
     })
@@ -554,7 +588,7 @@ packages:
       const materializer = makeMaterializer(['bar@2.0.0'], {
         env: { CHECKLY_CACHE_DIR: cacheDir, npm_config_registry: serverUrl },
       })
-      const tarballs = await materializer.materialize()
+      const tarballs = await materializeAll(materializer)
       expect(tarballs).toHaveLength(1)
       expect(requests).toHaveLength(1)
     })
@@ -562,7 +596,7 @@ packages:
     it('fails with a clear error for a registry URL without a protocol', async () => {
       await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=nexus.local/repository/npm/\n')
 
-      await expect(makeMaterializer(['bar@2.0.0']).materialize())
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
         .rejects.toThrow(/is not a valid URL.*registry/s)
     })
 
@@ -579,16 +613,17 @@ packages:
     resolution: {integrity: ${barIntegrity}}
 `)
 
-      const error = await makeMaterializer(['missing-pkg']).materialize().catch(err => err)
+      const error = await materializeAll(makeMaterializer(['missing-pkg'])).catch(err => err)
       expect(error).toBeInstanceOf(EmbeddedPackageError)
       expect(error.message).not.toContain('super-secret')
       expect(error.message).toContain('missing-pkg')
     })
 
-    it('memoizes materialization within an instance', async () => {
+    it('serves a repeated materialization from the CLI cache without re-downloading', async () => {
       const materializer = makeMaterializer(['bar@2.0.0'])
-      const [first, second] = await Promise.all([materializer.materialize(), materializer.materialize()])
-      expect(first).toBe(second)
+      const first = await materializeAll(materializer)
+      const second = await materializeAll(materializer)
+      expect(second).toEqual(first)
       expect(requests).toHaveLength(1)
     })
   })

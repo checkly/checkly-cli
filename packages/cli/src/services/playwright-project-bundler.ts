@@ -142,23 +142,10 @@ export class PlaywrightProjectBundler {
       }))
     }
 
-    // Embedded package tarballs live in the CLI cache, whose on-disk
-    // location (node_modules/.cache, a per-user dir, or CHECKLY_CACHE_DIR)
-    // never corresponds to the contract path the runner expects, so they
-    // carry an explicit archive path instead of relying on the strip
-    // prefix. The materializer memoizes, so concurrent bundles share one
-    // download run, and the Bundler dedupes registrations by archive path
-    // across checks.
-    const materializer = Session.getEmbeddedPackagesMaterializer()
-    if (materializer !== undefined) {
-      for (const tarball of await materializer.materialize()) {
-        files.push({
-          filePath: tarball.filePath,
-          physical: true,
-          archivePath: tarball.archivePath,
-        })
-      }
-    }
+    // Embedded package tarballs are deliberately NOT part of a check's
+    // files: the Bundler materializes them once during finalize(), after
+    // the bundled lockfile has been pruned, so tarballs the shipped
+    // lockfile no longer references are never downloaded.
 
     return {
       browsers: pwConfigParsed.getBrowsers(),

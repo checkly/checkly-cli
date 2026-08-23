@@ -13,7 +13,8 @@ import { createHash } from 'node:crypto'
 
 import { checklyStorage } from '../../rest/api.js'
 import { PayloadTooLargeError } from '../../rest/errors.js'
-import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer } from '../embedded-packages/materializer.js'
+import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer, PlannedTarball } from '../embedded-packages/materializer.js'
+import { filterTarballsByLockfile } from '../embedded-packages/lockfile-filter.js'
 import {
   composeWorkspaceCacheHash,
   ComposeWorkspaceCacheHashOptions,
@@ -461,10 +462,13 @@ export type CreateBundlerForWorkspaceOptions =
   & {
     /**
      * The materializer for the project's `bundle.packages.embed` option,
-     * when set. Its resolved tarball set (name, version, integrity) is mixed
-     * into the cache hash: embedded tarballs change the runner's install-step
-     * inputs without necessarily touching the lockfile, so a changed embed
-     * set must invalidate the dependency cache.
+     * when set. The tarballs are materialized during finalize(), after the
+     * bundled lockfile has been pruned, so only tarballs the shipped
+     * lockfile still references are downloaded and shipped. That same
+     * filtered set (name, version, integrity) is mixed into the cache hash:
+     * embedded tarballs change the runner's install-step inputs without
+     * necessarily touching the lockfile, so a changed embed set must
+     * invalidate the dependency cache.
      */
     embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
 
@@ -476,6 +480,25 @@ export type CreateBundlerForWorkspaceOptions =
     packageManager: PackageManager
   }
 
+interface PrunedLockfile extends LockfileInput {
+  /**
+   * The pruned lockfile bytes, needed to decide which embedded package
+   * tarballs the shipped lockfile still references. Inert for the cache
+   * hash, which only consumes the name and hash.
+   */
+  content: string
+}
+
+/**
+ * Bundle-time cache-hash inputs. `embeddedPackages` is a required key
+ * (though its value may be undefined) so that no hash computation can
+ * silently omit the shipped embedded set — an omission would not change
+ * the bundle's bytes, only desync the runner's dependency cache key.
+ */
+type BundleTimeCacheHashInputs =
+  Pick<ComposeWorkspaceCacheHashOptions, 'fauxPackageJsons' | 'prunedLockfile'>
+  & { embeddedPackages: ComposeWorkspaceCacheHashOptions['embeddedPackages'] }
+
 /**
  * Everything finalize() needs to prune the lockfile and recompute the cache
  * hash from the bundle's actual contents.
@@ -484,12 +507,22 @@ interface WorkspaceBundleContext {
   workspace: Workspace
   packageManager: PackageManager
   /**
-   * Composes the cache hash from the workspace inputs captured at
-   * construction time, plus the given bundle-time inputs. Capturing the
-   * composition (rather than its ingredients) keeps createForWorkspace and
-   * finalize() from having to spell the same argument list twice.
+   * The embedded-packages materializer, carried to finalize() so the
+   * tarballs the (possibly pruned) bundled lockfile still references can be
+   * materialized there — after pruning, so pruned-away tarballs are never
+   * downloaded. The planned set is re-derived from the materializer's
+   * memoized plan().
    */
-  composeCacheHash: (extra?: Pick<ComposeWorkspaceCacheHashOptions, 'fauxPackageJsons' | 'prunedLockfile'>) => string
+  embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
+  /**
+   * Composes the cache hash from the workspace inputs captured at
+   * construction time, plus the given bundle-time inputs — including the
+   * embedded set actually shipped, which every caller passes explicitly.
+   * Capturing the composition (rather than its ingredients) keeps
+   * createForWorkspace and finalize() from having to spell the same
+   * argument list twice.
+   */
+  composeCacheHash: (extra: BundleTimeCacheHashInputs) => string
 }
 
 interface BundlerOptions {
@@ -524,6 +557,13 @@ export class Bundler {
     this.#workspaceContext = workspaceContext
   }
 
+  /**
+   * Creates a bundler without a workspace context. Workspace-dependent
+   * finalize() behavior — lockfile pruning, embedded package
+   * materialization (`bundle.packages.embed`) and the cache-hash recompute
+   * — only happens for bundlers built with {@link createForWorkspace}; a
+   * plain bundler archives exactly the files registered into it.
+   */
   // eslint-disable-next-line require-await
   static async create (options: CreateBundlerOptions): Promise<Bundler> {
     debug(`Creating bundler`)
@@ -551,21 +591,21 @@ export class Bundler {
     // placeholder for the window before finalize() runs — finalize() always
     // recomputes it.
     const cacheHashInputs = await loadWorkspaceCacheHashInputs(workspace)
-    const composeCacheHash = (
-      extra?: Pick<ComposeWorkspaceCacheHashOptions, 'fauxPackageJsons' | 'prunedLockfile'>,
-    ): string => composeWorkspaceCacheHash(cacheHashInputs, {
-      dependencyCacheVersion,
-      embeddedPackages,
-      ...extra,
-    })
+    const composeCacheHash = (extra: BundleTimeCacheHashInputs): string => {
+      return composeWorkspaceCacheHash(cacheHashInputs, {
+        dependencyCacheVersion,
+        ...extra,
+      })
+    }
 
     return new Bundler({
       tempDir,
-      cacheHash: composeCacheHash(),
+      cacheHash: composeCacheHash({ embeddedPackages }),
       stripPrefix: workspace?.root.path,
       workspaceContext: {
         workspace,
         packageManager,
+        embeddedPackagesMaterializer,
         composeCacheHash,
       },
     })
@@ -619,11 +659,14 @@ export class Bundler {
   }
 
   /**
-   * Prunes the bundled lockfile to match the bundle's final file set, and
-   * recomputes the cache hash from the bundle's actual install inputs (faux
-   * manifests and the pruned lockfile). Runs at finalize time because both
-   * depend on the complete file set, which only exists once every check has
-   * registered its files.
+   * Prunes the bundled lockfile to match the bundle's final file set,
+   * materializes the embedded package tarballs the (possibly pruned)
+   * lockfile still references, and recomputes the cache hash from the
+   * bundle's actual install inputs (faux manifests, the pruned lockfile and
+   * the shipped embedded set). Runs at finalize time because all of it
+   * depends on the complete file set, which only exists once every check
+   * has registered its files — and because materializing after pruning is
+   * what keeps pruned-away tarballs from ever being downloaded.
    */
   async #refreshWorkspaceBundle (): Promise<void> {
     const context = this.#workspaceContext
@@ -631,7 +674,8 @@ export class Bundler {
       return
     }
 
-    const prunedLockfile = await this.#pruneLockfile(context)
+    const pruned = await this.#pruneLockfile(context)
+    const embeddedPackages = await this.#materializeEmbeddedPackages(context, pruned)
 
     const fauxPackageJsons: FauxPackageJsonInput[] = []
     for (const [archivePath, file] of this.#files) {
@@ -641,16 +685,73 @@ export class Bundler {
       fauxPackageJsons.push({ path: archivePath, raw: Buffer.from(file.content, 'utf8') })
     }
 
-    // Unconditional: with no faux manifests and no pruned lockfile this
-    // reproduces the exact digest computed in createForWorkspace (empty
-    // record groups write nothing).
+    // Unconditional: with no faux manifests, no pruned lockfile and an
+    // unfiltered embedded set this reproduces the exact digest computed in
+    // createForWorkspace (empty record groups write nothing).
     this.#cacheHashMarker.updateValue(context.composeCacheHash({
       fauxPackageJsons,
-      prunedLockfile,
+      prunedLockfile: pruned,
+      embeddedPackages,
     }))
   }
 
-  async #pruneLockfile (context: WorkspaceBundleContext): Promise<LockfileInput | undefined> {
+  /**
+   * Materializes the embedded package tarballs into the bundle: the full
+   * planned set, or — when the bundled lockfile was pruned — only the
+   * tarballs the pruned lockfile still references, so pruned-away packages
+   * are never downloaded. Returns the shipped set for the cache hash.
+   */
+  async #materializeEmbeddedPackages (
+    context: WorkspaceBundleContext,
+    pruned: PrunedLockfile | undefined,
+  ): Promise<PlannedTarball[] | undefined> {
+    const materializer = context.embeddedPackagesMaterializer
+    if (materializer === undefined) {
+      return undefined
+    }
+
+    // plan() is memoized and was already awaited in createForWorkspace, so
+    // this resolves the same promise without extra work.
+    const { tarballs: embeddedPackages } = await materializer.plan()
+
+    // The empty-bundle arm is load-bearing: every command calls finalize()
+    // unconditionally, including on bundles no check registered files into,
+    // and an empty bundle must not trigger downloads (nor the materializer's
+    // plan-issues backstop, which validation never ran for a project
+    // without Playwright checks). Nothing ships from an empty bundle, so
+    // nothing reaches the hash either.
+    if (this.isEmpty) {
+      return undefined
+    }
+
+    let kept = embeddedPackages
+    if (pruned !== undefined) {
+      const filtered = filterTarballsByLockfile(embeddedPackages, pruned.content, pruned.name)
+      kept = filtered.kept
+      if (filtered.dropped.length > 0) {
+        debug(`Embedded packages dropped with the pruned lockfile: ${
+          filtered.dropped.map(tarball => `${tarball.name}@${tarball.version}`).join(', ')}`)
+      }
+    }
+
+    if (kept.length > 0) {
+      process.stderr.write(`Preparing ${kept.length} embedded package tarball(s)...\n`)
+    }
+
+    // Deliberately called even for an empty kept set: the materializer's
+    // plan-issues backstop must still reject a plan whose specs all failed
+    // to resolve.
+    const materialized = await materializer.materializeTarballs(kept)
+    this.registerFiles(...materialized.map(tarball => ({
+      filePath: tarball.filePath,
+      physical: true as const,
+      archivePath: tarball.archivePath,
+    })))
+
+    return kept
+  }
+
+  async #pruneLockfile (context: WorkspaceBundleContext): Promise<PrunedLockfile | undefined> {
     const result = await pruneBundledLockfile({
       workspace: context.workspace,
       packageManager: context.packageManager,
@@ -702,6 +803,7 @@ export class Bundler {
     return {
       name: path.posix.basename(result.archivePath),
       hash: createHash('sha256').update(result.content).digest(),
+      content: result.content,
     }
   }
 

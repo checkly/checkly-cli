@@ -236,7 +236,8 @@ export class Session {
   /**
    * The materializer for the project's `bundle.packages.embed` option, or
    * undefined when the option is not set. Memoized so that validation and
-   * every concurrently bundling check share one plan and one download run.
+   * bundling share one plan; tarballs are materialized once, at bundle
+   * finalize time, after the bundled lockfile has been pruned.
    */
   static getEmbeddedPackagesMaterializer (): EmbeddedPackagesMaterializer | undefined {
     const specs = this.embeddedPackages
