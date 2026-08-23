@@ -122,10 +122,15 @@ export type ChecklyConfig = {
        * transitive dependencies of other private packages — dependencies of
        * listed packages are not embedded automatically.
        *
-       * Only npm and pnpm are supported at this time: packages are resolved
-       * against the workspace lockfile (`pnpm-lock.yaml` or
-       * `package-lock.json`) and always verified against its recorded
-       * integrity hashes. When the bundled lockfile is pruned to the code
+       * Only npm, pnpm and bun are supported at this time: packages are
+       * resolved against the workspace lockfile (`pnpm-lock.yaml`,
+       * `package-lock.json` or the text `bun.lock` — bun's binary
+       * `bun.lockb` is not supported) and always verified against its
+       * recorded integrity hashes. Downloads read registry credentials from
+       * `.npmrc` only; bun users whose credentials live solely in
+       * `bunfig.toml` must duplicate them into `.npmrc` — referencing them
+       * through environment variables (`${NPM_TOKEN}`), never as plaintext,
+       * because `.npmrc` is uploaded with the code bundle. When the bundled lockfile is pruned to the code
        * bundle's contents, the embedded set follows it: packages the pruned
        * lockfile no longer references — dependencies of workspace members
        * that are not part of the bundle — are neither embedded nor
