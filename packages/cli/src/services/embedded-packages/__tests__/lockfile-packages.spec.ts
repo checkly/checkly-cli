@@ -11,6 +11,7 @@ import {
   parseLockfilePackagesContent,
   parseNpmLockfilePackages,
   parsePnpmLockfilePackages,
+  parseYarnLockfilePackages,
 } from '../lockfile-packages.js'
 
 describe('parsePnpmLockfilePackages()', () => {
@@ -337,6 +338,251 @@ describe('parseBunLockfilePackages()', () => {
   })
 })
 
+describe('parseYarnLockfilePackages()', () => {
+  it('parses registry entries, recording the Berry checksum instead of an integrity', () => {
+    const { registry, excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"@acme/foo@npm:^1.0.0":
+  version: 1.2.3
+  resolution: "@acme/foo@npm:1.2.3"
+  checksum: 10c0/aaa
+  languageName: node
+  linkType: hard
+
+"bar@npm:2.0.0":
+  version: 2.0.0
+  resolution: "bar@npm:2.0.0"
+  checksum: 10c0/bbb
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toEqual([
+      { name: '@acme/foo', version: '1.2.3', lockfileChecksum: '10c0/aaa' },
+      { name: 'bar', version: '2.0.0', lockfileChecksum: '10c0/bbb' },
+    ])
+    expect(registry.every(entry => entry.integrity === undefined)).toBe(true)
+    expect(excluded).toEqual([])
+  })
+
+  it('excludes workspace packages with a precise reason', () => {
+    const { registry, excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"@acme/shared@workspace:*, @acme/shared@workspace:packages/shared":
+  version: 0.0.0-use.local
+  resolution: "@acme/shared@workspace:packages/shared"
+  languageName: unknown
+  linkType: soft
+
+"bar@npm:2.0.0":
+  version: 2.0.0
+  resolution: "bar@npm:2.0.0"
+  checksum: 10c0/bbb
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toHaveLength(1)
+    expect(excluded).toEqual([
+      {
+        name: '@acme/shared',
+        reason: `'@acme/shared' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      },
+    ])
+  })
+
+  it('distinguishes in-workspace directory links from escaping ones', () => {
+    const { excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"inside@portal:./tools/inside::locator=root%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "inside@portal:./tools/inside::locator=root%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"outside@link:../elsewhere::locator=root%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "outside@link:../elsewhere::locator=root%40workspace%3A."
+  languageName: node
+  linkType: soft
+`)
+    expect(excluded).toEqual([
+      {
+        name: 'inside',
+        reason: `'inside' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      },
+      {
+        name: 'outside',
+        reason: `'outside' is a local directory link outside the workspace, which cannot be embedded`
+          + ` as a registry tarball`,
+        kind: 'unfetchable',
+      },
+    ])
+  })
+
+  it('excludes git, remote tarball, file and patched dependencies with a reason', () => {
+    const { registry, excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"mimic-response@github:sindresorhus/mimic-response#v3.1.0":
+  version: 3.1.0
+  resolution: "mimic-response@https://github.com/sindresorhus/mimic-response.git#commit=c781ec5"
+  checksum: 10c0/ccc
+  languageName: node
+  linkType: hard
+
+"resolve@patch:resolve@npm%3A1.22.8#optional!builtin<compat/resolve>":
+  version: 1.22.8
+  resolution: "resolve@patch:resolve@npm%3A1.22.8#optional!builtin<compat/resolve>::version=1.22.8&hash=9bd1a5"
+  checksum: 10c0/ddd
+  languageName: node
+  linkType: hard
+
+"vendored@file:./vendor/vendored-1.0.0.tgz::locator=root%40workspace%3A.":
+  version: 1.0.0
+  resolution: "vendored@file:./vendor/vendored-1.0.0.tgz::locator=root%40workspace%3A."
+  checksum: 10c0/eee
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toEqual([])
+    expect(excluded.map(entry => entry.name).sort()).toEqual(['mimic-response', 'resolve', 'vendored'])
+    expect(excluded[0].reason).toContain('git, file, URL or patched dependency')
+  })
+
+  it('keeps the package name intact when a git ref itself contains @', () => {
+    const { excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"foo@git+ssh://git@github.com/user/foo.git#abc123":
+  version: 1.0.0
+  resolution: "foo@git+ssh://git@github.com/user/foo.git#commit=abc123"
+  checksum: 10c0/fff
+  languageName: node
+  linkType: hard
+
+"@acme/bar@git+ssh://git@github.com/acme/bar.git#def456":
+  version: 1.0.0
+  resolution: "@acme/bar@git+ssh://git@github.com/acme/bar.git#commit=def456"
+  checksum: 10c0/ggg
+  languageName: node
+  linkType: hard
+`)
+    expect(excluded.map(entry => entry.name).sort()).toEqual(['@acme/bar', 'foo'])
+  })
+
+  it('uses the real package name for aliased installs, deduplicating', () => {
+    // An alias key records the real name@version locator in `resolution`,
+    // so an alias and a direct dependency parse into one entry.
+    const { registry } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"ms@npm:2.1.3":
+  version: 2.1.3
+  resolution: "ms@npm:2.1.3"
+  checksum: 10c0/aaa
+  languageName: node
+  linkType: hard
+
+"msalias@npm:ms@2.1.3":
+  version: 2.1.3
+  resolution: "ms@npm:2.1.3"
+  checksum: 10c0/aaa
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toEqual([
+      { name: 'ms', version: '2.1.3', lockfileChecksum: '10c0/aaa' },
+    ])
+  })
+
+  it('keeps build metadata in versions as written', () => {
+    const { registry } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"built@npm:1.0.0+sha.abc":
+  version: 1.0.0+sha.abc
+  resolution: "built@npm:1.0.0+sha.abc"
+  checksum: 10c0/hhh
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toEqual([
+      { name: 'built', version: '1.0.0+sha.abc', lockfileChecksum: '10c0/hhh' },
+    ])
+  })
+
+  it('excludes entries without a checksum', () => {
+    // checksumBehavior: ignore makes yarn omit checksums, leaving nothing
+    // to pin the content with.
+    const { registry, excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"bar@npm:2.0.0":
+  version: 2.0.0
+  resolution: "bar@npm:2.0.0"
+  languageName: node
+  linkType: hard
+`)
+    expect(registry).toEqual([])
+    expect(excluded[0].reason).toContain('no checksum')
+  })
+
+  it('skips malformed entries without failing', () => {
+    const { registry, excluded } = parseYarnLockfilePackages(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"no-resolution@npm:1.0.0":
+  version: 1.0.0
+
+"no-separator@npm:1.0.0":
+  version: 1.0.0
+  resolution: "plainstring"
+
+"bar@npm:2.0.0":
+  version: 2.0.0
+  resolution: "bar@npm:2.0.0"
+  checksum: 10c0/bbb
+  languageName: node
+  linkType: hard
+`)
+    expect(registry.map(pkg => pkg.name)).toEqual(['bar'])
+    expect(excluded).toEqual([])
+  })
+
+  it('rejects Yarn Classic lockfiles with a migration hint', () => {
+    expect(() => parseYarnLockfilePackages(`# THIS IS AN AUTOGENERATED FILE. DO NOT EDIT THIS FILE DIRECTLY.
+# yarn lockfile v1
+
+
+ms@2.1.3:
+  version "2.1.3"
+  resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.3.tgz#574c8138"
+`)).toThrow(/Yarn Classic/)
+  })
+})
+
 describe('parsePnpmLockfilePackages() workspace links', () => {
   it('records workspace-linked packages as excluded with a precise reason', () => {
     const { registry, excluded } = parsePnpmLockfilePackages(`
@@ -485,10 +731,24 @@ packages:
       },
     }), 'bun.lock')
     expect(bun.registry.map(pkg => pkg.name)).toEqual(['baz'])
+
+    const yarn = parseLockfilePackagesContent(`
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"qux@npm:4.0.0":
+  version: 4.0.0
+  resolution: "qux@npm:4.0.0"
+  checksum: 10c0/ddd
+  languageName: node
+  linkType: hard
+`, 'yarn.lock')
+    expect(yarn.registry.map(pkg => pkg.name)).toEqual(['qux'])
   })
 
   it('rejects unsupported lockfile names', () => {
-    expect(() => parseLockfilePackagesContent('', 'yarn.lock')).toThrow(UnsupportedLockfileError)
+    expect(() => parseLockfilePackagesContent('', 'deno.lock')).toThrow(UnsupportedLockfileError)
   })
 
   it('rejects the binary bun lockfile with a remedy', () => {

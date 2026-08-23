@@ -19,6 +19,7 @@ import {
   composeWorkspaceCacheHash,
   ComposeWorkspaceCacheHashOptions,
   ComputeWorkspaceCacheHashOptions,
+  EmbeddedPackageInput,
   FauxPackageJsonInput,
   loadWorkspaceCacheHashInputs,
   LockfileInput,
@@ -500,6 +501,23 @@ type BundleTimeCacheHashInputs =
   & { embeddedPackages: ComposeWorkspaceCacheHashOptions['embeddedPackages'] }
 
 /**
+ * Maps planned tarballs to cache-hash records. yarn.lock plans carry no SRI
+ * tarball integrity (it is resolved from registry metadata only at
+ * materialization time), so their records use the lockfile's own checksum —
+ * an equally stable content pin that is known at plan time, keeping the
+ * eager placeholder hash and the finalize hash consistent. The parsers
+ * guarantee one of the two hashes is always present; the empty-string
+ * fallback only satisfies the type.
+ */
+export function embeddedPackageHashInputs (tarballs: PlannedTarball[] | undefined): EmbeddedPackageInput[] | undefined {
+  return tarballs?.map(({ name, version, integrity, lockfileChecksum }) => ({
+    name,
+    version,
+    integrity: integrity ?? lockfileChecksum ?? '',
+  }))
+}
+
+/**
  * Everything finalize() needs to prune the lockfile and recompute the cache
  * hash from the bundle's actual contents.
  */
@@ -600,7 +618,7 @@ export class Bundler {
 
     return new Bundler({
       tempDir,
-      cacheHash: composeCacheHash({ embeddedPackages }),
+      cacheHash: composeCacheHash({ embeddedPackages: embeddedPackageHashInputs(embeddedPackages) }),
       stripPrefix: workspace?.root.path,
       workspaceContext: {
         workspace,
@@ -691,7 +709,7 @@ export class Bundler {
     this.#cacheHashMarker.updateValue(context.composeCacheHash({
       fauxPackageJsons,
       prunedLockfile: pruned,
-      embeddedPackages,
+      embeddedPackages: embeddedPackageHashInputs(embeddedPackages),
     }))
   }
 

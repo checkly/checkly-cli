@@ -32,6 +32,19 @@ const BUN_LOCKFILE = `{
   },
 }`
 
+const YARN_LOCKFILE = `
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"@acme/kept@npm:1.2.3":
+  version: 1.2.3
+  resolution: "@acme/kept@npm:1.2.3"
+  checksum: 10c0/aaa
+  languageName: node
+  linkType: hard
+`
+
 describe('filterTarballsByLockfile()', () => {
   const kept = {
     name: '@acme/kept',
@@ -54,6 +67,12 @@ describe('filterTarballsByLockfile()', () => {
 
   it('splits tarballs by name@version presence in an npm lockfile', () => {
     const result = filterTarballsByLockfile([kept, dropped], NPM_LOCKFILE, 'package-lock.json')
+    expect(result.kept).toEqual([kept])
+    expect(result.dropped).toEqual([dropped])
+  })
+
+  it('splits tarballs by name@version presence in a yarn lockfile', () => {
+    const result = filterTarballsByLockfile([kept, dropped], YARN_LOCKFILE, 'yarn.lock')
     expect(result.kept).toEqual([kept])
     expect(result.dropped).toEqual([dropped])
   })

@@ -54,7 +54,11 @@ export interface EmbeddedPackageInput {
   name: string
   /** Exact version, e.g. `1.2.3`. */
   version: string
-  /** The lockfile's recorded integrity for the artifact (SRI string). */
+  /**
+   * The lockfile's recorded content pin for the artifact: an SRI integrity
+   * string, or for Yarn Berry lockfiles (which record no npm tarball
+   * integrity) yarn's own checksum value — equally stable per content.
+   */
   integrity: string
 }
 
@@ -236,10 +240,11 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *      digest of the pnpmfile contents.
  *   5. One record per embedded package sorted by `name@version`, labeled
  *      `embedded-package:<name@version>`, whose content is the raw UTF-8
- *      bytes of the lockfile's integrity string for the artifact. Callers
- *      must pass at most one entry per `name@version` (the materializer
- *      already de-duplicates); the record order among duplicate keys is
- *      undefined.
+ *      bytes of the lockfile's content pin for the artifact — its SRI
+ *      integrity string, or for Yarn Berry lockfiles (which record no npm
+ *      tarball integrity) yarn's own checksum value. Callers must pass at
+ *      most one entry per `name@version` (the materializer already
+ *      de-duplicates); the record order among duplicate keys is undefined.
  *   6. The dependency cache version record (if set to a non-empty string),
  *      labeled `dependency-cache-version`, whose content is the raw UTF-8
  *      bytes of the user-provided value. An empty string is treated as

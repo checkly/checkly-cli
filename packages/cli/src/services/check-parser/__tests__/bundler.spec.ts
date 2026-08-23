@@ -6,9 +6,9 @@ import path from 'node:path'
 import { list } from 'tar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { BundleArchive, BundleTooLargeError, Bundler, FinalizedBundleArchive } from '../bundler.js'
+import { BundleArchive, BundleTooLargeError, Bundler, embeddedPackageHashInputs, FinalizedBundleArchive } from '../bundler.js'
 import { composeWorkspaceCacheHash, loadWorkspaceCacheHashInputs } from '../cache-hash.js'
-import { npmPackageManager, PNpmDetector, Runnable, YarnDetector } from '../package-files/package-manager.js'
+import { CNpmDetector, npmPackageManager, PNpmDetector, Runnable } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { EmbeddedPackageError, EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
@@ -204,6 +204,62 @@ describe('Bundler.createForWorkspace', () => {
 
     expect(without.cacheHash.toJSON()).not.toBe(withFoo.cacheHash.toJSON())
   })
+
+  it('mixes a yarn.lock embed plan into the cache hash', async () => {
+    const lockfilePath = path.join(dir, 'yarn.lock')
+    await fs.writeFile(lockfilePath, [
+      `__metadata:`,
+      `  version: 10`,
+      `  cacheKey: 10c0`,
+      ``,
+      `"@acme/foo@npm:1.2.3":`,
+      `  version: 1.2.3`,
+      `  resolution: "@acme/foo@npm:1.2.3"`,
+      `  checksum: 10c0/aaa`,
+      `  languageName: node`,
+      `  linkType: hard`,
+      ``,
+    ].join('\n'))
+    const workspace = new Workspace({
+      root: new Package({ name: 'fixture-root', path: dir }),
+      packages: [],
+      lockfile: Ok(lockfilePath),
+      configFile: Err(new Error('no config file')),
+    })
+
+    const without = await Bundler.createForWorkspace(workspace, {
+      packageManager: npmPackageManager,
+    })
+    const withFoo = await Bundler.createForWorkspace(workspace, {
+      packageManager: npmPackageManager,
+      embeddedPackagesMaterializer: new EmbeddedPackagesMaterializer({
+        specs: ['@acme/foo'],
+        lockfilePath,
+        workspaceRoot: dir,
+      }),
+    })
+
+    expect(without.cacheHash.toJSON()).not.toBe(withFoo.cacheHash.toJSON())
+  })
+})
+
+describe('embeddedPackageHashInputs()', () => {
+  it('uses the SRI integrity when present and the Berry checksum otherwise', () => {
+    // yarn.lock plans carry no npm tarball integrity, so their hash records
+    // must carry the lockfile's own checksum — a content pin that is known
+    // at plan time, keeping the eager and finalize hashes consistent.
+    expect(embeddedPackageHashInputs([
+      { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb', archiveFilename: 'bar@2.0.0.tgz' },
+      { name: 'ms', version: '2.1.3', lockfileChecksum: '10c0/aaa', archiveFilename: 'ms@2.1.3.tgz' },
+    ])).toEqual([
+      { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb' },
+      { name: 'ms', version: '2.1.3', integrity: '10c0/aaa' },
+    ])
+  })
+
+  it('passes undefined through for an absent plan', () => {
+    expect(embeddedPackageHashInputs(undefined)).toBeUndefined()
+  })
 })
 
 describe('Bundler.finalize() lockfile prune reporting', () => {
@@ -252,9 +308,11 @@ describe('Bundler.finalize() lockfile prune reporting', () => {
   it('prints a note when pruning is needed but unavailable', async () => {
     const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
       tempDir: path.join(dir, 'out'),
-      // Yarn has no lockfile-only install, so a partial-workspace bundle
+      // cnpm has no lockfile-only install, so a partial-workspace bundle
       // must surface the unpruned lockfile instead of skipping silently.
-      packageManager: new YarnDetector(),
+      // (Not yarn: yarn gained a lockfile-only install, so it would spawn
+      // a real package manager here.)
+      packageManager: new CNpmDetector(),
     })
     bundler.registerFiles(
       { filePath: path.join(dir, 'package.json'), physical: true },
@@ -271,7 +329,7 @@ describe('Bundler.finalize() lockfile prune reporting', () => {
   it('stays silent when the bundle contains the full workspace', async () => {
     const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
       tempDir: path.join(dir, 'out'),
-      packageManager: new YarnDetector(),
+      packageManager: new CNpmDetector(),
     })
     bundler.registerFiles(
       { filePath: path.join(dir, 'package.json'), physical: true },
