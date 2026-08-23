@@ -25,12 +25,6 @@ export interface PruneBundledLockfileOptions {
   files: ReadonlyMap<string, File>
   timeoutMs?: number
   env?: NodeJS.ProcessEnv
-  /**
-   * Called right before the package manager runs — after every skip
-   * condition has been ruled out — so callers can report progress for a
-   * step that may take a few seconds.
-   */
-  onRun?: () => void
 }
 
 export type PruneBundledLockfileResult =
@@ -543,7 +537,6 @@ export async function pruneBundledLockfile (
     files,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
-    onRun,
   } = options
 
   const decision = shouldPruneLockfile(workspace, files, env)
@@ -654,7 +647,6 @@ export async function pruneBundledLockfile (
     }
 
     debug(`Running ${runnable.unsafeDisplayCommand} in ${tempDir}`)
-    onRun?.()
 
     const result = await execa(runnable.executable, runnable.args, {
       cwd: tempDir,

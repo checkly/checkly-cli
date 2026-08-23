@@ -734,8 +734,11 @@ export class Bundler {
       }
     }
 
+    // Debug rather than user-facing output for now: a bare stderr line has
+    // no good home in the current CLI output UX. Revisit when finalize-time
+    // work gets proper progress reporting.
     if (kept.length > 0) {
-      process.stderr.write(`Preparing ${kept.length} embedded package tarball(s)...\n`)
+      debug(`Preparing ${kept.length} embedded package tarball(s)`)
     }
 
     // Deliberately called even for an empty kept set: the materializer's
@@ -756,7 +759,6 @@ export class Bundler {
       workspace: context.workspace,
       packageManager: context.packageManager,
       files: this.#files,
-      onRun: () => process.stderr.write('Pruning the bundled lockfile to match the bundle contents...\n'),
     })
 
     if (result.status === 'failed') {

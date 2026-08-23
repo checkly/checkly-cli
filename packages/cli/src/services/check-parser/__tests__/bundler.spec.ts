@@ -225,7 +225,12 @@ describe('Bundler.finalize() lockfile prune reporting', () => {
     await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), `lockfileVersion: '9.0'\n`)
     stderrWrites = []
     vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
-      stderrWrites.push(String(chunk))
+      // The debug library also writes to stderr when DEBUG is enabled; only
+      // the CLI's own user-facing writes are under test.
+      const text = String(chunk)
+      if (!text.includes('checkly:cli:')) {
+        stderrWrites.push(text)
+      }
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
@@ -398,7 +403,12 @@ describe('Bundler.finalize() embedded package materialization', () => {
     await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), originalLockfile())
     stderrWrites = []
     vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
-      stderrWrites.push(String(chunk))
+      // The debug library also writes to stderr when DEBUG is enabled; only
+      // the CLI's own user-facing writes are under test.
+      const text = String(chunk)
+      if (!text.includes('checkly:cli:')) {
+        stderrWrites.push(text)
+      }
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
@@ -502,8 +512,9 @@ describe('Bundler.finalize() embedded package materialization', () => {
     expect(entries).toContain('.checkly/embedded-packages/@acme+kept@1.0.0.tgz')
     expect(entries).not.toContain('.checkly/embedded-packages/@acme+dropped@1.0.0.tgz')
 
-    const output = stderrWrites.join('')
-    expect(output).toContain('Preparing 1 embedded package tarball(s)')
+    // Progress is debug-only for now: a successful prune-and-materialize
+    // writes nothing user-facing.
+    expect(stderrWrites.join('')).toEqual('')
 
     expect(bundler.cacheHash.toJSON()).toEqual(await expectedHash({
       embedded: [{ name: '@acme/kept', version: '1.0.0', integrity: keptIntegrity }],
@@ -531,7 +542,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
 
     const entries = await listEntries(archive.archiveFile)
     expect(entries.filter(entry => entry.startsWith('.checkly/embedded-packages/'))).toEqual([])
-    expect(stderrWrites.join('')).not.toContain('embedded package tarball')
+    expect(stderrWrites.join('')).toEqual('')
 
     // An all-dropped set must hash as [] (no embedded-package records), not
     // fall back to the full planned set.
@@ -557,7 +568,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
     expect(entries).toContain('.checkly/embedded-packages/@acme+kept@1.0.0.tgz')
     expect(entries).toContain('.checkly/embedded-packages/@acme+dropped@1.0.0.tgz')
 
-    expect(stderrWrites.join('')).toContain('Preparing 2 embedded package tarball(s)')
+    expect(stderrWrites.join('')).toEqual('')
 
     expect(bundler.cacheHash.toJSON()).toEqual(await expectedHash({
       embedded: [
@@ -568,15 +579,21 @@ describe('Bundler.finalize() embedded package materialization', () => {
     }))
   })
 
-  it('announces nothing when the bundler has no materializer', async () => {
+  it('ships no embedded tarballs when the bundler has no materializer', async () => {
     const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
       tempDir: path.join(dir, 'out'),
       packageManager: await stubPruningPackageManager(),
     })
     registerPartialWorkspace(bundler)
-    await bundler.finalize()
+    const archive = await bundler.finalize()
 
-    expect(stderrWrites.join('')).not.toContain('embedded package tarball')
+    const entries = await listEntries(archive.archiveFile)
+    expect(entries.filter(entry => entry.startsWith('.checkly/embedded-packages/'))).toEqual([])
+    // The hash carries no embedded-package records either.
+    expect(bundler.cacheHash.toJSON()).toEqual(await expectedHash({
+      embedded: [],
+      pruned: prunedLockfile(),
+    }))
   })
 
   it('does not materialize anything for an empty bundle', async () => {
@@ -590,7 +607,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
       embeddedPackagesMaterializer: makeMaterializer(),
     })
     await expect(bundler.finalize()).resolves.toBeDefined()
-    expect(stderrWrites.join('')).not.toContain('embedded package tarball')
+    expect(stderrWrites.join('')).toEqual('')
 
     // Nothing ships from an empty bundle, so nothing may reach the hash
     // either: the finalize-time digest carries no embedded-package records,

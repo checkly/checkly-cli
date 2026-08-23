@@ -1335,9 +1335,11 @@ describe('PlaywrightCheck', () => {
     })
 
     it('should bundle members selectively and keep the workspace links resolvable', async () => {
+      // DEBUG is scoped to the bundling namespaces so the lockfile-prune
+      // skip assertion below can observe the (debug-only) prune activity.
       const result = await fixt.run('pnpm', [
         'checkly', 'debug', 'parse-project', '--config', 'packages/c/checkly.config.ts',
-      ])
+      ], { env: { DEBUG: 'checkly:cli:services:check-parser:*' } })
       expect(result.exitCode).toBe(0)
       const output: ParseProjectOutput = JSON.parse(result.stdout)
 
@@ -1397,8 +1399,12 @@ describe('PlaywrightCheck', () => {
 
       // Every workspace member's real manifest is in this bundle, so
       // lockfile pruning is skipped — it must not even attempt to run — and
-      // the original lockfile ships byte-for-byte.
-      expect(String(result.stderr)).not.toContain('Pruning the bundled lockfile')
+      // the original lockfile ships byte-for-byte. The skip is only visible
+      // through the scoped DEBUG output enabled above: the skip reason must
+      // appear, and the prune command (recognizable by its --lockfile-only
+      // flag) must never be spawned.
+      expect(String(result.stderr)).toContain('Lockfile pruning skipped: the bundle contains the full workspace')
+      expect(String(result.stderr)).not.toContain('--lockfile-only')
       expect(String(result.stderr)).not.toContain('could not prune the bundled lockfile')
       const archivedLockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
       const originalLockfile = await fs.readFile(fixt.abspath('pnpm-lock.yaml'), 'utf8')
@@ -1567,7 +1573,10 @@ describe('PlaywrightCheck', () => {
       expect(files).toContain('.checkly/embedded-packages/ms@2.1.3.tgz')
       expect(files).not.toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
 
-      expect(output.stderr).toContain('Preparing 1 embedded package tarball(s)')
+      // A successful prune-and-embed produces no user-facing prune output;
+      // progress is debug-only for now.
+      expect(output.stderr).not.toContain('could not prune the bundled lockfile')
+      expect(output.stderr).not.toContain('the bundled lockfile was not pruned')
 
       // The cache hash reflects exactly what ships: the kept-only embedded
       // set, the faux manifest and the pruned lockfile.
