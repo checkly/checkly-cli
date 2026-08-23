@@ -574,10 +574,12 @@ describe('detectNearestConfigFiles', () => {
 })
 
 describe('lockfileOnlyInstallCommand', () => {
-  it('regenerates the lockfile without installing for pnpm', () => {
+  it('regenerates the lockfile without installing for pnpm, pinning the lockfile location', () => {
     const runnable = new PNpmDetector().lockfileOnlyInstallCommand()
     expect(runnable?.executable).toEqual('pnpm')
-    expect(runnable?.args).toEqual(['install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile'])
+    expect(runnable?.args).toEqual([
+      'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
+    ])
   })
 
   it('regenerates the lockfile without installing for npm', () => {

@@ -48,6 +48,14 @@ export interface PackageManager {
    * Command that regenerates the lockfile from the manifests on disk without
    * installing anything (resolution only). Undefined when the package
    * manager has no such mode the CLI supports.
+   *
+   * The command must read and write the lockfile in the directory it is
+   * spawned in. Package managers that support a lockfile-location setting
+   * must pin it to the working directory explicitly: the setting can come
+   * from config layers the caller cannot inspect (e.g. the user-level
+   * ~/.npmrc), and an inherited value would redirect the subprocess's
+   * lockfile write outside the working directory — potentially over a
+   * real lockfile.
    */
   lockfileOnlyInstallCommand (): Runnable | undefined
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
@@ -208,6 +216,8 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
   }
 
   lockfileOnlyInstallCommand (): Runnable {
+    // npm has no lockfile-location setting; package-lock.json always lives
+    // next to the package.json npm operates on, so there is nothing to pin.
     return new Runnable('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
   }
 
@@ -342,8 +352,15 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
   lockfileOnlyInstallCommand (): Runnable {
     // --no-frozen-lockfile is load-bearing: pnpm auto-enables frozen mode
     // when CI=true, and a lockfile-only regeneration is by definition not a
-    // frozen install.
-    return new Runnable('pnpm', ['install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile'])
+    // frozen install. --lockfile-dir is equally load-bearing: as a CLI flag
+    // it outranks a lockfile-dir setting from every config layer (project,
+    // user and global npmrc, pnpm-workspace.yaml, env), so no inherited
+    // setting can move the lockfile write elsewhere; '.' resolves against
+    // the subprocess working directory. Accepted by pnpm 8-11 (pnpm 11
+    // dropped the npmrc setting but kept the flag).
+    return new Runnable('pnpm', [
+      'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
+    ])
   }
 
   addCommand (options: AddCommandOptions): Runnable {

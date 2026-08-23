@@ -192,15 +192,32 @@ describe('lockfile-pruner', () => {
   })
 
   describe('pruneBundledLockfile()', () => {
-    it('skips when the package manager has no lockfile-only install', async () => {
-      const { workspace, files } = makePnpmScenario()
+    it('skips notably for an unsupported package manager even when the lockfile is unreadable', async () => {
+      // Pins the ordering invariant in pruneBundledLockfile: the capability
+      // check runs before the lockfile read, so an unsupported package
+      // manager never surfaces a read error as a 'failed' warning that
+      // implies pruning was attempted.
+      const { workspace: base, files } = makePnpmScenario()
+      const missingLockfile = path.join(PNPM_FIXTURE_ROOT, 'missing-pnpm-lock.yaml')
+      const workspace = new Workspace({
+        root: base.root,
+        packages: base.packages,
+        lockfile: Ok(missingLockfile),
+        configFile: Ok(path.join(PNPM_FIXTURE_ROOT, 'pnpm-workspace.yaml')),
+      })
+      files.delete('pnpm-lock.yaml')
+      files.set('missing-pnpm-lock.yaml', { filePath: missingLockfile, physical: true })
       const result = await pruneBundledLockfile({
         workspace,
         packageManager: stubPackageManager(undefined),
         files,
         env: testEnv(),
       })
-      expect(result).toMatchObject({ status: 'skipped', reason: expect.stringContaining('lockfile-only') })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('lockfile-only'),
+        notable: true,
+      })
     })
 
     it('fails when the executable does not exist', async () => {
@@ -278,6 +295,7 @@ describe('lockfile-pruner', () => {
           NPM_CONFIG_LOCKFILE: 'false',
           npm_config_package_lock: 'false',
           npm_config_ignore_workspace: 'true',
+          npm_config_lockfile_dir: '/tmp/decoy',
           npm_config_registry: 'https://registry.example.com/',
         },
       })
@@ -287,6 +305,7 @@ describe('lockfile-pruner', () => {
       expect(childEnv.NPM_CONFIG_LOCKFILE).toBeUndefined()
       expect(childEnv.npm_config_package_lock).toBeUndefined()
       expect(childEnv.npm_config_ignore_workspace).toBeUndefined()
+      expect(childEnv.npm_config_lockfile_dir).toBeUndefined()
       expect(childEnv.npm_config_registry).toEqual('https://registry.example.com/')
       expect(childEnv.COREPACK_ENABLE_STRICT).toEqual('0')
     })
@@ -506,6 +525,70 @@ describe('lockfile-pruner', () => {
       expect(result.content).toContain('link:packages/shimmed')
     }, 60_000)
 
+    // Plants a lockfile-dir setting pointing at decoyDir in both config
+    // channels: pnpm <= 10 reads the setting from .npmrc while pnpm 11 only
+    // honors lockfileDir in pnpm-workspace.yaml.
+    const plantLockfileDirDecoys = async (files: Map<string, File>, decoyDir: string) => {
+      files.set('.npmrc', {
+        filePath: path.join(PNPM_FIXTURE_ROOT, '.npmrc'),
+        physical: false,
+        content: `lockfile-dir=${decoyDir}\n`,
+      })
+      const workspaceYaml = await fs.readFile(path.join(PNPM_FIXTURE_ROOT, 'pnpm-workspace.yaml'), 'utf8')
+      files.set('pnpm-workspace.yaml', {
+        filePath: path.join(PNPM_FIXTURE_ROOT, 'pnpm-workspace.yaml'),
+        physical: false,
+        content: `${workspaceYaml}lockfileDir: ${decoyDir}\n`,
+      })
+    }
+
+    it('pins the lockfile write to the temp dir despite a config lockfile-dir, with real pnpm', async () => {
+      const { workspace, files } = makePnpmScenario()
+      // The explicit --lockfile-dir flag on the prune command must outrank
+      // a lockfile-dir setting from a materialized config file — otherwise
+      // the subprocess could write over a lockfile outside the temp dir.
+      const decoyDir = await makeTempDir()
+      await plantLockfileDirDecoys(files, decoyDir)
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new PNpmDetector(),
+        files,
+        env: testEnv(),
+      })
+      expect(result.status).toEqual('pruned')
+      await expect(fs.access(path.join(decoyDir, 'pnpm-lock.yaml'))).rejects.toThrow()
+    }, 60_000)
+
+    it('decoy control: pnpm honors a config lockfile-dir when the flag is absent', async () => {
+      // Positive control for the test above: proves the planted channels
+      // actually reach the pnpm on PATH. If a future pnpm major stops
+      // reading both channels, this fails and the decoys need updating —
+      // without it, the pinning test could pass vacuously.
+      const { workspace, files } = makePnpmScenario()
+      const decoyDir = await makeTempDir()
+      await plantLockfileDirDecoys(files, decoyDir)
+      // Seed the decoy with the original lockfile so the redirected run can
+      // reuse its resolutions instead of needing registry access, and so
+      // the assertion below can detect that pnpm rewrote it.
+      const seedContent = await fs.readFile(path.join(PNPM_FIXTURE_ROOT, 'pnpm-lock.yaml'), 'utf8')
+      await fs.writeFile(path.join(decoyDir, 'pnpm-lock.yaml'), seedContent)
+      // Derive the unpinned command from the production one so a future
+      // change to the real argument list flows into this control instead of
+      // silently diverging from it.
+      const pinned = new PNpmDetector().lockfileOnlyInstallCommand()
+      const unpinned = new Runnable(pinned.executable, pinned.args.filter((arg, i, args) => {
+        return arg !== '--lockfile-dir' && args[i - 1] !== '--lockfile-dir'
+      }))
+      await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(unpinned),
+        files,
+        env: testEnv(),
+      })
+      const decoyContent = await fs.readFile(path.join(decoyDir, 'pnpm-lock.yaml'), 'utf8')
+      expect(decoyContent).not.toEqual(seedContent)
+    }, 60_000)
+
     it('prunes the lockfile with real pnpm, backfilling link-referenced members', async () => {
       const { workspace, files } = makePnpmScenario()
       const result = await pruneBundledLockfile({
@@ -640,19 +723,8 @@ describe('lockfile-pruner', () => {
       })).toMatchObject({ status: 'skipped', reason: expect.stringContaining('could not parse') })
     })
 
-    it('marks needed-but-unavailable skips as notable, but not no-op skips', async () => {
+    it('does not mark explicitly disabled skips as notable', async () => {
       const { workspace, files } = makePnpmScenario()
-
-      // Pruning is needed (partial workspace) but the package manager has
-      // no lockfile-only install → notable.
-      expect(await pruneBundledLockfile({
-        workspace,
-        packageManager: stubPackageManager(undefined),
-        files,
-        env: testEnv(),
-      })).toMatchObject({ status: 'skipped', notable: true })
-
-      // Explicitly disabled → nothing to surface.
       const disabled = await pruneBundledLockfile({
         workspace,
         packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
@@ -663,13 +735,10 @@ describe('lockfile-pruner', () => {
       expect(disabled.status === 'skipped' && disabled.notable).toBeFalsy()
     })
 
-    it('backfills members referenced only through peerDependencies', async () => {
-      const { workspace, files } = makePnpmScenario()
-      // The root manifest becomes virtual below, so the root package needs a
-      // known version to pass the unknown-version guard.
-      workspace.root.version = '1.0.0'
-      // Replace the root manifest with one that references the absent
-      // member through peerDependencies only.
+    // Replaces the root manifest with a virtual one that references the
+    // absent member through peerDependencies only. Shared between the peer
+    // backfill tests so they stay a controlled comparison.
+    const setRootManifestWithAbsentPeer = (files: Map<string, File>, peerDependenciesMeta?: object) => {
       files.set('package.json', {
         filePath: path.join(PNPM_FIXTURE_ROOT, 'package.json'),
         physical: false,
@@ -683,8 +752,19 @@ describe('lockfile-pruner', () => {
           peerDependencies: {
             '@fixture/absent': 'workspace:*',
           },
+          // JSON.stringify omits undefined-valued properties, so a call
+          // without meta produces a manifest without the key.
+          peerDependenciesMeta,
         }),
       })
+    }
+
+    it('backfills members referenced only through peerDependencies', async () => {
+      const { workspace, files } = makePnpmScenario()
+      // The root manifest becomes virtual, so the root package needs a
+      // known version to pass the unknown-version guard.
+      workspace.root.version = '1.0.0'
+      setRootManifestWithAbsentPeer(files)
       const result = await pruneBundledLockfile({
         workspace,
         packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
@@ -698,6 +778,28 @@ describe('lockfile-pruner', () => {
       expect(result.backfilledManifests).toHaveLength(1)
       expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('@fixture/absent')
     })
+
+    it('backfills workspace peers even when marked optional, with real pnpm', async () => {
+      const { workspace, files } = makePnpmScenario()
+      workspace.root.version = '1.0.0'
+      // pnpm resolves a workspace: peer spec regardless of
+      // peerDependenciesMeta.optional when auto-install-peers is on (the
+      // default), so without the backfill the install fails with
+      // ERR_PNPM_WORKSPACE_PKG_NOT_FOUND.
+      setRootManifestWithAbsentPeer(files, { '@fixture/absent': { optional: true } })
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new PNpmDetector(),
+        files,
+        env: testEnv(),
+      })
+      expect(result.status).toEqual('pruned')
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('@fixture/absent')
+    }, 60_000)
 
     it('prunes the lockfile with real npm, backfilling link-referenced members', async () => {
       const { workspace, files } = makeNpmScenario()

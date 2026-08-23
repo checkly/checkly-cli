@@ -82,6 +82,10 @@ const STRIPPED_ENV_KEYS = new Set([
   'npm_config_package_lock',
   'npm_config_dry_run',
   'npm_config_ignore_workspace',
+  // Redirects the lockfile write outside the temp dir. The explicit
+  // --lockfile-dir flag on the pnpm command outranks this anyway; stripped
+  // as defense in depth.
+  'npm_config_lockfile_dir',
 ])
 
 function manifestArchivePath (workspace: Workspace, pkg: Package): string {
@@ -466,6 +470,10 @@ async function collectBackfilledManifests (
         if (member === undefined || member === workspace.root) {
           continue
         }
+        // Optional peers (peerDependenciesMeta.optional) are deliberately NOT
+        // exempted: pnpm resolves a `workspace:` peer spec regardless of the
+        // optional flag when auto-install-peers is on (the default), so a
+        // missing manifest fails the install outright.
         const isLink = (typeof spec === 'string' && spec.startsWith('workspace:'))
           || linkedNames.has(name)
         if (!isLink) {
@@ -543,10 +551,16 @@ export async function pruneBundledLockfile (
     return { status: 'skipped', reason: decision.reason, notable: decision.notable }
   }
 
-  // Every skip below this point is notable: shouldPruneLockfile has already
-  // established that the bundle is a partial workspace, so the lockfile
-  // over-describes the bundle and this setup cannot be helped.
+  // Every pre-run skip below this point is notable: shouldPruneLockfile has
+  // already established that the bundle is a partial workspace, so the
+  // lockfile over-describes the bundle and this setup cannot be helped.
+  // (The one post-run skip — a byte-identical regeneration — is the
+  // opposite: pruning ran and proved there was nothing to change.)
 
+  // This capability check must stay ahead of the lockfile read below: an
+  // unsupported package manager should always skip notably, never surface
+  // a lockfile read error as a 'failed' warning that implies pruning was
+  // attempted.
   const runnable = packageManager.lockfileOnlyInstallCommand()
   if (runnable === undefined) {
     return {
