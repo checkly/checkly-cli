@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import {
   UnsupportedLockfileError,
   loadLockfilePackages,
+  parseBunLockfilePackages,
   parseLockfilePackagesContent,
   parseNpmLockfilePackages,
   parsePnpmLockfilePackages,
@@ -212,6 +213,130 @@ describe('parseNpmLockfilePackages()', () => {
   })
 })
 
+describe('parseBunLockfilePackages()', () => {
+  it('parses registry entries, with and without an explicit tarball URL', () => {
+    // Trailing commas throughout: bun.lock is JSONC, and the parser must
+    // accept bun's own serialization.
+    const { registry, excluded } = parseBunLockfilePackages(`{
+      "lockfileVersion": 1,
+      "configVersion": 1,
+      "workspaces": {
+        "": { "name": "root" },
+      },
+      "packages": {
+        "@acme/foo": ["@acme/foo@1.2.3", "", {}, "sha512-aaa"],
+        "bar": ["bar@2.0.0", "https://nexus.local/repository/npm/bar/-/bar-2.0.0.tgz", {}, "sha512-bbb"],
+      },
+    }`)
+    expect(registry).toEqual([
+      { name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa', tarballUrl: undefined },
+      { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb', tarballUrl: 'https://nexus.local/repository/npm/bar/-/bar-2.0.0.tgz' },
+    ])
+    expect(excluded).toEqual([])
+  })
+
+  it('falls back to the derived URL for a non-http tarball element', () => {
+    const { registry } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        bar: ['bar@2.0.0', 'file:vendor/bar-2.0.0.tgz', {}, 'sha512-bbb'],
+      },
+    }))
+    expect(registry[0].tarballUrl).toBeUndefined()
+  })
+
+  it('excludes workspace packages with a precise reason', () => {
+    const { registry, excluded } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        '@acme/shared': ['@acme/shared@workspace:packages/shared'],
+        'bar': ['bar@2.0.0', '', {}, 'sha512-bbb'],
+      },
+    }))
+    expect(registry).toHaveLength(1)
+    expect(excluded).toEqual([
+      {
+        name: '@acme/shared',
+        reason: `'@acme/shared' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      },
+    ])
+  })
+
+  it('excludes git, remote tarball and file dependencies with a reason', () => {
+    // Non-registry tuples have kind-dependent arities (git entries carry
+    // their dependency object at index 1); classification must not trust
+    // any index beyond the name@ref element.
+    const { registry, excluded } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        isarray: ['isarray@github:juliangruber/isarray#31d8230', {}, 'juliangruber-isarray-31d8230', 'sha512-xxx'],
+        mstar: ['ms@https://registry.npmjs.org/ms/-/ms-2.1.3.tgz', {}, 'sha512-yyy'],
+        baz: ['baz@file:vendor/baz', {}],
+      },
+    }))
+    expect(registry).toEqual([])
+    expect(excluded.map(entry => entry.name).sort()).toEqual(['baz', 'isarray', 'ms'])
+    expect(excluded[0].reason).toContain('git, file or URL dependency')
+  })
+
+  it('keeps the package name intact when a git ref itself contains @', () => {
+    const { excluded } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        'foo': ['foo@git+ssh://git@github.com/user/foo.git#abc123', {}, 'user-foo-abc123', 'sha512-xxx'],
+        '@acme/bar': ['@acme/bar@git+ssh://git@github.com/acme/bar.git#def456', {}, 'acme-bar-def456', 'sha512-yyy'],
+      },
+    }))
+    expect(excluded.map(entry => entry.name).sort()).toEqual(['@acme/bar', 'foo'])
+  })
+
+  it('uses the real package name for aliased installs, deduplicating', () => {
+    // An alias key records the real name@version in its tuple, so an alias
+    // and a direct dependency on the same package parse into one entry.
+    const { registry } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        ms: ['ms@2.1.3', '', {}, 'sha512-aaa'],
+        msa: ['ms@2.1.3', '', {}, 'sha512-aaa'],
+      },
+    }))
+    expect(registry).toEqual([
+      { name: 'ms', version: '2.1.3', integrity: 'sha512-aaa', tarballUrl: undefined },
+    ])
+  })
+
+  it('excludes entries without an integrity hash', () => {
+    const { registry, excluded } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        bar: ['bar@2.0.0', '', {}],
+      },
+    }))
+    expect(registry).toEqual([])
+    expect(excluded[0].reason).toContain('no integrity hash')
+  })
+
+  it('skips malformed package values without failing', () => {
+    const { registry, excluded } = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        'not-a-tuple': { some: 'object' },
+        'empty-tuple': [],
+        'no-separator': ['plainstring'],
+        'bar': ['bar@2.0.0', '', {}, 'sha512-bbb'],
+      },
+    }))
+    expect(registry.map(pkg => pkg.name)).toEqual(['bar'])
+    expect(excluded).toEqual([])
+  })
+
+  it('rejects unsupported lockfile versions', () => {
+    expect(() => parseBunLockfilePackages(JSON.stringify({ lockfileVersion: 0 })))
+      .toThrow(UnsupportedLockfileError)
+  })
+})
+
 describe('parsePnpmLockfilePackages() workspace links', () => {
   it('records workspace-linked packages as excluded with a precise reason', () => {
     const { registry, excluded } = parsePnpmLockfilePackages(`
@@ -296,6 +421,14 @@ packages:
       },
     }))
     expect(npm.registry[0].version).toBe('1.0.0+sha.abcdef')
+
+    const bun = parseBunLockfilePackages(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        'meta-pkg': ['meta-pkg@1.0.0+sha.abcdef', '', {}, 'sha512-eee'],
+      },
+    }))
+    expect(bun.registry[0].version).toBe('1.0.0+sha.abcdef')
   })
 })
 
@@ -324,7 +457,7 @@ describe('loadLockfilePackages()', () => {
 })
 
 describe('parseLockfilePackagesContent()', () => {
-  it('dispatches on the lockfile name for both supported formats', () => {
+  it('dispatches on the lockfile name for every supported format', () => {
     const pnpm = parseLockfilePackagesContent(`
 lockfileVersion: '9.0'
 packages:
@@ -344,9 +477,22 @@ packages:
       },
     }), 'package-lock.json')
     expect(npm.registry.map(pkg => pkg.name)).toEqual(['bar'])
+
+    const bun = parseLockfilePackagesContent(JSON.stringify({
+      lockfileVersion: 1,
+      packages: {
+        baz: ['baz@3.0.0', '', {}, 'sha512-ccc'],
+      },
+    }), 'bun.lock')
+    expect(bun.registry.map(pkg => pkg.name)).toEqual(['baz'])
   })
 
   it('rejects unsupported lockfile names', () => {
     expect(() => parseLockfilePackagesContent('', 'yarn.lock')).toThrow(UnsupportedLockfileError)
+  })
+
+  it('rejects the binary bun lockfile with a remedy', () => {
+    expect(() => parseLockfilePackagesContent('', 'bun.lockb'))
+      .toThrow(/bun install --save-text-lockfile/)
   })
 })

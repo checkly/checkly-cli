@@ -55,7 +55,8 @@ export class UnsupportedLockfileError extends Error {
 /**
  * Enumerates every package entry in a lockfile, classified into embeddable
  * registry packages and excluded (git/file/link/integrity-less) entries.
- * Supports `pnpm-lock.yaml` (v6/v9) and `package-lock.json` (v2/v3).
+ * Supports `pnpm-lock.yaml` (v6/v9), `package-lock.json` (v2/v3) and
+ * `bun.lock` (v1).
  */
 export async function loadLockfilePackages (lockfilePath: string): Promise<LockfilePackages> {
   const basename = path.basename(lockfilePath)
@@ -74,10 +75,17 @@ export function parseLockfilePackagesContent (content: string, lockfileName: str
       return parsePnpmLockfilePackages(content)
     case 'package-lock.json':
       return parseNpmLockfilePackages(content)
+    case 'bun.lock':
+      return parseBunLockfilePackages(content)
+    case 'bun.lockb':
+      throw new UnsupportedLockfileError(
+        `Embedded packages are not supported for bun's binary lockfile (bun.lockb).`
+        + ` Regenerate a text lockfile with \`bun install --save-text-lockfile\`.`,
+      )
     default:
       throw new UnsupportedLockfileError(
         `Embedded packages are not supported for '${lockfileName}' lockfiles yet.`
-        + ` Only pnpm (pnpm-lock.yaml) and npm (package-lock.json) are currently supported.`,
+        + ` Only pnpm (pnpm-lock.yaml), npm (package-lock.json) and bun (bun.lock) are currently supported.`,
       )
   }
 }
@@ -90,6 +98,70 @@ export function parseLockfilePackagesContent (content: string, lockfileName: str
 function stripPeerSuffix (key: string): string {
   const cut = key.indexOf('(')
   return cut === -1 ? key : key.slice(0, cut)
+}
+
+/**
+ * Splits a `name@ref` package key at the first `@` past the name. Searching
+ * from the front (after the scope, when present) keeps the name intact when
+ * the ref itself contains `@`, as git refs do
+ * (`foo@git+ssh://git@github.com/...`). Shared by the pnpm and bun parsers,
+ * whose keys use the same shape.
+ */
+function splitPackageKey (key: string): { name: string, ref: string } | undefined {
+  const searchFrom = key.startsWith('@') ? key.indexOf('/') + 1 : 1
+  const separator = searchFrom > 0 ? key.indexOf('@', searchFrom) : -1
+  if (separator <= 0) {
+    return undefined
+  }
+  return { name: key.slice(0, separator), ref: key.slice(separator + 1) }
+}
+
+/**
+ * Classifies one `name@ref` entry into a registry package or an unfetchable
+ * exclusion, appending to `result`. Shared by the pnpm and bun parsers,
+ * which record the same information in different places (pnpm's
+ * `resolution.integrity`/`resolution.tarball` vs bun's tuple indices).
+ */
+function classifyRegistryEntry (
+  result: LockfilePackages,
+  name: string,
+  ref: string,
+  integrity: unknown,
+  tarball: unknown,
+): void {
+  // Validate with semver but keep the ref as written: semver.valid()
+  // normalizes away build metadata (`1.0.0+sha.abc` → `1.0.0`), which
+  // would break both version-pin matching and the derived tarball URL.
+  const version = semver.valid(ref) !== null ? ref : null
+  if (version === null) {
+    result.excluded.push({
+      name,
+      reason: `'${name}@${ref}' resolves to a git, file or URL dependency,`
+        + ` which cannot be embedded as a registry tarball`,
+      kind: 'unfetchable',
+    })
+    return
+  }
+
+  if (typeof integrity !== 'string' || integrity === '') {
+    result.excluded.push({
+      name,
+      version,
+      reason: `the lockfile records no integrity hash for '${name}@${version}',`
+        + ` which is required to embed it`,
+      kind: 'unfetchable',
+    })
+    return
+  }
+
+  result.registry.push({
+    name,
+    version,
+    integrity,
+    // Only absolute http(s) URLs are usable for downloading; anything
+    // else falls back to the registry-derived URL.
+    tarballUrl: typeof tarball === 'string' && /^https?:/.test(tarball) ? tarball : undefined,
+  })
 }
 
 export function parsePnpmLockfilePackages (content: string): LockfilePackages {
@@ -151,59 +223,76 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
   for (const [rawKey, rawEntry] of Object.entries<any>(packages)) {
     // v6 keys have a leading slash (`/name@1.2.3`), v9 keys do not.
     const key = stripPeerSuffix(rawKey.startsWith('/') ? rawKey.slice(1) : rawKey)
-    // The name/ref separator is the first `@` past the name. Searching from
-    // the front (after the scope, when present) keeps the name intact when
-    // the ref itself contains `@`, as git refs do
-    // (`foo@git+ssh://git@github.com/...`).
-    const searchFrom = key.startsWith('@') ? key.indexOf('/') + 1 : 1
-    const separator = searchFrom > 0 ? key.indexOf('@', searchFrom) : -1
-    if (separator <= 0) {
+    const split = splitPackageKey(key)
+    if (split === undefined) {
       continue
     }
-    const name = key.slice(0, separator)
-    const ref = key.slice(separator + 1)
+    const { name, ref } = split
 
     if (seen.has(`${name}@${ref}`)) {
       continue
     }
     seen.add(`${name}@${ref}`)
 
-    // Validate with semver but keep the ref as written: semver.valid()
-    // normalizes away build metadata (`1.0.0+sha.abc` → `1.0.0`), which
-    // would break both version-pin matching and the derived tarball URL.
-    const version = semver.valid(ref) !== null ? ref : null
-    if (version === null) {
-      result.excluded.push({
-        name,
-        reason: `'${name}@${ref}' resolves to a git, file or URL dependency,`
-          + ` which cannot be embedded as a registry tarball`,
-        kind: 'unfetchable',
-      })
-      continue
-    }
-
     const resolution = rawEntry?.resolution
-    const integrity = resolution?.integrity
-    if (typeof integrity !== 'string' || integrity === '') {
+    classifyRegistryEntry(result, name, ref, resolution?.integrity, resolution?.tarball)
+  }
+
+  return result
+}
+
+export function parseBunLockfilePackages (content: string): LockfilePackages {
+  // bun.lock is JSONC (bun writes trailing commas), hence JSON5.
+  const data = JSON5.parse(content)
+
+  const lockfileVersion = data?.lockfileVersion
+  if (lockfileVersion !== 1) {
+    throw new UnsupportedLockfileError(
+      `Embedded packages require bun lockfile version 1`
+      + ` (found '${lockfileVersion ?? 'unknown'}'). Regenerate the lockfile with a supported`
+      + ` bun version, or update the Checkly CLI if the lockfile is newer.`,
+    )
+  }
+
+  const packages = data?.packages
+  const result: LockfilePackages = { registry: [], excluded: [] }
+  if (typeof packages !== 'object' || packages === null) {
+    return result
+  }
+
+  const seen = new Set<string>()
+  for (const tuple of Object.values<any>(packages)) {
+    // Package values are tuples whose first element is `name@ref`; the rest
+    // varies by resolution kind (registry entries carry the tarball URL at
+    // index 1 — '' for the default registry — and the integrity hash at
+    // index 3). An unrecognizable value is skipped rather than guessed at,
+    // like unparseable pnpm keys. Aliased installs appear under the alias
+    // key but record the real package name in the tuple, so the split below
+    // always yields the real name.
+    if (!Array.isArray(tuple) || typeof tuple[0] !== 'string') {
+      continue
+    }
+    const split = splitPackageKey(tuple[0])
+    if (split === undefined) {
+      continue
+    }
+    const { name, ref } = split
+
+    if (seen.has(`${name}@${ref}`)) {
+      continue
+    }
+    seen.add(`${name}@${ref}`)
+
+    if (ref.startsWith('workspace:')) {
       result.excluded.push({
         name,
-        version,
-        reason: `the lockfile records no integrity hash for '${name}@${version}',`
-          + ` which is required to embed it`,
-        kind: 'unfetchable',
+        reason: `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
       })
       continue
     }
 
-    const tarball = resolution?.tarball
-    result.registry.push({
-      name,
-      version,
-      integrity,
-      // Only absolute http(s) URLs are usable for downloading; anything
-      // else falls back to the registry-derived URL.
-      tarballUrl: typeof tarball === 'string' && /^https?:/.test(tarball) ? tarball : undefined,
-    })
+    classifyRegistryEntry(result, name, ref, tuple[3], tuple[1])
   }
 
   return result

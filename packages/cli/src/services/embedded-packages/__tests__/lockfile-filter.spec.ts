@@ -23,6 +23,15 @@ const NPM_LOCKFILE = JSON.stringify({
   },
 })
 
+// Trailing comma included: bun.lock is JSONC and the filter must accept
+// bun's own serialization.
+const BUN_LOCKFILE = `{
+  "lockfileVersion": 1,
+  "packages": {
+    "@acme/kept": ["@acme/kept@1.2.3", "", {}, "sha512-aaa"],
+  },
+}`
+
 describe('filterTarballsByLockfile()', () => {
   const kept = {
     name: '@acme/kept',
@@ -45,6 +54,12 @@ describe('filterTarballsByLockfile()', () => {
 
   it('splits tarballs by name@version presence in an npm lockfile', () => {
     const result = filterTarballsByLockfile([kept, dropped], NPM_LOCKFILE, 'package-lock.json')
+    expect(result.kept).toEqual([kept])
+    expect(result.dropped).toEqual([dropped])
+  })
+
+  it('splits tarballs by name@version presence in a bun lockfile', () => {
+    const result = filterTarballsByLockfile([kept, dropped], BUN_LOCKFILE, 'bun.lock')
     expect(result.kept).toEqual([kept])
     expect(result.dropped).toEqual([dropped])
   })
