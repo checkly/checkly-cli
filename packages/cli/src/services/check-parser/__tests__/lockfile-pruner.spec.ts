@@ -2198,11 +2198,14 @@ ms@2.1.2:
     it.skipIf(process.platform !== 'win32')('skips notably when yarn resolves to Yarn Classic on Windows', async () => {
       // The Windows variant matters in its own right: the guard must
       // resolve a `yarn.cmd` shim (which shell-less spawns cannot) and
-      // tolerate CRLF-terminated probe output.
+      // tolerate CRLF-terminated probe output. `%~1` strips the quotes
+      // cross-spawn wraps every cmd.exe argument in, so the shim matches
+      // `--version` exactly as the real corepack yarn.cmd (which forwards
+      // %* to node, whose argv parser strips them) would.
       const binDir = await makeTempDir()
       await fs.writeFile(
         path.join(binDir, 'yarn.cmd'),
-        '@echo off\r\nif "%1"=="--version" (\r\n  echo 1.22.22\r\n  exit /b 0\r\n)\r\nexit /b 1\r\n',
+        '@echo off\r\nif "%~1"=="--version" (\r\n  echo 1.22.22\r\n  exit /b 0\r\n)\r\nexit /b 1\r\n',
       )
       const { workspace, files } = makeYarnScenario()
       const result = await pruneBundledLockfile({
