@@ -143,9 +143,10 @@ export type ChecklyConfig = {
     dependencyCache?: {
       /**
        * Optional value mixed into the code bundle's cache hash in addition
-       * to its usual inputs (lockfile, package.json, .npmrc and bundled
-       * pnpmfile files, and the resolved `bundle.packages.embed` tarball
-       * set).
+       * to its usual inputs — the workspace's dependency-install inputs.
+       * The exhaustive input list lives with the hash itself; see
+       * `ComposeCacheHashInput` in
+       * `services/check-parser/cache-hash.ts`.
        * Change the value to force runners to reinstall the bundle's
        * dependencies. Setting it for the first time invalidates the cache
        * once. Numbers must be safe integers; unset and empty string leave

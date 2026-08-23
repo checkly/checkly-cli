@@ -104,6 +104,8 @@ export function shouldPruneLockfile (
   files: ReadonlyMap<string, File>,
   env: NodeJS.ProcessEnv = process.env,
 ): ShouldPruneResult {
+  // '0' is the documented spelling; 'false' is a tolerated alias for the
+  // common boolean-env habit and must keep working.
   if (env.CHECKLY_LOCKFILE_PRUNE === '0' || env.CHECKLY_LOCKFILE_PRUNE === 'false') {
     return { prune: false, reason: `disabled via CHECKLY_LOCKFILE_PRUNE=${env.CHECKLY_LOCKFILE_PRUNE}` }
   }
