@@ -60,15 +60,23 @@ export class UnsupportedLockfileError extends Error {
 export async function loadLockfilePackages (lockfilePath: string): Promise<LockfilePackages> {
   const basename = path.basename(lockfilePath)
   const content = await fs.readFile(lockfilePath, 'utf8')
+  return parseLockfilePackagesContent(content, basename)
+}
 
-  switch (basename) {
+/**
+ * Content-based variant of {@link loadLockfilePackages} for lockfiles that
+ * exist only in memory (e.g. a pruned copy of the bundled lockfile). The
+ * format is dispatched on the lockfile's filename.
+ */
+export function parseLockfilePackagesContent (content: string, lockfileName: string): LockfilePackages {
+  switch (lockfileName) {
     case 'pnpm-lock.yaml':
       return parsePnpmLockfilePackages(content)
     case 'package-lock.json':
       return parseNpmLockfilePackages(content)
     default:
       throw new UnsupportedLockfileError(
-        `Embedded packages are not supported for '${basename}' lockfiles yet.`
+        `Embedded packages are not supported for '${lockfileName}' lockfiles yet.`
         + ` Only pnpm (pnpm-lock.yaml) and npm (package-lock.json) are currently supported.`,
       )
   }

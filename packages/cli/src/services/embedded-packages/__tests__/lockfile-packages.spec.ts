@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import {
   UnsupportedLockfileError,
   loadLockfilePackages,
+  parseLockfilePackagesContent,
   parseNpmLockfilePackages,
   parsePnpmLockfilePackages,
 } from '../lockfile-packages.js'
@@ -319,5 +320,33 @@ describe('loadLockfilePackages()', () => {
     } finally {
       await fs.rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('parseLockfilePackagesContent()', () => {
+  it('dispatches on the lockfile name for both supported formats', () => {
+    const pnpm = parseLockfilePackagesContent(`
+lockfileVersion: '9.0'
+packages:
+  foo@1.0.0:
+    resolution: {integrity: sha512-aaa}
+`, 'pnpm-lock.yaml')
+    expect(pnpm.registry.map(pkg => pkg.name)).toEqual(['foo'])
+
+    const npm = parseLockfilePackagesContent(JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        'node_modules/bar': {
+          version: '2.0.0',
+          resolved: 'https://registry.npmjs.org/bar/-/bar-2.0.0.tgz',
+          integrity: 'sha512-bbb',
+        },
+      },
+    }), 'package-lock.json')
+    expect(npm.registry.map(pkg => pkg.name)).toEqual(['bar'])
+  })
+
+  it('rejects unsupported lockfile names', () => {
+    expect(() => parseLockfilePackagesContent('', 'yarn.lock')).toThrow(UnsupportedLockfileError)
   })
 })
