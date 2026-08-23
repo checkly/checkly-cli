@@ -1,0 +1,5 @@
+{
+  "name": "test-pnpm-pnpmfile-no-checksum",
+  "version": "1.0.0",
+  "private": true
+}

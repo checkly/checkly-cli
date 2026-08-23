@@ -164,6 +164,17 @@ describe('dependency-parser - parser()', () => {
             expect(dependencies.map(({ filePath }) => filePath)).not.toContain(toAbsolutePath('.pnpmfile.cjs'))
           })
         })
+
+        describe('pnpm-pnpmfile-no-checksum', () => {
+          it('reports no pnpmfiles when the lockfile records no checksum', async () => {
+            // The fixture has a .pnpmfile.cjs, but its lockfile records no
+            // pnpmfileChecksum — so there is nothing for a remote install to
+            // reproduce and the workspace must not pick up the pnpmfile.
+            const workspace = await new PNpmDetector().lookupWorkspace(fixt.abspath('pnpm-pnpmfile-no-checksum'))
+            expect(workspace).toBeDefined()
+            expect(workspace?.pnpmfiles).toEqual([])
+          })
+        })
       })
 
       describe('pnpmfile bundling', () => {

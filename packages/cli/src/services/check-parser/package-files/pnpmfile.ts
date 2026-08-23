@@ -3,9 +3,12 @@ import path from 'node:path'
 
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
+import Debug from 'debug'
 import { parse as parseYaml } from 'yaml'
 
 import { parseNpmrc } from '../../embedded-packages/npmrc.js'
+
+const debug = Debug('checkly:cli:services:check-parser:pnpmfile')
 
 /**
  * The default pnpmfile filenames pnpm looks for at the workspace root, in
@@ -86,6 +89,15 @@ const HAZARDOUS_IDENTIFIERS = new Set([
  * references none of {@link HAZARDOUS_IDENTIFIERS}. Returns undefined when
  * the file is self-contained, or a human-readable reason when it is not
  * (or cannot be confidently analyzed).
+ *
+ * The analysis assumes a non-adversarial author: it exists to catch a
+ * user's own accidentally environment-dependent code, not deliberate
+ * obfuscation. Reflective escape hatches (e.g. reaching the Function
+ * constructor through a `.constructor` property, or any computed member
+ * access) are deliberately not chased — a rule broad enough to close them
+ * would false-positive on ubiquitous pnpmfile patterns like
+ * `pkg.dependencies[name]` and silently cost users both pnpmfile bundling
+ * and lockfile pruning.
  */
 function analyzePnpmfile (contents: string, filename: string): string | undefined {
   const sourceType = filename.endsWith('.mjs') ? 'module' : 'script'
@@ -279,6 +291,7 @@ export async function loadWorkspacePnpmfiles (
     try {
       const lockfileContent = await readTextFileIfPresent(lockfilePath)
       if (lockfileContent === undefined || !/^pnpmfileChecksum:/m.test(lockfileContent)) {
+        debug(`lockfile '%s' records no pnpmfileChecksum; not bundling any pnpmfile`, lockfilePath)
         return []
       }
     } catch (err) {
@@ -289,13 +302,6 @@ export async function loadWorkspacePnpmfiles (
     }
   }
 
-  return await loadWorkspacePnpmfilesWithoutChecksumGate(rootPath, configFilePath)
-}
-
-async function loadWorkspacePnpmfilesWithoutChecksumGate (
-  rootPath: string,
-  configFilePath?: string,
-): Promise<PnpmfileInfo[]> {
   let settings: PnpmfileSettings
   try {
     settings = await readPnpmfileSettings(rootPath, configFilePath)
