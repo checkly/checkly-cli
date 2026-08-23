@@ -172,7 +172,10 @@ export function getAutoIncludes (
 ): string[] {
   const autoIncludes: string[] = []
 
-  if (packageManager.name === 'pnpm') {
+  // Both package managers keep dependency patches in a `patches/` directory
+  // that the remote install (and the lockfile pruner's temp-dir install, for
+  // bun's `patchedDependencies`) needs alongside the manifests.
+  if (packageManager.name === 'pnpm' || packageManager.name === 'bun') {
     const patchesDir = path.join(basePath, 'patches')
     const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
     if (!alreadyIncluded) {

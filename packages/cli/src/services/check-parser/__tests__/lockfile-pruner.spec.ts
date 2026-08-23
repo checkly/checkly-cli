@@ -1,8 +1,9 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterAll, vi } from 'vitest'
 
 import {
   pruneBundledLockfile,
@@ -10,13 +11,40 @@ import {
   shouldPruneLockfile,
 } from '../lockfile-pruner.js'
 import { createFauxPackageFiles } from '../faux-package.js'
-import { NpmDetector, PackageManager, PNpmDetector, Runnable } from '../package-files/package-manager.js'
+import { BunDetector, NpmDetector, PackageManager, PNpmDetector, Runnable } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
 
 const PNPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-workspace')
 const NPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'npm-workspace')
+const BUN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'bun-workspace')
+
+// Unlike pnpm and npm, bun is not part of the repo's own toolchain, so the
+// tests that run a real bun install skip themselves when it is not on PATH.
+// A dedicated CI-only test asserts that bun IS provisioned there, so losing
+// the provisioning step fails the job with a self-describing message
+// instead of silently removing the coverage.
+const bunAvailable = spawnSync('bun', ['--version']).status === 0
+
+// Generates a stub package-manager script that rewrites the materialized
+// bun.lock through string replacements — bun.lock is JSONC with trailing
+// commas, which node's JSON.parse rejects, and the prune temp dir has no
+// node_modules to load a JSON5 parser from. A search string that no longer
+// matches (e.g. after a fixture change) fails the script rather than
+// silently leaving the lockfile unmodified, which would let some tests
+// pass vacuously.
+const rewriteBunLockScript = (...replacements: Array<[string, string]>): string => `
+  const fs = require('fs')
+  let content = fs.readFileSync('bun.lock', 'utf8')
+  ${replacements.map(([from, to]) => `
+  if (!content.includes(${JSON.stringify(from)})) {
+    console.error('rewriteBunLockScript: no match for ' + ${JSON.stringify(from)})
+    process.exit(93)
+  }
+  content = content.split(${JSON.stringify(from)}).join(${JSON.stringify(to)})`).join('\n')}
+  fs.writeFileSync('bun.lock', content)
+`
 
 // Ambient values (particularly CHECKLY_LOCKFILE_PRUNE) must not leak into
 // test outcomes.
@@ -83,6 +111,7 @@ describe('lockfile-pruner', () => {
 
   const makePnpmScenario = (root: string = PNPM_FIXTURE_ROOT) => makeScenario(root, 'pnpm-lock.yaml')
   const makeNpmScenario = (root: string = NPM_FIXTURE_ROOT) => makeScenario(root, 'package-lock.json')
+  const makeBunScenario = (root: string = BUN_FIXTURE_ROOT) => makeScenario(root, 'bun.lock')
 
   describe('shouldPruneLockfile()', () => {
     it('skips when disabled via CHECKLY_LOCKFILE_PRUNE=0', () => {
@@ -220,7 +249,11 @@ describe('lockfile-pruner', () => {
       })
     })
 
-    it('fails when the executable does not exist', async () => {
+    it('skips notably when the executable does not exist', async () => {
+      // A lockfile can be committed without its package manager being
+      // installed where the CLI runs (e.g. a bun.lock deployed from a
+      // node-only CI image). That is a skip with an accurate reason, not a
+      // failure implying the lockfile itself is broken.
       const { workspace, files } = makePnpmScenario()
       const result = await pruneBundledLockfile({
         workspace,
@@ -228,7 +261,11 @@ describe('lockfile-pruner', () => {
         files,
         env: testEnv(),
       })
-      expect(result).toMatchObject({ status: 'failed' })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('checkly-no-such-executable-xyz is not installed'),
+        notable: true,
+      })
     })
 
     it('fails when the command times out', async () => {
@@ -836,6 +873,496 @@ describe('lockfile-pruner', () => {
       // Dropped: dependencies of the shimmed and absent members.
       expect(doc.packages['node_modules/isarray']).toBeUndefined()
       expect(doc.packages['node_modules/ee-first']).toBeUndefined()
+    }, 60_000)
+
+    // The bun stub scripts below mutate the materialized bun.lock via string
+    // replacement rather than parse-and-rewrite: bun.lock is JSONC with
+    // trailing commas, which node's JSON.parse rejects, and the prune temp
+    // dir has no node_modules to load a JSON5 parser from.
+
+    it('reports a bun prune with the original content when only backfill is needed', async () => {
+      const { workspace, files } = makeBunScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned', archivePath: 'bun.lock' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('@fixture/absent')
+    })
+
+    it('fails when a kept bun package entry is rewritten to a different registry URL', async () => {
+      // Registry config in the environment makes bun rewrite tarball URLs
+      // inside otherwise-unchanged tuples, offline and with exit 0. The
+      // rewritten tuple exists nowhere in the original, so the subset check
+      // must reject it.
+      const { workspace, files } = makeBunScenario()
+      const script = rewriteBunLockScript(
+        ['["ms@2.1.3", "",', '["ms@2.1.3", "https://mirror.example.com/ms/-/ms-2.1.3.tgz",'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('not present in the original'),
+      })
+    })
+
+    it('accepts a bun package entry re-keyed under a different hoist key', async () => {
+      // Pruning the member that owns a hoisted key makes bun re-key the
+      // surviving member-scoped entry with an unchanged tuple. The subset
+      // check is keyed by tuple content, so the rename alone must not fail
+      // the verification.
+      const { workspace, files } = makeBunScenario()
+      const script = rewriteBunLockScript(
+        ['"ms": ["ms@2.1.3"', '"@fixture/used/ms": ["ms@2.1.3"'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+    })
+
+    it('treats an absent bun configVersion as 0', async () => {
+      // bun writes an explicit `configVersion: 0` when regenerating a
+      // lockfile that lacks the field, so absent-vs-0 must not be reported
+      // as a version change.
+      const root = await makeTempDir()
+      await fs.cp(BUN_FIXTURE_ROOT, root, { recursive: true })
+      const lockfilePath = path.join(root, 'bun.lock')
+      const content = await fs.readFile(lockfilePath, 'utf8')
+      // No newline in the search string: a Windows checkout may carry CRLF.
+      await fs.writeFile(lockfilePath, content.replace('"configVersion": 1,', ''))
+
+      const { workspace, files } = makeBunScenario(root)
+      const script = rewriteBunLockScript(
+        ['"lockfileVersion": 1,', '"lockfileVersion": 1,\n  "configVersion": 0,'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+    })
+
+    it('fails when the bun configVersion changes', async () => {
+      const { workspace, files } = makeBunScenario()
+      const script = rewriteBunLockScript(
+        ['"configVersion": 1,', '"configVersion": 2,'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('lockfile version changed'),
+      })
+      if (result.status !== 'failed') {
+        return
+      }
+      expect(result.reason).toContain('configVersion')
+    })
+
+    it('skips unsupported bun lockfiles notably', async () => {
+      // An unknown lockfileVersion fails closed before any command runs.
+      const versionRoot = await makeTempDir()
+      await fs.cp(BUN_FIXTURE_ROOT, versionRoot, { recursive: true })
+      const versionLockfilePath = path.join(versionRoot, 'bun.lock')
+      const versionContent = await fs.readFile(versionLockfilePath, 'utf8')
+      await fs.writeFile(versionLockfilePath, versionContent.replace('"lockfileVersion": 1,', '"lockfileVersion": 2,'))
+      const versionScenario = makeBunScenario(versionRoot)
+      expect(await pruneBundledLockfile({
+        workspace: versionScenario.workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files: versionScenario.files,
+        env: testEnv(),
+      })).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported'),
+        notable: true,
+      })
+
+      // The binary lockfile format is rejected by basename, with a remedy.
+      const binaryRoot = await makeTempDir()
+      await fs.cp(BUN_FIXTURE_ROOT, binaryRoot, { recursive: true })
+      await fs.writeFile(path.join(binaryRoot, 'bun.lockb'), Buffer.from([0x62, 0x75, 0x6e, 0x00, 0x01, 0x02]))
+      const binaryScenario = makeScenario(binaryRoot, 'bun.lockb')
+      expect(await pruneBundledLockfile({
+        workspace: binaryScenario.workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files: binaryScenario.files,
+        env: testEnv(),
+      })).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('bun install --save-text-lockfile'),
+        notable: true,
+      })
+    })
+
+    // Builds a workspace where the `ms` member is consumed through a bare
+    // semver range — which bun records verbatim in the importer while
+    // resolving it to a member-scoped workspace tuple — AND a same-named
+    // registry package is consumed by the root. Link classification for
+    // these edges depends entirely on the per-edge member-scoped-then-
+    // hoisted packages-key probe: a name-global answer would misclassify
+    // one of the two edges. The lockfile is hand-built (plain JSON is valid
+    // JSONC) mirroring bun 1.3.11's real layout for this shape, with
+    // single-line entries so stub scripts can rewrite it via string
+    // replacement.
+    const makeMixedBunScenario = async () => {
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/a'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/ms'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'mixed-bun-fixture',
+        private: true,
+        workspaces: ['packages/*'],
+        dependencies: { ms: '2.1.3' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/a/package.json'), JSON.stringify({
+        name: 'a',
+        version: '1.0.0',
+        dependencies: { ms: '^1.0.0' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/ms/package.json'), JSON.stringify({
+        name: 'ms',
+        version: '1.0.0',
+      }))
+      await fs.writeFile(path.join(root, 'bun.lock'), `{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": { "name": "mixed-bun-fixture", "dependencies": { "ms": "2.1.3" } },
+    "packages/a": { "name": "a", "version": "1.0.0", "dependencies": { "ms": "^1.0.0" } },
+    "packages/ms": { "name": "ms", "version": "1.0.0" }
+  },
+  "packages": {
+    "a": ["a@workspace:packages/a"],
+    "a/ms": ["ms@workspace:packages/ms"],
+    "ms": ["ms@2.1.3", "", {}, "sha512-mmm"]
+  }
+}`)
+
+      const a = new Package({ name: 'a', path: path.join(root, 'packages/a'), version: '1.0.0' })
+      const msMember = new Package({ name: 'ms', path: path.join(root, 'packages/ms'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'mixed-bun-fixture', path: root }),
+        packages: [a, msMember],
+        lockfile: Ok(path.join(root, 'bun.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['bun.lock', { filePath: path.join(root, 'bun.lock'), physical: true }],
+        ['packages/a/package.json', { filePath: path.join(root, 'packages/a/package.json'), physical: true }],
+        // The ms member's manifest is deliberately not in the bundle.
+      ])
+      return { workspace, files, a }
+    }
+
+    it('backfills a bun member consumed through a bare semver range', async () => {
+      const { workspace, files } = await makeMixedBunScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      // The manifest spec is '^1.0.0', not 'workspace:*', so the backfill
+      // can only trigger through the lockfile's per-edge link resolution
+      // (the member-scoped 'a/ms' workspace tuple), never through the spec
+      // prefix.
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('ms')
+    })
+
+    it('backfills a bun member consumed through a bare-semver peer dependency', async () => {
+      // Unlike pnpm importers, bun workspace entries record peerDependencies
+      // as their own group, and the snapshot parser must walk it: a peer
+      // edge resolved to a workspace tuple triggers backfill exactly like a
+      // regular dependency edge. The hand-built lockfile mirrors what bun
+      // 1.3.11 emits for this shape: the peer-consumed member holds the
+      // hoisted packages key as a workspace tuple.
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/a'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/core'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'peer-bun-fixture',
+        private: true,
+        workspaces: ['packages/*'],
+      }))
+      await fs.writeFile(path.join(root, 'packages/a/package.json'), JSON.stringify({
+        name: 'a',
+        version: '1.0.0',
+        peerDependencies: { core: '^1.0.0' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/core/package.json'), JSON.stringify({
+        name: 'core',
+        version: '1.0.0',
+      }))
+      await fs.writeFile(path.join(root, 'bun.lock'), `{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": { "name": "peer-bun-fixture" },
+    "packages/a": { "name": "a", "version": "1.0.0", "peerDependencies": { "core": "^1.0.0" } },
+    "packages/core": { "name": "core", "version": "1.0.0" }
+  },
+  "packages": {
+    "a": ["a@workspace:packages/a"],
+    "core": ["core@workspace:packages/core"]
+  }
+}`)
+      const a = new Package({ name: 'a', path: path.join(root, 'packages/a'), version: '1.0.0' })
+      const core = new Package({ name: 'core', path: path.join(root, 'packages/core'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'peer-bun-fixture', path: root }),
+        packages: [a, core],
+        lockfile: Ok(path.join(root, 'bun.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['bun.lock', { filePath: path.join(root, 'bun.lock'), physical: true }],
+        ['packages/a/package.json', { filePath: path.join(root, 'packages/a/package.json'), physical: true }],
+        // The core member's manifest is deliberately not in the bundle: the
+        // backfill must trigger through the peer edge's link resolution.
+      ])
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('core')
+    })
+
+    it('skips notably when bun leaves no regenerated lockfile behind', async () => {
+      // Bun deletes a lockfile that would describe no packages ("No
+      // packages! Deleted empty lockfile"); the pruner must not blame the
+      // user's lockfile for that.
+      const { workspace, files } = makeBunScenario()
+      const script = 'require(\'fs\').unlinkSync(\'bun.lock\')'
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('was not found after the command completed'),
+        notable: true,
+      })
+    })
+
+    it('fails when a bare-semver bun workspace resolution becomes a registry package', async () => {
+      // The bun analog of npm's silent registry substitution: the
+      // member-scoped workspace tuple disappears, so the edge that used to
+      // resolve to the workspace member now resolves to the same-named
+      // hoisted registry package.
+      const { workspace, files } = await makeMixedBunScenario()
+      const script = rewriteBunLockScript(
+        ['"a/ms": ["ms@workspace:packages/ms"],', ''],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining(`'ms' is no longer a workspace link`),
+      })
+    })
+
+    it('does not mistake a bun registry edge for a link when the same-named member is pruned away', async () => {
+      // With member a shimmed to a dependency-free manifest, pruning
+      // legitimately drops both a's dependency on the ms member and the
+      // member-scoped workspace tuple — while the root keeps its registry
+      // ms. A name-global link classification would mark the root's
+      // registry edge as a link in the original and fail verification with
+      // a spurious "no longer a workspace link"; the per-edge probe must
+      // accept this prune.
+      const { workspace, files, a } = await makeMixedBunScenario()
+      files.set('packages/a/package.json', createFauxPackageFiles(a)[0])
+      const script = rewriteBunLockScript(
+        ['"a/ms": ["ms@workspace:packages/ms"],', ''],
+        [', "dependencies": { "ms": "^1.0.0" }', ''],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.content).not.toContain('a/ms')
+      expect(result.content).toContain('ms@2.1.3')
+    })
+
+    it('fails when a bundled bun importer disappears from the lockfile', async () => {
+      const { workspace, files } = makeBunScenario()
+      const script = rewriteBunLockScript(
+        ['"packages/used": {', '"packages/renamed": {'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining(`lost the importer 'packages/used'`),
+      })
+    })
+
+    it('skips notably for bun when the temp dir sits inside a workspace', async () => {
+      // A workspace ancestor of the temp dir can capture bun's root
+      // resolution — bun walks up and re-roots at a matching workspaces
+      // glob, then writes the regenerated lockfile at THAT root, outside
+      // the sandbox and over a real file. The pruner must refuse to run
+      // there. (The skip fires before any command is spawned, so this test
+      // needs no real bun.)
+      const outer = await makeTempDir()
+      // Deliberately JSONC (comment + trailing comma): bun's own
+      // package.json parser accepts this, so the ancestor scan must too —
+      // strict JSON.parse would miss the workspace and let bun escape.
+      await fs.writeFile(path.join(outer, 'package.json'), `{
+  // ancestor workspace
+  "name": "ancestor",
+  "private": true,
+  "workspaces": ["**"],
+}`)
+      const tmpInside = path.join(outer, 'tmp')
+      await fs.mkdir(tmpInside)
+      const { workspace, files } = makeBunScenario()
+      vi.stubEnv('TMPDIR', tmpInside)
+      vi.stubEnv('TEMP', tmpInside)
+      vi.stubEnv('TMP', tmpInside)
+      try {
+        const result = await pruneBundledLockfile({
+          workspace,
+          packageManager: new BunDetector(),
+          files,
+          env: testEnv(),
+        })
+        expect(result).toMatchObject({
+          status: 'skipped',
+          reason: expect.stringContaining('outside any workspace to enable pruning'),
+          notable: true,
+        })
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it('skips notably for bun when an unparseable manifest shadows the temp dir', async () => {
+      // A package.json that fails even JSONC parsing cannot be ruled out as
+      // a workspace root (bun's own parser might still accept it), so the
+      // scan fails safe — with a reason that names the real cause instead
+      // of asserting a workspace exists.
+      const outer = await makeTempDir()
+      await fs.writeFile(path.join(outer, 'package.json'), 'not a manifest {{{')
+      const tmpInside = path.join(outer, 'tmp')
+      await fs.mkdir(tmpInside)
+      const { workspace, files } = makeBunScenario()
+      vi.stubEnv('TMPDIR', tmpInside)
+      vi.stubEnv('TEMP', tmpInside)
+      vi.stubEnv('TMP', tmpInside)
+      try {
+        const result = await pruneBundledLockfile({
+          workspace,
+          packageManager: new BunDetector(),
+          files,
+          env: testEnv(),
+        })
+        expect(result).toMatchObject({
+          status: 'skipped',
+          reason: expect.stringContaining('could not be ruled out as a workspace root'),
+          notable: true,
+        })
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it.skipIf(process.env.CHECKLY_EXPECT_BUN === undefined)('bun is provisioned when CHECKLY_EXPECT_BUN is set', () => {
+      // The repo's own CI workflow sets CHECKLY_EXPECT_BUN after
+      // provisioning bun; keying off that flag (rather than the generic CI
+      // variable) keeps this from failing for users who run the suite with
+      // CI=true on machines that legitimately lack bun.
+      expect(
+        bunAvailable,
+        'CHECKLY_EXPECT_BUN is set but bun is missing from PATH, so the real-bun pruner tests were'
+        + ' skipped. Restore the oven-sh/setup-bun step in .github/workflows/test.yml.',
+      ).toBe(true)
+    })
+
+    it.skipIf(!bunAvailable)('prunes the lockfile with real bun, backfilling link-referenced members', async () => {
+      const { workspace, files } = makeBunScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new BunDetector(),
+        files,
+        env: testEnv(),
+      })
+
+      expect(result.status).toEqual('pruned')
+      if (result.status !== 'pruned') {
+        return
+      }
+
+      expect(result.archivePath).toEqual('bun.lock')
+
+      // The root manifest declares @fixture/absent as workspace:*, so a faux
+      // manifest must have been backfilled for it.
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content)).toMatchObject({
+        name: '@fixture/absent',
+        version: '1.0.0',
+      })
+
+      // Kept: every workspace member entry (the shimmed and backfilled
+      // members keep dependency-free importers) and the imported member's
+      // dependency.
+      expect(result.content).toContain('@fixture/used@workspace:packages/used')
+      expect(result.content).toContain('@fixture/shimmed@workspace:packages/shimmed')
+      expect(result.content).toContain('@fixture/absent@workspace:packages/absent')
+      expect(result.content).toContain('ms@2.1.3')
+
+      // Dropped: dependencies of the shimmed and absent members.
+      expect(result.content).not.toContain('isarray')
+      expect(result.content).not.toContain('ee-first')
     }, 60_000)
   })
 })

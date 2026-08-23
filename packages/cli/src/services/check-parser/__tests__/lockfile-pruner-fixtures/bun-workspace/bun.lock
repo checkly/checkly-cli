@@ -1,0 +1,48 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "lockfile-pruner-bun-fixture",
+      "dependencies": {
+        "@fixture/absent": "workspace:*",
+        "@fixture/shimmed": "workspace:*",
+        "@fixture/used": "workspace:*",
+      },
+    },
+    "packages/absent": {
+      "name": "@fixture/absent",
+      "version": "1.0.0",
+      "dependencies": {
+        "ee-first": "1.1.1",
+      },
+    },
+    "packages/shimmed": {
+      "name": "@fixture/shimmed",
+      "version": "1.0.0",
+      "dependencies": {
+        "isarray": "2.0.5",
+      },
+    },
+    "packages/used": {
+      "name": "@fixture/used",
+      "version": "1.0.0",
+      "dependencies": {
+        "ms": "2.1.3",
+      },
+    },
+  },
+  "packages": {
+    "@fixture/absent": ["@fixture/absent@workspace:packages/absent"],
+
+    "@fixture/shimmed": ["@fixture/shimmed@workspace:packages/shimmed"],
+
+    "@fixture/used": ["@fixture/used@workspace:packages/used"],
+
+    "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
+
+    "isarray": ["isarray@2.0.5", "", {}, "sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw=="],
+
+    "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
+  }
+}

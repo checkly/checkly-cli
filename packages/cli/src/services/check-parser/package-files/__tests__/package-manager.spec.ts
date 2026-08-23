@@ -588,10 +588,15 @@ describe('lockfileOnlyInstallCommand', () => {
     expect(runnable?.args).toEqual(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
   })
 
-  it('is unsupported for cnpm, yarn, deno and bun', () => {
+  it('regenerates the lockfile without installing for bun', () => {
+    const runnable = new BunDetector().lockfileOnlyInstallCommand()
+    expect(runnable.executable).toEqual('bun')
+    expect(runnable.args).toEqual(['install', '--lockfile-only', '--ignore-scripts'])
+  })
+
+  it('is unsupported for cnpm, yarn and deno', () => {
     expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new YarnDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
-    expect(new BunDetector().lockfileOnlyInstallCommand()).toBeUndefined()
   })
 })

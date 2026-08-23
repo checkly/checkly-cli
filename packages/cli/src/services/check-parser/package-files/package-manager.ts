@@ -55,7 +55,12 @@ export interface PackageManager {
    * from config layers the caller cannot inspect (e.g. the user-level
    * ~/.npmrc), and an inherited value would redirect the subprocess's
    * lockfile write outside the working directory — potentially over a
-   * real lockfile.
+   * real lockfile. When the package manager offers no way to pin the
+   * location (bun re-roots at any ancestor package.json whose workspaces
+   * glob matches the working directory, with no counteracting flag), the
+   * CALLER must verify before spawning that no such ancestor exists — the
+   * lockfile pruner refuses to run when its temp dir sits inside a
+   * workspace.
    */
   lockfileOnlyInstallCommand (): Runnable | undefined
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
@@ -145,10 +150,10 @@ export abstract class PackageManagerDetector {
    * lockfile pruning. Package managers with such a mode override this.
    *
    * Note that a lockfile-only mode existing is not the same as it being
-   * supported here: Yarn Berry (`yarn install --mode=update-lockfile`) and
-   * recent Bun (`bun install --lockfile-only`) have one, but their behavior
-   * has not been verified for the CLI's use, so they deliberately stay on
-   * this default for now (Yarn Classic has no such mode at all).
+   * supported here: Yarn Berry has one (`yarn install --mode=update-lockfile`),
+   * but its behavior has not been verified for the CLI's use, so it
+   * deliberately stays on this default for now (Yarn Classic has no such
+   * mode at all).
    */
   lockfileOnlyInstallCommand (): Runnable | undefined {
     return undefined
@@ -671,6 +676,29 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
 
   async lookupWorkspace (dir: string): Promise<Workspace | undefined> {
     return await lookupNearestPackageJsonWorkspace(this, dir)
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    // Verified on bun 1.3.11: this regenerates bun.lock offline from the
+    // recorded resolutions, pruning entries no longer reachable from the
+    // manifests on disk, without touching node_modules. One exception: when
+    // a workspace member's name collides with a registry dependency
+    // consumed elsewhere, bun rejects its own lockfile (InvalidPackageKey)
+    // and silently re-resolves from the network with exit 0 — the pruner's
+    // tuple-subset and importer-preservation checks bound that fail-closed.
+    // Bun has no lockfile-location setting to pin (unlike pnpm's
+    // --lockfile-dir) — but it re-roots at any ancestor package.json whose
+    // workspaces glob matches the working directory and then reads AND
+    // writes the lockfile at that root, with no flag to prevent it. Callers
+    // must guard against that themselves; the lockfile pruner refuses to
+    // run when its temp dir sits inside a workspace. CI=true does not imply
+    // a frozen lockfile (unlike pnpm), so no unfreeze flag is needed. The
+    // one freeze vector — bunfig `[install] frozenLockfile = true` — has no
+    // CLI override at all and simply fails the command, which the pruner
+    // reports and falls back on. Only the text lockfile (bun.lock) can be
+    // verified after regeneration; the binary bun.lockb is rejected later,
+    // when the lockfile is parsed.
+    return new Runnable('bun', ['install', '--lockfile-only', '--ignore-scripts'])
   }
 
   async resolvePackageVersionFromLockfile (

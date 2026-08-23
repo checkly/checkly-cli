@@ -4,10 +4,12 @@ import path from 'node:path'
 
 import Debug from 'debug'
 import { execa } from 'execa'
+import JSON5 from 'json5'
 import { parse as parseYaml } from 'yaml'
 
 import { createFauxPackageFiles } from './faux-package.js'
 import { isPnpmfilePath } from './package-files/pnpmfile.js'
+import { lineage } from './package-files/walk.js'
 import { PackageManager } from './package-files/package-manager.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { File, VirtualFile } from './parser.js'
@@ -345,6 +347,107 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     return snapshot
   }
 
+  if (lockfileName === 'bun.lock') {
+    // bun.lock is JSONC (bun writes trailing commas), hence JSON5.
+    let doc: any
+    try {
+      doc = JSON5.parse(content)
+    } catch {
+      throw new UnsupportedLockfileFormatError(`could not parse ${lockfileName}`)
+    }
+    const version = doc?.lockfileVersion !== undefined ? String(doc.lockfileVersion) : undefined
+    const workspaces = doc?.workspaces
+    const packages = doc?.packages
+    // Fail closed on unknown formats, like the parsers above.
+    if (
+      version !== '1'
+      || workspaces === null || typeof workspaces !== 'object'
+      || packages === null || typeof packages !== 'object'
+    ) {
+      throw new UnsupportedLockfileFormatError(
+        `unsupported ${lockfileName} version ${version}`,
+      )
+    }
+    // configVersion is folded into the version so the verification step also
+    // catches a regeneration that changed it. Bun preserves an existing value
+    // and treats an absent one as 0 rather than upgrading it, so the fold is
+    // stable for lockfiles written by older bun versions too. The format is
+    // self-describing because the value surfaces verbatim in the "lockfile
+    // version changed" failure reason.
+    snapshot.lockfileVersion = `${version} (configVersion ${doc.configVersion ?? 0})`
+
+    // A dependency edge resolves to a workspace link if either its spec says
+    // so or the package entry it resolves to is a workspace tuple; the latter
+    // covers bare semver specs that bun resolved to a workspace member. The
+    // entry must be resolved per edge — member-scoped key first, hoisted key
+    // second, as in parseBunLockfileVersion — because a workspace member's
+    // name may also be consumed from the registry by a different importer,
+    // and a name-global answer would misclassify one of the two edges.
+    const resolvesToWorkspace = (memberName: unknown, depName: string): boolean => {
+      const keys = typeof memberName === 'string' && memberName !== ''
+        ? [`${memberName}/${depName}`, depName]
+        : [depName]
+      for (const key of keys) {
+        const tuple = packages[key]
+        if (Array.isArray(tuple) && typeof tuple[0] === 'string') {
+          return tuple[0].includes('@workspace:')
+        }
+      }
+      return false
+    }
+
+    for (const [dir, entry] of Object.entries<any>(workspaces)) {
+      // The root importer is keyed '' in bun.lock; normalize to '.' so the
+      // importer-preservation check treats it like pnpm's root importer.
+      const importer = dir === '' ? '.' : dir
+      snapshot.importers.add(importer)
+      if (entry === null || typeof entry !== 'object') {
+        continue
+      }
+      // Unlike pnpm importers, bun workspace entries mirror all four manifest
+      // dependency groups, peerDependencies included.
+      for (const group of MANIFEST_DEPENDENCY_GROUPS) {
+        const entries = entry[group]
+        if (entries === null || typeof entries !== 'object') {
+          continue
+        }
+        for (const [name, spec] of Object.entries(entries)) {
+          if (typeof spec !== 'string') {
+            continue
+          }
+          snapshot.edges.set(`${importer}\0${group}\0${name}`, {
+            name,
+            isLink: spec.startsWith('workspace:')
+              || spec.startsWith('link:')
+              || resolvesToWorkspace(entry.name, name),
+          })
+        }
+      }
+    }
+
+    // Package values are resolution tuples (name@version, then registry URL,
+    // dependencies and integrity in a kind-dependent arity). Key the subset
+    // check by the whole serialized tuple rather than by the lockfile key:
+    // pruning the member that owns a hoisted key re-keys the surviving
+    // member-scoped entry (e.g. `b/ms` becomes `ms`) with an unchanged tuple,
+    // which a key-based check would falsely reject — while any change WITHIN
+    // a tuple (a registry rewrite of the tarball URL, a version bump) must
+    // still fail the check. Serialization is stable because both sides are
+    // parsed from bun's own deterministic output by this same function.
+    for (const tuple of Object.values(packages)) {
+      snapshot.resolutions.set(JSON.stringify(tuple), '')
+    }
+
+    return snapshot
+  }
+
+  if (lockfileName === 'bun.lockb') {
+    throw new UnsupportedLockfileFormatError(
+      'the binary bun.lockb format is not supported;'
+      + ' regenerate a text lockfile with `bun install --save-text-lockfile`',
+    )
+  }
+
   throw new UnsupportedLockfileFormatError(`unsupported lockfile ${lockfileName}`)
 }
 
@@ -520,6 +623,67 @@ function sanitizeDetail (detail: string): string {
   return `${redacted.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
 }
 
+// Larger files are not plausible manifests; the cap also keeps a scan of a
+// shared temp root from slurping an arbitrarily large unrelated file.
+const MAX_ANCESTOR_MANIFEST_BYTES = 4 * 1024 * 1024
+
+type WorkspaceAncestor = { dir: string, parseable: boolean }
+
+async function directoryExists (dir: string): Promise<boolean> {
+  try {
+    await fs.access(dir)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Shared between the spawn-ENOENT and lockfile-read-ENOENT branches: both
+// must rule out a reaped temp dir before attributing the ENOENT to anything
+// more specific.
+const TEMP_DIR_VANISHED: PruneBundledLockfileResult = {
+  status: 'failed',
+  reason: 'the temp directory disappeared while the command ran',
+}
+
+/**
+ * Walks from `startDir` to the filesystem root looking for a package.json
+ * that declares npm workspaces. The caller treats any hit as "this location
+ * is not a safe sandbox", so the scan errs toward matching: manifests are
+ * parsed with the same leniency bun's own package.json parser has (JSONC —
+ * comments and trailing commas, which strict JSON.parse rejects), and a
+ * manifest that exists but cannot be parsed even then counts as a hit
+ * (`parseable: false`), since bun's parser might still accept it.
+ */
+async function findWorkspaceAncestor (startDir: string): Promise<WorkspaceAncestor | undefined> {
+  for (const dir of lineage(startDir)) {
+    const manifestPath = path.join(dir, 'package.json')
+    let raw: string
+    try {
+      // Shared temp roots can hold arbitrary files under this name; stat
+      // first so a FIFO can't hang the read and an oversized file isn't
+      // slurped.
+      const stats = await fs.stat(manifestPath)
+      if (!stats.isFile() || stats.size > MAX_ANCESTOR_MANIFEST_BYTES) {
+        continue
+      }
+      raw = await fs.readFile(manifestPath, 'utf8')
+    } catch {
+      // No manifest here — keep walking.
+      continue
+    }
+    try {
+      const manifest = JSON5.parse(raw)
+      if (manifest !== null && typeof manifest === 'object' && 'workspaces' in manifest) {
+        return { dir, parseable: true }
+      }
+    } catch {
+      return { dir, parseable: false }
+    }
+  }
+  return undefined
+}
+
 /**
  * Regenerates the bundle's lockfile so it matches the bundle's actual set of
  * manifests, by materializing the resolution-relevant bundle entries into a
@@ -614,6 +778,29 @@ export async function pruneBundledLockfile (
     tempDir = await fs.mkdtemp(path.join(tmpdir(), 'checkly-lockfile-prune-'))
     tempDir = await fs.realpath(tempDir)
 
+    // Bun re-roots at an ancestor directory whose package.json declares
+    // workspaces with a glob matching the working directory — and then
+    // resolves against THAT root and writes the regenerated lockfile there,
+    // outside this sandbox, over a real file. This can only happen when the
+    // system temp dir itself sits inside a workspace (e.g. TMPDIR pointing
+    // into a repo), so refuse to run rather than risk it. pnpm pins the
+    // write with --lockfile-dir and anchors at the materialized
+    // pnpm-workspace.yaml, and npm does not re-root, so only bun needs the
+    // guard.
+    if (packageManager.name === 'bun') {
+      const ancestor = await findWorkspaceAncestor(path.dirname(tempDir))
+      if (ancestor !== undefined) {
+        return {
+          status: 'skipped',
+          reason: (ancestor.parseable
+            ? `the temp directory is inside the npm workspace at '${ancestor.dir}'`
+            : `an unparseable package.json at '${ancestor.dir}' could not be ruled out as a workspace root`)
+          + '; point TMPDIR (TEMP/TMP on Windows) outside any workspace to enable pruning',
+          notable: true,
+        }
+      }
+    }
+
     const entries: Array<[string, File]> = [
       ...selected,
       ...backfill.manifests,
@@ -659,6 +846,26 @@ export async function pruneBundledLockfile (
     if (result.timedOut) {
       return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
     }
+    if ((result as any).code === 'ENOENT') {
+      // A spawn ENOENT can also mean the working directory vanished (a temp
+      // reaper); only report a missing executable when the temp dir is
+      // still there.
+      if (!await directoryExists(tempDir)) {
+        return TEMP_DIR_VANISHED
+      }
+      // The lockfile's package manager isn't installed on this machine — a
+      // real situation for bun, whose detection needs only a committed
+      // bun.lock. Pruning was never attempted, so this is a notable skip,
+      // not a failure whose message would suggest the lockfile is broken —
+      // and installing the package manager, not disabling pruning, is the
+      // fix.
+      return {
+        status: 'skipped',
+        reason: `${runnable.executable} is not installed or not on PATH;`
+          + ' install it so the lockfile can be pruned',
+        notable: true,
+      }
+    }
     if (result.failed || result.exitCode !== 0) {
       const detail = [result.stderr, result.stdout, (result as any).shortMessage]
         .find(value => typeof value === 'string' && value.trim() !== '') ?? 'unknown error'
@@ -672,6 +879,23 @@ export async function pruneBundledLockfile (
     try {
       regeneratedContent = await fs.readFile(path.join(tempDir, lockfileName), 'utf8')
     } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // As in the spawn ENOENT branch: distinguish a reaped temp dir from
+        // a deliberately removed lockfile.
+        if (!await directoryExists(tempDir)) {
+          return TEMP_DIR_VANISHED
+        }
+        // Bun deletes a lockfile that would describe no packages at all
+        // ("No packages! Deleted empty lockfile") — deliberate behavior,
+        // not a broken lockfile, so don't surface it as a failure whose
+        // advice says to refresh the lockfile.
+        return {
+          status: 'skipped',
+          reason: 'the regenerated lockfile was not found after the command completed'
+            + ' (bun deletes a lockfile that would describe no packages)',
+          notable: true,
+        }
+      }
       return {
         status: 'failed',
         reason: `could not read the regenerated lockfile: ${(err as Error).message}`,

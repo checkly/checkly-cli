@@ -115,6 +115,11 @@ describe('getAutoIncludes()', () => {
     expect(result).toEqual(['patches/*.patch'])
   })
 
+  it('should return patches/*.patch for bun', () => {
+    const result = getAutoIncludes(basePath, basePath, makePm('bun'), [])
+    expect(result).toEqual(['patches/*.patch'])
+  })
+
   it('should return empty for npm', () => {
     const result = getAutoIncludes(basePath, basePath, makePm('npm'), [])
     expect(result).toEqual([])
