@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BundleArchive, BundleTooLargeError, Bundler, FinalizedBundleArchive } from '../bundler.js'
-import { npmPackageManager } from '../package-files/package-manager.js'
+import { npmPackageManager, YarnDetector } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
@@ -199,5 +199,78 @@ describe('Bundler.createForWorkspace', () => {
     })
 
     expect(without.cacheHash.toJSON()).not.toBe(withFoo.cacheHash.toJSON())
+  })
+})
+
+describe('Bundler.finalize() lockfile prune reporting', () => {
+  let dir: string
+  let stderrWrites: string[]
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-')))
+    await fs.mkdir(path.join(dir, 'packages/m'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'fixture-root',
+      private: true,
+      dependencies: { '@fixture/m': 'workspace:*' },
+    }))
+    await fs.writeFile(path.join(dir, 'packages/m/package.json'), JSON.stringify({
+      name: '@fixture/m',
+      version: '1.0.0',
+    }))
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), `lockfileVersion: '9.0'\n`)
+    stderrWrites = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      stderrWrites.push(String(chunk))
+      return true
+    })
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  const makeWorkspace = () => new Workspace({
+    root: new Package({ name: 'fixture-root', path: dir }),
+    packages: [new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' })],
+    lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+    configFile: Err(new Error('no config file')),
+  })
+
+  it('prints a note when pruning is needed but unavailable', async () => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      // Yarn has no lockfile-only install, so a partial-workspace bundle
+      // must surface the unpruned lockfile instead of skipping silently.
+      packageManager: new YarnDetector(),
+    })
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true },
+      { filePath: path.join(dir, 'packages/m/package.json'), physical: false, content: '{"name":"@fixture/m","version":"1.0.0"}' },
+    )
+    await bundler.finalize()
+
+    const output = stderrWrites.join('')
+    expect(output).toContain('Note: the bundled lockfile was not pruned')
+    expect(output).toContain('CHECKLY_LOCKFILE_PRUNE=0')
+  })
+
+  it('stays silent when the bundle contains the full workspace', async () => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: new YarnDetector(),
+    })
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true },
+      { filePath: path.join(dir, 'packages/m/package.json'), physical: true },
+    )
+    await bundler.finalize()
+
+    expect(stderrWrites.join('')).toEqual('')
   })
 })

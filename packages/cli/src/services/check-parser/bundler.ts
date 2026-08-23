@@ -675,7 +675,9 @@ export class Bundler {
         // remote install.
         process.stderr.write(
           `Note: the bundled lockfile was not pruned (${result.reason}); it may reference `
-          + `workspace packages and dependencies that are not part of the bundle.\n`,
+          + `workspace packages and dependencies that are not part of the bundle. If this `
+          + `setup cannot be pruned, set CHECKLY_LOCKFILE_PRUNE=0 to opt out of pruning `
+          + `(and this note) entirely.\n`,
         )
       } else {
         debug(`Lockfile pruning skipped: ${result.reason}`)
