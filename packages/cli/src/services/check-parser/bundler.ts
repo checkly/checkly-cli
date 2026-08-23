@@ -9,10 +9,21 @@ import type { Archiver } from 'archiver'
 import Debug from 'debug'
 import * as uuid from 'uuid'
 
+import { createHash } from 'node:crypto'
+
 import { checklyStorage } from '../../rest/api.js'
 import { PayloadTooLargeError } from '../../rest/errors.js'
 import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer } from '../embedded-packages/materializer.js'
-import { computeWorkspaceCacheHash, ComputeWorkspaceCacheHashOptions } from './cache-hash.js'
+import {
+  composeWorkspaceCacheHash,
+  ComposeWorkspaceCacheHashOptions,
+  ComputeWorkspaceCacheHashOptions,
+  FauxPackageJsonInput,
+  loadWorkspaceCacheHashInputs,
+  LockfileInput,
+} from './cache-hash.js'
+import { pruneBundledLockfile } from './lockfile-pruner.js'
+import { PackageManager } from './package-files/package-manager.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
 import { pathToPosix } from '../util.js'
@@ -456,20 +467,45 @@ export type CreateBundlerForWorkspaceOptions =
      * set must invalidate the dependency cache.
      */
     embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
+
+    /**
+     * The workspace's package manager. When it supports a lockfile-only
+     * install, the bundled lockfile is pruned during finalize() to match the
+     * bundle's actual set of manifests.
+     */
+    packageManager: PackageManager
   }
+
+/**
+ * Everything finalize() needs to prune the lockfile and recompute the cache
+ * hash from the bundle's actual contents.
+ */
+interface WorkspaceBundleContext {
+  workspace: Workspace
+  packageManager: PackageManager
+  /**
+   * Composes the cache hash from the workspace inputs captured at
+   * construction time, plus the given bundle-time inputs. Capturing the
+   * composition (rather than its ingredients) keeps createForWorkspace and
+   * finalize() from having to spell the same argument list twice.
+   */
+  composeCacheHash: (extra?: Pick<ComposeWorkspaceCacheHashOptions, 'fauxPackageJsons' | 'prunedLockfile'>) => string
+}
 
 interface BundlerOptions {
   tempDir?: string
   cacheHash: string
   stripPrefix?: string
+  workspaceContext?: WorkspaceBundleContext
 }
 
 export class Bundler {
   #id: string
   #marker: BundlePathMarker
-  #cacheHash: string
+  #cacheHashMarker: CacheHashMarker
   #tempDir?: string
   #stripPrefix?: string
+  #workspaceContext?: WorkspaceBundleContext
   #files = new Map<string, File>()
 
   private constructor (options: BundlerOptions) {
@@ -477,13 +513,15 @@ export class Bundler {
       tempDir,
       cacheHash,
       stripPrefix,
+      workspaceContext,
     } = options
 
     this.#id = uuid.v4()
     this.#marker = new BundlePathMarker(`bundle:${this.#id}`)
-    this.#cacheHash = cacheHash
+    this.#cacheHashMarker = new CacheHashMarker(cacheHash)
     this.#stripPrefix = stripPrefix
     this.#tempDir = tempDir
+    this.#workspaceContext = workspaceContext
   }
 
   // eslint-disable-next-line require-await
@@ -494,7 +532,7 @@ export class Bundler {
 
   static async createForWorkspace (
     workspace: Workspace,
-    options: CreateBundlerForWorkspaceOptions = {},
+    options: CreateBundlerForWorkspaceOptions,
   ): Promise<Bundler> {
     debug(`Creating bundler for workspace`)
 
@@ -502,16 +540,34 @@ export class Bundler {
       tempDir,
       dependencyCacheVersion,
       embeddedPackagesMaterializer,
+      packageManager,
     } = options
 
     const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
 
-    const cacheHash = await computeWorkspaceCacheHash(workspace, { dependencyCacheVersion, embeddedPackages })
+    // The composition is captured so finalize() can recompute the hash with
+    // bundle-time additions (faux manifests, a pruned lockfile) from the
+    // same workspace inputs, loaded once. The eager value below is only a
+    // placeholder for the window before finalize() runs — finalize() always
+    // recomputes it.
+    const cacheHashInputs = await loadWorkspaceCacheHashInputs(workspace)
+    const composeCacheHash = (
+      extra?: Pick<ComposeWorkspaceCacheHashOptions, 'fauxPackageJsons' | 'prunedLockfile'>,
+    ): string => composeWorkspaceCacheHash(cacheHashInputs, {
+      dependencyCacheVersion,
+      embeddedPackages,
+      ...extra,
+    })
 
     return new Bundler({
       tempDir,
-      cacheHash,
+      cacheHash: composeCacheHash(),
       stripPrefix: workspace?.root.path,
+      workspaceContext: {
+        workspace,
+        packageManager,
+        composeCacheHash,
+      },
     })
   }
 
@@ -523,8 +579,15 @@ export class Bundler {
     this.#marker.updateValue(newValue)
   }
 
-  get cacheHash (): string {
-    return this.#cacheHash
+  /**
+   * The dependency cache hash. A mutable holder rather than a plain string:
+   * consumers copy it into check payloads during bundle(), but the final
+   * value — reflecting faux manifests and a possibly pruned lockfile — is
+   * only known once finalize() has run, the same ordering problem
+   * {@link BundlePathMarker} solves for the archive path.
+   */
+  get cacheHash (): CacheHashMarker {
+    return this.#cacheHashMarker
   }
 
   /**
@@ -555,7 +618,84 @@ export class Bundler {
     }
   }
 
+  /**
+   * Prunes the bundled lockfile to match the bundle's final file set, and
+   * recomputes the cache hash from the bundle's actual install inputs (faux
+   * manifests and the pruned lockfile). Runs at finalize time because both
+   * depend on the complete file set, which only exists once every check has
+   * registered its files.
+   */
+  async #refreshWorkspaceBundle (): Promise<void> {
+    const context = this.#workspaceContext
+    if (context === undefined) {
+      return
+    }
+
+    const prunedLockfile = await this.#pruneLockfile(context)
+
+    const fauxPackageJsons: FauxPackageJsonInput[] = []
+    for (const [archivePath, file] of this.#files) {
+      if (file.physical || path.posix.basename(archivePath) !== 'package.json') {
+        continue
+      }
+      fauxPackageJsons.push({ path: archivePath, raw: Buffer.from(file.content, 'utf8') })
+    }
+
+    // Unconditional: with no faux manifests and no pruned lockfile this
+    // reproduces the exact digest computed in createForWorkspace (empty
+    // record groups write nothing).
+    this.#cacheHashMarker.updateValue(context.composeCacheHash({
+      fauxPackageJsons,
+      prunedLockfile,
+    }))
+  }
+
+  async #pruneLockfile (context: WorkspaceBundleContext): Promise<LockfileInput | undefined> {
+    const result = await pruneBundledLockfile({
+      workspace: context.workspace,
+      packageManager: context.packageManager,
+      files: this.#files,
+      onRun: () => process.stderr.write('Pruning the bundled lockfile to match the bundle contents...\n'),
+    })
+
+    if (result.status === 'failed') {
+      process.stderr.write(
+        `Warning: could not prune the bundled lockfile: ${result.reason}. `
+        + `Falling back to the original lockfile; it may reference workspace packages and `
+        + `dependencies that are not part of the bundle. If the lockfile is out of date, `
+        + `run your package manager's install to refresh it; set CHECKLY_LOCKFILE_PRUNE=0 `
+        + `to disable pruning.\n`,
+      )
+      return
+    }
+    if (result.status === 'skipped') {
+      debug(`Lockfile pruning skipped: ${result.reason}`)
+      return
+    }
+
+    // Set entries directly rather than through registerFiles: its
+    // prefer-physical dedup would keep the original lockfile, and would drop
+    // a backfilled manifest whose path is occupied by a symlink entry —
+    // desyncing the bundle from the lockfile the prune was computed against.
+    for (const manifest of result.backfilledManifests) {
+      this.#files.set(archivePath(manifest, this.#stripPrefix), manifest)
+    }
+    this.#files.set(result.archivePath, {
+      filePath: context.workspace.lockfile.unwrap(),
+      physical: false,
+      content: result.content,
+    })
+    debug(`Pruned bundled lockfile ${result.archivePath}`)
+
+    return {
+      name: path.posix.basename(result.archivePath),
+      hash: createHash('sha256').update(result.content).digest(),
+    }
+  }
+
   async finalize (): Promise<FinalizedBundleArchive> {
+    await this.#refreshWorkspaceBundle()
+
     const archive = await BundleArchive.create({
       tempDir: this.#tempDir,
       stripPrefix: this.#stripPrefix,
@@ -587,6 +727,31 @@ async function createArchiver (): Promise<Archiver> {
 }
 
 export class BundlePathMarker {
+  #value: string
+
+  constructor (initialValue: string) {
+    this.#value = initialValue
+  }
+
+  updateValue (newValue: string) {
+    this.#value = newValue
+  }
+
+  toJSON (): string {
+    return this.#value
+  }
+}
+
+/**
+ * Mutable holder for the dependency cache hash, serialized as a plain
+ * string. See {@link Bundler.cacheHash} for why a holder is needed.
+ *
+ * Deliberately a standalone class rather than a subclass of
+ * {@link BundlePathMarker}: the own `#value` field makes the two marker
+ * types nominally incompatible, so a bundle path cannot be passed where the
+ * cache hash is expected (or vice versa) without a compile error.
+ */
+export class CacheHashMarker {
   #value: string
 
   constructor (initialValue: string) {

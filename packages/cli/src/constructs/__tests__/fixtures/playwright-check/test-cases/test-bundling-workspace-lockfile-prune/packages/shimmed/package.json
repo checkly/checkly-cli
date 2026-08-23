@@ -1,0 +1,8 @@
+{
+  "name": "@fixture-prune/shimmed",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "isarray": "2.0.5"
+  }
+}

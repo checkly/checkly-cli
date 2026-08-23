@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BundleArchive, BundleTooLargeError, Bundler, FinalizedBundleArchive } from '../bundler.js'
+import { npmPackageManager } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
@@ -185,8 +186,11 @@ describe('Bundler.createForWorkspace', () => {
       configFile: Err(new Error('no config file')),
     })
 
-    const without = await Bundler.createForWorkspace(workspace)
+    const without = await Bundler.createForWorkspace(workspace, {
+      packageManager: npmPackageManager,
+    })
     const withFoo = await Bundler.createForWorkspace(workspace, {
+      packageManager: npmPackageManager,
       embeddedPackagesMaterializer: new EmbeddedPackagesMaterializer({
         specs: ['@acme/foo'],
         lockfilePath,
@@ -194,6 +198,6 @@ describe('Bundler.createForWorkspace', () => {
       }),
     })
 
-    expect(without.cacheHash).not.toBe(withFoo.cacheHash)
+    expect(without.cacheHash.toJSON()).not.toBe(withFoo.cacheHash.toJSON())
   })
 })

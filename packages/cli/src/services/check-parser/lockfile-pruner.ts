@@ -25,6 +25,12 @@ export interface PruneBundledLockfileOptions {
   files: ReadonlyMap<string, File>
   timeoutMs?: number
   env?: NodeJS.ProcessEnv
+  /**
+   * Called right before the package manager runs — after every skip
+   * condition has been ruled out — so callers can report progress for a
+   * step that may take a few seconds.
+   */
+  onRun?: () => void
 }
 
 export type PruneBundledLockfileResult =
@@ -46,7 +52,12 @@ export type PruneBundledLockfileResult =
   | { status: 'skipped', reason: string }
   | { status: 'failed', reason: string }
 
-const DEFAULT_TIMEOUT_MS = 120_000
+// A legitimate prune reuses resolutions from the lockfile and takes seconds
+// (measured 1-4s even against multi-thousand-package lockfiles); only a
+// stale lockfile behind an unreachable registry runs long, and that path
+// ends in a fallback anyway because the subset check rejects fresh
+// resolutions — so waiting minutes buys nothing.
+const DEFAULT_TIMEOUT_MS = 30_000
 
 const MAX_FAILURE_DETAIL_LENGTH = 400
 
@@ -507,6 +518,7 @@ export async function pruneBundledLockfile (
     files,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
+    onRun,
   } = options
 
   const decision = shouldPruneLockfile(workspace, files, env)
@@ -601,6 +613,7 @@ export async function pruneBundledLockfile (
     }
 
     debug(`Running ${runnable.unsafeDisplayCommand} in ${tempDir}`)
+    onRun?.()
 
     const result = await execa(runnable.executable, runnable.args, {
       cwd: tempDir,

@@ -9,6 +9,8 @@ import { list } from 'tar'
 import { FixtureSandbox, RunOptions } from '../../testing/fixture-sandbox.js'
 import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
 import { TarballCache } from '../../services/embedded-packages/cache.js'
+import { composeWorkspaceCacheHash, loadWorkspaceCacheHashInputs } from '../../services/check-parser/cache-hash.js'
+import { PNpmDetector } from '../../services/check-parser/package-files/package-manager.js'
 
 async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
   return await parseProjectWithOptions(fixt, {}, ...args)
@@ -66,6 +68,25 @@ async function listTarEntries (filePath: string): Promise<TarEntry[]> {
     }),
   })
   return entries
+}
+
+async function readTarEntryContent (filePath: string, entryPath: string): Promise<string> {
+  const chunks: Buffer[] = []
+  let found = false
+  await list({
+    file: filePath,
+    onReadEntry: entry => {
+      if (entry.path !== entryPath) {
+        return
+      }
+      found = true
+      entry.on('data', chunk => chunks.push(chunk))
+    },
+  })
+  if (!found) {
+    throw new Error(`Archive entry not found: ${entryPath}`)
+  }
+  return Buffer.concat(chunks).toString('utf8')
 }
 
 /**
@@ -1370,6 +1391,110 @@ describe('PlaywrightCheck', () => {
 
       // Nothing lands at through-link spellings.
       expect(files.filter(file => file.includes('node_modules/@scope/x/'))).toEqual([])
+
+      // Every workspace member's real manifest is in this bundle, so
+      // lockfile pruning is skipped — it must not even attempt to run — and
+      // the original lockfile ships byte-for-byte.
+      expect(String(result.stderr)).not.toContain('Pruning the bundled lockfile')
+      expect(String(result.stderr)).not.toContain('could not prune the bundled lockfile')
+      const archivedLockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      const originalLockfile = await fs.readFile(fixt.abspath('pnpm-lock.yaml'), 'utf8')
+      expect(archivedLockfile).toEqual(originalLockfile)
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling a pnpm workspace with a pruned lockfile', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-workspace-lockfile-prune'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('prunes the bundled lockfile to the bundle contents and updates the cache hash', async () => {
+      const output = await parseProject(fixt, '--config', 'packages/c/checkly.config.ts')
+
+      const {
+        codeBundlePath,
+        cacheHash,
+      } = output.payload.resources[0].payload as any
+
+      const files = await listTarFiles(codeBundlePath)
+
+      // Members: `used` is imported (real files), `shimmed` is declared but
+      // unimported (faux manifest only), `absent` is referenced by nobody
+      // (nothing in the bundle).
+      expect(files).toEqual(expect.arrayContaining([
+        'pnpm-lock.yaml',
+        'packages/used/package.json',
+        'packages/used/src/index.js',
+        'packages/shimmed/package.json',
+      ]))
+      expect(files.filter(file => file.startsWith('packages/absent/'))).toEqual([])
+
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+
+      // Kept: the imported member's importer and dependency, and the
+      // shimmed member's importer (its manifest ships as a dep-free shim).
+      expect(lockfile).toContain('packages/used')
+      expect(lockfile).toContain('ms@2.1.3')
+      expect(lockfile).toContain('packages/shimmed')
+
+      // Dropped: the absent member's importer, and the dependencies of both
+      // the shimmed and the absent member.
+      expect(lockfile).not.toContain('packages/absent')
+      expect(lockfile).not.toContain('isarray')
+      expect(lockfile).not.toContain('ee-first')
+
+      // The cache hash must reflect the bundle's actual install inputs: the
+      // workspace inputs plus the faux manifest and the pruned lockfile
+      // exactly as archived. Recomputing the expected value from the archive
+      // contents pins that both bundle-time record types are wired through.
+      const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
+      const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)
+      const expectedHash = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(workspace!), {
+        fauxPackageJsons: [
+          { path: 'packages/shimmed/package.json', raw: Buffer.from(shimmedManifest, 'utf8') },
+        ],
+        prunedLockfile: {
+          name: 'pnpm-lock.yaml',
+          hash: createHash('sha256').update(lockfile).digest(),
+        },
+      })
+      expect(cacheHash).toEqual(expectedHash)
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('still hashes faux manifests when pruning is disabled', async () => {
+      const output = await parseProjectWithOptions(
+        fixt,
+        { env: { CHECKLY_LOCKFILE_PRUNE: '0' } },
+        '--config', 'packages/c/checkly.config.ts',
+      )
+
+      const {
+        codeBundlePath,
+        cacheHash,
+      } = output.payload.resources[0].payload as any
+
+      // The original lockfile ships unchanged, but the faux manifest is
+      // still an install input and must still reach the cache hash.
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      const originalLockfile = await fs.readFile(fixt.abspath('pnpm-lock.yaml'), 'utf8')
+      expect(lockfile).toEqual(originalLockfile)
+
+      const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
+      const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)
+      const expectedHash = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(workspace!), {
+        fauxPackageJsons: [
+          { path: 'packages/shimmed/package.json', raw: Buffer.from(shimmedManifest, 'utf8') },
+        ],
+      })
+      expect(cacheHash).toEqual(expectedHash)
     }, DEFAULT_TEST_TIMEOUT)
   })
 

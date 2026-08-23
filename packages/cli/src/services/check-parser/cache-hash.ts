@@ -58,6 +58,18 @@ export interface EmbeddedPackageInput {
   integrity: string
 }
 
+export interface FauxPackageJsonInput {
+  /**
+   * Forward-slash relative path matching the faux manifest's location in the
+   * eventual archive (e.g. "packages/member/package.json").
+   */
+  path: string
+  /**
+   * The faux manifest's raw content bytes.
+   */
+  raw: Buffer
+}
+
 export interface ComposeCacheHashInput {
   lockfile?: LockfileInput
   packageJsons: PackageJsonInput[]
@@ -87,6 +99,24 @@ export interface ComposeCacheHashInput {
    * so the digest stays identical to one computed without this input.
    */
   dependencyCacheVersion?: string
+  /**
+   * Every synthesized (non-physical) `package.json` actually shipped in the
+   * bundle — in practice the faux workspace member manifests. Unlike
+   * on-disk manifests — whose `version` is excluded because the pinned
+   * lockfile absorbs it — a synthesized manifest's full content including
+   * its version is load-bearing for the remote install (it decides whether
+   * a specifier resolves to the workspace link, the registry, or fails), so
+   * these are hashed verbatim, exactly as the bytes ship. An empty or
+   * absent list writes no records, leaving the digest unchanged.
+   */
+  fauxPackageJsons?: FauxPackageJsonInput[]
+  /**
+   * The pruned lockfile actually shipped in the bundle, when lockfile
+   * pruning replaced the original. The pruned bytes are the runner's real
+   * install input, so they must contribute to the hash. Absent when the
+   * original lockfile ships unchanged, writing no record.
+   */
+  prunedLockfile?: LockfileInput
 }
 
 const PACKAGE_JSON_EXCLUDED_FIELDS = ['version']
@@ -214,6 +244,12 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *      bytes of the user-provided value. An empty string is treated as
  *      absent so that e.g. an unset environment variable interpolated into
  *      the config leaves the digest unchanged.
+ *   7. One record per faux workspace member manifest sorted by path,
+ *      labeled `faux-package.json:<relative/path>`, whose content is the
+ *      manifest's raw UTF-8 bytes.
+ *   8. The pruned lockfile record (if present), labeled
+ *      `pruned-lockfile:<basename>`, whose content is the raw 32-byte
+ *      SHA-256 digest of the pruned lockfile contents.
  *
  * All sorts compare strings by UTF-16 code unit (JavaScript's `<`/`>`),
  * which coincides with byte-wise UTF-8 order for ASCII inputs — the only
@@ -266,6 +302,16 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
     writeRecord('dependency-cache-version', Buffer.from(input.dependencyCacheVersion, 'utf8'))
   }
 
+  const sortedFaux = [...(input.fauxPackageJsons ?? [])].sort((a, b) => compareStrings(a.path, b.path))
+
+  for (const entry of sortedFaux) {
+    writeRecord(`faux-package.json:${entry.path}`, entry.raw)
+  }
+
+  if (input.prunedLockfile) {
+    writeRecord(`pruned-lockfile:${input.prunedLockfile.name}`, input.prunedLockfile.hash)
+  }
+
   return hash.digest('hex')
 }
 
@@ -302,12 +348,7 @@ function uint64BE (n: number): Buffer {
  */
 export async function loadWorkspaceCacheHashInputs (
   workspace: Workspace,
-): Promise<{
-  lockfile?: LockfileInput
-  packageJsons: PackageJsonInput[]
-  npmrcs: NpmrcInput[]
-  pnpmfiles: PnpmfileInput[]
-}> {
+): Promise<WorkspaceCacheHashInputs> {
   const allPackages = [workspace.root, ...workspace.packages]
 
   const packageJsons = await Promise.all(allPackages.map(async pkg => {
@@ -407,6 +448,44 @@ export function normalizeDependencyCacheVersion (version: string | number | unde
   return version
 }
 
+export interface WorkspaceCacheHashInputs {
+  lockfile?: LockfileInput
+  packageJsons: PackageJsonInput[]
+  npmrcs: NpmrcInput[]
+  pnpmfiles: PnpmfileInput[]
+}
+
+export interface ComposeWorkspaceCacheHashOptions extends ComputeWorkspaceCacheHashOptions {
+  /**
+   * See {@link ComposeCacheHashInput.fauxPackageJsons}.
+   */
+  fauxPackageJsons?: FauxPackageJsonInput[]
+  /**
+   * See {@link ComposeCacheHashInput.prunedLockfile}.
+   */
+  prunedLockfile?: LockfileInput
+}
+
+/**
+ * Composes the workspace cache hash from pre-loaded inputs, with the
+ * standard set of excluded package.json fields. Lets callers that need to
+ * recompute the hash later (with bundle-time inputs like faux manifests or
+ * a pruned lockfile) reuse inputs loaded once.
+ */
+export function composeWorkspaceCacheHash (
+  inputs: WorkspaceCacheHashInputs,
+  options?: ComposeWorkspaceCacheHashOptions,
+): string {
+  return composeCacheHash({
+    ...inputs,
+    embeddedPackages: options?.embeddedPackages,
+    fauxPackageJsons: options?.fauxPackageJsons,
+    prunedLockfile: options?.prunedLockfile,
+    excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
+    dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
+  })
+}
+
 /**
  * Convenience wrapper that loads workspace inputs and composes the cache
  * hash with the standard set of excluded package.json fields.
@@ -416,10 +495,5 @@ export async function computeWorkspaceCacheHash (
   options?: ComputeWorkspaceCacheHashOptions,
 ): Promise<string> {
   const inputs = await loadWorkspaceCacheHashInputs(workspace)
-  return composeCacheHash({
-    ...inputs,
-    embeddedPackages: options?.embeddedPackages,
-    excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
-    dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
-  })
+  return composeWorkspaceCacheHash(inputs, options)
 }
