@@ -100,6 +100,23 @@ describe('pnpmfile', () => {
       expect(info.skipReason).toContain('require')
     })
 
+    it('rejects a pnpmfile that evaluates code via Function', async () => {
+      const root = await makeRoot({
+        '.pnpmfile.cjs': `const env = Function('return process')().env\nmodule.exports = {}\n`,
+      })
+      const [info] = await loadWorkspacePnpmfiles(root)
+      expect(info.skipReason).toContain('Function')
+    })
+
+    it('does not treat new.target as a hazard', async () => {
+      const root = await makeRoot({
+        '.pnpmfile.cjs': `function Hooks () { if (new.target === undefined) { return } }\n`
+          + `module.exports = { hooks: {} }\n`,
+      })
+      const [info] = await loadWorkspacePnpmfiles(root)
+      expect(info.skipReason).toBeUndefined()
+    })
+
     it('rejects a pnpmfile that reaches process via globalThis or global', async () => {
       const globalThisRoot = await makeRoot({
         '.pnpmfile.cjs': `const mirror = globalThis.process.env.NPM_MIRROR\nmodule.exports = {}\n`,
@@ -239,6 +256,24 @@ describe('pnpmfile', () => {
       for (const info of infos) {
         expect(info.skipReason).toContain('custom path')
       }
+    })
+
+    it('reports no pnpmfiles when the lockfile records no pnpmfile checksum', async () => {
+      const root = await makeRoot({
+        'pnpm-lock.yaml': `lockfileVersion: '9.0'\n`,
+        '.pnpmfile.cjs': 'module.exports = { hooks: { readPackage: pkg => pkg } }\n',
+      })
+      expect(await loadWorkspacePnpmfiles(root, undefined, path.join(root, 'pnpm-lock.yaml'))).toEqual([])
+    })
+
+    it('reports pnpmfiles when the lockfile records a pnpmfile checksum', async () => {
+      const root = await makeRoot({
+        'pnpm-lock.yaml': `lockfileVersion: '9.0'\n\npnpmfileChecksum: sha256-abc\n`,
+        '.pnpmfile.cjs': 'module.exports = { hooks: { readPackage: pkg => pkg } }\n',
+      })
+      expect(await loadWorkspacePnpmfiles(root, undefined, path.join(root, 'pnpm-lock.yaml'))).toEqual([
+        { path: path.join(root, '.pnpmfile.cjs') },
+      ])
     })
 
     it('reports inspection errors as a skip reason naming the failing file', async () => {

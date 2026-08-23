@@ -25,6 +25,16 @@ importers:
       '@playwright/test':
         specifier: ^1.55.1
         version: 1.62.1
+    optionalDependencies:
+      '@fixture-prune/opt':
+        specifier: workspace:*
+        version: link:../opt
+
+  packages/opt:
+    dependencies:
+      ms:
+        specifier: 2.1.3
+        version: 2.1.3
 
   packages/shimmed:
     dependencies:

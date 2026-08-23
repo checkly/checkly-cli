@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 
 import { Parser } from '../parser.js'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
@@ -9,7 +9,6 @@ import { BunDetector, NpmDetector, PNpmDetector } from '../package-files/package
 import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err } from '../package-files/result.js'
-import { resetEmittedWarningsForTesting } from '../package-files/resolver.js'
 import { PlaywrightConfig } from '../../playwright-config.js'
 import { pathToPosix } from '../../util.js'
 
@@ -184,10 +183,6 @@ describe('dependency-parser - parser()', () => {
             pnpmfiles,
           })
         }
-
-        beforeEach(() => {
-          resetEmittedWarningsForTesting()
-        })
 
         it('bundles the pnpmfile verbatim without parsing it as check code', async () => {
           const parser = new Parser({

@@ -68,9 +68,17 @@ function isSafeBuiltinModule (specifier: string): boolean {
  * dynamic module access (`require` in non-call positions, `require.resolve`),
  * filesystem-relative paths (`__dirname`, `__filename`), process state
  * (`process.env`, `process.cwd()`) — also reachable via `globalThis.process`
- * and friends — or code evaluation.
+ * and friends — or code evaluation (`eval`, `Function('...')`).
  */
-const HAZARDOUS_IDENTIFIERS = new Set(['__dirname', '__filename', 'process', 'eval', 'globalThis', 'global'])
+const HAZARDOUS_IDENTIFIERS = new Set([
+  '__dirname',
+  '__filename',
+  'process',
+  'eval',
+  'Function',
+  'globalThis',
+  'global',
+])
 
 /**
  * Best-effort static analysis of whether a pnpmfile is self-contained:
@@ -154,8 +162,12 @@ function analyzePnpmfile (contents: string, filename: string): string | undefine
         }
       }
     },
-    MetaProperty () {
-      problems.add(`references 'import.meta'`)
+    MetaProperty (node: any) {
+      // Only `import.meta` is environment-dependent; `new.target` is plain
+      // language semantics.
+      if (node.meta?.name === 'import') {
+        problems.add(`references 'import.meta'`)
+      }
     },
   })
 
@@ -240,6 +252,12 @@ async function readPnpmfileSettings (
  * Discovers the pnpmfile pnpm would use for the workspace and determines
  * whether it can be bundled. Mirrors pnpm's own resolution:
  *
+ * - Bundling only matters — and is only safe — when the lockfile records a
+ *   `pnpmfileChecksum`: without one there is nothing for the remote install
+ *   to reproduce, and shipping a pnpmfile alongside a lockfile that does
+ *   not record its checksum would itself make pnpm treat the lockfile as
+ *   out of date. When the lockfile records no checksum, no pnpmfiles are
+ *   reported at all (no bundling, no warnings).
  * - When the `pnpmfile` setting points at custom paths, pnpm loads those
  *   and ignores the default filenames. Custom paths are reported as
  *   non-bundleable (except a single setting that just names a default
@@ -253,6 +271,28 @@ async function readPnpmfileSettings (
  * workspace detection keeps working for commands that never bundle.
  */
 export async function loadWorkspacePnpmfiles (
+  rootPath: string,
+  configFilePath?: string,
+  lockfilePath?: string,
+): Promise<PnpmfileInfo[]> {
+  if (lockfilePath !== undefined) {
+    try {
+      const lockfileContent = await readTextFileIfPresent(lockfilePath)
+      if (lockfileContent === undefined || !/^pnpmfileChecksum:/m.test(lockfileContent)) {
+        return []
+      }
+    } catch (err) {
+      return [{
+        path: rootPath,
+        skipReason: `failed to inspect the lockfile for a pnpmfile checksum: ${(err as Error).message}`,
+      }]
+    }
+  }
+
+  return await loadWorkspacePnpmfilesWithoutChecksumGate(rootPath, configFilePath)
+}
+
+async function loadWorkspacePnpmfilesWithoutChecksumGate (
   rootPath: string,
   configFilePath?: string,
 ): Promise<PnpmfileInfo[]> {

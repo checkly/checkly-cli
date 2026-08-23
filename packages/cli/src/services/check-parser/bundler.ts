@@ -669,7 +669,17 @@ export class Bundler {
       return
     }
     if (result.status === 'skipped') {
-      debug(`Lockfile pruning skipped: ${result.reason}`)
+      if (result.notable) {
+        // The bundle is a partial workspace, so the unpruned lockfile
+        // over-describes it — say so instead of failing silently on the
+        // remote install.
+        process.stderr.write(
+          `Note: the bundled lockfile was not pruned (${result.reason}); it may reference `
+          + `workspace packages and dependencies that are not part of the bundle.\n`,
+        )
+      } else {
+        debug(`Lockfile pruning skipped: ${result.reason}`)
+      }
       return
     }
 

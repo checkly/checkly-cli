@@ -13,6 +13,7 @@ import { JsonSourceFile } from './json-source-file.js'
 import { JsonTextSourceFile } from './json-text-source-file.js'
 import { LookupContext } from './lookup.js'
 import { lineage, LineageOptions } from './walk.js'
+import { PnpmfileInfo } from './pnpmfile.js'
 import { Package, Workspace } from './workspace.js'
 
 const debug = Debug('checkly:cli:services:check-parser:resolver')
@@ -20,22 +21,12 @@ const debug = Debug('checkly:cli:services:check-parser:resolver')
 const NPMRC_FILENAME = '.npmrc'
 
 // resolveDependenciesForFilePath runs for every resolved file, and a project
-// creates multiple resolver instances (one per parser), so warnings emitted
-// from it are deduplicated process-wide rather than per instance — the user
-// should see each warning once per run, not once per check suite.
-const emittedWarnings = new Set<string>()
-
-function warnOnce (key: string, message: string): void {
-  if (emittedWarnings.has(key)) {
-    return
-  }
-  emittedWarnings.add(key)
-  process.stderr.write(message)
-}
-
-export function resetEmittedWarningsForTesting (): void {
-  emittedWarnings.clear()
-}
+// creates multiple resolver instances (one per parser), so warnings are
+// deduplicated by the PnpmfileInfo object identity: every resolver shares
+// the Session's Workspace (and therefore its PnpmfileInfo instances), so the
+// user sees each warning once per run, while fresh Workspace instances (new
+// runs, tests) warn again.
+const warnedPnpmfiles = new WeakSet<PnpmfileInfo>()
 
 /**
  * Candidate file paths for an `extends` target. TypeScript appends `.json` when
@@ -648,9 +639,12 @@ export class PackageFilesResolver {
       // bundled set is always reflected in the cache key.
       for (const pnpmfileInfo of this.workspace.pnpmfiles) {
         if (pnpmfileInfo.skipReason !== undefined) {
-          warnOnce(pnpmfileInfo.path,
-            `Warning: not bundling pnpmfile '${pnpmfileInfo.path}': ${pnpmfileInfo.skipReason}. `
-            + `The remote install may re-resolve dependencies instead of using the lockfile.\n`)
+          if (!warnedPnpmfiles.has(pnpmfileInfo)) {
+            warnedPnpmfiles.add(pnpmfileInfo)
+            process.stderr.write(
+              `Warning: not bundling pnpmfile '${pnpmfileInfo.path}': ${pnpmfileInfo.skipReason}. `
+              + `The remote install may re-resolve dependencies instead of using the lockfile.\n`)
+          }
           continue
         }
         const pnpmfile = await this.cache.exactSourceFile(pnpmfileInfo.path)

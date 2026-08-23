@@ -603,7 +603,30 @@ describe('lockfile-pruner', () => {
         packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
         files: npmScenario.files,
         env: testEnv(),
-      })).toMatchObject({ status: 'skipped', reason: expect.stringContaining('unsupported') })
+      })).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported'),
+        notable: true,
+      })
+
+      // A structurally valid pnpm lockfile at an out-of-range version must
+      // fail closed rather than passing the verification vacuously.
+      const pnpmV5Root = await makeTempDir()
+      await fs.cp(PNPM_FIXTURE_ROOT, pnpmV5Root, { recursive: true })
+      const v5LockfilePath = path.join(pnpmV5Root, 'pnpm-lock.yaml')
+      const v5Content = await fs.readFile(v5LockfilePath, 'utf8')
+      await fs.writeFile(v5LockfilePath, v5Content.replace('lockfileVersion: \'9.0\'', 'lockfileVersion: \'5.4\''))
+      const pnpmV5Scenario = makePnpmScenario(pnpmV5Root)
+      expect(await pruneBundledLockfile({
+        workspace: pnpmV5Scenario.workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files: pnpmV5Scenario.files,
+        env: testEnv(),
+      })).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported'),
+        notable: true,
+      })
 
       const pnpmRoot = await makeTempDir()
       await fs.cp(PNPM_FIXTURE_ROOT, pnpmRoot, { recursive: true })
@@ -615,6 +638,65 @@ describe('lockfile-pruner', () => {
         files: pnpmScenario.files,
         env: testEnv(),
       })).toMatchObject({ status: 'skipped', reason: expect.stringContaining('could not parse') })
+    })
+
+    it('marks needed-but-unavailable skips as notable, but not no-op skips', async () => {
+      const { workspace, files } = makePnpmScenario()
+
+      // Pruning is needed (partial workspace) but the package manager has
+      // no lockfile-only install → notable.
+      expect(await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(undefined),
+        files,
+        env: testEnv(),
+      })).toMatchObject({ status: 'skipped', notable: true })
+
+      // Explicitly disabled → nothing to surface.
+      const disabled = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: { ...testEnv(), CHECKLY_LOCKFILE_PRUNE: '0' },
+      })
+      expect(disabled.status).toEqual('skipped')
+      expect(disabled.status === 'skipped' && disabled.notable).toBeFalsy()
+    })
+
+    it('backfills members referenced only through peerDependencies', async () => {
+      const { workspace, files } = makePnpmScenario()
+      // The root manifest becomes virtual below, so the root package needs a
+      // known version to pass the unknown-version guard.
+      workspace.root.version = '1.0.0'
+      // Replace the root manifest with one that references the absent
+      // member through peerDependencies only.
+      files.set('package.json', {
+        filePath: path.join(PNPM_FIXTURE_ROOT, 'package.json'),
+        physical: false,
+        content: JSON.stringify({
+          name: 'lockfile-pruner-fixture',
+          private: true,
+          dependencies: {
+            '@fixture/used': 'workspace:*',
+            '@fixture/shimmed': 'workspace:*',
+          },
+          peerDependencies: {
+            '@fixture/absent': 'workspace:*',
+          },
+        }),
+      })
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result.status).toEqual('pruned')
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('@fixture/absent')
     })
 
     it('prunes the lockfile with real npm, backfilling link-referenced members', async () => {

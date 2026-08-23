@@ -1427,23 +1427,36 @@ describe('PlaywrightCheck', () => {
       const files = await listTarFiles(codeBundlePath)
 
       // Members: `used` is imported (real files), `shimmed` is declared but
-      // unimported (faux manifest only), `absent` is referenced by nobody
-      // (nothing in the bundle).
+      // unimported (faux manifest only), `opt` is referenced only through
+      // `optionalDependencies` — invisible to the parser's faux mechanism,
+      // so its manifest reaches the bundle only via the pruner's backfill —
+      // and `absent` is referenced by nobody (nothing in the bundle).
       expect(files).toEqual(expect.arrayContaining([
         'pnpm-lock.yaml',
         'packages/used/package.json',
         'packages/used/src/index.js',
         'packages/shimmed/package.json',
+        'packages/opt/package.json',
       ]))
       expect(files.filter(file => file.startsWith('packages/absent/'))).toEqual([])
 
+      // The backfilled manifest is a faux shim carrying the real version.
+      const optManifest = await readTarEntryContent(codeBundlePath, 'packages/opt/package.json')
+      expect(JSON.parse(optManifest)).toMatchObject({
+        name: '@fixture-prune/opt',
+        version: '1.0.0',
+        private: true,
+      })
+
       const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
 
-      // Kept: the imported member's importer and dependency, and the
-      // shimmed member's importer (its manifest ships as a dep-free shim).
+      // Kept: the imported member's importer and dependency, the shimmed
+      // member's importer (its manifest ships as a dep-free shim), and the
+      // backfilled member's importer.
       expect(lockfile).toContain('packages/used')
       expect(lockfile).toContain('ms@2.1.3')
       expect(lockfile).toContain('packages/shimmed')
+      expect(lockfile).toContain('packages/opt')
 
       // Dropped: the absent member's importer, and the dependencies of both
       // the shimmed and the absent member.
@@ -1452,13 +1465,15 @@ describe('PlaywrightCheck', () => {
       expect(lockfile).not.toContain('ee-first')
 
       // The cache hash must reflect the bundle's actual install inputs: the
-      // workspace inputs plus the faux manifest and the pruned lockfile
-      // exactly as archived. Recomputing the expected value from the archive
-      // contents pins that both bundle-time record types are wired through.
+      // workspace inputs plus the faux manifests (including the backfilled
+      // one) and the pruned lockfile exactly as archived. Recomputing the
+      // expected value from the archive contents pins that both bundle-time
+      // record types are wired through.
       const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
       const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)
       const expectedHash = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(workspace!), {
         fauxPackageJsons: [
+          { path: 'packages/opt/package.json', raw: Buffer.from(optManifest, 'utf8') },
           { path: 'packages/shimmed/package.json', raw: Buffer.from(shimmedManifest, 'utf8') },
         ],
         prunedLockfile: {
@@ -1482,10 +1497,13 @@ describe('PlaywrightCheck', () => {
       } = output.payload.resources[0].payload as any
 
       // The original lockfile ships unchanged, but the faux manifest is
-      // still an install input and must still reach the cache hash.
+      // still an install input and must still reach the cache hash. With
+      // pruning disabled, no backfill runs either.
       const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
       const originalLockfile = await fs.readFile(fixt.abspath('pnpm-lock.yaml'), 'utf8')
       expect(lockfile).toEqual(originalLockfile)
+      const files = await listTarFiles(codeBundlePath)
+      expect(files).not.toContain('packages/opt/package.json')
 
       const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
       const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)

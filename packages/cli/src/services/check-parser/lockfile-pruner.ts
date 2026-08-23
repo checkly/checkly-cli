@@ -49,7 +49,17 @@ export type PruneBundledLockfileResult =
      */
     backfilledManifests: VirtualFile[]
   }
-  | { status: 'skipped', reason: string }
+  | {
+    status: 'skipped'
+    reason: string
+    /**
+     * True when the skip means "pruning was needed but is unavailable" —
+     * the bundle is a partial workspace whose lockfile over-describes it,
+     * yet this setup cannot be pruned. Callers should surface these; skips
+     * where there is simply nothing to do stay quiet.
+     */
+    notable?: boolean
+  }
   | { status: 'failed', reason: string }
 
 // A legitimate prune reuses resolutions from the lockfile and takes seconds
@@ -91,7 +101,7 @@ function lockfileArchivePath (workspace: Workspace): string | undefined {
 
 export type ShouldPruneResult =
   | { prune: true, lockfileArchivePath: string }
-  | { prune: false, reason: string }
+  | { prune: false, reason: string, notable?: boolean }
 
 /**
  * Decides whether the bundle's lockfile needs pruning at all. Pruning only
@@ -130,7 +140,7 @@ export function shouldPruneLockfile (
     // 0.0.0 fallback, which could make specifiers resolve differently than
     // they did for the user; do not feed it into resolution.
     if (manifest !== undefined && !manifest.physical && pkg.version === undefined) {
-      return { prune: false, reason: unknownVersionReason(pkg) }
+      return { prune: false, reason: unknownVersionReason(pkg), notable: true }
     }
   }
 
@@ -222,6 +232,11 @@ interface LockfileSnapshot {
 class UnsupportedLockfileFormatError extends Error {}
 
 const PNPM_DEPENDENCY_GROUPS = ['dependencies', 'devDependencies', 'optionalDependencies']
+
+// Manifests can also reference a workspace member through peerDependencies
+// (plugin-style monorepos), even though lockfile importer sections do not
+// have a peer group of their own.
+const MANIFEST_DEPENDENCY_GROUPS = [...PNPM_DEPENDENCY_GROUPS, 'peerDependencies']
 
 function parseLockfileSnapshot (content: string, lockfileName: string): LockfileSnapshot {
   const snapshot: LockfileSnapshot = {
@@ -441,7 +456,7 @@ async function collectBackfilledManifests (
       continue
     }
 
-    for (const group of PNPM_DEPENDENCY_GROUPS) {
+    for (const group of MANIFEST_DEPENDENCY_GROUPS) {
       const entries = manifest?.[group]
       if (entries === null || typeof entries !== 'object') {
         continue
@@ -525,14 +540,19 @@ export async function pruneBundledLockfile (
 
   const decision = shouldPruneLockfile(workspace, files, env)
   if (!decision.prune) {
-    return { status: 'skipped', reason: decision.reason }
+    return { status: 'skipped', reason: decision.reason, notable: decision.notable }
   }
+
+  // Every skip below this point is notable: shouldPruneLockfile has already
+  // established that the bundle is a partial workspace, so the lockfile
+  // over-describes the bundle and this setup cannot be helped.
 
   const runnable = packageManager.lockfileOnlyInstallCommand()
   if (runnable === undefined) {
     return {
       status: 'skipped',
       reason: `${packageManager.name} has no supported lockfile-only install`,
+      notable: true,
     }
   }
 
@@ -549,13 +569,17 @@ export async function pruneBundledLockfile (
   try {
     original = parseLockfileSnapshot(originalContent, lockfileName)
   } catch (err) {
-    return { status: 'skipped', reason: (err as Error).message }
+    return { status: 'skipped', reason: (err as Error).message, notable: true }
   }
 
   if (original.excludeLinksFromLockfile) {
     // Without link entries in the lockfile, neither the backfill nor the
     // link-preservation check can see workspace links.
-    return { status: 'skipped', reason: 'the lockfile is written with excludeLinksFromLockfile' }
+    return {
+      status: 'skipped',
+      reason: 'the lockfile is written with excludeLinksFromLockfile',
+      notable: true,
+    }
   }
 
   const selected = selectMaterializationEntries(files, decision.lockfileArchivePath)
@@ -566,13 +590,14 @@ export async function pruneBundledLockfile (
       return {
         status: 'skipped',
         reason: 'the lockfile records a pnpmfile checksum but no pnpmfile is bundled',
+        notable: true,
       }
     }
   }
 
   const backfill = await collectBackfilledManifests(workspace, selected, original)
   if ('skipReason' in backfill) {
-    return { status: 'skipped', reason: backfill.skipReason }
+    return { status: 'skipped', reason: backfill.skipReason, notable: true }
   }
 
   let tempDir: string | undefined

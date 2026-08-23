@@ -1144,7 +1144,7 @@ async function initWorkspace (
   // gives the bundler and the cache hash a single source of truth for which
   // pnpmfiles exist and whether they can be bundled.
   const pnpmfiles = detector.name === 'pnpm'
-    ? await loadWorkspacePnpmfiles(options.root.path, configFile.ok())
+    ? await loadWorkspacePnpmfiles(options.root.path, configFile.ok(), lockfile.ok())
     : []
 
   return new Workspace({
