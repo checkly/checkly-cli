@@ -5,6 +5,14 @@ in `playwright-check.spec.ts`. Their sha512 integrities are hardcoded in the
 `pnpm-lock.yaml` files of the `test-embedded-packages*` fixtures, so the
 tarball bytes and the lockfile entries must change together.
 
+`ms@2.1.3.tgz` is different: it is the genuine registry artifact for
+`ms@2.1.3` (from https://registry.npmjs.org/ms/-/ms-2.1.3.tgz), used by the
+`test-bundling-workspace-lockfile-prune-embed` fixture, whose lockfile must
+survive a real offline `pnpm install --lockfile-only` regeneration — a fake
+package would 404 when pnpm re-resolves a stale lockfile, so the kept-side
+embedded package has to be real. Its integrity in that fixture's lockfile is
+the real registry integrity.
+
 To regenerate (and then update the `resolution.integrity` values the script
 prints into the fixture lockfiles):
 

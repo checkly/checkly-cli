@@ -12,7 +12,10 @@ import { TarballCache } from '../../services/embedded-packages/cache.js'
 import { composeWorkspaceCacheHash, loadWorkspaceCacheHashInputs } from '../../services/check-parser/cache-hash.js'
 import { PNpmDetector } from '../../services/check-parser/package-files/package-manager.js'
 
-async function parseProject (fixt: FixtureSandbox, ...args: string[]): Promise<ParseProjectOutput> {
+async function parseProject (
+  fixt: FixtureSandbox,
+  ...args: string[]
+): Promise<ParseProjectOutput & { stderr: string }> {
   return await parseProjectWithOptions(fixt, {}, ...args)
 }
 
@@ -20,7 +23,7 @@ async function parseProjectWithOptions (
   fixt: FixtureSandbox,
   options: RunOptions,
   ...args: string[]
-): Promise<ParseProjectOutput> {
+): Promise<ParseProjectOutput & { stderr: string }> {
   const result = await fixt.run('pnpm', [
     'checkly',
     'debug',
@@ -39,7 +42,7 @@ async function parseProjectWithOptions (
 
   const output: ParseProjectOutput = JSON.parse(result.stdout)
 
-  return output
+  return { ...output, stderr: String(result.stderr ?? '') }
 }
 
 async function listTarFiles (filePath: string): Promise<string[]> {
@@ -1514,6 +1517,80 @@ describe('PlaywrightCheck', () => {
       })
       expect(cacheHash).toEqual(expectedHash)
     }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling a pnpm workspace with a pruned lockfile and embedded packages', () => {
+    const MS_INTEGRITY = 'sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=='
+
+    let fixt: FixtureSandbox
+    let cacheDir: string
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-workspace-lockfile-prune-embed'),
+      })
+      // Only the kept package's tarball is seeded: the dropped package's
+      // bytes exist in no cache and on no registry, so any attempt to
+      // materialize it would fail the run loudly — this test passing proves
+      // it was never requested.
+      cacheDir = await seedTarballCache('ms@2.1.3.tgz')
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+      if (cacheDir) {
+        await fs.rm(cacheDir, { recursive: true, force: true })
+      }
+    })
+
+    it('embeds and downloads only the tarballs the pruned lockfile still references', async () => {
+      const output = await parseProjectWithOptions(
+        fixt,
+        { env: { CHECKLY_CACHE_DIR: cacheDir } },
+        '--config', 'packages/c/checkly.config.ts',
+      )
+      expect(output.diagnostics.fatal).toBe(false)
+
+      const {
+        codeBundlePath,
+        cacheHash,
+      } = output.payload.resources[0].payload as any
+
+      // The shimmed member ships as a dep-free faux manifest, so pruning
+      // drops its dependency @acme/private-utils from the lockfile — and
+      // with it, the embedded tarball for it.
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      expect(lockfile).not.toContain('@acme/private-utils')
+      expect(lockfile).toContain('ms@2.1.3')
+
+      const files = await listTarFiles(codeBundlePath)
+      expect(files).toContain('.checkly/embedded-packages/ms@2.1.3.tgz')
+      expect(files).not.toContain('.checkly/embedded-packages/@acme+private-utils@1.2.3.tgz')
+
+      expect(output.stderr).toContain('Preparing 1 embedded package tarball(s)')
+
+      // The cache hash reflects exactly what ships: the kept-only embedded
+      // set, the faux manifest and the pruned lockfile.
+      const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
+      const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)
+      const expectedHash = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(workspace!), {
+        embeddedPackages: [
+          { name: 'ms', version: '2.1.3', integrity: MS_INTEGRITY },
+        ],
+        fauxPackageJsons: [
+          { path: 'packages/shimmed/package.json', raw: Buffer.from(shimmedManifest, 'utf8') },
+        ],
+        prunedLockfile: {
+          name: 'pnpm-lock.yaml',
+          hash: createHash('sha256').update(lockfile).digest(),
+        },
+      })
+      expect(cacheHash).toEqual(expectedHash)
+    }, DEFAULT_TEST_TIMEOUT)
+
+    // The CHECKLY_LOCKFILE_PRUNE=0 direction (full planned set ships, full-set
+    // hash) is covered hermetically in bundler.spec.ts — with pruning off no
+    // pnpm interaction is involved, so a sandbox run would add nothing.
   })
 
   describe('bundling with testDir through a symlink', () => {
