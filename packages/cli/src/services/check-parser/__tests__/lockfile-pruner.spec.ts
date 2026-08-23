@@ -11,7 +11,7 @@ import {
   shouldPruneLockfile,
 } from '../lockfile-pruner.js'
 import { createFauxPackageFiles } from '../faux-package.js'
-import { BunDetector, NpmDetector, PackageManager, PNpmDetector, Runnable } from '../package-files/package-manager.js'
+import { BunDetector, NpmDetector, PackageManager, PNpmDetector, Runnable, YarnDetector } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
@@ -19,6 +19,8 @@ import { File } from '../parser.js'
 const PNPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-workspace')
 const NPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'npm-workspace')
 const BUN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'bun-workspace')
+const YARN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'yarn-workspace')
+const YARN3_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'yarn3-workspace')
 
 // Unlike pnpm and npm, bun is not part of the repo's own toolchain, so the
 // tests that run a real bun install skip themselves when it is not on PATH.
@@ -27,24 +29,54 @@ const BUN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'bun-w
 // instead of silently removing the coverage.
 const bunAvailable = spawnSync('bun', ['--version']).status === 0
 
+// Same for yarn, which must additionally resolve to the Yarn Berry major the
+// fixture pins via its packageManager field (a Corepack-managed yarn does; a
+// standalone Yarn Classic prints 1.x and the real-yarn tests skip). The
+// probe needs a shell: Corepack's Windows shim is yarn.cmd, which a
+// shell-less spawn cannot resolve even though the pruner's own spawn (execa
+// via cross-spawn) can.
+const probeYarnMajor = (fixtureRoot: string, major: string): boolean => {
+  const probe = spawnSync('yarn --version', {
+    cwd: fixtureRoot,
+    shell: true,
+    encoding: 'utf8',
+    env: { ...process.env, COREPACK_ENABLE_DOWNLOAD_PROMPT: '0' },
+    // Bounds the blocking probe during test collection; a timeout counts
+    // as unavailable, so the gated tests skip instead of stalling. Kept
+    // short deliberately: a cold corepack cache then skips locally rather
+    // than downloading toolchains at import time — CI pre-downloads both
+    // pinned versions in a dedicated workflow step and asserts coverage
+    // via CHECKLY_EXPECT_YARN.
+    timeout: 15_000,
+  })
+  return probe.status === 0 && probe.stdout?.trim().startsWith(`${major}.`) === true
+}
+const yarnBerryAvailable = probeYarnMajor(YARN_FIXTURE_ROOT, '4')
+const yarn3Available = probeYarnMajor(YARN3_FIXTURE_ROOT, '3')
+
 // Generates a stub package-manager script that rewrites the materialized
-// bun.lock through string replacements — bun.lock is JSONC with trailing
-// commas, which node's JSON.parse rejects, and the prune temp dir has no
-// node_modules to load a JSON5 parser from. A search string that no longer
+// lockfile through string replacements — parse-and-rewrite is not an option
+// for bun.lock (JSONC with trailing commas, which node's JSON.parse rejects,
+// and the prune temp dir has no node_modules to load a JSON5 parser from),
+// so every format is rewritten the same way. A search string that no longer
 // matches (e.g. after a fixture change) fails the script rather than
 // silently leaving the lockfile unmodified, which would let some tests
 // pass vacuously.
-const rewriteBunLockScript = (...replacements: Array<[string, string]>): string => `
+const rewriteLockfileScript = (lockfileName: string, ...replacements: Array<[string, string]>): string => `
   const fs = require('fs')
-  let content = fs.readFileSync('bun.lock', 'utf8')
+  let content = fs.readFileSync(${JSON.stringify(lockfileName)}, 'utf8')
   ${replacements.map(([from, to]) => `
   if (!content.includes(${JSON.stringify(from)})) {
-    console.error('rewriteBunLockScript: no match for ' + ${JSON.stringify(from)})
+    console.error('rewriteLockfileScript: no match for ' + ${JSON.stringify(from)})
     process.exit(93)
   }
   content = content.split(${JSON.stringify(from)}).join(${JSON.stringify(to)})`).join('\n')}
-  fs.writeFileSync('bun.lock', content)
+  fs.writeFileSync(${JSON.stringify(lockfileName)}, content)
 `
+const rewriteBunLockScript = (...replacements: Array<[string, string]>): string =>
+  rewriteLockfileScript('bun.lock', ...replacements)
+const rewriteYarnLockScript = (...replacements: Array<[string, string]>): string =>
+  rewriteLockfileScript('yarn.lock', ...replacements)
 
 // Ambient values (particularly CHECKLY_LOCKFILE_PRUNE) must not leak into
 // test outcomes.
@@ -112,6 +144,8 @@ describe('lockfile-pruner', () => {
   const makePnpmScenario = (root: string = PNPM_FIXTURE_ROOT) => makeScenario(root, 'pnpm-lock.yaml')
   const makeNpmScenario = (root: string = NPM_FIXTURE_ROOT) => makeScenario(root, 'package-lock.json')
   const makeBunScenario = (root: string = BUN_FIXTURE_ROOT) => makeScenario(root, 'bun.lock')
+  const makeYarnScenario = (root: string = YARN_FIXTURE_ROOT) => makeScenario(root, 'yarn.lock')
+  const makeYarn3Scenario = (root: string = YARN3_FIXTURE_ROOT) => makeScenario(root, 'yarn.lock')
 
   describe('shouldPruneLockfile()', () => {
     it('skips when disabled via CHECKLY_LOCKFILE_PRUNE=0', () => {
@@ -356,6 +390,22 @@ describe('lockfile-pruner', () => {
       expect(childEnv.npm_config_lockfile_dir).toBeUndefined()
       expect(childEnv.npm_config_registry).toEqual('https://registry.example.com/')
       expect(childEnv.COREPACK_ENABLE_STRICT).toEqual('0')
+      // Yarn's network access is always disabled: a stale lockfile would
+      // otherwise resolve missing descriptors against the public registry,
+      // disclosing private package names. Scripts likewise (defense in
+      // depth), and rc loading is pointed at a nonexistent filename so an
+      // uncontrolled .yarnrc.yml in an ancestor of the temp dir (e.g. a
+      // world-writable /tmp) cannot inject yarnPath code execution or
+      // redirect the lockfile write. (YARN_ENABLE_HARDENED_MODE is
+      // deliberately NOT set here — yarn 3 rejects the unknown setting —
+      // and is covered by the yarn-generation tests instead.)
+      expect(childEnv.YARN_ENABLE_NETWORK).toEqual('0')
+      expect(childEnv.YARN_ENABLE_SCRIPTS).toEqual('0')
+      expect(childEnv.YARN_IGNORE_PATH).toEqual('1')
+      // The rc filename must be random so no ancestor .yarnrc.yml can be
+      // pre-created under a known name to re-open the yarnPath channel.
+      expect(childEnv.YARN_RC_FILENAME).toMatch(/^\.checkly-lockfile-prune-no-rc-[0-9a-f-]+\.yml$/)
+      expect(childEnv.YARN_ENABLE_HARDENED_MODE).toBeUndefined()
     })
 
     it('fails when a workspace link is no longer a link after regeneration', async () => {
@@ -1375,5 +1425,1031 @@ describe('lockfile-pruner', () => {
       expect(result.content).not.toContain('isarray')
       expect(result.content).not.toContain('ee-first')
     }, 60_000)
+
+    // The yarn stub scripts below mutate the materialized yarn.lock via the
+    // same string-replacement helper as the bun ones. Search strings on the
+    // COMMITTED fixture must stay single-line: a Windows checkout may carry
+    // CRLF while hand-built lockfiles written by the tests are always LF.
+
+    it('reports a yarn prune with the original content when only backfill is needed', async () => {
+      const { workspace, files } = makeYarnScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned', archivePath: 'yarn.lock' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('@fixture/absent')
+    })
+
+    it('fails when a kept yarn entry changes content', async () => {
+      // Any change WITHIN an entry (here the resolved version) makes its
+      // serialized value unknown to the original, which the subset check
+      // must reject as a fresh resolution.
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['version: 2.1.3', 'version: 2.1.4'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('not present in the original'),
+      })
+    })
+
+    it('fails when the regenerated yarn metadata version is not a supported one', async () => {
+      // A different __metadata.version means the lockfile was rewritten by
+      // a different yarn generation (e.g. a newer yarn migrating the
+      // format); an unknown version fails the allowlist closed.
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['version: 10', 'version: 11'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('unsupported yarn.lock metadata version 11'),
+      })
+    })
+
+    it('fails when the yarn metadata version changes between supported versions', async () => {
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['version: 10', 'version: 8'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('lockfile version changed from 10 to 8'),
+      })
+    })
+
+    it('skips an unsupported yarn metadata version notably before any command runs', async () => {
+      const root = await makeTempDir()
+      await fs.cp(YARN_FIXTURE_ROOT, root, { recursive: true })
+      const lockfilePath = path.join(root, 'yarn.lock')
+      const content = await fs.readFile(lockfilePath, 'utf8')
+      // No newline in the search string: a Windows checkout may carry CRLF.
+      await fs.writeFile(lockfilePath, content.replace('version: 10', 'version: 11'))
+      const { workspace, files } = makeYarnScenario(root)
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported yarn.lock metadata version 11'),
+        notable: true,
+      })
+    })
+
+    it('skips notably for a yarn metadata version that collides with an Object prototype key', async () => {
+      // The version allowlist must fail closed even for a corrupted
+      // lockfile whose version equals an inherited property name like
+      // 'toString', which a naive `in` check would wrongly accept.
+      const root = await makeTempDir()
+      await fs.cp(YARN_FIXTURE_ROOT, root, { recursive: true })
+      const lockfilePath = path.join(root, 'yarn.lock')
+      const content = await fs.readFile(lockfilePath, 'utf8')
+      await fs.writeFile(lockfilePath, content.replace('version: 10', 'version: toString'))
+      const { workspace, files } = makeYarnScenario(root)
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported yarn.lock metadata version toString'),
+        notable: true,
+      })
+    })
+
+    it('fails when the yarn cacheKey changes', async () => {
+      // The cacheKey names the checksum scheme; a regeneration under a
+      // different scheme rewrote every checksum, which is a format change,
+      // not a prune.
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['cacheKey: 10c0', 'cacheKey: 8'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('cacheKey changed from 10c0 to 8'),
+      })
+    })
+
+    it('accepts a regenerated yarn lockfile that dropped the cacheKey entirely', async () => {
+      // Yarn 3 omits the cacheKey when a lockfile resolves no registry
+      // packages, which a prune that removes the last registry entry
+      // legitimately arrives at — absent-on-one-side must not be treated
+      // as a scheme change.
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['  cacheKey: 10c0', ''],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+    })
+
+    it('skips a Yarn Classic lockfile notably', async () => {
+      // Realistic Classic content: an entry with a nested `dependencies:`
+      // block does NOT parse as YAML (plain scalars followed by a mapping),
+      // so Classic must be recognized by its header before parsing — a
+      // parse-failure message would wrongly imply a broken lockfile. The
+      // skip fires before any command runs.
+      const root = await makeTempDir()
+      await fs.cp(YARN_FIXTURE_ROOT, root, { recursive: true })
+      await fs.writeFile(path.join(root, 'yarn.lock'), `# THIS IS AN AUTOGENERATED FILE. DO NOT EDIT THIS FILE DIRECTLY.
+# yarn lockfile v1
+
+
+debug@4.3.4:
+  version "4.3.4"
+  resolved "https://registry.yarnpkg.com/debug/-/debug-4.3.4.tgz#1319f6579357f2338d3337d2cdd4914bb5dcc865"
+  integrity sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==
+  dependencies:
+    ms "2.1.2"
+
+ms@2.1.2:
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
+  integrity sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==
+`)
+      const { workspace, files } = makeYarnScenario(root)
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('Yarn Classic'),
+        notable: true,
+      })
+    })
+
+    it('fails when a bundled yarn importer disappears from the lockfile', async () => {
+      const { workspace, files } = makeYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['@workspace:packages/used', '@workspace:packages/renamed'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining(`lost the importer 'packages/used'`),
+      })
+    })
+
+    // Builds a workspace where the `ms` member is consumed through a bare
+    // semver range — which yarn keys under BOTH the npm-range descriptor and
+    // the workspace descriptor ("ms@npm:^1.0.0, ms@workspace:packages/ms")
+    // — AND a same-named registry package is consumed by the root. Link
+    // classification for these edges depends entirely on the per-descriptor
+    // probe: a name-global answer would misclassify one of the two edges.
+    // The isarray entry carries two descriptors so that pruning its second
+    // consumer exercises descriptor re-keying (the key shrinks, the value
+    // does not). The lockfile is hand-built (always LF) mirroring yarn
+    // 4.18.0's real layout for this shape.
+    const makeMixedYarnScenario = async () => {
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/a'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/ms'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'mixed-yarn-fixture',
+        private: true,
+        workspaces: ['packages/*'],
+        dependencies: { isarray: '2.0.5', ms: '2.1.3' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/a/package.json'), JSON.stringify({
+        name: 'a',
+        version: '1.0.0',
+        dependencies: { isarray: '^2.0.0', ms: '^1.0.0' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/ms/package.json'), JSON.stringify({
+        name: 'ms',
+        version: '1.0.0',
+      }))
+      await fs.writeFile(path.join(root, 'yarn.lock'), `__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"a@workspace:packages/a":
+  version: 0.0.0-use.local
+  resolution: "a@workspace:packages/a"
+  dependencies:
+    isarray: "npm:^2.0.0"
+    ms: "npm:^1.0.0"
+  languageName: unknown
+  linkType: soft
+
+"isarray@npm:2.0.5, isarray@npm:^2.0.0":
+  version: 2.0.5
+  resolution: "isarray@npm:2.0.5"
+  checksum: 10c0/iii
+  languageName: node
+  linkType: hard
+
+"mixed-yarn-fixture@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "mixed-yarn-fixture@workspace:."
+  dependencies:
+    isarray: "npm:2.0.5"
+    ms: "npm:2.1.3"
+  languageName: unknown
+  linkType: soft
+
+"ms@npm:2.1.3":
+  version: 2.1.3
+  resolution: "ms@npm:2.1.3"
+  checksum: 10c0/mmm
+  languageName: node
+  linkType: hard
+
+"ms@npm:^1.0.0, ms@workspace:packages/ms":
+  version: 0.0.0-use.local
+  resolution: "ms@workspace:packages/ms"
+  languageName: unknown
+  linkType: soft
+`)
+
+      const a = new Package({ name: 'a', path: path.join(root, 'packages/a'), version: '1.0.0' })
+      const msMember = new Package({ name: 'ms', path: path.join(root, 'packages/ms'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'mixed-yarn-fixture', path: root }),
+        packages: [a, msMember],
+        lockfile: Ok(path.join(root, 'yarn.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['yarn.lock', { filePath: path.join(root, 'yarn.lock'), physical: true }],
+        ['packages/a/package.json', { filePath: path.join(root, 'packages/a/package.json'), physical: true }],
+        // The ms member's manifest is deliberately not in the bundle.
+      ])
+      return { workspace, files, a }
+    }
+
+    it('backfills a yarn member consumed through a bare semver range', async () => {
+      const { workspace, files } = await makeMixedYarnScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      // The manifest spec is '^1.0.0', not 'workspace:*', so the backfill
+      // can only trigger through the lockfile's per-descriptor link
+      // resolution (the "ms@npm:^1.0.0" descriptor resolving to a workspace
+      // entry), never through the spec prefix.
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('ms')
+    })
+
+    it('fails when a bare-semver yarn workspace resolution becomes a registry package', async () => {
+      // The yarn analog of npm's silent registry substitution: the npm-range
+      // descriptor no longer resolves to the workspace entry, so the edge
+      // that used to be a link is not one anymore.
+      const { workspace, files } = await makeMixedYarnScenario()
+      const script = rewriteYarnLockScript(
+        ['"ms@npm:^1.0.0, ms@workspace:packages/ms":', '"ms@workspace:packages/ms":'],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining(`'ms' is no longer a workspace link`),
+      })
+    })
+
+    it('does not mistake a yarn registry edge for a link when the same-named member is unlinked by a prune', async () => {
+      // With member a shimmed to a dependency-free manifest, pruning
+      // legitimately drops a's edges, the npm-range descriptor on the ms
+      // member's key, and isarray's second descriptor — while the root keeps
+      // its registry ms and isarray. A name-global link classification would
+      // mark the root's registry ms edge as a link in the original and fail
+      // verification with a spurious "no longer a workspace link"; a
+      // key-based subset check would reject the shrunk isarray key despite
+      // its unchanged value. The per-descriptor probe and the value-based
+      // subset check must both accept this prune.
+      const { workspace, files, a } = await makeMixedYarnScenario()
+      files.set('packages/a/package.json', createFauxPackageFiles(a)[0])
+      const script = rewriteYarnLockScript(
+        ['"ms@npm:^1.0.0, ms@workspace:packages/ms":', '"ms@workspace:packages/ms":'],
+        ['"isarray@npm:2.0.5, isarray@npm:^2.0.0":', '"isarray@npm:2.0.5":'],
+        ['\n  dependencies:\n    isarray: "npm:^2.0.0"\n    ms: "npm:^1.0.0"', ''],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.content).not.toContain('ms@npm:^1.0.0')
+      expect(result.content).toContain('ms@npm:2.1.3')
+    })
+
+    // Builds a workspace where member a peer-depends on the core member with
+    // the same bare range that member b really depends on, so the lockfile
+    // keys core's entry under the shared range descriptor — and b is shimmed
+    // away in the bundle, so a realistic regeneration drops both b's edge
+    // and the shared descriptor while a's peer stays recorded (peers are
+    // manifest echoes, never resolved on their own). Peer edges must
+    // therefore never be probed against descriptors: classifying a's peer
+    // edge as a link in the original would fail this correct prune with a
+    // spurious 'no longer a workspace link'. Parameterized by lockfile
+    // generation, because the descriptor/spec spelling differs: metadata
+    // version 6 (yarn 3) records bare ranges, 8+ record the npm: protocol.
+    const makeSharedPeerDescriptorScenario = async (
+      metadataVersion: number, cacheKey: string, specPrefix: string,
+    ) => {
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/a'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/b'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/core'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'peer-yarn-fixture',
+        private: true,
+        workspaces: ['packages/*'],
+        dependencies: { a: 'workspace:*', b: 'workspace:*' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/a/package.json'), JSON.stringify({
+        name: 'a',
+        version: '1.0.0',
+        peerDependencies: { core: '^1.0.0' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/b/package.json'), JSON.stringify({
+        name: 'b',
+        version: '1.0.0',
+        dependencies: { core: '^1.0.0' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/core/package.json'), JSON.stringify({
+        name: 'core',
+        version: '1.0.0',
+      }))
+      const coreSpec = specPrefix === '' ? '^1.0.0' : `"${specPrefix}^1.0.0"`
+      await fs.writeFile(path.join(root, 'yarn.lock'), `__metadata:
+  version: ${metadataVersion}
+  cacheKey: ${cacheKey}
+
+"a@workspace:*, a@workspace:packages/a":
+  version: 0.0.0-use.local
+  resolution: "a@workspace:packages/a"
+  peerDependencies:
+    core: ^1.0.0
+  languageName: unknown
+  linkType: soft
+
+"b@workspace:*, b@workspace:packages/b":
+  version: 0.0.0-use.local
+  resolution: "b@workspace:packages/b"
+  dependencies:
+    core: ${coreSpec}
+  languageName: unknown
+  linkType: soft
+
+"core@${specPrefix}^1.0.0, core@workspace:packages/core":
+  version: 0.0.0-use.local
+  resolution: "core@workspace:packages/core"
+  languageName: unknown
+  linkType: soft
+
+"peer-yarn-fixture@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "peer-yarn-fixture@workspace:."
+  dependencies:
+    a: "workspace:*"
+    b: "workspace:*"
+  languageName: unknown
+  linkType: soft
+`)
+      const a = new Package({ name: 'a', path: path.join(root, 'packages/a'), version: '1.0.0' })
+      const b = new Package({ name: 'b', path: path.join(root, 'packages/b'), version: '1.0.0' })
+      const core = new Package({ name: 'core', path: path.join(root, 'packages/core'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'peer-yarn-fixture', path: root }),
+        packages: [a, b, core],
+        lockfile: Ok(path.join(root, 'yarn.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['yarn.lock', { filePath: path.join(root, 'yarn.lock'), physical: true }],
+        ['packages/a/package.json', { filePath: path.join(root, 'packages/a/package.json'), physical: true }],
+        ['packages/b/package.json', createFauxPackageFiles(b)[0]],
+        // The core member's manifest is deliberately not in the bundle: it
+        // must be backfilled through b's real dependency edge.
+      ])
+      // Simulates the realistic regeneration: the shared descriptor and b's
+      // dependency block disappear.
+      const script = rewriteYarnLockScript(
+        [`"core@${specPrefix}^1.0.0, core@workspace:packages/core":`, '"core@workspace:packages/core":'],
+        [`\n  dependencies:\n    core: ${coreSpec}`, ''],
+      )
+      return { workspace, files, script }
+    }
+
+    const expectPeerPruneAccepted = async (
+      scenario: { workspace: Workspace, files: Map<string, File>, script: string },
+    ) => {
+      const result = await pruneBundledLockfile({
+        workspace: scenario.workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', scenario.script])),
+        files: scenario.files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('core')
+    }
+
+    it('accepts a prune that unlinks a peer edge sharing a descriptor with a pruned dependency', async () => {
+      await expectPeerPruneAccepted(await makeSharedPeerDescriptorScenario(10, '10c0', 'npm:'))
+    })
+
+    it('handles yarn 3 (metadata version 6) lockfiles, whose specs carry no npm: prefix', async () => {
+      // The as-written probe must classify b's prefix-less dependency edge
+      // as a link (backfilling core through it) on yarn 3 shapes too.
+      await expectPeerPruneAccepted(await makeSharedPeerDescriptorScenario(6, '8', ''))
+    })
+
+    it('classifies a bare numeric yarn 3 range that YAML would coerce to a number', async () => {
+      // Yarn 3 writes bare numeric ranges unquoted (`two: 2`), which the
+      // default YAML schema turns into a number; the parser must read the
+      // lockfile with the failsafe schema so the edge survives, resolves
+      // to the workspace descriptor and triggers the backfill.
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/a'), { recursive: true })
+      await fs.mkdir(path.join(root, 'packages/two'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'numeric-fixture',
+        private: true,
+        workspaces: ['packages/*'],
+        dependencies: { a: 'workspace:*' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/a/package.json'), JSON.stringify({
+        name: 'a',
+        version: '1.0.0',
+        dependencies: { two: '2' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/two/package.json'), JSON.stringify({
+        name: 'two',
+        version: '2.0.0',
+      }))
+      await fs.writeFile(path.join(root, 'yarn.lock'), `__metadata:
+  version: 6
+  cacheKey: 8
+
+"a@workspace:*, a@workspace:packages/a":
+  version: 0.0.0-use.local
+  resolution: "a@workspace:packages/a"
+  dependencies:
+    two: 2
+  languageName: unknown
+  linkType: soft
+
+"numeric-fixture@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "numeric-fixture@workspace:."
+  dependencies:
+    a: "workspace:*"
+  languageName: unknown
+  linkType: soft
+
+"two@2, two@workspace:packages/two":
+  version: 0.0.0-use.local
+  resolution: "two@workspace:packages/two"
+  languageName: unknown
+  linkType: soft
+`)
+      const a = new Package({ name: 'a', path: path.join(root, 'packages/a'), version: '1.0.0' })
+      const two = new Package({ name: 'two', path: path.join(root, 'packages/two'), version: '2.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'numeric-fixture', path: root }),
+        packages: [a, two],
+        lockfile: Ok(path.join(root, 'yarn.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['yarn.lock', { filePath: path.join(root, 'yarn.lock'), physical: true }],
+        ['packages/a/package.json', { filePath: path.join(root, 'packages/a/package.json'), physical: true }],
+        // The two member's manifest is deliberately not in the bundle: the
+        // backfill can only trigger through the numeric-range edge.
+      ])
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('two')
+    })
+
+    it('skips notably when a yarn entry has an unexpected shape', async () => {
+      // The per-entry shape check is a load-bearing fail-closed guard: a
+      // future format that restructures entries must skip, not silently
+      // produce an empty snapshot.
+      const root = await makeTempDir()
+      await fs.cp(YARN_FIXTURE_ROOT, root, { recursive: true })
+      const lockfilePath = path.join(root, 'yarn.lock')
+      const content = await fs.readFile(lockfilePath, 'utf8')
+      // No newline in the search string: a Windows checkout may carry CRLF.
+      await fs.writeFile(lockfilePath, content.replace('  resolution: "ms@npm:2.1.3"', ''))
+      const { workspace, files } = makeYarnScenario(root)
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('unsupported yarn.lock entry shape'),
+        notable: true,
+      })
+    })
+
+    it('backfills a yarn member consumed through the portal: protocol', async () => {
+      // portal:/link: specs count as links via their prefix (their entries
+      // have no @workspace: resolution to probe).
+      const root = await makeTempDir()
+      await fs.mkdir(path.join(root, 'packages/x'), { recursive: true })
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'portal-root',
+        private: true,
+        dependencies: { x: 'portal:./packages/x' },
+      }))
+      await fs.writeFile(path.join(root, 'packages/x/package.json'), JSON.stringify({
+        name: 'x',
+        version: '1.0.0',
+      }))
+      await fs.writeFile(path.join(root, 'yarn.lock'), `__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"portal-root@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "portal-root@workspace:."
+  dependencies:
+    x: "portal:./packages/x"
+  languageName: unknown
+  linkType: soft
+
+"x@portal:./packages/x::locator=portal-root%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "x@portal:./packages/x::locator=portal-root%40workspace%3A."
+  languageName: node
+  linkType: soft
+`)
+      const x = new Package({ name: 'x', path: path.join(root, 'packages/x'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'portal-root', path: root }),
+        packages: [x],
+        lockfile: Ok(path.join(root, 'yarn.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['yarn.lock', { filePath: path.join(root, 'yarn.lock'), physical: true }],
+        // The x member's manifest is deliberately not in the bundle.
+      ])
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.backfilledManifests).toHaveLength(1)
+      expect(JSON.parse(result.backfilledManifests[0].content).name).toEqual('x')
+    })
+
+    it('keeps a yarn patch: entry intact through a prune', async () => {
+      // patch: entries are ordinary non-workspace entries in the subset
+      // set; a prune that leaves them untouched must pass verification
+      // with the patched resolution intact.
+      const root = await makeTempDir()
+      await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+        name: 'patch-root',
+        private: true,
+        dependencies: { isarray: '2.0.5', ms: 'patch:ms@npm%3A2.1.3#~/.yarn/patches/ms.patch' },
+      }))
+      await fs.writeFile(path.join(root, 'yarn.lock'), `__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"isarray@npm:2.0.5":
+  version: 2.0.5
+  resolution: "isarray@npm:2.0.5"
+  checksum: 10c0/iii
+  languageName: node
+  linkType: hard
+
+"ms@npm:2.1.3":
+  version: 2.1.3
+  resolution: "ms@npm:2.1.3"
+  checksum: 10c0/mmm
+  languageName: node
+  linkType: hard
+
+"ms@patch:ms@npm%3A2.1.3#~/.yarn/patches/ms.patch":
+  version: 2.1.3
+  resolution: "ms@patch:ms@npm%3A2.1.3#~/.yarn/patches/ms.patch::version=2.1.3&hash=125495"
+  checksum: 10c0/ppp
+  languageName: node
+  linkType: hard
+
+"patch-root@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "patch-root@workspace:."
+  dependencies:
+    isarray: "npm:2.0.5"
+    ms: "patch:ms@npm%3A2.1.3#~/.yarn/patches/ms.patch"
+  languageName: unknown
+  linkType: soft
+`)
+      const member = new Package({ name: 'unused-member', path: path.join(root, 'packages/none'), version: '1.0.0' })
+      const workspace = new Workspace({
+        root: new Package({ name: 'patch-root', path: root }),
+        packages: [member],
+        lockfile: Ok(path.join(root, 'yarn.lock')),
+        configFile: Err(new Error('no config file')),
+      })
+      const files = new Map<string, File>([
+        ['package.json', { filePath: path.join(root, 'package.json'), physical: true }],
+        ['yarn.lock', { filePath: path.join(root, 'yarn.lock'), physical: true }],
+      ])
+      const script = rewriteYarnLockScript(
+        ['"isarray@npm:2.0.5":\n  version: 2.0.5\n  resolution: "isarray@npm:2.0.5"\n  checksum: 10c0/iii\n  languageName: node\n  linkType: hard\n\n', ''],
+        ['\n    isarray: "npm:2.0.5"', ''],
+      )
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.content).toContain('ms@patch:ms@npm%3A2.1.3')
+      expect(result.content).not.toContain('isarray')
+    })
+
+    // Writes a fake `yarn` (POSIX shell script) onto a fresh PATH dir and
+    // returns the env to hand the pruner. `versionBody` runs for
+    // `yarn --version`, `installBody` for everything else; the default
+    // install body fails, so a test asserting a pre-spawn skip would see a
+    // 'failed' result instead if the install were (wrongly) reached.
+    const makeFakeYarnEnv = async (
+      versionBody: string,
+      installBody = 'exit 1',
+    ): Promise<NodeJS.ProcessEnv> => {
+      const binDir = await makeTempDir()
+      const fakeYarn = path.join(binDir, 'yarn')
+      await fs.writeFile(fakeYarn, `#!/bin/sh\nif [ "$1" = "--version" ]; then ${versionBody}; fi\n${installBody}\n`)
+      await fs.chmod(fakeYarn, 0o755)
+      return { ...testEnv(), PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}` }
+    }
+
+    it.skipIf(process.platform === 'win32')('skips notably when yarn resolves to Yarn Classic', async () => {
+      // The pruner must refuse BEFORE spawning the install: Classic
+      // silently ignores --mode=update-lockfile and performs a full
+      // install, scripts included.
+      const { workspace, files } = makeYarnScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new YarnDetector(),
+        files,
+        env: await makeFakeYarnEnv('echo 1.22.22; exit 0'),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('Yarn Classic (1.x)'),
+        notable: true,
+      })
+    })
+
+    it.skipIf(process.platform !== 'win32')('skips notably when yarn resolves to Yarn Classic on Windows', async () => {
+      // The Windows variant matters in its own right: the guard must
+      // resolve a `yarn.cmd` shim (which shell-less spawns cannot) and
+      // tolerate CRLF-terminated probe output.
+      const binDir = await makeTempDir()
+      await fs.writeFile(
+        path.join(binDir, 'yarn.cmd'),
+        '@echo off\r\nif "%1"=="--version" (\r\n  echo 1.22.22\r\n  exit /b 0\r\n)\r\nexit /b 1\r\n',
+      )
+      const { workspace, files } = makeYarnScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new YarnDetector(),
+        files,
+        env: { ...testEnv(), PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}` },
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('Yarn Classic (1.x)'),
+        notable: true,
+      })
+    })
+
+    it.skipIf(process.platform === 'win32')('attempts the install when the yarn version probe fails', async () => {
+      // The probe fails OPEN by design: an unidentifiable yarn must not
+      // block a working prune, and the install's own error carries the
+      // real detail. This pins the choice; the trade-off (a Classic yarn
+      // whose --version somehow fails would still install) is accepted.
+      // The ambient PATH is stubbed too: the post-failure missing-binary
+      // classification (PathLookup) reads process.env, and this test must
+      // not depend on the host having a real yarn there.
+      const { workspace, files } = makeYarnScenario()
+      const env = await makeFakeYarnEnv('echo probe broken >&2; exit 7', 'echo install ran >&2; exit 9')
+      vi.stubEnv('PATH', env.PATH!)
+      try {
+        const result = await pruneBundledLockfile({
+          workspace,
+          packageManager: new YarnDetector(),
+          files,
+          env,
+        })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining('install ran'),
+        })
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    })
+
+    it.skipIf(process.platform === 'win32')('skips notably when the yarn generation does not match the lockfile', async () => {
+      // Yarn only reuses a lockfile written by its own generation; handed
+      // an older one it re-resolves everything, which the network guard
+      // blocks. The version mismatch must surface as an actionable skip,
+      // not a blocked-registry failure. A yarn-3 lockfile with a yarn-4
+      // binary:
+      const { workspace, files } = makeYarn3Scenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new YarnDetector(),
+        files,
+        env: await makeFakeYarnEnv('echo 4.18.0; exit 0'),
+      })
+      expect(result).toMatchObject({
+        status: 'skipped',
+        reason: expect.stringContaining('written by yarn 3 (metadata version 6) but yarn resolves to 4.18.0'),
+        notable: true,
+      })
+    })
+
+    it.skipIf(process.platform === 'win32')('disables hardened mode only for a confirmed yarn 4', async () => {
+      // YARN_ENABLE_HARDENED_MODE must reach a yarn-4 install (hardened
+      // mode is auto-enabled on PR CI and would trip the network guard),
+      // but must NOT be set for yarn 3, which rejects the unknown setting
+      // with a usage error.
+      // POSIX-gated test, so the temp path is already shell-safe.
+      const outFile = path.join(await makeTempDir(), 'env.txt')
+      const recordEnv = `echo "hardened=$YARN_ENABLE_HARDENED_MODE" > "${outFile}"; exit 1`
+
+      const v10 = makeYarnScenario()
+      await pruneBundledLockfile({
+        workspace: v10.workspace,
+        packageManager: new YarnDetector(),
+        files: v10.files,
+        env: await makeFakeYarnEnv('echo 4.18.0; exit 0', recordEnv),
+      })
+      expect((await fs.readFile(outFile, 'utf8')).trim()).toEqual('hardened=0')
+
+      const v6 = makeYarn3Scenario()
+      await pruneBundledLockfile({
+        workspace: v6.workspace,
+        packageManager: new YarnDetector(),
+        files: v6.files,
+        env: await makeFakeYarnEnv('echo 3.8.7; exit 0', recordEnv),
+      })
+      expect((await fs.readFile(outFile, 'utf8')).trim()).toEqual('hardened=')
+    })
+
+    it.skipIf(process.platform === 'win32')('fails clearly when the prune timeout is below the yarn floor', async () => {
+      // A caller-supplied timeout too small to run any install (the version
+      // probe returns instantly, so the budget itself is the problem) is
+      // reported as a misconfiguration, not a toolchain-provisioning delay.
+      const { workspace, files } = makeYarnScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new YarnDetector(),
+        files,
+        env: await makeFakeYarnEnv('echo 4.18.0; exit 0'),
+        timeoutMs: 100,
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('below the minimum needed to run yarn'),
+      })
+    })
+
+    it.skipIf(process.platform === 'win32')('fails clearly when the yarn version probe eats the prune budget', async () => {
+      // A probe (e.g. a first-use corepack download) slow enough to leave
+      // less than the install floor is attributed to provisioning, not a
+      // second install timeout.
+      const { workspace, files } = makeYarnScenario()
+      // The probe sleeps well within the timeout (so it never itself times
+      // out) but leaves under the 1s install floor: timeout 3000 − ~1500
+      // sleep = ~1500 remaining is above the floor's own comparison only
+      // if the sleep is longer, so sleep 2.2s → ~800ms remaining.
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new YarnDetector(),
+        files,
+        env: await makeFakeYarnEnv('sleep 2.2; echo 4.18.0; exit 0'),
+        timeoutMs: 3000,
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: expect.stringContaining('provisioning the yarn toolchain used up the prune time budget'),
+      })
+    }, 15_000)
+
+    // The network guard's own error names the user's "configuration
+    // settings", which reads like a broken setup; the pruner must name the
+    // real causes (stale lockfile, or a same-generation yarn that still
+    // declines to reuse it) instead. Real yarn prints YN0080 on STDOUT, but
+    // an install that also emits unrelated stderr must still be recognized,
+    // so the rewrite scans both streams. The ambient PATH is stubbed for
+    // the same reason as in the probe-failure test above.
+    const blockedMessage =
+      `YN0080: ms@npm:2.1.3: Request to 'https://registry.yarnpkg.com/ms' has been blocked because of your configuration settings`
+    for (const stream of ['stdout', 'stdout-with-stderr-noise']) {
+      it.skipIf(process.platform === 'win32')(
+        `rewrites yarn blocked-request failures into an actionable reason (${stream})`, async () => {
+          const { workspace, files } = makeYarnScenario()
+          const noise = stream === 'stdout-with-stderr-noise' ? 'echo "warning: some unrelated notice" >&2; ' : ''
+          const env = await makeFakeYarnEnv('echo 4.18.0; exit 0', `${noise}echo "${blockedMessage}"; exit 1`)
+          vi.stubEnv('PATH', env.PATH!)
+          try {
+            const result = await pruneBundledLockfile({
+              workspace,
+              packageManager: new YarnDetector(),
+              files,
+              env,
+            })
+            expect(result).toMatchObject({
+              status: 'failed',
+              reason: expect.stringContaining('pin it via the packageManager field'),
+            })
+            if (result.status !== 'failed') {
+              return
+            }
+            // Yarn's own output stays attached (the descriptor is otherwise
+            // unrecoverable), but only after the actionable explanation.
+            expect(result.reason.indexOf('pin it via')).toBeLessThan(result.reason.indexOf('YN0080'))
+          } finally {
+            vi.unstubAllEnvs()
+          }
+        })
+    }
+
+    // Both real-yarn generations run the same end-to-end shape; the only
+    // differences are the fixture (and hence the pinned yarn) and the
+    // checksum spelling (yarn 3 writes bare hex without the cacheKey
+    // prefix). Environment-level incompatibilities have already differed
+    // between the generations (the hardened-mode setting does not exist
+    // before yarn 4), so both must stay covered.
+    for (const generation of [
+      {
+        name: 'yarn 4',
+        fixture: 'yarn-workspace',
+        makeScenario: makeYarnScenario,
+        available: yarnBerryAvailable,
+        checksumMarker: 'checksum: 10c0/',
+      },
+      {
+        name: 'yarn 3',
+        fixture: 'yarn3-workspace',
+        makeScenario: makeYarn3Scenario,
+        available: yarn3Available,
+        checksumMarker: 'checksum:',
+      },
+    ]) {
+      it.skipIf(process.env.CHECKLY_EXPECT_YARN === undefined)(
+        `${generation.name} is provisioned when CHECKLY_EXPECT_YARN is set`, () => {
+          // The repo's own CI workflow sets CHECKLY_EXPECT_YARN after
+          // running `corepack enable yarn` and pre-downloading both pinned
+          // versions. The probe checks the resolved major from the fixture
+          // directory, so a preinstalled Yarn Classic shadowing the
+          // corepack shim fails here instead of silently skipping the
+          // real-yarn tests below.
+          expect(
+            generation.available,
+            `CHECKLY_EXPECT_YARN is set but yarn does not resolve to the ${generation.fixture}`
+            + ` fixture's pinned version, so the real-${generation.name} pruner tests were skipped.`
+            + ' Restore the `corepack enable yarn` step in .github/workflows/test.yml.',
+          ).toBe(true)
+        })
+
+      it.skipIf(!generation.available)(
+        `prunes the lockfile with real ${generation.name}, backfilling link-referenced members`, async () => {
+          const { workspace, files } = generation.makeScenario()
+          const result = await pruneBundledLockfile({
+            workspace,
+            packageManager: new YarnDetector(),
+            files,
+            env: testEnv(),
+          })
+
+          expect(result.status).toEqual('pruned')
+          if (result.status !== 'pruned') {
+            return
+          }
+
+          expect(result.archivePath).toEqual('yarn.lock')
+
+          // The root manifest declares @fixture/absent as workspace:*, so a
+          // faux manifest must have been backfilled for it.
+          expect(result.backfilledManifests).toHaveLength(1)
+          expect(JSON.parse(result.backfilledManifests[0].content)).toMatchObject({
+            name: '@fixture/absent',
+            version: '1.0.0',
+          })
+
+          // Kept: every workspace member entry (the shimmed and backfilled
+          // members keep dependency-free importers) and the imported
+          // member's dependency with its checksum. Byte-identity of kept
+          // entries is guaranteed by the pruned status (the value-based
+          // subset check).
+          expect(result.content).toContain('@fixture/used@workspace:packages/used')
+          expect(result.content).toContain('@fixture/shimmed@workspace:packages/shimmed')
+          expect(result.content).toContain('@fixture/absent@workspace:packages/absent')
+          expect(result.content).toContain('ms@npm:2.1.3')
+          expect(result.content).toContain(generation.checksumMarker)
+
+          // Dropped: dependencies of the shimmed and absent members.
+          expect(result.content).not.toContain('isarray')
+          expect(result.content).not.toContain('ee-first')
+        }, 60_000)
+    }
   })
 })

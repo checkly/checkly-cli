@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -64,6 +65,11 @@ export type PruneBundledLockfileResult =
 // ends in a fallback anyway because the subset check rejects fresh
 // resolutions — so waiting minutes buys nothing.
 const DEFAULT_TIMEOUT_MS = 30_000
+
+// The yarn version probe shares the install's budget; if it leaves the
+// install less than this, the prune is abandoned with a provisioning
+// message rather than spawning an install doomed to time out.
+const YARN_PROBE_MIN_INSTALL_BUDGET_MS = 1_000
 
 const MAX_FAILURE_DETAIL_LENGTH = 400
 
@@ -151,6 +157,14 @@ export function shouldPruneLockfile (
   return { prune: true, lockfileArchivePath: archivePath }
 }
 
+// Deliberately NOT materialized: .yarnrc.yml (and bunfig.toml). Both can
+// hold registry auth secrets and neither is part of the bundle today. For
+// yarn the omission is verified safe for --mode=update-lockfile: Berry
+// lockfiles are registry-agnostic (npm: protocol, content checksums — no
+// URLs to rewrite), locked git entries reuse without approvedGitRepositories,
+// packageExtensions does not change entry serialization, and any resolution
+// that WOULD need registry config is blocked by the child env's network
+// guard and fails closed.
 const MATERIALIZED_BASENAMES = new Set(['package.json', '.npmrc', 'pnpm-workspace.yaml'])
 
 /**
@@ -216,6 +230,13 @@ interface LockfileEdge {
  */
 interface LockfileSnapshot {
   lockfileVersion?: string
+  /**
+   * Yarn Berry's checksum-scheme identifier (`__metadata.cacheKey`).
+   * Optional on BOTH sides even within one lockfile generation: yarn 3
+   * omits it when the lockfile resolves no registry packages, so it is
+   * only compared when both snapshots record one.
+   */
+  cacheKey?: string
   pnpmfileChecksum?: string
   excludeLinksFromLockfile: boolean
   /** Dependency edges by a format-specific unique key. */
@@ -230,6 +251,14 @@ interface LockfileSnapshot {
 }
 
 class UnsupportedLockfileFormatError extends Error {}
+
+// Yarn Berry lockfile metadata versions this parser handles, mapped to the
+// yarn major that writes them — the parser allowlist and the
+// generation-mismatch check both derive from this one table so adding a
+// version cannot leave them out of sync. Version 6 is yarn 3; 8 (early
+// yarn 4) and 10 (current) are yarn 4. 6 records dependency specs without
+// the npm: protocol prefix; 8+ record it.
+const YARN_METADATA_VERSION_TO_MAJOR: Record<string, number> = { 6: 3, 8: 4, 10: 4 }
 
 const PNPM_DEPENDENCY_GROUPS = ['dependencies', 'devDependencies', 'optionalDependencies']
 
@@ -441,6 +470,152 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     return snapshot
   }
 
+  if (lockfileName === 'yarn.lock') {
+    // Yarn Classic (v1) files must be recognized BEFORE the YAML parse:
+    // realistic Classic lockfiles do not parse as YAML at all (an entry
+    // with a nested `dependencies:` block mixes plain scalars and a
+    // mapping, which the parser rejects), so without the header check a
+    // Classic user would get a "could not parse" message implying a broken
+    // lockfile. Every yarn-1-generated lockfile carries this header.
+    if (/^# yarn lockfile v1$/m.test(content)) {
+      throw new UnsupportedLockfileFormatError(
+        `${lockfileName} is a Yarn Classic (v1) lockfile, which is not supported`,
+      )
+    }
+    let doc: any
+    try {
+      // The failsafe schema keeps every scalar a string: yarn 3 writes
+      // bare numeric ranges unquoted (`two: 2`), which the default schema
+      // would coerce to numbers — dropping those edges (and losing `1.0`
+      // as written, so String() could not undo it).
+      doc = parseYaml(content, { schema: 'failsafe' })
+    } catch {
+      throw new UnsupportedLockfileFormatError(`could not parse ${lockfileName}`)
+    }
+    if (doc === null || typeof doc !== 'object') {
+      throw new UnsupportedLockfileFormatError(`could not parse ${lockfileName}`)
+    }
+    const metadata = doc.__metadata
+    if (metadata === null || typeof metadata !== 'object' || metadata.version === undefined) {
+      throw new UnsupportedLockfileFormatError(
+        `${lockfileName} is not a Yarn Berry lockfile (Yarn Classic lockfiles are not supported)`,
+      )
+    }
+    // Fail closed on unknown metadata versions, like the parsers above
+    // (see YARN_METADATA_VERSION_TO_MAJOR).
+    const version = String(metadata.version)
+    // hasOwnProperty, not `in`: a corrupted lockfile whose version equals an
+    // Object.prototype key ('toString', '__proto__') must still fail closed.
+    if (!Object.prototype.hasOwnProperty.call(YARN_METADATA_VERSION_TO_MAJOR, version)) {
+      throw new UnsupportedLockfileFormatError(
+        `unsupported ${lockfileName} metadata version ${version}`,
+      )
+    }
+    snapshot.lockfileVersion = version
+    // The cacheKey names the checksum scheme; a regeneration under a
+    // different scheme must fail verification. Compared as its own field —
+    // not folded into the version — because yarn 3 omits cacheKey entirely
+    // when a lockfile resolves no registry packages, so a prune that
+    // removes the last registry entry legitimately goes from "cacheKey: 8"
+    // to no cacheKey at all.
+    snapshot.cacheKey = metadata.cacheKey !== undefined ? String(metadata.cacheKey) : undefined
+
+    // First pass: validate the entry shape and collect the descriptors (the
+    // comma-joined parts of each entry key) that name workspace entries, so
+    // edges can be classified per descriptor below. Splitting on ', ' is
+    // safe: npm semver ranges cannot contain a comma, and yarn itself joins
+    // descriptor lists with this exact separator.
+    const workspaceDescriptors = new Set<string>()
+    const entries: Array<[string, any]> = []
+    for (const [key, entry] of Object.entries<any>(doc)) {
+      if (key === '__metadata') {
+        continue
+      }
+      if (entry === null || typeof entry !== 'object' || typeof entry.resolution !== 'string') {
+        throw new UnsupportedLockfileFormatError(
+          `unsupported ${lockfileName} entry shape for '${key}'`,
+        )
+      }
+      entries.push([key, entry])
+      if (entry.resolution.includes('@workspace:')) {
+        for (const descriptor of key.split(', ')) {
+          workspaceDescriptors.add(descriptor)
+        }
+      }
+    }
+
+    // A regular dependency edge resolves to a workspace link if either its
+    // spec says so or its descriptor is one the lockfile keys a workspace
+    // entry under; the latter covers bare semver specs that yarn resolved
+    // to a workspace member (the member's entry is then keyed under both
+    // the range descriptor and the workspace descriptor). Classified per
+    // descriptor, because a member's name may also be consumed from the
+    // registry by a different importer. The spec is probed as written —
+    // metadata version 6 records `^1.0.0` where 8+ record `npm:^1.0.0`,
+    // and the keys follow the same convention, so no prefix juggling is
+    // needed. Peer edges are deliberately NEVER probed: a peer only shares
+    // a descriptor with some other importer's real dependency, and pruning
+    // that importer away legitimately removes the descriptor — probing
+    // would then classify the surviving peer edge as a link that
+    // "degraded", failing a correct prune. Peers are never resolved on
+    // their own (the consumer's ancestors provide them), so there is no
+    // silent-substitution channel to catch either; a `workspace:` peer
+    // spec still counts as a link via its prefix.
+    const resolvesToWorkspace = (name: string, spec: string): boolean => {
+      return workspaceDescriptors.has(`${name}@${spec}`)
+    }
+
+    for (const [, entry] of entries) {
+      const resolution: string = entry.resolution
+      // lastIndexOf, not a simple split: scoped names contain '@'.
+      const workspaceMarker = resolution.lastIndexOf('@workspace:')
+      if (workspaceMarker === -1) {
+        // Non-workspace entries (registry, git, patch, portal, ...) feed the
+        // subset check. Key it by the whole serialized entry rather than the
+        // lockfile key: pruning a consumer shrinks a multi-descriptor key
+        // (e.g. "b@npm:^1.0.0, b@workspace:packages/b" loses its npm range)
+        // with an unchanged value, which a key-based check would falsely
+        // reject — while any change WITHIN an entry (version, checksum,
+        // dependencies) must still fail the check. Serialization is stable
+        // because both sides are parsed from yarn's own deterministic
+        // output by this same function.
+        snapshot.resolutions.set(JSON.stringify(entry), '')
+        continue
+      }
+      // Workspace entries are the importers: their resolution carries the
+      // member directory ('.' for the root), and their dependencies maps
+      // carry the importer's edges — devDependencies and
+      // optionalDependencies are merged into `dependencies` by yarn, and
+      // peerDependencies stays its own group. Their content changes when a
+      // member is shimmed, which is exactly what pruning does, so they must
+      // NOT feed the subset check above.
+      const importer = resolution.slice(workspaceMarker + '@workspace:'.length)
+      snapshot.importers.add(importer)
+      for (const group of ['dependencies', 'peerDependencies']) {
+        const dependencies = entry[group]
+        if (dependencies === null || typeof dependencies !== 'object') {
+          continue
+        }
+        for (const [name, spec] of Object.entries(dependencies)) {
+          if (typeof spec !== 'string') {
+            continue
+          }
+          snapshot.edges.set(`${importer}\0${group}\0${name}`, {
+            name,
+            isLink: spec.startsWith('workspace:')
+              || spec.startsWith('link:')
+              || spec.startsWith('portal:')
+              // Descriptor probing is for regular dependencies only — see
+              // resolvesToWorkspace above for why peers must not probe.
+              || (group === 'dependencies' && resolvesToWorkspace(name, spec)),
+          })
+        }
+      }
+    }
+
+    return snapshot
+  }
+
   if (lockfileName === 'bun.lockb') {
     throw new UnsupportedLockfileFormatError(
       'the binary bun.lockb format is not supported;'
@@ -466,6 +641,17 @@ function verifyPrunedLockfile (
   // a full re-resolution.
   if (original.lockfileVersion !== regenerated.lockfileVersion) {
     return `the lockfile version changed from ${original.lockfileVersion} to ${regenerated.lockfileVersion}`
+  }
+
+  // A changed yarn checksum scheme means every checksum was rewritten —
+  // a wholesale regeneration, not a prune. Only compared when both sides
+  // record one: yarn 3 omits the cacheKey when a lockfile resolves no
+  // registry packages, which a prune can legitimately arrive at.
+  if (
+    original.cacheKey !== undefined && regenerated.cacheKey !== undefined
+    && original.cacheKey !== regenerated.cacheKey
+  ) {
+    return `the lockfile cacheKey changed from ${original.cacheKey} to ${regenerated.cacheKey}`
   }
 
   // Any change to the recorded pnpmfile checksum means the resolve ran with
@@ -610,6 +796,42 @@ function buildChildEnv (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   // than the one being invoked; relax corepack's mismatch error (this does
   // not affect corepack's pinned-version resolution).
   env.COREPACK_ENABLE_STRICT = '0'
+  // A legitimate yarn prune needs no network at all (verified even with a
+  // cold cache: the fetch step only touches entries that are NEW, which a
+  // prune never introduces) — but a lockfile that is out of date with a
+  // manifest would make yarn resolve the missing descriptor against its
+  // configured registry, and since the project's .yarnrc.yml is not
+  // materialized (see MATERIALIZED_BASENAMES) that is the PUBLIC registry:
+  // the request would disclose the (possibly private) package name before
+  // the subset verification could reject the result. Disabling the network
+  // makes that case fail fast with yarn's own blocked-request error
+  // instead. Only Yarn Berry reads this variable, and every Berry
+  // generation accepts it (unlike YARN_ENABLE_HARDENED_MODE, which is set
+  // per-run once the yarn generation is known).
+  env.YARN_ENABLE_NETWORK = '0'
+  // Yarn honors a .yarnrc.yml (Berry) or .yarnrc (Classic) found in ANY
+  // ancestor of its working directory — for the prune temp dir that means
+  // the system temp root and everything above it, none of which this
+  // process controls (on shared hosts /tmp is world-writable). An ancestor
+  // rc can redirect the lockfile write (lockfileFilename), re-enable what
+  // the variables above disable, or worst of all execute an arbitrary
+  // script via yarnPath/yarn-path — during the version probe already. Two
+  // independent guards, because one alone is insufficient:
+  //   - YARN_IGNORE_PATH neutralizes yarnPath/yarn-path specifically, and
+  //     is the ONLY mechanism that covers Yarn Classic (which ignores
+  //     YARN_RC_FILENAME and has no env-settable rc path). Verified to
+  //     disable the exploit on 1.22.22, 3.8.7 and 4.18.0.
+  //   - YARN_RC_FILENAME points Berry's rc lookup at a per-invocation
+  //     random name so no ancestor rc is read at all (blocking
+  //     lockfileFilename etc., not just yarnPath). It must be random: a
+  //     fixed name is a compile-time constant an attacker can pre-create
+  //     to re-open the channel.
+  env.YARN_IGNORE_PATH = '1'
+  env.YARN_RC_FILENAME = `.checkly-lockfile-prune-no-rc-${randomUUID()}.yml`
+  // The link step (where lifecycle scripts run) is already skipped by
+  // --mode=update-lockfile; disabling scripts outright is defense in
+  // depth, and enableScripts exists in every Berry generation.
+  env.YARN_ENABLE_SCRIPTS = '0'
   return env
 }
 
@@ -846,18 +1068,110 @@ export async function pruneBundledLockfile (
       return { status: 'failed', reason: 'the lockfile could not be materialized' }
     }
 
+    // Yarn Classic must be stopped BEFORE the install is spawned: verified
+    // on yarn 1.22.22 that it silently ignores --mode=update-lockfile and
+    // performs a FULL install — fresh registry resolution, node_modules in
+    // the temp dir, dependency lifecycle scripts — with exit 0, then writes
+    // a v1 lockfile that fails verification with misleading advice. Classic
+    // is what a plain `yarn` resolves to when a Berry project pins its
+    // version via yarnPath (which lives in the unbundled .yarnrc.yml)
+    // rather than the packageManager field. Only a positive 1.x match
+    // skips: a failing or unparseable probe falls through to the install,
+    // whose own error carries the real detail — so a probe hiccup can
+    // never block a working prune, mirroring the post-hoc PATH probe
+    // below. Probe and install share the executable, cwd and env, so their
+    // version resolution cannot diverge.
+    const childEnv = buildChildEnv(env)
+    // The probe shares the install's time budget so the yarn path cannot
+    // block for longer than the documented timeout in total (a stalled
+    // first-use corepack download would otherwise be paid twice).
+    // timeoutMs === 0 means "no timeout" to execa, so the whole budget
+    // dance is skipped in that case.
+    let installTimeoutMs = timeoutMs
+    if (packageManager.name === 'yarn') {
+      const probeStartedAt = Date.now()
+      const probe = await execa(runnable.executable, ['--version'], {
+        cwd: tempDir,
+        env: childEnv,
+        extendEnv: false,
+        timeout: timeoutMs,
+        reject: false,
+      })
+      if (probe.timedOut) {
+        // The probe consumed the whole budget; spawning the install with
+        // the ~zero remainder would only produce a confusing second kill.
+        return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
+      }
+      if (timeoutMs > 0) {
+        const remaining = timeoutMs - (Date.now() - probeStartedAt)
+        if (remaining < YARN_PROBE_MIN_INSTALL_BUDGET_MS) {
+          // Not enough budget left for the install. Distinguish the two
+          // causes: a whole timeout below the floor is a caller
+          // misconfiguration, whereas a probe that ate an adequate budget
+          // is a slow first-use corepack toolchain download.
+          return {
+            status: 'failed',
+            reason: timeoutMs < YARN_PROBE_MIN_INSTALL_BUDGET_MS
+              ? `the prune timeout (${timeoutMs}ms) is below the minimum needed to run yarn`
+              : 'provisioning the yarn toolchain used up the prune time budget before the'
+                + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
+          }
+        }
+        installTimeoutMs = remaining
+      }
+      const probeVersion = probe.failed ? '' : probe.stdout?.trim() ?? ''
+      const major = Number.parseInt(probeVersion, 10)
+      if (major === 1) {
+        return {
+          status: 'skipped',
+          reason: 'yarn resolves to Yarn Classic (1.x) here, which cannot regenerate'
+            + ' a Yarn Berry lockfile; set the packageManager field in package.json'
+            + ' and enable Corepack so a Yarn 2+ binary runs instead',
+          notable: true,
+        }
+      }
+      // Yarn only REUSES a lockfile written by its own generation — handed
+      // an older one it re-resolves everything, which the network guard
+      // blocks (verified: yarn 4.18 re-resolves both v6 and v8 lockfiles).
+      // A cross-generation mismatch would therefore fail with a message
+      // about blocked registry requests; skip with the actual remedies
+      // instead. The parser only accepts versions in the table, so the
+      // lookup is always defined here.
+      const requiredMajor = YARN_METADATA_VERSION_TO_MAJOR[original.lockfileVersion ?? '']
+      if (major >= 2 && major !== requiredMajor) {
+        return {
+          status: 'skipped',
+          reason: `the lockfile was written by yarn ${requiredMajor} (metadata version`
+            + ` ${original.lockfileVersion}) but yarn resolves to ${sanitizeDetail(probeVersion)} here;`
+            + ' run your own install to migrate the lockfile, or pin the matching yarn'
+            + ' version via the packageManager field in package.json so Corepack provisions it',
+          notable: true,
+        }
+      }
+      if (major >= 4) {
+        // Hardened mode revalidates locked entries against the registry —
+        // yarn 4 enables it automatically on pull-request CI, and with the
+        // network guard above that would fail every prune there. Only set
+        // for a CONFIRMED yarn 4+: the setting does not exist before yarn
+        // 4, which rejects unknown environment settings with a usage error
+        // (verified on 3.8.7). An unidentified yarn proceeds without it —
+        // worst case a hardened-mode prune fails closed with a warning.
+        childEnv.YARN_ENABLE_HARDENED_MODE = '0'
+      }
+    }
+
     debug(`Running ${runnable.unsafeDisplayCommand} in ${tempDir}`)
 
     const result = await execa(runnable.executable, runnable.args, {
       cwd: tempDir,
-      env: buildChildEnv(env),
+      env: childEnv,
       extendEnv: false,
-      timeout: timeoutMs,
+      timeout: installTimeoutMs,
       reject: false,
     })
 
     if (result.timedOut) {
-      return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
+      return { status: 'failed', reason: `${runnable.executable} timed out after ${installTimeoutMs}ms` }
     }
     if ((result as any).code === 'ENOENT') {
       // A spawn ENOENT can also mean the working directory vanished (a temp
@@ -885,6 +1199,29 @@ export async function pruneBundledLockfile (
       }
       const detail = [result.stderr, result.stdout, (result as any).shortMessage]
         .find(value => typeof value === 'string' && value.trim() !== '') ?? 'unknown error'
+      // Yarn's blocked-request error is the network guard doing its job;
+      // surfaced verbatim it reads like the user's own configuration is
+      // broken. Name the two real causes instead — a stale lockfile, or a
+      // same-generation yarn that still declines to reuse it (e.g. a v8
+      // lockfile under a yarn that writes v10). Scan BOTH streams: real
+      // yarn prints YN0080 on stdout, but the single-stream `detail` above
+      // prefers a non-empty stderr, so the marker can hide in either one.
+      const yarnOutput = [result.stdout, result.stderr]
+        .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+        .join('\n')
+      if (packageManager.name === 'yarn' && /has been blocked/.test(yarnOutput)) {
+        return {
+          status: 'failed',
+          reason: 'yarn needed the network to reuse the lockfile, which pruning forbids'
+            + ' — the lockfile may be out of date with a package.json, or written by a'
+            + ' different yarn version than the one that ran (pin it via the'
+            + ' packageManager field); the request was blocked before any package name'
+            // Yarn's own output stays attached so the affected descriptor
+            // is identifiable; echoing it is no new disclosure, the
+            // request never left the machine.
+            + ` left the machine: ${sanitizeDetail(yarnOutput)}`,
+        }
+      }
       return {
         status: 'failed',
         reason: `${runnable.unsafeDisplayCommand} failed: ${sanitizeDetail(String(detail))}`,
@@ -901,14 +1238,15 @@ export async function pruneBundledLockfile (
         if (!await directoryExists(tempDir)) {
           return TEMP_DIR_VANISHED
         }
-        // Bun deletes a lockfile that would describe no packages at all
-        // ("No packages! Deleted empty lockfile") — deliberate behavior,
-        // not a broken lockfile, so don't surface it as a failure whose
-        // advice says to refresh the lockfile.
+        // Some package managers remove rather than write a lockfile in edge
+        // cases (bun deletes one that would describe no packages at all:
+        // "No packages! Deleted empty lockfile") — deliberate behavior, not
+        // a broken lockfile, so don't surface it as a failure whose advice
+        // says to refresh the lockfile.
         return {
           status: 'skipped',
           reason: 'the regenerated lockfile was not found after the command completed'
-            + ' (bun deletes a lockfile that would describe no packages)',
+            + ' (some package managers delete a lockfile that would describe no packages)',
           notable: true,
         }
       }

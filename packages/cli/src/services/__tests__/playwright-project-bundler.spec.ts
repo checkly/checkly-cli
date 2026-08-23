@@ -125,9 +125,26 @@ describe('getAutoIncludes()', () => {
     expect(result).toEqual([])
   })
 
-  it('should return empty for yarn', () => {
+  it('should return .yarn/patches/*.patch for yarn', () => {
     const result = getAutoIncludes(basePath, basePath, makePm('yarn'), [])
+    expect(result).toEqual(['.yarn/patches/*.patch'])
+  })
+
+  it('should skip when user already includes .yarn/patches/*.patch', () => {
+    const result = getAutoIncludes(basePath, basePath, makePm('yarn'), ['.yarn/patches/*.patch'])
     expect(result).toEqual([])
+  })
+
+  it('should not let a sibling directory suppress the pnpm auto-include', () => {
+    // `patches-archive` shares the `patches` prefix but is a different
+    // directory; only includes at or under the patches dir count.
+    const result = getAutoIncludes(basePath, basePath, makePm('pnpm'), ['patches-archive/*.patch'])
+    expect(result).toEqual(['patches/*.patch'])
+  })
+
+  it('should not let a sibling directory suppress the yarn auto-include', () => {
+    const result = getAutoIncludes(basePath, basePath, makePm('yarn'), ['.yarn/patches-archive/*.patch'])
+    expect(result).toEqual(['.yarn/patches/*.patch'])
   })
 
   it('should skip when user already includes patches/*.patch', () => {

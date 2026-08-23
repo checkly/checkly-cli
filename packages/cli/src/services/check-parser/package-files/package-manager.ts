@@ -149,11 +149,10 @@ export abstract class PackageManagerDetector {
    * Default: no supported lockfile-only resolution mode, so callers skip
    * lockfile pruning. Package managers with such a mode override this.
    *
-   * Note that a lockfile-only mode existing is not the same as it being
-   * supported here: Yarn Berry has one (`yarn install --mode=update-lockfile`),
-   * but its behavior has not been verified for the CLI's use, so it
-   * deliberately stays on this default for now (Yarn Classic has no such
-   * mode at all).
+   * Of the remaining detectors on this default, Yarn Classic simply has no
+   * lockfile-only mode (the yarn override covers Berry only — a Classic
+   * lockfile is rejected when it is parsed), and cnpm/deno have no verified
+   * mode either.
    */
   lockfileOnlyInstallCommand (): Runnable | undefined {
     return undefined
@@ -500,6 +499,28 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('yarn', ['install'])
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    // Yarn Berry only — a Yarn Classic lockfile is rejected when it is
+    // parsed, and a Classic BINARY must never run this command: verified
+    // on 1.22.22 that Classic silently ignores --mode=update-lockfile and
+    // performs a full install, scripts included, so the pruner refuses
+    // with a version probe before spawning it. Verified on yarn 4.18.0 and
+    // 3.8.7: this regenerates yarn.lock fully offline, even with a cold
+    // cache — the resolution step reuses locked entries and prunes the
+    // unreachable ones, the fetch step only touches entries that are new
+    // (a prune introduces none), and the link step is skipped entirely, so
+    // no install scripts can run. CI detection and enableImmutableInstalls
+    // do not apply to this mode. With a lockfile present in the working
+    // directory Berry roots there — it does not re-root at ancestor
+    // workspace globs the way bun does. Yarn 3's lockfileFilename setting
+    // could redirect the write, but it would have to live in the unbundled
+    // .yarnrc.yml; the pruner's regenerated-lockfile-missing skip and its
+    // child-env network guard bound that case. The remaining config
+    // hazard, hardened mode revalidating locked entries against the
+    // registry, is disabled via the child environment as well.
+    return new Runnable('yarn', ['install', '--mode=update-lockfile'])
   }
 
   addCommand (options: AddCommandOptions): Runnable {

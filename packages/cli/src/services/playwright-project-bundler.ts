@@ -172,15 +172,29 @@ export function getAutoIncludes (
 ): string[] {
   const autoIncludes: string[] = []
 
-  // Both package managers keep dependency patches in a `patches/` directory
-  // that the remote install (and the lockfile pruner's temp-dir install, for
-  // bun's `patchedDependencies`) needs alongside the manifests.
-  if (packageManager.name === 'pnpm' || packageManager.name === 'bun') {
-    const patchesDir = path.join(basePath, 'patches')
-    const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
-    if (!alreadyIncluded) {
-      const patchesPattern = pathToPosix(path.join(path.relative(globCwd, basePath), 'patches', '*.patch'))
-      autoIncludes.push(patchesPattern)
+  // The prefix comparison appends a separator so a sibling directory whose
+  // name merely starts with the patches dir (e.g. `patches-archive`) does
+  // not suppress the auto-include.
+  const includesUnder = (dir: string): boolean => existingIncludes.some(p => {
+    const resolved = path.resolve(globCwd, p)
+    return resolved === dir || resolved.startsWith(dir + path.sep)
+  })
+
+  // Dependency patches live in a conventional per-manager directory that
+  // the remote install (and the lockfile pruner's temp-dir install) needs
+  // alongside the manifests: `patches/` for pnpm and bun, `.yarn/patches`
+  // for Yarn Berry's patch: protocol. A patch kept at a nonconventional
+  // path makes the pruner fail closed with a warning instead.
+  const patchesDirByManager: Record<string, string[]> = {
+    pnpm: ['patches'],
+    bun: ['patches'],
+    yarn: ['.yarn', 'patches'],
+  }
+  const patchesSegments = patchesDirByManager[packageManager.name]
+  if (patchesSegments !== undefined) {
+    const patchesDir = path.join(basePath, ...patchesSegments)
+    if (!includesUnder(patchesDir)) {
+      autoIncludes.push(pathToPosix(path.join(path.relative(globCwd, basePath), ...patchesSegments, '*.patch')))
     }
   }
 

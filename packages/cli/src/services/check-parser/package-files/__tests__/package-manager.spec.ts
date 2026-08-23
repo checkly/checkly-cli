@@ -595,9 +595,14 @@ describe('lockfileOnlyInstallCommand', () => {
     expect(runnable.args).toEqual(['install', '--lockfile-only', '--ignore-scripts'])
   })
 
-  it('is unsupported for cnpm, yarn and deno', () => {
+  it('regenerates the lockfile without installing for yarn', () => {
+    const runnable = new YarnDetector().lockfileOnlyInstallCommand()
+    expect(runnable.executable).toEqual('yarn')
+    expect(runnable.args).toEqual(['install', '--mode=update-lockfile'])
+  })
+
+  it('is unsupported for cnpm and deno', () => {
     expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
-    expect(new YarnDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
   })
 })
