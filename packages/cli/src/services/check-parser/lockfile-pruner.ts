@@ -1089,6 +1089,16 @@ export async function pruneBundledLockfile (
     // dance is skipped in that case.
     let installTimeoutMs = timeoutMs
     if (packageManager.name === 'yarn') {
+      // A whole budget below the install floor can never succeed (the yarn
+      // path spends a probe plus an install), so reject it up front —
+      // before the probe, whose own outcome under such a budget would be a
+      // misleading "timed out" rather than this caller-misconfiguration.
+      if (timeoutMs > 0 && timeoutMs < YARN_PROBE_MIN_INSTALL_BUDGET_MS) {
+        return {
+          status: 'failed',
+          reason: `the prune timeout (${timeoutMs}ms) is below the minimum needed to run yarn`,
+        }
+      }
       const probeStartedAt = Date.now()
       const probe = await execa(runnable.executable, ['--version'], {
         cwd: tempDir,
@@ -1105,16 +1115,13 @@ export async function pruneBundledLockfile (
       if (timeoutMs > 0) {
         const remaining = timeoutMs - (Date.now() - probeStartedAt)
         if (remaining < YARN_PROBE_MIN_INSTALL_BUDGET_MS) {
-          // Not enough budget left for the install. Distinguish the two
-          // causes: a whole timeout below the floor is a caller
-          // misconfiguration, whereas a probe that ate an adequate budget
-          // is a slow first-use corepack toolchain download.
+          // The probe (typically a slow first-use corepack toolchain
+          // download) left too little for the install; a 1 ms install would
+          // be a misleading second timeout, so say what actually happened.
           return {
             status: 'failed',
-            reason: timeoutMs < YARN_PROBE_MIN_INSTALL_BUDGET_MS
-              ? `the prune timeout (${timeoutMs}ms) is below the minimum needed to run yarn`
-              : 'provisioning the yarn toolchain used up the prune time budget before the'
-                + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
+            reason: 'provisioning the yarn toolchain used up the prune time budget before the'
+              + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
           }
         }
         installTimeoutMs = remaining
