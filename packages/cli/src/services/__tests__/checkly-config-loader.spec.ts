@@ -111,7 +111,7 @@ describe('loadChecklyConfig()', () => {
       ['embedded-packages-valid.ts'],
     )
     expect(config.bundle?.packages?.embed)
-      .toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*'])
+      .toEqual(['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*', '!@acme/foo'])
   })
   it('rejects a bundle.packages.embed that is not an array', async () => {
     await expect(loadChecklyConfig(

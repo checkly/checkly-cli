@@ -5,7 +5,7 @@ const config = defineConfig({
   logicalId: 'test-config-project',
   bundle: {
     packages: {
-      embed: ['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*'],
+      embed: ['@acme/private-utils', 'legacy-private-pkg@2.1.0', '@acme/*', 'acme-*', '!@acme/foo'],
     },
   },
 })

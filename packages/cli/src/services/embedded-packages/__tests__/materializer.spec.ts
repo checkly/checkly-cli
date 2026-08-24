@@ -45,6 +45,10 @@ async function captureStderr (fn: () => Promise<void>): Promise<string[]> {
   return written
 }
 
+// The lead-in of the warning a configuration gets when it selects no
+// packages at all.
+const NOTHING_MATCHED = `No packages matched 'bundle.packages.embed'`
+
 describe('EmbeddedPackagesMaterializer', () => {
   let workspaceRoot: string
   let homedir: string
@@ -353,6 +357,149 @@ packages:
       expect(issues[0].type).toBe('spec-version-not-found')
       expect(issues[0].message).toContain('9.9.9')
       expect(issues[0].message).not.toContain('workspace')
+    })
+
+    it('drops what a later ! entry excludes', async () => {
+      const { tarballs, issues, warnings } = await makeMaterializer(['@acme/*', 'bar', '!bar']).plan()
+      expect(issues).toEqual([])
+      expect(warnings).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['@acme+foo@1.2.3.tgz'])
+    })
+
+    it('applies entries in order, so an exclusion before an inclusion removes nothing', async () => {
+      const { tarballs, issues } = await makeMaterializer(['!bar', 'bar']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+    })
+
+    it('excludes only the pinned version when the ! entry carries one', async () => {
+      const { tarballs, issues } = await makeMaterializer(['bar', '!bar@2.0.0']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@3.0.0.tgz'])
+    })
+
+    it('treats an exclusion that removes nothing as a no-op, not an error', async () => {
+      const { tarballs, issues } = await makeMaterializer(['bar', '!@nomatch/*']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+    })
+
+    it('reports nothing for an entry whose every match a later ! entry removed', async () => {
+      // The entry resolved fine; the configuration then asked for its
+      // matches back out. That is not the unresolvable-spec error an entry
+      // matching nothing in the first place would get.
+      const { tarballs, issues, warnings } = await makeMaterializer(['bar', '!bar']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs).toEqual([])
+      expect(warnings).toEqual([expect.stringContaining(NOTHING_MATCHED)])
+    })
+
+    it('silently cancels a pinned entry that a later ! entry pins away', async () => {
+      // Appending '!name@version' is the natural way to switch one embed
+      // off. Matching at name level would leave the entry alive on bar's
+      // other versions and fail with a version-not-found error naming 3.0.0
+      // as all the lockfile has, while 2.0.0 is right there.
+      const { tarballs, issues, warnings } = await makeMaterializer(['bar@2.0.0', '!bar@2.0.0']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs).toEqual([])
+      expect(warnings).toEqual([expect.stringContaining(NOTHING_MATCHED)])
+    })
+
+    it('still reports a pin that matches nothing even when a ! entry removes the other versions', async () => {
+      // The exclusions are not what left this entry empty, so the typo in
+      // the pin must not be swallowed along with them.
+      const { issues } = await makeMaterializer(['bar@9.9.9', '!bar']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].spec).toBe('bar@9.9.9')
+      // The pin is what is wrong, not the install: the message must still
+      // name the versions the lockfile does have.
+      expect(issues[0].type).toBe('spec-version-not-found')
+      expect(issues[0].message).toContain('lockfile has: 2.0.0, 3.0.0')
+    })
+
+    it('still reports a mistyped pin when a ! entry only removes version-less matches of that name', async () => {
+      // A git resolution is recorded with no version, so it matches any pin.
+      // If it could satisfy the emptied-entry guard, the '!bar' entry would
+      // silence 'bar@9.9.9' — a stale pin would then drop out of the bundle
+      // with no error at all, and the install would fail on the runner.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  bar@2.0.0:
+    resolution: {integrity: ${barIntegrity}}
+  'bar@https://codeload.github.com/user/bar/tar.gz/abc123':
+    resolution: {tarball: https://codeload.github.com/user/bar/tar.gz/abc123}
+  keep@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      const { tarballs, issues } = await makeMaterializer(['keep', 'bar@9.9.9', '!bar']).plan()
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['keep@1.0.0.tgz'])
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-version-not-found')
+      expect(issues[0].spec).toBe('bar@9.9.9')
+    })
+
+    it('keeps the accurate not-embeddable reason for a pinned entry a ! entry also matches', async () => {
+      // A git resolution has no version, so it cannot satisfy the pin and the
+      // entry has to fail either way. It must fail saying the package cannot
+      // be embedded, not that the lockfile has never heard of it.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  'git-dep@https://codeload.github.com/user/git-dep/tar.gz/abc123':
+    resolution: {tarball: https://codeload.github.com/user/git-dep/tar.gz/abc123}
+  bar@2.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      const { issues } = await makeMaterializer(['git-dep@1.0.0', '!git-dep']).plan()
+      expect(issues).toHaveLength(1)
+      expect(issues[0].type).toBe('spec-not-embeddable')
+      expect(issues[0].message).toContain('git, file or URL dependency')
+    })
+
+    it('does not turn surviving unfetchable matches into an error when the registry matches were excluded', async () => {
+      // A bare * reaches bar (registry) and git-dep (unfetchable). Excluding
+      // bar leaves only git-dep, which must not promote the entry into a
+      // fatal 'cannot be embedded' — that reason applies to an entry with
+      // nothing else to embed, not to one deliberately emptied.
+      const { tarballs, issues, warnings } = await makeMaterializer(['*', '!bar']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs).toEqual([])
+      // Only the nothing-embedded notice; no 'cannot be embedded' error.
+      expect(warnings).toEqual([expect.stringContaining(NOTHING_MATCHED)])
+    })
+
+    it('silences the unfetchable warning for a package a later ! entry excludes', async () => {
+      const { tarballs, issues, warnings } = await makeMaterializer(['*', '!git-dep']).plan()
+      expect(issues).toEqual([])
+      expect(warnings).toEqual([])
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+    })
+
+    it('lets a ! entry resolve a wildcard whose only match cannot be embedded', async () => {
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  '@acme/legacy@https://codeload.github.com/user/legacy/tar.gz/abc123':
+    resolution: {tarball: https://codeload.github.com/user/legacy/tar.gz/abc123}
+  bar@2.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+      // Without the exclusion this is a fatal spec-not-embeddable, since
+      // the scope's only entry is a git dependency.
+      const { tarballs, issues, warnings } = await makeMaterializer(['@acme/*', '!@acme/legacy']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs).toEqual([])
+      expect(warnings).toEqual([expect.stringContaining(NOTHING_MATCHED)])
+    })
+
+    it('warns when the configuration selects nothing at all', async () => {
+      // `!` subtracts from what came before, so a list of nothing but
+      // exclusions is not gitignore's "everything except" — it is empty.
+      const { tarballs, issues, warnings } = await makeMaterializer(['!@acme/foo']).plan()
+      expect(issues).toEqual([])
+      expect(tarballs).toEqual([])
+      expect(warnings).toEqual([expect.stringContaining(NOTHING_MATCHED)])
     })
 
     it('converts scope slashes for the archive filename', async () => {

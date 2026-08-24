@@ -8,6 +8,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: 'some-package',
       name: 'some-package',
       version: undefined,
+      exclude: false,
     })
   })
 
@@ -16,6 +17,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/private-utils',
       name: '@acme/private-utils',
       version: undefined,
+      exclude: false,
     })
   })
 
@@ -24,6 +26,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: 'some-package@2.1.0',
       name: 'some-package',
       version: '2.1.0',
+      exclude: false,
     })
   })
 
@@ -32,6 +35,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/private-utils@1.0.0-beta.3',
       name: '@acme/private-utils',
       version: '1.0.0-beta.3',
+      exclude: false,
     })
   })
 
@@ -45,6 +49,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/AuthClient@1.0.0',
       name: '@acme/AuthClient',
       version: '1.0.0',
+      exclude: false,
     })
   })
 
@@ -54,6 +59,48 @@ describe('parseEmbeddedPackageSpec()', () => {
 
   it('trims whitespace around a pinned version', () => {
     expect(parseEmbeddedPackageSpec('some-package@ 2.1.0 ').version).toBe('2.1.0')
+  })
+
+  it('parses a leading ! as an exclusion, keeping it in the raw entry', () => {
+    expect(parseEmbeddedPackageSpec('!some-package')).toEqual({
+      raw: '!some-package',
+      name: 'some-package',
+      version: undefined,
+      exclude: true,
+    })
+  })
+
+  it('parses an excluded scoped name without mistaking the scope for a version', () => {
+    expect(parseEmbeddedPackageSpec('!@acme/private-utils')).toEqual({
+      raw: '!@acme/private-utils',
+      name: '@acme/private-utils',
+      version: undefined,
+      exclude: true,
+    })
+  })
+
+  it('parses an excluded name@version pin', () => {
+    expect(parseEmbeddedPackageSpec('!some-package@2.1.0')).toEqual({
+      raw: '!some-package@2.1.0',
+      name: 'some-package',
+      version: '2.1.0',
+      exclude: true,
+    })
+  })
+
+  it('parses an excluded wildcard', () => {
+    const spec = parseEmbeddedPackageSpec('!@acme/*')
+    expect(spec.exclude).toBe(true)
+    expect(spec.name).toBe('@acme/*')
+    expect(specMatchesPackageName(spec, '@acme/private-utils')).toBe(true)
+  })
+
+  it('rejects a bare !', () => {
+    expect(() => parseEmbeddedPackageSpec('!')).toThrow(/must name a package or pattern after '!'/)
+  })
+
+  it('rejects an invalid name behind a !', () => {
+    expect(() => parseEmbeddedPackageSpec('!Not A Valid Name')).toThrow(/not a valid npm package name/)
   })
 
   it('rejects an empty string', () => {
