@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import semver from 'semver'
 
+import { PNPM_PATCHES_DIR } from './check-parser/patched-dependencies.js'
 import { File } from './check-parser/parser.js'
 import { detectNearestPackageJson, PackageManager } from './check-parser/package-files/package-manager.js'
 import { PackageJsonFile } from './check-parser/package-files/package-json-file.js'
@@ -186,8 +187,8 @@ export function getAutoIncludes (
   // for Yarn Berry's patch: protocol. A patch kept at a nonconventional
   // path makes the pruner fail closed with a warning instead.
   const patchesDirByManager: Record<string, string[]> = {
-    pnpm: ['patches'],
-    bun: ['patches'],
+    pnpm: [PNPM_PATCHES_DIR],
+    bun: [PNPM_PATCHES_DIR],
     yarn: ['.yarn', 'patches'],
   }
   const patchesSegments = patchesDirByManager[packageManager.name]

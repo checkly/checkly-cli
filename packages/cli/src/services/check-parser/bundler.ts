@@ -21,16 +21,33 @@ import {
   ComputeWorkspaceCacheHashOptions,
   EmbeddedPackageInput,
   FauxPackageJsonInput,
+  canonicalizePackageJson,
   loadWorkspaceCacheHashInputs,
   LockfileInput,
+  PACKAGE_JSON_EXCLUDED_FIELDS,
 } from './cache-hash.js'
 import { pruneBundledLockfile } from './lockfile-pruner.js'
+import {
+  findUnrepairedPatchKeys,
+  isRemovablePatchPath,
+  PatchConfigFile,
+  PatchConfigKind,
+  PatchFilterPlan,
+  planPatchFilter,
+} from './patched-dependencies.js'
 import { PackageManager } from './package-files/package-manager.js'
 import { File } from './parser.js'
 import { Workspace } from './package-files/workspace.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:bundler')
+
+/**
+ * The files pnpm accepts `patchedDependencies` in, which are also their
+ * archive paths: both live at the workspace root, and the workspace root is
+ * the bundle's strip prefix (see {@link Bundler.createForWorkspace}).
+ */
+const PATCH_CONFIG_KINDS: PatchConfigKind[] = ['pnpm-workspace.yaml', 'package.json']
 
 /**
  * Where a file goes in the archive. A file usually lands at its own path
@@ -488,6 +505,13 @@ interface PrunedLockfile extends LockfileInput {
    * hash, which only consumes the name and hash.
    */
   content: string
+  /** Where the lockfile lives in the archive. */
+  archivePath: string
+  /**
+   * The lockfile as it was before pruning, carried through for the patch
+   * filtering (see {@link Bundler.dropUnusedPatches}).
+   */
+  originalContent: string
 }
 
 /**
@@ -558,6 +582,14 @@ export class Bundler {
   #stripPrefix?: string
   #workspaceContext?: WorkspaceBundleContext
   #files = new Map<string, File>()
+  /**
+   * Archive paths of manifests the patch filtering rewrote. Unlike a
+   * synthesized member manifest, a rewritten manifest has an on-disk original,
+   * so it is hashed the way on-disk manifests are — with `version` stripped —
+   * rather than verbatim. Hashing the raw bytes would make a release bump
+   * alone change the dependency cache key even though no install input did.
+   */
+  #patchRewrittenManifests = new Set<string>()
 
   private constructor (options: BundlerOptions) {
     const {
@@ -692,7 +724,7 @@ export class Bundler {
       return
     }
 
-    const pruned = await this.#pruneLockfile(context)
+    const pruned = await this.#dropUnusedPatches(context, await this.#pruneLockfile(context))
     const embeddedPackages = await this.#materializeEmbeddedPackages(context, pruned)
 
     const fauxPackageJsons: FauxPackageJsonInput[] = []
@@ -700,7 +732,13 @@ export class Bundler {
       if (file.physical || path.posix.basename(archivePath) !== 'package.json') {
         continue
       }
-      fauxPackageJsons.push({ path: archivePath, raw: Buffer.from(file.content, 'utf8') })
+      const raw = Buffer.from(file.content, 'utf8')
+      fauxPackageJsons.push({
+        path: archivePath,
+        raw: this.#patchRewrittenManifests.has(archivePath)
+          ? canonicalizePackageJson(raw, PACKAGE_JSON_EXCLUDED_FIELDS)
+          : raw,
+      })
     }
 
     // Unconditional: with no faux manifests, no pruned lockfile and an
@@ -772,6 +810,194 @@ export class Bundler {
     return kept
   }
 
+  /**
+   * Filters the bundle's pnpm patch declarations down to the ones the pruned
+   * lockfile shows still apply, dropping the matching patch files and lockfile
+   * entries with them.
+   *
+   * A bundle carries the workspace's whole `patchedDependencies` map but only
+   * a subset of its members, so a patch whose package belongs to an unbundled
+   * member ends up applying to nothing. pnpm rejects that outright when it
+   * re-resolves, which is why the prune install tolerates it (see
+   * PNpmDetector.lockfileOnlyInstallCommand) and the leftovers are cleaned up
+   * here instead — the pruned lockfile is the first point at which the bundle's
+   * real dependency graph is known.
+   *
+   * Every failure mode leaves the bundle exactly as pruning produced it, which
+   * installs correctly today; the reporting below covers the case where that
+   * fallback is nonetheless a bundle the runner would reject.
+   */
+  async #dropUnusedPatches (
+    context: WorkspaceBundleContext,
+    pruned: PrunedLockfile | undefined,
+  ): Promise<PrunedLockfile | undefined> {
+    if (pruned === undefined || context.packageManager.name !== 'pnpm') {
+      return pruned
+    }
+
+    let configs: PatchConfigFile[] = []
+    let result = pruned
+    try {
+      // `replaceable` is about whether the filtering may edit these files;
+      // whatever could be READ still feeds the diagnostic below, so a bundle
+      // this step declines to touch is not also a bundle it stays quiet about.
+      const read = await this.#readPatchConfigs()
+      configs = read.configs
+      if (read.replaceable) {
+        const plan = planPatchFilter({
+          configs,
+          originalLockfileContent: pruned.originalContent,
+          prunedLockfileContent: pruned.content,
+        })
+        if (plan !== undefined) {
+          const applied = this.#applyPatchFilter(context, pruned, plan)
+          if (applied !== undefined) {
+            result = applied
+            // The diagnostic below must see what actually ships, so the config
+            // is swapped for its rewritten bytes only once the apply took.
+            configs = configs.map(config => config.archivePath === plan.rewrittenConfig.archivePath
+              ? { ...config, content: plan.rewrittenConfig.content }
+              : config)
+            debug(`Dropped unused patch declarations: ${plan.unusedKeys.join(', ')}`)
+          }
+        }
+      }
+    } catch (err) {
+      debug(`Could not filter the bundle's patch declarations: ${err}`)
+    }
+
+    // Evaluated on every path, including the ones that changed nothing: a
+    // config declaring a patch the shipped lockfile does not record is what
+    // makes the runner's install fail, and silently shipping that is the
+    // failure this step exists to prevent.
+    if (configs.length > 0) {
+      const unrepaired = findUnrepairedPatchKeys({
+        configs,
+        originalLockfileContent: pruned.originalContent,
+        shippedLockfileContent: result.content,
+      })
+      if (unrepaired.length > 0) {
+        process.stderr.write(
+          `Note: the bundled pnpm config declares patches that the bundled lockfile does not `
+          + `record (${unrepaired.join(', ')}), which can fail the remote install. Your own lockfile `
+          + `does record them, so run your package manager's install to refresh it rather than `
+          + `removing the entries; set CHECKLY_LOCKFILE_PRUNE=0 to opt out of pruning entirely.\n`,
+        )
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Reads the bundle's copies of the two files pnpm accepts
+   * `patchedDependencies` in.
+   *
+   * `replaceable` is false when a candidate exists but cannot be read or
+   * cannot be swapped for a rewritten copy; filtering one declaring config
+   * while leaving the other would manufacture the very config/lockfile
+   * mismatch this step removes. Whatever *could* be read is still returned, so
+   * the caller can report on a bundle it declines to edit.
+   */
+  async #readPatchConfigs (): Promise<{ configs: PatchConfigFile[], replaceable: boolean }> {
+    const configs: PatchConfigFile[] = []
+    let replaceable = true
+
+    // The archive path and the kind are the same string here; see
+    // PATCH_CONFIG_KINDS for why.
+    for (const archivePath of PATCH_CONFIG_KINDS) {
+      const file = this.#files.get(archivePath)
+      if (file === undefined) {
+        continue
+      }
+
+      // A virtual entry's archive name is always derived from its filePath,
+      // so a replacement can only stand in for an entry that already archives
+      // at that derived path. An entry bundled somewhere other than its own
+      // path — reached through a symlink, and carrying an explicit
+      // archivePath — cannot be replaced without moving it.
+      const replacementArchivePath = pathToPosix(
+        path.relative(this.#stripPrefix ?? '', file.filePath),
+      )
+      if (replacementArchivePath !== archivePath) {
+        debug(`Bundled ${archivePath} would move to ${replacementArchivePath} if rewritten;`
+          + ` leaving patches alone`)
+        replaceable = false
+      }
+
+      try {
+        const content = file.physical
+          ? await fs.readFile(file.filePath, 'utf8')
+          : file.content
+        configs.push({ archivePath, kind: archivePath, content })
+      } catch (err) {
+        debug(`Could not read bundled ${archivePath}: ${err}`)
+        replaceable = false
+      }
+    }
+
+    return { configs, replaceable }
+  }
+
+  /**
+   * Applies a patch filter plan. Deliberately pure map mutation over
+   * already-computed content: a throw partway through would ship a bundle
+   * whose config, patch files and lockfile disagree, which fails the runner's
+   * install either way it lands.
+   */
+  #applyPatchFilter (
+    context: WorkspaceBundleContext,
+    pruned: PrunedLockfile,
+    plan: PatchFilterPlan,
+  ): PrunedLockfile | undefined {
+    // Resolved before anything is mutated: the config entry is what the plan
+    // was computed from, and rewriting the lockfile without it would ship the
+    // mismatch this step exists to remove.
+    const existing = this.#files.get(plan.rewrittenConfig.archivePath)
+    if (existing === undefined) {
+      return undefined
+    }
+
+    this.#files.set(plan.rewrittenConfig.archivePath, {
+      // The archive name is derived from filePath, so the rewritten entry has
+      // to keep the original's.
+      filePath: existing.filePath,
+      physical: false,
+      content: plan.rewrittenConfig.content,
+    })
+    if (path.posix.basename(plan.rewrittenConfig.archivePath) === 'package.json') {
+      this.#patchRewrittenManifests.add(plan.rewrittenConfig.archivePath)
+    }
+
+    for (const patchPath of plan.droppedPatchPaths) {
+      // Defense in depth, as an allow-list rather than a list of things not to
+      // delete: a declared patch path is user input reaching a delete, and it
+      // can name any bundled file — an .npmrc carrying registry auth, a
+      // pnpmfile the lockfile records a checksum for, or a `.patch` fixture
+      // that a check's own `include` glob put in the bundle. Only the
+      // conventional location the auto-include adds patches from is removable;
+      // a patch kept elsewhere simply stays, inert, exactly as an
+      // unreferenced one does.
+      if (!isRemovablePatchPath(patchPath)) {
+        debug(`Refusing to drop ${patchPath}: outside the conventional patches directory`)
+        continue
+      }
+      this.#files.delete(patchPath)
+    }
+
+    this.#files.set(pruned.archivePath, {
+      filePath: context.workspace.lockfile.unwrap(),
+      physical: false,
+      content: plan.lockfileContent,
+    })
+
+    return {
+      ...pruned,
+      content: plan.lockfileContent,
+      hash: createHash('sha256').update(plan.lockfileContent).digest(),
+    }
+  }
+
   async #pruneLockfile (context: WorkspaceBundleContext): Promise<PrunedLockfile | undefined> {
     const result = await pruneBundledLockfile({
       workspace: context.workspace,
@@ -824,6 +1050,8 @@ export class Bundler {
       name: path.posix.basename(result.archivePath),
       hash: createHash('sha256').update(result.content).digest(),
       content: result.content,
+      archivePath: result.archivePath,
+      originalContent: result.originalContent,
     }
   }
 

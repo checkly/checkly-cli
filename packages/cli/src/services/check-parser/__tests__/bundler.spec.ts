@@ -7,7 +7,12 @@ import { list } from 'tar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BundleArchive, BundleTooLargeError, Bundler, embeddedPackageHashInputs, FinalizedBundleArchive } from '../bundler.js'
-import { composeWorkspaceCacheHash, loadWorkspaceCacheHashInputs } from '../cache-hash.js'
+import {
+  canonicalizePackageJson,
+  composeWorkspaceCacheHash,
+  loadWorkspaceCacheHashInputs,
+  PACKAGE_JSON_EXCLUDED_FIELDS,
+} from '../cache-hash.js'
 import { CNpmDetector, npmPackageManager, PNpmDetector, Runnable } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
@@ -701,4 +706,487 @@ describe('Bundler.finalize() embedded package materialization', () => {
     registerPartialWorkspace(bundler)
     await expect(bundler.finalize()).rejects.toThrow(EmbeddedPackageError)
   })
+})
+
+describe('Bundler.finalize() patch filtering', () => {
+  let dir: string
+  let stderrWrites: string[]
+
+  const MS_HASH = 'a'.repeat(64)
+  const EE_HASH = 'b'.repeat(64)
+
+  const FAUX_MANIFEST = '{"name":"@fixture/m","version":"1.0.0"}'
+
+  const patchedDependenciesSection = [
+    `patchedDependencies:`,
+    `  ee-first@1.1.1:`,
+    `    hash: ${EE_HASH}`,
+    `    path: patches/ee-first@1.1.1.patch`,
+    `  ms@2.1.3:`,
+    `    hash: ${MS_HASH}`,
+    `    path: patches/ms@2.1.3.patch`,
+    ``,
+  ]
+
+  // Both patches applied: `ms` in the bundled member, `ee-first` in the member
+  // the bundle omits.
+  const originalLockfile = () => [
+    `lockfileVersion: '9.0'`,
+    ``,
+    ...patchedDependenciesSection,
+    `importers:`,
+    ``,
+    `  .: {}`,
+    ``,
+    `  packages/m:`,
+    `    dependencies:`,
+    `      ms:`,
+    `        specifier: 2.1.3`,
+    `        version: 2.1.3(patch_hash=${MS_HASH})`,
+    ``,
+    `  packages/absent:`,
+    `    dependencies:`,
+    `      ee-first:`,
+    `        specifier: 1.1.1`,
+    `        version: 1.1.1(patch_hash=${EE_HASH})`,
+    ``,
+  ].join('\n')
+
+  // What the stub prune produces: the omitted member is gone, so the
+  // `ee-first` patch applies to nothing — but its declaration survives, since
+  // the section mirrors the config rather than the graph.
+  const prunedLockfile = () => [
+    `lockfileVersion: '9.0'`,
+    ``,
+    ...patchedDependenciesSection,
+    `importers:`,
+    ``,
+    `  .: {}`,
+    ``,
+    `  packages/m:`,
+    `    dependencies:`,
+    `      ms:`,
+    `        specifier: 2.1.3`,
+    `        version: 2.1.3(patch_hash=${MS_HASH})`,
+    ``,
+  ].join('\n')
+
+  const workspaceYaml = () => [
+    `packages:`,
+    `  - packages/*`,
+    `minimumReleaseAge: 2880`,
+    `patchedDependencies:`,
+    `  ms@2.1.3: patches/ms@2.1.3.patch`,
+    `  ee-first@1.1.1: patches/ee-first@1.1.1.patch`,
+    ``,
+  ].join('\n')
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-patch-')))
+    await fs.mkdir(path.join(dir, 'packages/m'), { recursive: true })
+    await fs.mkdir(path.join(dir, 'patches'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'patch-fixture-root',
+      private: true,
+    }))
+    await fs.writeFile(path.join(dir, 'packages/m/package.json'), FAUX_MANIFEST)
+    await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), workspaceYaml())
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), originalLockfile())
+    await fs.writeFile(path.join(dir, 'patches/ms@2.1.3.patch'), 'ms patch\n')
+    await fs.writeFile(path.join(dir, 'patches/ee-first@1.1.1.patch'), 'ee-first patch\n')
+
+    stderrWrites = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      const text = String(chunk)
+      if (!text.includes('checkly:cli:')) {
+        stderrWrites.push(text)
+      }
+      return true
+    })
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  const makeWorkspace = () => new Workspace({
+    root: new Package({ name: 'patch-fixture-root', path: dir }),
+    packages: [new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' })],
+    lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+    configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+  })
+
+  const stubPruningPackageManager = async () => {
+    await fs.writeFile(path.join(dir, 'pruned-lock.yaml'), prunedLockfile())
+    const scriptPath = path.join(dir, 'prune.cjs')
+    await fs.writeFile(scriptPath, [
+      `const fs = require('fs')`,
+      `fs.writeFileSync('pnpm-lock.yaml', fs.readFileSync(${JSON.stringify(path.join(dir, 'pruned-lock.yaml'))}, 'utf8'))`,
+    ].join('\n'))
+    return Object.assign(Object.create(new PNpmDetector()), {
+      lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+    })
+  }
+
+  const makeBundler = async () => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(),
+    })
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-workspace.yaml'), physical: true },
+      { filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true },
+      { filePath: path.join(dir, 'patches/ms@2.1.3.patch'), physical: true },
+      { filePath: path.join(dir, 'patches/ee-first@1.1.1.patch'), physical: true },
+      { filePath: path.join(dir, 'packages/m/package.json'), physical: false, content: FAUX_MANIFEST },
+    )
+    return bundler
+  }
+
+  const readArchive = async (archiveFile: string): Promise<Map<string, string>> => {
+    const contents = new Map<string, string>()
+    await list({ file: archiveFile, onReadEntry: entry => {
+      const chunks: Buffer[] = []
+      entry.on('data', chunk => chunks.push(chunk as Buffer))
+      entry.on('end', () => contents.set(entry.path, Buffer.concat(chunks).toString('utf8')))
+      entry.resume()
+    } })
+    return contents
+  }
+
+  it('drops the declaration, patch file and lockfile entry of a patch that no longer applies', async () => {
+    const bundler = await makeBundler()
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect([...contents.keys()]).toContain('patches/ms@2.1.3.patch')
+    expect([...contents.keys()]).not.toContain('patches/ee-first@1.1.1.patch')
+
+    const config = contents.get('pnpm-workspace.yaml')!
+    expect(config).toContain('ms@2.1.3: patches/ms@2.1.3.patch')
+    expect(config).not.toContain('ee-first')
+    // Unrelated settings must survive the rewrite untouched.
+    expect(config).toContain('minimumReleaseAge: 2880')
+
+    const lockfile = contents.get('pnpm-lock.yaml')!
+    expect(lockfile).toContain(`ms@2.1.3:`)
+    expect(lockfile).not.toContain('ee-first')
+    expect(lockfile).toContain(`patch_hash=${MS_HASH}`)
+
+    // A successful filter leaves config and lockfile agreeing, so there is
+    // nothing to report.
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('mixes the filtered lockfile into the cache hash', async () => {
+    const bundler = await makeBundler()
+    const archive = await bundler.finalize()
+    const shipped = (await readArchive(archive.archiveFile)).get('pnpm-lock.yaml')!
+
+    const hashFor = async (lockfileContent: string) =>
+      composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace()), {
+        embeddedPackages: undefined,
+        fauxPackageJsons: [
+          { path: 'packages/m/package.json', raw: Buffer.from(FAUX_MANIFEST, 'utf8') },
+        ],
+        prunedLockfile: {
+          name: 'pnpm-lock.yaml',
+          hash: createHash('sha256').update(lockfileContent).digest(),
+        },
+      })
+
+    expect(bundler.cacheHash.toJSON()).toEqual(await hashFor(shipped))
+    // The unfiltered pruned lockfile must not produce the same key, or a
+    // bundle would reuse a dependency cache built from different patches.
+    expect(bundler.cacheHash.toJSON()).not.toEqual(await hashFor(prunedLockfile()))
+  })
+
+  it('leaves the bundle alone when both config sites declare patches', async () => {
+    // pnpm picks one site and ignores the other wholesale, and which one wins
+    // depends on the major, so neither can be edited safely.
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'patch-fixture-root',
+      private: true,
+      pnpm: { patchedDependencies: { 'ms@2.1.3': 'patches/ms@2.1.3.patch' } },
+    }))
+
+    const bundler = await makeBundler()
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect([...contents.keys()]).toContain('patches/ee-first@1.1.1.patch')
+    expect(contents.get('pnpm-workspace.yaml')).toContain('ee-first')
+    expect(contents.get('pnpm-lock.yaml')).toContain('ee-first')
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('keeps a declaration the original lockfile never recorded, without reporting it', async () => {
+    // A pnpm that does not read the declaration site records nothing, which is
+    // no evidence that the patch is unused.
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), [
+      `lockfileVersion: '9.0'`,
+      ``,
+      `importers:`,
+      ``,
+      `  .: {}`,
+      ``,
+      `  packages/m: {}`,
+      ``,
+    ].join('\n'))
+    await fs.writeFile(path.join(dir, 'pruned-lock.yaml'), prunedLockfile())
+
+    const bundler = await makeBundler()
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect([...contents.keys()]).toContain('patches/ee-first@1.1.1.patch')
+    expect(contents.get('pnpm-workspace.yaml')).toContain('ee-first')
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('reports a declaration the shipped lockfile does not record when it cannot repair it', async () => {
+    // The prune drops the section outright (a pnpm that does not read the
+    // declaration site) AND a second site declares patches, so the filtering
+    // declines and the mismatch survives into the bundle.
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'patch-fixture-root',
+      private: true,
+      pnpm: { patchedDependencies: { 'ms@2.1.3': 'patches/ms@2.1.3.patch' } },
+    }))
+    const bundler = await makeBundler()
+    await fs.writeFile(path.join(dir, 'pruned-lock.yaml'), [
+      `lockfileVersion: '9.0'`,
+      ``,
+      `importers:`,
+      ``,
+      `  .: {}`,
+      ``,
+      `  packages/m: {}`,
+      ``,
+    ].join('\n'))
+
+    await bundler.finalize()
+
+    expect(stderrWrites.join('')).toContain('declares patches that the bundled lockfile does not record')
+    expect(stderrWrites.join('')).toContain('ee-first@1.1.1')
+    expect(stderrWrites.join('')).toContain('ms@2.1.3')
+  })
+
+  it('filters the root package.json when that is the declaring site', async () => {
+    // The YAML and JSON rewrite paths are different code; only this one puts a
+    // rewritten manifest into the cache hash as a faux package.json.
+    await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+    const manifest = {
+      name: 'patch-fixture-root',
+      private: true,
+      pnpm: {
+        patchedDependencies: {
+          'ms@2.1.3': 'patches/ms@2.1.3.patch',
+          'ee-first@1.1.1': 'patches/ee-first@1.1.1.patch',
+        },
+      },
+    }
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify(manifest, null, 2))
+
+    const bundler = await makeBundler()
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(JSON.parse(contents.get('package.json')!).pnpm.patchedDependencies)
+      .toEqual({ 'ms@2.1.3': 'patches/ms@2.1.3.patch' })
+    expect([...contents.keys()]).not.toContain('patches/ee-first@1.1.1.patch')
+    expect(contents.get('pnpm-lock.yaml')).not.toContain('ee-first')
+
+    // The rewritten manifest is what ships, so it is what the dependency cache
+    // key must be computed from — canonicalized like any on-disk manifest,
+    // since it has an on-disk original.
+    const expected = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace()), {
+      embeddedPackages: undefined,
+      fauxPackageJsons: [
+        {
+          path: 'package.json',
+          raw: canonicalizePackageJson(
+            Buffer.from(contents.get('package.json')!, 'utf8'),
+            PACKAGE_JSON_EXCLUDED_FIELDS,
+          ),
+        },
+        { path: 'packages/m/package.json', raw: Buffer.from(FAUX_MANIFEST, 'utf8') },
+      ],
+      prunedLockfile: {
+        name: 'pnpm-lock.yaml',
+        hash: createHash('sha256').update(contents.get('pnpm-lock.yaml')!).digest(),
+      },
+    })
+    expect(bundler.cacheHash.toJSON()).toEqual(expected)
+  })
+
+  it('does not change the cache key when only the root manifest version is bumped', async () => {
+    // The rewritten manifest ships as a synthesized file, and hashing those
+    // verbatim would make a release bump alone discard the runner's dependency
+    // cache even though no install input changed.
+    const manifest = (version: string) => JSON.stringify({
+      name: 'patch-fixture-root',
+      version,
+      private: true,
+      pnpm: {
+        patchedDependencies: {
+          'ms@2.1.3': 'patches/ms@2.1.3.patch',
+          'ee-first@1.1.1': 'patches/ee-first@1.1.1.patch',
+        },
+      },
+    }, null, 2)
+    await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+
+    await fs.writeFile(path.join(dir, 'package.json'), manifest('1.0.0'))
+    const before = await makeBundler()
+    await before.finalize()
+
+    await fs.writeFile(path.join(dir, 'package.json'), manifest('1.0.1'))
+    const after = await makeBundler()
+    await after.finalize()
+
+    expect(after.cacheHash.toJSON()).toEqual(before.cacheHash.toJSON())
+  })
+
+  it('never deletes a bundled file outside the conventional patches directory', async () => {
+    // A declared patch path can name any bundled file. Here the dropped
+    // declaration points at a `.patch` fixture that a check's own include glob
+    // put in the bundle; removing it would take content the check needs.
+    await fs.mkdir(path.join(dir, 'fixtures'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'fixtures/ee.patch'), 'fixture content\n')
+    await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), [
+      `packages:`,
+      `  - packages/*`,
+      `patchedDependencies:`,
+      `  ms@2.1.3: patches/ms@2.1.3.patch`,
+      `  ee-first@1.1.1: fixtures/ee.patch`,
+      ``,
+    ].join('\n'))
+
+    const bundler = await makeBundler()
+    bundler.registerFiles({ filePath: path.join(dir, 'fixtures/ee.patch'), physical: true })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The declaration still goes; only the file survives.
+    expect(contents.get('pnpm-workspace.yaml')).not.toContain('ee-first')
+    expect([...contents.keys()]).toContain('fixtures/ee.patch')
+    expect(contents.get('fixtures/ee.patch')).toEqual('fixture content\n')
+  })
+
+  it('leaves patches alone when the bundled config is archived at another path', async () => {
+    // A config reached through a symlink is bundled at the link's path while
+    // its filePath points elsewhere. A virtual replacement takes its archive
+    // name from filePath, so it would land somewhere else than the entry it
+    // replaces — the step declines rather than move it.
+    await fs.mkdir(path.join(dir, 'elsewhere'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'elsewhere/pnpm-workspace.yaml'), workspaceYaml())
+
+    const bundler = await makeBundler()
+    bundler.registerFiles({
+      filePath: path.join(dir, 'elsewhere/pnpm-workspace.yaml'),
+      physical: true,
+      archivePath: 'pnpm-workspace.yaml',
+    })
+
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect([...contents.keys()]).toContain('patches/ee-first@1.1.1.patch')
+    expect(contents.get('pnpm-lock.yaml')).toContain('ee-first')
+  })
+})
+
+// The tests above stub the prune. This one runs the real thing end to end:
+// real pnpm regenerates the lockfile, and the filtering decides from what it
+// actually wrote — the only place the flag, the prune and the filtering are
+// exercised together.
+describe('Bundler.finalize() patch filtering with real pnpm', () => {
+  const FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-patched-workspace')
+
+  let dir: string
+  let stderrWrites: string[]
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-realpatch-')))
+    await fs.cp(FIXTURE_ROOT, dir, { recursive: true })
+    stderrWrites = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      const text = String(chunk)
+      if (!text.includes('checkly:cli:')) {
+        stderrWrites.push(text)
+      }
+      return true
+    })
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  it('drops the patch the pruned workspace no longer applies, and keeps the one it does', async () => {
+    const member = (name: string) =>
+      new Package({ name: `@fixture/${name}`, path: path.join(dir, 'packages', name), version: '1.0.0' })
+
+    const bundler = await Bundler.createForWorkspace(new Workspace({
+      root: new Package({ name: 'lockfile-pruner-fixture', path: dir }),
+      packages: [member('used'), member('shimmed'), member('absent')],
+      lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+      configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+    }), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: new PNpmDetector(),
+    })
+
+    // A partial-workspace bundle: `used` ships for real, `shimmed` as a
+    // dependency-free placeholder, `absent` not at all — so `ee-first`, and
+    // with it the patch on it, falls out of the dependency graph.
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-workspace.yaml'), physical: true },
+      { filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true },
+      { filePath: path.join(dir, 'patches/ms@2.1.3.patch'), physical: true },
+      { filePath: path.join(dir, 'patches/ee-first@1.1.1.patch'), physical: true },
+      { filePath: path.join(dir, 'packages/used/package.json'), physical: true },
+      {
+        filePath: path.join(dir, 'packages/shimmed/package.json'),
+        physical: false,
+        content: '{"name":"@fixture/shimmed","version":"1.0.0"}',
+      },
+    )
+
+    const archive = await bundler.finalize()
+
+    const contents = new Map<string, string>()
+    await list({ file: archive.archiveFile, onReadEntry: entry => {
+      const chunks: Buffer[] = []
+      entry.on('data', chunk => chunks.push(chunk as Buffer))
+      entry.on('end', () => contents.set(entry.path, Buffer.concat(chunks).toString('utf8')))
+      entry.resume()
+    } })
+
+    expect([...contents.keys()]).toContain('patches/ms@2.1.3.patch')
+    expect([...contents.keys()]).not.toContain('patches/ee-first@1.1.1.patch')
+    expect(contents.get('pnpm-workspace.yaml')).toContain('ms@2.1.3')
+    expect(contents.get('pnpm-workspace.yaml')).not.toContain('ee-first')
+    expect(contents.get('pnpm-lock.yaml')).toContain('ms@2.1.3')
+    expect(contents.get('pnpm-lock.yaml')).not.toContain('ee-first')
+    expect(stderrWrites.join('')).toEqual('')
+
+    // Only the bundled COPY is rewritten. The user's own config, lockfile and
+    // patch files are inputs to bundling and must come out of it untouched.
+    expect(await fs.readFile(path.join(dir, 'pnpm-workspace.yaml'), 'utf8'))
+      .toEqual(await fs.readFile(path.join(FIXTURE_ROOT, 'pnpm-workspace.yaml'), 'utf8'))
+    expect(await fs.readFile(path.join(dir, 'pnpm-lock.yaml'), 'utf8'))
+      .toEqual(await fs.readFile(path.join(FIXTURE_ROOT, 'pnpm-lock.yaml'), 'utf8'))
+    expect(await fs.readFile(path.join(dir, 'patches/ee-first@1.1.1.patch'), 'utf8'))
+      .toEqual(await fs.readFile(path.join(FIXTURE_ROOT, 'patches/ee-first@1.1.1.patch'), 'utf8'))
+  }, 60_000)
 })

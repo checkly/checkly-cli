@@ -21,6 +21,24 @@ const YAML_STRINGIFY_OPTIONS = { lineWidth: 0, flowCollectionPadding: false } as
 const PATCHED_DEPENDENCIES = 'patchedDependencies'
 
 /**
+ * The directory pnpm's own `pnpm patch-commit` writes patches to, relative to
+ * the workspace root. Shared so that the auto-include that bundles patches and
+ * the filtering that removes them cannot drift apart: widening one without the
+ * other would silently leave orphaned patch files in every bundle.
+ */
+export const PNPM_PATCHES_DIR = 'patches'
+
+/**
+ * Whether an archive path names a patch file the filtering may remove from a
+ * bundle: a `.patch` directly under {@link PNPM_PATCHES_DIR}. A declaration
+ * may point anywhere, including at a file bundled for an unrelated reason, so
+ * only the conventional location is removable.
+ */
+export function isRemovablePatchPath (archivePath: string): boolean {
+  return new RegExp(`^${PNPM_PATCHES_DIR}/[^/]+\\.patch$`).test(archivePath)
+}
+
+/**
  * Where a pnpm project can declare `patchedDependencies`. Both are live:
  * pnpm 10 reads the `package.json` field (and prefers it over
  * `pnpm-workspace.yaml` when both are populated), while pnpm 11 ignores it

@@ -38,6 +38,13 @@ export type PruneBundledLockfileResult =
     /** The regenerated lockfile contents. */
     content: string
     /**
+     * The workspace's lockfile as it was before pruning. Callers that compare
+     * the two — the patch filtering does, to tell a declaration pnpm dropped
+     * from one it never read — get the exact bytes this prune was computed
+     * from rather than re-reading a file that may since have changed.
+     */
+    originalContent: string
+    /**
      * Faux manifests synthesized for workspace members that bundled
      * manifests reference as links but that have no manifest in the bundle
      * (see {@link pruneBundledLockfile}). The caller must register these
@@ -1287,6 +1294,7 @@ export async function pruneBundledLockfile (
       status: 'pruned',
       archivePath: decision.lockfileArchivePath,
       content: regeneratedContent,
+      originalContent,
       backfilledManifests: Array.from(backfill.manifests.values()),
     }
   } catch (err) {
