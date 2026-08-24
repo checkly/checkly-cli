@@ -16,7 +16,7 @@
     "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.0",
     "globals": "^17.11.0",
     "lint-staged": "^16.4.0",
     "rimraf": "^6.1.3",
