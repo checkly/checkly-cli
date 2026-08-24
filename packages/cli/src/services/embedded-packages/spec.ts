@@ -3,10 +3,11 @@ import semver from 'semver'
 /**
  * A parsed `bundle.packages.embed` entry: a package name — or a name
  * pattern with `*` wildcards — with an optional exact version pin
- * (`name` or `name@version`).
+ * (`name` or `name@version`), optionally prefixed with `!` to make it an
+ * exclusion.
  */
 export interface EmbeddedPackageSpec {
-  /** The raw config entry, kept for error messages. */
+  /** The raw config entry, `!` prefix included, kept for error messages. */
   raw: string
   /**
    * The package name, e.g. `@acme/private-utils` — or, when
@@ -22,6 +23,22 @@ export interface EmbeddedPackageSpec {
    * that scope; a bare `*` matches only unscoped names).
    */
   namePattern?: RegExp
+  /**
+   * True when the entry was prefixed with `!`: instead of selecting
+   * packages, it removes the ones it matches from what the entries before
+   * it selected.
+   */
+  exclude: boolean
+}
+
+/** The parts of a lockfile entry a spec is matched against. */
+export interface PackageRef {
+  name: string
+  /**
+   * Absent on entries the lockfile records without one, e.g. git, file and
+   * URL resolutions and workspace links.
+   */
+  version?: string
 }
 
 /**
@@ -33,6 +50,27 @@ export function specMatchesPackageName (spec: EmbeddedPackageSpec, packageName: 
     return spec.namePattern.test(packageName)
   }
   return spec.name === packageName
+}
+
+/**
+ * Whether a spec selects the given package: the name must match, and so
+ * must an exact version pin. An entry the lockfile records without a
+ * version never satisfies a pin.
+ */
+export function specMatchesPackage (spec: EmbeddedPackageSpec, entry: PackageRef): boolean {
+  return specMatchesPackageName(spec, entry.name)
+    && (spec.version === undefined || entry.version === spec.version)
+}
+
+/**
+ * As {@link specMatchesPackage}, except that a version-less entry matches
+ * any pin. Used where such an entry is still worth reporting against a
+ * pinned spec: a git resolution or a workspace link may well be the package
+ * the user meant, recorded in a form that has no version to compare.
+ */
+export function specLooselyMatchesPackage (spec: EmbeddedPackageSpec, entry: PackageRef): boolean {
+  return specMatchesPackageName(spec, entry.name)
+    && (spec.version === undefined || entry.version === undefined || entry.version === spec.version)
 }
 
 function compileNamePattern (name: string): RegExp {
@@ -64,28 +102,39 @@ export class InvalidEmbeddedPackageSpecError extends Error {
 }
 
 /**
- * Parses a `bundle.packages.embed` entry into a package name and an
- * optional exact version pin.
+ * Parses a `bundle.packages.embed` entry into a package name, an optional
+ * exact version pin and whether the entry excludes rather than selects.
  *
  * Accepts `name` (embed every lockfile version of the package) and
  * `name@version` with an exact semver version. The name may contain `*`
  * wildcards (`@acme/*`, `acme-*`, `@acme/*-utils`), each matching any run
- * of characters except `/`. Version ranges are rejected: the embedded
- * tarball must be the exact artifact the lockfile resolved, so a range has
- * nothing meaningful to select against. A leading `v` is stripped, but the
- * version is otherwise kept as written (including any build metadata) so
- * it compares exactly against lockfile versions.
+ * of characters except `/`. A `!` prefix (`!@acme/legacy`, `!@acme/*`,
+ * `!legacy@2.1.0`) marks the entry as an exclusion, subtracting from what
+ * the entries before it selected. Version ranges are rejected: the
+ * embedded tarball must be the exact artifact the lockfile resolved, so a
+ * range has nothing meaningful to select against. A leading `v` is
+ * stripped, but the version is otherwise kept as written (including any
+ * build metadata) so it compares exactly against lockfile versions.
  */
 export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
   if (typeof raw !== 'string' || raw === '') {
     throw new InvalidEmbeddedPackageSpecError(String(raw), `must be a non-empty string`)
   }
 
+  // The `!` has to come off before anything else is read: on the raw
+  // `!@acme/foo` the version separator below would land on the scope marker
+  // at index 1 and parse the entry as name `!` at version `acme/foo`.
+  const exclude = raw.startsWith('!')
+  const pattern = exclude ? raw.slice(1) : raw
+  if (pattern === '') {
+    throw new InvalidEmbeddedPackageSpecError(raw, `must name a package or pattern after '!'`)
+  }
+
   // A version separator is any `@` past the first character, which keeps the
   // scope marker of `@scope/name` intact.
-  const versionSeparator = raw.lastIndexOf('@')
-  const name = versionSeparator > 0 ? raw.slice(0, versionSeparator) : raw
-  const rawVersion = versionSeparator > 0 ? raw.slice(versionSeparator + 1) : undefined
+  const versionSeparator = pattern.lastIndexOf('@')
+  const name = versionSeparator > 0 ? pattern.slice(0, versionSeparator) : pattern
+  const rawVersion = versionSeparator > 0 ? pattern.slice(versionSeparator + 1) : undefined
 
   // A wildcard name must still be name-shaped once every `*` stands in for
   // name characters. (`*` itself appears in npm's legacy name charset, but
@@ -100,7 +149,7 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
   const namePattern = wildcard ? compileNamePattern(name) : undefined
 
   if (rawVersion === undefined) {
-    return { raw, name, namePattern }
+    return { raw, name, namePattern, exclude }
   }
 
   // Trim before validating: semver.valid() tolerates surrounding whitespace,
@@ -115,5 +164,5 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
     )
   }
 
-  return { raw, name, version, namePattern }
+  return { raw, name, version, namePattern, exclude }
 }

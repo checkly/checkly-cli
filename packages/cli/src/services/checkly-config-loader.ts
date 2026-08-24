@@ -122,6 +122,20 @@ export type ChecklyConfig = {
        * transitive dependencies of other private packages — dependencies of
        * listed packages are not embedded automatically.
        *
+       * A `!` prefix turns an entry into an exclusion, which removes the
+       * packages it matches from what the entries *before* it selected.
+       * Entries therefore apply in order: `['@acme/*', '!@acme/legacy']`
+       * embeds the whole scope except `@acme/legacy`, while the reverse
+       * order embeds the whole scope, because the exclusion runs before
+       * anything has been selected. An exclusion that removes nothing is a
+       * no-op rather than an error. Removing every package an entry
+       * selected also silences that entry: no "not found" error, and no
+       * "cannot be embedded" warning even for packages it matched but did
+       * not exclude — run with `DEBUG='checkly:cli:services:embedded-packages'`
+       * to see what it reached. Since exclusions only subtract, a list of
+       * nothing but exclusions selects nothing; a configuration whose
+       * entries select no packages at all is reported as a warning.
+       *
        * Only npm, pnpm, bun and Yarn Berry are supported at this time:
        * packages are resolved against the workspace lockfile
        * (`pnpm-lock.yaml`, `package-lock.json`, the text `bun.lock` —

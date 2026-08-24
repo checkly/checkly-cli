@@ -18,7 +18,10 @@ import { NpmrcConfig, defaultNpmrcPaths, loadNpmrcConfig, resolveAuthHeader, res
 import {
   EmbeddedPackageSpec,
   InvalidEmbeddedPackageSpecError,
+  PackageRef,
   parseEmbeddedPackageSpec,
+  specLooselyMatchesPackage,
+  specMatchesPackage,
   specMatchesPackageName,
 } from './spec.js'
 
@@ -296,14 +299,76 @@ export class EmbeddedPackagesMaterializer {
       entry.version === undefined || !registryKeys.has(`${entry.name}@${entry.version}`))
 
     const tarballs = new Map<string, PlannedTarball>()
-    for (const spec of specs) {
-      const nameMatches = packages.registry.filter(entry => specMatchesPackageName(spec, entry.name))
-      const candidates = nameMatches
-        .filter(entry => spec.version === undefined || entry.version === spec.version)
+    for (const [index, spec] of specs.entries()) {
+      // Exclusions select nothing themselves; they subtract from the entries
+      // before them, via the kept() filter below. One that removes nothing is
+      // a valid no-op rather than an error, unlike an unresolvable inclusion.
+      if (spec.exclude) {
+        // Matching nothing is a valid outcome, so a misspelled `!` entry
+        // cannot be an error — but it silently fails to keep a package out,
+        // which is worth a line on the debug channel.
+        if (!packages.registry.some(entry => specMatchesPackageName(spec, entry.name))
+          && !relevantExcluded.some(entry => specMatchesPackageName(spec, entry.name))) {
+          debug('exclusion %s matches no package in the lockfile', spec.raw)
+        }
+        continue
+      }
 
-      const nameExcluded = relevantExcluded.filter(entry => specMatchesPackageName(spec, entry.name))
-      const looseExcluded = nameExcluded.filter(entry =>
-        spec.version === undefined || entry.version === undefined || entry.version === spec.version)
+      // Entries apply in order, so only the `!` entries that come after this
+      // one take anything away from it. Filtering the matches up front,
+      // rather than pruning the finished plan, keeps the diagnostics below in
+      // step with what actually ships: an entry never warns about, or fails
+      // over, a package the configuration goes on to exclude.
+      const laterExclusions = specs.slice(index + 1).filter(other => other.exclude)
+      const kept = <T extends PackageRef>(entries: T[]) =>
+        entries.filter(entry => !laterExclusions.some(other => specMatchesPackage(other, entry)))
+
+      // nameMatches stays unfiltered: it only feeds the diagnostics below,
+      // which describe the lockfile as it is — a mistyped pin should still be
+      // told which versions exist, even when an unrelated exclusion removed
+      // them from what this entry embeds.
+      const nameMatches = packages.registry.filter(entry => specMatchesPackageName(spec, entry.name))
+      const allCandidates = packages.registry.filter(entry => specMatchesPackage(spec, entry))
+      // The two sets differ only in version-less entries (workspace links,
+      // git resolutions), which the loose one keeps: such an entry matches
+      // any pin, so it can describe a pinned spec's failure but must not be
+      // what silences it. Both feed the diagnostics below, at different
+      // rungs of the ladder.
+      const allLooseExcluded = relevantExcluded.filter(entry => specLooselyMatchesPackage(spec, entry))
+      const allStrictExcluded = relevantExcluded.filter(entry => specMatchesPackage(spec, entry))
+
+      const candidates = kept(allCandidates)
+      const looseExcluded = kept(allLooseExcluded)
+      const strictExcluded = kept(allStrictExcluded)
+
+      // Everything this entry could have embedded was removed by a later `!`
+      // entry, which is the configured outcome: it embeds nothing and reports
+      // nothing instead of looking unresolvable. Two ways to get there, and
+      // both require the exclusions to be the whole reason: an entry that had
+      // embeddable matches is silent once every one of them is excluded, and
+      // an entry that only ever reached un-embeddable matches is silent only
+      // once every one of *those* is excluded — one that survives still
+      // carries the not-embeddable error it would raise on its own.
+      //
+      // Comparing at the version-filtered level matters: an entry disabled by
+      // appending its own pin as an exclusion ('bar@2.0.0', '!bar@2.0.0')
+      // would otherwise stay alive on the package's other versions and fail
+      // with a version-not-found error that names them as the only ones in
+      // the lockfile.
+      //
+      // An entry emptied this way also drops the skip warning for any
+      // un-embeddable package it reached but did not exclude. That is a
+      // deliberate trade: keeping the warning means keeping the entry alive
+      // past this point, where an un-embeddable match with nothing left to
+      // embed alongside it is a fatal error. The debug line below is what
+      // explains an entry that embedded nothing.
+      if (candidates.length === 0
+        && (allCandidates.length > 0
+          || (allStrictExcluded.length > 0 && strictExcluded.length === 0))) {
+        debug('spec %s: embeds nothing, later exclusions removed every embeddable match (reached: %j)',
+          spec.raw, [...allCandidates, ...allStrictExcluded].map(entry => `${entry.name}@${entry.version}`))
+        continue
+      }
 
       if (candidates.length === 0) {
         // Excluded entries matching the exact pin (or any entry, when
@@ -312,11 +377,14 @@ export class EmbeddedPackagesMaterializer {
         // Version-less excluded entries (e.g. workspace links) are a last
         // resort, so a pinned spec is never blamed on one while a better
         // explanation exists.
-        const strictExcluded = nameExcluded.filter(entry =>
-          spec.version === undefined || entry.version === spec.version)
+        // The fallback reads the unfiltered set, for the same reason
+        // nameMatches is unfiltered: an entry that still has to fail should
+        // fail with the most accurate reason the lockfile offers, and a
+        // version-less excluded entry (a git resolution, a workspace link)
+        // is often the only thing that explains it.
         const excludedMatches = strictExcluded.length > 0
           ? strictExcluded
-          : nameMatches.length === 0 ? looseExcluded : []
+          : nameMatches.length === 0 ? allLooseExcluded : []
         if (excludedMatches.length > 0) {
           const reasons = capList([...new Set(excludedMatches.map(entry => entry.reason))], '; ', '; and ')
           issues.push({
@@ -383,6 +451,19 @@ export class EmbeddedPackagesMaterializer {
           archiveFilename: `${entry.name.replace(/\//g, '+')}@${entry.version}.tgz`,
         })
       }
+    }
+
+    // Without exclusions every entry either embeds something or raises an
+    // issue, so an empty plan with nothing to report can only come from `!`
+    // entries — most likely a config that reads them as gitignore's implicit
+    // "everything except" rather than as a subtraction from what came
+    // before. Embedding nothing is not an error, but saying so beats letting
+    // the user find out from an install failure on the runner.
+    if (specs.length > 0 && tarballs.size === 0 && issues.length === 0) {
+      warnings.push(
+        `No packages matched 'bundle.packages.embed', so nothing will be embedded into the code bundle.`
+        + ` An exclusion entry ('!...') only removes packages that the entries before it selected.`,
+      )
     }
 
     debug('plan: %d tarballs, %d issues, %d warnings', tarballs.size, issues.length, warnings.length)
