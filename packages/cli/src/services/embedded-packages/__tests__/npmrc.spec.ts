@@ -6,7 +6,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 import {
   DEFAULT_REGISTRY_URL,
-  ENV_CONFIG_ORIGIN,
   NpmrcEnvVarError,
   defaultNpmrcPaths,
   loadNpmrcConfig,
@@ -117,17 +116,24 @@ describe('loadNpmrcConfig()', () => {
       { 'npm_config_//env.example.com/:_authToken': 'env-token' },
     )
 
-    expect(origins.get('registry')).toBe(projectNpmrc)
-    expect(origins.get('//user.example.com/:_authToken')).toBe(userNpmrc)
-    expect(origins.get('//env.example.com/:_authToken')).toBe(ENV_CONFIG_ORIGIN)
+    expect(origins.get('registry')).toEqual({ kind: 'file', path: projectNpmrc })
+    expect(origins.get('//user.example.com/:_authToken')).toEqual({ kind: 'file', path: userNpmrc })
+    expect(origins.get('//env.example.com/:_authToken'))
+      .toEqual({ kind: 'env', variable: 'npm_config_//env.example.com/:_authToken' })
   })
 
-  it('lists the environment as a consulted source alongside the files', async () => {
+  it('names the environment variable verbatim, whatever its case', async () => {
+    // The stored key is case-folded, so only the verbatim variable name is
+    // something the user can search their environment for.
+    const { origins } = await loadNpmrcConfig([], { NPM_CONFIG_REGISTRY: 'https://env.example.com/' })
+    expect(origins.get('registry')).toEqual({ kind: 'env', variable: 'NPM_CONFIG_REGISTRY' })
+    expect(origins.get('REGISTRY')).toEqual({ kind: 'env', variable: 'NPM_CONFIG_REGISTRY' })
+  })
+
+  it('reports the config files consulted', async () => {
     const projectNpmrc = path.join(dir, 'project.npmrc')
-    const { sources } = await loadNpmrcConfig([{ path: projectNpmrc }], {})
-    // npm_config_* outranks every file, so a list of places a credential
-    // could live is wrong without it.
-    expect(sources).toEqual([ENV_CONFIG_ORIGIN, projectNpmrc])
+    const { files } = await loadNpmrcConfig([{ path: projectNpmrc }], {})
+    expect(files).toEqual([projectNpmrc])
   })
 
   it('records the origin under the key spelling that actually matched', async () => {
@@ -141,7 +147,7 @@ describe('loadNpmrcConfig()', () => {
     // matches the lowercase one; the reported key has to be the spelling
     // present in origins, or the source cannot be named.
     expect(auth?.header).toBe('Bearer lower-token')
-    expect(origins.get(auth!.keys[0])).toBe(lowercased)
+    expect(origins.get(auth!.keys[0])).toEqual({ kind: 'file', path: lowercased })
   })
 
   it('does not report missing files as unreadable', async () => {

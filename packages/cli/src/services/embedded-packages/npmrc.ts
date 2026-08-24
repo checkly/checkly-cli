@@ -21,13 +21,20 @@ export interface NpmrcFile {
 /** The prefix that marks an environment variable as npm configuration. */
 export const NPM_CONFIG_ENV_PREFIX = 'npm_config_'
 
-/** Origin label for keys taken from `npm_config_*` environment variables. */
-export const ENV_CONFIG_ORIGIN = `${NPM_CONFIG_ENV_PREFIX}* environment variables`
+/**
+ * Where a config value came from. Structured rather than a display string:
+ * an environment variable is named by its verbatim spelling, which is what
+ * the user can actually search for — the key stored in the config map has
+ * the prefix stripped and may be case-folded.
+ */
+export type ConfigOrigin =
+  | { kind: 'file', path: string }
+  | { kind: 'env', variable: string }
 
 export interface LoadedNpmrcConfig {
   config: NpmrcConfig
-  /** Every config source consulted, highest precedence first. */
-  sources: string[]
+  /** The config files consulted, highest precedence first. */
+  files: string[]
   /**
    * Optional files that could not be read, and were therefore skipped. Any
    * credentials they hold went unused, which is worth saying out loud when
@@ -36,10 +43,10 @@ export interface LoadedNpmrcConfig {
   unreadable: string[]
   /**
    * Which source each key came from. A credential that a registry rejects
-   * is far easier to fix when the error can name the file it came from,
-   * which the merged map alone cannot say.
+   * is far easier to fix when the error can name where it came from, which
+   * the merged map alone cannot say.
    */
-  origins: Map<string, string>
+  origins: Map<string, ConfigOrigin>
 }
 
 /**
@@ -93,32 +100,55 @@ export function parseNpmrc (content: string): NpmrcConfig {
 }
 
 /**
- * Extracts npm configuration from `npm_config_*` environment variables
- * (e.g. `npm_config_registry`, commonly set in CI and by package managers
- * running lifecycle scripts). In npm's precedence order these sit above
- * every `.npmrc` file. The prefix is matched case-insensitively; the key
- * is stored both verbatim and lowercased, because plain keys are written
- * in any case (`NPM_CONFIG_REGISTRY`) while nerf-darted auth keys carry a
- * case-sensitive spelling (`npm_config_//host/:_authToken`).
+ * Every `npm_config_*` variable in an environment, as the config key it
+ * carries plus the variable's verbatim name. The prefix is matched
+ * case-insensitively; the name is kept because only it is something the
+ * user can search their environment for.
  */
-export function npmrcConfigFromEnv (env: NodeJS.ProcessEnv): NpmrcConfig {
-  const config: NpmrcConfig = new Map()
-
-  const prefix = NPM_CONFIG_ENV_PREFIX
-  for (const [name, value] of Object.entries(env)) {
-    if (value === undefined || !name.toLowerCase().startsWith(prefix)) {
+function* npmConfigEnvEntries (
+  env: NodeJS.ProcessEnv,
+): Generator<{ key: string, value: string, variable: string }> {
+  for (const [variable, value] of Object.entries(env)) {
+    if (value === undefined || !variable.toLowerCase().startsWith(NPM_CONFIG_ENV_PREFIX)) {
       continue
     }
-    const key = name.slice(prefix.length)
+    const key = variable.slice(NPM_CONFIG_ENV_PREFIX.length)
     // npm drops env config entries with empty values rather than treating
     // them as set-to-empty.
     if (key === '' || value === '') {
       continue
     }
-    config.set(key, value)
-    if (!config.has(key.toLowerCase())) {
-      config.set(key.toLowerCase(), value)
-    }
+    yield { key, value, variable }
+  }
+}
+
+/**
+ * Records an env-derived entry under both the verbatim key and, unless one
+ * is already present, its lowercased alias. Shared so that the config map
+ * and the origins map cannot drift apart: they must key identically, or a
+ * value resolves while its origin does not.
+ */
+function setEnvEntry<T> (map: Map<string, T>, key: string, value: T): void {
+  map.set(key, value)
+  if (!map.has(key.toLowerCase())) {
+    map.set(key.toLowerCase(), value)
+  }
+}
+
+/**
+ * Extracts npm configuration from `npm_config_*` environment variables
+ * (e.g. `npm_config_registry`, commonly set in CI and by package managers
+ * running lifecycle scripts). In npm's precedence order these sit above
+ * every `.npmrc` file. The key is stored both verbatim and lowercased,
+ * because plain keys are written in any case (`NPM_CONFIG_REGISTRY`) while
+ * nerf-darted auth keys carry a case-sensitive spelling
+ * (`npm_config_//host/:_authToken`).
+ */
+export function npmrcConfigFromEnv (env: NodeJS.ProcessEnv): NpmrcConfig {
+  const config: NpmrcConfig = new Map()
+
+  for (const { key, value } of npmConfigEnvEntries(env)) {
+    setEnvEntry(config, key, value)
   }
 
   return config
@@ -136,10 +166,12 @@ export async function loadNpmrcConfig (
 ): Promise<LoadedNpmrcConfig> {
   const merged: NpmrcConfig = npmrcConfigFromEnv(env)
   const unreadable: string[] = []
-  const origins = new Map<string, string>()
+  const origins = new Map<string, ConfigOrigin>()
 
-  for (const key of merged.keys()) {
-    origins.set(key, ENV_CONFIG_ORIGIN)
+  // Keyed exactly as the config map above, so every spelling that resolves
+  // a value can also name the variable the user actually set.
+  for (const { key, variable } of npmConfigEnvEntries(env)) {
+    setEnvEntry<ConfigOrigin>(origins, key, { kind: 'env', variable })
   }
 
   for (const { path: filePath, optional = false } of files) {
@@ -168,16 +200,12 @@ export async function loadNpmrcConfig (
     for (const [key, value] of parseNpmrc(content)) {
       if (!merged.has(key)) {
         merged.set(key, value)
-        origins.set(key, filePath)
+        origins.set(key, { kind: 'file', path: filePath })
       }
     }
   }
 
-  // The env channel outranks every file and is always consulted, so it
-  // belongs in any list of places a credential could have been configured.
-  const sources = [ENV_CONFIG_ORIGIN, ...files.map(file => file.path)]
-
-  return { config: merged, sources, unreadable, origins }
+  return { config: merged, files: files.map(file => file.path), unreadable, origins }
 }
 
 /**
@@ -358,9 +386,10 @@ export interface ResolvedAuth {
   header: string
   /**
    * Every config key that contributed, in the spelling that matched.
-   * Paired with `LoadedNpmrcConfig`'s `origins`, these name the files a
-   * rejected credential came from — indispensable once several files can
-   * supply one. `username` + `_password` yields two: because precedence is
+   * Paired with `LoadedNpmrcConfig`'s `origins`, these name the file or
+   * environment variable a rejected credential came from — indispensable
+   * once several sources can supply one. `username` + `_password` yields
+   * two keys rather than one: because precedence is
    * per key, the halves routinely come from different files, and the
    * password (the half that actually expires) is the one worth naming.
    */

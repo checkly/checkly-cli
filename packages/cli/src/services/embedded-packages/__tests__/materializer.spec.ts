@@ -804,9 +804,130 @@ packages:
           env: { CHECKLY_CACHE_DIR: cacheDir, [envKey]: 'env-token' },
         })).catch(err => err)
         // The stored key has the npm_config_ prefix stripped, so the hint
-        // must put it back or it names nothing the user can search for.
+        // must name the variable itself or it names nothing searchable.
         expect(error.message).toContain(`the '${envKey}' environment variable`)
         expect(error.message).not.toContain('env-token')
+      })
+
+      it('names an uppercase environment variable by its real spelling', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        // Shells and CI systems routinely uppercase these. The config map
+        // case-folds the key, so echoing the key would print a name that
+        // does not exist in the environment.
+        const envKey = 'NPM_CONFIG_REGISTRY'
+
+        const error = await materializeAll(makeMaterializer(['secured'], {
+          env: { CHECKLY_CACHE_DIR: cacheDir, [envKey]: `http://user:pass@127.0.0.1:${
+            (server.address() as AddressInfo).port}/` },
+        })).catch(err => err)
+        expect(error.message).toContain(`the '${envKey}' environment variable`)
+        expect(error.message).not.toContain('npm_config_registry')
+        expect(error.message).not.toContain('pass@')
+      })
+
+      it('attributes credentials in a lockfile-recorded URL to the lockfile', async () => {
+        const { port } = server.address() as AddressInfo
+        // npm lockfiles record a `resolved` URL verbatim, and it can carry
+        // userinfo — in which case no config key is to blame for it.
+        await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  secured@1.0.0:
+    resolution: {integrity: ${barIntegrity}, tarball: http://user:pass@127.0.0.1:${port}/secured/-/secured-1.0.0.tgz}
+`)
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toContain(`came from the tarball URL recorded in '${lockfilePath}'`)
+        expect(error.message).not.toContain('pass@')
+      })
+
+      it('blames a cross-host redirect rather than the credentials', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const { port } = server.address() as AddressInfo
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=${serverUrl}`,
+          `//127.0.0.1:${port}/:_authToken=good-token`,
+        ].join('\n'))
+        // A second port on the same address: follow-redirects compares the
+        // host INCLUDING the port, so this is a different host to it and
+        // the header is stripped — deterministic, with no DNS involved.
+        const cdn = http.createServer((req, res) => {
+          requests.push({ url: req.url!, authorization: req.headers.authorization })
+          res.statusCode = 404
+          res.end('not found')
+        })
+        await new Promise<void>(resolve => cdn.listen(0, '127.0.0.1', resolve))
+        const cdnPort = (cdn.address() as AddressInfo).port
+
+        server.removeAllListeners('request')
+        server.on('request', (req, res) => {
+          requests.push({ url: req.url!, authorization: req.headers.authorization })
+          res.statusCode = 302
+          res.setHeader('location', `http://127.0.0.1:${cdnPort}${req.url!}`)
+          res.end()
+        })
+
+        try {
+          const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+          // The redirect target never received the token, so saying it was
+          // rejected would send the reader to rotate a working credential.
+          expect(error.message).toContain(`redirected to '127.0.0.1:${cdnPort}'`)
+          expect(error.message).toMatch(/dropped rather than forwarded/)
+          expect(error.message).not.toMatch(/were rejected/)
+          // The attribution survives, so the reader still learns which
+          // source the original host was given.
+          expect(error.message).toContain(`'//127.0.0.1:${port}/:_authToken' in '${workspaceNpmrc}'`)
+          expect(requests[0].authorization).toBe('Bearer good-token')
+          expect(requests[1]?.authorization).toBeUndefined()
+        } finally {
+          await new Promise<void>((resolve, reject) =>
+            cdn.close(err => err ? reject(err) : resolve()))
+        }
+      })
+
+      it('still blames the credentials when a redirect keeps them', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const { port } = server.address() as AddressInfo
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=${serverUrl}`,
+          `//127.0.0.1:${port}/:_authToken=good-token`,
+        ].join('\n'))
+        // A same-host redirect keeps the Authorization header, so the
+        // credentials really were seen and rejected. Deriving the drop from
+        // host comparison rather than observing it would misreport this.
+        server.removeAllListeners('request')
+        server.on('request', (req, res) => {
+          requests.push({ url: req.url!, authorization: req.headers.authorization })
+          if (req.url === '/secured/-/secured-1.0.0.tgz') {
+            res.statusCode = 302
+            res.setHeader('location', `http://127.0.0.1:${port}/moved/secured.tgz`)
+            res.end()
+            return
+          }
+          res.statusCode = 401
+          res.end('unauthorized')
+        })
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toMatch(/were rejected/)
+        // Asserted positively: the credentials survived the hop, so the
+        // message must say they were carried through it rather than
+        // dropped. A negative assertion here passed on the coincidence
+        // that the two sentences differ by one word.
+        expect(error.message).toMatch(/carried through a redirect to/)
+        expect(error.message).not.toMatch(/dropped rather than forwarded/)
+        expect(requests[1]?.authorization).toBe('Bearer good-token')
+      })
+
+      it('lists the environment channel among the places it looked', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        // npm_config_* outranks every file, so omitting it would send the
+        // reader to edit files that a set variable would override anyway.
+        expect(error.message).toContain(`'npm_config_* environment variables'`)
       })
 
       it('names both files when a username/password pair is split across them', async () => {
@@ -899,7 +1020,7 @@ packages:
         ].join('\n'))
 
         const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
-        expect(error.message).toMatch(/embedded in the registry URL configured by/)
+        expect(error.message).toMatch(/came from the registry URL configured by/)
         expect(error.message).toContain(`'registry' in '${workspaceNpmrc}'`)
         expect(error.message).not.toContain('unused-token')
         expect(error.message).not.toContain('pass@')
@@ -944,6 +1065,24 @@ packages:
 
       await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
         .rejects.toThrow(/is not a valid URL.*registry/s)
+    })
+
+    // Each of these registry values produces a URL the parser cannot make
+    // sense of, so redaction falls back to string surgery. Every one of
+    // them leaked a credential at some point during development.
+    it.each([
+      ['an @ in the password', '//user:p@ss@nexus.local/npm/', ['ss@', 'user:']],
+      ['no protocol and no leading slashes', 'admin:s3cret@nexus.local/npm/', ['s3cret', 'admin:']],
+      ['a scheme with an out-of-range port', 'https://user:tok@nexus.local:99999/npm/', ['tok@', 'user:']],
+      ['whitespace inside the credential', 'https://user:pa ss@nexus.local:99999/npm/', ['pa ss', 'user:']],
+    ])('redacts credentials from an unparseable registry URL with %s', async (_label, registry, forbidden) => {
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), `registry=${registry}\n`)
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/is not a valid URL/)
+      for (const secret of forbidden) {
+        expect(error.message).not.toContain(secret)
+      }
     })
 
     it('redacts registry credentials from download error messages', async () => {

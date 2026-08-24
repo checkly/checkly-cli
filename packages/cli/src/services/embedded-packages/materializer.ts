@@ -8,6 +8,15 @@ import PQueue from 'p-queue'
 
 import { assignProxy } from '../proxy.js'
 import { TarballCache, lookupNpmCacache } from './cache.js'
+import {
+  RedirectOutcome,
+  SentCredentials,
+  UrlOrigin,
+  downloadFailureHint,
+  capList,
+  describeConfigKeys,
+  redactUrl,
+} from './diagnostics.js'
 import { verifyIntegrity } from './integrity.js'
 import {
   LockfileRegistryPackage,
@@ -16,9 +25,7 @@ import {
   loadLockfilePackages,
 } from './lockfile-packages.js'
 import {
-  ENV_CONFIG_ORIGIN,
   LoadedNpmrcConfig,
-  NPM_CONFIG_ENV_PREFIX,
   defaultNpmrcPaths,
   loadNpmrcConfig,
   pnpmAuthIniPath,
@@ -129,33 +136,6 @@ const DOWNLOAD_TIMEOUT_MS = 120_000
 const MAX_TARBALL_BYTES = 1024 * 1024 * 1024
 
 /**
- * Joins up to 8 items, appending `<overflow>N more` for the rest — the
- * uniform truncation for user-facing lists of packages, versions and
- * reasons.
- */
-function capList (items: string[], separator: string, overflow: string): string {
-  const shown = items.slice(0, 8).join(separator)
-  return items.length > 8 ? `${shown}${overflow}${items.length - 8} more` : shown
-}
-
-/**
- * Removes userinfo credentials from a URL so it can be safely included in
- * error messages and logs (a registry URL may embed a token).
- */
-function redactUrl (url: string): string {
-  try {
-    const parsed = new URL(url)
-    parsed.username = ''
-    parsed.password = ''
-    return parsed.toString()
-  } catch {
-    // Not parseable as a URL (e.g. a scheme-less registry entry) — strip
-    // anything that looks like a userinfo segment before displaying it.
-    return url.replace(/(^|\/\/)[^/@\s]+@/, '$1')
-  }
-}
-
-/**
  * Wraps an axios error from a registry request in an EmbeddedPackageError,
  * appending the HTTP status and whatever the caller's hint makes of it.
  * `message` is the action-specific prefix (e.g. "Failed to download …").
@@ -168,110 +148,6 @@ function registryHttpError (
   const status = err?.response?.status
   const statusHint = status !== undefined ? ` (HTTP ${status})` : ''
   return new EmbeddedPackageError(`${message}${statusHint}.${hint(status)}`, { cause: err })
-}
-
-/**
- * Where the credentials sent with a request came from. `config` covers a
- * nerf-darted entry; `url` covers userinfo embedded in the registry URL,
- * which is configured elsewhere and so carries its own provenance.
- */
-type SentCredentials =
-  | { from: 'config', keys: string[] }
-  | { from: 'url', registryKey: string }
-  | { from: 'url', lockfile: string }
-
-/**
- * Where a tarball URL came from: the lockfile recorded it verbatim, or it
- * was built from a registry (`registryKey` absent when nothing configured
- * one and the public npm registry was assumed). Needed only to attribute
- * credentials the URL itself carries.
- */
-type UrlOrigin =
-  | { lockfile: string }
-  | { registryKey?: string }
-
-/**
- * Names config keys and the files they came from, for a hint sentence.
- * Keys are listed individually because precedence is per key: the halves of
- * a `username`/`_password` pair can come from different files.
- */
-function describeConfigKeys (keys: string[], npmrc: LoadedNpmrcConfig): string {
-  const described = keys.map(key => {
-    const origin = npmrc.origins.get(key)
-    if (origin === ENV_CONFIG_ORIGIN) {
-      // The stored key has the `npm_config_` prefix stripped, so echoing it
-      // alone would name nothing the user can search for.
-      return `the '${NPM_CONFIG_ENV_PREFIX}${key}' environment variable`
-    }
-    return origin !== undefined ? `'${key}' in '${origin}'` : `'${key}'`
-  })
-  return capList(described, ', ', ' and ')
-}
-
-/**
- * Explains an HTTP failure that authentication could account for.
- *
- * 404 gets the same treatment as 401/403 because registries routinely hide
- * packages the caller is not authorized to see behind a 404 — npmjs does —
- * which otherwise reads as "this package does not exist" and sends people
- * looking in entirely the wrong place. The wording stays hedged for 404,
- * where a genuinely missing package is equally likely.
- *
- * Every branch names a config file. Credentials can now come from any of
- * several files, so "your credentials were rejected" without saying which
- * file supplied them leaves the reader exactly as stuck as a bare 404.
- */
-function authFailureHint (
-  status: number | undefined,
-  sent: SentCredentials | undefined,
-  npmrc: LoadedNpmrcConfig,
-): string {
-  if (status !== 401 && status !== 403 && status !== 404) {
-    return ''
-  }
-
-  const quoted = (files: string[]) => capList(files.map(file => `'${file}'`), ', ', ' and ')
-
-  const sentences: string[] = []
-
-  if (sent === undefined) {
-    sentences.push(`No credentials for this registry were found in ${quoted(npmrc.sources)}.`)
-    if (status === 404) {
-      sentences.push(
-        `A registry may answer 404 for a package you are not authorized to see, so the package`
-        + ` may exist but be invisible without credentials.`,
-      )
-    }
-  } else {
-    let source: string
-    if (sent.from === 'config') {
-      source = `They came from ${describeConfigKeys(sent.keys, npmrc)}.`
-    } else if ('registryKey' in sent) {
-      source = `They are embedded in the registry URL configured by`
-        + ` ${describeConfigKeys([sent.registryKey], npmrc)}.`
-    } else {
-      source = `They are embedded in the tarball URL recorded in '${sent.lockfile}'.`
-    }
-
-    if (status === 404) {
-      sentences.push(
-        `Credentials were sent but did not grant access, so either the package does not exist`
-        + ` or the credentials do not cover it.`,
-      )
-    } else {
-      sentences.push(`The credentials sent for this registry were rejected — an expired token fails this way.`)
-    }
-    sentences.push(source)
-  }
-
-  if (npmrc.unreadable.length > 0) {
-    sentences.push(
-      `Note that ${quoted(npmrc.unreadable)} could not be read, so any credentials it holds`
-      + ` were not used.`,
-    )
-  }
-
-  return ` ${sentences.join(' ')}`
 }
 
 /**
@@ -654,14 +530,28 @@ export class EmbeddedPackagesMaterializer {
       urlOrigin = { registryKey: registry.key }
     }
 
-    if (!URL.canParse(url)) {
-      const configured = !('lockfile' in urlOrigin) && urlOrigin.registryKey !== undefined
-        ? `Check ${describeConfigKeys([urlOrigin.registryKey], npmrc)}`
-        : `Check the 'registry' configuration in your npm configuration`
+    // `URL.canParse` accepts host-less forms: `admin:s3cret@nexus.local/x`
+    // parses as the opaque scheme `admin:` with no host. Nothing can be
+    // fetched from one, so require a host and give the configuration error
+    // rather than letting the request fail obscurely further down.
+    if (!URL.canParse(url) || new URL(url).host === '') {
+      // The offending value is deliberately not echoed: it is unparseable
+      // by definition here, so nothing can reliably tell a credential in it
+      // from a path. Naming the source is both safe and more useful — that
+      // is where the reader goes to fix it.
+      let source: string
+      if ('lockfile' in urlOrigin) {
+        source = `It came from '${urlOrigin.lockfile}'.`
+      } else if (urlOrigin.registryKey !== undefined) {
+        source = `It was built from the registry configured by`
+          + ` ${describeConfigKeys([urlOrigin.registryKey], npmrc)}`
+      } else {
+        source = `It was built from the default registry.`
+      }
       throw new EmbeddedPackageError(
         `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
-        + ` is not a valid URL: '${redactUrl(url)}'. ${configured}`
-        + ` (it must be an absolute URL including the protocol).`,
+        + ` is not a valid URL. ${source} A registry must be an absolute URL`
+        + ` including the protocol, and must have a host.`,
       )
     }
     debug('%s@%s: downloading from %s', tarball.name, tarball.version, redactUrl(url))
@@ -775,7 +665,7 @@ export class EmbeddedPackagesMaterializer {
         err,
         `Failed to fetch registry metadata for embedded package`
         + ` '${tarball.name}@${tarball.version}' from '${redactUrl(url)}'`,
-        status => authFailureHint(
+        status => downloadFailureHint(
           status,
           auth !== undefined ? { from: 'config', keys: auth.keys } : undefined,
           npmrc,
@@ -810,6 +700,23 @@ export class EmbeddedPackagesMaterializer {
       sent = { from: 'config', keys: auth.keys }
     }
 
+    // A redirect can make the credentials moot: follow-redirects drops
+    // confidential headers rather than hand them to another host, so
+    // whatever answered never saw them and "they were rejected" would be
+    // wrong. Tarball downloads redirect to CDNs routinely.
+    //
+    // Observed, not predicted: the drop happens before `beforeRedirect`
+    // runs and mutates the very options handed to it, so the hook can see
+    // what actually survived. Re-deriving the library's rule would get
+    // subdomain redirects (which keep the header) and protocol downgrades
+    // (which drop it regardless of host) wrong, and would rot silently if
+    // the policy ever changed.
+    //
+    // The hop itself is recorded even when nothing was sent: whatever
+    // answered is then not the host the reader configured, and telling them
+    // to add credentials for a host that never asked is its own dead end.
+    const redirect: RedirectOutcome = {}
+
     try {
       const response = await axios.get<ArrayBuffer>(url, assignProxy(url, {
         responseType: 'arraybuffer',
@@ -821,6 +728,22 @@ export class EmbeddedPackagesMaterializer {
           'accept-encoding': 'identity',
           ...(auth !== undefined ? { authorization: auth.header } : {}),
         },
+        beforeRedirect: (options: { host?: string, auth?: string | null, headers?: Record<string, unknown> }) => {
+          redirect.host = options.host
+          if (sent === undefined) {
+            return
+          }
+          const keptHeader = Object.keys(options.headers ?? {})
+            .some(header => header.toLowerCase() === 'authorization')
+          // `!= null` rather than `!== undefined`: the legacy URL path
+          // yields `null` here, and treating that as "credentials survived"
+          // would fail open on the very check meant to catch a drop.
+          const keptUrlAuth = options.auth != null && options.auth !== ''
+          // Assigned rather than latched: a later hop back to the original
+          // origin restores URL credentials, and reporting them as dropped
+          // would send the reader to inspect the wrong host.
+          redirect.credentialsDropped = !keptHeader && !keptUrlAuth
+        },
         timeout: DOWNLOAD_TIMEOUT_MS,
         maxContentLength: MAX_TARBALL_BYTES,
       }))
@@ -830,7 +753,7 @@ export class EmbeddedPackagesMaterializer {
         err,
         `Failed to download embedded package '${tarball.name}@${tarball.version}'`
         + ` from '${redactUrl(url)}'`,
-        status => authFailureHint(status, sent, npmrc),
+        status => downloadFailureHint(status, sent, npmrc, redirect),
       )
     }
   }
