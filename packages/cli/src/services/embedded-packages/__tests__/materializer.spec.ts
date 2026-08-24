@@ -751,6 +751,167 @@ packages:
         .rejects.toThrow(/Failed to download embedded package 'secured@1\.0\.0'.*HTTP 401.*credentials/s)
     })
 
+    describe('authentication hints', () => {
+      const securedLockfile = `
+lockfileVersion: '9.0'
+packages:
+  secured@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`
+
+      it('names every consulted config file when no credentials matched', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+
+        // XDG_CONFIG_HOME pins auth.ini's location: the production code
+        // uses the real process.platform, whose default differs per OS.
+        const error = await materializeAll(makeMaterializer(['secured'], {
+          env: { CHECKLY_CACHE_DIR: cacheDir, XDG_CONFIG_HOME: homedir },
+        })).catch(err => err)
+        expect(error.message).toMatch(/No credentials for this registry were found in/)
+        expect(error.message).toContain(path.join(workspaceRoot, '.npmrc'))
+        expect(error.message).toContain(path.join(homedir, '.npmrc'))
+        // pnpm's auth.ini is named alongside the .npmrc files, so a pnpm
+        // user is not told to edit a file their credentials do not live in.
+        expect(error.message).toContain(path.join(homedir, 'pnpm', 'auth.ini'))
+      })
+
+      it('names the file a rejected credential came from', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        const nerfDart = `//127.0.0.1:${(server.address() as AddressInfo).port}/`
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=${serverUrl}`,
+          `${nerfDart}:_authToken=wrong-token`,
+        ].join('\n'))
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toMatch(/credentials sent for this registry were rejected/)
+        expect(error.message).toMatch(/expired token/)
+        // Naming the exact key and file is the whole point: several files
+        // can supply a credential, and "yours was rejected" without saying
+        // which one leaves the reader as stuck as a bare status code.
+        expect(error.message).toContain(`'${nerfDart}:_authToken' in '${workspaceNpmrc}'`)
+        // Never the credential itself.
+        expect(error.message).not.toContain('wrong-token')
+      })
+
+      it('names the environment variable when the credential came from one', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const { port } = server.address() as AddressInfo
+        const envKey = `npm_config_//127.0.0.1:${port}/:_authToken`
+
+        const error = await materializeAll(makeMaterializer(['secured'], {
+          env: { CHECKLY_CACHE_DIR: cacheDir, [envKey]: 'env-token' },
+        })).catch(err => err)
+        // The stored key has the npm_config_ prefix stripped, so the hint
+        // must put it back or it names nothing the user can search for.
+        expect(error.message).toContain(`the '${envKey}' environment variable`)
+        expect(error.message).not.toContain('env-token')
+      })
+
+      it('names both files when a username/password pair is split across them', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        const userNpmrc = path.join(homedir, '.npmrc')
+        const nerfDart = `//127.0.0.1:${(server.address() as AddressInfo).port}/`
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=${serverUrl}`,
+          `${nerfDart}:username=alice`,
+        ].join('\n'))
+        // The password — the half that actually expires — lives elsewhere.
+        await fs.writeFile(userNpmrc, `${nerfDart}:_password=${Buffer.from('secret').toString('base64')}\n`)
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toContain(`'${nerfDart}:username' in '${workspaceNpmrc}'`)
+        expect(error.message).toContain(`'${nerfDart}:_password' in '${userNpmrc}'`)
+        expect(error.message).not.toContain('secret')
+      })
+
+      it('explains a 404 that credentials did not unlock', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        const nerfDart = `//127.0.0.1:${(server.address() as AddressInfo).port}/`
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=${serverUrl}`,
+          `${nerfDart}:_authToken=insufficient-token`,
+        ].join('\n'))
+        // A registry that hides packages the caller may not see answers 404
+        // even once credentials are presented.
+        server.removeAllListeners('request')
+        server.on('request', (req, res) => {
+          requests.push({ url: req.url!, authorization: req.headers.authorization })
+          res.statusCode = 404
+          res.end('not found')
+        })
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toMatch(/HTTP 404/)
+        expect(error.message).toMatch(/Credentials were sent but did not grant access/)
+        expect(error.message).toContain(`'${nerfDart}:_authToken' in '${workspaceNpmrc}'`)
+        expect(error.message).not.toContain('insufficient-token')
+      })
+
+      // A registry that hides unauthorized packages behind a 404 is the
+      // case that reads as "package does not exist" without this hint.
+      it('explains a 404 as a possible authorization failure', async () => {
+        await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  missing@1.0.0:
+    resolution: {integrity: ${barIntegrity}}
+`)
+
+        const error = await materializeAll(makeMaterializer(['missing'])).catch(err => err)
+        expect(error.message).toMatch(/HTTP 404/)
+        expect(error.message).toMatch(/may answer 404 for a package you are not authorized to see/)
+      })
+
+      it('reports a config file that exists but could not be read', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const authIni = path.join(homedir, 'pnpm', 'auth.ini')
+        await fs.mkdir(path.dirname(authIni), { recursive: true })
+        await fs.writeFile(authIni, 'registry=https://unreadable.example.com/\n')
+        await fs.chmod(authIni, 0o000)
+        try {
+          await fs.readFile(authIni, 'utf8')
+          return // Running as root: permission bits do not apply.
+        } catch {
+          // Expected: the file is genuinely unreadable.
+        }
+
+        const error = await materializeAll(makeMaterializer(['secured'], {
+          env: { CHECKLY_CACHE_DIR: cacheDir, XDG_CONFIG_HOME: homedir },
+        })).catch(err => err)
+        expect(error.message).toContain(authIni)
+        expect(error.message).toMatch(/could not be read/)
+      })
+
+      // axios sends userinfo credentials itself and drops the Authorization
+      // header when it does, so reporting the config entry would name a
+      // credential that never left the process.
+      it('attributes credentials embedded in the registry URL to the key that configured it', async () => {
+        await fs.writeFile(lockfilePath, securedLockfile)
+        const workspaceNpmrc = path.join(workspaceRoot, '.npmrc')
+        const { port } = server.address() as AddressInfo
+        await fs.writeFile(workspaceNpmrc, [
+          `registry=http://user:pass@127.0.0.1:${port}/`,
+          `//127.0.0.1:${port}/:_authToken=unused-token`,
+        ].join('\n'))
+
+        const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
+        expect(error.message).toMatch(/embedded in the registry URL configured by/)
+        expect(error.message).toContain(`'registry' in '${workspaceNpmrc}'`)
+        expect(error.message).not.toContain('unused-token')
+        expect(error.message).not.toContain('pass@')
+
+        // The precedence rule rests on axios sending the URL's credentials
+        // and dropping the Authorization header. Assert the wire, not just
+        // the wording, so a change in that behaviour fails here.
+        expect(requests[0].authorization)
+          .toBe(`Basic ${Buffer.from('user:pass').toString('base64')}`)
+      })
+    })
+
     it('refuses to materialize when the plan has issues', async () => {
       await expect(materializeAll(makeMaterializer(['no-such-package'])))
         .rejects.toThrow(EmbeddedPackageError)

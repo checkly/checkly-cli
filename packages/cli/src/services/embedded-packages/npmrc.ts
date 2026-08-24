@@ -18,6 +18,30 @@ export interface NpmrcFile {
   optional?: boolean
 }
 
+/** The prefix that marks an environment variable as npm configuration. */
+export const NPM_CONFIG_ENV_PREFIX = 'npm_config_'
+
+/** Origin label for keys taken from `npm_config_*` environment variables. */
+export const ENV_CONFIG_ORIGIN = `${NPM_CONFIG_ENV_PREFIX}* environment variables`
+
+export interface LoadedNpmrcConfig {
+  config: NpmrcConfig
+  /** Every config source consulted, highest precedence first. */
+  sources: string[]
+  /**
+   * Optional files that could not be read, and were therefore skipped. Any
+   * credentials they hold went unused, which is worth saying out loud when
+   * a download later fails to authenticate.
+   */
+  unreadable: string[]
+  /**
+   * Which source each key came from. A credential that a registry rejects
+   * is far easier to fix when the error can name the file it came from,
+   * which the merged map alone cannot say.
+   */
+  origins: Map<string, string>
+}
+
 /**
  * Merged `.npmrc` configuration: a flat key → raw value map. Values keep
  * any `${VAR}` references unexpanded until they're actually used, so an
@@ -28,8 +52,10 @@ export type NpmrcConfig = Map<string, string>
 export class NpmrcEnvVarError extends Error {
   constructor (key: string, varName: string) {
     super(
-      `The .npmrc value for '${key}' references the environment variable`
-      + ` '${varName}', which is not set`,
+      // Not necessarily an .npmrc: the value may equally have come from
+      // pnpm's auth.ini or an npm_config_* environment variable.
+      `The npm configuration value for '${key}' references the environment`
+      + ` variable '${varName}', which is not set`,
     )
     this.name = 'NpmrcEnvVarError'
   }
@@ -78,7 +104,7 @@ export function parseNpmrc (content: string): NpmrcConfig {
 export function npmrcConfigFromEnv (env: NodeJS.ProcessEnv): NpmrcConfig {
   const config: NpmrcConfig = new Map()
 
-  const prefix = 'npm_config_'
+  const prefix = NPM_CONFIG_ENV_PREFIX
   for (const [name, value] of Object.entries(env)) {
     if (value === undefined || !name.toLowerCase().startsWith(prefix)) {
       continue
@@ -107,8 +133,14 @@ export function npmrcConfigFromEnv (env: NodeJS.ProcessEnv): NpmrcConfig {
 export async function loadNpmrcConfig (
   files: NpmrcFile[],
   env: NodeJS.ProcessEnv = process.env,
-): Promise<NpmrcConfig> {
+): Promise<LoadedNpmrcConfig> {
   const merged: NpmrcConfig = npmrcConfigFromEnv(env)
+  const unreadable: string[] = []
+  const origins = new Map<string, string>()
+
+  for (const key of merged.keys()) {
+    origins.set(key, ENV_CONFIG_ORIGIN)
+  }
 
   for (const { path: filePath, optional = false } of files) {
     let content: string
@@ -122,20 +154,30 @@ export async function loadNpmrcConfig (
       // registry credentials — that would surface later as a baffling 401.
       // Optional files belong to another tool rather than to this project,
       // so an unreadable one must not take the whole command down with it.
+      // It is still recorded so an authentication failure can say the file
+      // was skipped. Note this covers more than bad permissions on the file
+      // itself — an unsearchable parent directory lands here too — so the
+      // reported wording must not claim the file exists.
       if (!optional) {
         throw new Error(`Unable to read npm configuration from '${filePath}'`, { cause: err })
       }
       debug('skipping unreadable optional config %s: %s', filePath, (err as Error).message)
+      unreadable.push(filePath)
       continue
     }
     for (const [key, value] of parseNpmrc(content)) {
       if (!merged.has(key)) {
         merged.set(key, value)
+        origins.set(key, filePath)
       }
     }
   }
 
-  return merged
+  // The env channel outranks every file and is always consulted, so it
+  // belongs in any list of places a credential could have been configured.
+  const sources = [ENV_CONFIG_ORIGIN, ...files.map(file => file.path)]
+
+  return { config: merged, sources, unreadable, origins }
 }
 
 /**
@@ -237,41 +279,98 @@ function expandValue (key: string, value: string, env: NodeJS.ProcessEnv): strin
   })
 }
 
-function getExpanded (config: NpmrcConfig, key: string, env: NodeJS.ProcessEnv): string | undefined {
-  const value = config.get(key) ?? config.get(key.toLowerCase())
-  if (value === undefined) {
-    return undefined
+/**
+ * Looks a key up, falling back to its lowercased spelling, and reports
+ * which spelling actually matched. Callers that trace a value back to the
+ * file it came from need the matched key, not the one they asked for: only
+ * the former is a key in `LoadedNpmrcConfig`'s `origins`.
+ */
+function getExpandedEntry (
+  config: NpmrcConfig,
+  key: string,
+  env: NodeJS.ProcessEnv,
+): { value: string, key: string } | undefined {
+  for (const candidate of key === key.toLowerCase() ? [key] : [key, key.toLowerCase()]) {
+    const value = config.get(candidate)
+    if (value !== undefined) {
+      return { value: expandValue(candidate, value, env), key: candidate }
+    }
   }
-  return expandValue(key, value, env)
+  return undefined
 }
 
 /**
- * Resolves the registry URL for a package name: the `@scope:registry` entry
- * if the package is scoped and one exists, the `registry` entry otherwise,
- * falling back to the public npm registry. Always ends with a slash.
+ * The scope of a package name (`@acme/foo` → `@acme`), or undefined when
+ * the name is unscoped. A leading `@` with no slash is not a scope: it is a
+ * malformed name, and treating it as one would silently truncate it.
  */
-export function resolveRegistryUrl (
+function packageScope (packageName: string): string | undefined {
+  if (!packageName.startsWith('@')) {
+    return undefined
+  }
+  const separator = packageName.indexOf('/')
+  return separator > 1 ? packageName.slice(0, separator) : undefined
+}
+
+export interface ResolvedRegistry {
+  /** The registry URL, always ending in a slash. */
+  url: string
+  /**
+   * The config key that supplied it, absent when nothing configured one and
+   * the public npm registry was assumed. Reported for the same reason as
+   * `ResolvedAuth.key`: a registry URL can itself carry credentials, and a
+   * failure needs to name where that URL was configured.
+   */
+  key?: string
+}
+
+/**
+ * Resolves the registry for a package name: the `@scope:registry` entry if
+ * the package is scoped and one exists, the `registry` entry otherwise,
+ * falling back to the public npm registry.
+ */
+export function resolveRegistry (
   config: NpmrcConfig,
   packageName: string,
   env: NodeJS.ProcessEnv = process.env,
-): string {
-  let registry: string | undefined
+): ResolvedRegistry {
+  let registry: { value: string, key: string } | undefined
 
-  if (packageName.startsWith('@')) {
-    const scope = packageName.slice(0, packageName.indexOf('/'))
-    registry = getExpanded(config, `${scope}:registry`, env)
+  const scope = packageScope(packageName)
+  if (scope !== undefined) {
+    registry = getExpandedEntry(config, `${scope}:registry`, env)
   }
 
-  registry ??= getExpanded(config, 'registry', env)
-  registry ??= DEFAULT_REGISTRY_URL
+  registry ??= getExpandedEntry(config, 'registry', env)
 
-  return registry.endsWith('/') ? registry : `${registry}/`
+  if (registry === undefined) {
+    return { url: DEFAULT_REGISTRY_URL }
+  }
+
+  return {
+    url: registry.value.endsWith('/') ? registry.value : `${registry.value}/`,
+    key: registry.key,
+  }
+}
+
+export interface ResolvedAuth {
+  /** The `Authorization` header value to send. */
+  header: string
+  /**
+   * Every config key that contributed, in the spelling that matched.
+   * Paired with `LoadedNpmrcConfig`'s `origins`, these name the files a
+   * rejected credential came from — indispensable once several files can
+   * supply one. `username` + `_password` yields two: because precedence is
+   * per key, the halves routinely come from different files, and the
+   * password (the half that actually expires) is the one worth naming.
+   */
+  keys: string[]
 }
 
 /**
- * Resolves the `Authorization` header value applicable to a URL, matching
- * npm's "nerf dart" scheme: credentials are keyed by the registry URL minus
- * its protocol (`//host/path/:_authToken=...`). The URL's path is walked
+ * Resolves the `Authorization` header applicable to a URL, matching npm's
+ * "nerf dart" scheme: credentials are keyed by the registry URL minus its
+ * protocol (`//host/path/:_authToken=...`). The URL's path is walked
  * upward so credentials configured for a registry root also apply to
  * tarball URLs beneath it. Supports `_authToken` (Bearer), `_auth`
  * (pre-encoded Basic), and `username` + `_password` (base64-encoded, per
@@ -281,28 +380,29 @@ export function resolveAuthHeader (
   config: NpmrcConfig,
   url: string,
   env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
+): ResolvedAuth | undefined {
   const parsed = new URL(url)
 
   const segments = parsed.pathname.split('/').filter(segment => segment !== '')
   for (let depth = segments.length; depth >= 0; depth--) {
     const nerfDart = `//${parsed.host}/${segments.slice(0, depth).map(segment => `${segment}/`).join('')}`
 
-    const authToken = getExpanded(config, `${nerfDart}:_authToken`, env)
+    const authToken = getExpandedEntry(config, `${nerfDart}:_authToken`, env)
     if (authToken !== undefined) {
-      return `Bearer ${authToken}`
+      return { header: `Bearer ${authToken.value}`, keys: [authToken.key] }
     }
 
-    const auth = getExpanded(config, `${nerfDart}:_auth`, env)
+    const auth = getExpandedEntry(config, `${nerfDart}:_auth`, env)
     if (auth !== undefined) {
-      return `Basic ${auth}`
+      return { header: `Basic ${auth.value}`, keys: [auth.key] }
     }
 
-    const username = getExpanded(config, `${nerfDart}:username`, env)
-    const password = getExpanded(config, `${nerfDart}:_password`, env)
+    const username = getExpandedEntry(config, `${nerfDart}:username`, env)
+    const password = getExpandedEntry(config, `${nerfDart}:_password`, env)
     if (username !== undefined && password !== undefined) {
-      const decodedPassword = Buffer.from(password, 'base64').toString('utf8')
-      return `Basic ${Buffer.from(`${username}:${decodedPassword}`, 'utf8').toString('base64')}`
+      const decodedPassword = Buffer.from(password.value, 'base64').toString('utf8')
+      const encoded = Buffer.from(`${username.value}:${decodedPassword}`, 'utf8').toString('base64')
+      return { header: `Basic ${encoded}`, keys: [username.key, password.key] }
     }
   }
 

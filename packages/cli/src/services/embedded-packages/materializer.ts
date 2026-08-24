@@ -16,12 +16,14 @@ import {
   loadLockfilePackages,
 } from './lockfile-packages.js'
 import {
-  NpmrcConfig,
+  ENV_CONFIG_ORIGIN,
+  LoadedNpmrcConfig,
+  NPM_CONFIG_ENV_PREFIX,
   defaultNpmrcPaths,
   loadNpmrcConfig,
   pnpmAuthIniPath,
   resolveAuthHeader,
-  resolveRegistryUrl,
+  resolveRegistry,
 } from './npmrc.js'
 import {
   EmbeddedPackageSpec,
@@ -155,16 +157,134 @@ function redactUrl (url: string): string {
 
 /**
  * Wraps an axios error from a registry request in an EmbeddedPackageError,
- * appending the HTTP status and, for 401/403, a credentials hint. `message`
- * is the action-specific prefix (e.g. "Failed to download …").
+ * appending the HTTP status and whatever the caller's hint makes of it.
+ * `message` is the action-specific prefix (e.g. "Failed to download …").
  */
-function registryHttpError (err: any, message: string): EmbeddedPackageError {
+function registryHttpError (
+  err: any,
+  message: string,
+  hint: (status: number | undefined) => string = () => '',
+): EmbeddedPackageError {
   const status = err?.response?.status
   const statusHint = status !== undefined ? ` (HTTP ${status})` : ''
-  const authHint = status === 401 || status === 403
-    ? ` Check that your .npmrc contains valid credentials for this registry.`
-    : ''
-  return new EmbeddedPackageError(`${message}${statusHint}.${authHint}`, { cause: err })
+  return new EmbeddedPackageError(`${message}${statusHint}.${hint(status)}`, { cause: err })
+}
+
+/**
+ * Where the credentials sent with a request came from. `config` covers a
+ * nerf-darted entry; `url` covers userinfo embedded in the registry URL,
+ * which is configured elsewhere and so carries its own provenance.
+ */
+type SentCredentials =
+  | { from: 'config', keys: string[] }
+  | { from: 'url', registryKey: string }
+  | { from: 'url', lockfile: string }
+
+/**
+ * Where a tarball URL came from: the lockfile recorded it verbatim, or it
+ * was built from a registry (`registryKey` absent when nothing configured
+ * one and the public npm registry was assumed). Needed only to attribute
+ * credentials the URL itself carries.
+ */
+type UrlOrigin =
+  | { lockfile: string }
+  | { registryKey?: string }
+
+/**
+ * Names config keys and the files they came from, for a hint sentence.
+ * Keys are listed individually because precedence is per key: the halves of
+ * a `username`/`_password` pair can come from different files.
+ */
+function describeConfigKeys (keys: string[], npmrc: LoadedNpmrcConfig): string {
+  const described = keys.map(key => {
+    const origin = npmrc.origins.get(key)
+    if (origin === ENV_CONFIG_ORIGIN) {
+      // The stored key has the `npm_config_` prefix stripped, so echoing it
+      // alone would name nothing the user can search for.
+      return `the '${NPM_CONFIG_ENV_PREFIX}${key}' environment variable`
+    }
+    return origin !== undefined ? `'${key}' in '${origin}'` : `'${key}'`
+  })
+  return capList(described, ', ', ' and ')
+}
+
+/**
+ * Explains an HTTP failure that authentication could account for.
+ *
+ * 404 gets the same treatment as 401/403 because registries routinely hide
+ * packages the caller is not authorized to see behind a 404 — npmjs does —
+ * which otherwise reads as "this package does not exist" and sends people
+ * looking in entirely the wrong place. The wording stays hedged for 404,
+ * where a genuinely missing package is equally likely.
+ *
+ * Every branch names a config file. Credentials can now come from any of
+ * several files, so "your credentials were rejected" without saying which
+ * file supplied them leaves the reader exactly as stuck as a bare 404.
+ */
+function authFailureHint (
+  status: number | undefined,
+  sent: SentCredentials | undefined,
+  npmrc: LoadedNpmrcConfig,
+): string {
+  if (status !== 401 && status !== 403 && status !== 404) {
+    return ''
+  }
+
+  const quoted = (files: string[]) => capList(files.map(file => `'${file}'`), ', ', ' and ')
+
+  const sentences: string[] = []
+
+  if (sent === undefined) {
+    sentences.push(`No credentials for this registry were found in ${quoted(npmrc.sources)}.`)
+    if (status === 404) {
+      sentences.push(
+        `A registry may answer 404 for a package you are not authorized to see, so the package`
+        + ` may exist but be invisible without credentials.`,
+      )
+    }
+  } else {
+    let source: string
+    if (sent.from === 'config') {
+      source = `They came from ${describeConfigKeys(sent.keys, npmrc)}.`
+    } else if ('registryKey' in sent) {
+      source = `They are embedded in the registry URL configured by`
+        + ` ${describeConfigKeys([sent.registryKey], npmrc)}.`
+    } else {
+      source = `They are embedded in the tarball URL recorded in '${sent.lockfile}'.`
+    }
+
+    if (status === 404) {
+      sentences.push(
+        `Credentials were sent but did not grant access, so either the package does not exist`
+        + ` or the credentials do not cover it.`,
+      )
+    } else {
+      sentences.push(`The credentials sent for this registry were rejected — an expired token fails this way.`)
+    }
+    sentences.push(source)
+  }
+
+  if (npmrc.unreadable.length > 0) {
+    sentences.push(
+      `Note that ${quoted(npmrc.unreadable)} could not be read, so any credentials it holds`
+      + ` were not used.`,
+    )
+  }
+
+  return ` ${sentences.join(' ')}`
+}
+
+/**
+ * Whether a URL carries credentials in its userinfo component. axios sends
+ * those itself — and drops any `Authorization` header when it does — so a
+ * failure hint that only consulted the npm config would contradict what was
+ * actually on the wire.
+ *
+ * Only called with a URL the caller has already parsed successfully.
+ */
+function hasUrlCredentials (url: string): boolean {
+  const parsed = new URL(url)
+  return parsed.username !== '' || parsed.password !== ''
 }
 
 /**
@@ -236,7 +356,7 @@ export class EmbeddedPackagesMaterializer {
     const pnpmAuthFilePreferred = isPnpmLockfile(lockfilePath)
     debug('pnpm auth file %s (preferred: %s)', pnpmAuthFile, pnpmAuthFilePreferred)
 
-    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths({
+    const npmrc = await loadNpmrcConfig(defaultNpmrcPaths({
       workspaceRoot: this.#projectRoot!,
       homedir: this.#homedir,
       contextDir: this.#options.contextDir,
@@ -246,7 +366,7 @@ export class EmbeddedPackagesMaterializer {
 
     const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
     return await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
-      const { filePath, integrity } = await this.#obtainTarball(tarball, npmrcConfig)
+      const { filePath, integrity } = await this.#obtainTarball(tarball, npmrc)
       return {
         ...tarball,
         integrity,
@@ -493,14 +613,14 @@ export class EmbeddedPackagesMaterializer {
 
   async #obtainTarball (
     tarball: PlannedTarball,
-    npmrcConfig: NpmrcConfig,
+    npmrc: LoadedNpmrcConfig,
   ): Promise<{ filePath: string, integrity: string }> {
     let { integrity, tarballUrl } = tarball
     if (integrity === undefined) {
       // yarn.lock plans carry no SRI tarball integrity (Berry checksums
       // hash yarn's own cache archive); resolve it from the registry's
       // per-version metadata before the caches can be consulted.
-      const dist = await this.#resolveDistFromRegistry(tarball, npmrcConfig)
+      const dist = await this.#resolveDistFromRegistry(tarball, npmrc)
       integrity = dist.integrity
       tarballUrl ??= dist.tarballUrl
     }
@@ -517,16 +637,35 @@ export class EmbeddedPackagesMaterializer {
       return { filePath: await this.#cache.put(integrity, fromNpmCacache), integrity }
     }
 
-    const url = tarballUrl ?? this.#deriveTarballUrl(tarball, npmrcConfig)
+    // Where the URL came from decides who to blame for credentials embedded
+    // in it: a lockfile-recorded URL is the lockfile's, a derived one
+    // belongs to whichever config key configured the registry.
+    let url: string
+    let urlOrigin: UrlOrigin
+    if (tarballUrl !== undefined) {
+      url = tarballUrl
+      // Safe to assert: a missing lockfile is a plan issue, and materialize
+      // aborts on issues before any tarball is obtained.
+      urlOrigin = { lockfile: this.#options.lockfilePath! }
+    } else {
+      const registry = resolveRegistry(npmrc.config, tarball.name, this.#env)
+      const basename = tarball.name.split('/').pop()
+      url = `${registry.url}${tarball.name}/-/${basename}-${tarball.version}.tgz`
+      urlOrigin = { registryKey: registry.key }
+    }
+
     if (!URL.canParse(url)) {
+      const configured = !('lockfile' in urlOrigin) && urlOrigin.registryKey !== undefined
+        ? `Check ${describeConfigKeys([urlOrigin.registryKey], npmrc)}`
+        : `Check the 'registry' configuration in your npm configuration`
       throw new EmbeddedPackageError(
         `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
-        + ` is not a valid URL: '${redactUrl(url)}'. Check the 'registry' configuration`
-        + ` in your .npmrc (it must be an absolute URL including the protocol).`,
+        + ` is not a valid URL: '${redactUrl(url)}'. ${configured}`
+        + ` (it must be an absolute URL including the protocol).`,
       )
     }
     debug('%s@%s: downloading from %s', tarball.name, tarball.version, redactUrl(url))
-    const content = await this.#download(tarball, url, npmrcConfig)
+    const content = await this.#download(tarball, url, npmrc, urlOrigin)
 
     if (!verifyIntegrity(content, integrity)) {
       // For yarn.lock plans the integrity came from the registry's own
@@ -560,18 +699,18 @@ export class EmbeddedPackagesMaterializer {
    */
   async #resolveDistFromRegistry (
     tarball: PlannedTarball,
-    npmrcConfig: NpmrcConfig,
+    npmrc: LoadedNpmrcConfig,
   ): Promise<{ integrity: string, tarballUrl?: string }> {
-    const registryUrl = resolveRegistryUrl(npmrcConfig, tarball.name, this.#env)
+    const registryUrl = resolveRegistry(npmrc.config, tarball.name, this.#env).url
     const versionUrl = `${registryUrl}${tarball.name}/${tarball.version}`
     const packumentUrl = `${registryUrl}${tarball.name}`
 
     // Per-version route: dist is at the document root.
-    const perVersion = await this.#fetchMetadataDist(tarball, npmrcConfig, versionUrl, data => data?.dist)
+    const perVersion = await this.#fetchMetadataDist(tarball, npmrc, versionUrl, data => data?.dist)
     // Packument fallback (only when the per-version route was absent, not
     // when it answered with unusable data): dist is nested per version.
     const dist = perVersion ?? await this.#fetchMetadataDist(
-      tarball, npmrcConfig, packumentUrl, data => data?.versions?.[tarball.version]?.dist,
+      tarball, npmrc, packumentUrl, data => data?.versions?.[tarball.version]?.dist,
     )
 
     // Modern publishes carry an SRI `integrity`; very old ones only a hex
@@ -607,7 +746,7 @@ export class EmbeddedPackagesMaterializer {
    */
   async #fetchMetadataDist (
     tarball: PlannedTarball,
-    npmrcConfig: NpmrcConfig,
+    npmrc: LoadedNpmrcConfig,
     url: string,
     select: (data: any) => any,
   ): Promise<any> {
@@ -618,12 +757,12 @@ export class EmbeddedPackagesMaterializer {
         + ` in your .npmrc (it must be an absolute URL including the protocol).`,
       )
     }
-    const authHeader = resolveAuthHeader(npmrcConfig, url, this.#env)
+    const auth = resolveAuthHeader(npmrc.config, url, this.#env)
     debug('%s@%s: resolving integrity from %s', tarball.name, tarball.version, redactUrl(url))
     try {
       const response = await axios.get(url, assignProxy(url, {
         headers: {
-          ...(authHeader !== undefined ? { authorization: authHeader } : {}),
+          ...(auth !== undefined ? { authorization: auth.header } : {}),
         },
         timeout: DOWNLOAD_TIMEOUT_MS,
       }))
@@ -636,18 +775,40 @@ export class EmbeddedPackagesMaterializer {
         err,
         `Failed to fetch registry metadata for embedded package`
         + ` '${tarball.name}@${tarball.version}' from '${redactUrl(url)}'`,
+        status => authFailureHint(
+          status,
+          auth !== undefined ? { from: 'config', keys: auth.keys } : undefined,
+          npmrc,
+        ),
       )
     }
   }
 
-  #deriveTarballUrl (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): string {
-    const registryUrl = resolveRegistryUrl(npmrcConfig, tarball.name, this.#env)
-    const basename = tarball.name.split('/').pop()
-    return `${registryUrl}${tarball.name}/-/${basename}-${tarball.version}.tgz`
-  }
+  async #download (
+    tarball: PlannedTarball,
+    url: string,
+    npmrc: LoadedNpmrcConfig,
+    urlOrigin: UrlOrigin,
+  ): Promise<Buffer> {
+    const auth = resolveAuthHeader(npmrc.config, url, this.#env)
 
-  async #download (tarball: PlannedTarball, url: string, npmrcConfig: NpmrcConfig): Promise<Buffer> {
-    const authHeader = resolveAuthHeader(npmrcConfig, url, this.#env)
+    // A URL carrying userinfo wins: axios sends those itself and drops the
+    // Authorization header when it does, so the hint must report them
+    // rather than the config entry that never reached the wire.
+    let sent: SentCredentials | undefined
+    if (hasUrlCredentials(url)) {
+      if ('lockfile' in urlOrigin) {
+        sent = { from: 'url', lockfile: urlOrigin.lockfile }
+      } else if (urlOrigin.registryKey !== undefined) {
+        sent = { from: 'url', registryKey: urlOrigin.registryKey }
+      }
+      // Credentials in a URL built from the default registry are not
+      // reachable: the default carries none. Leaving `sent` unset would
+      // misreport, so fall through to the config attribution below.
+    }
+    if (sent === undefined && auth !== undefined) {
+      sent = { from: 'config', keys: auth.keys }
+    }
 
     try {
       const response = await axios.get<ArrayBuffer>(url, assignProxy(url, {
@@ -658,7 +819,7 @@ export class EmbeddedPackagesMaterializer {
           // otherwise make axios gunzip it, breaking integrity verification
           // with a misleading "different artifact" error.
           'accept-encoding': 'identity',
-          ...(authHeader !== undefined ? { authorization: authHeader } : {}),
+          ...(auth !== undefined ? { authorization: auth.header } : {}),
         },
         timeout: DOWNLOAD_TIMEOUT_MS,
         maxContentLength: MAX_TARBALL_BYTES,
@@ -669,6 +830,7 @@ export class EmbeddedPackagesMaterializer {
         err,
         `Failed to download embedded package '${tarball.name}@${tarball.version}'`
         + ` from '${redactUrl(url)}'`,
+        status => authFailureHint(status, sent, npmrc),
       )
     }
   }

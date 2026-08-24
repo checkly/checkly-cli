@@ -6,14 +6,15 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 import {
   DEFAULT_REGISTRY_URL,
+  ENV_CONFIG_ORIGIN,
   NpmrcEnvVarError,
   defaultNpmrcPaths,
   loadNpmrcConfig,
   npmrcConfigFromEnv,
-  pnpmAuthIniPath,
   parseNpmrc,
+  pnpmAuthIniPath,
   resolveAuthHeader,
-  resolveRegistryUrl,
+  resolveRegistry,
 } from '../npmrc.js'
 
 describe('parseNpmrc()', () => {
@@ -54,7 +55,7 @@ describe('loadNpmrcConfig()', () => {
   })
 
   it('gives earlier files precedence and merges the rest', async () => {
-    const config = await loadNpmrcConfig([
+    const { config } = await loadNpmrcConfig([
       { path: path.join(dir, 'project.npmrc') },
       { path: path.join(dir, 'user.npmrc') },
     ], {})
@@ -63,7 +64,7 @@ describe('loadNpmrcConfig()', () => {
   })
 
   it('skips missing files', async () => {
-    const config = await loadNpmrcConfig([
+    const { config } = await loadNpmrcConfig([
       { path: path.join(dir, 'does-not-exist.npmrc') },
       { path: path.join(dir, 'project.npmrc') },
     ], {})
@@ -76,10 +77,10 @@ describe('loadNpmrcConfig()', () => {
     await fs.writeFile(authIni, '//registry.example.com/:_authToken=pnpm-token\n')
     await fs.writeFile(userNpmrc, '//registry.example.com/:_authToken=npmrc-token\n')
 
-    const preferred = await loadNpmrcConfig([{ path: authIni, optional: true }, { path: userNpmrc }], {})
+    const { config: preferred } = await loadNpmrcConfig([{ path: authIni, optional: true }, { path: userNpmrc }], {})
     expect(preferred.get('//registry.example.com/:_authToken')).toBe('pnpm-token')
 
-    const notPreferred = await loadNpmrcConfig([{ path: userNpmrc }, { path: authIni, optional: true }], {})
+    const { config: notPreferred } = await loadNpmrcConfig([{ path: userNpmrc }, { path: authIni, optional: true }], {})
     expect(notPreferred.get('//registry.example.com/:_authToken')).toBe('npmrc-token')
   })
 
@@ -98,15 +99,60 @@ describe('loadNpmrcConfig()', () => {
 
     await expect(loadNpmrcConfig([{ path: unreadable }], {})).rejects.toThrow(/Unable to read npm configuration/)
 
-    const config = await loadNpmrcConfig([
+    const { config, unreadable: skipped } = await loadNpmrcConfig([
       { path: unreadable, optional: true },
       { path: path.join(dir, 'project.npmrc') },
     ], {})
     expect(config.get('registry')).toBe('https://project.example.com/')
+    // Reported rather than merely skipped, so a later authentication
+    // failure can say the file was found but not used.
+    expect(skipped).toEqual([unreadable])
+  })
+
+  it('records which source supplied each key', async () => {
+    const projectNpmrc = path.join(dir, 'project.npmrc')
+    const userNpmrc = path.join(dir, 'user.npmrc')
+    const { origins } = await loadNpmrcConfig(
+      [{ path: projectNpmrc }, { path: userNpmrc }],
+      { 'npm_config_//env.example.com/:_authToken': 'env-token' },
+    )
+
+    expect(origins.get('registry')).toBe(projectNpmrc)
+    expect(origins.get('//user.example.com/:_authToken')).toBe(userNpmrc)
+    expect(origins.get('//env.example.com/:_authToken')).toBe(ENV_CONFIG_ORIGIN)
+  })
+
+  it('lists the environment as a consulted source alongside the files', async () => {
+    const projectNpmrc = path.join(dir, 'project.npmrc')
+    const { sources } = await loadNpmrcConfig([{ path: projectNpmrc }], {})
+    // npm_config_* outranks every file, so a list of places a credential
+    // could live is wrong without it.
+    expect(sources).toEqual([ENV_CONFIG_ORIGIN, projectNpmrc])
+  })
+
+  it('records the origin under the key spelling that actually matched', async () => {
+    const lowercased = path.join(dir, 'lowercased.npmrc')
+    await fs.writeFile(lowercased, '//nexus.local/:_authtoken=lower-token\n')
+
+    const { config, origins } = await loadNpmrcConfig([{ path: lowercased }], {})
+    const auth = resolveAuthHeader(config, 'https://nexus.local/foo', {})
+
+    // resolveAuthHeader asks for the canonical `_authToken` spelling but
+    // matches the lowercase one; the reported key has to be the spelling
+    // present in origins, or the source cannot be named.
+    expect(auth?.header).toBe('Bearer lower-token')
+    expect(origins.get(auth!.keys[0])).toBe(lowercased)
+  })
+
+  it('does not report missing files as unreadable', async () => {
+    const { unreadable } = await loadNpmrcConfig([
+      { path: path.join(dir, 'does-not-exist.npmrc'), optional: true },
+    ], {})
+    expect(unreadable).toEqual([])
   })
 
   it('gives npm_config_* environment variables precedence over files', async () => {
-    const config = await loadNpmrcConfig(
+    const { config } = await loadNpmrcConfig(
       [{ path: path.join(dir, 'project.npmrc') }],
       { npm_config_registry: 'https://env.example.com/' },
     )
@@ -130,7 +176,7 @@ describe('npmrcConfigFromEnv()', () => {
     const config = npmrcConfigFromEnv({
       'npm_config_//nexus.local/:_authToken': 'env-secret',
     })
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})).toBe('Bearer env-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header).toBe('Bearer env-secret')
   })
 })
 
@@ -240,14 +286,14 @@ describe('pnpmAuthIniPath()', () => {
   })
 })
 
-describe('resolveRegistryUrl()', () => {
+describe('resolveRegistry()', () => {
   it('defaults to the public registry', () => {
-    expect(resolveRegistryUrl(new Map(), 'some-package')).toBe(DEFAULT_REGISTRY_URL)
+    expect(resolveRegistry(new Map(), 'some-package').url).toBe(DEFAULT_REGISTRY_URL)
   })
 
   it('uses the registry entry and appends a trailing slash', () => {
     const config = parseNpmrc('registry=https://nexus.local/repository/npm')
-    expect(resolveRegistryUrl(config, 'some-package')).toBe('https://nexus.local/repository/npm/')
+    expect(resolveRegistry(config, 'some-package').url).toBe('https://nexus.local/repository/npm/')
   })
 
   it('prefers a scoped registry for scoped packages', () => {
@@ -255,19 +301,19 @@ describe('resolveRegistryUrl()', () => {
       'registry=https://nexus.local/repository/npm/',
       '@acme:registry=https://nexus.local/repository/npm-private/',
     ].join('\n'))
-    expect(resolveRegistryUrl(config, '@acme/private-utils')).toBe('https://nexus.local/repository/npm-private/')
-    expect(resolveRegistryUrl(config, 'some-package')).toBe('https://nexus.local/repository/npm/')
+    expect(resolveRegistry(config, '@acme/private-utils').url).toBe('https://nexus.local/repository/npm-private/')
+    expect(resolveRegistry(config, 'some-package').url).toBe('https://nexus.local/repository/npm/')
   })
 
   it('expands ${VAR} references from the environment', () => {
     const config = parseNpmrc('registry=${MY_REGISTRY}')
-    expect(resolveRegistryUrl(config, 'some-package', { MY_REGISTRY: 'https://example.com' }))
+    expect(resolveRegistry(config, 'some-package', { MY_REGISTRY: 'https://example.com' }).url)
       .toBe('https://example.com/')
   })
 
   it('throws a clear error for unset ${VAR} references', () => {
     const config = parseNpmrc('registry=${MY_UNSET_REGISTRY}')
-    expect(() => resolveRegistryUrl(config, 'some-package', {})).toThrow(NpmrcEnvVarError)
+    expect(() => resolveRegistry(config, 'some-package', {})).toThrow(NpmrcEnvVarError)
   })
 
   it('ignores unset ${VAR} references in entries that are not used', () => {
@@ -275,7 +321,7 @@ describe('resolveRegistryUrl()', () => {
       'registry=https://nexus.local/repository/npm/',
       '//unrelated.example.com/:_authToken=${SOME_UNSET_TOKEN}',
     ].join('\n'))
-    expect(resolveRegistryUrl(config, 'some-package', {})).toBe('https://nexus.local/repository/npm/')
+    expect(resolveRegistry(config, 'some-package', {}).url).toBe('https://nexus.local/repository/npm/')
     expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', {})).toBeUndefined()
   })
 })
@@ -283,29 +329,45 @@ describe('resolveRegistryUrl()', () => {
 describe('resolveAuthHeader()', () => {
   it('matches an _authToken by nerf dart', () => {
     const config = parseNpmrc('//nexus.local/repository/npm-private/:_authToken=secret')
-    const header = resolveAuthHeader(
+    const auth = resolveAuthHeader(
       config,
       'https://nexus.local/repository/npm-private/@acme/foo/-/foo-1.0.0.tgz',
       {},
     )
-    expect(header).toBe('Bearer secret')
+    expect(auth?.header).toBe('Bearer secret')
+    // The matched key is reported so a rejected credential can be traced
+    // back to the file that supplied it.
+    expect(auth?.keys).toEqual(['//nexus.local/repository/npm-private/:_authToken'])
+  })
+
+  it('reports both halves of a username/_password pair', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:username=user',
+      `//nexus.local/:_password=${Buffer.from('pass').toString('base64')}`,
+    ].join('\n'))
+    // Precedence is per key, so the two halves can come from different
+    // files; naming only the username would point at the half that is not
+    // secret and cannot expire.
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.keys)
+      .toEqual(['//nexus.local/:username', '//nexus.local/:_password'])
   })
 
   it('walks the URL path upward to find host-level credentials', () => {
     const config = parseNpmrc('//nexus.local/:_authToken=host-secret')
-    const header = resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz', {})
-    expect(header).toBe('Bearer host-secret')
+    const auth = resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz', {})
+    expect(auth?.header).toBe('Bearer host-secret')
   })
 
   it('includes the port in the nerf dart', () => {
     const config = parseNpmrc('//nexus.local:8443/:_authToken=port-secret')
-    expect(resolveAuthHeader(config, 'https://nexus.local:8443/foo/-/foo-1.0.0.tgz', {})).toBe('Bearer port-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local:8443/foo/-/foo-1.0.0.tgz', {})?.header)
+      .toBe('Bearer port-secret')
     expect(resolveAuthHeader(config, 'https://nexus.local/foo/-/foo-1.0.0.tgz', {})).toBeUndefined()
   })
 
   it('supports pre-encoded _auth as Basic', () => {
     const config = parseNpmrc('//nexus.local/:_auth=dXNlcjpwYXNz')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})).toBe('Basic dXNlcjpwYXNz')
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header).toBe('Basic dXNlcjpwYXNz')
   })
 
   it('supports username and base64 _password as Basic', () => {
@@ -313,13 +375,13 @@ describe('resolveAuthHeader()', () => {
       '//nexus.local/:username=user',
       `//nexus.local/:_password=${Buffer.from('pass').toString('base64')}`,
     ].join('\n'))
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {}))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header)
       .toBe(`Basic ${Buffer.from('user:pass').toString('base64')}`)
   })
 
   it('expands ${VAR} tokens from the environment', () => {
     const config = parseNpmrc('//nexus.local/:_authToken=${NPM_TOKEN}')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', { NPM_TOKEN: 'env-secret' }))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', { NPM_TOKEN: 'env-secret' })?.header)
       .toBe('Bearer env-secret')
   })
 
