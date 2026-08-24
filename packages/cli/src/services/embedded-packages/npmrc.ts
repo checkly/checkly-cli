@@ -2,7 +2,21 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import Debug from 'debug'
+
+const debug = Debug('checkly:cli:services:embedded-packages')
+
 export const DEFAULT_REGISTRY_URL = 'https://registry.npmjs.org/'
+
+/**
+ * A configuration file to merge, and how hard to insist on reading it.
+ * `optional` files are skipped with a log line when they exist but cannot
+ * be read, for files the user did not choose to put there themselves.
+ */
+export interface NpmrcFile {
+  path: string
+  optional?: boolean
+}
 
 /**
  * Merged `.npmrc` configuration: a flat key → raw value map. Values keep
@@ -91,12 +105,12 @@ export function npmrcConfigFromEnv (env: NodeJS.ProcessEnv): NpmrcConfig {
  * Missing files are skipped.
  */
 export async function loadNpmrcConfig (
-  filePaths: string[],
+  files: NpmrcFile[],
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<NpmrcConfig> {
   const merged: NpmrcConfig = npmrcConfigFromEnv(env)
 
-  for (const filePath of filePaths) {
+  for (const { path: filePath, optional = false } of files) {
     let content: string
     try {
       content = await fs.readFile(filePath, 'utf8')
@@ -106,7 +120,13 @@ export async function loadNpmrcConfig (
       }
       // An unreadable .npmrc (e.g. bad permissions) must not silently drop
       // registry credentials — that would surface later as a baffling 401.
-      throw new Error(`Unable to read npm configuration from '${filePath}'`, { cause: err })
+      // Optional files belong to another tool rather than to this project,
+      // so an unreadable one must not take the whole command down with it.
+      if (!optional) {
+        throw new Error(`Unable to read npm configuration from '${filePath}'`, { cause: err })
+      }
+      debug('skipping unreadable optional config %s: %s', filePath, (err as Error).message)
+      continue
     }
     for (const [key, value] of parseNpmrc(content)) {
       if (!merged.has(key)) {
@@ -119,22 +139,92 @@ export async function loadNpmrcConfig (
 }
 
 /**
- * The `.npmrc` locations relevant to a project, in npm's precedence order:
- * the directory the Checkly project lives in (the nearest project config,
- * which may be a workspace member), the workspace root, then the
- * user-level file. (npm's global and builtin configs are not consulted.)
+ * The file pnpm keeps its global registry credentials in. pnpm 11 stopped
+ * writing them to `.npmrc`: `pnpm login` writes `auth.ini` in pnpm's global
+ * config directory instead, so a logged-in pnpm user looks unauthenticated
+ * to anything that only reads `.npmrc`.
+ *
+ * The directory resolution mirrors pnpm's own `getConfigDir` branch for
+ * branch. Note that `PNPM_HOME` is deliberately NOT consulted: pnpm uses it
+ * for the data and state directories, never for the config directory.
  */
-export function defaultNpmrcPaths (
-  workspaceRoot: string,
-  homedir = os.homedir(),
-  contextDir?: string,
-): string[] {
-  const paths = [
-    ...(contextDir !== undefined ? [path.join(contextDir, '.npmrc')] : []),
-    path.join(workspaceRoot, '.npmrc'),
-    path.join(homedir, '.npmrc'),
+export function pnpmAuthIniPath (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  homedir: string,
+): string {
+  const xdgConfigHome = env.XDG_CONFIG_HOME
+  if (xdgConfigHome !== undefined && xdgConfigHome !== '') {
+    return path.join(xdgConfigHome, 'pnpm', 'auth.ini')
+  }
+  switch (platform) {
+    case 'darwin':
+      return path.join(homedir, 'Library', 'Preferences', 'pnpm', 'auth.ini')
+    case 'win32': {
+      const localAppData = env.LOCALAPPDATA
+      if (localAppData !== undefined && localAppData !== '') {
+        return path.join(localAppData, 'pnpm', 'config', 'auth.ini')
+      }
+      return path.join(homedir, '.config', 'pnpm', 'auth.ini')
+    }
+    default:
+      return path.join(homedir, '.config', 'pnpm', 'auth.ini')
+  }
+}
+
+export interface NpmrcPathsOptions {
+  /** Workspace root, whose `.npmrc` is consulted. */
+  workspaceRoot: string
+  /**
+   * The directory the Checkly project lives in (a workspace member in a
+   * monorepo), whose `.npmrc` takes precedence over the workspace root's.
+   */
+  contextDir?: string
+  homedir?: string
+  /** pnpm's global `auth.ini`. Consulted whenever it is provided. */
+  pnpmAuthFile?: string
+  /**
+   * True when the project's lockfile is pnpm's, which is when `auth.ini`
+   * outranks the user `.npmrc` — matching pnpm's own precedence. For any
+   * other package manager it ranks below.
+   *
+   * Note that precedence applies per key, as it does in npm and pnpm, not
+   * per registry: a lower-ranked file's `_authToken` still wins over a
+   * higher-ranked file's `username`/`_password` for the same registry,
+   * because the credential kinds are distinct keys and `resolveAuthHeader`
+   * prefers a token over basic auth. npm's own config cascade behaves the
+   * same way.
+   */
+  pnpmAuthFilePreferred?: boolean
+}
+
+/**
+ * The configuration files relevant to a project, highest precedence first:
+ * the directory the Checkly project lives in (the nearest project config,
+ * which may be a workspace member), the workspace root, then pnpm's global
+ * `auth.ini` and the user-level `.npmrc` in whichever order the project's
+ * package manager implies. (npm's global and builtin configs are not
+ * consulted.)
+ */
+export function defaultNpmrcPaths (options: NpmrcPathsOptions): NpmrcFile[] {
+  const { workspaceRoot, contextDir, homedir = os.homedir(), pnpmAuthFile, pnpmAuthFilePreferred } = options
+
+  const userNpmrc: NpmrcFile = { path: path.join(homedir, '.npmrc') }
+  // Not a file this project chose to have, so an unreadable one is skipped
+  // rather than failing the command.
+  const authIni: NpmrcFile[] = pnpmAuthFile !== undefined
+    ? [{ path: pnpmAuthFile, optional: true }]
+    : []
+
+  const files: NpmrcFile[] = [
+    ...(contextDir !== undefined ? [{ path: path.join(contextDir, '.npmrc') }] : []),
+    { path: path.join(workspaceRoot, '.npmrc') },
+    ...(pnpmAuthFilePreferred === true ? [...authIni, userNpmrc] : [userNpmrc, ...authIni]),
   ]
-  return [...new Set(paths)]
+
+  // Dedupe by path, keeping the highest-precedence occurrence: `new Set` on
+  // the records themselves would compare by identity and never match.
+  return files.filter((file, index) => files.findIndex(other => other.path === file.path) === index)
 }
 
 function expandValue (key: string, value: string, env: NodeJS.ProcessEnv): string {

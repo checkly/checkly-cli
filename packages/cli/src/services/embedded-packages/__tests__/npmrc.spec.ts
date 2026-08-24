@@ -10,6 +10,7 @@ import {
   defaultNpmrcPaths,
   loadNpmrcConfig,
   npmrcConfigFromEnv,
+  pnpmAuthIniPath,
   parseNpmrc,
   resolveAuthHeader,
   resolveRegistryUrl,
@@ -54,8 +55,8 @@ describe('loadNpmrcConfig()', () => {
 
   it('gives earlier files precedence and merges the rest', async () => {
     const config = await loadNpmrcConfig([
-      path.join(dir, 'project.npmrc'),
-      path.join(dir, 'user.npmrc'),
+      { path: path.join(dir, 'project.npmrc') },
+      { path: path.join(dir, 'user.npmrc') },
     ], {})
     expect(config.get('registry')).toBe('https://project.example.com/')
     expect(config.get('//user.example.com/:_authToken')).toBe('user-token')
@@ -63,15 +64,50 @@ describe('loadNpmrcConfig()', () => {
 
   it('skips missing files', async () => {
     const config = await loadNpmrcConfig([
-      path.join(dir, 'does-not-exist.npmrc'),
-      path.join(dir, 'project.npmrc'),
+      { path: path.join(dir, 'does-not-exist.npmrc') },
+      { path: path.join(dir, 'project.npmrc') },
+    ], {})
+    expect(config.get('registry')).toBe('https://project.example.com/')
+  })
+
+  it('lets the pnpm auth file win over the user .npmrc when it ranks higher', async () => {
+    const authIni = path.join(dir, 'auth.ini')
+    const userNpmrc = path.join(dir, 'competing-user.npmrc')
+    await fs.writeFile(authIni, '//registry.example.com/:_authToken=pnpm-token\n')
+    await fs.writeFile(userNpmrc, '//registry.example.com/:_authToken=npmrc-token\n')
+
+    const preferred = await loadNpmrcConfig([{ path: authIni, optional: true }, { path: userNpmrc }], {})
+    expect(preferred.get('//registry.example.com/:_authToken')).toBe('pnpm-token')
+
+    const notPreferred = await loadNpmrcConfig([{ path: userNpmrc }, { path: authIni, optional: true }], {})
+    expect(notPreferred.get('//registry.example.com/:_authToken')).toBe('npmrc-token')
+  })
+
+  it('fails on an unreadable required file but skips an unreadable optional one', async () => {
+    const unreadable = path.join(dir, 'unreadable.npmrc')
+    await fs.writeFile(unreadable, 'registry=https://unreadable.example.com/\n')
+    await fs.chmod(unreadable, 0o000)
+    try {
+      // Running as root defeats permission bits entirely, so only assert
+      // when the mode actually denies this process.
+      await fs.readFile(unreadable, 'utf8')
+      return
+    } catch {
+      // Expected: the file is genuinely unreadable.
+    }
+
+    await expect(loadNpmrcConfig([{ path: unreadable }], {})).rejects.toThrow(/Unable to read npm configuration/)
+
+    const config = await loadNpmrcConfig([
+      { path: unreadable, optional: true },
+      { path: path.join(dir, 'project.npmrc') },
     ], {})
     expect(config.get('registry')).toBe('https://project.example.com/')
   })
 
   it('gives npm_config_* environment variables precedence over files', async () => {
     const config = await loadNpmrcConfig(
-      [path.join(dir, 'project.npmrc')],
+      [{ path: path.join(dir, 'project.npmrc') }],
       { npm_config_registry: 'https://env.example.com/' },
     )
     expect(config.get('registry')).toBe('https://env.example.com/')
@@ -100,18 +136,107 @@ describe('npmrcConfigFromEnv()', () => {
 
 describe('defaultNpmrcPaths()', () => {
   it('orders context dir before workspace root before home', () => {
-    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws/packages/a')).toEqual([
-      path.join('/ws/packages/a', '.npmrc'),
-      path.join('/ws', '.npmrc'),
-      path.join('/home/user', '.npmrc'),
+    expect(defaultNpmrcPaths({
+      workspaceRoot: '/ws',
+      homedir: '/home/user',
+      contextDir: '/ws/packages/a',
+    })).toEqual([
+      { path: path.join('/ws/packages/a', '.npmrc') },
+      { path: path.join('/ws', '.npmrc') },
+      { path: path.join('/home/user', '.npmrc') },
     ])
   })
 
   it('deduplicates when the context dir is the workspace root', () => {
-    expect(defaultNpmrcPaths('/ws', '/home/user', '/ws')).toEqual([
-      path.join('/ws', '.npmrc'),
-      path.join('/home/user', '.npmrc'),
+    expect(defaultNpmrcPaths({
+      workspaceRoot: '/ws',
+      homedir: '/home/user',
+      contextDir: '/ws',
+    })).toEqual([
+      { path: path.join('/ws', '.npmrc') },
+      { path: path.join('/home/user', '.npmrc') },
     ])
+  })
+
+  it('ranks the pnpm auth file above the user .npmrc when preferred', () => {
+    expect(defaultNpmrcPaths({
+      workspaceRoot: '/ws',
+      homedir: '/home/user',
+      pnpmAuthFile: '/cfg/pnpm/auth.ini',
+      pnpmAuthFilePreferred: true,
+    })).toEqual([
+      { path: path.join('/ws', '.npmrc') },
+      { path: '/cfg/pnpm/auth.ini', optional: true },
+      { path: path.join('/home/user', '.npmrc') },
+    ])
+  })
+
+  it('ranks the pnpm auth file below the user .npmrc when not preferred', () => {
+    expect(defaultNpmrcPaths({
+      workspaceRoot: '/ws',
+      homedir: '/home/user',
+      pnpmAuthFile: '/cfg/pnpm/auth.ini',
+      pnpmAuthFilePreferred: false,
+    })).toEqual([
+      { path: path.join('/ws', '.npmrc') },
+      { path: path.join('/home/user', '.npmrc') },
+      { path: '/cfg/pnpm/auth.ini', optional: true },
+    ])
+  })
+
+  it('omits the pnpm auth file when none is given', () => {
+    expect(defaultNpmrcPaths({ workspaceRoot: '/ws', homedir: '/home/user' })).toEqual([
+      { path: path.join('/ws', '.npmrc') },
+      { path: path.join('/home/user', '.npmrc') },
+    ])
+  })
+})
+
+describe('pnpmAuthIniPath()', () => {
+  const home = path.sep === '/' ? '/home/user' : 'C:\\Users\\user'
+
+  it('uses macOS preferences on darwin', () => {
+    expect(pnpmAuthIniPath({}, 'darwin', home))
+      .toBe(path.join(home, 'Library', 'Preferences', 'pnpm', 'auth.ini'))
+  })
+
+  it('uses ~/.config on linux', () => {
+    expect(pnpmAuthIniPath({}, 'linux', home)).toBe(path.join(home, '.config', 'pnpm', 'auth.ini'))
+  })
+
+  it('uses LOCALAPPDATA on win32', () => {
+    expect(pnpmAuthIniPath({ LOCALAPPDATA: 'C:\\LocalAppData' }, 'win32', home))
+      .toBe(path.join('C:\\LocalAppData', 'pnpm', 'config', 'auth.ini'))
+  })
+
+  it('falls back to ~/.config on win32 without LOCALAPPDATA', () => {
+    expect(pnpmAuthIniPath({}, 'win32', home)).toBe(path.join(home, '.config', 'pnpm', 'auth.ini'))
+  })
+
+  it('prefers XDG_CONFIG_HOME on every platform', () => {
+    for (const platform of ['darwin', 'linux', 'win32'] as NodeJS.Platform[]) {
+      expect(pnpmAuthIniPath({ XDG_CONFIG_HOME: '/xdg' }, platform, home))
+        .toBe(path.join('/xdg', 'pnpm', 'auth.ini'))
+    }
+  })
+
+  it('ignores an empty XDG_CONFIG_HOME', () => {
+    expect(pnpmAuthIniPath({ XDG_CONFIG_HOME: '' }, 'linux', home))
+      .toBe(path.join(home, '.config', 'pnpm', 'auth.ini'))
+  })
+
+  // An empty value must not be joined as-is: that would yield a relative
+  // path and read credentials from the current working directory.
+  it('ignores an empty LOCALAPPDATA', () => {
+    expect(pnpmAuthIniPath({ LOCALAPPDATA: '' }, 'win32', home))
+      .toBe(path.join(home, '.config', 'pnpm', 'auth.ini'))
+  })
+
+  // pnpm consults PNPM_HOME for its data and state directories, never for
+  // the config directory that holds auth.ini.
+  it('ignores PNPM_HOME', () => {
+    expect(pnpmAuthIniPath({ PNPM_HOME: '/pnpm-home' }, 'linux', home))
+      .toBe(path.join(home, '.config', 'pnpm', 'auth.ini'))
   })
 })
 

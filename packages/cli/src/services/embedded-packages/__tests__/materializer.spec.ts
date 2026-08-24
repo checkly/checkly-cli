@@ -677,6 +677,44 @@ packages: {}
       expect(requests[0].authorization).toBe('Bearer secret')
     })
 
+    // Both cases deliberately put a *different* token in each file: with a
+    // token in only one of them, either ordering resolves the same
+    // credential and the test could not detect inverted precedence.
+    // XDG_CONFIG_HOME pins pnpm's config dir on every platform, so neither
+    // test has to branch on the real process.platform.
+    const writeCompetingTokens = async () => {
+      const nerfDart = `//127.0.0.1:${(server.address() as AddressInfo).port}/`
+      await fs.mkdir(path.join(homedir, 'pnpm'), { recursive: true })
+      await fs.writeFile(path.join(homedir, 'pnpm', 'auth.ini'), `${nerfDart}:_authToken=pnpm-token\n`)
+      await fs.writeFile(path.join(homedir, '.npmrc'), `${nerfDart}:_authToken=npmrc-token\n`)
+      return { CHECKLY_CACHE_DIR: cacheDir, XDG_CONFIG_HOME: homedir }
+    }
+
+    it('prefers the pnpm auth file over the user .npmrc for a pnpm lockfile', async () => {
+      const env = await writeCompetingTokens()
+
+      await materializeAll(makeMaterializer(['bar@2.0.0'], { env }))
+      expect(requests[0].authorization).toBe('Bearer pnpm-token')
+    })
+
+    it('prefers the user .npmrc over the pnpm auth file for an npm lockfile', async () => {
+      const env = await writeCompetingTokens()
+
+      // No `resolved` field: npm lockfiles normally carry one, and it would
+      // be used verbatim, sending the request to the real registry instead
+      // of this test's server.
+      const npmLockfilePath = path.join(workspaceRoot, 'package-lock.json')
+      await fs.writeFile(npmLockfilePath, JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          'node_modules/bar': { version: '2.0.0', integrity: barIntegrity },
+        },
+      }))
+
+      await materializeAll(makeMaterializer(['bar@2.0.0'], { lockfilePath: npmLockfilePath, env }))
+      expect(requests[0].authorization).toBe('Bearer npmrc-token')
+    })
+
     it('prefers a lockfile-recorded tarball URL over the derived one', async () => {
       await fs.writeFile(lockfilePath, `
 lockfileVersion: '9.0'

@@ -67,6 +67,16 @@ export class UnsupportedLockfileError extends Error {
   }
 }
 
+const PNPM_LOCKFILE = 'pnpm-lock.yaml'
+
+/**
+ * Whether a lockfile is pnpm's. Callers use this to decide which package
+ * manager's credential conventions apply to the project.
+ */
+export function isPnpmLockfile (lockfilePath: string): boolean {
+  return path.basename(lockfilePath) === PNPM_LOCKFILE
+}
+
 /**
  * Enumerates every package entry in a lockfile, classified into embeddable
  * registry packages and excluded (git/file/link/integrity-less) entries.
@@ -86,7 +96,7 @@ export async function loadLockfilePackages (lockfilePath: string): Promise<Lockf
  */
 export function parseLockfilePackagesContent (content: string, lockfileName: string): LockfilePackages {
   switch (lockfileName) {
-    case 'pnpm-lock.yaml':
+    case PNPM_LOCKFILE:
       return parsePnpmLockfilePackages(content)
     case 'package-lock.json':
       return parseNpmLockfilePackages(content)

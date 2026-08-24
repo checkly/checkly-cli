@@ -12,9 +12,17 @@ import { verifyIntegrity } from './integrity.js'
 import {
   LockfileRegistryPackage,
   UnsupportedLockfileError,
+  isPnpmLockfile,
   loadLockfilePackages,
 } from './lockfile-packages.js'
-import { NpmrcConfig, defaultNpmrcPaths, loadNpmrcConfig, resolveAuthHeader, resolveRegistryUrl } from './npmrc.js'
+import {
+  NpmrcConfig,
+  defaultNpmrcPaths,
+  loadNpmrcConfig,
+  pnpmAuthIniPath,
+  resolveAuthHeader,
+  resolveRegistryUrl,
+} from './npmrc.js'
 import {
   EmbeddedPackageSpec,
   InvalidEmbeddedPackageSpecError,
@@ -221,13 +229,20 @@ export class EmbeddedPackagesMaterializer {
       return []
     }
 
-    // Safe to assert: a missing lockfile is a plan issue, and issues abort
-    // above.
-    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
-      this.#projectRoot!,
-      this.#homedir,
-      this.#options.contextDir,
-    ), this.#env)
+    // Safe to assert both: a missing lockfile is a plan issue, and issues
+    // abort above.
+    const lockfilePath = this.#options.lockfilePath!
+    const pnpmAuthFile = pnpmAuthIniPath(this.#env, process.platform, this.#homedir)
+    const pnpmAuthFilePreferred = isPnpmLockfile(lockfilePath)
+    debug('pnpm auth file %s (preferred: %s)', pnpmAuthFile, pnpmAuthFilePreferred)
+
+    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths({
+      workspaceRoot: this.#projectRoot!,
+      homedir: this.#homedir,
+      contextDir: this.#options.contextDir,
+      pnpmAuthFile,
+      pnpmAuthFilePreferred,
+    }), this.#env)
 
     const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
     return await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {

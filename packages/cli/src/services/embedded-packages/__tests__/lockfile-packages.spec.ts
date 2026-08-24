@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   UnsupportedLockfileError,
+  isPnpmLockfile,
   loadLockfilePackages,
   parseBunLockfilePackages,
   parseLockfilePackagesContent,
@@ -13,6 +14,23 @@ import {
   parsePnpmLockfilePackages,
   parseYarnLockfilePackages,
 } from '../lockfile-packages.js'
+
+describe('isPnpmLockfile()', () => {
+  it('recognizes a pnpm lockfile by basename', () => {
+    expect(isPnpmLockfile('pnpm-lock.yaml')).toBe(true)
+    expect(isPnpmLockfile(path.join('/ws', 'pnpm-lock.yaml'))).toBe(true)
+  })
+
+  it('rejects other lockfiles', () => {
+    expect(isPnpmLockfile(path.join('/ws', 'package-lock.json'))).toBe(false)
+    expect(isPnpmLockfile(path.join('/ws', 'yarn.lock'))).toBe(false)
+    expect(isPnpmLockfile(path.join('/ws', 'bun.lock'))).toBe(false)
+  })
+
+  it('does not match a directory that merely contains the name', () => {
+    expect(isPnpmLockfile(path.join('/ws', 'pnpm-lock.yaml', 'nested.json'))).toBe(false)
+  })
+})
 
 describe('parsePnpmLockfilePackages()', () => {
   it('parses v9 registry entries', () => {
