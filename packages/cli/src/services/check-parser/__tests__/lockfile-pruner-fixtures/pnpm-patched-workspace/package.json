@@ -1,0 +1,9 @@
+{
+  "name": "lockfile-pruner-fixture",
+  "private": true,
+  "dependencies": {
+    "@fixture/used": "workspace:*",
+    "@fixture/shimmed": "workspace:*",
+    "@fixture/absent": "workspace:*"
+  }
+}

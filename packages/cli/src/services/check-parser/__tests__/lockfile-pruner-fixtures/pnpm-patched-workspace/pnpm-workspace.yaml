@@ -1,0 +1,5 @@
+packages:
+  - packages/*
+patchedDependencies:
+  ms@2.1.3: patches/ms@2.1.3.patch
+  ee-first@1.1.1: patches/ee-first@1.1.1.patch

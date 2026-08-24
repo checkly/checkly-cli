@@ -17,6 +17,11 @@ import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
 
 const PNPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-workspace')
+// Same shape as PNPM_FIXTURE_ROOT, plus two patched dependencies: `ms` is
+// consumed by the bundled member, `ee-first` only by the member the bundle
+// omits. Pruning therefore leaves the `ee-first` patch applying to nothing,
+// which pnpm 10+ rejects unless the install tolerates unused patches.
+const PNPM_PATCHED_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-patched-workspace')
 const NPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'npm-workspace')
 const BUN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'bun-workspace')
 const YARN_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'yarn-workspace')
@@ -107,7 +112,7 @@ describe('lockfile-pruner', () => {
   // bundle where the `used` member is imported (real manifest), the `shimmed`
   // member is declared but unimported (faux manifest), and the `absent`
   // member is missing entirely.
-  const makeScenario = (root: string, lockfileName: string) => {
+  const makeScenario = (root: string, lockfileName: string, extraFiles: string[] = []) => {
     const used = new Package({ name: '@fixture/used', path: path.join(root, 'packages/used'), version: '1.0.0' })
     const shimmed = new Package({ name: '@fixture/shimmed', path: path.join(root, 'packages/shimmed'), version: '1.0.0' })
     const absent = new Package({ name: '@fixture/absent', path: path.join(root, 'packages/absent'), version: '1.0.0' })
@@ -137,11 +142,22 @@ describe('lockfile-pruner', () => {
     if (lockfileName === 'pnpm-lock.yaml') {
       files.set(...physical('pnpm-workspace.yaml'))
     }
+    for (const extra of extraFiles) {
+      files.set(...physical(extra))
+    }
 
     return { workspace, files, used, shimmed, absent }
   }
 
   const makePnpmScenario = (root: string = PNPM_FIXTURE_ROOT) => makeScenario(root, 'pnpm-lock.yaml')
+
+  // The patched fixture's bundle additionally carries the patch files, exactly
+  // as the auto-include does for a real bundle: pnpm hashes every declared
+  // patch file during resolution, so an install without them cannot run at all.
+  const makePnpmPatchedScenario = () => makeScenario(PNPM_PATCHED_FIXTURE_ROOT, 'pnpm-lock.yaml', [
+    'patches/ms@2.1.3.patch',
+    'patches/ee-first@1.1.1.patch',
+  ])
   const makeNpmScenario = (root: string = NPM_FIXTURE_ROOT) => makeScenario(root, 'package-lock.json')
   const makeBunScenario = (root: string = BUN_FIXTURE_ROOT) => makeScenario(root, 'bun.lock')
   const makeYarnScenario = (root: string = YARN_FIXTURE_ROOT) => makeScenario(root, 'yarn.lock')
@@ -722,6 +738,31 @@ describe('lockfile-pruner', () => {
       // Dropped: dependencies of the shimmed and absent members.
       expect(result.content).not.toContain('isarray')
       expect(result.content).not.toContain('ee-first')
+    }, 60_000)
+
+    it('prunes a workspace whose patch applies to nothing once pruned, with real pnpm', async () => {
+      const { workspace, files } = makePnpmPatchedScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: new PNpmDetector(),
+        files,
+        env: testEnv(),
+      })
+
+      // Without --config.allowUnusedPatches the install aborts with
+      // ERR_PNPM_UNUSED_PATCH, because the `ee-first` patch has nothing left to
+      // apply to once the member consuming it is pruned away.
+      expect(result.status).toEqual('pruned')
+      if (result.status !== 'pruned') {
+        return
+      }
+
+      // The patch that still applies keeps its marker; the one that no longer
+      // does loses it. Both declarations survive in the section regardless,
+      // because it mirrors the config rather than the dependency graph.
+      expect(result.content).toContain('patch_hash=8efb625dd8ccb88e78507bea1f647ed25671bcda20a8554ea02a4122021736bb')
+      expect(result.content).not.toContain('patch_hash=90b918fd6167721e405a502ac35adb29ec15497947e9d3b032d6da16a460b4af')
+      expect(result.content).toContain('ee-first@1.1.1:')
     }, 60_000)
 
     it('fails when npm silently replaces a workspace link with a registry package', async () => {

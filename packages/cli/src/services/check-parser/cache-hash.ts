@@ -106,7 +106,8 @@ export interface ComposeCacheHashInput {
   dependencyCacheVersion?: string
   /**
    * Every synthesized (non-physical) `package.json` actually shipped in the
-   * bundle — in practice the faux workspace member manifests. Unlike
+   * bundle: the faux workspace member manifests, and a root manifest rewritten
+   * to drop patch declarations the bundle no longer needs. Unlike
    * on-disk manifests — whose `version` is excluded because the pinned
    * lockfile absorbs it — a synthesized manifest's full content including
    * its version is load-bearing for the remote install (it decides whether
@@ -124,7 +125,12 @@ export interface ComposeCacheHashInput {
   prunedLockfile?: LockfileInput
 }
 
-const PACKAGE_JSON_EXCLUDED_FIELDS = ['version']
+/**
+ * Fields stripped from a package.json before hashing. `version` is excluded
+ * because the pinned lockfile already absorbs it, so a release bump must not
+ * invalidate a dependency cache whose install inputs are unchanged.
+ */
+export const PACKAGE_JSON_EXCLUDED_FIELDS = ['version']
 
 /**
  * Encodes a value as JSON in a way that's stable across runs and machines.
