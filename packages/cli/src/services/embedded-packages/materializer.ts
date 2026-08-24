@@ -18,7 +18,10 @@ import { NpmrcConfig, defaultNpmrcPaths, loadNpmrcConfig, resolveAuthHeader, res
 import {
   EmbeddedPackageSpec,
   InvalidEmbeddedPackageSpecError,
+  PackageRef,
   parseEmbeddedPackageSpec,
+  specLooselyMatchesPackage,
+  specMatchesPackage,
   specMatchesPackageName,
 } from './spec.js'
 
@@ -317,24 +320,22 @@ export class EmbeddedPackagesMaterializer {
       // step with what actually ships: an entry never warns about, or fails
       // over, a package the configuration goes on to exclude.
       const laterExclusions = specs.slice(index + 1).filter(other => other.exclude)
-      const kept = <T extends { name: string, version?: string }>(entries: T[]) => entries.filter(entry =>
-        !laterExclusions.some(other => specMatchesPackageName(other, entry.name)
-          && (other.version === undefined || other.version === entry.version)))
+      const kept = <T extends PackageRef>(entries: T[]) =>
+        entries.filter(entry => !laterExclusions.some(other => specMatchesPackage(other, entry)))
 
       // nameMatches stays unfiltered: it only feeds the diagnostics below,
       // which describe the lockfile as it is — a mistyped pin should still be
       // told which versions exist, even when an unrelated exclusion removed
       // them from what this entry embeds.
       const nameMatches = packages.registry.filter(entry => specMatchesPackageName(spec, entry.name))
-      const allCandidates = nameMatches
-        .filter(entry => spec.version === undefined || entry.version === spec.version)
-      const allLooseExcluded = relevantExcluded.filter(entry => specMatchesPackageName(spec, entry.name)
-        && (spec.version === undefined || entry.version === undefined || entry.version === spec.version))
-      // The strict set drops version-less entries (workspace links, git
-      // resolutions), which match any pin and so can neither explain nor
-      // silence a pinned entry that simply named a version nothing has.
-      const allStrictExcluded = allLooseExcluded.filter(entry =>
-        spec.version === undefined || entry.version === spec.version)
+      const allCandidates = packages.registry.filter(entry => specMatchesPackage(spec, entry))
+      // The two sets differ only in version-less entries (workspace links,
+      // git resolutions), which the loose one keeps: such an entry matches
+      // any pin, so it can describe a pinned spec's failure but must not be
+      // what silences it. Both feed the diagnostics below, at different
+      // rungs of the ladder.
+      const allLooseExcluded = relevantExcluded.filter(entry => specLooselyMatchesPackage(spec, entry))
+      const allStrictExcluded = relevantExcluded.filter(entry => specMatchesPackage(spec, entry))
 
       const candidates = kept(allCandidates)
       const looseExcluded = kept(allLooseExcluded)

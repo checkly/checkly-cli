@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 
-import { parseEmbeddedPackageSpec, InvalidEmbeddedPackageSpecError, specMatchesPackageName } from '../spec.js'
+import {
+  parseEmbeddedPackageSpec,
+  InvalidEmbeddedPackageSpecError,
+  specLooselyMatchesPackage,
+  specMatchesPackage,
+  specMatchesPackageName,
+} from '../spec.js'
 
 describe('parseEmbeddedPackageSpec()', () => {
   it('parses a bare package name', () => {
@@ -190,5 +196,82 @@ describe('wildcard specs', () => {
 
   it('rejects a wildcard that is not name-shaped', () => {
     expect(() => parse('@/*')).toThrow(/not a valid npm package name pattern/)
+  })
+})
+
+describe('specMatchesPackage()', () => {
+  it('matches on name alone when the spec has no pin', () => {
+    const spec = parseEmbeddedPackageSpec('some-package')
+    expect(specMatchesPackage(spec, { name: 'some-package', version: '1.0.0' })).toBe(true)
+    expect(specMatchesPackage(spec, { name: 'other-package', version: '1.0.0' })).toBe(false)
+  })
+
+  it('requires the exact version when the spec is pinned', () => {
+    const spec = parseEmbeddedPackageSpec('some-package@2.1.0')
+    expect(specMatchesPackage(spec, { name: 'some-package', version: '2.1.0' })).toBe(true)
+    expect(specMatchesPackage(spec, { name: 'some-package', version: '2.1.1' })).toBe(false)
+  })
+
+  it('never satisfies a pin with a version-less entry', () => {
+    // Git resolutions and workspace links are recorded without a version, so
+    // they have nothing to compare against a pin.
+    const entry = { name: 'some-package' }
+    expect(specMatchesPackage(parseEmbeddedPackageSpec('some-package@2.1.0'), entry)).toBe(false)
+    expect(specMatchesPackage(parseEmbeddedPackageSpec('some-package'), entry)).toBe(true)
+  })
+
+  it('applies wildcards through the compiled name pattern', () => {
+    const spec = parseEmbeddedPackageSpec('@acme/*@1.0.0')
+    expect(specMatchesPackage(spec, { name: '@acme/utils', version: '1.0.0' })).toBe(true)
+    expect(specMatchesPackage(spec, { name: '@acme/utils', version: '2.0.0' })).toBe(false)
+    expect(specMatchesPackage(spec, { name: '@other/utils', version: '1.0.0' })).toBe(false)
+  })
+})
+
+describe('specLooselyMatchesPackage()', () => {
+  it('lets a version-less entry satisfy a pin', () => {
+    const spec = parseEmbeddedPackageSpec('some-package@2.1.0')
+    expect(specLooselyMatchesPackage(spec, { name: 'some-package' })).toBe(true)
+    // ...but a version that is present still has to match.
+    expect(specLooselyMatchesPackage(spec, { name: 'some-package', version: '2.1.0' })).toBe(true)
+    expect(specLooselyMatchesPackage(spec, { name: 'some-package', version: '2.1.1' })).toBe(false)
+  })
+
+  it('applies wildcards through the compiled name pattern', () => {
+    const spec = parseEmbeddedPackageSpec('@acme/*@1.0.0')
+    expect(specLooselyMatchesPackage(spec, { name: '@acme/utils' })).toBe(true)
+    expect(specLooselyMatchesPackage(spec, { name: '@other/utils' })).toBe(false)
+  })
+
+  it('still requires the name to match', () => {
+    const spec = parseEmbeddedPackageSpec('some-package@2.1.0')
+    expect(specLooselyMatchesPackage(spec, { name: 'other-package' })).toBe(false)
+  })
+
+  it('accepts everything the strict matcher accepts', () => {
+    // The planner reports a not-embeddable reason from the strict set but
+    // emits skip warnings from the loose one, so an entry the strict matcher
+    // takes must never fall outside the loose one.
+    const matched: string[] = []
+    for (const raw of ['some-package', 'some-package@2.1.0', '@acme/*', '@acme/*@2.1.0']) {
+      const spec = parseEmbeddedPackageSpec(raw)
+      for (const entry of [
+        { name: 'some-package' },
+        { name: 'some-package', version: '2.1.0' },
+        { name: 'some-package', version: '2.1.1' },
+        { name: '@acme/utils' },
+        { name: '@acme/utils', version: '2.1.0' },
+        { name: '@other/utils', version: '2.1.0' },
+      ]) {
+        if (!specMatchesPackage(spec, entry)) {
+          continue
+        }
+        matched.push(`${raw} ~ ${entry.name}@${entry.version}`)
+        expect(specLooselyMatchesPackage(spec, entry)).toBe(true)
+      }
+    }
+    // Without this the assertions above pass vacuously if the matrix stops
+    // matching anything.
+    expect(matched.length).toBeGreaterThan(0)
   })
 })

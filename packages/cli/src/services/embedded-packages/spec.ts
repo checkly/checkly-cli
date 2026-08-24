@@ -31,6 +31,16 @@ export interface EmbeddedPackageSpec {
   exclude: boolean
 }
 
+/** The parts of a lockfile entry a spec is matched against. */
+export interface PackageRef {
+  name: string
+  /**
+   * Absent on entries the lockfile records without one, e.g. git, file and
+   * URL resolutions and workspace links.
+   */
+  version?: string
+}
+
 /**
  * Whether a spec selects the given package name: exact comparison for
  * plain specs, pattern match for wildcard specs.
@@ -40,6 +50,27 @@ export function specMatchesPackageName (spec: EmbeddedPackageSpec, packageName: 
     return spec.namePattern.test(packageName)
   }
   return spec.name === packageName
+}
+
+/**
+ * Whether a spec selects the given package: the name must match, and so
+ * must an exact version pin. An entry the lockfile records without a
+ * version never satisfies a pin.
+ */
+export function specMatchesPackage (spec: EmbeddedPackageSpec, entry: PackageRef): boolean {
+  return specMatchesPackageName(spec, entry.name)
+    && (spec.version === undefined || entry.version === spec.version)
+}
+
+/**
+ * As {@link specMatchesPackage}, except that a version-less entry matches
+ * any pin. Used where such an entry is still worth reporting against a
+ * pinned spec: a git resolution or a workspace link may well be the package
+ * the user meant, recorded in a form that has no version to compare.
+ */
+export function specLooselyMatchesPackage (spec: EmbeddedPackageSpec, entry: PackageRef): boolean {
+  return specMatchesPackageName(spec, entry.name)
+    && (spec.version === undefined || entry.version === undefined || entry.version === spec.version)
 }
 
 function compileNamePattern (name: string): RegExp {
