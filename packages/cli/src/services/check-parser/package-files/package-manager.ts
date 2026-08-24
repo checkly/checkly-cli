@@ -362,8 +362,20 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // setting can move the lockfile write elsewhere; '.' resolves against
     // the subprocess working directory. Accepted by pnpm 8-11 (pnpm 11
     // dropped the npmrc setting but kept the flag).
+    //
+    // --config.allowUnusedPatches is what lets a partial-workspace bundle be
+    // pruned at all when the project patches a dependency: a bundle carries
+    // the full patchedDependencies map but only a subset of the workspace, so
+    // a patch whose package belongs to an unbundled member applies to nothing
+    // and pnpm 10+ fails the install with ERR_PNPM_UNUSED_PATCH. The flag
+    // downgrades that to a warning, so the prune produces a lockfile instead
+    // of falling back; the unused declaration itself is filtered out of the
+    // bundle afterwards. Verified on pnpm 10 and 11: the setting does not
+    // reach the regenerated lockfile's `settings` section, so the snapshot
+    // comparisons below are unaffected.
     return new Runnable('pnpm', [
       'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
+      '--config.allowUnusedPatches=true',
     ])
   }
 

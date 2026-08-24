@@ -1,0 +1,5 @@
+# Patch files are applied verbatim by package managers, and a diff whose line
+# endings changed under checkout normalization may fail to apply. Keep them
+# byte-identical across platforms. (pnpm normalizes line endings before hashing
+# a patch, so this does not affect the `patch_hash=` it records in the lockfile.)
+*.patch -text
